@@ -1,9 +1,9 @@
 import { redo, undo } from '@codemirror/commands';
-import { Annotation, StateEffect, type ChangeSpec, type Extension, type Transaction } from '@codemirror/state';
+import { Annotation, StateEffect, type Extension, type Transaction } from '@codemirror/state';
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
-import { resolveLogicalCell } from './tableGeometry';
+import { padCellContent, resolveLogicalCell } from './tableGeometry';
 
 /**
  * Tags a root transaction as forwarded from the active cell's own nested
@@ -60,6 +60,18 @@ export interface CellRange {
 export class TableActiveCellController {
   private nestedViewInstance: EditorView | null = null;
   private anchor: CellRange | null = null;
+  /**
+   * The cell's own raw, untrimmed `[leftDelimiterTo, rightDelimiterFrom)`
+   * gap — always set together with `anchor` (never independently null once
+   * a cell is active), kept in sync by `remapActiveAnchor` the same way.
+   * `anchor` alone is what the nested editor's content is sliced from
+   * (real content only, per the nested-editor-is-content-only contract);
+   * this is the *padding-inclusive* range `forwardToRoot` reconstructs
+   * into — see `padCellContent`'s own doc comment for why a plain
+   * `anchor`-offset incremental forward can never correctly preserve
+   * padding on its own.
+   */
+  private rawAnchor: CellRange | null = null;
   private forwarding = false;
   private nestedExtensions: readonly Extension[] = [];
 
@@ -113,6 +125,20 @@ export class TableActiveCellController {
     // forwarded anyway, but keeping anchor/dispatch order correct avoids
     // relying on that guard alone).
     this.anchor = { from, to };
+    // Re-resolved from the tree, independent of what `from`/`to` happened
+    // to collapse to for this call (a trimmed content boundary — for an
+    // empty cell, both callers of `activate()` collapse this to a single
+    // point somewhere in the raw gap, which is exactly the position
+    // `padCellContent` needs to *not* anchor on; the actual padding-
+    // inclusive gap is only ever recoverable from `CellBounds`). Falls
+    // back to `{from, to}` itself only if resolution genuinely fails
+    // (never true for a real click/keyboard activation inside an actual
+    // table cell — every production call site's `from` always sits inside
+    // one), so `rawAnchor` is never independently null once `anchor` is set.
+    const logical = resolveLogicalCell(rootView.state, from);
+    this.rawAnchor = logical
+      ? { from: logical.bounds.leftDelimiterTo, to: logical.bounds.rightDelimiterFrom }
+      : { from, to };
 
     if (!this.nestedViewInstance) {
       this.nestedViewInstance = createEditorView({
@@ -189,26 +215,46 @@ export class TableActiveCellController {
   deactivate(): void {
     this.nestedViewInstance?.dom.remove();
     this.anchor = null;
+    this.rawAnchor = null;
   }
 
+  /**
+   * Rebuilds the cell's whole raw gap from the nested editor's current
+   * (content-only) document, rather than incrementally forwarding each
+   * nested change at a fixed `anchor`-relative offset — the offset-forward
+   * approach silently discarded padding whenever the nested edit's own
+   * position didn't already coincide with a real content boundary, most
+   * visibly for an empty cell (nested doc `""`, so *every* insert starts
+   * at nested position 0, offset-forwarded straight to `anchor.from` — the
+   * raw gap's own left edge, immediately after the opening `|`, jumping
+   * every existing padding space to the *right* of the just-typed text
+   * instead of leaving it in place). Reconstructing the full
+   * `[rawAnchor.from, rawAnchor.to)` gap via `padCellContent` on every
+   * change sidesteps that entirely: padding is never "forwarded," it's
+   * rebuilt fresh around whatever content the nested editor currently
+   * holds, preserving the gap's existing width (growing it only if
+   * content overflows) regardless of where inside that content this
+   * particular edit landed.
+   */
   private forwardToRoot(rootView: EditorView, update: ViewUpdate): void {
-    if (!update.docChanged || !this.anchor || this.forwarding) {
+    if (!update.docChanged || !this.anchor || !this.rawAnchor || this.forwarding) {
       return;
     }
     if (update.transactions.some((tr) => tr.annotation(cellContentReset))) {
       return;
     }
-    const offset = this.anchor.from;
-    const changes: ChangeSpec[] = [];
-    update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-      changes.push({ from: fromA + offset, to: toA + offset, insert: inserted.toString() });
-    });
-    if (changes.length === 0) {
+    const { from: rawFrom, to: rawTo } = this.rawAnchor;
+    const content = update.state.doc.toString();
+    const replacement = padCellContent(content, rawTo - rawFrom);
+    if (rootView.state.sliceDoc(rawFrom, rawTo) === replacement) {
       return;
     }
     this.forwarding = true;
     try {
-      rootView.dispatch({ changes, annotations: [tableCellForward.of(true)] });
+      rootView.dispatch({
+        changes: { from: rawFrom, to: rawTo, insert: replacement },
+        annotations: [tableCellForward.of(true)],
+      });
     } finally {
       this.forwarding = false;
     }
@@ -252,15 +298,55 @@ export class TableActiveCellController {
     if (!this.anchor || !tr.docChanged) {
       return;
     }
-    const from = tr.changes.mapPos(this.anchor.from, -1);
-    const to = tr.changes.mapPos(this.anchor.to, 1);
+    const mappedContentFrom = tr.changes.mapPos(this.anchor.from, -1);
 
-    if (!resolveLogicalCell(tr.state, from)) {
+    if (!resolveLogicalCell(tr.state, mappedContentFrom)) {
       this.deactivate();
       return;
     }
 
-    this.anchor = { from, to };
+    // `rawAnchor`'s own bounds sit at the raw gap's outer edges — always
+    // boundary-exact under any edit shape this cell can undergo (an
+    // ordinary edit elsewhere, or this controller's own `forwardToRoot`
+    // replacing the *entire* `[rawAnchor.from, rawAnchor.to)` gap, and
+    // that replacement's own undo/redo — both are, from `mapPos`'s own
+    // perspective, a plain replace whose boundaries exactly coincide with
+    // `rawAnchor`'s), so a plain outward mapPos (`-1`/`+1`) remains
+    // trustworthy for it, unlike for `anchor` itself (see below).
+    const rawFrom = this.rawAnchor ? tr.changes.mapPos(this.rawAnchor.from, -1) : mappedContentFrom;
+    const rawTo = this.rawAnchor ? tr.changes.mapPos(this.rawAnchor.to, 1) : mappedContentFrom;
+    this.rawAnchor = { from: rawFrom, to: rawTo };
+
+    // `anchor` (the content-only boundary) is **not** safe to carry
+    // through a plain mapPos of its own old bounds the same way: for any
+    // edit that replaces the cell's *whole* raw gap in one go — this
+    // controller's own `forwardToRoot` dispatch, or its undo/redo —
+    // `anchor.from`/`.to` sit *strictly inside* that replaced range
+    // (interior, not boundary), and `ChangeDesc.mapPos` collapses an
+    // interior position to one edge of the replacement (confirmed
+    // directly: `-1`/`+1` pull `from`/`to` to *opposite* edges of the new
+    // text, so `anchor` ends up spanning the entire new gap, padding
+    // included — the exact content/padding conflation `padCellContent`
+    // exists to prevent). Re-deriving it fresh — trim the *current* text
+    // within the already-correctly-remapped `rawAnchor` — sidesteps that
+    // ambiguity outright rather than trying to special-case which edit
+    // shapes are "safe."
+    const text = tr.state.sliceDoc(rawFrom, rawTo);
+    const trimmed = text.trim();
+    if (trimmed === '') {
+      // An emptied cell (this edit's own doing, or already empty):
+      // collapses to wherever the *edit itself* landed, matching this
+      // controller's pre-existing "content loss is not structural loss"
+      // contract — not a fixed rawFrom-based convention, since a plain
+      // in-place deletion (e.g. select-all-and-delete inside a
+      // previously non-empty cell) has a real, meaningful collapse point
+      // of its own that a re-derived rawFrom would discard.
+      this.anchor = { from: mappedContentFrom, to: mappedContentFrom };
+      return;
+    }
+    const leading = text.length - text.trimStart().length;
+    const trailing = text.length - text.trimEnd().length;
+    this.anchor = { from: rawFrom + leading, to: rawTo - trailing };
   }
 
   /**
@@ -290,6 +376,7 @@ export class TableActiveCellController {
     this.nestedViewInstance?.destroy();
     this.nestedViewInstance = null;
     this.anchor = null;
+    this.rawAnchor = null;
   }
 }
 

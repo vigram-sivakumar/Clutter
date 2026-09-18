@@ -187,6 +187,58 @@ export function emptyRowCellOffset(columnIndex: number): number {
 }
 
 /**
+ * The width-matched counterpart to `buildEmptyRowText`: a brand-new row
+ * whose column `j` cell is `padCellContent('', widths[j])` — every column
+ * padded out to its own already-established target width (e.g. the
+ * header's own column width) rather than `buildEmptyRowText`'s uniform
+ * single space. Used where a row must line up under a specific already-
+ * computed per-column width (table-activation seeding); `buildEmptyRowText`
+ * itself is untouched and still used wherever a uniform, unformatted blank
+ * row is the correct shape (e.g. `tableCellNavigation.ts`'s Enter-creates-
+ * a-row).
+ */
+export function buildWidthMatchedRowText(widths: readonly number[]): string {
+  return '|' + widths.map((width) => padCellContent('', width) + '|').join('');
+}
+
+/** The position, local to a string built by `buildWidthMatchedRowText`, that sits inside column `columnIndex`'s own cell content start — right after its leading padding space, mirroring `emptyRowCellOffset`'s own "content start, not raw start" contract. */
+export function widthMatchedRowCellOffset(widths: readonly number[], columnIndex: number): number {
+  let offset = 1;
+  for (let i = 0; i < columnIndex; i++) {
+    offset += widths[i]! + 1;
+  }
+  return offset + 1;
+}
+
+/**
+ * `" " + content + " ".repeat(trailing)"` — a cell's real, logical
+ * `content` reconstructed into a full `<padding>content<padding>` gap of
+ * at least `minGapWidth` characters (never narrower than the gap already
+ * was; only ever wider, when `content` itself overflows it). Always at
+ * least one leading and one trailing space, even when `content` is empty
+ * (an emptied/never-filled cell stays a genuine, structurally padded
+ * blank gap, not a bare `""`) — `1 + content.length + 1` is the true
+ * floor `minGapWidth` is clamped up to.
+ *
+ * The one place this "rebuild the whole gap, don't patch around inside
+ * it" reconstruction lives — `TableActiveCellController.forwardToRoot`'s
+ * own fix for the padding-loss bug this exists to close: a nested cell
+ * editor holds only trimmed logical content (never the surrounding
+ * padding, per this codebase's own "nested editor is content-only"
+ * contract), so translating its edits back into the root Markdown can
+ * never be a plain incremental position-forward — the padding lives
+ * entirely outside what the nested editor even knows about, and must be
+ * reconstructed fresh around whatever content it currently holds, not
+ * patched into place at a fixed offset that assumed content already
+ * started at a `content`-shaped boundary.
+ */
+export function padCellContent(content: string, minGapWidth: number): string {
+  const targetWidth = Math.max(minGapWidth, content.length + 2);
+  const trailing = targetWidth - content.length - 1;
+  return ' ' + content + ' '.repeat(trailing);
+}
+
+/**
  * Where a brand-new row should be inserted immediately after `row` (the
  * table's own header or one of its `TableRow`s) — or `null` if `row` isn't
  * a valid target (the alignment row itself, or a malformed table with no

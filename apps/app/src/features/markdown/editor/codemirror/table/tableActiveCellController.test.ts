@@ -167,7 +167,11 @@ describe('TableActiveCellController — empty-cell activation', () => {
     expect(controller.nestedView!.state.selection.main.head).toBe(0);
   });
 
-  it('typing into a just-activated empty cell forwards correctly into the root document', () => {
+  it('typing into a just-activated empty cell forwards correctly into the root document, preserving padding either side', () => {
+    // Corrected expectation (was '| a | x|...', the padding-loss bug this
+    // controller's own forwardToRoot rewrite fixes): the leading space is
+    // never lost, and the gap grows from its 1-space minimum to fit
+    // "x" plus a full margin on both sides — see padCellContent.
     const root = mountRootView('| a | |\n| - | - |');
     const controller = new TableActiveCellController();
     const container = makeContainer();
@@ -175,7 +179,75 @@ describe('TableActiveCellController — empty-cell activation', () => {
     controller.activate(root, container, 6, 6, 6);
     controller.nestedView!.dispatch({ changes: { from: 0, to: 0, insert: 'x' } });
 
-    expect(root.state.doc.toString()).toBe('| a | x|\n| - | - |');
+    expect(root.state.doc.toString()).toBe('| a | x |\n| - | - |');
+  });
+});
+
+describe('TableActiveCellController — cell padding preservation (source-integrity)', () => {
+  // The canonical, header-width-matched shape `tableActivationNormalization.ts`
+  // itself now produces (col 1 width 6, matching "Name"; col 2 width 5,
+  // matching "Age") — verified against the actual persisted Markdown
+  // string after every edit, not rendered HTML.
+  const CANONICAL_ROW3 = '|      |     |';
+  const TABLE = `| Name | Age |\n| ---- | --- |\n${CANONICAL_ROW3}`;
+
+  it('typing into an empty first cell preserves the table\'s leading/trailing padding', () => {
+    const root = mountRootView(TABLE);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const doc = root.state.doc.toString();
+    const row3Start = doc.lastIndexOf(CANONICAL_ROW3);
+    const col1Empty = row3Start + 1; // right after row3's own leading "|" — rawFrom for column 1
+
+    controller.activate(root, container, col1Empty, col1Empty, col1Empty);
+    controller.nestedView!.dispatch({ changes: { from: 0, to: 0, insert: 'V' } });
+    controller.nestedView!.dispatch({ changes: { from: 1, to: 1, insert: 'i' } });
+
+    expect(root.state.doc.toString()).toBe('| Name | Age |\n| ---- | --- |\n| Vi   |     |');
+  });
+
+  it('typing into an empty second cell preserves the table\'s leading/trailing padding', () => {
+    const root = mountRootView(TABLE);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const doc = root.state.doc.toString();
+    const row3Start = doc.lastIndexOf(CANONICAL_ROW3);
+    const col2Empty = doc.indexOf('|', row3Start + 1) + 1; // right after row3's second "|" — rawFrom for column 2
+
+    controller.activate(root, container, col2Empty, col2Empty, col2Empty);
+    controller.nestedView!.dispatch({ changes: { from: 0, to: 0, insert: '9' } });
+
+    expect(root.state.doc.toString()).toBe('| Name | Age |\n| ---- | --- |\n|      | 9   |');
+  });
+
+  it('editing existing (non-empty) cell content preserves the surrounding padding', () => {
+    const filled = '| Name | Age |\n| ---- | --- |\n| Vi   |     |';
+    const root = mountRootView(filled);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const doc = root.state.doc.toString();
+    const row3Start = doc.lastIndexOf('| Vi   |     |');
+    const contentFrom = row3Start + 2; // "| Vi" — position of "V"
+
+    controller.activate(root, container, contentFrom, contentFrom + 2, contentFrom + 2); // "Vi"
+    controller.nestedView!.dispatch({ changes: { from: 2, to: 2, insert: '!' } });
+
+    expect(root.state.doc.toString()).toBe('| Name | Age |\n| ---- | --- |\n| Vi!  |     |');
+  });
+
+  it("deleting all of a cell's content leaves it structurally (all-whitespace) padded, not collapsed", () => {
+    const filled = '| Name | Age |\n| ---- | --- |\n| Vi   |     |';
+    const root = mountRootView(filled);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const doc = root.state.doc.toString();
+    const row3Start = doc.lastIndexOf('| Vi   |     |');
+    const contentFrom = row3Start + 2;
+
+    controller.activate(root, container, contentFrom, contentFrom + 2, contentFrom + 2); // "Vi"
+    controller.nestedView!.dispatch({ changes: { from: 0, to: 2, insert: '' } });
+
+    expect(root.state.doc.toString()).toBe('| Name | Age |\n| ---- | --- |\n|      |     |');
   });
 });
 
