@@ -58,6 +58,7 @@ import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embed/em
 import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry';
 import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
+import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -293,6 +294,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
+    tableActivationNormalization(),
     fencedCodeFenceAutoClose(),
     ...rendering,
     // The trigger itself only opens a menu, but every one of its current

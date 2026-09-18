@@ -56,6 +56,13 @@ import { TableWidget, type TableCellData } from './tableWidget';
  * zero-length segment (delimiters immediately adjacent, no padding at
  * all) already avoided this on its own (`leading = trailing = 0`).
  *
+ * Exported for `tableActivationNormalization.ts`'s own reuse (per-column
+ * trimmed text, including for the alignment/delimiter row, which this
+ * function handles identically to any other row) — it needs the exact
+ * same "every cell's real content, however many/few delimiters exist"
+ * splitting this function already provides, so it reuses this rather than
+ * re-deriving a second segment-splitter.
+ *
  * **Also returns each segment's own untrimmed `rawFrom`/`rawTo`**
  * (`TableCellData.rawFrom`/`.rawTo`) alongside the trimmed `from`/`to` —
  * required for `TableWidget`'s own active-cell *containment* check
@@ -70,7 +77,7 @@ import { TableWidget, type TableCellData } from './tableWidget';
  * whether the anchor falls *within* `[rawFrom, rawTo]`, not whether it
  * exactly equals `[from, to]`.
  */
-function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
+export function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   const delimiters: SyntaxNode[] = [];
   for (let child = row.firstChild; child; child = child.nextSibling) {
     if (child.name === 'TableDelimiter') {

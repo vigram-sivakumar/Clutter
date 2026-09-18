@@ -17,11 +17,26 @@
  */
 export type TableColumnAlignment = 'left' | 'center' | 'right' | null;
 
-export function parseTableAlignment(delimiterRowText: string): TableColumnAlignment[] {
+/**
+ * Every column's own raw, trimmed cell text from a delimiter row's raw
+ * line text (`"---"`, `":--"`, `"--:"`, `":-:"`, …) — the one place this
+ * "strip optional leading/trailing pipe, then split on the rest" scan
+ * lives, shared by `parseTableAlignment` (classify each cell) and
+ * `tableActivationNormalization.ts` (rebuild the row's own canonical
+ * text, preserving each cell's content verbatim). Deliberately plain
+ * string-splitting, not tree-based: the alignment row parses as one
+ * opaque `TableDelimiter` leaf with no per-column children at all (see
+ * this module's own header comment), so there is no tree structure to
+ * walk — `rowCells` (built for the header/data rows, which *do* have real
+ * `TableDelimiter` children between cells) does not apply here.
+ */
+export function splitDelimiterRowCells(delimiterRowText: string): string[] {
   const trimmed = delimiterRowText.trim().replace(/^\|/, '').replace(/\|$/, '');
+  return trimmed.split('|').map((segment) => segment.trim());
+}
 
-  return trimmed.split('|').map((segment) => {
-    const cell = segment.trim();
+export function parseTableAlignment(delimiterRowText: string): TableColumnAlignment[] {
+  return splitDelimiterRowCells(delimiterRowText).map((cell) => {
     const left = cell.startsWith(':');
     const right = cell.endsWith(':');
     if (left && right) {
