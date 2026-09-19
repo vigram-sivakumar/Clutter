@@ -220,20 +220,89 @@ export const tableSelectionField = StateField.define<TableSelection | null>({
  * leaking the previous one (this function's own single caller is
  * responsible for calling the returned cleanup function exactly once, on
  * unmount, never per-rebuild).
+ *
+ * **Second responsibility, added after direct investigation (see
+ * `tableSelectionClickDiagnostics.ts`'s own history): explicitly collapsing
+ * a non-collapsed root selection on a click that lands outside every
+ * table.** For an ordinary document, clicking outside `.cm-content`
+ * (empty body space, a click that lands on an ancestor container) still
+ * collapses a `Ctrl+A`-wide selection, but not via any code in this
+ * codebase — it happens because the *native* browser Selection changes
+ * (a text-anchored Range collapses to a text-anchored Caret), and CM6's
+ * own `document`-level `selectionchange` listener syncs that back into
+ * `state.selection`. **Confirmed directly, side by side, that this native
+ * round-trip silently fails whenever the root selection spans a table**:
+ * `Ctrl+A` over a document containing a table produces an
+ * *element-anchored* native Range (anchor/focus are `.cm-line` DOM
+ * elements at a child offset, not text nodes) — because the table's own
+ * DOM is `contenteditable="false"`, so the browser has no real text to
+ * anchor a "select all" Range to across it. Captured logs showed
+ * `selectionchange` still firing on the click, but with the *exact same*
+ * anchor/focus/offsets before and after — the native Selection object
+ * never actually changes for an element-anchored Range the way it does
+ * for a text-anchored one, so CM6's own sync has nothing new to pick up,
+ * and `state.selection` is left stuck at the stale `Ctrl+A` range
+ * (visible as the table halo never clearing). This is a native-Selection-
+ * API quirk around a `contenteditable=false` island, not a bug in
+ * `tableRootSelectionSnap`, `TableSelection`, or CM6's own position
+ * mapping — `view.posAtCoords()` was confirmed, in the same captured
+ * logs, to already resolve the click's screen coordinates correctly.
+ *
+ * The fix is narrow: when this handler fires at all (i.e. the click
+ * wasn't already claimed by a table's own interactive surface — see this
+ * doc comment's own first section) and the root selection is currently
+ * non-collapsed, resolve the click's own coordinates via
+ * `view.posAtCoords()` and dispatch a plain `{selection: {anchor: pos}}`
+ * transaction ourselves — the exact transaction the native round-trip
+ * would have produced if it hadn't silently failed. Harmless for a
+ * table-free document too: `posAtCoords` resolves to the same position
+ * the (working) native path would have produced anyway, so this is a
+ * correctness backstop, not a behavior change, for that case. Skipped
+ * entirely when the root selection is already collapsed (nothing to
+ * collapse — avoids a redundant dispatch on every ordinary click) or when
+ * `posAtCoords` itself can't confidently resolve a position (returns
+ * `null` — declines rather than guessing). Never includes `changes`, so
+ * this can never modify the document or enter undo history, and never
+ * synthesizes or otherwise touches the *native* DOM Selection — only
+ * CM6's own logical `state.selection`.
  */
 export function attachTableOutsideClickHandling(view: EditorView, controller: TableActiveCellController): () => void {
   const handleMouseDown = (event: MouseEvent): void => {
     const hasActiveCell = controller.activeAnchor !== null;
     const hasSelection = (view.state.field(tableSelectionField, false) ?? null) !== null;
-    if (!hasActiveCell && !hasSelection) {
-      return;
-    }
     const target = event.target;
-    if (hasActiveCell && controller.nestedView && target instanceof Node && controller.nestedView.dom.contains(target)) {
+    const clickedInsideActiveCell =
+      hasActiveCell && !!controller.nestedView && target instanceof Node && controller.nestedView.dom.contains(target);
+    if (clickedInsideActiveCell) {
       return;
     }
-    controller.deactivate();
-    view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
+
+    const clearsInteractionState = hasActiveCell || hasSelection;
+    if (clearsInteractionState) {
+      controller.deactivate();
+    }
+
+    // The root-selection-collapse fallback (this function's own doc
+    // comment, "Second responsibility") — independent of
+    // `clearsInteractionState`: a plain `Ctrl+A` has neither an active
+    // cell nor a `TableSelection`, so it would never reach the branch
+    // above at all, yet it is the exact scenario this fallback exists
+    // for.
+    let selectionAnchor: number | null = null;
+    if (!view.state.selection.main.empty) {
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos !== null) {
+        selectionAnchor = pos;
+      }
+    }
+
+    if (!clearsInteractionState && selectionAnchor === null) {
+      return;
+    }
+    view.dispatch({
+      effects: clearsInteractionState ? [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] : [],
+      ...(selectionAnchor !== null ? { selection: { anchor: selectionAnchor } } : {}),
+    });
   };
 
   const targetDocument = view.dom.ownerDocument;

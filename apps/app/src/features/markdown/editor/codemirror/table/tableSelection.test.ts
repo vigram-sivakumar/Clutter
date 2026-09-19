@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { history, undo, undoDepth } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -446,5 +446,192 @@ describe('tableSelectionField — type-level: range must exist but is never prod
     // requirement) without this milestone needing to implement it.
     const range: TableSelection = { kind: 'range', tableFrom: 0, anchor: { row: 0, col: 0 }, head: { row: 1, col: 1 } };
     expect(range.kind).toBe('range');
+  });
+});
+
+describe('attachTableOutsideClickHandling — root-selection-collapse fallback', () => {
+  /**
+   * jsdom has no real layout engine, so `EditorView.posAtCoords()` (which
+   * depends on real `getClientRects()`-based coordinate mapping) cannot
+   * meaningfully resolve a screen coordinate the way a real browser would
+   * — the same limitation this whole investigation ran into everywhere
+   * else pixel geometry was involved. Mocked here to return a
+   * caller-chosen position, so these tests exercise this function's own
+   * *decision logic* (collapse when non-empty + a position resolves;
+   * skip when already collapsed; skip when `posAtCoords` itself declines)
+   * without depending on real layout at all.
+   */
+  function mockPosAtCoords(view: EditorView, pos: number | null): ReturnType<typeof vi.spyOn> {
+    return vi.spyOn(view, 'posAtCoords').mockReturnValue(pos);
+  }
+
+  function mousedownAt(el: Element, clientX: number, clientY: number): void {
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX, clientY }));
+  }
+
+  it('Ctrl+A then a click resolving onto normal text outside the table collapses root selection to that position', () => {
+    const doc = `Above text.\n\n${TABLE}\n\nBelow text.`;
+    const { view, controller } = mountViewWithController(doc);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    const targetPos = doc.indexOf('Below text.') + 3;
+    const spy = mockPosAtCoords(view, targetPos);
+
+    mousedownAt(outsideElement(), 42, 42);
+
+    expect(view.state.selection.main.from).toBe(targetPos);
+    expect(view.state.selection.main.to).toBe(targetPos);
+    expect(spy).toHaveBeenCalledWith({ x: 42, y: 42 });
+    detach();
+  });
+
+  it('Ctrl+A then a click resolving onto an empty editable line collapses root selection there', () => {
+    const doc = `${TABLE}\n\n`;
+    const { view, controller } = mountViewWithController(doc);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    mockPosAtCoords(view, doc.length);
+
+    mousedownAt(outsideElement(), 10, 500);
+
+    expect(view.state.selection.main.from).toBe(doc.length);
+    expect(view.state.selection.main.empty).toBe(true);
+    detach();
+  });
+
+  it('Ctrl+A then a click resolving onto the empty editor body area (target outside view.dom entirely) still collapses root selection', () => {
+    const doc = `Some text.\n\n${TABLE}\n`;
+    const { view, controller } = mountViewWithController(doc);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    mockPosAtCoords(view, doc.length);
+
+    // A plain, unrelated element — stands in for empty body/background
+    // space that isn't part of any CM6-rendered line or the table widget
+    // at all (the exact case the investigation's own logs captured).
+    mousedownAt(outsideElement(), 500, 900);
+
+    expect(view.state.selection.main.from).toBe(doc.length);
+    expect(view.state.selection.main.empty).toBe(true);
+    detach();
+  });
+
+  it('table-only document: Ctrl+A then a click on empty body space still collapses root selection (the exact reported bug)', () => {
+    const doc = `${TABLE}\n`;
+    const { view, controller } = mountViewWithController(doc);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    expect(view.state.selection.main.empty).toBe(false);
+    mockPosAtCoords(view, doc.length);
+
+    mousedownAt(outsideElement(), 500, 900);
+
+    expect(view.state.selection.main.from).toBe(doc.length);
+    expect(view.state.selection.main.empty).toBe(true);
+    detach();
+  });
+
+  it('does not interfere with clicking inside a cell — activation still happens, and any prior root selection still collapses via the same click', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+
+    mousedown(findCell(view, 'Vik'));
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    detach();
+  });
+
+  it('does not touch selection for a click on the table border/non-cell area (already suppressed upstream, never reaches this handler)', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    const selectionBefore = view.state.selection.main;
+    const spy = mockPosAtCoords(view, 0);
+    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
+
+    mousedown(wrapper);
+
+    // Unchanged — the widget's own non-cell suppression (tableWidget.ts)
+    // calls stopPropagation() before this handler ever sees the event, so
+    // posAtCoords is never even called from here.
+    expect(view.state.selection.main.from).toBe(selectionBefore.from);
+    expect(view.state.selection.main.to).toBe(selectionBefore.to);
+    expect(spy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('clicking a column handle still sets TableSelection normally — the new fallback does not override or race it', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
+    const cell = findCell(view, 'Designer');
+    const moveEvent = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(moveEvent, 'target', { value: cell });
+    wrapper.dispatchEvent(moveEvent);
+
+    const hit = wrapper.querySelector('.cm-table-column-handle-hit')!;
+    mousedown(hit);
+    click(hit);
+
+    expect(view.state.field(tableSelectionField)).not.toBeNull();
+    expect(view.state.field(tableSelectionField)!.kind).toBe('column');
+    detach();
+  });
+
+  it('an already-collapsed root selection never calls posAtCoords or dispatches a redundant selection transaction', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    expect(view.state.selection.main.empty).toBe(true);
+    const spy = mockPosAtCoords(view, 12345);
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+
+    mousedownAt(outsideElement(), 1, 1);
+
+    expect(spy).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('when posAtCoords itself declines (returns null), no selection transaction is dispatched', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    const selectionBefore = view.state.selection.main;
+    mockPosAtCoords(view, null);
+
+    mousedownAt(outsideElement(), 1, 1);
+
+    expect(view.state.selection.main.from).toBe(selectionBefore.from);
+    expect(view.state.selection.main.to).toBe(selectionBefore.to);
+    detach();
+  });
+
+  it('never includes document changes and never enters undo history', () => {
+    const doc = `${TABLE}\n`;
+    const controller = new TableActiveCellController();
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableSelectionField, history()],
+      }),
+      parent,
+    });
+    mountedViews.push(view);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: doc.length } });
+    const depthBefore = undoDepth(view.state);
+    const docBefore = view.state.doc.toString();
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(doc.length);
+
+    mousedownAt(outsideElement(), 1, 1);
+
+    expect(view.state.doc.toString()).toBe(docBefore);
+    expect(undoDepth(view.state)).toBe(depthBefore);
+    detach();
   });
 });
