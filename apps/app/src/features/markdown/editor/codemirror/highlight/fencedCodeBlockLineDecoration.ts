@@ -14,7 +14,7 @@ import type { SyntaxNode } from '@lezer/common';
  * The visual code-block *card* — background, inset border, outer
  * drop-shadow, radius, and gutter/counter scope, entirely via
  * `Decoration.line` classes on `.cm-line`, the same native mechanism
- * `blockquoteLineDecoration.ts`/`tableDecoration.ts`/`horizontalRuleDecoration.ts`
+ * `blockquoteLineDecoration.ts`/`horizontalRuleDecoration.ts`
  * already use for their own line-level presentation (confirmed as a
  * legitimate, precedented Clutter pattern by this feature's own
  * architecture investigation — decorating `.cm-line` was never the

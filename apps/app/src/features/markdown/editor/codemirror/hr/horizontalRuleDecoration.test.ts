@@ -9,7 +9,7 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 import { horizontalRuleDecoration } from './horizontalRuleDecoration';
 
-/** Mirrors tableDecoration.test.ts's mountView. */
+/** Standard mounted-`EditorView` test helper, matching this codebase's other decoration test suites. */
 function mountView(doc: string, initialAnchor: number | null = null): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);

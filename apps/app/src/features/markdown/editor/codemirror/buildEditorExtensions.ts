@@ -60,6 +60,8 @@ import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbe
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
 import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
+import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
+import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -277,6 +279,21 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     linkMouseHandlers(),
     urlMouseHandlers(),
     tableWidgetDecoration(tableActiveCellController),
+    // Always installed alongside `tableWidgetDecoration()` (unconditional,
+    // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
+    // reads this field on every rebuild via `state.field(...)`, which
+    // requires the field to be present in the config even for a read-only
+    // note embed (whose value there just always stays `null`, since only
+    // `tableWholeDeletionKeymap()` below — editable-only — ever writes to
+    // it). See `tableDeletionSelection.ts`'s own doc comment.
+    tableDeletionSelectionField,
+    // Unconditional (not gated on `tableActiveCellController`), same as
+    // `tableWidgetDecoration`/`tableDeletionSelectionField` above — a
+    // read-only note embed can still receive a selection landing inside a
+    // rendered table's replaced range (a click, a drag) even though it can
+    // never edit one, so the same root-selection invariant applies there
+    // too. See `tableRootSelectionSnap.ts`'s own doc comment.
+    tableRootSelectionSnap(),
     ...(tableActiveCellController
       ? [tableActiveCellReconciliation(tableActiveCellController), tableBoundaryNavigation(tableActiveCellController)]
       : []),
@@ -298,6 +315,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
     tableActivationNormalization(),
+    tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,
     // The trigger itself only opens a menu, but every one of its current

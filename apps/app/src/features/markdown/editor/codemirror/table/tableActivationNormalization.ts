@@ -1,5 +1,5 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { EditorState, type ChangeSet, type Extension, type TransactionSpec } from '@codemirror/state';
+import { ChangeSet, EditorState, type Extension, type TransactionSpec } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -243,17 +243,48 @@ function findActivationCandidates(
 }
 
 /**
- * Pure planning function — every fact used is derived fresh from `state`
- * (`tr.startState`) and `changes` (`tr.changes`), nothing cached or
- * remembered across calls, matching
- * `orderedListStructuralNormalization.ts`'s own "no hidden state"
- * discipline. The throwaway `provisional` state is built from only the
- * Markdown grammar (never this module's own filter) for the exact reason
- * that module's own doc comment gives: building it through the real
- * state's full extension config would recursively re-invoke this filter
- * on a transaction never meant to be dispatched.
+ * The `Table` node ending exactly at `doc`'s own end, if any — the
+ * general form of the "table is the terminal document content, with no
+ * real line left after it for a root caret to land on" condition
+ * `planTableActivationNormalization`'s own trailing-line guarantee
+ * (below) exists to fix. Deliberately not a full-document scan
+ * (`findAllTables`, `tableGeometry.ts`) — only the table (if any)
+ * touching the document's own last position can ever be terminal, so
+ * this reuses `findEnclosingTable` at `doc.length - 1` (same "ask the
+ * tree, don't re-derive" convention `tableRootSelectionSnap.ts`'s own
+ * `findViolatedTable` already established for the identical query)
+ * rather than walking every node in the document on every keystroke.
+ * `state`'s own extension config must already have a syntax tree built
+ * far enough to cover the whole document — callers ensure this
+ * (`ensureSyntaxTree`) before calling.
  */
-export function planTableActivationNormalization(state: EditorState, changes: ChangeSet): TableActivationPlan {
+function findTerminalTable(state: EditorState): SyntaxNode | null {
+  const length = state.doc.length;
+  if (length === 0) {
+    return null;
+  }
+  const table = findEnclosingTable(state, length - 1);
+  return table && table.to === length ? table : null;
+}
+
+/**
+ * Pure planning function — every fact used is derived fresh from `state`
+ * (`tr.startState`), `changes` (`tr.changes`), and `selectionHead` (the
+ * transaction's own resulting `selection.main.head`, in the same
+ * post-`changes` document coordinates as `provisional` below — i.e.
+ * `tr.state.selection.main.head`), nothing cached or remembered across
+ * calls, matching `orderedListStructuralNormalization.ts`'s own "no
+ * hidden state" discipline. The throwaway `provisional` state is built
+ * from only the Markdown grammar (never this module's own filter) for
+ * the exact reason that module's own doc comment gives: building it
+ * through the real state's full extension config would recursively
+ * re-invoke this filter on a transaction never meant to be dispatched.
+ */
+export function planTableActivationNormalization(
+  state: EditorState,
+  changes: ChangeSet,
+  selectionHead: number
+): TableActivationPlan {
   const provisional = EditorState.create({
     doc: changes.apply(state.doc),
     extensions: [markdownLanguageExtension()],
@@ -261,9 +292,6 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
   ensureSyntaxTree(provisional, provisional.doc.length, 5000);
 
   const candidates = findActivationCandidates(state, provisional, changes);
-  if (candidates.length === 0) {
-    return EMPTY_PLAN;
-  }
 
   const edits: TableActivationEdit[] = [];
   let seedEditIndex: number | null = null;
@@ -284,10 +312,6 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
       seedInsertPos = candidate.delimLineTo;
       seedRowTextLength = rowText.length;
     }
-  }
-
-  if (edits.length === 0) {
-    return EMPTY_PLAN;
   }
 
   let cursorPos: number | null = null;
@@ -337,6 +361,62 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
     cursorPos = seedRowEnd + 1;
   }
 
+  // **General terminal-table guarantee** — independent of whether a row
+  // was just seeded above. That branch only ever fires for the one case
+  // *it itself* creates (activating a table whose delimiter row has no
+  // data row yet); it never runs for a table typed or pasted complete in
+  // a single transaction (header + delimiter + data row all at once —
+  // `hasExistingDataRow` is `true` for every candidate then, so no row
+  // is seeded, `seedEditIndex` stays `null`, and this whole branch is
+  // skipped) — exactly the case `tableRootSelectionSnap.ts`'s own doc
+  // comment names as unfixable by a pure selection filter ("there is no
+  // further position to move to"), because nothing here has created one
+  // yet. Reuses that same module's own invariant statement rather than
+  // re-deriving it: root selection must never rest at a table's own
+  // trailing boundary when nothing follows it.
+  //
+  // Checked against the document that results from `edits` above (not
+  // `provisional` directly) — `edits` themselves can move where the
+  // document's own end (and therefore which table, if any, is terminal)
+  // ends up; skipped whenever `edits` is empty, reusing `provisional`'s
+  // own already-built tree instead of re-parsing an identical document a
+  // second time.
+  const editsChangeSet = ChangeSet.of(edits, provisional.doc.length);
+  const finalDoc = edits.length > 0 ? editsChangeSet.apply(provisional.doc) : provisional.doc;
+  const finalTreeState =
+    edits.length > 0
+      ? (() => {
+          const s = EditorState.create({ doc: finalDoc, extensions: [markdownLanguageExtension()] });
+          ensureSyntaxTree(s, s.doc.length, 5000);
+          return s;
+        })()
+      : provisional;
+
+  const terminalTable = findTerminalTable(finalTreeState);
+  if (terminalTable) {
+    // Safe unconditionally (never collides with the row-seed branch's own
+    // fix above): whenever that branch already appended a trailing `\n`
+    // for *this* table, the table's own `.to` sits one position before
+    // `finalDoc.length` (the appended newline itself, not part of the
+    // table), so `findTerminalTable` already reports `null` for it here —
+    // this only ever fires for a table the row-seed branch never touched.
+    edits.push({ from: provisional.doc.length, to: provisional.doc.length, insert: '\n' });
+    // Only steals the cursor when the transaction's own resulting
+    // selection was already sitting exactly at the violated boundary —
+    // an edit elsewhere in a larger document that merely happens to also
+    // contain a terminal table further down must never hijack focus away
+    // from where the user is actually typing. `selectionHead` is in the
+    // same `provisional`-document coordinate space as every position
+    // above (both are `tr.changes`-applied, pre-this-module's-own-edits).
+    if (cursorPos === null && selectionHead === provisional.doc.length) {
+      cursorPos = provisional.doc.length + 1;
+    }
+  }
+
+  if (edits.length === 0) {
+    return EMPTY_PLAN;
+  }
+
   return { edits, cursorPos };
 }
 
@@ -352,7 +432,7 @@ export function tableActivationNormalization(): Extension {
     if (!tr.docChanged) {
       return tr;
     }
-    const plan = planTableActivationNormalization(tr.startState, tr.changes);
+    const plan = planTableActivationNormalization(tr.startState, tr.changes, tr.state.selection.main.head);
     if (plan.edits.length === 0) {
       return tr;
     }

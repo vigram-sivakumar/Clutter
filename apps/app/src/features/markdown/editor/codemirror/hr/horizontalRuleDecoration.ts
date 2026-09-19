@@ -15,10 +15,9 @@ import { isPhysicalLineEngaged } from '../highlight/liveMarkDecoration';
  * see `dottedHorizontalRuleSyntax.ts`) — each a distinct node type
  * registered the same way. All four share this one `ViewPlugin`/
  * collapse-at-rest contract rather than parallel decoration layers per
- * variant — they're the same interaction, styled differently — built on
- * the same standalone-`ViewPlugin` architecture as `tableDecoration.ts`'s
- * alignment row: no foreign widget, no replacement DOM node, the real
- * Markdown text stays in place throughout.
+ * variant — they're the same interaction, styled differently — built on a
+ * standalone `ViewPlugin`: no foreign widget, no replacement DOM node, the
+ * real Markdown text stays in place throughout.
  *
  * Unlike the table alignment row, the collapsing line class is only
  * applied while *not* engaged: `font-size`/`line-height: 0` on that class

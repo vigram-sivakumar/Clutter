@@ -20,11 +20,21 @@ function makeState(doc: string, pos = 0): EditorState {
   });
 }
 
-/** Dispatches one raw `{from,to,insert}` edit through the real filter chain — the same path a keystroke or paste ultimately takes. */
+/**
+ * Dispatches one raw `{from,to,insert}` edit through the real filter
+ * chain — the same path a keystroke or paste ultimately takes. Sets an
+ * explicit resulting selection right after the inserted text — matching
+ * every real typing/paste command's own behavior (`state.update()` with
+ * no selection of its own would instead just map whatever the *previous*
+ * selection happened to be through the change, which no real keystroke
+ * or paste command ever actually leaves to chance) — so a filter's own
+ * cursor-safety override (this file's whole subject) has a realistic,
+ * pre-filter selection to correct in the first place.
+ */
 function dispatchEdit(state: EditorState, spec: { from: number; to: number; insert?: string }): EditorState {
   let dispatched: Transaction | null = null;
   const view = { state, dispatch: (tr: Transaction) => { dispatched = tr; } };
-  view.dispatch(state.update({ changes: spec }));
+  view.dispatch(state.update({ changes: spec, selection: { anchor: spec.from + (spec.insert?.length ?? 0) } }));
   if (!dispatched) throw new Error('nothing dispatched');
   return (dispatched as Transaction).state;
 }
@@ -215,12 +225,24 @@ describe('tableActivationNormalization — alignment colons are preserved on the
 });
 
 describe('tableActivationNormalization — already-complete input is left alone', () => {
-  it('does not insert a body row when a full, already-canonical table (with data) is pasted in one transaction', () => {
+  // Every fixture below pastes a table with nothing after it — the table
+  // ends the document. Per the terminal-table safety guarantee (this
+  // module's own "General terminal-table guarantee" section), that is
+  // never actually "complete": with no real line following it, the root
+  // caret's own natural end-of-document position sits at the table's
+  // trailing boundary, which CM6 can only render as a stray full-height
+  // caret spanning the widget (confirmed live: this is the exact defect
+  // this guarantee exists to prevent). "Left alone" here means no *row*
+  // is synthesized and no table content is rewritten beyond what's
+  // already needed — not that the document goes completely untouched;
+  // exactly one trailing `\n` is still appended.
+
+  it('does not insert a body row when a full, already-canonical table (with data) is pasted in one transaction — still gets its trailing safety line', () => {
     const state = makeState('');
     const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
     const result = dispatchEdit(state, { from: 0, to: 0, insert: pasted });
 
-    expect(result.doc.toString()).toBe(pasted);
+    expect(result.doc.toString()).toBe(pasted + '\n');
   });
 
   it('fixes a missing trailing pipe and normalizes separator width on paste even when data rows already exist, without inserting an extra blank row', () => {
@@ -228,10 +250,10 @@ describe('tableActivationNormalization — already-complete input is left alone'
     const pasted = '| Name | Age |\n| --- | ---\n| Bob | 30 |';
     const result = dispatchEdit(state, { from: 0, to: 0, insert: pasted });
 
-    expect(result.doc.toString()).toBe(`${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`);
+    expect(result.doc.toString()).toBe(`${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |` + '\n');
   });
 
-  it('is idempotent: pasting text already in canonical (header-matched width, blank-row-present) form makes no further edits', () => {
+  it('is idempotent on the table\'s own content: pasting text already in canonical (header-matched width, blank-row-present) form rewrites nothing but still appends the trailing safety line when the table ends the document', () => {
     const state = makeState('Some text\n\n');
     // Single-letter headers ("A"/"B") legitimately produce a 1-dash
     // separator under the header-matching rule, so this fixture's own
@@ -239,7 +261,7 @@ describe('tableActivationNormalization — already-complete input is left alone'
     const canonical = '| A | B |\n| - | - |\n|   |   |';
     const result = dispatchEdit(state, { from: state.doc.length, to: state.doc.length, insert: canonical });
 
-    expect(result.doc.toString()).toBe('Some text\n\n' + canonical);
+    expect(result.doc.toString()).toBe('Some text\n\n' + canonical + '\n');
   });
 });
 
@@ -291,7 +313,7 @@ describe('planTableActivationNormalization — pure function', () => {
   it('returns no edits for a transaction with no doc change candidates', () => {
     const state = makeState(CANONICAL_TABLE);
     const changes = state.changes({ from: 0, to: 0, insert: '' });
-    const plan = planTableActivationNormalization(state, changes);
+    const plan = planTableActivationNormalization(state, changes, 0);
     expect(plan.edits).toEqual([]);
     expect(plan.cursorPos).toBeNull();
   });
@@ -299,7 +321,186 @@ describe('planTableActivationNormalization — pure function', () => {
   it('finds a delimiter-line candidate in the middle of a multi-line single-shot paste into an empty document', () => {
     const state = makeState('');
     const changes = state.changes({ from: 0, to: 0, insert: '| Name | Age |\n| - |\n' });
-    const plan = planTableActivationNormalization(state, changes);
+    const plan = planTableActivationNormalization(state, changes, changes.newLength);
     expect(plan.edits.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The terminal-table safety guarantee, on its own: a table must never be
+ * left as the document's own final content with nothing real after it —
+ * confirmed live (browser pane, real WKWebView reproduction via a user
+ * report) to otherwise leave the root CM6 selection sitting at the
+ * table's own trailing boundary, rendering as a stray caret spanning the
+ * widget's full height (`table.from`/`table.to` both fall inside the
+ * widget's own `Decoration.replace(..., {block: true})` range — the same
+ * "no ordinary line to render a caret against" failure `tableRootSelectionSnap.ts`'s
+ * own doc comment already names, just reached without any click or drag
+ * at all: simply typing/pasting a table as the last thing in a note is
+ * enough). Distinct from every test above this point, which exercises
+ * the *delimiter-row-completion* trigger — every test here exercises the
+ * *general* guarantee, which fires independently of that trigger (most
+ * of these never touch a delimiter row in the transaction being
+ * checked at all).
+ */
+describe('tableActivationNormalization — terminal-table safety: a table never ends the document with no real line after it', () => {
+  it('1: a table is the only content in the document — activating it still leaves a real line below', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
+
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
+    expect(state.doc.toString().endsWith('\n')).toBe(true);
+  });
+
+  it('2: user types a complete table (header, delimiter, and a real data row) one keystroke at a time and stops at document end', () => {
+    // The exact reported repro: nothing about the *final* keystroke here
+    // touches a delimiter row at all (it completes the data row's own
+    // closing pipe, long after the delimiter row itself already
+    // activated the table), so `findActivationCandidates` reports zero
+    // candidates for it — only the general terminal-table check (not the
+    // delimiter-row-completion trigger) can catch this.
+    // Built via one bulk edit first (so the delimiter row's own
+    // activation — and whatever row-seeding it triggers — happens
+    // entirely inside that one edit, not interleaved with the keystroke
+    // under test), then the data row's own still-open closing pipe is
+    // typed as a single, separate, final keystroke.
+    const withOpenDataRow = dispatchEdit(makeState(''), {
+      from: 0,
+      to: 0,
+      insert: `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n|  | 30 `,
+    });
+    const beforeFinalKeystroke = withOpenDataRow.doc.toString();
+
+    const state = typeAtEnd(withOpenDataRow, '|'); // the data row's own closing pipe — the last keystroke
+
+    expect(state.doc.toString()).toBe(beforeFinalKeystroke + '|' + '\n');
+    expect(findAllTables(state)).toHaveLength(1);
+    expect(state.selection.main.head).toBe(state.doc.length);
+    expect(findEnclosingTable(state, state.selection.main.head)).toBeNull();
+  });
+
+  it('3: a complete table is pasted into an otherwise-empty document in one transaction', () => {
+    const state = makeState('');
+    const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const result = dispatchEdit(state, { from: 0, to: 0, insert: pasted });
+
+    expect(result.doc.toString()).toBe(pasted + '\n');
+    expect(findAllTables(result)).toHaveLength(1);
+    expect(result.selection.main.head).toBe(result.doc.length);
+    expect(findEnclosingTable(result, result.selection.main.head)).toBeNull();
+  });
+
+  it('4: a complete table is pasted at the end of an existing document', () => {
+    const state = makeState('Some notes above.\n\n');
+    const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const result = dispatchEdit(state, { from: state.doc.length, to: state.doc.length, insert: pasted });
+
+    expect(result.doc.toString()).toBe('Some notes above.\n\n' + pasted + '\n');
+    expect(result.selection.main.head).toBe(result.doc.length);
+    expect(findEnclosingTable(result, result.selection.main.head)).toBeNull();
+  });
+
+  it('5: a table followed by an existing paragraph is left completely untouched — no line is added when real content already follows', () => {
+    const state = makeState('');
+    const doc = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |\n\nA paragraph after the table.`;
+    const result = dispatchEdit(state, { from: 0, to: 0, insert: doc });
+
+    expect(result.doc.toString()).toBe(doc);
+  });
+
+  it('6: a table immediately followed by another (terminal) table only ever safety-guards the truly last one', () => {
+    const state = makeState('');
+    const firstTable = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    // "City" (4 chars) / "Zip" (3 chars) — same target widths as "Name"/
+    // "Age", so this second table's own separator is already canonical
+    // too, coincidentally reusing the identical dash counts.
+    const secondTable = '| City | Zip |\n| ---- | --- |\n| NYC | 10001 |';
+    const doc = firstTable + '\n\n' + secondTable;
+    const result = dispatchEdit(state, { from: 0, to: 0, insert: doc });
+
+    expect(result.doc.toString()).toBe(doc + '\n');
+    const tables = findAllTables(result);
+    expect(tables).toHaveLength(2);
+    // The first table's own trailing boundary is real, pre-existing
+    // content (the second table starts right after its blank-line gap) —
+    // never touched by this guarantee.
+    expect(result.doc.sliceString(tables[0]!.from, tables[0]!.to)).toBe(firstTable);
+    expect(result.selection.main.head).toBe(result.doc.length);
+    expect(findEnclosingTable(result, result.selection.main.head)).toBeNull();
+  });
+
+  it('7/8: root selection is never inside either table\'s own range across every scenario above — the giant full-height cursor\'s own precondition never holds', () => {
+    const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const scenarios = [
+      dispatchEdit(makeState(''), { from: 0, to: 0, insert: pasted }),
+      dispatchEdit(makeState('Some notes above.\n\n'), {
+        from: 'Some notes above.\n\n'.length,
+        to: 'Some notes above.\n\n'.length,
+        insert: pasted,
+      }),
+    ];
+    for (const result of scenarios) {
+      for (const table of findAllTables(result)) {
+        const head = result.selection.main.head;
+        // The invariant `tableRootSelectionSnap.ts` itself documents:
+        // never `>= table.from && < table.to`, and never exactly
+        // `table.to` when a real line follows — both checked directly
+        // against the actual selection, not inferred.
+        expect(head < table.from || head >= table.to).toBe(true);
+        expect(findEnclosingTable(result, head)).toBeNull();
+      }
+    }
+  });
+
+  it('9: the cursor lands on a genuine, empty, editable line immediately after the terminal table — not merely "somewhere safe"', () => {
+    const state = makeState('');
+    const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const result = dispatchEdit(state, { from: 0, to: 0, insert: pasted });
+
+    const lastLine = result.doc.line(result.doc.lines);
+    expect(lastLine.text).toBe('');
+    expect(result.selection.main.head).toBe(lastLine.from);
+    expect(result.selection.main.empty).toBe(true);
+  });
+
+  it('10: deleting the content after a table (leaving the table newly terminal) is caught the same way as typing/pasting one — the check is not activation-trigger-specific', () => {
+    const tableText = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const state = makeState(tableText + '\n\nSome paragraph to delete.');
+    const table = findAllTables(state)[0]!;
+    expect(table.to).toBe(tableText.length);
+
+    // Delete everything after the table in one transaction (a real
+    // select-and-Delete, or the end state of repeated Backspace) — no
+    // delimiter row is touched at all, so `findActivationCandidates`
+    // reports nothing; only the general terminal-table check can fire.
+    const result = dispatchEdit(state, { from: table.to, to: state.doc.length, insert: '' });
+
+    expect(result.doc.toString()).toBe(tableText + '\n');
+    expect(findAllTables(result)).toHaveLength(1);
+    expect(result.selection.main.head).toBe(result.doc.length);
+    expect(findEnclosingTable(result, result.selection.main.head)).toBeNull();
+  });
+
+  it('does not re-fire on a later, unrelated edit once the trailing line already exists', () => {
+    const state = makeState('');
+    const pasted = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    let result = dispatchEdit(state, { from: 0, to: 0, insert: pasted });
+    expect(result.doc.toString()).toBe(pasted + '\n');
+
+    // Typing on the now-existing trailing line must not add a second one.
+    result = typeAtEnd(result, 'x');
+    expect(result.doc.toString()).toBe(pasted + '\nx');
+  });
+
+  it('never steals focus for an edit elsewhere in a larger document that merely also contains a terminal table further down', () => {
+    const withTerminalTable = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n| Bob | 30 |`;
+    const state = makeState('Line one.\n\n' + withTerminalTable);
+    const insertPos = 'Line one'.length; // inside the *first* line, nowhere near the table
+    const result = dispatchEdit(state, { from: insertPos, to: insertPos, insert: '!' });
+
+    // The trailing safety line is still added (the invariant holds)...
+    expect(result.doc.toString()).toBe('Line one!.\n\n' + withTerminalTable + '\n');
+    // ...but the cursor stayed exactly where the user was actually typing.
+    expect(result.selection.main.head).toBe(insertPos + 1);
   });
 });

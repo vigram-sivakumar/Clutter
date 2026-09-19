@@ -17,18 +17,73 @@
  * to every block boundary generically) — this file doesn't duplicate
  * that with its own margin.
  */
-
+.cm-editor .cm-table-widget {
+  padding-inline: 0;
+}
 .cm-editor .cm-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
 }
 
+/* Whole-table Backspace/Delete (`tableDeletionSelection.ts`) — a first
+ * Backspace on the blank line below the table arms it for deletion; this
+ * is the only visual signal of that state (the root selection itself
+ * never moves into the table). Reuses the same focus/selection tokens
+ * the rest of the app already uses for "this is selected," not a new
+ * color. */
+.cm-editor .cm-table-wrapper-selected {
+  background: var(--selection-surface);
+  box-shadow: var(--shadow-inset-focus);
+}
+
 .cm-editor .cm-table-wrapper table,
 .cm-editor .cm-table-wrapper .cm-line {
   width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-label);
+  font-size: var(--text-body-small);
+}
+
+.cm-editor .cm-table-wrapper table {
+  /* Auto layout (the default) sizes each column by its own widest cell's
+   * content, so columns end up unequal widths whenever cell content
+   * lengths differ. `fixed` instead splits the table's own `width: 100%`
+   * evenly across however many columns the header has (first-row cell
+   * count, per the CSS table-layout spec) regardless of content —
+   * exactly "equal column widths." Safe with no explicit per-column
+   * `<col>`/cell widths anywhere else in this file: fixed layout without
+   * them still divides evenly, it just also stops a very long cell from
+   * growing its own column at its neighbors' expense (content wraps
+   * instead) — an accepted, standard trade-off of requesting equal
+   * widths at all, not a separate behavior change.
+   */
+  table-layout: fixed;
+  /* `separate` + zero spacing, not `collapse` — deliberately, not the
+   * CSS default. `collapse` requires WebKit to resolve every internal
+   * grid line (and, at each column/row intersection, the corner where a
+   * horizontal and a vertical border segment meet) against its own
+   * cached "collapsed border" model, rather than each cell simply
+   * painting its own border. Root-caused via direct WKWebView
+   * investigation (Tauri app, real OS focus loss/regain — see
+   * `docs/tauri-webkit-editor-issues.md`-style findings, not reproducible
+   * in a Chromium-only check): after the app regained OS focus and the
+   * table's stale compositing layer had to repaint, the horizontal
+   * `border-bottom` segments repainted before the vertical `border-right`
+   * segments' corner-resolution had caught up, producing a visible
+   * partial horizontal line that stopped exactly at the next column's
+   * `border-right` junction — for roughly a second, until whatever next
+   * forced a real DOM focus/paint inside the webview corrected it.
+   * `separate` removes the cross-cell resolution step entirely: `th`/`td`
+   * each paint their own ordinary `border-right`/`border-bottom` as plain
+   * box borders (the same code path any `<div>`'s border uses), which
+   * this bug does not reach. Visually identical either way — neither
+   * `border-left` nor `border-top` is ever declared below, so under
+   * `separate` each grid line is still painted by exactly one cell, the
+   * same as `collapse` produced. `border-spacing: 0` is required
+   * alongside `separate`: without it, browsers insert their own default
+   * (non-zero) gap between cells, which `collapse` never had.
+   */
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .cm-editor .cm-table-wrapper th,
@@ -36,8 +91,20 @@
   border-bottom: 1px solid var(--border-default);
   border-right: 1px solid var(--border-default);
   padding: var(--space-8) var(--space-12);
+  font-size: var(--text-body-small);
   text-align: left;
   vertical-align: top;
+  /* `height` on a table cell, not `min-height` — per the CSS table
+   * layout algorithm, a table cell's own `height` is only ever a floor
+   * (the row grows taller for content that needs more, never shrinks
+   * below it), the same guarantee `min-height` is supposed to give but
+   * doesn't reliably honor here: confirmed directly, an empty body cell
+   * rendered at 32px against this same `min-height: 36px` rule, while
+   * the header (taller content, `font-weight: medium`) happened to clear
+   * 36px on its own and looked fine — `height` fixes the empty/short-
+   * content case without capping a taller row.
+   */
+  height: 36px;
 }
 
 .cm-editor .cm-table-wrapper th:last-child,
@@ -50,9 +117,9 @@
 }
 
 .cm-editor .cm-table-wrapper thead th {
-  background: var(--surface-secondary);
+  /* background: var(--surface-secondary); */
   font-weight: var(--fw-medium);
-  border-bottom: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-default);
   color: var(--foreground-tertiary);
 }
 
