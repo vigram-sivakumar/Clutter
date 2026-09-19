@@ -5,6 +5,35 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 
+// ============================================================
+// TEMP DIAGNOSTIC — Tauri/WKWebView table-typing-reversal investigation.
+// Not a fix, no behavior change: every addition below is either a
+// console.log or a counter increment. Remove this whole block (and the
+// matching block in tableActiveCellController.ts) once the investigation
+// concludes. See docs/tauri-webkit-editor-issues.md for prior WebKit-
+// specific findings in this same editor.
+// ============================================================
+let __toDOMCallCount = 0;
+
+function __diagLogSelection(phase: string, nestedView: EditorView | null | undefined): void {
+  const nativeSelection = document.getSelection();
+  // eslint-disable-next-line no-console
+  console.log('[TABLE-DIAG]', {
+    phase,
+    anchorNode: nativeSelection?.anchorNode ?? null,
+    anchorOffset: nativeSelection?.anchorOffset ?? null,
+    focusNode: nativeSelection?.focusNode ?? null,
+    focusOffset: nativeSelection?.focusOffset ?? null,
+    nestedSelection: nestedView ? nestedView.state.selection.main : null,
+    text: nestedView ? nestedView.state.doc.toString() : null,
+    domConnected: nestedView ? nestedView.dom.isConnected : null,
+    hasFocus: nestedView ? nestedView.root.activeElement === nestedView.contentDOM : null,
+  });
+}
+// ============================================================
+// END TEMP DIAGNOSTIC (imports/helpers)
+// ============================================================
+
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
   left: 'cm-table-widget-align-left',
   center: 'cm-table-widget-align-center',
@@ -108,21 +137,49 @@ export class TableWidget extends WidgetType {
     /** Snapshot of `controller?.activeAnchor?.from` at construction time — a second, independent part of the `eq()` signal: rendering must also rebuild when *which* cell is active changes, even though `rawText` alone wouldn't catch that (activation carries no document change — see `tableActiveCellChanged`'s own doc comment in `tableActiveCellController.ts`). */
     readonly activeFrom: number | null,
     /** Snapshot of `controller?.activeAnchor?.to` at construction time — see `activeFrom`. */
-    readonly activeTo: number | null
+    readonly activeTo: number | null,
+    /**
+     * Whether this table should currently show the "selected" visual halo
+     * — true when either this exact table is armed for whole-table
+     * deletion (`tableDeletionSelection.ts`, a first Backspace on the
+     * blank line below it) **or** the root `EditorState.selection`
+     * genuinely overlaps this table's own source range (e.g. `Ctrl+A`, or
+     * an ordinary text selection dragged across it —
+     * `tableGeometry.ts`'s own `tableIntersectsSelectionRange`,
+     * `tableWidgetField.ts`'s `buildTableWidgetRange`). Purely visual in
+     * both cases — neither ever moves the root selection *into* this
+     * table's own hidden range; part of `eq()` so either transition
+     * repaints the halo.
+     */
+    readonly isSelected: boolean = false
   ) {
     super();
   }
 
   override eq(other: TableWidget): boolean {
-    return (
+    const result =
       this.rawText === other.rawText &&
       this.tableFrom === other.tableFrom &&
       this.activeFrom === other.activeFrom &&
-      this.activeTo === other.activeTo
-    );
+      this.activeTo === other.activeTo &&
+      this.isSelected === other.isSelected;
+    // TEMP DIAGNOSTIC
+    // eslint-disable-next-line no-console
+    console.log('[TABLE-DIAG] eq()', {
+      result,
+      rawTextChanged: this.rawText !== other.rawText,
+      activeFromChanged: this.activeFrom !== other.activeFrom,
+      activeToChanged: this.activeTo !== other.activeTo,
+    });
+    return result;
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    // TEMP DIAGNOSTIC
+    __toDOMCallCount++;
+    const __toDOMCallNumber = __toDOMCallCount;
+    // eslint-disable-next-line no-console
+    console.log(`[TABLE-DIAG] toDOM #${__toDOMCallNumber}`, { activeFrom: this.activeFrom, activeTo: this.activeTo });
     // M5 "preserve focus across rebuilds" fix — captured *before* touching
     // any DOM below, while the nested view's current DOM position (inside
     // whichever `<td>` the *previous* toDOM() call built) is still the
@@ -204,6 +261,13 @@ export class TableWidget extends WidgetType {
 
     const tableWrapper = document.createElement('div');
     tableWrapper.className = 'cm-table-wrapper';
+    // The "selected" halo — whole-table Backspace/Delete arming or a root
+    // selection overlapping this table (see `isSelected`'s own doc
+    // comment above); purely visual either way, the root selection itself
+    // never moves into the table for either state.
+    if (this.isSelected) {
+      tableWrapper.classList.add('cm-table-wrapper-selected');
+    }
     widget.appendChild(tableWrapper);
 
     const table = document.createElement('table');
@@ -236,7 +300,38 @@ export class TableWidget extends WidgetType {
       // being clobbered by it.
       queueMicrotask(() => {
         if (this.controller?.nestedView === nestedView && nestedView.dom.isConnected) {
+          // TEMP DIAGNOSTIC — phase 3: immediately before nestedView.focus()
+          __diagLogSelection(`toDOM#${__toDOMCallNumber} phase3-before-focus`, nestedView);
           nestedView.focus();
+          // WKWebView fix — see tableActiveCellController.ts's own M5
+          // "preserve focus across rebuilds" comments this block already
+          // carries: `nestedView.focus()` alone does not reliably restore
+          // the *browser's own* native selection after this reparent, in
+          // WKWebView specifically (confirmed via direct Tauri
+          // instrumentation — `EditorView.focus()`'s internal
+          // `docView.updateSelection()` skips re-syncing the DOM selection
+          // whenever its own cached belief about the current DOM selection
+          // already matches CM6's target position, which it does here: the
+          // cache was never invalidated by this reparent, since the move
+          // happens entirely outside the nested view's own transaction
+          // pipeline). Explicitly re-deriving and re-applying the native
+          // selection from CM6's own current logical selection — using
+          // only public CM6 API (`domAtPos`) and the standard `Selection`
+          // API — sidesteps that internal cache check entirely rather than
+          // trying to invalidate it. Always reflects whatever
+          // `nestedView.state.selection.main` currently is (a click
+          // mid-cell, an Arrow-key move, a text selection about to be
+          // replaced) — never hardcoded to end-of-content.
+          const { from, to } = nestedView.state.selection.main;
+          const anchor = nestedView.domAtPos(from);
+          const head = nestedView.domAtPos(to);
+          document.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, head.node, head.offset);
+          // TEMP DIAGNOSTIC — phase 4: immediately after nestedView.focus()
+          __diagLogSelection(`toDOM#${__toDOMCallNumber} phase4-after-focus`, nestedView);
+          // TEMP DIAGNOSTIC — phase 5: a second microtask later
+          queueMicrotask(() => {
+            __diagLogSelection(`toDOM#${__toDOMCallNumber} phase5-second-microtask`, nestedView);
+          });
         }
       });
     }
@@ -279,7 +374,11 @@ export class TableWidget extends WidgetType {
         cell.rawFrom <= this.activeFrom &&
         this.activeTo <= cell.rawTo;
       if (isActive && this.controller!.nestedView) {
+        // TEMP DIAGNOSTIC — phase 1: immediately before reparenting
+        __diagLogSelection(`toDOM#${__toDOMCallCount} phase1-before-reparent`, this.controller!.nestedView);
         wrapper.appendChild(this.controller!.nestedView.dom);
+        // TEMP DIAGNOSTIC — phase 2: immediately after reparenting
+        __diagLogSelection(`toDOM#${__toDOMCallCount} phase2-after-reparent`, this.controller!.nestedView);
       } else {
         wrapper.innerHTML = renderInlineMarkdown(cell.text);
         if (this.controller) {

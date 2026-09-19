@@ -5,7 +5,8 @@ import type { SyntaxNode } from '@lezer/common';
 
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
-import { findAllTables, getNavigableRows, isAlignmentRow, type TableInfo } from './tableGeometry';
+import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
+import { findAllTables, getNavigableRows, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
 import { TableWidget, type TableCellData } from './tableWidget';
 
 /**
@@ -127,6 +128,40 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
   const bodyRows = navigableRows.slice(1).map((row) => rowCells(state, row));
 
   const activeAnchor = controller?.activeAnchor ?? null;
+  // `false` (not throwing): a read-only note embed's nested view still
+  // installs `tableWidgetDecoration()` (rendering) but never
+  // `tableWholeDeletionKeymap()` (editing-only) — see
+  // `tableDeletionSelection.ts`'s own doc comment. This field is always
+  // registered wherever this StateField is (see `buildEditorExtensions.ts`),
+  // so the fallback only ever matters for a config that installs this
+  // field independently of that wiring, e.g. a narrower test harness.
+  const armedForDeletion = state.field(tableDeletionSelectionField, false);
+
+  // A cell belonging to *this* table is currently active — `activeAnchor`
+  // itself is the controller's one global active-cell position (the same
+  // value is passed to every table's widget, per this function's own
+  // per-cell containment check elsewhere in this file), so it must be
+  // range-checked against `table`'s own bounds here to mean "active in
+  // this table," not just "some cell somewhere is active."
+  const hasActiveCellInThisTable =
+    !!activeAnchor && activeAnchor.from >= table.from && activeAnchor.to <= table.to;
+
+  // The root-selection halo (Milestone: "table selection halo for normal
+  // root selections") is suppressed while a cell *in this table* is being
+  // edited — showing a root-selection-derived "whole table selected" halo
+  // at the same time as an active, focused cell would visually contradict
+  // what's actually being edited, even though nothing stops the root
+  // selection from technically still overlapping this table's range (e.g.
+  // a stale Ctrl+A selection from before the cell was clicked — activating
+  // a cell never changes the root selection, see
+  // `TableActiveCellController.activate()`'s own doc comment). Whole-table
+  // deletion arming (`armedForDeletion`) already can't coincide with an
+  // active cell — `tableDeletionSelectionField` un-arms itself on the same
+  // `tableActiveCellChanged` effect — so it needs no equivalent guard here.
+  const showSelectionHalo =
+    armedForDeletion === table.from ||
+    (!hasActiveCellInThisTable && tableIntersectsSelectionRange(state.selection.main, table));
+
   const widget = new TableWidget(
     headerCells,
     alignments,
@@ -135,7 +170,8 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
     table.from,
     controller,
     activeAnchor?.from ?? null,
-    activeAnchor?.to ?? null
+    activeAnchor?.to ?? null,
+    showSelectionHalo
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
@@ -168,13 +204,25 @@ function buildTableDecorations(state: EditorState, controller: TableActiveCellCo
  * the same "omit the capability entirely" gate the deleted keymap files
  * used to apply themselves.
  *
- * Rebuilds on **either** a doc change **or** `controller`'s own
- * `tableActiveCellChanged` marker effect (M5) — a pure activation change
- * (click, Tab, Arrow) carries no document change of its own, so without
- * also checking for that effect this field would never notice a
- * different cell became active and would keep rendering the nested
- * editor mounted in the *previous* cell's `<td>` — see
- * `tableActiveCellChanged`'s own doc comment.
+ * Rebuilds on a doc change, `controller`'s own `tableActiveCellChanged`
+ * marker effect (M5), `tableDeletionSelectionChanged`, **or a selection
+ * change** (`tr.selection`, root-selection-halo milestone) — a pure
+ * activation change (click, Tab, Arrow) carries no document change of its
+ * own, so without also checking for that effect this field would never
+ * notice a different cell became active and would keep rendering the
+ * nested editor mounted in the *previous* cell's `<td>` — see
+ * `tableActiveCellChanged`'s own doc comment. The `tr.selection` check is
+ * the equivalent fix for the halo: `Ctrl+A`/a mouse drag/Shift+Arrow all
+ * change `state.selection` with no `docChanged` and no effect of their
+ * own — same truthiness check `tableRootSelectionSnap.ts`'s own filter
+ * already uses for "did this transaction touch the selection at all."
+ * `buildTableDecorations` is cheap to call on every selection change (one
+ * syntax-tree scan for `findAllTables`, bounded by the number of tables in
+ * the document); CM6's own widget `eq()` reconciliation (`TableWidget.eq`)
+ * still skips any DOM rebuild for a table whose `showSelectionHalo` (and
+ * every other prop) didn't actually change, so an ordinary cursor move
+ * elsewhere in a table-free — or halo-unaffected — document costs a cheap
+ * recompute, not a repaint.
  *
  * A factory, not a module-level singleton, because `TableActiveCellController`
  * is scoped one-per-root-`EditorView` (§D) — each root editor needs its
@@ -187,7 +235,11 @@ export function tableWidgetDecoration(controller?: TableActiveCellController): E
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
-      if (tr.docChanged || tr.effects.some((e) => e.is(tableActiveCellChanged))) {
+      if (
+        tr.docChanged ||
+        !!tr.selection ||
+        tr.effects.some((e) => e.is(tableActiveCellChanged) || e.is(tableDeletionSelectionChanged))
+      ) {
         return buildTableDecorations(tr.state, controller);
       }
       return value;
