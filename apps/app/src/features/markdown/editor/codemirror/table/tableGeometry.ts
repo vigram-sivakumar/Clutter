@@ -49,6 +49,54 @@ export function findTableStartingAt(state: EditorState, pos: number): TableInfo 
   return table && table.from === pos ? { node: table, from: table.from, to: table.to } : null;
 }
 
+export interface RowColumnSegment {
+  /** Untrimmed source bounds of this column's own cell content within `row`. */
+  readonly rawFrom: number;
+  readonly rawTo: number;
+  /** The `TableDelimiter` immediately to this column's left, or `null` at a row's own leading edge when it has no pipe there. */
+  readonly leftDelimiter: SyntaxNode | null;
+  /** The `TableDelimiter` immediately to this column's right, or `null` at a row's own trailing edge when it has no pipe there. */
+  readonly rightDelimiter: SyntaxNode | null;
+}
+
+/**
+ * Every column's raw (untrimmed) source segment in `row`, left to right,
+ * alongside the `TableDelimiter` node(s) bounding it on each side — the
+ * shared column-splitting primitive both `rowCells` (`tableWidgetField.ts`,
+ * cell rendering/trimming) and structural column deletion
+ * (`tableSelectionDeletion.ts`) build on, rather than each re-deriving
+ * GFM's "leading/trailing pipes are optional" rule independently. Splits on
+ * every `TableDelimiter` present, however many there are (including zero —
+ * a pipe-less absorbed row, one segment spanning the whole row with `null`
+ * delimiters on both sides), which is what correctly handles the two
+ * under-pipe-count shapes documented on `rowCells` itself: no leading/
+ * trailing pipe, and no pipe at all.
+ */
+export function getRowColumnSegments(row: SyntaxNode): RowColumnSegment[] {
+  const delimiters: SyntaxNode[] = [];
+  for (let child = row.firstChild; child; child = child.nextSibling) {
+    if (child.name === 'TableDelimiter') {
+      delimiters.push(child);
+    }
+  }
+  if (delimiters.length === 0) {
+    return [{ rawFrom: row.from, rawTo: row.to, leftDelimiter: null, rightDelimiter: null }];
+  }
+  const segments: RowColumnSegment[] = [];
+  const first = delimiters[0]!;
+  if (first.from > row.from) {
+    segments.push({ rawFrom: row.from, rawTo: first.from, leftDelimiter: null, rightDelimiter: first });
+  }
+  for (let i = 0; i < delimiters.length - 1; i++) {
+    segments.push({ rawFrom: delimiters[i]!.to, rawTo: delimiters[i + 1]!.from, leftDelimiter: delimiters[i]!, rightDelimiter: delimiters[i + 1]! });
+  }
+  const last = delimiters[delimiters.length - 1]!;
+  if (last.to < row.to) {
+    segments.push({ rawFrom: last.to, rawTo: row.to, leftDelimiter: last, rightDelimiter: null });
+  }
+  return segments;
+}
+
 /**
  * Whether a **non-collapsed** root selection range genuinely overlaps
  * `table`'s own `[from, to)` source range — used by `tableWidgetField.ts`

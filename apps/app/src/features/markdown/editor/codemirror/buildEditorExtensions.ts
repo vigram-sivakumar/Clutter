@@ -64,6 +64,7 @@ import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
+import { tableSelectionDeletionKeymap } from './table/tableSelectionDeletion';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -330,6 +331,13 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // (an empty first line immediately above a table). See
     // `emptyLeadingLineDeletion.ts`'s own doc comment.
     emptyLeadingLineDeletion(),
+    // Listed before `tableWholeDeletionKeymap()` — both `Prec.highest` on
+    // Backspace/Delete; mutually exclusive in practice (this one only fires
+    // when a `TableSelection` is active, the other only from a caret
+    // adjacent to a table with none active), but ordered explicitly rather
+    // than left to incidental tie-breaking. See `tableSelectionDeletion.ts`'s
+    // own doc comment.
+    tableSelectionDeletionKeymap(),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,

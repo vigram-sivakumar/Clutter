@@ -6,7 +6,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
-import { findAllTables, getNavigableRows, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
+import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
 
@@ -80,30 +80,7 @@ import { TableWidget, type TableCellData } from './tableWidget';
  * exactly equals `[from, to]`.
  */
 export function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
-  const delimiters: SyntaxNode[] = [];
-  for (let child = row.firstChild; child; child = child.nextSibling) {
-    if (child.name === 'TableDelimiter') {
-      delimiters.push(child);
-    }
-  }
-  const segments: Array<{ readonly from: number; readonly to: number }> = [];
-  if (delimiters.length === 0) {
-    segments.push({ from: row.from, to: row.to });
-  } else {
-    const first = delimiters[0]!;
-    if (first.from > row.from) {
-      segments.push({ from: row.from, to: first.from });
-    }
-    for (let i = 0; i < delimiters.length - 1; i++) {
-      segments.push({ from: delimiters[i]!.to, to: delimiters[i + 1]!.from });
-    }
-    const last = delimiters[delimiters.length - 1]!;
-    if (last.to < row.to) {
-      segments.push({ from: last.to, to: row.to });
-    }
-  }
-
-  return segments.map(({ from: rawFrom, to: rawTo }) => {
+  return getRowColumnSegments(row).map(({ rawFrom, rawTo }) => {
     const raw = state.sliceDoc(rawFrom, rawTo);
     const trimmed = raw.trim();
     if (trimmed === '') {
