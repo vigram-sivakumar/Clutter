@@ -4,6 +4,7 @@ import { semanticCompletion } from './completion';
 import { dateAutocomplete } from './date/dateAutocomplete';
 import { dateMouseHandlers } from './date/dateMouseHandlers';
 import type { ResolveDate } from './date/dateResolution';
+import { emptyLeadingLineDeletion } from './emptyLeadingLineDeletion';
 import { markdownEnterKeymap } from './enter/markdownEnterKeymap';
 import { markdownIndentKeymap } from './indent/markdownIndentKeymap';
 import { orderedListStructuralNormalization } from './list/orderedListStructuralNormalization';
@@ -315,6 +316,11 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
     tableActivationNormalization(),
+    // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;
+    // this one must win the tie at the one position they can both match
+    // (an empty first line immediately above a table). See
+    // `emptyLeadingLineDeletion.ts`'s own doc comment.
+    emptyLeadingLineDeletion(),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,
