@@ -1,0 +1,84 @@
+/*
+ * Column/row hover-handle overlay (visual + hover only — see
+ * tableHandleOverlay.ts's own doc comment; click/drag/reorder/selection is
+ * a later milestone, not implemented here). Both handles are centered on
+ * their own border's centerline via `--cm-table-border-width` (declared on
+ * `.cm-table-wrapper`, tableWidget.css) — not a hardcoded pixel offset —
+ * combined with `transform: translate(-50%, -50%)`, which centers whatever
+ * box is positioned there regardless of that box's own width/height.
+ *
+ * This is why there is no separate "handle thickness" term anywhere in
+ * this offset math: changing `.cm-table-column-handle`'s own
+ * `width`/`height` (or its `-hit` sibling's, independently) needs zero
+ * corresponding change to the position rules below — each element
+ * re-centers itself on the same border-centerline point purely from its
+ * own box size, which `translate(-50%, -50%)` already accounts for. Only
+ * the border width genuinely needs to flow through a formula, and it does
+ * (`calc(-1 * var(--cm-table-border-width) / 2)`), so the two stay
+ * correct together if that token ever changes.
+ */
+
+.cm-table-column-handle-hit,
+.cm-table-row-handle-hit,
+.cm-table-column-handle,
+.cm-table-row-handle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.cm-table-column-handle-hit,
+.cm-table-column-handle {
+  top: calc(-1 * var(--cm-table-border-width) / 2);
+}
+
+.cm-table-row-handle-hit,
+.cm-table-row-handle {
+  left: calc(-1 * var(--cm-table-border-width) / 2);
+}
+
+/* Larger, invisible pointer targets — sized beyond the visible 24x4/4x24
+ * bar so the handle is practical to point at with a real mouse (this
+ * milestone's own explicit "Hit area" requirement). `pointer-events` stays
+ * `none` until this is the currently-hovered column/row's own handle
+ * (`.cm-table-handle-visible`), so a handle that isn't currently shown can
+ * never become an accidental dead zone over ordinary cells. */
+.cm-table-column-handle-hit,
+.cm-table-row-handle-hit {
+  background: transparent;
+  pointer-events: none;
+}
+.cm-table-column-handle-hit.cm-table-handle-visible,
+.cm-table-row-handle-hit.cm-table-handle-visible {
+  pointer-events: auto;
+}
+.cm-table-column-handle-hit {
+  width: 40px;
+  height: 16px;
+}
+.cm-table-row-handle-hit {
+  width: 16px;
+  height: 40px;
+}
+
+/* The visible bar — purely decorative, never itself a pointer-event target
+ * (its `-hit` sibling above owns that), so paint order between the two
+ * never matters for hit-testing. */
+.cm-table-column-handle,
+.cm-table-row-handle {
+  background: var(--foreground-tertiary);
+  border-radius: 2px;
+  pointer-events: none;
+  visibility: hidden;
+}
+.cm-table-column-handle.cm-table-handle-visible,
+.cm-table-row-handle.cm-table-handle-visible {
+  visibility: visible;
+}
+.cm-table-column-handle {
+  width: 24px;
+  height: 4px;
+}
+.cm-table-row-handle {
+  width: 4px;
+  height: 24px;
+}

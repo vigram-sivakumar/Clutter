@@ -92,7 +92,7 @@ function findCell(view: EditorView, text: string): Element {
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
 describe('table live wiring — DOM structure', () => {
-  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping the real <table>', () => {
+  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping the real <table>', () => {
     const view = mount(TABLE, true);
 
     const widget = view.dom.querySelector(':scope .cm-table-widget');
@@ -102,7 +102,16 @@ describe('table live wiring — DOM structure', () => {
     const wrapper = widget?.querySelector(':scope > .cm-table-wrapper');
     expect(wrapper?.tagName).toBe('DIV');
 
-    const table = wrapper?.querySelector(':scope > table');
+    // .cm-table-scroll (not table directly) is .cm-table-wrapper's own
+    // scrollable child — split out so the column/row handle overlay
+    // (tableHandleOverlay.ts), anchored on .cm-table-wrapper itself, can
+    // extend past its border without being clipped by overflow-x: auto's
+    // own forced overflow-y: auto side effect. See tableWidget.css's own
+    // comment on .cm-table-wrapper/.cm-table-scroll.
+    const scroll = wrapper?.querySelector(':scope > .cm-table-scroll');
+    expect(scroll?.tagName).toBe('DIV');
+
+    const table = scroll?.querySelector(':scope > table');
     expect(table).not.toBeNull();
     expect(table?.className).toBe(''); // the <table> itself carries no class — cm-table-widget is the outer div now
   });
@@ -153,10 +162,11 @@ describe('table live wiring — editable top-level table', () => {
     expect(activeWrapper).toBeDefined();
     // The nested editor's .cm-editor is a direct child of .cm-table-cell-wrapper
     // (never of <td> directly), and the full ancestor chain matches the
-    // widget's own documented structure: widget > .cm-table-wrapper > table > td > .cm-table-cell-wrapper > .cm-editor.
+    // widget's own documented structure: widget > .cm-table-wrapper >
+    // .cm-table-scroll > table > td > .cm-table-cell-wrapper > .cm-editor.
     expect(controller.nestedView!.dom.parentElement).toBe(activeWrapper);
     expect(activeWrapper!.parentElement?.tagName).toBe('TD');
-    expect(activeWrapper!.closest('.cm-table-widget > .cm-table-wrapper > table')).not.toBeNull();
+    expect(activeWrapper!.closest('.cm-table-widget > .cm-table-wrapper > .cm-table-scroll > table')).not.toBeNull();
   });
 
   it('clicking a cell focuses the nested editor, and the root editor does not retain focus', async () => {

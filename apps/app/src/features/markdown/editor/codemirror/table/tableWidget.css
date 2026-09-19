@@ -21,9 +21,34 @@
   padding-inline: 0;
 }
 .cm-editor .cm-table-wrapper {
-  overflow-x: auto;
-  border: 1px solid var(--border-default);
+  /* Single source of truth for the border width — referenced by
+   * `tableHandleOverlay.css`'s own centerline math (`calc(-1 *
+   * var(--cm-table-border-width) / 2)`) so the column/row handle offset
+   * stays correct if this value ever changes, without a second place to
+   * update. */
+  --cm-table-border-width: 1px;
+  border: var(--cm-table-border-width) solid var(--border-default);
   border-radius: var(--radius-sm);
+  /* Anchor for the column/row hover-handle overlay (`tableHandleOverlay.ts`)
+   * — its handles are absolutely-positioned children of this element so
+   * they can extend past its own border without affecting table layout.
+   * No `overflow` is set here (moved to `.cm-table-scroll` below)
+   * specifically so those handles are never clipped: setting only
+   * `overflow-x` on an element forces its *computed* `overflow-y` to
+   * `auto` too (CSS Overflow's own "visible paired with non-visible
+   * becomes auto" rule), which would silently clip anything extending
+   * even 1px past this box's own edge — exactly what a border-centered
+   * handle must do by design. */
+  position: relative;
+}
+/* Horizontal-scroll container, split out from `.cm-table-wrapper` itself
+ * (which used to carry `overflow-x: auto` directly) for the reason in
+ * that rule's own comment above — the actual scrolling behavior for a
+ * table wider than its container is unchanged, just moved one level
+ * deeper so it can no longer clip the handle overlay anchored on the
+ * wrapper. */
+.cm-editor .cm-table-scroll {
+  overflow-x: auto;
 }
 
 /* Whole-table Backspace/Delete (`tableDeletionSelection.ts`) — a first

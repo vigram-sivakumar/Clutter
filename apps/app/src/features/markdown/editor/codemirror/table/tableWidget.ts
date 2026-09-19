@@ -3,6 +3,7 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import './tableWidget.css';
 import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
+import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
@@ -209,7 +210,20 @@ export class TableWidget extends WidgetType {
     if (this.controller) {
       widget.addEventListener('mousedown', (event) => {
         const target = event.target as HTMLElement | null;
-        if (target?.closest('td, th')) {
+        // `.cm-table-column-handle-hit`/`.cm-table-row-handle-hit`
+        // (`tableHandleOverlay.ts`) are exempted alongside `td, th` for the
+        // same reason cell clicks already are: without this, this handler's
+        // own `preventDefault`/`stopPropagation` below would run on every
+        // handle interaction, including a future click/drag milestone's own
+        // handler on the same element. Today, before that milestone exists,
+        // the hit-area's own `mousedown` listener (`preventActivation`,
+        // `tableHandleOverlay.ts`) already stops the event during its own
+        // target-phase handling, so this exemption is currently redundant
+        // in practice — kept anyway as the same defensive, explicit
+        // belt-and-suspenders pairing already used for cell clicks, so a
+        // later milestone's own handle click/drag handler doesn't have to
+        // remember to revisit this check.
+        if (target?.closest('td, th, .cm-table-column-handle-hit, .cm-table-row-handle-hit')) {
           return;
         }
         event.preventDefault();
@@ -228,8 +242,18 @@ export class TableWidget extends WidgetType {
     }
     widget.appendChild(tableWrapper);
 
+    // Horizontal-scroll container, split out from `.cm-table-wrapper`
+    // itself — see that class's own CSS comment (`tableWidget.css`) for
+    // why: `overflow-x: auto` directly on `.cm-table-wrapper` would also
+    // force its computed `overflow-y` to `auto`, silently clipping the
+    // column/row handle overlay below, which must extend past the
+    // wrapper's own border by design.
+    const tableScroll = document.createElement('div');
+    tableScroll.className = 'cm-table-scroll';
+    tableWrapper.appendChild(tableScroll);
+
     const table = document.createElement('table');
-    tableWrapper.appendChild(table);
+    tableScroll.appendChild(table);
 
     const thead = document.createElement('thead');
     thead.appendChild(this.buildRow(view, this.headerCells, 'th'));
@@ -240,6 +264,17 @@ export class TableWidget extends WidgetType {
       tbody.appendChild(this.buildRow(view, row, 'td'));
     }
     table.appendChild(tbody);
+
+    // Hover-only column/row handle overlay (visual only — no click/drag/
+    // selection yet, a later milestone; see `tableHandleOverlay.ts`'s own
+    // doc comment). Gated on `this.controller` the same way every other
+    // editing-only capability in this widget already is — a read-only
+    // note embed's table renders the same `<table>` but never gets this
+    // overlay, matching `buildEditorExtensions.ts`'s `!readOnly` gate for
+    // everything else that has no meaning in a permanently read-only view.
+    if (this.controller) {
+      attachTableHandleOverlay(tableWrapper, this.headerCells.length);
+    }
 
     if (wasFocused) {
       // Deferred to a microtask, not called synchronously here — `table`
