@@ -94,17 +94,6 @@
   line-height: var(--lh-body-small);
   text-align: left;
   vertical-align: top;
-  /* `height` on a table cell, not `min-height` — per the CSS table
-   * layout algorithm, a table cell's own `height` is only ever a floor
-   * (the row grows taller for content that needs more, never shrinks
-   * below it), the same guarantee `min-height` is supposed to give but
-   * doesn't reliably honor here: confirmed directly, an empty body cell
-   * rendered at 32px against this same `min-height: 36px` rule, while
-   * the header (taller content, `font-weight: medium`) happened to clear
-   * 36px on its own and looked fine — `height` fixes the empty/short-
-   * content case without capping a taller row.
-   */
-  /* min-height: calc(1lh + var(--space-6)); */
 }
 
 .cm-editor .cm-table-wrapper th:last-child,
@@ -117,7 +106,7 @@
 }
 
 .cm-editor .cm-table-wrapper thead th {
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-regular);
   border-bottom: 1px solid var(--border-default);
   color: var(--foreground-tertiary);
 }
