@@ -40,7 +40,6 @@
 .cm-editor .cm-table-wrapper table,
 .cm-editor .cm-table-wrapper .cm-line {
   width: 100%;
-  font-size: var(--text-body-small);
 }
 
 .cm-editor .cm-table-wrapper table {
@@ -118,7 +117,6 @@
 }
 
 .cm-editor .cm-table-wrapper thead th {
-  /* background: var(--surface-secondary); */
   font-weight: var(--fw-medium);
   border-bottom: 1px solid var(--border-default);
   color: var(--foreground-tertiary);
