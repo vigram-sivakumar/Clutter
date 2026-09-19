@@ -77,8 +77,21 @@ function wrapperOf(cell: Element): Element {
   return wrapper;
 }
 
+/**
+ * A plain click, end to end — since `beginCellRangeDrag` (`tableCellRangeSelection.ts`)
+ * now defers activation from `mousedown` to `mouseup` (only a drag that
+ * crosses into a *different* cell activates nothing and becomes a range
+ * selection instead), a test simulating "the user clicked this cell" must
+ * dispatch both, matching a real click's own two events. `mouseup` is
+ * dispatched on `document` — `beginCellRangeDrag`'s own listener is
+ * installed there, not on the cell itself, and mousedown/mouseup targeting
+ * different elements is exactly how a real click already works (both
+ * events bubble to `document` regardless of which element they originate
+ * on).
+ */
 function clickCell(cell: Element): void {
   wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
 }
 
 function findCell(view: EditorView, text: string): Element {

@@ -5,6 +5,7 @@ import {
   attachTableSelectionOverlayResize,
   createTableSelectionOverlay,
   positionColumnSelectionOverlay,
+  positionRangeSelectionOverlay,
   positionRowSelectionOverlay,
 } from './tableSelectionOverlay';
 
@@ -218,6 +219,120 @@ describe('positionRowSelectionOverlay — geometry', () => {
     expect(overlay.style.left).toBe('10px');
     expect(overlay.style.width).toBe('100px');
     expect(overlay.style.height).toBe('20px');
+  });
+});
+
+describe('positionRangeSelectionOverlay — geometry', () => {
+  it('derives left/top/width/height from the header (horizontal) and the min/max row (vertical) for a multi-row x multi-column range', () => {
+    const { scrollContainer, table } = buildTable(3, [3, 3, 3]);
+    mockRect(scrollContainer, { left: 100, top: 50, right: 500, bottom: 300, width: 400, height: 250 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[0]!, { left: 100, top: 60, right: 200, bottom: 90, width: 100, height: 30 });
+    mockRect(headerRow.cells[1]!, { left: 200, top: 60, right: 300, bottom: 90, width: 100, height: 30 });
+    // minRow=1 (first body row), maxRow=2 (second body row), minCol=0, maxCol=1.
+    const topRow = table.tBodies[0]!.rows[0]!;
+    mockRect(topRow.cells[0]!, { left: 100, top: 90, right: 200, bottom: 120, width: 100, height: 30 });
+    const bottomRow = table.tBodies[0]!.rows[1]!;
+    mockRect(bottomRow.cells[0]!, { left: 100, top: 120, right: 200, bottom: 150, width: 100, height: 30 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 1);
+
+    expect(overlay.style.left).toBe(`${100 - 100}px`);
+    expect(overlay.style.top).toBe(`${90 - 50}px`); // topRow's own top
+    expect(overlay.style.width).toBe(`${300 - 100}px`); // header col0 left to col1 right
+    expect(overlay.style.height).toBe(`${150 - 90}px`); // topRow top to bottomRow bottom
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+
+  it('a single-cell range (minRow=maxRow, minCol=maxCol) produces a valid rectangle', () => {
+    const { scrollContainer, table } = buildTable(2, [2]);
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[1]!, { left: 100, top: 0, right: 200, bottom: 20, width: 100, height: 20 });
+    const row = table.tBodies[0]!.rows[0]!;
+    // Vertical extent always comes from the row's own first cell
+    // (`cells[0]`), per `positionRangeSelectionOverlay`'s own doc comment
+    // — not the selected column's own cell.
+    mockRect(row.cells[0]!, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 1, 1, 1);
+
+    expect(overlay.style.left).toBe('100px');
+    expect(overlay.style.top).toBe('20px');
+    expect(overlay.style.width).toBe('100px');
+    expect(overlay.style.height).toBe('20px');
+  });
+
+  it('a single-row range (minRow=maxRow, different columns) spans only that row', () => {
+    const { scrollContainer, table } = buildTable(3, [3]);
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[0]!, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    mockRect(headerRow.cells[2]!, { left: 200, top: 0, right: 300, bottom: 20, width: 100, height: 20 });
+    const row = table.tBodies[0]!.rows[0]!;
+    mockRect(row.cells[0]!, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 1, 0, 2);
+
+    expect(overlay.style.top).toBe('20px');
+    expect(overlay.style.width).toBe('300px'); // col0 left to col2 right
+    expect(overlay.style.height).toBe('20px'); // one row only
+  });
+
+  it('a single-column range (minCol=maxCol, different rows) spans only that column', () => {
+    const { scrollContainer, table } = buildTable(2, [2, 2]);
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[0]!, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    const topRow = table.tBodies[0]!.rows[0]!;
+    mockRect(topRow.cells[0]!, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    const bottomRow = table.tBodies[0]!.rows[1]!;
+    mockRect(bottomRow.cells[0]!, { left: 0, top: 40, right: 100, bottom: 60, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 0);
+
+    expect(overlay.style.width).toBe('100px'); // one column only
+    expect(overlay.style.top).toBe('20px');
+    expect(overlay.style.height).toBe('40px'); // topRow top to bottomRow bottom
+  });
+
+  it('a range whose top or bottom boundary row is ragged still measures correctly from that row\'s own first rendered cell', () => {
+    const { scrollContainer, table } = buildTable(3, [1, 3]); // first body row ragged: only 1 of 3 columns
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[0]!, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    mockRect(headerRow.cells[1]!, { left: 100, top: 0, right: 200, bottom: 20, width: 100, height: 20 });
+    const raggedRow = table.tBodies[0]!.rows[0]!; // only cells[0]
+    mockRect(raggedRow.cells[0]!, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    const fullRow = table.tBodies[0]!.rows[1]!;
+    mockRect(fullRow.cells[0]!, { left: 0, top: 40, right: 100, bottom: 60, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    // Range spans both body rows across columns 0-1 — the ragged row (row
+    // index 1) is the range's own top boundary, and it has no cells[1] at
+    // all, but the geometry function only ever needs that row's own first
+    // cell (cells[0]) for its vertical extent — the horizontal extent
+    // always comes from the header, which always has every column.
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 1);
+
+    expect(overlay.style.top).toBe('20px'); // ragged row's own top
+    expect(overlay.style.height).toBe('40px'); // ragged row top to full row bottom
+    expect(overlay.style.width).toBe('200px'); // header col0 left to col1 right
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+
+  it('leaves the overlay unpositioned and invisible when the header has no cell at minCol/maxCol', () => {
+    const { scrollContainer, table } = buildTable(2, [2]);
+    const overlay = createTableSelectionOverlay();
+
+    positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 1, 0, 5);
+
+    expect(overlay.style.left).toBe('');
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
   });
 });
 

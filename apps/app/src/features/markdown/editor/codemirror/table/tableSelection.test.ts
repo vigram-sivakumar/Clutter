@@ -69,6 +69,12 @@ function mousedown(el: Element): void {
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 }
 
+/** A full click (mousedown + mouseup) — required to actually activate a cell now that `beginCellRangeDrag` (`tableCellRangeSelection.ts`) defers activation to `mouseup`. Used wherever these tests simulate "the user clicked this cell" (as opposed to a click landing outside the table, which never goes through that deferred-activation path). */
+function clickCell(el: Element): void {
+  mousedown(el);
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+}
+
 function click(el: Element): void {
   el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 }
@@ -84,7 +90,7 @@ describe('attachTableOutsideClickHandling', () => {
   it('deactivates an active cell when the click lands outside the table entirely', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const detach = attachTableOutsideClickHandling(view, controller);
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     expect(controller.activeAnchor).not.toBeNull();
 
     mousedown(outsideElement());
@@ -129,7 +135,7 @@ describe('attachTableOutsideClickHandling', () => {
     // own requirement calls out, to verify the outside-click handler
     // clears both unconditionally rather than assuming only one is ever
     // possible.
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     expect(controller.activeAnchor).not.toBeNull();
     view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: from, columnIndex: 1 }) });
     expect(view.state.field(tableSelectionField)).not.toBeNull();
@@ -144,11 +150,11 @@ describe('attachTableOutsideClickHandling', () => {
   it('clicking another cell in the same table activates it normally — the outside-click handler never intervenes first', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const detach = attachTableOutsideClickHandling(view, controller);
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     const firstNestedView = controller.nestedView;
     expect(firstNestedView).not.toBeNull();
 
-    mousedown(findCell(view, 'Alex'));
+    clickCell(findCell(view, 'Alex'));
 
     // Same reusable instance, now hosting the second cell's content — a
     // clean transfer, not a deactivate-then-reactivate cycle the outside
@@ -162,7 +168,7 @@ describe('attachTableOutsideClickHandling', () => {
   it('clicking inside the already-active cell\'s own content (repositioning the caret) does not deactivate it', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const detach = attachTableOutsideClickHandling(view, controller);
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     expect(controller.activeAnchor).not.toBeNull();
     const nestedContentEl = controller.nestedView!.contentDOM;
 
@@ -199,13 +205,13 @@ describe('attachTableOutsideClickHandling', () => {
   it('the returned cleanup function actually removes the listener — no further clearing after detach()', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const detach = attachTableOutsideClickHandling(view, controller);
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     expect(controller.activeAnchor).not.toBeNull();
     mousedown(outsideElement());
     expect(controller.activeAnchor).toBeNull(); // handler is live and works
 
     detach();
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
     expect(controller.activeAnchor).not.toBeNull();
 
     mousedown(outsideElement());
@@ -223,7 +229,7 @@ describe('attachTableOutsideClickHandling', () => {
     const { view, controller } = mountViewWithController(TABLE);
     const detach1 = attachTableOutsideClickHandling(view, controller);
     const detach2 = attachTableOutsideClickHandling(view, controller);
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
 
     detach1();
     mousedown(outsideElement());
@@ -536,7 +542,7 @@ describe('attachTableOutsideClickHandling — root-selection-collapse fallback',
     const detach = attachTableOutsideClickHandling(view, controller);
     view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
 
-    mousedown(findCell(view, 'Vik'));
+    clickCell(findCell(view, 'Vik'));
 
     expect(controller.activeAnchor).not.toBeNull();
     expect(controller.nestedView!.state.doc.toString()).toBe('Vik');

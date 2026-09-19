@@ -3,12 +3,14 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import './tableWidget.css';
 import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
+import { beginCellRangeDrag } from './tableCellRangeSelection';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 import {
   attachTableSelectionOverlayResize,
   createTableSelectionOverlay,
   positionColumnSelectionOverlay,
+  positionRangeSelectionOverlay,
   positionRowSelectionOverlay,
 } from './tableSelectionOverlay';
 
@@ -17,6 +19,15 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
   center: 'cm-table-widget-align-center',
   right: 'cm-table-widget-align-right',
 };
+
+type SelectedRangeBounds = { readonly minRow: number; readonly maxRow: number; readonly minCol: number; readonly maxCol: number } | null;
+
+function rangeEq(a: SelectedRangeBounds, b: SelectedRangeBounds): boolean {
+  if (a === null || b === null) {
+    return a === b;
+  }
+  return a.minRow === b.minRow && a.maxRow === b.maxRow && a.minCol === b.minCol && a.maxCol === b.maxCol;
+}
 
 /**
  * One cell's raw text plus its trimmed source range (`from`/`to` —
@@ -142,7 +153,17 @@ export class TableWidget extends WidgetType {
      */
     readonly selectedColumnIndex: number | null = null,
     /** The currently `TableSelection`-selected row's own index into `getNavigableRows(table)` (header is 0, never a valid value here — header/delimiter rows are excluded from row selection), or `null`. See `selectedColumnIndex`'s own doc comment. */
-    readonly selectedRowIndex: number | null = null
+    readonly selectedRowIndex: number | null = null,
+    /**
+     * The currently `TableSelection`-selected rectangular range in *this*
+     * table, already normalized to bounds (`minRow`/`maxRow`/`minCol`/
+     * `maxCol`, `tableWidgetField.ts`'s own derivation from a `range`
+     * kind's possibly-reversed `anchor`/`head`), or `null` — mutually
+     * exclusive with `selectedColumnIndex`/`selectedRowIndex` by
+     * construction, same as those two are with each other (one
+     * `TableSelection`, one `kind`, at a time).
+     */
+    readonly selectedRange: { readonly minRow: number; readonly maxRow: number; readonly minCol: number; readonly maxCol: number } | null = null
   ) {
     super();
   }
@@ -172,7 +193,8 @@ export class TableWidget extends WidgetType {
       this.activeTo === other.activeTo &&
       this.isSelected === other.isSelected &&
       this.selectedColumnIndex === other.selectedColumnIndex &&
-      this.selectedRowIndex === other.selectedRowIndex
+      this.selectedRowIndex === other.selectedRowIndex &&
+      rangeEq(this.selectedRange, other.selectedRange)
     );
   }
 
@@ -358,16 +380,19 @@ export class TableWidget extends WidgetType {
     // one geometry code path per call, matching
     // `attachTableSelectionOverlayResize`'s own "no second geometry
     // mechanism" contract.
-    if (this.selectedColumnIndex !== null || this.selectedRowIndex !== null) {
+    if (this.selectedColumnIndex !== null || this.selectedRowIndex !== null || this.selectedRange !== null) {
       const overlay = createTableSelectionOverlay();
       tableScroll.appendChild(overlay);
       const selectedColumnIndex = this.selectedColumnIndex;
       const selectedRowIndex = this.selectedRowIndex;
+      const selectedRange = this.selectedRange;
       const measure = (): void => {
         if (selectedColumnIndex !== null) {
           positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
         } else if (selectedRowIndex !== null) {
           positionRowSelectionOverlay(overlay, tableScroll, table, selectedRowIndex);
+        } else if (selectedRange !== null) {
+          positionRangeSelectionOverlay(overlay, tableScroll, table, selectedRange.minRow, selectedRange.maxRow, selectedRange.minCol, selectedRange.maxCol);
         }
       };
       queueMicrotask(() => {
@@ -529,7 +554,16 @@ export class TableWidget extends WidgetType {
             // `wrapper`, not `element`, is still the mount container — the
             // nested editor lives inside the wrapper, only click detection
             // moved to the td/th.
-            controller.activate(view, wrapper, cell.from, cell.to, cell.to);
+            //
+            // Does not call `controller.activate(...)` directly any more —
+            // a plain click must still activate this cell (unchanged
+            // behavior), but a drag that crosses into a *different* cell
+            // before mouseup must become a rectangular `TableSelection`
+            // range instead. `beginCellRangeDrag` (`tableCellRangeSelection.ts`)
+            // owns that distinction and defers the activation call to
+            // mouseup for the plain-click case — see its own doc comment
+            // for why "movement into another cell" is the correct trigger.
+            beginCellRangeDrag(view, controller, this.tableFrom, wrapper, cell.from, cell.to, { row: rowIndex, col: columnIndex });
           });
         }
       }

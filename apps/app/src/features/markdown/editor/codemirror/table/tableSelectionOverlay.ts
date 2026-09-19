@@ -219,6 +219,84 @@ export function positionRowSelectionOverlay(
 }
 
 /**
+ * Measures the bounding rectangle of a rectangular multi-cell range —
+ * `[minRow, maxRow] × [minCol, maxCol]`, already normalized by the caller
+ * from a `TableSelection`'s own (possibly-reversed) `anchor`/`head`
+ * (`tableWidgetField.ts` — this function itself takes no position on
+ * direction, only bounds) — and positions `overlay` to outline it, then
+ * reveals it. The rectangular-range sibling of
+ * `positionColumnSelectionOverlay`/`positionRowSelectionOverlay` above;
+ * same overlay element, same `.cm-table-scroll` coordinate space, same
+ * deferred-call/`isConnected` contract, same "cell geometry directly, no
+ * second geometry abstraction" discipline — see those two functions' own
+ * doc comments for all of that (not repeated here). Row indices follow the
+ * same `getNavigableRows` convention every other selection kind already
+ * uses (header = 0, first body row = 1, …).
+ *
+ * **Horizontal bounds always come from the header row.** `table-layout:
+ * fixed` guarantees every row's Nth column shares the same left/right
+ * pixel bounds regardless of that row's own actual cell count (the same
+ * fact `positionColumnSelectionOverlay`'s own doc comment already
+ * establishes) — so the header, which always has a real cell at every
+ * column index by definition, is the one row that can answer "where is
+ * column N" unconditionally, without needing to search for a data row
+ * that actually has a cell there.
+ *
+ * **Vertical bounds come from `minRow`'s and `maxRow`'s own rows, each
+ * measured from that row's own first rendered cell** — every cell within
+ * one `<tr>` shares that row's height by definition (a table row's height
+ * is however tall its tallest cell is), so `row.cells[0]` alone already
+ * describes the row's full vertical extent; this is `positionRowSelectionOverlay`'s
+ * own "height from the first cell alone" reasoning, applied to whichever
+ * row happens to bound the range on each side. A genuinely ragged row —
+ * fewer cells than the header — still always has at least one cell
+ * (`getRowColumnSegments`'s own "no pipe at all" fallback guarantees this
+ * at the Markdown-source level; `TableWidget.buildRow` renders exactly one
+ * `<td>` per source cell), so `row.cells[0]` never needs its own ragged-row
+ * fallback the way the column function's own "walk backward" does — that
+ * fallback exists specifically for the *last* row possibly lacking the
+ * *selected column*, a concern that doesn't apply here since this function
+ * never depends on a specific row having a specific column.
+ */
+export function positionRangeSelectionOverlay(
+  overlay: HTMLElement,
+  scrollContainer: HTMLElement,
+  table: HTMLTableElement,
+  minRow: number,
+  maxRow: number,
+  minCol: number,
+  maxCol: number
+): void {
+  const headerRow = table.tHead?.rows[0];
+  const leftCell = headerRow?.cells[minCol];
+  const rightCell = headerRow?.cells[maxCol];
+  if (!headerRow || !leftCell || !rightCell) {
+    return;
+  }
+
+  const rowAt = (rowIndex: number): HTMLTableRowElement | undefined => (rowIndex === 0 ? headerRow : table.tBodies[0]?.rows[rowIndex - 1]);
+  const topRow = rowAt(minRow);
+  const bottomRow = rowAt(maxRow);
+  const topCell = topRow?.cells[0];
+  const bottomCell = bottomRow?.cells[0];
+  if (!topCell || !bottomCell) {
+    return;
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const leftRect = leftCell.getBoundingClientRect();
+  const rightRect = rightCell.getBoundingClientRect();
+  const topRect = topCell.getBoundingClientRect();
+  const bottomRect = bottomCell.getBoundingClientRect();
+
+  overlay.style.left = `${leftRect.left - containerRect.left + scrollContainer.scrollLeft}px`;
+  overlay.style.top = `${topRect.top - containerRect.top + scrollContainer.scrollTop}px`;
+  overlay.style.width = `${rightRect.right - leftRect.left}px`;
+  overlay.style.height = `${bottomRect.bottom - topRect.top}px`;
+  overlay.classList.add(VISIBLE_CLASS);
+}
+
+/**
  * Re-invalidates the overlay's own geometry whenever `table`'s own
  * rendered box changes size — a window resize, a container reflow, or a
  * row growing/shrinking (typed content wrapping to another line) all

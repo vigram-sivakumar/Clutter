@@ -72,8 +72,10 @@ function wrapperOf(cell: Element): Element {
   return wrapper;
 }
 
+/** A plain click, end to end — see `tableLiveWiring.test.ts`'s own `clickCell` doc comment: `beginCellRangeDrag` defers activation to `mouseup`. */
 function clickCell(cell: Element): void {
   wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
 }
 
 function findCell(view: EditorView, text: string): Element {

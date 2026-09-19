@@ -123,6 +123,20 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
   const selectedColumnIndex =
     hasTableSelectionInThisTable && tableSelection!.kind === 'column' ? tableSelection!.columnIndex : null;
   const selectedRowIndex = hasTableSelectionInThisTable && tableSelection!.kind === 'row' ? tableSelection!.rowIndex : null;
+  // Normalized here, once, rather than in `TableWidget`/`tableSelectionOverlay.ts` —
+  // `anchor`/`head` (`tableSelection.ts`'s own `range` kind) may name either
+  // corner first (a drag can run in any of the four directions), so every
+  // consumer downstream of this point works with plain bounds, never with
+  // "which one is the anchor."
+  const selectedRange =
+    hasTableSelectionInThisTable && tableSelection!.kind === 'range'
+      ? {
+          minRow: Math.min(tableSelection!.anchor.row, tableSelection!.head.row),
+          maxRow: Math.max(tableSelection!.anchor.row, tableSelection!.head.row),
+          minCol: Math.min(tableSelection!.anchor.col, tableSelection!.head.col),
+          maxCol: Math.max(tableSelection!.anchor.col, tableSelection!.head.col),
+        }
+      : null;
 
   // A cell belonging to *this* table is currently active — `activeAnchor`
   // itself is the controller's one global active-cell position (the same
@@ -165,7 +179,8 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
     activeAnchor?.to ?? null,
     showSelectionHalo,
     selectedColumnIndex,
-    selectedRowIndex
+    selectedRowIndex,
+    selectedRange
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
