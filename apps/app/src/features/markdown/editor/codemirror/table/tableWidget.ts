@@ -5,35 +5,6 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 
-// ============================================================
-// TEMP DIAGNOSTIC — Tauri/WKWebView table-typing-reversal investigation.
-// Not a fix, no behavior change: every addition below is either a
-// console.log or a counter increment. Remove this whole block (and the
-// matching block in tableActiveCellController.ts) once the investigation
-// concludes. See docs/tauri-webkit-editor-issues.md for prior WebKit-
-// specific findings in this same editor.
-// ============================================================
-let __toDOMCallCount = 0;
-
-function __diagLogSelection(phase: string, nestedView: EditorView | null | undefined): void {
-  const nativeSelection = document.getSelection();
-  // eslint-disable-next-line no-console
-  console.log('[TABLE-DIAG]', {
-    phase,
-    anchorNode: nativeSelection?.anchorNode ?? null,
-    anchorOffset: nativeSelection?.anchorOffset ?? null,
-    focusNode: nativeSelection?.focusNode ?? null,
-    focusOffset: nativeSelection?.focusOffset ?? null,
-    nestedSelection: nestedView ? nestedView.state.selection.main : null,
-    text: nestedView ? nestedView.state.doc.toString() : null,
-    domConnected: nestedView ? nestedView.dom.isConnected : null,
-    hasFocus: nestedView ? nestedView.root.activeElement === nestedView.contentDOM : null,
-  });
-}
-// ============================================================
-// END TEMP DIAGNOSTIC (imports/helpers)
-// ============================================================
-
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
   left: 'cm-table-widget-align-left',
   center: 'cm-table-widget-align-center',
@@ -157,29 +128,16 @@ export class TableWidget extends WidgetType {
   }
 
   override eq(other: TableWidget): boolean {
-    const result =
+    return (
       this.rawText === other.rawText &&
       this.tableFrom === other.tableFrom &&
       this.activeFrom === other.activeFrom &&
       this.activeTo === other.activeTo &&
-      this.isSelected === other.isSelected;
-    // TEMP DIAGNOSTIC
-    // eslint-disable-next-line no-console
-    console.log('[TABLE-DIAG] eq()', {
-      result,
-      rawTextChanged: this.rawText !== other.rawText,
-      activeFromChanged: this.activeFrom !== other.activeFrom,
-      activeToChanged: this.activeTo !== other.activeTo,
-    });
-    return result;
+      this.isSelected === other.isSelected
+    );
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    // TEMP DIAGNOSTIC
-    __toDOMCallCount++;
-    const __toDOMCallNumber = __toDOMCallCount;
-    // eslint-disable-next-line no-console
-    console.log(`[TABLE-DIAG] toDOM #${__toDOMCallNumber}`, { activeFrom: this.activeFrom, activeTo: this.activeTo });
     // M5 "preserve focus across rebuilds" fix — captured *before* touching
     // any DOM below, while the nested view's current DOM position (inside
     // whichever `<td>` the *previous* toDOM() call built) is still the
@@ -300,8 +258,6 @@ export class TableWidget extends WidgetType {
       // being clobbered by it.
       queueMicrotask(() => {
         if (this.controller?.nestedView === nestedView && nestedView.dom.isConnected) {
-          // TEMP DIAGNOSTIC — phase 3: immediately before nestedView.focus()
-          __diagLogSelection(`toDOM#${__toDOMCallNumber} phase3-before-focus`, nestedView);
           nestedView.focus();
           // WKWebView fix — see tableActiveCellController.ts's own M5
           // "preserve focus across rebuilds" comments this block already
@@ -326,12 +282,6 @@ export class TableWidget extends WidgetType {
           const anchor = nestedView.domAtPos(from);
           const head = nestedView.domAtPos(to);
           document.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, head.node, head.offset);
-          // TEMP DIAGNOSTIC — phase 4: immediately after nestedView.focus()
-          __diagLogSelection(`toDOM#${__toDOMCallNumber} phase4-after-focus`, nestedView);
-          // TEMP DIAGNOSTIC — phase 5: a second microtask later
-          queueMicrotask(() => {
-            __diagLogSelection(`toDOM#${__toDOMCallNumber} phase5-second-microtask`, nestedView);
-          });
         }
       });
     }
@@ -374,11 +324,7 @@ export class TableWidget extends WidgetType {
         cell.rawFrom <= this.activeFrom &&
         this.activeTo <= cell.rawTo;
       if (isActive && this.controller!.nestedView) {
-        // TEMP DIAGNOSTIC — phase 1: immediately before reparenting
-        __diagLogSelection(`toDOM#${__toDOMCallCount} phase1-before-reparent`, this.controller!.nestedView);
         wrapper.appendChild(this.controller!.nestedView.dom);
-        // TEMP DIAGNOSTIC — phase 2: immediately after reparenting
-        __diagLogSelection(`toDOM#${__toDOMCallCount} phase2-after-reparent`, this.controller!.nestedView);
       } else {
         wrapper.innerHTML = renderInlineMarkdown(cell.text);
         if (this.controller) {

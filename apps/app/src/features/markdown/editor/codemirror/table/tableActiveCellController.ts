@@ -5,55 +5,6 @@ import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 import { createEditorView } from '../createEditorView';
 import { padCellContent, resolveLogicalCell } from './tableGeometry';
 
-// ============================================================
-// TEMP DIAGNOSTIC — Tauri/WKWebView table-typing-reversal investigation.
-// Not a fix, no behavior change: every addition below is a console.log or
-// a listener that only logs. Remove this whole block (and the matching
-// block in tableWidget.ts) once the investigation concludes.
-// ============================================================
-function __diagLogUpdate(update: ViewUpdate): void {
-  // eslint-disable-next-line no-console
-  console.log('[TABLE-DIAG] nested EditorView.update', {
-    docChanged: update.docChanged,
-    selectionSet: update.selectionSet,
-    selection: update.state.selection.main,
-    changes: update.changes.toString(),
-    text: update.state.doc.toString(),
-  });
-}
-
-function __diagInstallInputCapture(nestedView: EditorView): void {
-  // Phase 6: on the next native 'input' event, before CM6's own
-  // (bubble-phase, target-registered) handling processes it — a
-  // capture-phase listener on `document` runs during the capture
-  // traversal, strictly before the event reaches the target and before
-  // any bubble-phase listener CM6 itself registered on contentDOM.
-  document.addEventListener(
-    'input',
-    (event) => {
-      if (!(event.target instanceof Node) || !nestedView.contentDOM.contains(event.target)) {
-        return;
-      }
-      const nativeSelection = document.getSelection();
-      // eslint-disable-next-line no-console
-      console.log('[TABLE-DIAG] phase6-native-input-capture (before CM6 processes)', {
-        anchorNode: nativeSelection?.anchorNode ?? null,
-        anchorOffset: nativeSelection?.anchorOffset ?? null,
-        focusNode: nativeSelection?.focusNode ?? null,
-        focusOffset: nativeSelection?.focusOffset ?? null,
-        // Still the *pre*-this-input nested state — CM6 hasn't processed
-        // the event yet at capture time.
-        nestedSelectionBeforeProcessing: nestedView.state.selection.main,
-        textBeforeProcessing: nestedView.state.doc.toString(),
-      });
-    },
-    { capture: true }
-  );
-}
-// ============================================================
-// END TEMP DIAGNOSTIC (imports/helpers)
-// ============================================================
-
 /**
  * Tags a root transaction as forwarded from the active cell's own nested
  * editor — lets `reconcileNestedFromRoot` (below) tell "this change came
@@ -213,13 +164,11 @@ export class TableActiveCellController {
             },
           ]),
           EditorView.updateListener.of((update) => {
-            __diagLogUpdate(update); // TEMP DIAGNOSTIC
             this.forwardToRoot(rootView, update);
           }),
           ...this.nestedExtensions,
         ],
       });
-      __diagInstallInputCapture(this.nestedViewInstance); // TEMP DIAGNOSTIC
       this.nestedViewInstance.dispatch({ selection: { anchor: caret } });
     } else {
       if (this.nestedViewInstance.dom.parentElement !== container) {
@@ -304,8 +253,6 @@ export class TableActiveCellController {
     }
     this.forwarding = true;
     try {
-      // eslint-disable-next-line no-console
-      console.log('[TABLE-DIAG] forwardToRoot → root.dispatch', { rawFrom, rawTo, replacement }); // TEMP DIAGNOSTIC
       rootView.dispatch({
         changes: { from: rawFrom, to: rawTo, insert: replacement },
         annotations: [tableCellForward.of(true)],
