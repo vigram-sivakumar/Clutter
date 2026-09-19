@@ -24,6 +24,7 @@
 .cm-table-row-handle {
   position: absolute;
   transform: translate(-50%, -50%);
+  cursor: pointer;
 }
 
 .cm-table-column-handle-hit,

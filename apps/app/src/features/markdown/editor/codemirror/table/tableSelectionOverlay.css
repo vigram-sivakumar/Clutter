@@ -1,0 +1,34 @@
+/*
+ * Column/row/range selection outline (tableSelectionOverlay.ts) — a
+ * single, absolutely-positioned overlay element per selected region,
+ * never a border/box-shadow applied to each selected cell individually
+ * (that reads as a grid of cell borders, not one outline around the
+ * region, and cannot cleanly extend to a rectangular multi-cell range
+ * later). `box-sizing: border-box` so this element's own `border` is
+ * drawn *inside* the `left/top/width/height` box `tableSelectionOverlay.ts`
+ * computes from the actual cell geometry, landing exactly on the existing
+ * grid line instead of one pixel outside it. `pointer-events: none` —
+ * this is a pure visual layer; every real interaction (cell clicks, the
+ * column/row handles) is still owned entirely by the real `<td>`/`<th>`
+ * elements and the handle overlay underneath/beside it.
+ *
+ * Starts `visibility: hidden` — `tableSelectionOverlay.ts`'s own
+ * `createTableSelectionOverlay()` appends this element before it can be
+ * measured/positioned (real layout doesn't exist until the widget is
+ * actually attached to the document, per that file's own doc comment),
+ * so there is a real gap between "appended" and "positioned"; hidden
+ * avoids a one-frame flash at the element's own default (near-zero) box
+ * during that gap. `positionColumnSelectionOverlay()` adds
+ * `.cm-table-selection-overlay-visible` once it has computed real
+ * geometry.
+ */
+.cm-table-selection-overlay {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--border-focus);
+  pointer-events: none;
+  visibility: hidden;
+}
+.cm-table-selection-overlay.cm-table-selection-overlay-visible {
+  visibility: visible;
+}

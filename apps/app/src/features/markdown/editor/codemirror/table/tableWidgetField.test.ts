@@ -5,6 +5,8 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { TableActiveCellController } from './tableActiveCellController';
+import { findAllTables } from './tableGeometry';
+import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 function mountView(doc: string, controller?: TableActiveCellController): EditorView {
@@ -13,6 +15,16 @@ function mountView(doc: string, controller?: TableActiveCellController): EditorV
   const state = EditorState.create({
     doc,
     extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller)],
+  });
+  return new EditorView({ state, parent });
+}
+
+function mountViewWithSelectionField(doc: string, controller?: TableActiveCellController): EditorView {
+  const parent = document.createElement('div');
+  document.body.appendChild(parent);
+  const state = EditorState.create({
+    doc,
+    extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller), tableSelectionField],
   });
   return new EditorView({ state, parent });
 }
@@ -225,5 +237,69 @@ describe('tableWidgetField — controller.remapActiveAnchor wiring (M2)', () => 
     const view = mountView(BASIC_TABLE);
 
     expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
+  });
+});
+
+describe('tableWidgetField — column-selection overlay (tableSelectionOverlay.ts)', () => {
+  it('renders exactly one overlay element inside .cm-table-scroll (not .cm-table-wrapper) when a column is selected', () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+
+    const overlays = view.dom.querySelectorAll('.cm-table-selection-overlay');
+    expect(overlays).toHaveLength(1);
+    const overlay = overlays[0]!;
+    const scroll = view.dom.querySelector('.cm-table-scroll')!;
+    expect(scroll.contains(overlay)).toBe(true);
+    // Specifically not a direct child of .cm-table-wrapper — the whole
+    // point of this milestone's own coordinate-space choice (see
+    // tableSelectionOverlay.ts's own doc comment).
+    const wrapper = view.dom.querySelector('.cm-table-wrapper')!;
+    expect(Array.from(wrapper.children)).not.toContain(overlay);
+  });
+
+  it('renders no overlay when no column is selected', () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
+  });
+
+  it('renders no overlay for a row selection (this milestone implements the column outline only)', () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
+  });
+
+  it('the overlay is removed again once the selection is cleared', () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
+  });
+
+  // `pointer-events: none` itself lives in tableSelectionOverlay.css, not
+  // set inline by tableSelectionOverlay.ts — jsdom's test environment
+  // doesn't apply imported stylesheet CSS at all (confirmed directly:
+  // this exact assertion read the initial/default computed value
+  // regardless of the real rule), so this is verified by direct
+  // inspection of that CSS file and by the manual live-browser
+  // verification pass instead, not a DOM-level test here.
+
+  it('a selection in a different table (multi-table document) does not render an overlay in an unrelated table', () => {
+    const doc = `${BASIC_TABLE}\n\nBetween.\n\n${BASIC_TABLE}`;
+    const view = mountViewWithSelectionField(doc);
+    const secondTable = findAllTables(view.state)[1]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: secondTable.from, columnIndex: 0 }) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+    const widgets = Array.from(view.dom.querySelectorAll('.cm-table-widget'));
+    expect(widgets[0]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
+    expect(widgets[1]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
   });
 });

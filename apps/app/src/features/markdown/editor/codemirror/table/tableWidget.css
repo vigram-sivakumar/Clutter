@@ -28,6 +28,7 @@
    * update. */
   --cm-table-border-width: 1px;
   border: var(--cm-table-border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
   /* Anchor for the column/row hover-handle overlay (`tableHandleOverlay.ts`)
    * — its handles are absolutely-positioned children of this element so
    * they can extend past its own border without affecting table layout.
@@ -45,9 +46,19 @@
  * that rule's own comment above — the actual scrolling behavior for a
  * table wider than its container is unchanged, just moved one level
  * deeper so it can no longer clip the handle overlay anchored on the
- * wrapper. */
+ * wrapper. Also the positioning context for the column/row/range
+ * selection outline (`tableSelectionOverlay.ts`) — deliberately here, not
+ * on `.cm-table-wrapper` the way the hover-handle overlay's own
+ * `position: relative` is: that overlay must scroll *together* with
+ * `<table>` itself (this milestone's own explicit requirement, unlike
+ * the hover handles' accepted "stays pinned during scroll" trade-off),
+ * which only happens for an absolutely-positioned element that is a
+ * fellow child of this same scrolling container — see
+ * `tableSelectionOverlay.ts`'s own doc comment for the full coordinate-
+ * space reasoning. */
 .cm-editor .cm-table-scroll {
   overflow-x: auto;
+  position: relative;
 }
 
 /* Whole-table Backspace/Delete (`tableDeletionSelection.ts`) — a first
@@ -200,47 +211,17 @@
 
 /* Minimal, obvious rendering for `TableSelection` (tableSelection.ts) —
  * deliberately not the final visual treatment (this milestone's own
- * scope is state + wiring, not design). Reuses the same
- * `--selection-surface` token the whole-table halo already uses
- * (`.cm-table-wrapper-selected` above) rather than inventing a second
- * "selected" color for this milestone's own placeholder purposes. */
+ * scope is state + wiring, not design). The *outline* around a selected
+ * column used to live here too, as a per-cell `box-shadow: inset` — moved
+ * to a single overlay element (`tableSelectionOverlay.ts`/`.css`)
+ * instead, specifically because a row outline and a rectangular
+ * multi-cell range (both planned) can't be expressed as per-cell styling
+ * without becoming exactly the "grid of individual cell borders" that
+ * approach reads as, rather than one outline around the region. This
+ * rule now owns only the background. */
 .cm-editor .cm-table-wrapper td.cm-table-column-selected,
 .cm-editor .cm-table-wrapper th.cm-table-column-selected,
 .cm-editor .cm-table-wrapper tr.cm-table-row-selected > td,
 .cm-editor .cm-table-wrapper tr.cm-table-row-selected > th {
-  background: var(--selection-surface);
-}
-
-/* A continuous outline around the whole *selected column* (not a border
- * per individual cell, which would read as a grid rather than one
- * outline) — `box-shadow: inset`, not `border`, so it never disturbs the
- * existing `border-right`/`border-bottom` grid lines (`th`/`td`'s own
- * rule above) or the table's box model/layout. Three declarations
- * because the column's own top/bottom caps only belong on its first
- * (header) and last (final body row) cells — every cell in between only
- * needs its left/right sides. `tbody tr:last-child` (not a plain
- * `:last-child` across the whole table) because `thead`/`tbody` are
- * separate parents; a table always has a body row by the time it's
- * activated (`tableActivationNormalization.ts` seeds one), so this is
- * never reached for a header-only table in practice. `var(--border-focus)`
- * — the same token `--shadow-inset-focus` (the whole-table halo, above)
- * already builds on, for a consistent "this is the focused/selected
- * thing" color family rather than a third one-off color. */
-.cm-editor .cm-table-wrapper td.cm-table-column-selected,
-.cm-editor .cm-table-wrapper th.cm-table-column-selected {
-  box-shadow:
-    inset 1px 0 0 0 var(--border-focus),
-    inset -1px 0 0 0 var(--border-focus);
-}
-.cm-editor .cm-table-wrapper thead th.cm-table-column-selected {
-  box-shadow:
-    inset 1px 0 0 0 var(--border-focus),
-    inset -1px 0 0 0 var(--border-focus),
-    inset 0 1px 0 0 var(--border-focus);
-}
-.cm-editor .cm-table-wrapper tbody tr:last-child td.cm-table-column-selected {
-  box-shadow:
-    inset 1px 0 0 0 var(--border-focus),
-    inset -1px 0 0 0 var(--border-focus),
-    inset 0 -1px 0 0 var(--border-focus);
+  background: transparent;
 }

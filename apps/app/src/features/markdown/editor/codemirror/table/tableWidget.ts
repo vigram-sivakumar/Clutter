@@ -5,6 +5,7 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
+import { createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
 
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
   left: 'cm-table-widget-align-left',
@@ -298,6 +299,33 @@ export class TableWidget extends WidgetType {
     // everything else that has no meaning in a permanently read-only view.
     if (this.controller) {
       attachTableHandleOverlay(tableWrapper, this.headerCells.length, view, this.controller, this.tableFrom);
+    }
+
+    // Column-selection outline (this milestone's own scope — row and
+    // range outlines land later, reusing this exact same overlay
+    // mechanism against a differently-shaped rectangle). Appended into
+    // `tableScroll`, not `tableWrapper` — see `tableSelectionOverlay.ts`'s
+    // own doc comment for why it must live inside the scrolling container
+    // rather than beside it the way the hover-handle overlay does.
+    //
+    // Created synchronously here, but *positioned* only via a deferred
+    // microtask — exactly the same "not yet attached to the live
+    // document" constraint this method's own `wasFocused` block already
+    // documents and works around below: `getBoundingClientRect()` on any
+    // cell in this still-detached subtree would return a meaningless
+    // rect. `overlay.isConnected` re-checked at fire time for the same
+    // reason `wasFocused`'s own microtask re-checks its own condition —
+    // a second, unrelated rebuild landing before this microtask runs
+    // would have already discarded this exact overlay instance.
+    if (this.selectedColumnIndex !== null) {
+      const overlay = createTableSelectionOverlay();
+      tableScroll.appendChild(overlay);
+      const selectedColumnIndex = this.selectedColumnIndex;
+      queueMicrotask(() => {
+        if (overlay.isConnected) {
+          positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
+        }
+      });
     }
 
     if (wasFocused) {
