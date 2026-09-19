@@ -90,8 +90,9 @@
 .cm-editor .cm-table-wrapper td {
   border-bottom: 1px solid var(--border-default);
   border-right: 1px solid var(--border-default);
-  padding: var(--space-8) var(--space-12);
+  padding: var(--space-6) var(--space-12);
   font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
   text-align: left;
   vertical-align: top;
   /* `height` on a table cell, not `min-height` — per the CSS table
@@ -104,7 +105,7 @@
    * 36px on its own and looked fine — `height` fixes the empty/short-
    * content case without capping a taller row.
    */
-  height: 36px;
+  /* min-height: calc(1lh + var(--space-6)); */
 }
 
 .cm-editor .cm-table-wrapper th:last-child,
@@ -136,12 +137,46 @@
    * handled at the `<th>`/`<td>` level directly (`tableWidget.ts`'s own
    * click handler is attached to `element`, not `wrapper`, for exactly
    * this reason) — this rule is purely cosmetic now.
+   *
+   * `var(--lh-body-small)` (24px), not `1.2em` (16.8px at this table's
+   * 14px font) — matching the `th`/`td` rule's own `line-height` exactly,
+   * not an arbitrary smaller multiple of the font size. A cell with real
+   * text already renders at the full 24px line-height regardless of this
+   * floor (line-height, not this `min-height`, governs it), so only an
+   * *empty* cell ever actually rests on this floor — with the old 16.8px
+   * value, an empty cell collapsed shorter than every other cell in its
+   * own row the moment it deactivated, then grew back to 24px the instant
+   * its nested editor (which uses real line-height, never this floor)
+   * mounted — confirmed live-measured (28.8px inactive vs. 36px active
+   * for the same empty cell, before this fix). Matching the token removes
+   * that jump: an empty cell now occupies the same height activated or
+   * not.
    */
-  min-height: 1.2em;
+  min-height: var(--lh-body-small);
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper .cm-editor {
   outline: none;
+}
+
+/* The active cell's own nested `EditorView` (`TableActiveCellController`,
+ * mounted via the same `createEditorView()` factory the root document
+ * editor uses — `tableActiveCellController.ts`) inherits
+ * `MarkdownEditor.css`'s `.markdown__editor .cm-content` rule
+ * (`font-size: var(--cm-content)` / `line-height: var(--lh-cm-content)` —
+ * 16px/1.5, the *root document's* own body text size), since that
+ * selector matches any `.cm-content` in the DOM, nested ones included —
+ * it has no way to know this particular `.cm-content` belongs to a table
+ * cell. Every *inactive* cell (`th`/`td`'s own rule, above) renders at
+ * this table's smaller `--text-body-small`/`--lh-body-small` instead, so
+ * without this override a row visibly grows while one of its cells is
+ * active and shrinks back the instant it deactivates — confirmed
+ * directly (32.8px inactive vs. 41px active, live-measured). Matching the
+ * inactive rule's own tokens exactly here removes that size mismatch
+ * (and the row-height jump it caused) without changing either value. */
+.cm-editor .cm-table-wrapper .cm-table-cell-wrapper .cm-editor .cm-content {
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
 }
 
 .cm-editor .cm-table-widget-align-center {
