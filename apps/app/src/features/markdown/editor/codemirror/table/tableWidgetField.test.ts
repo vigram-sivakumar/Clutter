@@ -30,6 +30,14 @@ function mountViewWithSelectionField(doc: string, controller?: TableActiveCellCo
 }
 
 const BASIC_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |';
+// Three body rows, `getNavigableRows` indices 1/2/3 (header is 0) — used
+// by the row-selection overlay tests below, which need more than
+// `BASIC_TABLE`'s own single body row to exercise "select a different
+// row" and "switch back and forth" scenarios.
+const MULTI_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |';
+// Row index 2 (the second body row) is ragged — only one of the header's
+// two columns — for the row-selection ragged-row test below.
+const RAGGED_ROW_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 |\n| 5 | 6 |';
 
 describe('tableWidgetField — basic table', () => {
   it('renders a real <table> element, hiding every pipe delimiter', () => {
@@ -264,14 +272,6 @@ describe('tableWidgetField — column-selection overlay (tableSelectionOverlay.t
     expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
   });
 
-  it('renders no overlay for a row selection (this milestone implements the column outline only)', () => {
-    const view = mountViewWithSelectionField(BASIC_TABLE);
-    const table = findAllTables(view.state)[0]!;
-    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
-
-    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
-  });
-
   it('the overlay is removed again once the selection is cleared', () => {
     const view = mountViewWithSelectionField(BASIC_TABLE);
     const table = findAllTables(view.state)[0]!;
@@ -301,6 +301,124 @@ describe('tableWidgetField — column-selection overlay (tableSelectionOverlay.t
     const widgets = Array.from(view.dom.querySelectorAll('.cm-table-widget'));
     expect(widgets[0]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
     expect(widgets[1]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+  });
+});
+
+describe('tableWidgetField — row-selection overlay (tableSelectionOverlay.ts)', () => {
+  it('renders exactly one overlay element inside .cm-table-scroll when a row is selected', () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
+
+    const overlays = view.dom.querySelectorAll('.cm-table-selection-overlay');
+    expect(overlays).toHaveLength(1);
+    const scroll = view.dom.querySelector('.cm-table-scroll')!;
+    expect(scroll.contains(overlays[0]!)).toBe(true);
+  });
+
+  it('overlay geometry matches the selected row\'s own actual rendered cells (not the whole table)', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
+
+    // The widget's own DOM (table/rows/cells) is built synchronously
+    // inside `dispatch()` above — only the overlay's *positioning* is
+    // deferred to a microtask (`TableWidget.toDOM()`'s own
+    // `queueMicrotask`) — so mocking geometry here, before awaiting,
+    // lands before that deferred positioning pass actually reads it.
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    // rowIndex 2 → getNavigableRows convention (header = 0) → the second
+    // body row → tBodies[0].rows[1] (the "3 | 4" row).
+    const selectedRow = tableEl.tBodies[0]!.rows[1]!;
+    const otherRow = tableEl.tBodies[0]!.rows[0]!;
+
+    mockRect(scrollEl, { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300 });
+    mockRect(selectedRow.cells[0]!, { left: 0, top: 40, right: 100, bottom: 70, width: 100, height: 30 });
+    mockRect(selectedRow.cells[1]!, { left: 100, top: 40, right: 200, bottom: 70, width: 100, height: 30 });
+    mockRect(otherRow.cells[0]!, { left: 0, top: 0, right: 100, bottom: 40, width: 100, height: 40 });
+
+    await Promise.resolve();
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+
+    expect(overlay.style.left).toBe('0px');
+    expect(overlay.style.top).toBe('40px');
+    expect(overlay.style.width).toBe('200px'); // spans both of the selected row's own cells
+    expect(overlay.style.height).toBe('30px'); // the selected row's own height, not otherRow's
+  });
+
+  it('a ragged row (fewer cells than the header) is outlined only across its own rendered cells', async () => {
+    const view = mountViewWithSelectionField(RAGGED_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    // rowIndex 2 → the ragged "| 3 |" row → tBodies[0].rows[1], one cell.
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const raggedRow = tableEl.tBodies[0]!.rows[1]!;
+    expect(raggedRow.cells).toHaveLength(1);
+
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    mockRect(scrollEl, { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300 });
+    mockRect(raggedRow.cells[0]!, { left: 0, top: 40, right: 100, bottom: 70, width: 100, height: 30 });
+
+    await Promise.resolve();
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+
+    // Only as wide as the ragged row's own single rendered cell, never
+    // stretched out to the header's full two-column width.
+    expect(overlay.style.width).toBe('100px');
+  });
+
+  it('never renders both a column and a row overlay at once (mutually exclusive by TableSelection\'s own kind)', () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+  });
+
+  it('the overlay is removed again once a row selection is cleared', () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
+  });
+});
+
+describe('tableWidgetField — column ↔ row overlay switching', () => {
+  it('switching from a column selection to a row selection replaces the overlay with row geometry', () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+
+    // Still exactly one overlay element — the column overlay was replaced
+    // (a fresh `TableWidget` instance, per `eq()`'s own
+    // `selectedColumnIndex`/`selectedRowIndex` comparison), not
+    // accumulated alongside a second one.
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+    const tr = view.dom.querySelector('tbody tr')!;
+    expect(tr.classList.contains('cm-table-row-selected')).toBe(true);
+  });
+
+  it('switching from a row selection to a column selection replaces the overlay with column geometry', () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 1 }) });
+
+    expect(view.dom.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+    const headerCells = view.dom.querySelectorAll('thead th');
+    expect(headerCells[1]!.classList.contains('cm-table-column-selected')).toBe(true);
+    expect(headerCells[0]!.classList.contains('cm-table-column-selected')).toBe(false);
   });
 });
 
@@ -486,6 +604,118 @@ describe('tableWidgetField — column-selection overlay resize responsiveness', 
     // Same scroll-independent conversion the previous milestone's own
     // tests already verify for `positionColumnSelectionOverlay` directly
     // — this just confirms the resize path reuses it, not a second one.
+    expect(overlay.style.left).toBe('50px');
+  });
+});
+
+describe('tableWidgetField — row-selection overlay resize responsiveness', () => {
+  let originalResizeObserver: typeof ResizeObserver | undefined;
+
+  beforeEach(() => {
+    originalResizeObserver = globalThis.ResizeObserver;
+    MockResizeObserver.instances = [];
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+  });
+
+  afterEach(() => {
+    globalThis.ResizeObserver = originalResizeObserver as typeof ResizeObserver;
+  });
+
+  // Same identification strategy as the column describe block's own
+  // `ourObserver` above (CM6's own internal `DOMObserver` also constructs
+  // a `MockResizeObserver` while this mock is installed — see that
+  // block's own doc comment) — duplicated rather than shared across
+  // `describe` blocks to keep each block's own setup self-contained,
+  // matching this file's existing style.
+  function ourObserver(table: Element): MockResizeObserver | undefined {
+    return MockResizeObserver.instances.find((o) => o.observed.includes(table));
+  }
+
+  it('observes the real, currently-attached <table> element for a row selection', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    await Promise.resolve();
+
+    const tableEl = view.dom.querySelector('table')!;
+    expect(ourObserver(tableEl)).toBeDefined();
+  });
+
+  it('re-measures the row overlay against the current cell geometry when the observer fires (simulated resize/row-height change)', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
+    await Promise.resolve();
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const scrollEl = view.dom.querySelector('.cm-table-scroll')!;
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+    const selectedRow = tableEl.tBodies[0]!.rows[1]!; // rowIndex 2 → second body row
+
+    // Simulates a row-height change (e.g. a cell's content wrapped to a
+    // second line) — different numbers than jsdom's own default all-zero
+    // rects the initial positioning pass used.
+    mockRect(scrollEl, { left: 0, top: 0, right: 500, bottom: 300, width: 500, height: 300 });
+    mockRect(selectedRow.cells[0]!, { left: 10, top: 45, right: 110, bottom: 85, width: 100, height: 40 });
+    mockRect(selectedRow.cells[1]!, { left: 110, top: 45, right: 210, bottom: 85, width: 100, height: 40 });
+
+    ourObserver(tableEl)!.trigger();
+
+    expect(overlay.style.left).toBe('10px');
+    expect(overlay.style.top).toBe('45px');
+    expect(overlay.style.width).toBe('200px');
+    expect(overlay.style.height).toBe('40px');
+  });
+
+  it('disconnects the old observer when selecting a different row replaces the widget', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    await Promise.resolve();
+    const firstTableEl = view.dom.querySelector('table')!;
+    const firstObserver = ourObserver(firstTableEl)!;
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
+
+    expect(firstObserver.disconnected).toBe(true);
+    const secondTableEl = view.dom.querySelector('table')!;
+    const secondObserver = ourObserver(secondTableEl);
+    expect(secondObserver).toBeDefined();
+    expect(secondObserver!.disconnected).toBe(false);
+  });
+
+  it('disconnects the observer when a row selection is cleared entirely', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    await Promise.resolve();
+    const tableEl = view.dom.querySelector('table')!;
+    const active = ourObserver(tableEl)!;
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(active.disconnected).toBe(true);
+  });
+
+  it('a row selection continues to track horizontal scroll (same coordinate-space formula as column selection)', async () => {
+    const view = mountViewWithSelectionField(MULTI_ROW_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+    await Promise.resolve();
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+    const selectedRow = tableEl.tBodies[0]!.rows[0]!;
+
+    mockRect(scrollEl, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    mockRect(selectedRow.cells[0]!, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    mockRect(selectedRow.cells[1]!, { left: 100, top: 0, right: 200, bottom: 20, width: 100, height: 20 });
+    scrollEl.scrollLeft = 50;
+
+    ourObserver(tableEl)!.trigger();
+
     expect(overlay.style.left).toBe('50px');
   });
 });

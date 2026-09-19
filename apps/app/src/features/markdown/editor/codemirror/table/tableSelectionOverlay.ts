@@ -157,6 +157,68 @@ export function positionColumnSelectionOverlay(
 }
 
 /**
+ * Measures `table`'s own `selectedRowIndex` row and positions `overlay`
+ * to outline it, then reveals it — the row-selection sibling of
+ * `positionColumnSelectionOverlay` above; same overlay element, same
+ * `.cm-table-scroll` coordinate space, same deferred-call/`isConnected`
+ * contract (see that function's own doc comment for both — not repeated
+ * here). Does nothing (leaves `overlay` invisible) if `selectedRowIndex`
+ * doesn't resolve to a real rendered `<tr>` — defensive only, for the same
+ * reason `positionColumnSelectionOverlay`'s own header-cell check is:
+ * `tableSelection.ts`'s own remap logic already validates the row exists
+ * before this can be reached.
+ *
+ * **`selectedRowIndex` → DOM row.** `getNavigableRows(table)`'s own
+ * convention (`tableSelection.ts`, `TableWidget`'s own doc comments) is
+ * header = index 0, first body row = index 1, and so on — never a second,
+ * independent row-index system. `table.tBodies[0].rows` is exactly that
+ * same body-row sequence in the same document order
+ * (`TableWidget.toDOM()`'s own `bodyRows.forEach` builds `<tr>`s in that
+ * order), offset by one for the header, hence `selectedRowIndex - 1`.
+ *
+ * **Ragged rows — simpler here than the column case.** A row selection
+ * only ever needs *that one row's* own rendered cells, and `row.cells`
+ * already contains only the cells actually rendered for it (GFM tolerates
+ * a data row with fewer cells than the header — `TableWidget`'s own doc
+ * comment: "rendered as-is, no padding to a rectangular grid") — no
+ * cross-row search is needed the way the column function's own "walk
+ * backward to find the last row that has this column" is, since every
+ * cell under consideration already belongs to the one selected row.
+ * `row.cells[0]`/`row.cells[row.cells.length - 1]` are simply that row's
+ * own first and last actually-rendered cells, whatever their count.
+ *
+ * **Height from the first cell alone.** Every cell within the same `<tr>`
+ * renders at that row's own shared height by definition (a table row's
+ * height is however tall its tallest cell is, and every cell box
+ * stretches to fill it) — `firstRect`'s own top/bottom already describe
+ * the whole row's vertical extent; a second measurement from `lastCell`
+ * would only re-derive the identical values.
+ */
+export function positionRowSelectionOverlay(
+  overlay: HTMLElement,
+  scrollContainer: HTMLElement,
+  table: HTMLTableElement,
+  selectedRowIndex: number
+): void {
+  const row = table.tBodies[0]?.rows[selectedRowIndex - 1];
+  const firstCell = row?.cells[0];
+  const lastCell = row?.cells[row.cells.length - 1];
+  if (!row || !firstCell || !lastCell) {
+    return;
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const firstRect = firstCell.getBoundingClientRect();
+  const lastRect = lastCell.getBoundingClientRect();
+
+  overlay.style.left = `${firstRect.left - containerRect.left + scrollContainer.scrollLeft}px`;
+  overlay.style.top = `${firstRect.top - containerRect.top + scrollContainer.scrollTop}px`;
+  overlay.style.width = `${lastRect.right - firstRect.left}px`;
+  overlay.style.height = `${firstRect.height}px`;
+  overlay.classList.add(VISIBLE_CLASS);
+}
+
+/**
  * Re-invalidates the overlay's own geometry whenever `table`'s own
  * rendered box changes size — a window resize, a container reflow, or a
  * row growing/shrinking (typed content wrapping to another line) all

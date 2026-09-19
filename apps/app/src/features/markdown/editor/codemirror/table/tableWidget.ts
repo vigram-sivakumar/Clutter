@@ -5,7 +5,12 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
-import { attachTableSelectionOverlayResize, createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
+import {
+  attachTableSelectionOverlayResize,
+  createTableSelectionOverlay,
+  positionColumnSelectionOverlay,
+  positionRowSelectionOverlay,
+} from './tableSelectionOverlay';
 
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
   left: 'cm-table-widget-align-left',
@@ -143,9 +148,9 @@ export class TableWidget extends WidgetType {
   }
 
   /**
-   * The column-selection overlay's own `ResizeObserver` (this milestone —
-   * "make table selection overlay responsive to container resize"), when
-   * this instance has a selected column at all — `null` otherwise, and
+   * The column/row-selection overlay's own `ResizeObserver` ("make table
+   * selection overlay responsive to container resize"), when this
+   * instance has a selected column *or* row at all — `null` otherwise, and
    * `null` again once `destroy()` has torn it down. One per `TableWidget`
    * instance (never shared/reused across rebuilds, matching how
    * `tableActiveCellController.nestedView`'s own DOM is instead the thing
@@ -318,12 +323,12 @@ export class TableWidget extends WidgetType {
       attachTableHandleOverlay(tableWrapper, this.headerCells.length, view, this.controller, this.tableFrom);
     }
 
-    // Column-selection outline (this milestone's own scope — row and
-    // range outlines land later, reusing this exact same overlay
-    // mechanism against a differently-shaped rectangle). Appended into
-    // `tableScroll`, not `tableWrapper` — see `tableSelectionOverlay.ts`'s
-    // own doc comment for why it must live inside the scrolling container
-    // rather than beside it the way the hover-handle overlay does.
+    // Column/row-selection outline (range outlines land later, reusing
+    // this exact same overlay mechanism against a differently-shaped
+    // rectangle). Appended into `tableScroll`, not `tableWrapper` — see
+    // `tableSelectionOverlay.ts`'s own doc comment for why it must live
+    // inside the scrolling container rather than beside it the way the
+    // hover-handle overlay does.
     //
     // Created synchronously here, but *positioned* only via a deferred
     // microtask — exactly the same "not yet attached to the live
@@ -344,11 +349,27 @@ export class TableWidget extends WidgetType {
     // can never legitimately run twice on the same instance.
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
-    if (this.selectedColumnIndex !== null) {
+    // `selectedColumnIndex`/`selectedRowIndex` are already mutually
+    // exclusive by construction (`tableWidgetField.ts`'s own
+    // `buildTableWidgetRange` derives each from the same single
+    // `TableSelection`'s own `kind`, never both from one selection) — one
+    // overlay element serves whichever is currently set, `measure` simply
+    // dispatching to that kind's own positioning function. Still exactly
+    // one geometry code path per call, matching
+    // `attachTableSelectionOverlayResize`'s own "no second geometry
+    // mechanism" contract.
+    if (this.selectedColumnIndex !== null || this.selectedRowIndex !== null) {
       const overlay = createTableSelectionOverlay();
       tableScroll.appendChild(overlay);
       const selectedColumnIndex = this.selectedColumnIndex;
-      const measure = (): void => positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
+      const selectedRowIndex = this.selectedRowIndex;
+      const measure = (): void => {
+        if (selectedColumnIndex !== null) {
+          positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
+        } else if (selectedRowIndex !== null) {
+          positionRowSelectionOverlay(overlay, tableScroll, table, selectedRowIndex);
+        }
+      };
       queueMicrotask(() => {
         if (overlay.isConnected) {
           measure();

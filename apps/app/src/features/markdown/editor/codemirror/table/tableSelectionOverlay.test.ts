@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { attachTableSelectionOverlayResize, createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
+import {
+  attachTableSelectionOverlayResize,
+  createTableSelectionOverlay,
+  positionColumnSelectionOverlay,
+  positionRowSelectionOverlay,
+} from './tableSelectionOverlay';
 
 /**
  * jsdom has no real layout engine — every `getBoundingClientRect()` call
@@ -133,6 +138,86 @@ describe('positionColumnSelectionOverlay — geometry', () => {
 
     expect(overlay.style.height).toBe('20px');
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+});
+
+describe('positionRowSelectionOverlay — geometry', () => {
+  it('derives left/top/width/height from the selected row\'s own first and last rendered cells', () => {
+    const { scrollContainer, table } = buildTable(3, [3, 3]);
+    mockRect(scrollContainer, { left: 100, top: 50, right: 500, bottom: 300, width: 400, height: 250 });
+    scrollContainer.scrollLeft = 0;
+    scrollContainer.scrollTop = 0;
+    // selectedRowIndex 2 → getNavigableRows convention (header = 0) → the
+    // second body row → table.tBodies[0].rows[1].
+    const row = table.tBodies[0]!.rows[1]!;
+    mockRect(row.cells[0]!, { left: 233, top: 120, right: 366, bottom: 150, width: 133, height: 30 });
+    mockRect(row.cells[2]!, { left: 366, top: 120, right: 499, bottom: 150, width: 133, height: 30 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 2);
+
+    expect(overlay.style.left).toBe(`${233 - 100}px`);
+    expect(overlay.style.top).toBe(`${120 - 50}px`);
+    expect(overlay.style.width).toBe(`${499 - 233}px`); // first cell's left to last cell's right
+    expect(overlay.style.height).toBe('30px');
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+
+  it('adds the scroll container\'s current scrollLeft/scrollTop to produce a scroll-independent content offset', () => {
+    const { scrollContainer, table } = buildTable(2, [1]);
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    scrollContainer.scrollLeft = 50;
+    scrollContainer.scrollTop = 10;
+    const row = table.tBodies[0]!.rows[0]!;
+    mockRect(row.cells[0]!, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 1);
+
+    expect(overlay.style.left).toBe('50px');
+    expect(overlay.style.top).toBe('30px');
+  });
+
+  it('leaves the overlay unpositioned and invisible when selectedRowIndex has no rendered <tr> (e.g. the header, or an out-of-range index)', () => {
+    const { scrollContainer, table } = buildTable(2, [2]);
+    const overlay = createTableSelectionOverlay();
+
+    // 0 is the header's own index in `getNavigableRows` convention — never
+    // a valid body-row selection, and `table.tBodies[0].rows[-1]` resolves
+    // to `undefined`, exactly like a genuinely out-of-range index would.
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 0);
+
+    expect(overlay.style.left).toBe('');
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+  });
+
+  it('a ragged row (fewer cells than the header) is outlined only across its own actually-rendered cells', () => {
+    const { scrollContainer, table } = buildTable(3, [1]); // one body row, ragged: only 1 of 3 columns
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const row = table.tBodies[0]!.rows[0]!;
+    mockRect(row.cells[0]!, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 1);
+
+    // Both "first" and "last" resolve to the row's own single cell — no
+    // attempt to stretch the outline out to the header's full 3-column
+    // width.
+    expect(overlay.style.width).toBe('100px');
+  });
+
+  it('a single-cell row still produces a valid rectangle (first and last cell are the same element)', () => {
+    const { scrollContainer, table } = buildTable(1, [1]);
+    mockRect(scrollContainer, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    const row = table.tBodies[0]!.rows[0]!;
+    mockRect(row.cells[0]!, { left: 10, top: 5, right: 110, bottom: 25, width: 100, height: 20 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 1);
+
+    expect(overlay.style.left).toBe('10px');
+    expect(overlay.style.width).toBe('100px');
+    expect(overlay.style.height).toBe('20px');
   });
 });
 
