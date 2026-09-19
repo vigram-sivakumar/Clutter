@@ -19,8 +19,6 @@ import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
-// TEMP DIAGNOSTIC — see tableSelectionClickDiagnostics.ts's own doc comment; remove this import alongside its call site once the investigation concludes.
-import { attachTableSelectionClickDiagnostics } from './codemirror/table/tableSelectionClickDiagnostics';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
@@ -1004,18 +1002,6 @@ export const MarkdownEditor = forwardRef<
     // cleanup below, before `tableActiveCellControllerRef.current?.destroy()`.
     const detachTableOutsideClickHandling = attachTableOutsideClickHandling(view, tableActiveCellController);
 
-    // ============================================================
-    // TEMP DIAGNOSTIC — "click outside a table doesn't clear Ctrl+A halo"
-    // investigation. Not a fix, no behavior change — see
-    // tableSelectionClickDiagnostics.ts's own doc comment. Remove this
-    // call (and its detach call below) once the investigation concludes;
-    // do not remove before Test A/Test B logs have been collected.
-    // ============================================================
-    const detachTableSelectionClickDiagnostics = attachTableSelectionClickDiagnostics(view, tableActiveCellController);
-    // ============================================================
-    // END TEMP DIAGNOSTIC (attach)
-    // ============================================================
-
     // Applied after mount, not via createEditorView's own `scrollTo`
     // config (which is scoped to CM6's internal `.cm-scroller` — see
     // `findScrollableAncestor`'s doc comment for why that alone doesn't
@@ -1136,9 +1122,6 @@ export const MarkdownEditor = forwardRef<
       // so it must go first, if only defensively (nothing in this
       // component actually clicks anything during unmount).
       detachTableOutsideClickHandling();
-      // TEMP DIAGNOSTIC (detach) — remove alongside the attach call and
-      // its import once the investigation concludes.
-      detachTableSelectionClickDiagnostics();
       // Destroys the table active-cell controller's own nested EditorView
       // (M5, docs/table-implementation-plan.md, §13) — root `view.destroy()`
       // below has no awareness of it (it's a second, independent
