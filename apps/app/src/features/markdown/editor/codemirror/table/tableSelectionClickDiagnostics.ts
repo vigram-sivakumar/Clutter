@@ -7,49 +7,71 @@ import { tableSelectionField } from './tableSelection';
 // TEMP DIAGNOSTIC — "click outside a table doesn't clear Ctrl+A halo"
 // investigation. Not a fix, no behavior change: every addition here is
 // either a console.log or a listener that only logs. Remove this whole
-// file, its CSS-free import, and its single call site in
-// MarkdownEditor.tsx once the investigation concludes — do NOT remove it
-// before the user has collected both Test A (normal note) and Test B
-// (table note) logs.
+// file, its import, and its two call sites in MarkdownEditor.tsx once the
+// investigation concludes — do NOT remove it before the user has
+// collected the logs they need.
 //
 // Logs a full BEFORE_CLICK / CAPTURE_MOUSEDOWN / BUBBLE_MOUSEDOWN /
 // MOUSEUP / CLICK / SELECTIONCHANGE / AFTER_SETTLE sequence for every
 // physical mousedown gesture anywhere in the document, tagged with a
-// monotonic `click#N` id so a flat, copy-pasted console log still reads
-// as grouped, ordered sequences. Every line is a single
+// monotonic `click#N` id. Every phase now also logs the *native*
+// `document.getSelection()` (rangeCount/isCollapsed/anchor+focus node,
+// each tagged with whether it falls inside `.cm-table-widget`) and, for
+// the two mousedown phases, what CM6's own `view.posAtCoords()` resolves
+// the click's screen coordinates to — directly testing whether the
+// divergence is in the *native* selection collapsing around the table's
+// `contenteditable=false` island, or in CM6's own coordinate-to-position
+// mapping near the block widget. Every line is a single
 // `console.log('[TABLE-CLICK-DIAG] ...')` string (not a raw object arg)
-// specifically so it survives a plain-text copy/paste out of a real
-// WKWebView console without losing structure to `[object Object]`-style
-// truncation.
+// so it survives a plain-text copy/paste out of a real WKWebView console.
 // ============================================================
 
-interface TargetDescription {
-  readonly tag: string;
-  readonly className: string;
-  readonly inEditor: boolean;
-  readonly inContent: boolean;
-  readonly inTableWidget: boolean;
-}
-
-function describeTarget(target: EventTarget | null): TargetDescription {
-  if (!(target instanceof Element)) {
-    return { tag: String(target), className: '', inEditor: false, inContent: false, inTableWidget: false };
+function describeElementLike(el: Element | null): { tag: string; className: string; inTableWidget: boolean; inContent: boolean; inEditor: boolean } {
+  if (!el) {
+    return { tag: '(none)', className: '', inTableWidget: false, inContent: false, inEditor: false };
   }
   return {
-    tag: target.tagName,
-    className: target.className || '(none)',
-    inEditor: !!target.closest('.cm-editor'),
-    inContent: !!target.closest('.cm-content'),
-    inTableWidget: !!target.closest('.cm-table-widget'),
+    tag: el.tagName,
+    className: el.className || '(none)',
+    inTableWidget: !!el.closest('.cm-table-widget'),
+    inContent: !!el.closest('.cm-content'),
+    inEditor: !!el.closest('.cm-editor'),
   };
 }
 
-function describeActiveElement(): string {
-  const el = document.activeElement;
-  if (!el) {
-    return '(none)';
+function describeTarget(target: EventTarget | null): ReturnType<typeof describeElementLike> {
+  return describeElementLike(target instanceof Element ? target : null);
+}
+
+function describeNode(node: Node | null): { kind: string; text: string } & ReturnType<typeof describeElementLike> {
+  if (!node) {
+    return { kind: '(none)', text: '', ...describeElementLike(null) };
   }
-  return `${el.tagName}.${(el.className || '(none)').toString().replace(/\s+/g, '.')}`;
+  if (node.nodeType === Node.TEXT_NODE) {
+    return { kind: '#text', text: (node.textContent ?? '').slice(0, 24), ...describeElementLike(node.parentElement) };
+  }
+  return { kind: 'element', text: '', ...describeElementLike(node as Element) };
+}
+
+function describeNativeSelection(): unknown {
+  const sel = document.getSelection();
+  if (!sel) {
+    return { present: false };
+  }
+  return {
+    present: true,
+    rangeCount: sel.rangeCount,
+    isCollapsed: sel.isCollapsed,
+    type: sel.type,
+    anchor: describeNode(sel.anchorNode),
+    anchorOffset: sel.anchorOffset,
+    focus: describeNode(sel.focusNode),
+    focusOffset: sel.focusOffset,
+  };
+}
+
+function describeActiveElement(): ReturnType<typeof describeElementLike> {
+  return describeElementLike(document.activeElement instanceof Element ? document.activeElement : null);
 }
 
 function describeEditorState(view: EditorView, controller: TableActiveCellController) {
@@ -61,9 +83,30 @@ function describeEditorState(view: EditorView, controller: TableActiveCellContro
   return {
     rootSelection: { from: sel.from, to: sel.to, empty: sel.empty },
     tableSelection,
-    activeCell: anchor ? { from: anchor.from, to: anchor.to, nestedFocused } : null,
+    activeCell: anchor ? { from: anchor.from, to: anchor.to, nestedFocused, nestedConnected: nestedView?.dom.isConnected ?? null } : null,
     haloRendered: document.querySelectorAll('.cm-table-wrapper-selected').length > 0,
+    viewHasFocus: view.hasFocus,
+    nativeSelection: describeNativeSelection(),
+    activeElement: describeActiveElement(),
   };
+}
+
+/** What CM6 itself believes the click's screen coordinates map to — `null` if CM6 can't resolve a position there at all. Directly tests whether a divergence is in CM6's own coordinate mapping near the table widget. */
+function describePosAtCoords(view: EditorView, event: MouseEvent): unknown {
+  try {
+    // `precise: false` (CM6's own naming) always returns a number —
+    // extrapolates/clamps to the nearest position even for a coordinate
+    // far outside any real content. Omitting the second argument
+    // (CM6's "precise" mode) instead returns `null` when it can't
+    // confidently resolve an exact position — the more informative one
+    // for this investigation, since a `null` here would directly confirm
+    // "CM6 itself can't map this click's coordinates to anything."
+    const imprecise = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+    const precise = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    return { precise, imprecise, clientX: event.clientX, clientY: event.clientY };
+  } catch (err) {
+    return { error: String(err) };
+  }
 }
 
 function log(clickId: number, phase: string, payload: unknown): void {
@@ -71,12 +114,14 @@ function log(clickId: number, phase: string, payload: unknown): void {
   console.log(`[TABLE-CLICK-DIAG] click#${clickId} ${phase} ${JSON.stringify(payload)}`);
 }
 
-function logEventFields(clickId: number, phase: string, event: Event): void {
+function logEventFields(clickId: number, phase: string, event: MouseEvent, view: EditorView, includePosAtCoords: boolean): void {
   log(clickId, phase, {
     target: describeTarget(event.target),
     defaultPrevented: event.defaultPrevented,
     cancelBubble: (event as unknown as { cancelBubble: boolean }).cancelBubble,
     activeElement: describeActiveElement(),
+    nativeSelection: describeNativeSelection(),
+    ...(includePosAtCoords ? { posAtCoords: describePosAtCoords(view, event) } : {}),
   });
 }
 
@@ -95,22 +140,22 @@ export function attachTableSelectionClickDiagnostics(view: EditorView, controlle
   const onCaptureMouseDown = (event: MouseEvent): void => {
     clickId += 1;
     log(clickId, 'BEFORE_CLICK', describeEditorState(view, controller));
-    logEventFields(clickId, 'CAPTURE_MOUSEDOWN', event);
+    logEventFields(clickId, 'CAPTURE_MOUSEDOWN', event, view, true);
     if (settleTimer !== null) {
       clearTimeout(settleTimer);
     }
   };
 
   const onBubbleMouseDown = (event: MouseEvent): void => {
-    logEventFields(clickId, 'BUBBLE_MOUSEDOWN', event);
+    logEventFields(clickId, 'BUBBLE_MOUSEDOWN', event, view, true);
   };
 
   const onMouseUp = (event: MouseEvent): void => {
-    logEventFields(clickId, 'MOUSEUP', event);
+    logEventFields(clickId, 'MOUSEUP', event, view, false);
   };
 
   const onClick = (event: MouseEvent): void => {
-    logEventFields(clickId, 'CLICK', event);
+    logEventFields(clickId, 'CLICK', event, view, false);
     // Scheduled after `click` (the last event in a normal gesture) so any
     // native `selectionchange` this gesture triggers — which can fire
     // asynchronously relative to `click`, that's exactly the ordering
@@ -125,7 +170,11 @@ export function attachTableSelectionClickDiagnostics(view: EditorView, controlle
   };
 
   const onSelectionChange = (): void => {
-    log(clickId, 'SELECTIONCHANGE', { activeElement: describeActiveElement() });
+    log(clickId, 'SELECTIONCHANGE', {
+      activeElement: describeActiveElement(),
+      nativeSelection: describeNativeSelection(),
+      rootSelection: { from: view.state.selection.main.from, to: view.state.selection.main.to, empty: view.state.selection.main.empty },
+    });
   };
 
   const targetDocument = view.dom.ownerDocument;
