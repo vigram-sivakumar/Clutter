@@ -8,7 +8,7 @@
   width: 100%;
 
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-inset-default);
+  overflow: hidden;
 }
 
 .page__document {
@@ -22,8 +22,9 @@
   z-index: 2;
 
   background: var(--surface-primary);
-  box-shadow: var(--shadow-inset-default);
   border-radius: var(--border-radius);
+  box-shadow: var(--shadow-inset-default);
+  padding-bottom: 1px;
 }
 
 /* .page-content::after {
@@ -76,7 +77,8 @@
   position: absolute;
   left: var(--sidebar-padding-inline);
   right: var(--sidebar-padding-inline);
-  bottom: 0;
+  bottom: 1px;
+
   height: 48px;
   pointer-events: none;
   background: linear-gradient(to bottom, transparent, var(--surface-primary));
