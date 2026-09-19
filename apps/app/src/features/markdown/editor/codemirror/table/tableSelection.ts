@@ -1,6 +1,7 @@
 import { StateEffect, StateField, type Transaction } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 
-import { tableActiveCellChanged } from './tableActiveCellController';
+import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, getNavigableRows, getRowCellBounds } from './tableGeometry';
 
 /**
@@ -160,3 +161,84 @@ export const tableSelectionField = StateField.define<TableSelection | null>({
     return remapTableSelection(tr, value);
   },
 });
+
+/**
+ * Clears both the active cell and any `TableSelection` whenever the user
+ * clicks anywhere outside the table currently holding one of them —
+ * "outside" meaning literally anywhere else: another line in the same
+ * root editor, a different table, a totally unrelated part of the app
+ * (a sidebar, another note/editor area), or blank space in the editor
+ * itself. Returns a cleanup function; call it on the same lifecycle that
+ * destroys `controller` (see this function's own "lifecycle" paragraph
+ * below) — never re-attach this per table-widget rebuild.
+ *
+ * **Why a single `document`-level listener is the right mechanism here,
+ * not a per-table one.** The three mechanisms that already exist for
+ * "isolate a click inside a table's own DOM" —
+ * `TableWidget.toDOM()`'s per-cell `mousedown` listener (`buildRow`),
+ * its widget-level non-cell-click suppression, and
+ * `tableHandleOverlay.ts`'s own hit-area `mousedown` listener — every one
+ * of them already calls `stopPropagation()` for a click anywhere inside
+ * their own table's rendered DOM. That means any `mousedown` that reaches
+ * `document` at all has, by construction, already been *positively ruled
+ * out* as "a click inside some table's own interactive surface" by one of
+ * those three — this listener does not need to re-derive "was this click
+ * inside a table" itself; reaching this handler already answers that
+ * question. This is the "outside-click mechanism the current architecture
+ * already provides a suitable boundary for" — no second, competing
+ * containment check needed, and no per-table wiring (this listener is
+ * installed once, is never told which table is involved, and does not
+ * care).
+ *
+ * **The one case that check alone gets wrong, and why it needs an
+ * explicit exception.** Clicking *inside the already-active cell's own
+ * nested editor content* (repositioning the caret within it, not
+ * switching cells) is **not** stopped by any of the three mechanisms
+ * above — confirmed directly from `tableWidget.ts`'s own widget-level
+ * listener, whose `target.closest('td, th, ...')` check deliberately lets
+ * a click *inside* the active cell's own `<td>` fall through untouched
+ * (its own doc comment: "an active cell's nested editor... still lives
+ * inside a `<td>`, so this check lets both cases fall through
+ * untouched"), and the nested `EditorView`'s own internal click-to-caret
+ * handling has no reason to call `stopPropagation()` on the *native* DOM
+ * event either. Without an explicit exception, clicking inside the very
+ * cell the user is already editing — to move the caret, not leave it —
+ * would incorrectly deactivate it the moment the event reached
+ * `document`. Guarded here via `controller.nestedView.dom.contains(target)`
+ * — the one piece of real DOM containment this function does need to
+ * check itself, precisely because it is the one case nothing upstream
+ * already handles.
+ *
+ * **Lifecycle.** `TableActiveCellController` is already "one instance per
+ * root `EditorView`... constructed alongside the editor, destroyed on
+ * unmount" (that class's own doc comment) — this listener's own lifecycle
+ * must match exactly, which is why it is a *function you call once,
+ * yourself, at the same point the controller itself is constructed*
+ * (`MarkdownEditor.tsx`), not something wired into `TableWidget.toDOM()`
+ * or `tableHandleOverlay.ts` — both of which run on every table-widget
+ * rebuild and would otherwise install a fresh listener on every keystroke,
+ * leaking the previous one (this function's own single caller is
+ * responsible for calling the returned cleanup function exactly once, on
+ * unmount, never per-rebuild).
+ */
+export function attachTableOutsideClickHandling(view: EditorView, controller: TableActiveCellController): () => void {
+  const handleMouseDown = (event: MouseEvent): void => {
+    const hasActiveCell = controller.activeAnchor !== null;
+    const hasSelection = (view.state.field(tableSelectionField, false) ?? null) !== null;
+    if (!hasActiveCell && !hasSelection) {
+      return;
+    }
+    const target = event.target;
+    if (hasActiveCell && controller.nestedView && target instanceof Node && controller.nestedView.dom.contains(target)) {
+      return;
+    }
+    controller.deactivate();
+    view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(null)] });
+  };
+
+  const targetDocument = view.dom.ownerDocument;
+  targetDocument.addEventListener('mousedown', handleMouseDown);
+  return () => {
+    targetDocument.removeEventListener('mousedown', handleMouseDown);
+  };
+}

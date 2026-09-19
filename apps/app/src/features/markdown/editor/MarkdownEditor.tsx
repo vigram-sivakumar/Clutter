@@ -18,6 +18,7 @@ import {
 import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
+import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
@@ -991,6 +992,16 @@ export const MarkdownEditor = forwardRef<
     });
     viewRef.current = view;
 
+    // One listener for this root editor's own lifetime — attached here
+    // (alongside `view` itself), not inside `TableWidget.toDOM()` or
+    // `tableHandleOverlay.ts` (both rebuild on every table-related
+    // keystroke, which would otherwise leak a fresh listener per
+    // rebuild). See `attachTableOutsideClickHandling`'s own doc comment
+    // for why a single `document`-level listener is the correct
+    // mechanism, not a per-table one. Detached in this effect's own
+    // cleanup below, before `tableActiveCellControllerRef.current?.destroy()`.
+    const detachTableOutsideClickHandling = attachTableOutsideClickHandling(view, tableActiveCellController);
+
     // Applied after mount, not via createEditorView's own `scrollTo`
     // config (which is scoped to CM6's internal `.cm-scroller` — see
     // `findScrollableAncestor`'s doc comment for why that alone doesn't
@@ -1106,6 +1117,11 @@ export const MarkdownEditor = forwardRef<
       // foldStateStore simply doesn't persist folds, matching the
       // pre-ADR-033 baseline exactly.
       foldStateStore?.set(pageId, serializeFoldState(view));
+      // Detached before the controller itself is destroyed (immediately
+      // below) — the handler reads `controller.activeAnchor`/`.nestedView`,
+      // so it must go first, if only defensively (nothing in this
+      // component actually clicks anything during unmount).
+      detachTableOutsideClickHandling();
       // Destroys the table active-cell controller's own nested EditorView
       // (M5, docs/table-implementation-plan.md, §13) — root `view.destroy()`
       // below has no awareness of it (it's a second, independent
