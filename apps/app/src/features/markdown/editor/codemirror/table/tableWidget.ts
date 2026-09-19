@@ -5,7 +5,7 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
-import { createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
+import { attachTableSelectionOverlayResize, createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
 
 const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>> = {
   left: 'cm-table-widget-align-left',
@@ -141,6 +141,23 @@ export class TableWidget extends WidgetType {
   ) {
     super();
   }
+
+  /**
+   * The column-selection overlay's own `ResizeObserver` (this milestone —
+   * "make table selection overlay responsive to container resize"), when
+   * this instance has a selected column at all — `null` otherwise, and
+   * `null` again once `destroy()` has torn it down. One per `TableWidget`
+   * instance (never shared/reused across rebuilds, matching how
+   * `tableActiveCellController.nestedView`'s own DOM is instead the thing
+   * reused across rebuilds — different lifecycle, different reason: the
+   * nested editor is deliberately long-lived across rebuilds; this
+   * observer is deliberately scoped to exactly the one `<table>` element
+   * this specific instance's own `toDOM()` call created). See
+   * `tableSelectionOverlay.ts`'s own `attachTableSelectionOverlayResize`
+   * doc comment for why this needs an explicit `destroy()`, unlike every
+   * other per-render listener in this file.
+   */
+  private resizeObserver: ResizeObserver | null = null;
 
   override eq(other: TableWidget): boolean {
     return (
@@ -317,15 +334,36 @@ export class TableWidget extends WidgetType {
     // reason `wasFocused`'s own microtask re-checks its own condition —
     // a second, unrelated rebuild landing before this microtask runs
     // would have already discarded this exact overlay instance.
+    //
+    // Disconnects whatever this *instance's own* previous `toDOM()` call
+    // (if any) left behind before possibly creating a new one below. In
+    // practice a given `TableWidget` instance's `toDOM()` only ever runs
+    // once — CM6 builds a fresh instance (via `buildTableWidgetRange`)
+    // for every rebuild — but this stays a defensive no-op-when-null
+    // guard (optional chaining) rather than an assumption that `toDOM()`
+    // can never legitimately run twice on the same instance.
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     if (this.selectedColumnIndex !== null) {
       const overlay = createTableSelectionOverlay();
       tableScroll.appendChild(overlay);
       const selectedColumnIndex = this.selectedColumnIndex;
+      const measure = (): void => positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
       queueMicrotask(() => {
         if (overlay.isConnected) {
-          positionColumnSelectionOverlay(overlay, tableScroll, table, selectedColumnIndex);
+          measure();
         }
       });
+      // Keeps the overlay aligned as `table`'s own rendered geometry
+      // changes after this initial position — a window resize, a
+      // container reflow, or a row growing/shrinking — none of which
+      // this widget is otherwise notified of (`tableWidgetField.ts` only
+      // rebuilds on document/selection changes, never on layout).
+      // Disconnected in `destroy()` below — see
+      // `tableSelectionOverlay.ts`'s own `attachTableSelectionOverlayResize`
+      // doc comment for why that explicit teardown is required here,
+      // unlike every other per-render listener in this file.
+      this.resizeObserver = attachTableSelectionOverlayResize(table, measure);
     }
 
     if (wasFocused) {
@@ -481,5 +519,24 @@ export class TableWidget extends WidgetType {
 
   override ignoreEvent(): boolean {
     return false;
+  }
+
+  /**
+   * CM6's own documented hook for "this widget's DOM is being discarded"
+   * — called whenever `eq()` reports a rebuild is a genuinely new widget
+   * (every actual rebuild here, since `eq()` fails on any real content/
+   * selection/active-cell change). The one piece of cleanup this widget
+   * needs that a plain DOM event listener never would: `this.resizeObserver`
+   * (set in `toDOM()` above, only when this instance had a selected
+   * column) holds its own internal reference to the `<table>` element
+   * `toDOM()` created, which would otherwise keep reporting size changes
+   * — and keep that discarded `<table>` reachable — indefinitely. Every
+   * *other* per-render listener in this file needs no equivalent
+   * override: a plain `addEventListener` simply stops mattering once its
+   * own element is detached and garbage-collected.
+   */
+  override destroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 }

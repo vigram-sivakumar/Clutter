@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
+import { attachTableSelectionOverlayResize, createTableSelectionOverlay, positionColumnSelectionOverlay } from './tableSelectionOverlay';
 
 /**
  * jsdom has no real layout engine — every `getBoundingClientRect()` call
@@ -133,5 +133,90 @@ describe('positionColumnSelectionOverlay — geometry', () => {
 
     expect(overlay.style.height).toBe('20px');
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+});
+
+/**
+ * jsdom does not implement `ResizeObserver` at all (confirmed directly:
+ * `typeof ResizeObserver === 'undefined'` in this test environment) —
+ * per `vitest.setup.ts`'s own documented convention, a stub for it is
+ * deliberately *local* to whichever test file needs per-test control
+ * over exactly when its callback fires (this one does: these tests
+ * trigger it manually to simulate a resize), not a global polyfill.
+ * Records every constructed instance and what it observed, and exposes
+ * `trigger()` to invoke the stored callback on demand — a real
+ * `ResizeObserver`'s callback fires asynchronously, on layout, which
+ * these tests need to control precisely rather than wait for.
+ */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  readonly observed: Element[] = [];
+  disconnected = false;
+  constructor(private readonly callback: ResizeObserverCallback) {
+    MockResizeObserver.instances.push(this);
+  }
+  observe(el: Element): void {
+    this.observed.push(el);
+  }
+  unobserve(el: Element): void {
+    this.observed.splice(this.observed.indexOf(el), 1);
+  }
+  disconnect(): void {
+    this.disconnected = true;
+  }
+  trigger(): void {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
+
+describe('attachTableSelectionOverlayResize', () => {
+  let originalResizeObserver: typeof ResizeObserver | undefined;
+
+  beforeEach(() => {
+    originalResizeObserver = globalThis.ResizeObserver;
+    MockResizeObserver.instances = [];
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+  });
+
+  afterEach(() => {
+    globalThis.ResizeObserver = originalResizeObserver as typeof ResizeObserver;
+  });
+
+  it('observes the given table element', () => {
+    const { table } = buildTable(2, [2]);
+
+    attachTableSelectionOverlayResize(table, () => {});
+
+    expect(MockResizeObserver.instances).toHaveLength(1);
+    expect(MockResizeObserver.instances[0]!.observed).toContain(table);
+  });
+
+  it('calls the measure callback whenever the observer fires', () => {
+    const { table } = buildTable(2, [2]);
+    const measure = vi.fn();
+
+    attachTableSelectionOverlayResize(table, measure);
+    MockResizeObserver.instances[0]!.trigger();
+    MockResizeObserver.instances[0]!.trigger();
+
+    expect(measure).toHaveBeenCalledTimes(2);
+  });
+
+  it('the returned observer\'s disconnect() actually disconnects the underlying observer', () => {
+    const { table } = buildTable(2, [2]);
+
+    const observer = attachTableSelectionOverlayResize(table, () => {});
+    observer!.disconnect();
+
+    expect(MockResizeObserver.instances[0]!.disconnected).toBe(true);
+  });
+
+  it('returns null and does nothing when ResizeObserver is unavailable, rather than throwing', () => {
+    globalThis.ResizeObserver = undefined as unknown as typeof ResizeObserver;
+    const { table } = buildTable(2, [2]);
+
+    const result = attachTableSelectionOverlayResize(table, () => {});
+
+    expect(result).toBeNull();
   });
 });

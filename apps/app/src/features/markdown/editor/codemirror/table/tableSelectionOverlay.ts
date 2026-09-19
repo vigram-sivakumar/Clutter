@@ -155,3 +155,71 @@ export function positionColumnSelectionOverlay(
   overlay.style.height = `${bottomRect.bottom - headerRect.top}px`;
   overlay.classList.add(VISIBLE_CLASS);
 }
+
+/**
+ * Re-invalidates the overlay's own geometry whenever `table`'s own
+ * rendered box changes size — a window resize, a container reflow, or a
+ * row growing/shrinking (typed content wrapping to another line) all
+ * change `table`'s own border-box, which is exactly what this observes.
+ * `measure` is the caller's own closure re-running
+ * `positionColumnSelectionOverlay` against the *current* selected column
+ * — this function owns only the "when to re-measure" trigger, never the
+ * measurement itself, so there is exactly one geometry code path
+ * (`positionColumnSelectionOverlay`) for both the initial position and
+ * every subsequent re-position; no second geometry mechanism.
+ *
+ * **Why `table`, not `scrollContainer` (`.cm-table-scroll`) or
+ * `.cm-table-wrapper`.** `table`'s own border-box is the one thing that
+ * directly determines every cell's own geometry: `table-layout: fixed`
+ * (`tableWidget.css`'s own doc comment) makes column widths a pure
+ * function of the table's own overall width, and row heights are the
+ * table's own content-driven height. `scrollContainer`/`.cm-table-wrapper`
+ * only change size *because* the table's own rendered size (or the
+ * space available to it) changed — observing `table` itself is the
+ * "smallest stable element whose size change invalidates the cell
+ * geometry," not a larger ancestor that would fire for the same
+ * underlying reason at one more remove.
+ *
+ * **No observer → measure → mutate → observer loop.** `measure` only
+ * ever writes to `overlay`'s own `style`/`classList` — `overlay` is never
+ * itself observed (only `table` is), so positioning it can never
+ * re-trigger this same observer.
+ *
+ * **Lifecycle — created once per `TableWidget.toDOM()` call that has a
+ * selected column, disconnected in that same widget instance's own
+ * `destroy()`.** A plain DOM event listener stops mattering on its own
+ * once its element is detached and garbage-collected, but a
+ * `ResizeObserver` does not: `.observe()` holds its own internal
+ * reference to `table`, which would otherwise keep reporting size
+ * changes (and keep the old, discarded `table` reachable) indefinitely
+ * across every future rebuild if nothing ever called `.disconnect()`.
+ * `TableWidget` stores the returned observer as an instance field
+ * specifically so its own `destroy(dom)` — CM6's documented hook for
+ * "this widget's DOM is being discarded," called whenever `eq()` says a
+ * table rebuild is a genuinely new widget, which is every actual
+ * rebuild here — can disconnect it. Never recreated on every
+ * measurement: exactly one `ResizeObserver` per `toDOM()` call, reused
+ * for every callback fire until that same instance's `destroy()` tears
+ * it down.
+ *
+ * Returns `null` (does nothing) when `ResizeObserver` itself isn't
+ * available — defensive, not a real-world concern (every current
+ * evergreen engine, WKWebView included, implements it), but this
+ * codebase's own test environment (jsdom) does not provide one globally
+ * by convention (`vitest.setup.ts`'s own doc comment: `ResizeObserver`
+ * stubs are deliberately *local* to whichever test file needs per-test
+ * control over the callback, not a global polyfill) — this guard is what
+ * keeps every *other* test that renders a selected column from crashing
+ * with a bare `ReferenceError`, without needing every such test to
+ * provide its own irrelevant mock.
+ */
+export function attachTableSelectionOverlayResize(table: HTMLTableElement, measure: () => void): ResizeObserver | null {
+  if (typeof ResizeObserver === 'undefined') {
+    return null;
+  }
+  const observer = new ResizeObserver(() => {
+    measure();
+  });
+  observer.observe(table);
+  return observer;
+}

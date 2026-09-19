@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -301,5 +301,191 @@ describe('tableWidgetField — column-selection overlay (tableSelectionOverlay.t
     const widgets = Array.from(view.dom.querySelectorAll('.cm-table-widget'));
     expect(widgets[0]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(0);
     expect(widgets[1]!.querySelectorAll('.cm-table-selection-overlay')).toHaveLength(1);
+  });
+});
+
+/**
+ * jsdom does not implement `ResizeObserver` — local mock per
+ * `vitest.setup.ts`'s own documented convention (per-test control over
+ * exactly when the callback fires, not a global polyfill). Exercises the
+ * *real* `TableWidget`/`toDOM()` wiring end to end, not just
+ * `tableSelectionOverlay.ts` in isolation — specifically to empirically
+ * confirm CM6 actually calls `TableWidget.destroy()` (and therefore
+ * disconnects the observer) on a genuine widget replacement, rather than
+ * assuming it from reading CM6's own documented contract alone.
+ *
+ * **Not the only `ResizeObserver` constructed while this mock is
+ * installed.** CM6's own `EditorView` constructor builds its own internal
+ * `DOMObserver`, which itself constructs a `ResizeObserver` to watch the
+ * editor's DOM — entirely unrelated to `tableSelectionOverlay.ts`, and
+ * never disconnected by this codebase's own code (nor should it be: it's
+ * CM6's own, not ours). Confirmed directly, instrumented: mounting a
+ * single `EditorView` alone (no column selected, no resize wiring
+ * involved at all) already produces one `MockResizeObserver` instance,
+ * before any table-selection dispatch. Every assertion below therefore
+ * identifies *our own* observer by what it observes (the real `<table>`
+ * element), never by "the only/first/last instance" or "the only
+ * non-disconnected instance" — either would wrongly conflate CM6's own,
+ * permanently-connected internal observer with (or mistake it for) a
+ * leak in this milestone's own resize wiring.
+ */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  readonly observed: Element[] = [];
+  disconnected = false;
+  constructor(private readonly callback: ResizeObserverCallback) {
+    MockResizeObserver.instances.push(this);
+  }
+  observe(el: Element): void {
+    this.observed.push(el);
+  }
+  unobserve(el: Element): void {
+    this.observed.splice(this.observed.indexOf(el), 1);
+  }
+  disconnect(): void {
+    this.disconnected = true;
+  }
+  trigger(): void {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
+
+function mockRect(el: Element, rect: { left: number; top: number; right: number; bottom: number; width: number; height: number }): void {
+  (el as HTMLElement).getBoundingClientRect = () => rect as DOMRect;
+}
+
+describe('tableWidgetField — column-selection overlay resize responsiveness', () => {
+  let originalResizeObserver: typeof ResizeObserver | undefined;
+
+  beforeEach(() => {
+    originalResizeObserver = globalThis.ResizeObserver;
+    MockResizeObserver.instances = [];
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+  });
+
+  afterEach(() => {
+    globalThis.ResizeObserver = originalResizeObserver as typeof ResizeObserver;
+  });
+
+  /**
+   * The observer created by `attachTableSelectionOverlayResize` for the
+   * given `<table>` — identified by what it observes, not by position or
+   * connectedness among `MockResizeObserver.instances` (see the class's
+   * own doc comment above for why: CM6's own internal `DOMObserver`
+   * constructs a `ResizeObserver` of its own, indistinguishable from ours
+   * by either of those signals).
+   */
+  function ourObserver(table: Element): MockResizeObserver | undefined {
+    return MockResizeObserver.instances.find((o) => o.observed.includes(table));
+  }
+
+  it('observes the real, currently-attached <table> element', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve(); // let the initial-position microtask run too
+
+    const tableEl = view.dom.querySelector('table')!;
+    expect(ourObserver(tableEl)).toBeDefined();
+    expect(ourObserver(tableEl)!.observed).toContain(tableEl);
+  });
+
+  it('re-measures the overlay against the current cell geometry when the observer fires (simulated resize)', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve();
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const scrollEl = view.dom.querySelector('.cm-table-scroll')!;
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+    const headerCell = tableEl.tHead!.rows[0]!.cells[0]!;
+    const bodyCell = tableEl.tBodies[0]!.rows[0]!.cells[0]!;
+
+    // Simulates the layout a narrower window would produce — different
+    // numbers than whatever jsdom's own always-zero rects gave the
+    // initial (already-verified-elsewhere) positioning pass.
+    mockRect(scrollEl, { left: 0, top: 0, right: 500, bottom: 300, width: 500, height: 300 });
+    mockRect(headerCell, { left: 10, top: 5, right: 110, bottom: 25, width: 100, height: 20 });
+    mockRect(bodyCell, { left: 10, top: 25, right: 110, bottom: 45, width: 100, height: 20 });
+
+    ourObserver(tableEl)!.trigger();
+
+    expect(overlay.style.left).toBe('10px');
+    expect(overlay.style.top).toBe('5px');
+    expect(overlay.style.width).toBe('100px');
+    expect(overlay.style.height).toBe('40px'); // 45 (body bottom) - 5 (header top)
+  });
+
+  it('disconnects the old observer when selecting a different column replaces the widget', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve();
+    const firstTableEl = view.dom.querySelector('table')!;
+    const firstObserver = ourObserver(firstTableEl)!;
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 1 }) });
+
+    expect(firstObserver.disconnected).toBe(true);
+    // A fresh, connected observer exists for the new widget instance's
+    // own (newly rebuilt) `<table>` element — not zero (under-
+    // disconnected) and not the same instance reused unexpectedly.
+    const secondTableEl = view.dom.querySelector('table')!;
+    const secondObserver = ourObserver(secondTableEl);
+    expect(secondObserver).toBeDefined();
+    expect(secondObserver!.disconnected).toBe(false);
+  });
+
+  it('disconnects the observer when the selection is cleared entirely', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve();
+    const tableEl = view.dom.querySelector('table')!;
+    const active = ourObserver(tableEl)!;
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(active.disconnected).toBe(true);
+  });
+
+  it('disconnects the observer when the root view itself is destroyed', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve();
+    const tableEl = view.dom.querySelector('table')!;
+    const active = ourObserver(tableEl)!;
+
+    view.destroy();
+
+    expect(active.disconnected).toBe(true);
+  });
+
+  it('existing scroll-tracking geometry is unaffected by the resize wiring (same coordinate-space formula)', async () => {
+    const view = mountViewWithSelectionField(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    await Promise.resolve();
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
+    const headerCell = tableEl.tHead!.rows[0]!.cells[0]!;
+    const bodyCell = tableEl.tBodies[0]!.rows[0]!.cells[0]!;
+
+    mockRect(scrollEl, { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 });
+    mockRect(headerCell, { left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 });
+    mockRect(bodyCell, { left: 0, top: 20, right: 100, bottom: 40, width: 100, height: 20 });
+    scrollEl.scrollLeft = 50;
+
+    ourObserver(tableEl)!.trigger();
+
+    // Same scroll-independent conversion the previous milestone's own
+    // tests already verify for `positionColumnSelectionOverlay` directly
+    // — this just confirms the resize path reuses it, not a second one.
+    expect(overlay.style.left).toBe('50px');
   });
 });
