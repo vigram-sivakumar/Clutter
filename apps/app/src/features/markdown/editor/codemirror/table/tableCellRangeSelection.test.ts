@@ -77,7 +77,23 @@ function selection(view: EditorView): TableSelection | null {
   return view.state.field(tableSelectionField);
 }
 
-describe('beginCellRangeDrag — click vs. drag', () => {
+describe('beginCellDragTracking — click vs. drag', () => {
+  it('clicking a cell activates it immediately, on mousedown — cell-first, not deferred to mouseup', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+
+    mousedown(findCell(view, 'Vik'));
+
+    // Activation already happened — this milestone's own core requirement
+    // ("click B2 → B2 becomes the active/selected cell... The active cell
+    // is therefore also the starting cell for a possible future drag
+    // selection"). No `mouseup` needed to observe it, unlike the prior
+    // deferred-activation design this milestone replaces.
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(selection(view)).toBeNull();
+    mouseup();
+  });
+
   it('a plain click (mousedown + mouseup, no movement) activates the cell and never creates a range', () => {
     const { view, controller } = mountViewWithController(TABLE);
 
@@ -86,6 +102,38 @@ describe('beginCellRangeDrag — click vs. drag', () => {
 
     expect(controller.activeAnchor).not.toBeNull();
     expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(selection(view)).toBeNull();
+  });
+
+  it('an in-cell drag leaves CM6\'s own native text selection completely undisturbed', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const setTarget = mockElementFromPoint();
+    const cell = findCell(view, 'Designer');
+
+    mousedown(cell);
+    const nested = controller.nestedView!;
+    expect(nested.state.doc.toString()).toBe('Designer');
+
+    // Stands in for what CM6's own internal `MouseSelection` would do as
+    // the user drags across the cell's own text — this module never reads
+    // or reacts to the nested view's own selection at all, so dispatching
+    // directly here is a faithful, mechanism-agnostic stand-in for that
+    // native behavior (jsdom's lack of a real layout engine means
+    // `posAtCoords`-driven mouse selection can't be exercised end to end —
+    // see this module's own header comment on `positionRangeSelectionOverlay`'s
+    // sibling functions for the same, already-established limitation).
+    nested.dispatch({ selection: { anchor: 0, head: 4 } });
+
+    // Movement events that stay within the same cell the whole time —
+    // must never touch the nested selection this module doesn't own, and
+    // must never promote to a range.
+    moveOver(setTarget, cell);
+    moveOver(setTarget, cell);
+    mouseup();
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(nested.state.selection.main.from).toBe(0);
+    expect(nested.state.selection.main.to).toBe(4);
     expect(selection(view)).toBeNull();
   });
 
@@ -166,7 +214,7 @@ describe('beginCellRangeDrag — click vs. drag', () => {
   });
 });
 
-describe('beginCellRangeDrag — mutual exclusivity with row/column selection and the active cell', () => {
+describe('beginCellDragTracking — mutual exclusivity with row/column selection and the active cell', () => {
   it('starting a drag deactivates a cell that was already active', () => {
     const { view, controller } = mountViewWithController(TABLE);
     mousedown(findCell(view, 'Vik'));
@@ -244,7 +292,45 @@ describe('beginCellRangeDrag — mutual exclusivity with row/column selection an
   });
 });
 
-describe('beginCellRangeDrag — document and history are untouched', () => {
+describe('beginCellDragTracking — row/column handles remain independent', () => {
+  it('a mousedown that starts on a column handle never reaches the cell-drag gesture, even when dragged across cells', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const setTarget = mockElementFromPoint();
+    // Hovering a body cell first is what makes `attachTableHandleOverlay`
+    // show the handle and record which column it's currently over —
+    // mirroring how a real pointer would reach the handle at all.
+    const wrapper = findCell(view, 'Vik').closest('.cm-table-wrapper')!;
+    const hoverEvent = new MouseEvent('pointermove', { bubbles: true });
+    Object.defineProperty(hoverEvent, 'target', { value: findCell(view, 'Vik'), enumerable: true });
+    wrapper.dispatchEvent(hoverEvent);
+    const columnHit = wrapper.querySelector<HTMLElement>('.cm-table-column-handle-hit')!;
+
+    mousedown(columnHit);
+    moveOver(setTarget, findCell(view, 'Delhi'));
+    mouseup();
+
+    // Reserved for structural (row/column) operations — never promoted
+    // into a cell-range gesture, and the active cell (there is none here)
+    // stays untouched.
+    expect(selection(view)?.kind).not.toBe('range');
+    expect(controller.activeAnchor).toBeNull();
+  });
+
+  it('clicking the column handle still selects the column normally, independent of the cell-drag mechanism', () => {
+    const { view } = mountViewWithController(TABLE);
+    const wrapper = findCell(view, 'Vik').closest('.cm-table-wrapper')!;
+    const hoverEvent = new MouseEvent('pointermove', { bubbles: true });
+    Object.defineProperty(hoverEvent, 'target', { value: findCell(view, 'Vik'), enumerable: true });
+    wrapper.dispatchEvent(hoverEvent);
+    const columnHit = wrapper.querySelector<HTMLElement>('.cm-table-column-handle-hit')!;
+
+    columnHit.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(selection(view)).toEqual({ kind: 'column', tableFrom: tableFrom(view), columnIndex: 0 });
+  });
+});
+
+describe('beginCellDragTracking — document and history are untouched', () => {
   it('no document changes occur during a full drag gesture', () => {
     const { view } = mountViewWithController(TABLE);
     const setTarget = mockElementFromPoint();

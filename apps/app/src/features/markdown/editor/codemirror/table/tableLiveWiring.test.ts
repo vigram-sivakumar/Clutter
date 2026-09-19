@@ -78,16 +78,15 @@ function wrapperOf(cell: Element): Element {
 }
 
 /**
- * A plain click, end to end — since `beginCellRangeDrag` (`tableCellRangeSelection.ts`)
- * now defers activation from `mousedown` to `mouseup` (only a drag that
- * crosses into a *different* cell activates nothing and becomes a range
- * selection instead), a test simulating "the user clicked this cell" must
- * dispatch both, matching a real click's own two events. `mouseup` is
- * dispatched on `document` — `beginCellRangeDrag`'s own listener is
- * installed there, not on the cell itself, and mousedown/mouseup targeting
- * different elements is exactly how a real click already works (both
- * events bubble to `document` regardless of which element they originate
- * on).
+ * A plain click, end to end. Activation itself happens synchronously on
+ * `mousedown` (cell-first — `beginCellDragTracking`, `tableCellRangeSelection.ts`,
+ * never defers it), so `mousedown` alone would already be enough for these
+ * tests' own assertions; `mouseup` is still dispatched to match a real
+ * click's own two events and to let `beginCellDragTracking`'s own
+ * per-gesture listeners clean themselves up, rather than leaking across
+ * tests. Dispatched on `document` — that's where its listeners live, not
+ * the cell itself, matching how a real click's two events already bubble
+ * there regardless of origin.
  */
 function clickCell(cell: Element): void {
   wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));

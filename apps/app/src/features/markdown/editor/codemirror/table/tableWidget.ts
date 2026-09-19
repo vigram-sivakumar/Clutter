@@ -3,7 +3,7 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import './tableWidget.css';
 import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
-import { beginCellRangeDrag } from './tableCellRangeSelection';
+import { beginCellDragTracking } from './tableCellRangeSelection';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 import {
@@ -512,6 +512,27 @@ export class TableWidget extends WidgetType {
         this.activeTo <= cell.rawTo;
       if (isActive && this.controller!.nestedView) {
         wrapper.appendChild(this.controller!.nestedView.dom);
+        const controller = this.controller!;
+        // Purely an *observer* — see `tableCellRangeSelection.ts`'s own
+        // header comment for why this never touches, blocks, or races
+        // against CM6's own native mousedown handling on the nested
+        // editor's own `contentDOM` (a descendant of `element`, already
+        // fully run by the time bubbling reaches this listener). No
+        // `controller.activate(...)` call here: the cell is already
+        // active, so a plain click or an in-cell text drag is left
+        // entirely to CM6's own selection handling, exactly as it would
+        // behave with no table-selection feature installed at all.
+        // `event.preventDefault()`/`stopPropagation()` are kept for the
+        // same pre-existing reason `TableWidget`'s own doc comment below
+        // gives for the inactive-cell branch — stopping root CM6's own
+        // `contentDOM` listener (further up this same tree) from also
+        // processing this click, not anything to do with the *nested*
+        // editor.
+        element.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
+        });
       } else {
         wrapper.innerHTML = renderInlineMarkdown(cell.text);
         if (this.controller) {
@@ -555,15 +576,20 @@ export class TableWidget extends WidgetType {
             // nested editor lives inside the wrapper, only click detection
             // moved to the td/th.
             //
-            // Does not call `controller.activate(...)` directly any more —
-            // a plain click must still activate this cell (unchanged
-            // behavior), but a drag that crosses into a *different* cell
-            // before mouseup must become a rectangular `TableSelection`
-            // range instead. `beginCellRangeDrag` (`tableCellRangeSelection.ts`)
-            // owns that distinction and defers the activation call to
-            // mouseup for the plain-click case — see its own doc comment
-            // for why "movement into another cell" is the correct trigger.
-            beginCellRangeDrag(view, controller, this.tableFrom, wrapper, cell.from, cell.to, { row: rowIndex, col: columnIndex });
+            // Activation happens synchronously here, exactly as it always
+            // has — cell-first: a click always makes this the active cell,
+            // full stop (this milestone's own explicit requirement).
+            // `beginCellDragTracking` (`tableCellRangeSelection.ts`) is
+            // started immediately afterward, unconditionally — it does
+            // nothing at all unless the pointer later crosses into a
+            // *different* cell before `mouseup`, at which point it
+            // deactivates this same cell and promotes the gesture to a
+            // rectangular `TableSelection` range instead. See that
+            // module's own header comment for why running the two side by
+            // side, rather than gating activation on the gesture's
+            // outcome, is both correct and the smallest mechanism here.
+            controller.activate(view, wrapper, cell.from, cell.to, cell.to);
+            beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
           });
         }
       }

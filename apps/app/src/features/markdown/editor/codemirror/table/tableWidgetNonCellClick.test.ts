@@ -25,7 +25,7 @@ function mousedown(el: Element): void {
   el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 }
 
-/** A full click (mousedown + mouseup) — required to actually activate an inactive cell now that `beginCellRangeDrag` (`tableCellRangeSelection.ts`) defers activation to `mouseup` (a drag that crosses into a different cell before then becomes a range selection instead of activating anything). The non-cell-click tests above only need `mousedown` — nothing they assert depends on activation completing. */
+/** A full click (mousedown + mouseup). Activation itself happens synchronously on `mousedown` (`beginCellDragTracking`, `tableCellRangeSelection.ts`, never defers it) — `mouseup` is included so its own per-gesture listeners clean themselves up rather than leaking across tests. The non-cell-click tests above only need `mousedown` — nothing they assert depends on activation completing. */
 function clickCell(el: Element): void {
   mousedown(el);
   document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
