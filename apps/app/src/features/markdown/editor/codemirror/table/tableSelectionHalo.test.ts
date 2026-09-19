@@ -9,6 +9,7 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { tableDeletionSelectionChanged } from './tableDeletionSelection';
 import { findAllTables } from './tableGeometry';
+import { tableSelectionChanged } from './tableSelection';
 
 /**
  * Table selection halo milestone — verifies that the same
@@ -203,5 +204,52 @@ describe('table selection halo — suppressed during active-cell editing', () =>
     // happened rather than the halo merely disappearing for an unrelated
     // reason.
     expect(view.dom.querySelector('.cm-table-widget .cm-editor')).not.toBeNull();
+  });
+});
+
+describe('table selection halo — suppressed while a TableSelection exists', () => {
+  it('does not show the halo for a table with a column TableSelection, even if the root selection still technically overlaps it', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    // Same "stale full-document selection" setup as the active-cell
+    // suppression test above — a `TableSelection` never itself moves the
+    // root selection either (`tableHandleOverlay.ts`'s own click
+    // dispatch), so this is the realistic way the two can coexist.
+    selectAll(view);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    // The minimal column-selected rendering did apply, confirming the halo
+    // genuinely got suppressed by the selection rather than disappearing
+    // for an unrelated reason.
+    expect(view.dom.querySelector('.cm-table-column-selected')).not.toBeNull();
+  });
+
+  it('does not show the halo for a table with a row TableSelection', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    selectAll(view);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    expect(view.dom.querySelector('.cm-table-row-selected')).not.toBeNull();
+  });
+
+  it('clearing the TableSelection restores the halo if the root selection still overlaps the table', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    selectAll(view);
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(haloedTableFroms(view)).toHaveLength(0);
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(haloedTableFroms(view)).toHaveLength(1);
   });
 });

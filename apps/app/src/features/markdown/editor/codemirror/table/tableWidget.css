@@ -198,3 +198,16 @@
 .cm-editor .cm-table-widget-align-right {
   text-align: right;
 }
+
+/* Minimal, obvious rendering for `TableSelection` (tableSelection.ts) —
+ * deliberately not the final visual treatment (this milestone's own
+ * scope is state + wiring, not design). Reuses the same
+ * `--selection-surface` token the whole-table halo already uses
+ * (`.cm-table-wrapper-selected` above) rather than inventing a second
+ * "selected" color for this milestone's own placeholder purposes. */
+.cm-editor .cm-table-wrapper td.cm-table-column-selected,
+.cm-editor .cm-table-wrapper th.cm-table-column-selected,
+.cm-editor .cm-table-wrapper tr.cm-table-row-selected > td,
+.cm-editor .cm-table-wrapper tr.cm-table-row-selected > th {
+  background: var(--selection-surface);
+}

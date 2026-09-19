@@ -63,6 +63,7 @@ import { tableActivationNormalization } from './table/tableActivationNormalizati
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
+import { tableSelectionField } from './table/tableSelection';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -288,6 +289,14 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // `tableWholeDeletionKeymap()` below — editable-only — ever writes to
     // it). See `tableDeletionSelection.ts`'s own doc comment.
     tableDeletionSelectionField,
+    // Unconditional for the identical reason `tableDeletionSelectionField`
+    // above already is — `buildTableWidgetRange` reads it via
+    // `state.field(...)` on every rebuild regardless of `readOnly`, and a
+    // read-only note embed's table never gets a handle overlay to write to
+    // it in the first place (`tableWidget.ts`'s own `if (this.controller)`
+    // gate), so its value there just always stays `null`. See
+    // `tableSelection.ts`'s own doc comment.
+    tableSelectionField,
     // Unconditional (not gated on `tableActiveCellController`), same as
     // `tableWidgetDecoration`/`tableDeletionSelectionField` above — a
     // read-only note embed can still receive a selection landing inside a

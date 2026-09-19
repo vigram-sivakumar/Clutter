@@ -123,7 +123,20 @@ export class TableWidget extends WidgetType {
      * table's own hidden range; part of `eq()` so either transition
      * repaints the halo.
      */
-    readonly isSelected: boolean = false
+    readonly isSelected: boolean = false,
+    /**
+     * The currently `TableSelection`-selected column's own logical index
+     * in *this* table, or `null` — `tableWidgetField.ts`'s own
+     * `buildTableWidgetRange` already scopes this to `tableSelectionField`
+     * matching `table.from` (the same per-table containment discipline
+     * `activeFrom`/`activeTo` already use), so a non-`null` value here
+     * always means "selected in this exact table." Minimal rendering only
+     * (this milestone's own scope) — final visual treatment is explicitly
+     * deferred.
+     */
+    readonly selectedColumnIndex: number | null = null,
+    /** The currently `TableSelection`-selected row's own index into `getNavigableRows(table)` (header is 0, never a valid value here — header/delimiter rows are excluded from row selection), or `null`. See `selectedColumnIndex`'s own doc comment. */
+    readonly selectedRowIndex: number | null = null
   ) {
     super();
   }
@@ -134,7 +147,9 @@ export class TableWidget extends WidgetType {
       this.tableFrom === other.tableFrom &&
       this.activeFrom === other.activeFrom &&
       this.activeTo === other.activeTo &&
-      this.isSelected === other.isSelected
+      this.isSelected === other.isSelected &&
+      this.selectedColumnIndex === other.selectedColumnIndex &&
+      this.selectedRowIndex === other.selectedRowIndex
     );
   }
 
@@ -256,13 +271,22 @@ export class TableWidget extends WidgetType {
     tableScroll.appendChild(table);
 
     const thead = document.createElement('thead');
-    thead.appendChild(this.buildRow(view, this.headerCells, 'th'));
+    // Row index 0 — `getNavigableRows(table)`'s own convention (the header
+    // is always its first entry), matching `selectedRowIndex`'s own doc
+    // comment. Never a valid `selectedRowIndex` value itself (header/
+    // delimiter rows are excluded from row selection), so the header's own
+    // `<tr>` never gets the row-selected class below regardless.
+    thead.appendChild(this.buildRow(view, this.headerCells, 'th', 0));
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    for (const row of this.bodyRows) {
-      tbody.appendChild(this.buildRow(view, row, 'td'));
-    }
+    this.bodyRows.forEach((row, index) => {
+      // `index + 1` — body rows follow the header at `getNavigableRows`
+      // index 1, 2, 3, ..., in the same document order this widget's own
+      // `bodyRows` array is already built in (`tableWidgetField.ts`'s
+      // `navigableRows.slice(1)`).
+      tbody.appendChild(this.buildRow(view, row, 'td', index + 1));
+    });
     table.appendChild(tbody);
 
     // Hover-only column/row handle overlay (visual only — no click/drag/
@@ -273,7 +297,7 @@ export class TableWidget extends WidgetType {
     // overlay, matching `buildEditorExtensions.ts`'s `!readOnly` gate for
     // everything else that has no meaning in a permanently read-only view.
     if (this.controller) {
-      attachTableHandleOverlay(tableWrapper, this.headerCells.length);
+      attachTableHandleOverlay(tableWrapper, this.headerCells.length, view, this.controller, this.tableFrom);
     }
 
     if (wasFocused) {
@@ -324,13 +348,29 @@ export class TableWidget extends WidgetType {
     return widget;
   }
 
-  private buildRow(view: EditorView, cells: readonly TableCellData[], cellTag: 'th' | 'td'): HTMLTableRowElement {
+  private buildRow(view: EditorView, cells: readonly TableCellData[], cellTag: 'th' | 'td', rowIndex: number): HTMLTableRowElement {
     const tr = document.createElement('tr');
+    // Minimal, obvious rendering only (this milestone's own scope) — a
+    // single shared class on the whole row, not the final visual
+    // treatment. `selectedRowIndex` is already scoped to this exact table
+    // by `tableWidgetField.ts` (see that field's own `selectedRowIndex`
+    // read), so a plain equality check here is correct without any
+    // further containment check.
+    if (this.selectedRowIndex === rowIndex) {
+      tr.classList.add('cm-table-row-selected');
+    }
     cells.forEach((cell, columnIndex) => {
       const element = document.createElement(cellTag);
       const alignment = this.alignments[columnIndex];
       if (alignment) {
         element.classList.add(ALIGN_CLASS[alignment]);
+      }
+      // Same minimal-rendering rationale as the row-selected class above,
+      // applied per cell (there is no single "column" DOM element to
+      // style instead — table columns are implicit, per
+      // `tableWidget.css`'s own doc comment on `table-layout: fixed`).
+      if (this.selectedColumnIndex === columnIndex) {
+        element.classList.add('cm-table-column-selected');
       }
 
       const wrapper = document.createElement('div');

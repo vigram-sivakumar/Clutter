@@ -7,6 +7,7 @@ import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
 import { findAllTables, getNavigableRows, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
+import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
 
 /**
@@ -137,6 +138,15 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
   // field independently of that wiring, e.g. a narrower test harness.
   const armedForDeletion = state.field(tableDeletionSelectionField, false);
 
+  // `false` for the same reason `armedForDeletion` above defaults
+  // defensively — a narrower test harness that installs this StateField
+  // without `tableSelectionField` alongside it.
+  const tableSelection = state.field(tableSelectionField, false) ?? null;
+  const hasTableSelectionInThisTable = tableSelection?.tableFrom === table.from;
+  const selectedColumnIndex =
+    hasTableSelectionInThisTable && tableSelection!.kind === 'column' ? tableSelection!.columnIndex : null;
+  const selectedRowIndex = hasTableSelectionInThisTable && tableSelection!.kind === 'row' ? tableSelection!.rowIndex : null;
+
   // A cell belonging to *this* table is currently active — `activeAnchor`
   // itself is the controller's one global active-cell position (the same
   // value is passed to every table's widget, per this function's own
@@ -158,9 +168,14 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
   // deletion arming (`armedForDeletion`) already can't coincide with an
   // active cell — `tableDeletionSelectionField` un-arms itself on the same
   // `tableActiveCellChanged` effect — so it needs no equivalent guard here.
+  // A `TableSelection` in this table is suppressed the same way, for the
+  // identical reason — a column/row selection is a strictly more specific
+  // claim about what's selected than a coarse "the root selection happens
+  // to overlap this table" halo, and the two must never both render at
+  // once (this milestone's own instruction).
   const showSelectionHalo =
     armedForDeletion === table.from ||
-    (!hasActiveCellInThisTable && tableIntersectsSelectionRange(state.selection.main, table));
+    (!hasActiveCellInThisTable && !hasTableSelectionInThisTable && tableIntersectsSelectionRange(state.selection.main, table));
 
   const widget = new TableWidget(
     headerCells,
@@ -171,7 +186,9 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
     controller,
     activeAnchor?.from ?? null,
     activeAnchor?.to ?? null,
-    showSelectionHalo
+    showSelectionHalo,
+    selectedColumnIndex,
+    selectedRowIndex
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
@@ -238,7 +255,7 @@ export function tableWidgetDecoration(controller?: TableActiveCellController): E
       if (
         tr.docChanged ||
         !!tr.selection ||
-        tr.effects.some((e) => e.is(tableActiveCellChanged) || e.is(tableDeletionSelectionChanged))
+        tr.effects.some((e) => e.is(tableActiveCellChanged) || e.is(tableDeletionSelectionChanged) || e.is(tableSelectionChanged))
       ) {
         return buildTableDecorations(tr.state, controller);
       }
