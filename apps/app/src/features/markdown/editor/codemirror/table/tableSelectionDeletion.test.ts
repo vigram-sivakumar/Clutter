@@ -9,7 +9,7 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { tableRootSelectionSnap } from './tableRootSelectionSnap';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { tableSelectionDeletionKeymap } from './tableSelectionDeletion';
+import { tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './tableSelectionDeletion';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const mountedViews: EditorView[] = [];
@@ -34,6 +34,7 @@ function mountRootView(doc: string): { view: EditorView; controller: TableActive
         tableSelectionField,
         tableRootSelectionSnap(),
         tableSelectionDeletionKeymap(),
+        tableSelectionDeletionHistory(),
         history(),
       ],
     }),
@@ -43,7 +44,7 @@ function mountRootView(doc: string): { view: EditorView; controller: TableActive
   return { view, controller };
 }
 
-function selectTable(view: EditorView, selection: TableSelection): void {
+function selectTable(view: EditorView, selection: TableSelection | null): void {
   view.dispatch({ effects: tableSelectionChanged.of(selection) });
 }
 
@@ -252,5 +253,120 @@ describe('tableSelectionDeletionKeymap — undo/redo', () => {
 
     redo(view);
     expect(view.state.doc.toString()).not.toBe(THREE_COL);
+  });
+});
+
+describe('tableSelectionDeletionKeymap — undo/redo restores TableSelection as part of the same action', () => {
+  it('row middle: undo restores the deleted row and re-selects it; redo restores the post-delete (adjacent) selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 2 }); // Sam
+
+    dispatchKey(view, 'Delete');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 }); // Ann, adjacent
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 }); // Sam, restored
+    expect(view.dom.querySelector('.cm-table-row-selected')?.textContent).toContain('Sam');
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 }); // Ann again
+    expect(view.dom.querySelector('.cm-table-row-selected')?.textContent).toContain('Ann');
+  });
+
+  it('row last: undo restores the deleted row and re-selects it; redo restores the post-delete (remaining) selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 3 }); // Ann
+
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 }); // Sam, remaining
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 3 }); // Ann, restored
+    expect(view.dom.querySelector('.cm-table-row-selected')?.textContent).toContain('Ann');
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 }); // Sam again
+    expect(view.dom.querySelector('.cm-table-row-selected')?.textContent).toContain('Sam');
+  });
+
+  it('column middle: undo restores the deleted column and re-selects it; redo restores the post-delete (adjacent) selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 }); // Role
+
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 }); // City, adjacent
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 }); // Role, restored
+    expect(view.dom.querySelector('.cm-table-column-selected')?.textContent).toBe('Role');
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 }); // City again
+    expect(view.dom.querySelector('.cm-table-column-selected')?.textContent).toBe('City');
+  });
+
+  it('column last: undo restores the deleted column and re-selects it; redo restores the post-delete (remaining) selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 2 }); // City
+
+    dispatchKey(view, 'Delete');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 }); // Role, remaining
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 2 }); // City, restored
+    expect(view.dom.querySelector('.cm-table-column-selected')?.textContent).toBe('City');
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 }); // Role again
+    expect(view.dom.querySelector('.cm-table-column-selected')?.textContent).toBe('Role');
+  });
+
+  it('single body row: undo after deleting the only row restores it and re-selects it', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    dispatchKey(view, 'Backspace');
+    expect(view.state.field(tableSelectionField)).toBeNull(); // no body rows left
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toBeNull();
+  });
+
+  it('single-column table: undo after deleting the whole table restores it and re-selects the column', () => {
+    const doc = '| Name |\n| --- |\n| Vik |\n| Sam |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
+  });
+
+  it('a plain handle-click selection change (no document change) still never enters undo history', () => {
+    const { view } = mountRootView(THREE_COL);
+    const depthBefore = undoDepth(view.state);
+
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+    selectTable(view, null);
+
+    expect(undoDepth(view.state)).toBe(depthBefore);
   });
 });

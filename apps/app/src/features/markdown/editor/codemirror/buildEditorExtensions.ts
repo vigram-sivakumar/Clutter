@@ -64,7 +64,7 @@ import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
-import { tableSelectionDeletionKeymap } from './table/tableSelectionDeletion';
+import { tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './table/tableSelectionDeletion';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -338,6 +338,14 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // than left to incidental tie-breaking. See `tableSelectionDeletion.ts`'s
     // own doc comment.
     tableSelectionDeletionKeymap(),
+    // Registers `tableSelectionChanged`'s own undo/redo inverse with the
+    // `history()` extension installed unconditionally in
+    // `createEditorView.ts` (via `@codemirror/commands`'s `invertedEffects`
+    // facet) — not gated on `tableActiveCellController` because
+    // `tableSelectionDeletionKeymap()` above isn't either; both are no-ops
+    // without a `TableSelection` to act on. See
+    // `tableSelectionDeletionHistory()`'s own doc comment.
+    tableSelectionDeletionHistory(),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,

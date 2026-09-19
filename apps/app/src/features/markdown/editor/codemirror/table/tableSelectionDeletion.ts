@@ -1,3 +1,4 @@
+import { invertedEffects } from '@codemirror/commands';
 import { EditorSelection, Prec, type ChangeSpec, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 
@@ -21,7 +22,13 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
  * so undo/redo, and the root-selection-never-inside-a-table invariant
  * (`tableRootSelectionSnap.ts`, which runs on every transaction including
  * doc-changing ones), both come for free from mechanisms that already
- * exist; nothing new is added for either.
+ * exist. `tableSelectionDeletionHistory()`, below, is what makes the
+ * *selection* half of that also true — without it, `tableSelectionField`'s
+ * own generic `remapTableSelection` (`tableSelection.ts`) tracks undo/redo
+ * as "the currently-selected row/column, followed forward through the
+ * edit," not "reverse this deletion's own selection change," which leaves
+ * the wrong row/column selected after undo (see that function's own doc
+ * comment).
  */
 
 /** The `[from, to)` Markdown range to delete for `navigableRows[rowIndex]` — the row's own content plus exactly one adjoining newline. Prefers the newline *after* the row (so a row followed by another row/table content just disappears cleanly); falls back to the newline *before* it only when this is the table's last row, so no dangling blank line is ever left inside the table. Lines within a table are always contiguous (GFM allows no blank line mid-table), so `row.from - 1` is always the exact preceding newline and is always `>= table.from` here (row index is never 0 — the header is never a deletable row). */
@@ -250,4 +257,63 @@ export function tableSelectionDeletionKeymap(): Extension {
   ];
 
   return Prec.highest(keymap.of(bindings));
+}
+
+/**
+ * Hooks `tableSelectionChanged` into CM6's *existing* undo/redo history —
+ * not a second history mechanism — via `@codemirror/commands`'
+ * `invertedEffects` facet, the same one `history()` (installed
+ * unconditionally for the root editor, `createEditorView.ts`) already
+ * reads. Verified directly against the installed `@codemirror/commands@6.11.0`
+ * source (`node_modules/@codemirror/commands/dist/index.js`):
+ *
+ * - `HistEvent.fromTransaction(tr, selection)` calls every registered
+ *   `invertedEffects` provider with the transaction *being recorded*, and
+ *   stores whatever effects they return as that history event's own
+ *   `effects` — replayed verbatim (`historyField_.pop()`'s own
+ *   `state.update({ changes: event.changes, ..., effects: event.effects })`)
+ *   the next time that event is undone (or redone).
+ * - Critically, `HistEvent.fromTransaction` runs *again* when the undo (or
+ *   redo) transaction itself gets recorded into history (`historyField_`'s
+ *   own `update()`, the `fromHist` branch) — so this same provider function
+ *   fires once for the original deletion (producing the effect replayed on
+ *   undo) and once more for the undo transaction (producing the effect
+ *   replayed on redo), each time computing its answer from that specific
+ *   transaction's own `startState`. One symmetric rule — "restore
+ *   `tableSelectionField`'s value from immediately before this
+ *   transaction" — is therefore correct in both directions with no
+ *   undo/redo-specific branching: for the original delete, `startState` is
+ *   the pre-deletion selection (restored on undo); for the undo
+ *   transaction, `startState` is the post-deletion selection (restored on
+ *   redo).
+ * - `HistEvent.fromTransaction` only creates a history entry at all when
+ *   `!tr.changes.empty || effects.length` — so this provider must return
+ *   `[]` for a changeless transaction (a plain handle click setting
+ *   `TableSelection` with no `changes`), or that click would start
+ *   entering undo history on its own, breaking `tableSelection.test.ts`'s
+ *   own "setting a selection does not enter undo history" invariant. The
+ *   `tr.changes.empty` guard below is exactly that: every deletion in this
+ *   module always carries real `changes`, so it's never affected; a bare
+ *   `tableSelectionChanged` dispatch (no `changes`) always is.
+ *
+ * The stored inverse is always the *actual* pre-transaction `TableSelection`
+ * value, snapshotted — never reconstructed from the row/column positions in
+ * the restored document. This matters because `table.from` is invariant
+ * across every deletion this module performs (rows/columns are always
+ * removed strictly after it), so the exact `{tableFrom, rowIndex}`/
+ * `{tableFrom, columnIndex}` that was valid before deletion is valid again,
+ * unchanged, once undo restores that exact byte range — no remapping step
+ * is needed or wanted here.
+ */
+export function tableSelectionDeletionHistory(): Extension {
+  return invertedEffects.of((tr) => {
+    if (tr.changes.empty) {
+      return [];
+    }
+    if (!tr.effects.some((effect) => effect.is(tableSelectionChanged))) {
+      return [];
+    }
+    const previous = tr.startState.field(tableSelectionField, false) ?? null;
+    return [tableSelectionChanged.of(previous)];
+  });
 }
