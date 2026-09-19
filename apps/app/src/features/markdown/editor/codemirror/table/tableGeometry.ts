@@ -43,6 +43,12 @@ export function findAllTables(state: EditorState): TableInfo[] {
   return tables;
 }
 
+/** The table whose own `.from` is exactly `pos` — `null` if no table starts there. Used by `blockSeparatorDecoration.ts` to tag the separator immediately above a table with that table's own position (for its click-to-insert-a-line-above affordance), without that file needing its own tree-walk. */
+export function findTableStartingAt(state: EditorState, pos: number): TableInfo | null {
+  const table = findEnclosingTable(state, pos);
+  return table && table.from === pos ? { node: table, from: table.from, to: table.to } : null;
+}
+
 /**
  * Whether a **non-collapsed** root selection range genuinely overlaps
  * `table`'s own `[from, to)` source range — used by `tableWidgetField.ts`

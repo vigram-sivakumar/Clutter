@@ -3,6 +3,7 @@ import { StateField, type EditorState, type Extension, type Range } from '@codem
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
+import { findTableStartingAt } from '../table/tableGeometry';
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
 import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
 
@@ -23,18 +24,68 @@ import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './sep
  * `separatorScope.ts`'s atomic set with no special-casing at all.
  */
 class SeparatorWidget extends WidgetType {
-  constructor(readonly height: Exclude<SeparatorHeight, 0>) {
+  constructor(
+    readonly height: Exclude<SeparatorHeight, 0>,
+    /**
+     * The table's own `.from` when this separator sits immediately above
+     * that table's first line — `null` for every other separator (the
+     * overwhelming common case). Purely additive: it changes nothing about
+     * `height`, `toDOM()`'s visual output, or `estimatedHeight` — the only
+     * difference is `toDOM()` attaching one `mousedown` listener when it's
+     * non-null (below). Part of `eq()` so a table shifting position (an
+     * edit elsewhere in the document) correctly rebuilds this widget with a
+     * fresh closure over the new position, rather than CM6 reusing stale
+     * DOM with a listener still bound to the old `tableFrom`.
+     */
+    readonly tableFrom: number | null = null
+  ) {
     super();
   }
 
   override eq(other: SeparatorWidget): boolean {
-    return other.height === this.height;
+    return other.height === this.height && other.tableFrom === this.tableFrom;
   }
 
-  override toDOM(): HTMLElement {
+  override toDOM(view: EditorView): HTMLElement {
     const dom = document.createElement('div');
     dom.className = 'cm-block-separator';
     dom.style.height = `${this.height}px`;
+    // Table-specific click-to-insert-a-line-above affordance — every other
+    // separator (`tableFrom === null`) gets no listener at all and stays
+    // exactly as inert as before this feature existed. Deliberately not a
+    // generic "clickable separator" mechanism: only a table's own leading
+    // separator is ever tagged with a non-null `tableFrom` in the first
+    // place (`buildLineBoundarySeparators`, below).
+    if (this.tableFrom !== null) {
+      const tableFrom = this.tableFrom;
+      // Identification only (mirrors `TableWidget`'s own `data-table-from`
+      // convention) — no visual effect, not read by this listener itself.
+      dom.dataset.tableFrom = String(tableFrom);
+      dom.addEventListener('mousedown', (event) => {
+        // Same pairing `TableWidget`'s own non-cell-click suppression uses
+        // (`tableWidget.ts`): `preventDefault()` blocks the browser's
+        // default action, `stopPropagation()` stops root CM6's own
+        // `contentDOM` mousedown handling from also running for the same
+        // click. `WidgetType.ignoreEvent()`'s own default (`true`) already
+        // keeps CM6 from trying to place a caret here itself, for every
+        // separator, table-tagged or not — this listener only adds the
+        // insert-a-line behavior on top, never removes CM6's existing
+        // "don't touch my own click handling" default.
+        event.preventDefault();
+        event.stopPropagation();
+        // One blank line immediately before the table's own source range:
+        // inserting a single `\n` at `tableFrom` pushes the table (and
+        // everything after it) forward by one line without touching the
+        // table's own text or anything below it, and the new blank line's
+        // own start is `tableFrom` itself in the resulting document — the
+        // exact position the cursor should land on.
+        view.dispatch({
+          changes: { from: tableFrom, to: tableFrom, insert: '\n' },
+          selection: { anchor: tableFrom },
+          scrollIntoView: true,
+        });
+      });
+    }
     return dom;
   }
 
@@ -43,11 +94,11 @@ class SeparatorWidget extends WidgetType {
   }
 }
 
-function separatorRange(height: SeparatorHeight, pos: number, side: -1 | 1): Range<Decoration> | null {
+function separatorRange(height: SeparatorHeight, pos: number, side: -1 | 1, tableFrom: number | null = null): Range<Decoration> | null {
   if (height === 0) {
     return null;
   }
-  return Decoration.widget({ widget: new SeparatorWidget(height), block: true, side }).range(pos);
+  return Decoration.widget({ widget: new SeparatorWidget(height, tableFrom), block: true, side }).range(pos);
 }
 
 function firstNonWhitespaceOffset(text: string): number {
@@ -96,14 +147,66 @@ function nearestParticipant(state: EditorState, probePos: number): SyntaxNode | 
  * per-construct branching.** See `docs/editor-architecture-decisions.md`'s
  * wrapper-removal entry for the fuller before/after account.
  */
+/**
+ * The click-to-insert-a-line-above affordance is **only** for the specific
+ * case a table has no real document content above it at all — a table
+ * that already has *any* line/content above it (the ordinary case the
+ * ordinary per-boundary loop below handles) gets a ordinary, untagged,
+ * non-interactive separator, identical to what it rendered before this
+ * feature existed. That boundary is deliberately never tagged: clicking a
+ * separator that already sits above real content must be a true no-op
+ * (per this feature's own product requirement — inserting a *second* line
+ * there was an earlier, incorrect design), so the correct implementation
+ * is simply "never attach the affordance there," not "attach it, then
+ * make the transaction a no-op." `state.readOnly` (a note embed's nested
+ * view) never gets the leading tag either — that view has no write path
+ * for the insert-a-line-above transaction to use, so the affordance must
+ * not exist there at all, same "omit the capability entirely" gate this
+ * codebase's other table interactions already apply for read-only views
+ * (`tableWidget.ts`'s own `controller: undefined` case).
+ */
+function leadingTableClickTag(state: EditorState): number | null {
+  if (state.readOnly) {
+    return null;
+  }
+  return findTableStartingAt(state, state.doc.line(1).from)?.from ?? null;
+}
+
 function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
+
+  // A table at the very start of the document has no preceding line for
+  // the loop below to ever compare against (it starts at n=2) — normally
+  // correct (nothing needs a leading gap above the document's own first
+  // line), but a table specifically still needs its own separator here so
+  // the click-to-insert-a-line-above affordance has somewhere to render
+  // for a table-only or table-first document. Only `Table` gets this
+  // synthetic leading boundary (via `leadingTableClickTag`'s own
+  // table-only check) — every other construct at document start still
+  // gets no leading separator, unchanged. `12` matches
+  // `resolveBoundaryHeight`'s own default top-level case (the height a
+  // table entering from ordinary preceding content already gets, below)
+  // — tables are never nested inside a list/blockquote in this codebase
+  // (`tableActivationNormalization.ts`'s own doc comment), so that
+  // default is always the correct height for a leading table, not a
+  // guess.
+  const leadingTableFrom = leadingTableClickTag(state);
+  if (leadingTableFrom !== null) {
+    const separator = separatorRange(12, state.doc.line(1).from, -1, leadingTableFrom);
+    if (separator) {
+      ranges.push(separator);
+    }
+  }
 
   for (let n = 2; n <= state.doc.lines; n++) {
     const prevProbe = lineProbePos(state, n - 1);
     const probe = lineProbePos(state, n);
     const height = resolveBoundaryHeight(state, prevProbe, probe);
     const line = state.doc.line(n);
+    // No table-click tag here — see `leadingTableClickTag`'s own doc
+    // comment: a boundary reached only via this ordinary per-line loop
+    // always has real content/a real line above it, which is exactly the
+    // case this feature must leave untouched.
     const separator = separatorRange(height, line.from, -1);
     if (separator) {
       ranges.push(separator);
