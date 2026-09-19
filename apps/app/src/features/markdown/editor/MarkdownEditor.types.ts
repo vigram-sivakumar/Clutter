@@ -296,4 +296,12 @@ export interface MarkdownEditorProps {
  */
 export interface MarkdownEditorHandle {
   focus(): void;
+  /**
+   * Used when focus arrives from the page title's Enter key: inserts a new
+   * blank line at the very top of the body and places the cursor on it,
+   * instead of focusing wherever the body's existing selection happens to
+   * be (e.g. end of document — see createEditorView's fresh-selection
+   * default, which otherwise makes a bare `focus()` land there).
+   */
+  focusAtNewLineAtStart(): void;
 }

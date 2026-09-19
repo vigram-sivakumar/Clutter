@@ -15,7 +15,8 @@ function getTitle(): HTMLElement {
 
 function makeBodyFocusRef() {
   const focus = vi.fn();
-  return { current: { focus } };
+  const focusAtNewLineAtStart = vi.fn();
+  return { current: { focus, focusAtNewLineAtStart } };
 }
 
 describe('Page — title autofocus', () => {
@@ -39,7 +40,7 @@ describe('Page — title autofocus', () => {
 });
 
 describe('Page — title Enter advances focus to the body', () => {
-  it('calls bodyFocusRef.focus() when Enter is pressed in the title', () => {
+  it('calls bodyFocusRef.focusAtNewLineAtStart() when Enter is pressed in the title', () => {
     const bodyFocusRef = makeBodyFocusRef();
     render(
       <Page title="" titleEditable body={<div />} bodyFocusRef={bodyFocusRef} />
@@ -50,10 +51,11 @@ describe('Page — title Enter advances focus to the body', () => {
     fireEvent.input(title);
     fireEvent.keyDown(title, { key: 'Enter' });
 
-    expect(bodyFocusRef.current.focus).toHaveBeenCalledTimes(1);
+    expect(bodyFocusRef.current.focusAtNewLineAtStart).toHaveBeenCalledTimes(1);
+    expect(bodyFocusRef.current.focus).not.toHaveBeenCalled();
   });
 
-  it('does not call bodyFocusRef.focus() on Escape', () => {
+  it('does not call bodyFocusRef.focusAtNewLineAtStart() on Escape', () => {
     const bodyFocusRef = makeBodyFocusRef();
     render(
       <Page title="" titleEditable body={<div />} bodyFocusRef={bodyFocusRef} />
@@ -64,7 +66,7 @@ describe('Page — title Enter advances focus to the body', () => {
     fireEvent.input(title);
     fireEvent.keyDown(title, { key: 'Escape' });
 
-    expect(bodyFocusRef.current.focus).not.toHaveBeenCalled();
+    expect(bodyFocusRef.current.focusAtNewLineAtStart).not.toHaveBeenCalled();
   });
 
   it('does not throw when no bodyFocusRef is provided', () => {

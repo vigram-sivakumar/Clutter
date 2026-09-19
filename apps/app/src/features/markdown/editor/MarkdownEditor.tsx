@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { EditorView } from '@codemirror/view';
+import { EditorSelection } from '@codemirror/state';
 
 import {
   createEditorView,
@@ -882,6 +883,18 @@ export const MarkdownEditor = forwardRef<
   useImperativeHandle(ref, () => ({
     focus() {
       viewRef.current?.focus();
+    },
+    focusAtNewLineAtStart() {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      view.dispatch({
+        changes: { from: 0, insert: '\n' },
+        selection: EditorSelection.cursor(0),
+        scrollIntoView: true,
+      });
+      view.focus();
     },
   }));
 

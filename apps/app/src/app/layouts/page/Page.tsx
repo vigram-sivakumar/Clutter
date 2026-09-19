@@ -22,7 +22,7 @@ type PageProps = {
    * is (MarkdownEditor today, a future page type's own editing surface
    * later), only that it can be focused.
    */
-  bodyFocusRef?: RefObject<{ focus(): void } | null>;
+  bodyFocusRef?: RefObject<{ focus(): void; focusAtNewLineAtStart(): void } | null>;
   /**
    * Fired when a changed title commits (see PageTitle.onCommit). Supplied
    * by the draft branch and the folder branch (FolderOperations.rename(),
@@ -120,7 +120,7 @@ export function Page({
                 editable={titleEditable}
                 placeholder={titlePlaceholder}
                 autoFocus={shouldAutoFocusTitle}
-                onSubmit={() => bodyFocusRef?.current?.focus()}
+                onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
                 onCommit={onTitleCommit}
                 onEdit={onTitleEdit}
                 onFlush={onTitleFlush}

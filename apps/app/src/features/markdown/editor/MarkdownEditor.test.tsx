@@ -57,6 +57,40 @@ describe('MarkdownEditor imperative focus handle', () => {
 
     expect(document.activeElement).toBe(editor);
   });
+
+  // Regression test for the page title's Enter key: the body's fresh
+  // selection defaults to end-of-document (see "initial cursor position"
+  // below), so a bare focus() from the title landed the cursor at the end
+  // of existing body content instead of a new line right below the title.
+  it('focusAtNewLineAtStart() inserts a blank line at the top and places the cursor there, not at the end of the document', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(
+      <MarkdownEditor pageId="test-page" ref={ref} markdown="Existing body content" />
+    );
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    // Fresh-open selection starts at the end of the document (see below) —
+    // confirm the buggy starting condition before exercising the fix.
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+
+    ref.current?.focusAtNewLineAtStart();
+
+    expect(view.state.doc.toString()).toBe('\nExisting body content');
+    expect(view.state.selection.main.head).toBe(0);
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(document.activeElement).toBe(view.contentDOM);
+  });
+
+  it('focusAtNewLineAtStart() on an empty body still creates a blank line and places the cursor at its start', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown="" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    ref.current?.focusAtNewLineAtStart();
+
+    expect(view.state.doc.toString()).toBe('\n');
+    expect(view.state.selection.main.head).toBe(0);
+  });
 });
 
 describe('MarkdownEditor: DOM sync from the markdown prop', () => {
