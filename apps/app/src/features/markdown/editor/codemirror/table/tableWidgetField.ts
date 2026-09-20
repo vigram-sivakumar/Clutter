@@ -6,6 +6,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
+import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
@@ -92,7 +93,12 @@ export function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   });
 }
 
-function buildTableWidgetRange(state: EditorState, table: TableInfo, controller: TableActiveCellController | undefined): Range<Decoration> | null {
+function buildTableWidgetRange(
+  state: EditorState,
+  table: TableInfo,
+  controller: TableActiveCellController | undefined,
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
+): Range<Decoration> | null {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
   if (!header) {
@@ -180,15 +186,20 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo, controller:
     showSelectionHalo,
     selectedColumnIndex,
     selectedRowIndex,
-    selectedRange
+    selectedRange,
+    getOnTableHandleMenuChange
   );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
 
-function buildTableDecorations(state: EditorState, controller: TableActiveCellController | undefined): DecorationSet {
+function buildTableDecorations(
+  state: EditorState,
+  controller: TableActiveCellController | undefined,
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
+): DecorationSet {
   const ranges: Range<Decoration>[] = [];
   for (const table of findAllTables(state)) {
-    const range = buildTableWidgetRange(state, table, controller);
+    const range = buildTableWidgetRange(state, table, controller, getOnTableHandleMenuChange);
     if (range) {
       ranges.push(range);
     }
@@ -237,10 +248,13 @@ function buildTableDecorations(state: EditorState, controller: TableActiveCellCo
  * is scoped one-per-root-`EditorView` (§D) — each root editor needs its
  * own field instance closing over its own controller.
  */
-export function tableWidgetDecoration(controller?: TableActiveCellController): Extension {
+export function tableWidgetDecoration(
+  controller?: TableActiveCellController,
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined
+): Extension {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildTableDecorations(state, controller);
+      return buildTableDecorations(state, controller, getOnTableHandleMenuChange);
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
@@ -249,7 +263,7 @@ export function tableWidgetDecoration(controller?: TableActiveCellController): E
         !!tr.selection ||
         tr.effects.some((e) => e.is(tableActiveCellChanged) || e.is(tableDeletionSelectionChanged) || e.is(tableSelectionChanged))
       ) {
-        return buildTableDecorations(tr.state, controller);
+        return buildTableDecorations(tr.state, controller, getOnTableHandleMenuChange);
       }
       return value;
     },

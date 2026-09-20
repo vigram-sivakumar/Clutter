@@ -8,7 +8,13 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableActiveCellChanged, TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { findAllTables } from './tableGeometry';
-import { attachTableOutsideClickHandling, tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
+import {
+  attachTableOutsideClickHandling,
+  TABLE_HANDLE_MENU_CLASS,
+  tableSelectionChanged,
+  tableSelectionField,
+  type TableSelection,
+} from './tableSelection';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const mountedViews: EditorView[] = [];
@@ -240,6 +246,51 @@ describe('attachTableOutsideClickHandling', () => {
     // accidentally disable for everyone.
     expect(controller.activeAnchor).toBeNull();
     detach2();
+  });
+});
+
+describe('attachTableOutsideClickHandling — table handle menu exemption', () => {
+  /** A plain element carrying `TABLE_HANDLE_MENU_CLASS` — stands in for `TableHandleMenu.tsx`'s own portaled root DOM (`Overlay`'s `className` prop), appended to `document.body` exactly like the real, portaled menu is, never inside any table's own DOM. */
+  function tableHandleMenuElement(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = TABLE_HANDLE_MENU_CLASS;
+    const item = document.createElement('button');
+    el.appendChild(item);
+    document.body.appendChild(el);
+    return item;
+  }
+
+  it('a mousedown inside the table handle menu does not clear an active TableSelection', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: tableFrom(view), rowIndex: 1 }) });
+
+    mousedown(tableHandleMenuElement());
+
+    expect(view.state.field(tableSelectionField)).not.toBeNull();
+    detach();
+  });
+
+  it('a mousedown inside the table handle menu does not deactivate an active cell either', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    clickCell(findCell(view, 'Vik'));
+
+    mousedown(tableHandleMenuElement());
+
+    expect(controller.activeAnchor).not.toBeNull();
+    detach();
+  });
+
+  it('a mousedown genuinely outside both the table and the menu still clears the selection as before (the exemption is narrow)', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: tableFrom(view), rowIndex: 1 }) });
+
+    mousedown(outsideElement());
+
+    expect(view.state.field(tableSelectionField)).toBeNull();
+    detach();
   });
 });
 

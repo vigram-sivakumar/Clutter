@@ -275,6 +275,19 @@ export const tableSelectionField = StateField.define<TableSelection | null>({
  * synthesizes or otherwise touches the *native* DOM Selection — only
  * CM6's own logical `state.selection`.
  */
+
+/**
+ * The one CSS class every row/column handle's own floating menu
+ * (`TableHandleMenu.tsx`) carries on its root DOM — defined here, not in
+ * `tableHandleMenuSync.ts` (which otherwise owns every other table-handle-menu
+ * type/mechanism), specifically so `attachTableOutsideClickHandling` below
+ * can read it without a circular import (`tableHandleMenuSync.ts` already
+ * imports `tableSelectionField`/`TableSelection` from this file). Re-
+ * exported from `tableHandleMenuSync.ts` for every other caller, which is the
+ * conceptually-correct home for it.
+ */
+export const TABLE_HANDLE_MENU_CLASS = 'cm-table-handle-menu';
+
 export function attachTableOutsideClickHandling(view: EditorView, controller: TableActiveCellController): () => void {
   const handleMouseDown = (event: MouseEvent): void => {
     const hasActiveCell = controller.activeAnchor !== null;
@@ -283,6 +296,21 @@ export function attachTableOutsideClickHandling(view: EditorView, controller: Ta
     const clickedInsideActiveCell =
       hasActiveCell && !!controller.nestedView && target instanceof Node && controller.nestedView.dom.contains(target);
     if (clickedInsideActiveCell) {
+      return;
+    }
+    // A fourth exemption, alongside this function's own three DOM-
+    // containment-based ones (this doc comment's own first section) — the
+    // row/column handle's own menu (`TableHandleMenu.tsx`,
+    // `tableHandleMenuSync.ts`'s own `TABLE_HANDLE_MENU_CLASS`) is portaled to
+    // `document.body`, never inside any table's own DOM, so none of those
+    // three (which all rely on the click already having been claimed
+    // *inside* a table's own subtree) can ever recognize it. Required for
+    // correctness, not just cosmetic: without this, `mousedown` on a menu
+    // item would clear `tableSelectionField` here — closing/unmounting the
+    // menu, via `tableHandleMenuSync`, *before* the browser's own
+    // subsequent `click` event can fire on that now-removed node. See
+    // `TABLE_HANDLE_MENU_CLASS`'s own doc comment for the full reasoning.
+    if (target instanceof Element && target.closest(`.${TABLE_HANDLE_MENU_CLASS}`)) {
       return;
     }
 

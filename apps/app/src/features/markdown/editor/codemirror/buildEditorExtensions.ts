@@ -62,6 +62,8 @@ import { tableActiveCellReconciliation, type TableActiveCellController } from '.
 import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
+import type { OnTableHandleMenuChange } from './table/tableHandleMenuSync';
+import { tableHandleMenuSync } from './table/tableHandleMenuSync';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
 import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
@@ -122,6 +124,16 @@ export interface BuildEditorExtensionsOptions {
   readonly onOpenFencedCodeMenu?: () => OnOpenFencedCodeMenu | undefined;
   /** Opens the "Paste as" menu for a just-pasted plain HTTPS URL (Markdown link / URL) — see `UrlPasteMenu.tsx`'s doc comment. Omitted for a read-only nested view — pasting has no meaning once editing is blocked. */
   readonly onOpenUrlPasteMenu?: () => OnOpenUrlPasteMenu | undefined;
+  /**
+   * A row/column handle's own floating menu (Clear contents / Insert /
+   * Delete) — see `TableHandleMenu.tsx`'s doc comment. Unlike every other
+   * `onOpenXMenu` above, the same callback also *closes* the menu (called
+   * with `null`) — see `OnTableHandleMenuChange`'s own doc comment
+   * (`tableHandleMenuSync.ts`). Omitted for a read-only nested view — a note
+   * embed's table never gets a handle overlay to open one from in the
+   * first place (`tableWidget.ts`'s own `if (this.controller)` gate).
+   */
+  readonly onOpenTableHandleMenu?: () => OnTableHandleMenuChange | undefined;
   readonly resolveImageSrc: () => ResolveImageSrc | undefined;
   readonly resolveTag: () => ResolveTag | undefined;
   readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
@@ -211,6 +223,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     onOpenNoteEmbedMenu,
     onOpenFencedCodeMenu,
     onOpenUrlPasteMenu,
+    onOpenTableHandleMenu,
     resolveImageSrc,
     resolveTag,
     getTagSuggestions,
@@ -283,7 +296,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     dateMouseHandlers(resolveDate),
     linkMouseHandlers(),
     urlMouseHandlers(),
-    tableWidgetDecoration(tableActiveCellController),
+    tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.()),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
     // reads this field on every rebuild via `state.field(...)`, which
@@ -362,6 +375,14 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // `TableSelection` to react to either way. See that module's own doc
     // comment for the full mechanism.
     tableSelectionCaretVisibility(),
+    // Closes the table handle menu whenever `TableSelection` clears (a
+    // cell click, an outside click) — see `tableHandleMenuSync`'s own doc
+    // comment for why this is a separate, state-driven mechanism from the
+    // discrete open call `tableHandleOverlay.ts`'s own click handlers make
+    // directly. Editable-only, same as `tableSelectionCaretVisibility()`
+    // above — a read-only note embed's table never opens this menu in the
+    // first place.
+    tableHandleMenuSync(() => onOpenTableHandleMenu?.()),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,

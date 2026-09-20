@@ -19,6 +19,9 @@ import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
+import { clearTableSelection } from './codemirror/table/tableSelectionClear';
+import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
+import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
@@ -485,6 +488,69 @@ export const MarkdownEditor = forwardRef<
     }
     const { from, to } = computeEmbedRemovalRange(view.state, noteEmbedMenu.pos);
     view.dispatch({ changes: { from, to, insert: '' } });
+  };
+
+  // A row/column handle's own floating menu (Clear contents / Insert /
+  // Delete — TableHandleMenu.tsx). Unlike every other menu here, its own
+  // open callback (onOpenTableHandleMenuRef) also *closes* it: a
+  // TableSelection clearing (a cell click, an outside click) is signaled
+  // reactively by tableHandleMenuSync (tableHandleMenuSync.ts), which calls
+  // this same ref with `null` — never a discrete close-button click the
+  // way every other menu's own trigger works. See that module's own doc
+  // comment for why closing needs a different mechanism than opening here
+  // (no DOM anchor is ever available from CM6 state alone).
+  const [tableHandleMenu, setTableHandleMenu] = useState<{
+    anchor: TableHandleMenuAnchor;
+    selection: TableHandleMenuSelection;
+  } | null>(null);
+
+  // Lifted out of `TableHandleMenu.tsx` itself (unlike every other menu
+  // here, which each own a local `useRef(false)`) specifically so this
+  // callback can set it — see the `params === null` branch below.
+  // `useOverlayFocus`'s own contract: set `.current = true` *before* the
+  // state change that closes the overlay to skip that one focus
+  // restoration. Required here, not optional: confirmed live that without
+  // it, clicking a table cell to close this menu closed it correctly but
+  // then *un*-activated that same cell a moment later — `Overlay`'s own
+  // focus-restoration effect (`useOverlayFocus`) ran after the cell's own
+  // `mousedown` handler had already moved focus into its nested editor,
+  // and called `.focus()` back on this menu's own (by then stale) anchor
+  // handle, stealing focus right back off the cell. Menu-item clicks and
+  // Escape (`closeTableHandleMenu`, below) are deliberately NOT covered by
+  // this — those still want focus back on the trigger handle, the same as
+  // every other menu in the app; only a close driven by `TableSelection`
+  // itself going `null` externally (a cell click, an outside click) needs
+  // suppression, since in both cases focus has already gone (or is about
+  // to go) somewhere real that this menu must not fight with.
+  const tableHandleMenuSuppressReturnFocusRef = useRef(false);
+
+  const onOpenTableHandleMenuRef = useRef<OnTableHandleMenuChange>((params) => {
+    if (params === null) {
+      tableHandleMenuSuppressReturnFocusRef.current = true;
+    }
+    setTableHandleMenu(params ? { anchor: { current: params.anchor }, selection: params.selection } : null);
+  });
+
+  const closeTableHandleMenu = () => {
+    setTableHandleMenu(null);
+  };
+
+  // "Clear contents" — the only menu item wired to a real operation this
+  // milestone (per the product spec: establish the menu items/interaction
+  // now, implement Insert/Delete in a future structural-operation
+  // milestone). Reuses tableSelectionClear.ts's own existing
+  // clearTableSelection exactly as Backspace/Delete already does
+  // (tableSelectionClearKeymap, buildEditorExtensions.ts) — triggered from
+  // the menu instead of a keystroke, same underlying operation. The menu
+  // closes on its own right after (OverflowMenuBody's own onOpenChange(false)
+  // → onClose, the same sequence every other menu item here already goes
+  // through), so no explicit close call is needed here either.
+  const handleClearTableSelectionFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    clearTableSelection(view, tableHandleMenu.selection);
   };
 
   // A fenced code block's own floating "More actions" control — same
@@ -971,6 +1037,7 @@ export const MarkdownEditor = forwardRef<
         onOpenNoteEmbedMenu: () => onOpenNoteEmbedMenuRef.current,
         onOpenFencedCodeMenu: () => onOpenFencedCodeMenuRef.current,
         onOpenUrlPasteMenu: () => onOpenUrlPasteMenuRef.current,
+        onOpenTableHandleMenu: () => onOpenTableHandleMenuRef.current,
         resolveImageSrc: () => resolveImageSrcRef.current,
         resolveTag: () => resolveTagRef.current,
         getTagSuggestions: () => getTagSuggestionsRef.current,
@@ -1200,6 +1267,13 @@ export const MarkdownEditor = forwardRef<
         onClose={closeNoteEmbedMenu}
         onTurnIntoWikiLink={handleTurnNoteEmbedIntoWikiLink}
         onRemove={handleRemoveNoteEmbed}
+      />
+      <TableHandleMenu
+        anchor={tableHandleMenu?.anchor ?? null}
+        selection={tableHandleMenu?.selection ?? null}
+        onClose={closeTableHandleMenu}
+        onClearContents={handleClearTableSelectionFromMenu}
+        suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu
         anchor={fencedCodeMenu?.anchor ?? null}

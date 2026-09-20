@@ -5,6 +5,7 @@ import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { beginCellDragTracking } from './tableCellRangeSelection';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
+import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 import {
   attachTableSelectionOverlayResize,
@@ -163,7 +164,17 @@ export class TableWidget extends WidgetType {
      * construction, same as those two are with each other (one
      * `TableSelection`, one `kind`, at a time).
      */
-    readonly selectedRange: { readonly minRow: number; readonly maxRow: number; readonly minCol: number; readonly maxCol: number } | null = null
+    readonly selectedRange: { readonly minRow: number; readonly maxRow: number; readonly minCol: number; readonly maxCol: number } | null = null,
+    /**
+     * Threaded straight through to `attachTableHandleOverlay()` — not part
+     * of `eq()`'s own comparison, unlike every other field above: this is a
+     * plain function reference (a getter for the current React callback,
+     * per `buildEditorExtensions.ts`'s own "read fresh per click" `onOpenXMenu`
+     * convention), never data that should force a rebuild on its own — a
+     * new `TableWidget` instance is already constructed on every rebuild
+     * regardless, at which point this getter is simply read again fresh.
+     */
+    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined
   ) {
     super();
   }
@@ -351,7 +362,8 @@ export class TableWidget extends WidgetType {
         this.controller,
         this.tableFrom,
         this.selectedColumnIndex,
-        this.selectedRowIndex
+        this.selectedRowIndex,
+        this.getOnTableHandleMenuChange
       );
     }
 
@@ -598,7 +610,15 @@ export class TableWidget extends WidgetType {
             // module's own header comment for why running the two side by
             // side, rather than gating activation on the gesture's
             // outcome, is both correct and the smallest mechanism here.
-            controller.activate(view, wrapper, cell.from, cell.to, cell.to);
+            //
+            // `cell.to` is still passed as `cursorPos` (the immediate,
+            // synchronous placement `activate()` needs before its own
+            // nested DOM exists to measure anything against) — the actual
+            // clicked position is resolved from `{ x: event.clientX, y:
+            // event.clientY }` *inside* `activate()`, once that DOM is
+            // real, via `EditorView.posAtCoords`; see that method's own
+            // `clickCoords` doc comment.
+            controller.activate(view, wrapper, cell.from, cell.to, cell.to, { x: event.clientX, y: event.clientY });
             beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
           });
         }

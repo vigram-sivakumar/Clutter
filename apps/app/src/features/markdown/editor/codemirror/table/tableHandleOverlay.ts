@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import './tableHandleOverlay.css';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { tableActiveCellChanged } from './tableActiveCellController';
+import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { tableSelectionChanged } from './tableSelection';
 
 /**
@@ -131,6 +132,19 @@ function preventActivation(event: MouseEvent): void {
  * once — hover, while active, visually takes over the same element the
  * selected state would otherwise occupy, then hands it back the moment
  * hover ends.
+ *
+ * `getOnTableHandleMenuChange` — a click on either handle, right after the
+ * existing selection dispatch, also opens/updates that handle's own
+ * floating menu (`TableHandleMenu.tsx`) by calling this with the clicked
+ * handle's own visible element as `anchor` plus the same selection just
+ * dispatched. Reads the getter fresh at click time rather than closing
+ * over one value — the same "read fresh per click" freshness contract
+ * `buildEditorExtensions.ts`'s own doc comment establishes for every
+ * `onOpenXMenu`-shaped prop, letting the actual React callback change
+ * across renders with no need to rebuild this whole extension. *Closing*
+ * the menu (a cell click, an outside click) is not this function's own
+ * concern at all — see `tableHandleMenuSync.ts`'s own `tableHandleMenuSync`
+ * doc comment for why that's a separate, state-driven mechanism instead.
  */
 export function attachTableHandleOverlay(
   wrapper: HTMLElement,
@@ -139,7 +153,8 @@ export function attachTableHandleOverlay(
   controller: TableActiveCellController,
   tableFrom: number,
   selectedColumnIndex: number | null,
-  selectedRowIndex: number | null
+  selectedRowIndex: number | null,
+  getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
 ): void {
   const column = createHandlePair('column');
   const row = createHandlePair('row');
@@ -186,6 +201,30 @@ export function attachTableHandleOverlay(
   /** This table's own `<table>` element — resolved fresh, never cached, for the identical staleness reason `tableCellRangeSelection.ts`'s own `resolveCurrentTableWrapper` doc comment gives for `tableWrapper`: a `tableSelectionChanged`-triggered rebuild replaces it with a brand-new element. */
   function resolveTableElement(): HTMLTableElement | null {
     return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
+  }
+
+  /**
+   * This exact table's own *current* visible column/row handle element —
+   * queried fresh from `view.dom` (never `wrapper`, and never `column`/`row`
+   * from this call's own closure), for the same staleness reason
+   * `resolveTableElement`'s own doc comment gives, taken one step further:
+   * a click handler's own `view.dispatch(tableSelectionChanged...)` call
+   * *synchronously* rebuilds this exact table's widget (`tableWidgetField.ts`'s
+   * own `update()`), which discards `wrapper` itself — and therefore this
+   * call's own `column`/`row` elements, both children of it — before the
+   * handler's own next line runs. Confirmed as a real, reproducible bug,
+   * not a theoretical one: handing the menu one of *this* call's own
+   * (by-then-detached) elements as `anchor` measured a zero rect, opening
+   * the menu pinned to the viewport's own top-left corner instead of next
+   * to the clicked handle. `view.dom` itself, unlike `wrapper`, is the root
+   * editor's own DOM root — never replaced by any table rebuild — so
+   * `data-table-from` (`TableWidget.toDOM()`'s own dataset, the same
+   * lookup key `tableBoundaryNavigation.ts` already uses to find a table's
+   * current DOM by position) reliably resolves to whichever wrapper is
+   * live *right now*, freshly rebuilt selection included.
+   */
+  function resolveCurrentHandleElement(axis: 'column' | 'row'): HTMLElement | null {
+    return view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-${axis}-handle`);
   }
 
   /** Hover ending on the column axis (`pointerleave`, or a hovered target with no column handle) falls back to the selected column, if any, instead of truly hiding — the `visible = hovered || selected` contract this whole file's own top doc comment states. */
@@ -310,11 +349,23 @@ export function attachTableHandleOverlay(
     if (currentColumnIndex === null) {
       return;
     }
+    const selection = { kind: 'column' as const, tableFrom, columnIndex: currentColumnIndex };
     controller.deactivate();
     view.dispatch({
-      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'column', tableFrom, columnIndex: currentColumnIndex })],
+      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
     });
     view.focus();
+    // Opens/updates this column's own menu — anchored to the *current*
+    // visible handle graphic, re-resolved fresh via `resolveCurrentHandleElement`
+    // (never this call's own `column.visible`, which the dispatch just
+    // above has already made stale — see that function's own doc comment).
+    // Declines (no call at all) on the near-impossible chance the freshly-
+    // rebuilt table's own handle can't be found, rather than opening a menu
+    // with no valid anchor.
+    const freshAnchor = resolveCurrentHandleElement('column');
+    if (freshAnchor) {
+      getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
+    }
   });
 
   row.hit.addEventListener('click', (event) => {
@@ -323,11 +374,33 @@ export function attachTableHandleOverlay(
     if (currentRowIndex === null) {
       return;
     }
+    const selection = { kind: 'row' as const, tableFrom, rowIndex: currentRowIndex };
     controller.deactivate();
     view.dispatch({
-      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'row', tableFrom, rowIndex: currentRowIndex })],
+      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
     });
     view.focus();
+    // Opens/updates this row's own menu — same "re-resolve fresh, never
+    // this call's own (now-stale) `row.visible`" reasoning as the column
+    // handler above, plus one more wrinkle specific to the row axis: the
+    // freshly-rebuilt widget's own row handle is positioned via its own
+    // *deferred* `queueMicrotask` call (`attachTableHandleOverlay`'s own
+    // "Initial state" doc comment — real `getBoundingClientRect()`-based
+    // measurement can't run correctly against a still-detached subtree),
+    // so querying for it synchronously, right here, would find the right
+    // element but possibly still positioned at its own pre-selection
+    // location (or nowhere yet, on a truly fresh mount). Deferring this
+    // call to a microtask of its own runs it strictly after that one —
+    // `view.dispatch(...)` above already queued the widget's own
+    // positioning microtask first (synchronously, before this line even
+    // runs), and microtasks resolve in the order they were queued, so this
+    // one is guaranteed to see the *final*, correctly-positioned handle.
+    queueMicrotask(() => {
+      const freshAnchor = resolveCurrentHandleElement('row');
+      if (freshAnchor) {
+        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
+      }
+    });
   });
 
   // Initial state — this widget may be freshly (re)built with a
