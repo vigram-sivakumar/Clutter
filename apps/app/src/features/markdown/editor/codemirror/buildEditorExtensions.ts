@@ -64,7 +64,8 @@ import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
-import { tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './table/tableSelectionDeletion';
+import { tableSelectionClearKeymap } from './table/tableSelectionClear';
+import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -335,15 +336,23 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // Backspace/Delete; mutually exclusive in practice (this one only fires
     // when a `TableSelection` is active, the other only from a caret
     // adjacent to a table with none active), but ordered explicitly rather
-    // than left to incidental tie-breaking. See `tableSelectionDeletion.ts`'s
-    // own doc comment.
-    tableSelectionDeletionKeymap(),
+    // than left to incidental tie-breaking. Backspace/Delete over a
+    // `TableSelection` now *clears the selected cells' own content*, not a
+    // structural row/column deletion — `tableSelectionDeletion.ts`'s own
+    // `deleteSelectedRow`/`deleteSelectedColumn` stay fully intact for a
+    // future row/column-handle menu to call directly; only their keyboard
+    // wiring moved. See `tableSelectionClear.ts`'s own top doc comment.
+    tableSelectionClearKeymap(),
     // Registers `tableSelectionChanged`'s own undo/redo inverse with the
     // `history()` extension installed unconditionally in
     // `createEditorView.ts` (via `@codemirror/commands`'s `invertedEffects`
     // facet) — not gated on `tableActiveCellController` because
-    // `tableSelectionDeletionKeymap()` above isn't either; both are no-ops
-    // without a `TableSelection` to act on. See
+    // `tableSelectionClearKeymap()` above isn't either; both are no-ops
+    // without a `TableSelection` to act on. Generic over *which* module
+    // produced the transaction (any transaction with real `changes` plus a
+    // `tableSelectionChanged` effect), so `tableSelectionClearKeymap()`'s
+    // own clear transactions already thread through this same, already-
+    // installed provider — no second history mechanism. See
     // `tableSelectionDeletionHistory()`'s own doc comment.
     tableSelectionDeletionHistory(),
     tableWholeDeletionKeymap(),

@@ -246,6 +246,29 @@ export function attachTableHandleOverlay(
   // in a transaction always wins over a same-transaction
   // `tableActiveCellChanged`, so this dispatch's own deactivation-effect
   // can never immediately null out the selection it just set.
+  //
+  // `view.focus()`, right after `controller.deactivate()` — a real,
+  // reproducible focus-routing bug otherwise (found live: click a cell,
+  // click a column/row handle, then immediately press Delete/Backspace —
+  // the keystroke went nowhere and the column/row was never cleared).
+  // `deactivate()` only unmounts the active cell's nested editor's own DOM
+  // (`.dom.remove()`); it never itself moves *browser* keyboard focus
+  // anywhere — confirmed directly (Chromium): removing the focused nested
+  // editor's DOM node left `document.activeElement` on `document.body`,
+  // not root, so the very next keydown reached no CM6 keymap at all,
+  // silently doing nothing. This is the exact same
+  // `deactivate()`-then-`focus()` pairing `tableCellNavigation.ts`'s own
+  // `exitAbove`/`exitBelow` already establish for the identical class of
+  // concern ("we just deactivated the cell — hand focus back to root
+  // deterministically") — applied here rather than invented fresh. With
+  // focus reliably on root, `tableSelectionClearKeymap()`
+  // (`tableSelectionClear.ts`) — already installed on root, already
+  // correct — handles the very next Backspace/Delete as intended.
+  // `tableCellNavigation.ts`'s own nested-editor Backspace/Delete binding
+  // (added for this same bug) stays as defense-in-depth for an engine/
+  // timing where focus genuinely lingers on the nested editor instead
+  // (confirmed separately in a WKWebView report) rather than landing on
+  // `document.body`.
   column.hit.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -256,6 +279,7 @@ export function attachTableHandleOverlay(
     view.dispatch({
       effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'column', tableFrom, columnIndex: currentColumnIndex })],
     });
+    view.focus();
   });
 
   row.hit.addEventListener('click', (event) => {
@@ -268,5 +292,6 @@ export function attachTableHandleOverlay(
     view.dispatch({
       effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'row', tableFrom, rowIndex: currentRowIndex })],
     });
+    view.focus();
   });
 }

@@ -15,6 +15,8 @@ import {
   startOfCellContent,
   type CellBounds,
 } from './tableGeometry';
+import { tableSelectionField } from './tableSelection';
+import { clearTableSelection } from './tableSelectionClear';
 
 /**
  * The active cell's nested editor's own keymap (Architecture E, ADR-034 —
@@ -376,6 +378,61 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     return true;
   };
 
+  /**
+   * Backspace/Delete — **not** a navigation command at all, added here
+   * specifically because this keymap is already the nested editor's own
+   * "forward a table-level command to the root view" mechanism, and this
+   * is another one: a row/column/range `TableSelection` living entirely in
+   * *root* state (`tableSelection.ts`) can be set (a handle click,
+   * `tableHandleOverlay.ts`) while the active cell's nested editor still
+   * holds real browser DOM focus. `tableHandleOverlay.ts`'s own handle
+   * click handlers call `controller.deactivate()` (unmounts the nested
+   * editor's DOM) and dispatch `tableActiveCellChanged`/`tableSelectionChanged`
+   * on root, but — unlike `exitAbove`/`exitBelow` above, which always
+   * pair `deactivate()` with an explicit `rootView.focus()` — never
+   * themselves move actual keyboard focus off the nested editor. Confirmed
+   * directly: pressing Delete immediately after a handle click still
+   * dispatches its keydown to the nested editor's own (by-then DOM-detached)
+   * `EditorView`, never to root, so a root-only keymap
+   * (`tableSelectionClearKeymap()`, `tableSelectionClear.ts`) alone can
+   * never see it. `Prec.highest` here (this whole keymap already is) is
+   * what lets this run *before* CM6's own default nested Backspace/Delete
+   * (ordinary character deletion) gets a chance.
+   *
+   * Declines (`return false`) whenever root has no active `TableSelection`
+   * — the ordinary "active cell, no table selection" case this must leave
+   * completely alone, falling through to normal in-cell character
+   * deletion exactly as before this fix. Only when a `TableSelection` *is*
+   * active does this intercept the key at all, reusing
+   * `tableSelectionClear.ts`'s own `clearTableSelection` — the identical
+   * function `tableSelectionClearKeymap()` calls — so there is exactly one
+   * "clear this selection" implementation, never a second one duplicated
+   * here for the nested-editor entry point.
+   *
+   * Also finishes the deactivation `tableHandleOverlay.ts`'s own click
+   * handler started: re-calls `controller.deactivate()` (idempotent — the
+   * nested editor's DOM is typically already detached by this point) and
+   * explicitly moves real focus to `rootView`, the same
+   * `deactivate()`-then-`rootView.focus()` pairing `exitAbove`/`exitBelow`
+   * already establish — so a *second* consecutive Backspace/Delete (e.g.
+   * clearing again, or any other root-level key) is handled by root
+   * directly, with no lingering nested-editor focus left to keep working
+   * around.
+   */
+  const clearSelectionCommand: Command = () => {
+    const rootView = getRootView();
+    const selection = rootView.state.field(tableSelectionField, false) ?? null;
+    if (!selection) {
+      return false;
+    }
+    const handled = clearTableSelection(rootView, selection);
+    if (handled) {
+      controller.deactivate();
+      rootView.focus();
+    }
+    return handled;
+  };
+
   const bindings: readonly KeyBinding[] = [
     { key: 'Tab', run: tabCommand },
     { key: 'Shift-Tab', run: shiftTabCommand },
@@ -384,6 +441,8 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     { key: 'ArrowDown', run: arrowDownCommand },
     { key: 'ArrowLeft', run: arrowLeftCommand },
     { key: 'ArrowRight', run: arrowRightCommand },
+    { key: 'Backspace', run: clearSelectionCommand },
+    { key: 'Delete', run: clearSelectionCommand },
   ];
 
   return Prec.highest(keymap.of(bindings));

@@ -10,12 +10,30 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
 
 /**
  * Structural deletion of a currently-selected table row or column
- * (`TableSelection`, `tableSelection.ts`) via Backspace/Delete — distinct
- * from `tableDeletionSelection.ts`'s own arm/delete state machine, which
- * deletes an entire table from a caret adjacent to it. This module never
- * touches the root caret's own arming mechanism; it only reacts to an
- * already-set `TableSelection` (a row/column handle click,
- * `tableHandleOverlay.ts`) and never arms anything itself.
+ * (`TableSelection`, `tableSelection.ts`) — distinct from
+ * `tableDeletionSelection.ts`'s own arm/delete state machine, which deletes
+ * an entire table from a caret adjacent to it. This module never touches
+ * the root caret's own arming mechanism; it only reacts to an already-set
+ * `TableSelection` (a row/column handle click, `tableHandleOverlay.ts`) and
+ * never arms anything itself.
+ *
+ * **No longer wired to Backspace/Delete.** `tableSelectionDeletionKeymap()`,
+ * below, still exists and is still fully correct, but `buildEditorExtensions.ts`
+ * no longer installs it — Backspace/Delete over a `TableSelection` now
+ * *clears the selected cells' own content* instead (`tableSelectionClear.ts`),
+ * never removes a row/column. This module is kept exactly as it was
+ * specifically so a future row/column-handle menu ("Delete row"/"Delete
+ * column") can call `deleteSelectedRow`/`deleteSelectedColumn` directly, or
+ * reuse `tableSelectionDeletionKeymap()` itself if a keyboard shortcut is
+ * ever reintroduced for it — this file's own test suite
+ * (`tableSelectionDeletion.test.ts`) exercises it standalone, independent of
+ * whatever `buildEditorExtensions.ts` currently wires.
+ *
+ * **`tableSelectionDeletionHistory()`, below, is reused by
+ * `tableSelectionClear.ts` too** — it's a generic `invertedEffects` provider
+ * over "any transaction with real `changes` plus a `tableSelectionChanged`
+ * effect," not specific to structural deletion despite its name; see that
+ * function's own doc comment.
  *
  * Every deletion here is a single ordinary CM6 transaction — one `changes`
  * array plus a `tableSelectionChanged` effect choosing the next selection —
