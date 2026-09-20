@@ -33,6 +33,10 @@ export interface TableHandleMenuProps {
   readonly onInsertRowAbove: () => void;
   /** Symmetric to `onInsertRowAbove`, for "Insert row below." */
   readonly onInsertRowBelow: () => void;
+  /** "Insert column left" — column-only this milestone; a no-op when `selection` is a row, per `TableHandleMenu`'s own `handleSelect`. */
+  readonly onInsertColumnLeft: () => void;
+  /** Symmetric to `onInsertColumnLeft`, for "Insert column right." */
+  readonly onInsertColumnRight: () => void;
   /**
    * Set to `true` immediately before this menu closes via an *external*
    * cause (the underlying `TableSelection` going `null` because of a cell
@@ -49,17 +53,21 @@ export interface TableHandleMenuProps {
   readonly suppressReturnFocusRef: MutableRefObject<boolean>;
 }
 
+// Directional icons (chevronUp/Down/Left/Right — the one complete 4-way
+// set already in the icon registry) rather than a uniform "plus" for every
+// insert item, so the icon itself shows *where* the new row/column lands
+// relative to the selected one, not just that something gets added.
 const ROW_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'insert-above', label: 'Insert row above', icon: 'plus', separatorBefore: true },
-  { id: 'insert-below', label: 'Insert row below', icon: 'plus' },
+  { id: 'insert-above', label: 'Insert row above', icon: 'chevronUp', separatorBefore: true },
+  { id: 'insert-below', label: 'Insert row below', icon: 'chevronDown' },
   { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
 ];
 
 const COLUMN_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'insert-left', label: 'Insert column left', icon: 'plus', separatorBefore: true },
-  { id: 'insert-right', label: 'Insert column right', icon: 'plus' },
+  { id: 'insert-left', label: 'Insert column left', icon: 'chevronLeft', separatorBefore: true },
+  { id: 'insert-right', label: 'Insert column right', icon: 'chevronRight' },
   { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
 ];
 
@@ -120,6 +128,8 @@ export function TableHandleMenu({
   onClearContents,
   onInsertRowAbove,
   onInsertRowBelow,
+  onInsertColumnLeft,
+  onInsertColumnRight,
   suppressReturnFocusRef,
 }: TableHandleMenuProps) {
   const items = selection?.kind === 'column' ? COLUMN_ITEMS : ROW_ITEMS;
@@ -131,9 +141,13 @@ export function TableHandleMenu({
       onInsertRowAbove();
     } else if (id === 'insert-below') {
       onInsertRowBelow();
+    } else if (id === 'insert-left') {
+      onInsertColumnLeft();
+    } else if (id === 'insert-right') {
+      onInsertColumnRight();
     }
-    // insert-left/insert-right/delete: no-op this milestone — see this
-    // component's own `onClearContents` doc comment.
+    // delete: no-op this milestone — see this component's own
+    // `onClearContents` doc comment.
   }
 
   return (

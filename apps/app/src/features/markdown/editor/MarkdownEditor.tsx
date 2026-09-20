@@ -21,6 +21,7 @@ import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
+import { insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -554,13 +555,13 @@ export const MarkdownEditor = forwardRef<
     clearTableSelection(view, tableHandleMenu.selection);
   };
 
-  // "Insert row above"/"Insert row below" — the second/third menu items
-  // wired to a real operation (row insertion only this milestone; column
-  // insertion and row/column deletion remain future work). Reuses
-  // tableRowInsertion.ts's own selection-aware helpers exactly the way
-  // handleClearTableSelectionFromMenu above reuses clearTableSelection —
-  // same "look up the current menu's own selection off state, no explicit
-  // close call needed" shape.
+  // "Insert row above"/"Insert row below"/"Insert column left"/"Insert
+  // column right" — the row/column-insertion menu items wired to real
+  // operations (row/column deletion remains future work). Reuses
+  // tableRowInsertion.ts's/tableColumnInsertion.ts's own selection-aware
+  // helpers exactly the way handleClearTableSelectionFromMenu above reuses
+  // clearTableSelection — same "look up the current menu's own selection
+  // off state, no explicit close call needed" shape.
   const handleInsertRowAboveFromMenu = () => {
     const view = viewRef.current;
     if (!tableHandleMenu || !view) {
@@ -575,6 +576,22 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertRowBelowSelection(view, tableHandleMenu.selection);
+  };
+
+  const handleInsertColumnLeftFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    insertColumnLeftSelection(view, tableHandleMenu.selection);
+  };
+
+  const handleInsertColumnRightFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    insertColumnRightSelection(view, tableHandleMenu.selection);
   };
 
   // A fenced code block's own floating "More actions" control — same
@@ -1299,6 +1316,8 @@ export const MarkdownEditor = forwardRef<
         onClearContents={handleClearTableSelectionFromMenu}
         onInsertRowAbove={handleInsertRowAboveFromMenu}
         onInsertRowBelow={handleInsertRowBelowFromMenu}
+        onInsertColumnLeft={handleInsertColumnLeftFromMenu}
+        onInsertColumnRight={handleInsertColumnRightFromMenu}
         suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu
