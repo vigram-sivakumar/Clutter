@@ -53,21 +53,24 @@ export interface TableHandleMenuProps {
   readonly suppressReturnFocusRef: MutableRefObject<boolean>;
 }
 
-// Directional icons (chevronUp/Down/Left/Right — the one complete 4-way
-// set already in the icon registry) rather than a uniform "plus" for every
-// insert item, so the icon itself shows *where* the new row/column lands
-// relative to the selected one, not just that something gets added.
+// Directional icons so the icon itself shows *where* the new row/column
+// lands relative to the selected one, not just that something gets added.
+// Labels stay direction-only ("Insert above"/"Insert below"/"Insert left"/
+// "Insert right") rather than repeating "row"/"column" — this menu is
+// already scoped to one axis (the row handle's own menu only ever inserts
+// rows, the column handle's only ever columns), so the noun is redundant
+// with which menu is even open.
 const ROW_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'insert-above', label: 'Insert row above', icon: 'chevronUp', separatorBefore: true },
-  { id: 'insert-below', label: 'Insert row below', icon: 'chevronDown' },
+  { id: 'insert-above', label: 'Insert above', icon: 'arrowUp', separatorBefore: true },
+  { id: 'insert-below', label: 'Insert below', icon: 'arrowDown' },
   { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
 ];
 
 const COLUMN_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'insert-left', label: 'Insert column left', icon: 'chevronLeft', separatorBefore: true },
-  { id: 'insert-right', label: 'Insert column right', icon: 'chevronRight' },
+  { id: 'insert-left', label: 'Insert left', icon: 'arrowLeft', separatorBefore: true },
+  { id: 'insert-right', label: 'Insert right', icon: 'arrowRight' },
   { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
 ];
 
@@ -77,8 +80,8 @@ const COLUMN_ITEMS: readonly OverflowMenuItemConfig[] = [
  * ```
  * Clear contents
  * ───────────────
- * Insert row above / Insert column left
- * Insert row below / Insert column right
+ * Insert above / Insert left
+ * Insert below / Insert right
  * ───────────────
  * Delete row / Delete column
  * ```

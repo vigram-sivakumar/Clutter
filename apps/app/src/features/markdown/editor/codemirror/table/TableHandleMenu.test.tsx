@@ -75,29 +75,29 @@ function renderMenu(selection: TableHandleMenuSelection, overrides: Partial<Reco
 }
 
 describe('TableHandleMenu — column item wiring', () => {
-  it('lists Insert column left/right for a column selection', () => {
+  it('lists Insert left/right for a column selection', () => {
     renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
 
-    expect(findMenuItem('Insert column left')).not.toBeNull();
-    expect(findMenuItem('Insert column right')).not.toBeNull();
-    expect(findMenuItem('Insert row above')).toBeNull();
-    expect(findMenuItem('Insert row below')).toBeNull();
+    expect(findMenuItem('Insert left')).not.toBeNull();
+    expect(findMenuItem('Insert right')).not.toBeNull();
+    expect(findMenuItem('Insert above')).toBeNull();
+    expect(findMenuItem('Insert below')).toBeNull();
   });
 
-  it('clicking "Insert column left" calls onInsertColumnLeft, and only that callback', () => {
+  it('clicking "Insert left" calls onInsertColumnLeft, and only that callback', () => {
     const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
 
-    fireEvent.click(findMenuItem('Insert column left')!);
+    fireEvent.click(findMenuItem('Insert left')!);
 
     expect(handlers.onInsertColumnLeft).toHaveBeenCalledTimes(1);
     expect(handlers.onInsertColumnRight).not.toHaveBeenCalled();
     expect(handlers.onClearContents).not.toHaveBeenCalled();
   });
 
-  it('clicking "Insert column right" calls onInsertColumnRight, and only that callback', () => {
+  it('clicking "Insert right" calls onInsertColumnRight, and only that callback', () => {
     const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
 
-    fireEvent.click(findMenuItem('Insert column right')!);
+    fireEvent.click(findMenuItem('Insert right')!);
 
     expect(handlers.onInsertColumnRight).toHaveBeenCalledTimes(1);
     expect(handlers.onInsertColumnLeft).not.toHaveBeenCalled();
@@ -107,9 +107,9 @@ describe('TableHandleMenu — column item wiring', () => {
   it('a row selection never renders the column items, and vice versa', () => {
     renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 0 });
 
-    expect(findMenuItem('Insert row above')).not.toBeNull();
-    expect(findMenuItem('Insert row below')).not.toBeNull();
-    expect(findMenuItem('Insert column left')).toBeNull();
-    expect(findMenuItem('Insert column right')).toBeNull();
+    expect(findMenuItem('Insert above')).not.toBeNull();
+    expect(findMenuItem('Insert below')).not.toBeNull();
+    expect(findMenuItem('Insert left')).toBeNull();
+    expect(findMenuItem('Insert right')).toBeNull();
   });
 });
