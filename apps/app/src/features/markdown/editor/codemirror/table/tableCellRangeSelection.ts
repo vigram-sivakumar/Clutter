@@ -155,6 +155,22 @@ export function beginCellDragTracking(view: EditorView, controller: TableActiveC
       view.dispatch({
         effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'range', tableFrom, anchor, head: cell })],
       });
+      // `view.focus()`, right after `controller.deactivate()` — the exact
+      // same fix `tableHandleOverlay.ts`'s own row/column click handlers
+      // already apply, for the identical reason (see that file's own doc
+      // comment on this pairing): `deactivate()` only unmounts the active
+      // cell's nested editor's own DOM (`.dom.remove()`); it never itself
+      // moves *browser* keyboard focus anywhere. Confirmed as a real,
+      // reproducible bug here too: without this call, removing the
+      // focused nested editor's DOM node mid-drag left
+      // `document.activeElement` on `document.body`, not root, so the
+      // very next Backspace/Delete reached no CM6 keymap at all —
+      // `tableSelectionClearKeymap()` (`tableSelectionClear.ts`) never
+      // ran, and in WKWebView the browser's own native contenteditable
+      // deletion took over instead, deleting far more than the selected
+      // cells. With focus reliably back on root, the very next
+      // Backspace/Delete is handled exactly as intended.
+      view.focus();
       currentHead = cell;
       return;
     }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { history, undoDepth } from '@codemirror/commands';
+import { history, undo, undoDepth } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -9,6 +9,8 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { findAllTables } from './tableGeometry';
 import { attachTableOutsideClickHandling, tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
+import { tableSelectionClearKeymap } from './tableSelectionClear';
+import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const mountedViews: EditorView[] = [];
@@ -354,5 +356,122 @@ describe('beginCellDragTracking — document and history are untouched', () => {
     mouseup();
 
     expect(undoDepth(view.state)).toBe(depthBefore);
+  });
+});
+
+/**
+ * Regression coverage for the focus-loss bug fixed alongside these tests:
+ * promoting a drag to a `range` selection deactivates the previously-active
+ * cell (`controller.deactivate()`, removing its nested editor's focused DOM
+ * node) but, before this fix, never returned browser focus to root
+ * afterward — leaving `document.activeElement` on `document.body`. The very
+ * next Backspace/Delete then reached no CM6 keymap at all (nothing listens
+ * on `document.body`), silently doing nothing in Chromium; in WKWebView,
+ * per this codebase's own prior investigation of the identical bug class
+ * (`tableHandleOverlay.ts`'s own row/column click handlers, fixed the same
+ * way earlier), the browser's own native contenteditable deletion could
+ * take over instead, deleting far more than the selected cells.
+ *
+ * jsdom faithfully tracks `document.activeElement` for explicit `.focus()`/
+ * blur-on-removal, the same "verifiable here" model `tableLiveWiring.test.ts`'s
+ * own doc comment already establishes for `TableActiveCellController`'s
+ * identical `nestedView.focus()` pattern — so the fix's actual contract
+ * (`view.focus()` after `deactivate()`) is directly, faithfully testable
+ * here, not just its downstream symptom.
+ *
+ * What this suite deliberately does *not* attempt to simulate: a real
+ * browser's own routing of a physical keydown to whatever element currently
+ * holds OS-level focus. `dispatchKeyAtActiveElement` below dispatches the
+ * `keydown` directly at `document.activeElement` (falling back to
+ * `document.body`) specifically so that routing is still exercised
+ * faithfully via normal DOM bubbling — a keydown dispatched at `body` never
+ * bubbles down into `view.contentDOM`, so this test fails exactly the way
+ * the real bug did (event reaches no CM6 keymap) rather than trivially
+ * passing by dispatching straight at `view.contentDOM` regardless of where
+ * focus actually ended up. What it cannot cover is the WKWebView-specific
+ * *fallback* behavior itself (native contenteditable deletion stepping in
+ * for an unhandled keydown) — that is a real-engine default action jsdom
+ * does not implement at all, so it is verified only via live manual
+ * reproduction (see this fix's own commit/PR notes), not a unit test.
+ */
+describe('beginCellDragTracking — focus after range promotion (regression)', () => {
+  function dispatchKeyAtActiveElement(key: string): void {
+    const target = document.activeElement ?? document.body;
+    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  }
+
+  it('returns focus to the root editor once a drag promotes to a range selection', () => {
+    const { view } = mountViewWithController(TABLE);
+    const setTarget = mockElementFromPoint();
+
+    mousedown(findCell(view, 'Vik'));
+    expect(document.activeElement).not.toBe(view.contentDOM); // baseline: the nested cell editor holds focus, not root
+
+    moveOver(setTarget, findCell(view, 'Designer'));
+    mouseup();
+
+    expect(selection(view)?.kind).toBe('range');
+    expect(document.activeElement).toBe(view.contentDOM);
+  });
+
+  it('Backspace after a range promotion reaches root\'s own clear keymap, instead of going nowhere', () => {
+    const { view } = mountViewWithController(TABLE, [tableSelectionClearKeymap(), tableSelectionDeletionHistory(), history()]);
+    const setTarget = mockElementFromPoint();
+    const docBefore = view.state.doc.toString();
+
+    mousedown(findCell(view, 'Vik'));
+    moveOver(setTarget, findCell(view, 'Designer'));
+    mouseup();
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 } });
+
+    dispatchKeyAtActiveElement('Backspace');
+
+    expect(view.state.doc.toString()).not.toBe(docBefore);
+  });
+
+  it('clears only the selected cells — table structure and unselected cells stay intact', () => {
+    const { view } = mountViewWithController(TABLE, [tableSelectionClearKeymap(), tableSelectionDeletionHistory(), history()]);
+    const setTarget = mockElementFromPoint();
+
+    mousedown(findCell(view, 'Vik'));
+    moveOver(setTarget, findCell(view, 'Designer'));
+    mouseup();
+
+    dispatchKeyAtActiveElement('Delete');
+
+    const expectedRow = '|' + ' '.repeat(5) + '|' + ' '.repeat(10) + '| Delhi |';
+    expect(view.state.doc.toString()).toBe(
+      ['| Name | Role | City |', '| --- | --- | --- |', expectedRow, '| Alex | Engineer | Tokyo |', '| Sam | PM | Oslo |'].join('\n')
+    );
+  });
+
+  it('selection remains active, on the same range, after clearing', () => {
+    const { view } = mountViewWithController(TABLE, [tableSelectionClearKeymap(), tableSelectionDeletionHistory(), history()]);
+    const setTarget = mockElementFromPoint();
+    const from = tableFrom(view);
+
+    mousedown(findCell(view, 'Vik'));
+    moveOver(setTarget, findCell(view, 'Designer'));
+    mouseup();
+
+    dispatchKeyAtActiveElement('Delete');
+
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 } });
+  });
+
+  it('undo restores the cleared contents', () => {
+    const { view } = mountViewWithController(TABLE, [tableSelectionClearKeymap(), tableSelectionDeletionHistory(), history()]);
+    const setTarget = mockElementFromPoint();
+    const docBefore = view.state.doc.toString();
+
+    mousedown(findCell(view, 'Vik'));
+    moveOver(setTarget, findCell(view, 'Designer'));
+    mouseup();
+    dispatchKeyAtActiveElement('Delete');
+    expect(view.state.doc.toString()).not.toBe(docBefore);
+
+    undo(view);
+
+    expect(view.state.doc.toString()).toBe(docBefore);
   });
 });
