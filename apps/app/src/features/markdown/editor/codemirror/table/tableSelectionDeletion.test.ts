@@ -9,7 +9,7 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { tableRootSelectionSnap } from './tableRootSelectionSnap';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './tableSelectionDeletion';
+import { deleteRowSelection, tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './tableSelectionDeletion';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const mountedViews: EditorView[] = [];
@@ -123,6 +123,71 @@ describe('tableSelectionDeletionKeymap — row deletion', () => {
     // No table selection set.
     dispatchKey(view, 'Backspace');
     expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+});
+
+describe('tableSelectionDeletionKeymap — header row deletion (promotion)', () => {
+  it('deletes the header and promotes the first body row to take its place', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+
+    expect(view.state.doc.toString()).toBe('| Vik | Designer | NYC |\n| --- | --- | --- |\n| Sam | Engineer | SF |\n| Ann | PM | LA |');
+  });
+
+  it('selects the promoted row at rowIndex 0 (the header\'s own slot)', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Delete');
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+  });
+
+  it('preserves the alignment row exactly, unchanged', () => {
+    const doc = '| Name | Role |\n| :-- | --: |\n| Vik | Designer |\n| Sam | Engineer |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+
+    expect(view.state.doc.toString()).toBe('| Vik | Designer |\n| :-- | --: |\n| Sam | Engineer |');
+  });
+
+  it('promoting when only one body row exists leaves a valid header-only (zero-body-row) table', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+
+    expect(view.state.doc.toString()).toBe('| Vik | Designer |\n| --- | --- |');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+    const table = findAllTables(view.state)[0]!;
+    expect(table.node.name).toBe('Table');
+  });
+
+  it('deleting the header when it is the table\'s only row (no body row to promote) deletes the whole table', () => {
+    const doc = '| Name | Role |\n| --- | --- |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Delete');
+
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
+    expect(findEnclosingTable(view.state, 0)).toBeNull();
+  });
+
+  it('preserves ragged rows and escaped pipes elsewhere in the table', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer | NYC |\n| A \\| B |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+
+    expect(view.state.doc.toString()).toBe('| Vik | Designer | NYC |\n| --- | --- | --- |\n| A \\| B |');
   });
 });
 
@@ -368,5 +433,90 @@ describe('tableSelectionDeletionKeymap — undo/redo restores TableSelection as 
     selectTable(view, null);
 
     expect(undoDepth(view.state)).toBe(depthBefore);
+  });
+
+  it('header promotion: undo restores the exact original document and re-selects the header; redo restores the promotion', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+    const depthBefore = undoDepth(view.state);
+
+    dispatchKey(view, 'Backspace');
+    const afterDelete = view.state.doc.toString();
+    expect(afterDelete).not.toBe(THREE_COL);
+    expect(undoDepth(view.state)).toBe(depthBefore + 1);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe(afterDelete);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+  });
+
+  it('header deletion with no body row to promote: undo restores the whole table and re-selects the header', () => {
+    const doc = '| Name | Role |\n| --- | --- |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+    expect(view.state.doc.toString()).toBe('');
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
+  });
+});
+
+describe('deleteRowSelection — the menu-facing entry point', () => {
+  it('deletes the selected body row when called directly, outside the keymap', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    const handled = deleteRowSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| Name | Role | City |\n| --- | --- | --- |\n| Sam | Engineer | SF |\n| Ann | PM | LA |');
+  });
+
+  it('promotes the first body row when the header is selected', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    deleteRowSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| Vik | Designer | NYC |\n| --- | --- | --- |\n| Sam | Engineer | SF |\n| Ann | PM | LA |');
+  });
+
+  it('is a no-op for a column selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    const handled = deleteRowSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+
+  it('is a no-op for a range selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    const selection: TableSelection = { kind: 'range', tableFrom: 0, anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } };
+
+    const handled = deleteRowSelection(view, selection);
+
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+
+  it('is a no-op when the table can no longer be found at tableFrom', () => {
+    const { view } = mountRootView(THREE_COL);
+    const stale: TableSelection = { kind: 'row', tableFrom: 999, rowIndex: 1 };
+
+    expect(deleteRowSelection(view, stale)).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
   });
 });

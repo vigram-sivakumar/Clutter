@@ -22,6 +22,7 @@ import { attachTableOutsideClickHandling } from './codemirror/table/tableSelecti
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
 import { insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
+import { deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -547,12 +548,29 @@ export const MarkdownEditor = forwardRef<
   // closes on its own right after (OverflowMenuBody's own onOpenChange(false)
   // → onClose, the same sequence every other menu item here already goes
   // through), so no explicit close call is needed here either.
+  //
+  // `view.focus()` after every one of these six handlers' own operation —
+  // a real, reproducible focus-loss bug found live while verifying "Delete
+  // row"'s own undo/redo, the exact same class already fixed once in
+  // tableCellRangeSelection.ts (af797c64) and in tableHandleOverlay.ts's
+  // own handle click handlers: a menu item's own DOM lives in this menu's
+  // portaled Overlay (outside CM6's contentDOM entirely) and holds real
+  // browser focus at the moment it's clicked; the menu unmounts immediately
+  // after selection, and removing that focused node leaves
+  // `document.activeElement` on `document.body` with no explicit refocus.
+  // Confirmed directly: pressing Cmd+Z right after clicking "Delete row"
+  // did nothing at all — the keydown never reached CM6's own keymap — until
+  // a click back into the editor restored focus first. Every one of these
+  // handlers has the identical shape (a menu click that may mutate the
+  // document), so every one needs the identical fix, not just the row-
+  // deletion handler that happened to surface it.
   const handleClearTableSelectionFromMenu = () => {
     const view = viewRef.current;
     if (!tableHandleMenu || !view) {
       return;
     }
     clearTableSelection(view, tableHandleMenu.selection);
+    view.focus();
   };
 
   // "Insert row above"/"Insert row below"/"Insert column left"/"Insert
@@ -568,6 +586,7 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertRowAboveSelection(view, tableHandleMenu.selection);
+    view.focus();
   };
 
   const handleInsertRowBelowFromMenu = () => {
@@ -576,6 +595,7 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertRowBelowSelection(view, tableHandleMenu.selection);
+    view.focus();
   };
 
   const handleInsertColumnLeftFromMenu = () => {
@@ -584,6 +604,7 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertColumnLeftSelection(view, tableHandleMenu.selection);
+    view.focus();
   };
 
   const handleInsertColumnRightFromMenu = () => {
@@ -592,6 +613,23 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertColumnRightSelection(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  // "Delete row" — structural row deletion, reusing tableSelectionDeletion.ts's
+  // own existing deleteRowSelection (header deletion promotes the next body
+  // row; see that module's own deleteHeaderRow doc comment). Deliberately
+  // not reachable via Backspace/Delete — tableSelectionClearKeymap() still
+  // owns that keyboard path (Clear contents); this is the menu's own,
+  // separate entry point into structural deletion. "Delete column" stays
+  // inert until its own milestone.
+  const handleDeleteRowFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    deleteRowSelection(view, tableHandleMenu.selection);
+    view.focus();
   };
 
   // A fenced code block's own floating "More actions" control — same
@@ -1318,6 +1356,7 @@ export const MarkdownEditor = forwardRef<
         onInsertRowBelow={handleInsertRowBelowFromMenu}
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}
         onInsertColumnRight={handleInsertColumnRightFromMenu}
+        onDeleteRow={handleDeleteRowFromMenu}
         suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu

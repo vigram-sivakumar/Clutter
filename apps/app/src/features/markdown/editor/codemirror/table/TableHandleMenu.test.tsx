@@ -43,7 +43,10 @@ afterEach(() => {
   cleanup();
 });
 
-function renderMenu(selection: TableHandleMenuSelection, overrides: Partial<Record<'onInsertColumnLeft' | 'onInsertColumnRight' | 'onInsertRowAbove' | 'onInsertRowBelow' | 'onClearContents', () => void>> = {}) {
+function renderMenu(
+  selection: TableHandleMenuSelection,
+  overrides: Partial<Record<'onInsertColumnLeft' | 'onInsertColumnRight' | 'onInsertRowAbove' | 'onInsertRowBelow' | 'onClearContents' | 'onDeleteRow', () => void>> = {}
+) {
   const anchorEl = document.body.appendChild(document.createElement('div'));
   const anchor: TableHandleMenuAnchor = { current: anchorEl };
   const onClose = vi.fn();
@@ -52,6 +55,7 @@ function renderMenu(selection: TableHandleMenuSelection, overrides: Partial<Reco
   const onInsertRowBelow = overrides.onInsertRowBelow ?? vi.fn();
   const onInsertColumnLeft = overrides.onInsertColumnLeft ?? vi.fn();
   const onInsertColumnRight = overrides.onInsertColumnRight ?? vi.fn();
+  const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
 
   function Harness() {
     const suppressReturnFocusRef = useRef(false);
@@ -65,13 +69,14 @@ function renderMenu(selection: TableHandleMenuSelection, overrides: Partial<Reco
         onInsertRowBelow={onInsertRowBelow}
         onInsertColumnLeft={onInsertColumnLeft}
         onInsertColumnRight={onInsertColumnRight}
+        onDeleteRow={onDeleteRow}
         suppressReturnFocusRef={suppressReturnFocusRef}
       />
     );
   }
 
   render(<Harness />);
-  return { onClose, onClearContents, onInsertRowAbove, onInsertRowBelow, onInsertColumnLeft, onInsertColumnRight };
+  return { onClose, onClearContents, onInsertRowAbove, onInsertRowBelow, onInsertColumnLeft, onInsertColumnRight, onDeleteRow };
 }
 
 describe('TableHandleMenu — column item wiring', () => {
@@ -111,5 +116,23 @@ describe('TableHandleMenu — column item wiring', () => {
     expect(findMenuItem('Insert below')).not.toBeNull();
     expect(findMenuItem('Insert left')).toBeNull();
     expect(findMenuItem('Insert right')).toBeNull();
+  });
+});
+
+describe('TableHandleMenu — "Delete row" wiring', () => {
+  it('clicking "Delete row" calls onDeleteRow for a row selection', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    fireEvent.click(findMenuItem('Delete row')!);
+
+    expect(handlers.onDeleteRow).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking "Delete column" never calls onDeleteRow — deletion stays inert for a column selection', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    fireEvent.click(findMenuItem('Delete column')!);
+
+    expect(handlers.onDeleteRow).not.toHaveBeenCalled();
   });
 });

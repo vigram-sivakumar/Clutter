@@ -17,17 +17,19 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
  * `TableSelection` (a row/column handle click, `tableHandleOverlay.ts`) and
  * never arms anything itself.
  *
- * **No longer wired to Backspace/Delete.** `tableSelectionDeletionKeymap()`,
+ * **Not wired to Backspace/Delete.** `tableSelectionDeletionKeymap()`,
  * below, still exists and is still fully correct, but `buildEditorExtensions.ts`
- * no longer installs it — Backspace/Delete over a `TableSelection` now
- * *clears the selected cells' own content* instead (`tableSelectionClear.ts`),
- * never removes a row/column. This module is kept exactly as it was
- * specifically so a future row/column-handle menu ("Delete row"/"Delete
- * column") can call `deleteSelectedRow`/`deleteSelectedColumn` directly, or
- * reuse `tableSelectionDeletionKeymap()` itself if a keyboard shortcut is
- * ever reintroduced for it — this file's own test suite
- * (`tableSelectionDeletion.test.ts`) exercises it standalone, independent of
- * whatever `buildEditorExtensions.ts` currently wires.
+ * does not install it — Backspace/Delete over a `TableSelection` stays
+ * `tableSelectionClear.ts`'s own content-clearing behavior, never
+ * structural removal. Structural deletion is reachable only through
+ * `TableHandleMenu.tsx`'s own "Delete row"/"Delete column" items, via this
+ * module's own exported `deleteRowSelection` (row-only so far; a symmetric
+ * `deleteColumnSelection` for "Delete column" is future work, not yet
+ * wired) — the same "look up the current menu's own selection, dispatch
+ * directly" shape `tableRowInsertion.ts`'s own `insertRowAboveSelection`
+ * already establishes for the menu's insert items. `tableSelectionDeletionKeymap()`
+ * remains available standalone (this file's own test suite exercises it) if
+ * a keyboard shortcut for structural deletion is ever reintroduced.
  *
  * **`tableSelectionDeletionHistory()`, below, is reused by
  * `tableSelectionClear.ts` too** — it's a generic `invertedEffects` provider
@@ -49,7 +51,7 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
  * comment).
  */
 
-/** The `[from, to)` Markdown range to delete for `navigableRows[rowIndex]` — the row's own content plus exactly one adjoining newline. Prefers the newline *after* the row (so a row followed by another row/table content just disappears cleanly); falls back to the newline *before* it only when this is the table's last row, so no dangling blank line is ever left inside the table. Lines within a table are always contiguous (GFM allows no blank line mid-table), so `row.from - 1` is always the exact preceding newline and is always `>= table.from` here (row index is never 0 — the header is never a deletable row). */
+/** The `[from, to)` Markdown range to delete for `navigableRows[rowIndex]` — the row's own content plus exactly one adjoining newline. Prefers the newline *after* the row (so a row followed by another row/table content just disappears cleanly); falls back to the newline *before* it only when this is the table's last row, so no dangling blank line is ever left inside the table. Lines within a table are always contiguous (GFM allows no blank line mid-table), so `row.from - 1` is always the exact preceding newline and is always `>= table.from` here. Never called with `rowIndex === 0` (the header) — `deleteHeaderRow`, below, handles that case with a different shape entirely (rebuild-in-place, not a plain removal), since the header can't simply disappear the way a body row can. */
 function rowDeletionRange(navigableRows: readonly SyntaxNode[], rowIndex: number): { from: number; to: number } | null {
   const row = navigableRows[rowIndex];
   if (!row || rowIndex === 0) {
@@ -189,8 +191,62 @@ function deleteWholeTable(view: EditorView, table: TableInfo): void {
   dispatchDeletion(view, [{ from: table.from, to: table.to, insert: '' }], null, table.from);
 }
 
+/**
+ * Deletes the header row and promotes the next body row (if any) to take
+ * its place — the only valid outcome for removing a table's header, since
+ * a body row can never simply "become" a header by deleting the line above
+ * it: GFM requires the delimiter/alignment row to immediately follow the
+ * header, and that row is already exactly where it needs to be relative to
+ * the *promoted* row's own final position, so the correct transformation is
+ * "the promoted row's own raw content replaces the header's, and the
+ * promoted row's own old line is removed" — the exact inverse, in shape, of
+ * `tableRowInsertion.ts`'s own header-promotion for "Insert row above" on
+ * the header (which does the same two-change dance the other direction:
+ * a fresh blank row becomes the header, and the *old* header's text is
+ * re-inserted as the new first body row).
+ *
+ * When there is no body row to promote (the header is the table's only
+ * row), there is no valid partial table left to produce — a delimiter row
+ * with no header above it, or a header with nothing below the delimiter
+ * row, are both invalid GFM — so the whole table is deleted instead,
+ * mirroring `deleteSelectedColumn`'s own identical precedent for a single-
+ * column table's last column ("would leave nothing valid, so delete
+ * everything" rather than emit malformed Markdown).
+ */
+function deleteHeaderRow(view: EditorView, table: TableInfo, navigableRows: readonly SyntaxNode[]): boolean {
+  const header = navigableRows[0];
+  if (!header) {
+    return false;
+  }
+  const firstBodyRow = navigableRows[1];
+  if (!firstBodyRow) {
+    deleteWholeTable(view, table);
+    return true;
+  }
+  const removalRange = rowDeletionRange(navigableRows, 1);
+  if (!removalRange) {
+    return false;
+  }
+  const promotedText = view.state.sliceDoc(firstBodyRow.from, firstBodyRow.to);
+  const changes: ChangeSpec[] = [
+    { from: header.from, to: header.to, insert: promotedText },
+    { from: removalRange.from, to: removalRange.to, insert: '' },
+  ];
+  // The promoted row always ends up selected at rowIndex 0 (the header's
+  // own slot) — unlike `nextSelectionAfterRowDeletion`'s own "select the
+  // adjacent row, or null once nothing but the header is left" contract
+  // for an ordinary body-row deletion, there is always something real and
+  // freshly-promoted to point at here, even when it leaves a header-only
+  // (zero-body-row) table behind.
+  dispatchDeletion(view, changes, { kind: 'row', tableFrom: table.from, rowIndex: 0 });
+  return true;
+}
+
 function deleteSelectedRow(view: EditorView, table: TableInfo, rowIndex: number): boolean {
   const navigableRows = getNavigableRows(table.node);
+  if (rowIndex === 0) {
+    return deleteHeaderRow(view, table, navigableRows);
+  }
   const range = rowDeletionRange(navigableRows, rowIndex);
   if (!range) {
     return false;
@@ -198,6 +254,28 @@ function deleteSelectedRow(view: EditorView, table: TableInfo, rowIndex: number)
   const next = nextSelectionAfterRowDeletion(table.from, rowIndex, navigableRows.length);
   dispatchDeletion(view, [{ from: range.from, to: range.to, insert: '' }], next);
   return true;
+}
+
+/**
+ * Exported for `TableHandleMenu.tsx`'s "Delete row" item — the menu-driven
+ * entry point into this module's own `deleteSelectedRow`/`deleteHeaderRow`,
+ * mirroring `insertRowAboveSelection`'s (`tableRowInsertion.ts`) own
+ * selection-aware, return-`boolean` shape exactly. Deliberately *not* the
+ * same path as `tableSelectionDeletionKeymap()` below — that keymap is
+ * still not installed in `buildEditorExtensions.ts` (Backspace/Delete over
+ * a `TableSelection` stays `tableSelectionClear.ts`'s own content-clearing
+ * behavior, per this feature's own product decision); structural deletion
+ * is reachable *only* through the menu, via this function.
+ */
+export function deleteRowSelection(view: EditorView, selection: TableSelection): boolean {
+  if (selection.kind !== 'row') {
+    return false;
+  }
+  const table = findAllTables(view.state).find((t) => t.from === selection.tableFrom);
+  if (!table) {
+    return false;
+  }
+  return deleteSelectedRow(view, table, selection.rowIndex);
 }
 
 function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: number): boolean {
