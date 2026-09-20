@@ -236,15 +236,15 @@ export function attachTableHandleOverlay(
       return;
     }
     showColumn(hovered.columnIndex);
-    if (hovered.isHeaderRow) {
-      // Header row: column handle only. Row selection/reorder explicitly
-      // excludes the header — and the delimiter/alignment row, which never
-      // renders as its own `<tr>` in this widget at all (`TableWidget`'s
-      // own doc comment), so it needs no handling here either.
-      hideRow();
-    } else {
-      showRow(hovered.row);
-    }
+    // The header row gets a row handle exactly like any other row — the
+    // header is a valid `TableSelection.row` target (see `tableSelection.ts`'s
+    // own `row` kind doc comment: a table always needing a header is a
+    // future structural-operations concern, not a selection one). The
+    // delimiter/alignment row is still never reachable here at all — it
+    // never renders as its own `<tr>` in this widget (`TableWidget`'s own
+    // doc comment), so `resolveHoveredCell` can never resolve to it in the
+    // first place.
+    showRow(hovered.row);
   });
 
   wrapper.addEventListener('pointerleave', () => {

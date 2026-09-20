@@ -28,7 +28,17 @@ export type TableSelection =
   | {
       readonly kind: 'row';
       readonly tableFrom: number;
-      /** Index into `getNavigableRows(table)` — header is index 0, matching `LogicalCell.rowIndex`'s own convention (`tableGeometry.ts`) — never 0 itself: header/delimiter rows are excluded from row selection (this milestone's own UX decision). */
+      /**
+       * Index into `getNavigableRows(table)` — header is index 0, matching
+       * `LogicalCell.rowIndex`'s own convention (`tableGeometry.ts`). `0`
+       * (the header) is a perfectly valid, selectable row like any other —
+       * a Markdown table always needing a header is a future structural-
+       * operations concern (row/column add, delete, promote), not a
+       * selection or content-clearing one, so nothing here excludes it.
+       * The delimiter/alignment row is still never a target: it isn't a
+       * member of `getNavigableRows`'s own sequence at all (`tableGeometry.ts`'s
+       * own doc comment), so no index ever resolves to it.
+       */
       readonly rowIndex: number;
     }
   | {
@@ -103,11 +113,10 @@ function remapTableSelection(tr: Transaction, selection: TableSelection): TableS
     }
     const mappedRowPos = tr.changes.mapPos(oldRow.from, 1);
     const newRowIndex = getNavigableRows(newTable.node).findIndex((r) => r.from === mappedRowPos);
-    if (newRowIndex <= 0) {
-      // -1: the row itself was deleted, or no longer resolves anywhere.
-      // 0: would mean the header — never a valid row-selection target
-      // (defensive; the handle overlay never offers a row handle over the
-      // header in the first place, per `tableHandleOverlay.ts`).
+    if (newRowIndex < 0) {
+      // The row itself was deleted, or no longer resolves anywhere. `0`
+      // (the header) is a valid outcome here, same as any other index —
+      // see `TableSelection`'s own `row` kind doc comment.
       return null;
     }
     return { kind: 'row', tableFrom: mappedTableFrom, rowIndex: newRowIndex };

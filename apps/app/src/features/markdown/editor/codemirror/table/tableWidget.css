@@ -151,6 +151,7 @@
   font-weight: var(--fw-regular);
   border-bottom: 1px solid var(--border-default);
   color: var(--foreground-tertiary);
+  background: var(--surface-secondary);
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper {
@@ -231,4 +232,19 @@
 .cm-editor .cm-table-wrapper tr.cm-table-row-selected > td,
 .cm-editor .cm-table-wrapper tr.cm-table-row-selected > th {
   background: transparent;
+}
+
+/* A selected header cell (a column selection spanning the header, or —
+ * now that the header is a selectable row like any other,
+ * `tableSelection.ts`'s own `row` kind doc comment — a selected header
+ * row) must keep its own `thead th` background (`--surface-secondary`,
+ * above) rather than the plain `transparent` the general selected-cell
+ * rule above sets: that rule predates header cells ever being selectable
+ * this way and never accounted for `thead th` already carrying a
+ * background of its own, unlike an ordinary `td`, which has none to lose.
+ * More specific than the rule above (adds `thead`), so it wins without
+ * `!important`. */
+.cm-editor .cm-table-wrapper thead th.cm-table-column-selected,
+.cm-editor .cm-table-wrapper thead tr.cm-table-row-selected > th {
+  background: var(--surface-secondary);
 }

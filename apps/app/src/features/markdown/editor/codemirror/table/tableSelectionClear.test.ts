@@ -142,6 +142,37 @@ describe('tableSelectionClearKeymap — row clearing', () => {
     expect(lines[2]!.split('|')).toHaveLength(4); // still only 2 cells (3 pipes), never padded to 3 cells
     expect(lines[3]).toBe('| Sam | Engineer | SF |');
   });
+
+  it('clears the header row (rowIndex 0) exactly like any other row, preserving the table structure', () => {
+    const { view } = mountRootView(NAR);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Delete');
+
+    expect(view.state.doc.toString()).toBe('|      |     |      |\n| --- | --- | --- |\n| Bob | 30 | UX |\n| Ann | 28 | Dev |');
+    expect(findEnclosingTable(view.state, 0)?.name).toBe('Table');
+  });
+
+  it('the header row stays selected after clearing it', () => {
+    const { view } = mountRootView(NAR);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Backspace');
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+  });
+
+  it('clearing the header row does not touch the alignment/delimiter row or any body row', () => {
+    const { view } = mountRootView(NAR);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    dispatchKey(view, 'Delete');
+
+    const lines = view.state.doc.toString().split('\n');
+    expect(lines[1]).toBe('| --- | --- | --- |');
+    expect(lines[2]).toBe('| Bob | 30 | UX |');
+    expect(lines[3]).toBe('| Ann | 28 | Dev |');
+  });
 });
 
 describe('tableSelectionClearKeymap — column clearing', () => {

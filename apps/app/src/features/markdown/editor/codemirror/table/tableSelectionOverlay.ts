@@ -177,8 +177,12 @@ export function positionColumnSelectionOverlay(
  * **`selectedRowIndex` → DOM row.** `getNavigableRows(table)`'s own
  * convention (`tableSelection.ts`, `TableWidget`'s own doc comments) is
  * header = index 0, first body row = index 1, and so on — never a second,
- * independent row-index system. `table.tBodies[0].rows` is exactly that
- * same body-row sequence in the same document order
+ * independent row-index system. The header row is a perfectly valid
+ * selection target (the Markdown-structural concern of a table always
+ * needing a header is a future structural-operations concern, not a
+ * selection/content-clearing one) and resolves to `table.tHead`'s own row
+ * directly; every other index resolves into `table.tBodies[0].rows` —
+ * exactly that same body-row sequence in the same document order
  * (`TableWidget.toDOM()`'s own `bodyRows.forEach` builds `<tr>`s in that
  * order), offset by one for the header, hence `selectedRowIndex - 1`.
  *
@@ -206,7 +210,7 @@ export function positionRowSelectionOverlay(
   table: HTMLTableElement,
   selectedRowIndex: number
 ): void {
-  const row = table.tBodies[0]?.rows[selectedRowIndex - 1];
+  const row = selectedRowIndex === 0 ? table.tHead?.rows[0] : table.tBodies[0]?.rows[selectedRowIndex - 1];
   const firstCell = row?.cells[0];
   const lastCell = row?.cells[row.cells.length - 1];
   if (!row || !firstCell || !lastCell) {

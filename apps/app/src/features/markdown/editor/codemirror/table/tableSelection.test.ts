@@ -287,6 +287,17 @@ describe('tableSelectionField — mutual exclusivity with the active cell', () =
     expect(view.state.field(tableSelectionField)).toBeNull();
   });
 
+  it('a plain tableActiveCellChanged (cell activation) clears a selected header row (rowIndex 0) exactly like any other row — clicking a header cell activates it and clears the selection', () => {
+    const view = mountView(TABLE);
+    const from = tableFrom(view);
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: from, rowIndex: 0 }) });
+    expect(view.state.field(tableSelectionField)).not.toBeNull();
+
+    view.dispatch({ effects: tableActiveCellChanged.of(null) });
+
+    expect(view.state.field(tableSelectionField)).toBeNull();
+  });
+
   it("a handle click's own dispatch (tableSelectionChanged + tableActiveCellChanged together) is not self-cancelling — the new selection wins", () => {
     const view = mountView(TABLE);
     const from = tableFrom(view);

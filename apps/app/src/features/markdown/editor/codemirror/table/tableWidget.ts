@@ -318,9 +318,11 @@ export class TableWidget extends WidgetType {
     const thead = document.createElement('thead');
     // Row index 0 — `getNavigableRows(table)`'s own convention (the header
     // is always its first entry), matching `selectedRowIndex`'s own doc
-    // comment. Never a valid `selectedRowIndex` value itself (header/
-    // delimiter rows are excluded from row selection), so the header's own
-    // `<tr>` never gets the row-selected class below regardless.
+    // comment. A valid `selectedRowIndex` value like any other (see
+    // `TableSelection`'s own `row` kind doc comment, `tableSelection.ts`) —
+    // `buildRow`'s own `selectedRowIndex === rowIndex` check below already
+    // applies uniformly, so the header's own `<tr>` gets the row-selected
+    // class exactly when it's the selected row, same as any body row.
     thead.appendChild(this.buildRow(view, this.headerCells, 'th', 0));
     table.appendChild(thead);
 

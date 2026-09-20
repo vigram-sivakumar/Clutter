@@ -78,7 +78,7 @@ function blankCellChange(state: EditorState, bounds: CellBounds): ChangeSpec | n
   return { from: bounds.leftDelimiterTo, to: bounds.rightDelimiterFrom, insert: padCellContent('', gapWidth) };
 }
 
-/** Every non-empty cell in `row` — used for a `row`-kind selection, which always clears every column of its own one row (ragged rows naturally contribute fewer changes, per `getRowCellBounds`'s own per-row cell count). */
+/** Every non-empty cell in `row` — used for a `row`-kind selection, which always clears every column of its own one row (ragged rows naturally contribute fewer changes, per `getRowCellBounds`'s own per-row cell count). `row` may be the header (`TableSelection`'s own `row` kind doc comment: the header is a valid, selectable row like any other) — `getRowCellBounds` treats it identically to a body row, so no special-casing is needed here either. */
 function rowClearChanges(state: EditorState, row: SyntaxNode): ChangeSpec[] {
   const changes: ChangeSpec[] = [];
   for (const bounds of getRowCellBounds(row)) {
@@ -106,7 +106,7 @@ function columnClearChanges(state: EditorState, table: TableInfo, columnIndex: n
   return changes;
 }
 
-/** Every non-empty cell inside the rectangular `[minRow, maxRow] × [minCol, maxCol]` range (anchor/head already normalized by the caller, `clearTableSelection`, into min/max order — this function itself takes no position on direction). Row 0 (the header) is a perfectly valid member of a range, unlike the dedicated `row` kind, which structurally excludes it (`TableSelection`'s own doc comment) — a range's own `anchor`/`head` coordinates carry no such restriction. */
+/** Every non-empty cell inside the rectangular `[minRow, maxRow] × [minCol, maxCol]` range (anchor/head already normalized by the caller, `clearTableSelection`, into min/max order — this function itself takes no position on direction). Row 0 (the header) is a perfectly valid member of a range, same as the dedicated `row` kind (`TableSelection`'s own doc comment) — no special-casing needed for either. */
 function rangeClearChanges(state: EditorState, table: TableInfo, minRow: number, maxRow: number, minCol: number, maxCol: number): ChangeSpec[] {
   const changes: ChangeSpec[] = [];
   const navigableRows = getNavigableRows(table.node);

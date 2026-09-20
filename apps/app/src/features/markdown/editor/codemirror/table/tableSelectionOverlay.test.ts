@@ -184,17 +184,33 @@ describe('positionRowSelectionOverlay — geometry', () => {
     expect(overlay.style.top).toBe('29px');
   });
 
-  it('leaves the overlay unpositioned and invisible when selectedRowIndex has no rendered <tr> (e.g. the header, or an out-of-range index)', () => {
+  it('leaves the overlay unpositioned and invisible when selectedRowIndex has no rendered <tr> at all (out of range)', () => {
     const { scrollContainer, table } = buildTable(2, [2]);
     const overlay = createTableSelectionOverlay();
 
-    // 0 is the header's own index in `getNavigableRows` convention — never
-    // a valid body-row selection, and `table.tBodies[0].rows[-1]` resolves
-    // to `undefined`, exactly like a genuinely out-of-range index would.
-    positionRowSelectionOverlay(overlay, scrollContainer, table, 0);
+    // Neither the header (index 0, one row) nor the single body row
+    // (index 1) — genuinely past the end of `getNavigableRows`.
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 5);
 
     expect(overlay.style.left).toBe('');
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+  });
+
+  it('selectedRowIndex 0 (the header) is a valid target and positions the overlay over the header row', () => {
+    const { scrollContainer, table } = buildTable(3, [3, 3]);
+    mockRect(scrollContainer, { left: 100, top: 50, right: 500, bottom: 300, width: 400, height: 250 });
+    const headerRow = table.tHead!.rows[0]!;
+    mockRect(headerRow.cells[0]!, { left: 233, top: 60, right: 366, bottom: 90, width: 133, height: 30 });
+    mockRect(headerRow.cells[2]!, { left: 366, top: 60, right: 499, bottom: 90, width: 133, height: 30 });
+    const overlay = createTableSelectionOverlay();
+
+    positionRowSelectionOverlay(overlay, scrollContainer, table, 0);
+
+    expect(overlay.style.left).toBe(`${233 - 100 - 1}px`);
+    expect(overlay.style.top).toBe(`${60 - 50 - 1}px`);
+    expect(overlay.style.width).toBe(`${499 - 233 + 2}px`);
+    expect(overlay.style.height).toBe('32px');
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 
   it('a ragged row (fewer cells than the header) is outlined only across its own actually-rendered cells', () => {

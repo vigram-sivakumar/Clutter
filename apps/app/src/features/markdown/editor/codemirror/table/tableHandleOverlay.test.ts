@@ -168,7 +168,7 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
-  it('hovering a header cell shows the column handle but not the row handle', () => {
+  it('hovering a header cell shows both the column handle and the row handle — the header is a selectable row like any other', () => {
     const { wrapper, table } = buildTable(2, 2);
     attach(wrapper, 2);
 
@@ -178,7 +178,7 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     wrapper.dispatchEvent(event);
 
     expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
-    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
+    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it('moving outside the table (pointerleave) hides both handles', () => {
@@ -337,6 +337,53 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
     expect((wrapper.querySelector('.cm-table-row-handle') as HTMLElement).style.top).toBe('70px');
   });
 
+  it('a selected header row (rowIndex 0) shows its handle even with no hover at all — the header is a selectable row like any other', async () => {
+    const { view, controller } = mountRootView();
+    const { wrapper } = buildTable(2, 3);
+
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 0);
+    await Promise.resolve();
+
+    expect(rowVisible(wrapper)).toBe(true);
+    expect(columnVisible(wrapper)).toBe(false);
+  });
+
+  it('switching selection from a column to the header row shows the row handle at the header and hides the column handle (simulates the TableWidget rebuild a kind change triggers)', async () => {
+    const before = mountRootView();
+    const beforeTable = buildTable(2, 3);
+    attachTableHandleOverlay(beforeTable.wrapper, 3, before.view, before.controller, TEST_TABLE_FROM, 1, null);
+    expect(columnVisible(beforeTable.wrapper)).toBe(true);
+
+    // A fresh `attachTableHandleOverlay` call against a fresh wrapper is
+    // exactly what a `TableSelection` kind change produces in the real
+    // app — a new `TableWidget.toDOM()` call, per that file's own doc
+    // comment — `selectedColumnIndex` now `null`, `selectedRowIndex` now
+    // `0` (the header).
+    const after = mountRootView();
+    const afterTable = buildTable(2, 3);
+    attachTableHandleOverlay(afterTable.wrapper, 3, after.view, after.controller, TEST_TABLE_FROM, null, 0);
+    await Promise.resolve();
+
+    expect(rowVisible(afterTable.wrapper)).toBe(true);
+    expect(columnVisible(afterTable.wrapper)).toBe(false);
+  });
+
+  it('switching selection from the header row to a body row shows the row handle at the new row (simulates the TableWidget rebuild a kind change triggers)', async () => {
+    const before = mountRootView();
+    const beforeTable = buildTable(2, 3);
+    attachTableHandleOverlay(beforeTable.wrapper, 3, before.view, before.controller, TEST_TABLE_FROM, null, 0);
+    await Promise.resolve();
+    expect(rowVisible(beforeTable.wrapper)).toBe(true);
+
+    const after = mountRootView();
+    const afterTable = buildTable(2, 3);
+    attachTableHandleOverlay(afterTable.wrapper, 3, after.view, after.controller, TEST_TABLE_FROM, null, 1);
+    await Promise.resolve();
+
+    expect(rowVisible(afterTable.wrapper)).toBe(true);
+    expect(columnVisible(afterTable.wrapper)).toBe(false);
+  });
+
   it('hovering a different column still shows it (hover takes over the shared element); leaving hover falls back to the selected column', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
@@ -467,7 +514,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(controller.nestedView!.dom.parentElement).toBeNull();
   });
 
-  it('the header row never offers an interactive row handle, so it cannot become a row selection', () => {
+  it('clicking the header row\'s own row handle selects it — rowIndex 0, a valid TableSelection.row like any other', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
@@ -478,11 +525,9 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     wrapper.dispatchEvent(event);
 
     const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
-    expect(rowHit.classList.contains('cm-table-handle-visible')).toBe(false);
-    // Clicking it anyway (e.g. a stray event) must still do nothing — no
-    // column/row is tracked while the row handle isn't shown.
+    expect(rowHit.classList.contains('cm-table-handle-visible')).toBe(true);
     click(rowHit);
-    expect(view.state.field(tableSelectionField)).toBeNull();
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
   });
 
   it('a click on the handle before any hover (no column/row tracked yet) does nothing', () => {
