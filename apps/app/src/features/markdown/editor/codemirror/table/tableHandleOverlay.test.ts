@@ -288,15 +288,53 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
     expect(rowVisible(wrapper)).toBe(false);
   });
 
-  it('a selected row shows its handle even with no hover at all (fresh attach, never hovered)', () => {
+  it('a selected row shows its handle even with no hover at all (fresh attach, never hovered)', async () => {
     const { view, controller } = mountRootView();
     const { wrapper } = buildTable(2, 3);
 
     // Native `rowIndex` convention (header = 0) — row 1 is the first body row.
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1);
+    // The row axis's own initial-state measurement is deferred to a
+    // microtask (`attachTableHandleOverlay`'s own doc comment) — real
+    // `getBoundingClientRect()`-based positioning can't run correctly
+    // against a still-detached subtree, exactly like
+    // `tableSelectionOverlay.ts`'s own deferred positioning.
+    await Promise.resolve();
 
     expect(rowVisible(wrapper)).toBe(true);
     expect(columnVisible(wrapper)).toBe(false);
+  });
+
+  /**
+   * Regression test for the exact bug this deferral fixes: a `column` →
+   * `row` `TableSelection` change rebuilds `TableWidget` (a fresh
+   * `attachTableHandleOverlay` call, `selectedRowIndex` now set), and
+   * before the fix, that fresh call's own initial `hideRow()` measured
+   * `getBoundingClientRect()` synchronously — meaningless (zero) on a
+   * still-detached subtree in the real app, which pinned the row handle to
+   * `top: 0` (the wrapper's own top edge) instead of the selected row.
+   * jsdom returns an all-zero rect for *every* element by default, which
+   * would silently pass a same-zero-either-way assertion — real, distinct
+   * rects are mocked here specifically so a `top: 0px` regression is
+   * actually distinguishable from the correct, non-zero position.
+   */
+  function mockRect(el: Element, rect: { top: number; height: number }): void {
+    el.getBoundingClientRect = () => ({ top: rect.top, height: rect.height, bottom: rect.top + rect.height, left: 0, right: 0, width: 0, x: 0, y: rect.top, toJSON: () => ({}) });
+  }
+
+  it('regression: switching selection to a row positions its handle at the row, never pinned to the wrapper\'s top edge', async () => {
+    const { view, controller } = mountRootView();
+    const { wrapper, table } = buildTable(2, 3);
+    mockRect(wrapper, { top: 100, height: 200 });
+    const selectedRow = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    mockRect(selectedRow, { top: 150, height: 40 }); // row 1 (first body row) — well below the wrapper's own top
+
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1);
+    await Promise.resolve();
+
+    expect(rowVisible(wrapper)).toBe(true);
+    // (150 - 100) + 40/2 = 70 — the row's own actual midpoint, not 0.
+    expect((wrapper.querySelector('.cm-table-row-handle') as HTMLElement).style.top).toBe('70px');
   });
 
   it('hovering a different column still shows it (hover takes over the shared element); leaving hover falls back to the selected column', () => {

@@ -337,6 +337,28 @@ export function attachTableHandleOverlay(
   // exact DOM instance. Reuses `hideColumn`/`hideRow` rather than a third
   // code path — both already fall back to showing the selected handle when
   // one exists, which is exactly "start in the selected state" here.
+  //
+  // `hideColumn()` runs synchronously — `showColumn`'s own position is a
+  // plain percentage (`(columnIndex + 0.5) / columnCount`), needing no
+  // layout at all, so it's correct whether or not `wrapper` is actually
+  // attached yet. `hideRow()`'s own selected-fallback is not: it calls
+  // `showRow`, which measures `getBoundingClientRect()` on `wrapper` and
+  // the selected row — meaningless (zero) rects on the still-detached
+  // subtree `attachTableHandleOverlay` is called against from inside
+  // `TableWidget.toDOM()` (this function's own caller), the exact same
+  // "not yet attached to the live document" constraint `tableWidget.ts`'s
+  // own selection-overlay setup already documents and works around via
+  // `queueMicrotask()` — confirmed as the actual cause of a real
+  // regression here (a `column` → `row` selection change left the row
+  // handle visible but pinned to the wrapper's own top edge instead of the
+  // newly-selected row, live-verified). Deferred the identical way, with
+  // the identical `isConnected` re-check at fire time for the identical
+  // reason: a second, unrelated rebuild landing before this microtask
+  // fires would have already discarded this exact `wrapper` instance.
   hideColumn();
-  hideRow();
+  queueMicrotask(() => {
+    if (wrapper.isConnected) {
+      hideRow();
+    }
+  });
 }
