@@ -6,8 +6,11 @@
  * region, and cannot cleanly extend to a rectangular multi-cell range
  * later). `box-sizing: border-box` so this element's own `border` is
  * drawn *inside* the `left/top/width/height` box `tableSelectionOverlay.ts`
- * computes from the actual cell geometry, landing exactly on the existing
- * grid line instead of one pixel outside it. `pointer-events: none` —
+ * computes — that box is itself already expanded 1px outward on every
+ * side of the actual cell geometry (see that file's own doc comment),
+ * so this 2px border's centerline lands exactly on the table's existing
+ * 1px grid line/border instead of doubling up just inside it.
+ * `pointer-events: none` —
  * this is a pure visual layer; every real interaction (cell clicks, the
  * column/row handles) is still owned entirely by the real `<td>`/`<th>`
  * elements and the handle overlay underneath/beside it.
@@ -26,7 +29,7 @@
   position: absolute;
   box-sizing: border-box;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-focus);
+  border: 2px solid var(--border-focus);
   pointer-events: none;
   visibility: hidden;
 }

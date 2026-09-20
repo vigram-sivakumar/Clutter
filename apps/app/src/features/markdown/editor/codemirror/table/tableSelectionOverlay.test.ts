@@ -73,10 +73,13 @@ describe('positionColumnSelectionOverlay — geometry', () => {
 
     positionColumnSelectionOverlay(overlay, scrollContainer, table, 1);
 
-    expect(overlay.style.left).toBe(`${233 - 100}px`);
-    expect(overlay.style.top).toBe(`${60 - 50}px`);
-    expect(overlay.style.width).toBe('133px');
-    expect(overlay.style.height).toBe(`${150 - 60}px`); // header top to last-row bottom
+    // Expanded 1px outward on every side (see this module's own doc
+    // comment) so the 2px halo centers on the table's existing 1px
+    // border/grid line instead of doubling up just inside it.
+    expect(overlay.style.left).toBe(`${233 - 100 - 1}px`);
+    expect(overlay.style.top).toBe(`${60 - 50 - 1}px`);
+    expect(overlay.style.width).toBe(`${133 + 2}px`);
+    expect(overlay.style.height).toBe(`${150 - 60 + 2}px`); // header top to last-row bottom
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 
@@ -97,8 +100,10 @@ describe('positionColumnSelectionOverlay — geometry', () => {
     // scrolled by (50, 10) — the computed style must reflect the
     // scroll-independent content position, not the current viewport
     // reading, or the overlay would visually drift on the next scroll.
-    expect(overlay.style.left).toBe('50px');
-    expect(overlay.style.top).toBe('10px');
+    // (Both also shifted -1px for the same 1px outward expansion as the
+    // test above.)
+    expect(overlay.style.left).toBe('49px');
+    expect(overlay.style.top).toBe('9px');
   });
 
   it('leaves the overlay unpositioned and invisible when the header has no cell at the given column index', () => {
@@ -125,7 +130,7 @@ describe('positionColumnSelectionOverlay — geometry', () => {
 
     // Bottom comes from the first row's own cell (the last one that
     // actually has this column), not the (nonexistent) ragged row.
-    expect(overlay.style.height).toBe('40px'); // 0 (header top) to 40 (first row bottom)
+    expect(overlay.style.height).toBe('42px'); // 0 (header top) to 40 (first row bottom), +2 outward expansion
   });
 
   it('a table with no body rows at all still produces a valid (header-only) rectangle', () => {
@@ -137,7 +142,7 @@ describe('positionColumnSelectionOverlay — geometry', () => {
 
     positionColumnSelectionOverlay(overlay, scrollContainer, table, 0);
 
-    expect(overlay.style.height).toBe('20px');
+    expect(overlay.style.height).toBe('22px'); // 20 + 2 outward expansion
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 });
@@ -157,10 +162,10 @@ describe('positionRowSelectionOverlay — geometry', () => {
 
     positionRowSelectionOverlay(overlay, scrollContainer, table, 2);
 
-    expect(overlay.style.left).toBe(`${233 - 100}px`);
-    expect(overlay.style.top).toBe(`${120 - 50}px`);
-    expect(overlay.style.width).toBe(`${499 - 233}px`); // first cell's left to last cell's right
-    expect(overlay.style.height).toBe('30px');
+    expect(overlay.style.left).toBe(`${233 - 100 - 1}px`);
+    expect(overlay.style.top).toBe(`${120 - 50 - 1}px`);
+    expect(overlay.style.width).toBe(`${499 - 233 + 2}px`); // first cell's left to last cell's right
+    expect(overlay.style.height).toBe('32px');
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 
@@ -175,8 +180,8 @@ describe('positionRowSelectionOverlay — geometry', () => {
 
     positionRowSelectionOverlay(overlay, scrollContainer, table, 1);
 
-    expect(overlay.style.left).toBe('50px');
-    expect(overlay.style.top).toBe('30px');
+    expect(overlay.style.left).toBe('49px');
+    expect(overlay.style.top).toBe('29px');
   });
 
   it('leaves the overlay unpositioned and invisible when selectedRowIndex has no rendered <tr> (e.g. the header, or an out-of-range index)', () => {
@@ -204,7 +209,7 @@ describe('positionRowSelectionOverlay — geometry', () => {
     // Both "first" and "last" resolve to the row's own single cell — no
     // attempt to stretch the outline out to the header's full 3-column
     // width.
-    expect(overlay.style.width).toBe('100px');
+    expect(overlay.style.width).toBe('102px'); // 100 + 2 outward expansion
   });
 
   it('a single-cell row still produces a valid rectangle (first and last cell are the same element)', () => {
@@ -216,9 +221,9 @@ describe('positionRowSelectionOverlay — geometry', () => {
 
     positionRowSelectionOverlay(overlay, scrollContainer, table, 1);
 
-    expect(overlay.style.left).toBe('10px');
-    expect(overlay.style.width).toBe('100px');
-    expect(overlay.style.height).toBe('20px');
+    expect(overlay.style.left).toBe('9px');
+    expect(overlay.style.width).toBe('102px');
+    expect(overlay.style.height).toBe('22px');
   });
 });
 
@@ -238,10 +243,10 @@ describe('positionRangeSelectionOverlay — geometry', () => {
 
     positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 1);
 
-    expect(overlay.style.left).toBe(`${100 - 100}px`);
-    expect(overlay.style.top).toBe(`${90 - 50}px`); // topRow's own top
-    expect(overlay.style.width).toBe(`${300 - 100}px`); // header col0 left to col1 right
-    expect(overlay.style.height).toBe(`${150 - 90}px`); // topRow top to bottomRow bottom
+    expect(overlay.style.left).toBe(`${100 - 100 - 1}px`);
+    expect(overlay.style.top).toBe(`${90 - 50 - 1}px`); // topRow's own top
+    expect(overlay.style.width).toBe(`${300 - 100 + 2}px`); // header col0 left to col1 right
+    expect(overlay.style.height).toBe(`${150 - 90 + 2}px`); // topRow top to bottomRow bottom
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 
@@ -259,10 +264,10 @@ describe('positionRangeSelectionOverlay — geometry', () => {
 
     positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 1, 1, 1);
 
-    expect(overlay.style.left).toBe('100px');
-    expect(overlay.style.top).toBe('20px');
-    expect(overlay.style.width).toBe('100px');
-    expect(overlay.style.height).toBe('20px');
+    expect(overlay.style.left).toBe('99px');
+    expect(overlay.style.top).toBe('19px');
+    expect(overlay.style.width).toBe('102px');
+    expect(overlay.style.height).toBe('22px');
   });
 
   it('a single-row range (minRow=maxRow, different columns) spans only that row', () => {
@@ -277,9 +282,9 @@ describe('positionRangeSelectionOverlay — geometry', () => {
 
     positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 1, 0, 2);
 
-    expect(overlay.style.top).toBe('20px');
-    expect(overlay.style.width).toBe('300px'); // col0 left to col2 right
-    expect(overlay.style.height).toBe('20px'); // one row only
+    expect(overlay.style.top).toBe('19px');
+    expect(overlay.style.width).toBe('302px'); // col0 left to col2 right, +2 outward expansion
+    expect(overlay.style.height).toBe('22px'); // one row only, +2 outward expansion
   });
 
   it('a single-column range (minCol=maxCol, different rows) spans only that column', () => {
@@ -295,9 +300,9 @@ describe('positionRangeSelectionOverlay — geometry', () => {
 
     positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 0);
 
-    expect(overlay.style.width).toBe('100px'); // one column only
-    expect(overlay.style.top).toBe('20px');
-    expect(overlay.style.height).toBe('40px'); // topRow top to bottomRow bottom
+    expect(overlay.style.width).toBe('102px'); // one column only, +2 outward expansion
+    expect(overlay.style.top).toBe('19px');
+    expect(overlay.style.height).toBe('42px'); // topRow top to bottomRow bottom, +2 outward expansion
   });
 
   it('a range whose top or bottom boundary row is ragged still measures correctly from that row\'s own first rendered cell', () => {
@@ -319,9 +324,9 @@ describe('positionRangeSelectionOverlay — geometry', () => {
     // always comes from the header, which always has every column.
     positionRangeSelectionOverlay(overlay, scrollContainer, table, 1, 2, 0, 1);
 
-    expect(overlay.style.top).toBe('20px'); // ragged row's own top
-    expect(overlay.style.height).toBe('40px'); // ragged row top to full row bottom
-    expect(overlay.style.width).toBe('200px'); // header col0 left to col1 right
+    expect(overlay.style.top).toBe('19px'); // ragged row's own top, -1 outward expansion
+    expect(overlay.style.height).toBe('42px'); // ragged row top to full row bottom, +2 outward expansion
+    expect(overlay.style.width).toBe('202px'); // header col0 left to col1 right, +2 outward expansion
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 

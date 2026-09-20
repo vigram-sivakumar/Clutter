@@ -115,11 +115,12 @@ describe('table live wiring — DOM structure', () => {
     expect(wrapper?.tagName).toBe('DIV');
 
     // .cm-table-scroll (not table directly) is .cm-table-wrapper's own
-    // scrollable child — split out so the column/row handle overlay
-    // (tableHandleOverlay.ts), anchored on .cm-table-wrapper itself, can
-    // extend past its border without being clipped by overflow-x: auto's
-    // own forced overflow-y: auto side effect. See tableWidget.css's own
-    // comment on .cm-table-wrapper/.cm-table-scroll.
+    // child — split out so the column/row handle overlay
+    // (tableHandleOverlay.ts), anchored on .cm-table-wrapper itself, is
+    // never clipped, and to give the selection overlay
+    // (tableSelectionOverlay.ts) its own scroll-following coordinate
+    // space. See tableWidget.css's own comment on
+    // .cm-table-wrapper/.cm-table-scroll.
     const scroll = wrapper?.querySelector(':scope > .cm-table-scroll');
     expect(scroll?.tagName).toBe('DIV');
 

@@ -41,23 +41,30 @@
    * handle must do by design. */
   position: relative;
 }
-/* Horizontal-scroll container, split out from `.cm-table-wrapper` itself
- * (which used to carry `overflow-x: auto` directly) for the reason in
- * that rule's own comment above — the actual scrolling behavior for a
- * table wider than its container is unchanged, just moved one level
- * deeper so it can no longer clip the handle overlay anchored on the
- * wrapper. Also the positioning context for the column/row/range
+/* Split out from `.cm-table-wrapper` itself for the reason in that rule's
+ * own comment above (so it can no longer clip the handle overlay anchored
+ * on the wrapper), and the positioning context for the column/row/range
  * selection outline (`tableSelectionOverlay.ts`) — deliberately here, not
  * on `.cm-table-wrapper` the way the hover-handle overlay's own
  * `position: relative` is: that overlay must scroll *together* with
- * `<table>` itself (this milestone's own explicit requirement, unlike
- * the hover handles' accepted "stays pinned during scroll" trade-off),
- * which only happens for an absolutely-positioned element that is a
- * fellow child of this same scrolling container — see
+ * `<table>` itself, which only happens for an absolutely-positioned
+ * element that is a fellow child of this same container — see
  * `tableSelectionOverlay.ts`'s own doc comment for the full coordinate-
- * space reasoning. */
+ * space reasoning.
+ *
+ * `overflow-x: auto` (horizontal scrolling for a table wider than its
+ * container) is deliberately not set here for now — it clipped the
+ * selection overlay's halo (`tableSelectionOverlay.css`) whenever a
+ * selection touched the table's own outer edge, since the halo must
+ * extend 1px beyond that edge to center its 2px border on the table's
+ * existing 1px border, and this container's box has zero room past the
+ * table for that without also clipping. Horizontal scroll is getting a
+ * separate redesign later that will need to account for this; until
+ * then, `overflow: visible` avoids both the clipping and the forced
+ * `overflow-y: auto` a bare `overflow-x` would otherwise impose (CSS
+ * Overflow's own "visible paired with non-visible becomes auto" rule). */
 .cm-editor .cm-table-scroll {
-  overflow-x: auto;
+  overflow: visible;
   position: relative;
 }
 

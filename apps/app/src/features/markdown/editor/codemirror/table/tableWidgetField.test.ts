@@ -341,10 +341,10 @@ describe('tableWidgetField — row-selection overlay (tableSelectionOverlay.ts)'
     await Promise.resolve();
     const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
 
-    expect(overlay.style.left).toBe('0px');
-    expect(overlay.style.top).toBe('40px');
-    expect(overlay.style.width).toBe('200px'); // spans both of the selected row's own cells
-    expect(overlay.style.height).toBe('30px'); // the selected row's own height, not otherRow's
+    expect(overlay.style.left).toBe('-1px');
+    expect(overlay.style.top).toBe('39px');
+    expect(overlay.style.width).toBe('202px'); // spans both of the selected row's own cells, +2 outward expansion
+    expect(overlay.style.height).toBe('32px'); // the selected row's own height, not otherRow's, +2 outward expansion
   });
 
   it('a ragged row (fewer cells than the header) is outlined only across its own rendered cells', async () => {
@@ -366,7 +366,7 @@ describe('tableWidgetField — row-selection overlay (tableSelectionOverlay.ts)'
 
     // Only as wide as the ragged row's own single rendered cell, never
     // stretched out to the header's full two-column width.
-    expect(overlay.style.width).toBe('100px');
+    expect(overlay.style.width).toBe('102px'); // 100 + 2 outward expansion
   });
 
   it('never renders both a column and a row overlay at once (mutually exclusive by TableSelection\'s own kind)', () => {
@@ -530,10 +530,10 @@ describe('tableWidgetField — column-selection overlay resize responsiveness', 
 
     ourObserver(tableEl)!.trigger();
 
-    expect(overlay.style.left).toBe('10px');
-    expect(overlay.style.top).toBe('5px');
-    expect(overlay.style.width).toBe('100px');
-    expect(overlay.style.height).toBe('40px'); // 45 (body bottom) - 5 (header top)
+    expect(overlay.style.left).toBe('9px');
+    expect(overlay.style.top).toBe('4px');
+    expect(overlay.style.width).toBe('102px');
+    expect(overlay.style.height).toBe('42px'); // 45 (body bottom) - 5 (header top), +2 outward expansion
   });
 
   it('disconnects the old observer when selecting a different column replaces the widget', async () => {
@@ -604,7 +604,7 @@ describe('tableWidgetField — column-selection overlay resize responsiveness', 
     // Same scroll-independent conversion the previous milestone's own
     // tests already verify for `positionColumnSelectionOverlay` directly
     // — this just confirms the resize path reuses it, not a second one.
-    expect(overlay.style.left).toBe('50px');
+    expect(overlay.style.left).toBe('49px');
   });
 });
 
@@ -662,10 +662,10 @@ describe('tableWidgetField — row-selection overlay resize responsiveness', () 
 
     ourObserver(tableEl)!.trigger();
 
-    expect(overlay.style.left).toBe('10px');
-    expect(overlay.style.top).toBe('45px');
-    expect(overlay.style.width).toBe('200px');
-    expect(overlay.style.height).toBe('40px');
+    expect(overlay.style.left).toBe('9px');
+    expect(overlay.style.top).toBe('44px');
+    expect(overlay.style.width).toBe('202px');
+    expect(overlay.style.height).toBe('42px');
   });
 
   it('disconnects the old observer when selecting a different row replaces the widget', async () => {
@@ -716,6 +716,6 @@ describe('tableWidgetField — row-selection overlay resize responsiveness', () 
 
     ourObserver(tableEl)!.trigger();
 
-    expect(overlay.style.left).toBe('50px');
+    expect(overlay.style.left).toBe('49px');
   });
 });

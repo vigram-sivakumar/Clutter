@@ -105,18 +105,24 @@ export function createTableSelectionOverlay(): HTMLElement {
  * last body row to find the last one that actually has a cell in this
  * column, rather than assuming the last row unconditionally does.
  *
- * **Alignment with the existing grid, not a doubled border.** The
- * overlay's own box uses these cells' `getBoundingClientRect()` values
- * directly, with no manual pixel inset/outset — a `<td>`'s own
- * border-box already includes its own `border-right` (or, for the first/
- * last column and the header/last row, the table's own outer border on
- * `.cm-table-wrapper` — neither carries a border of its own, per
- * `tableWidget.css`'s own doc comment on that rule). Drawing this
- * element's own border at exactly that same rectangle, via
- * `box-sizing: border-box` (`tableSelectionOverlay.css`), places the new
- * outline directly on top of the existing grid line rather than beside
- * it — reading as "this line is now highlighted," not as a second,
- * adjacent line.
+ * **Centered on the existing grid line, not doubled just inside it.**
+ * The halo's own border is 2px (`tableSelectionOverlay.css`) but the
+ * table's own grid lines/outer border are 1px, so drawing this element's
+ * box at the cells' own `getBoundingClientRect()` values verbatim would
+ * — with `box-sizing: border-box` drawing the 2px border *inward* from
+ * that box — land the whole halo just inside the existing 1px line
+ * instead of centered on it, reading as a second, nested border. Each
+ * side is expanded 1px outward from the raw cell geometry (`- 1` on
+ * left/top, `+ 2` on width/height) so the 2px border's centerline falls
+ * exactly on the 1px line it's highlighting, half outside/half inside —
+ * confirmed against the actual rendered geometry (`.cm-table-wrapper`'s
+ * own 1px border and each `<td>`'s own 1px `border-right`/`border-bottom`)
+ * before landing on this fix. `.cm-table-scroll`'s own `overflow` was
+ * `auto` for horizontal scrolling, which clipped exactly this 1px
+ * outward bleed at the table's own outer edges; per an explicit,
+ * deliberate call to defer that trade-off, it's `visible` for now
+ * (`tableWidget.css`'s own doc comment on `.cm-table-scroll`) until
+ * horizontal scroll gets its own redesign.
  */
 export function positionColumnSelectionOverlay(
   overlay: HTMLElement,
@@ -149,10 +155,10 @@ export function positionColumnSelectionOverlay(
   const headerRect = headerCell.getBoundingClientRect();
   const bottomRect = bottomCell.getBoundingClientRect();
 
-  overlay.style.left = `${headerRect.left - containerRect.left + scrollContainer.scrollLeft}px`;
-  overlay.style.top = `${headerRect.top - containerRect.top + scrollContainer.scrollTop}px`;
-  overlay.style.width = `${headerRect.width}px`;
-  overlay.style.height = `${bottomRect.bottom - headerRect.top}px`;
+  overlay.style.left = `${headerRect.left - containerRect.left + scrollContainer.scrollLeft - 1}px`;
+  overlay.style.top = `${headerRect.top - containerRect.top + scrollContainer.scrollTop - 1}px`;
+  overlay.style.width = `${headerRect.width + 2}px`;
+  overlay.style.height = `${bottomRect.bottom - headerRect.top + 2}px`;
   overlay.classList.add(VISIBLE_CLASS);
 }
 
@@ -211,10 +217,10 @@ export function positionRowSelectionOverlay(
   const firstRect = firstCell.getBoundingClientRect();
   const lastRect = lastCell.getBoundingClientRect();
 
-  overlay.style.left = `${firstRect.left - containerRect.left + scrollContainer.scrollLeft}px`;
-  overlay.style.top = `${firstRect.top - containerRect.top + scrollContainer.scrollTop}px`;
-  overlay.style.width = `${lastRect.right - firstRect.left}px`;
-  overlay.style.height = `${firstRect.height}px`;
+  overlay.style.left = `${firstRect.left - containerRect.left + scrollContainer.scrollLeft - 1}px`;
+  overlay.style.top = `${firstRect.top - containerRect.top + scrollContainer.scrollTop - 1}px`;
+  overlay.style.width = `${lastRect.right - firstRect.left + 2}px`;
+  overlay.style.height = `${firstRect.height + 2}px`;
   overlay.classList.add(VISIBLE_CLASS);
 }
 
@@ -289,10 +295,10 @@ export function positionRangeSelectionOverlay(
   const topRect = topCell.getBoundingClientRect();
   const bottomRect = bottomCell.getBoundingClientRect();
 
-  overlay.style.left = `${leftRect.left - containerRect.left + scrollContainer.scrollLeft}px`;
-  overlay.style.top = `${topRect.top - containerRect.top + scrollContainer.scrollTop}px`;
-  overlay.style.width = `${rightRect.right - leftRect.left}px`;
-  overlay.style.height = `${bottomRect.bottom - topRect.top}px`;
+  overlay.style.left = `${leftRect.left - containerRect.left + scrollContainer.scrollLeft - 1}px`;
+  overlay.style.top = `${topRect.top - containerRect.top + scrollContainer.scrollTop - 1}px`;
+  overlay.style.width = `${rightRect.right - leftRect.left + 2}px`;
+  overlay.style.height = `${bottomRect.bottom - topRect.top + 2}px`;
   overlay.classList.add(VISIBLE_CLASS);
 }
 
