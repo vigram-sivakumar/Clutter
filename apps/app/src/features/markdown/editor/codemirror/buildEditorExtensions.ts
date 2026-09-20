@@ -64,6 +64,7 @@ import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
+import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
 import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableWidgetDecoration } from './table/tableWidgetField';
@@ -355,6 +356,12 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // installed provider — no second history mechanism. See
     // `tableSelectionDeletionHistory()`'s own doc comment.
     tableSelectionDeletionHistory(),
+    // Purely a visual side effect (toggles a DOM class read only by CSS) —
+    // never gated on `tableActiveCellController` for the same reason
+    // `tableSelectionClearKeymap()` above isn't: a no-op without a
+    // `TableSelection` to react to either way. See that module's own doc
+    // comment for the full mechanism.
+    tableSelectionCaretVisibility(),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     ...rendering,

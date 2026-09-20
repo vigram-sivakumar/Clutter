@@ -1842,6 +1842,25 @@
   border-left-color: var(--foreground-primary);
 }
 
+/*
+ * Hides the root editor's own caret while a `TableSelection` (row/column/
+ * range) is active — a table, not a Markdown line, is the current
+ * selected object in that state (`tableSelectionCaretVisibility.ts`, which
+ * toggles the `cm-table-selection-active` class this rule reads). More
+ * specific than `drawSelection()`'s own base-theme rule
+ * (`&.cm-focused > .cm-scroller > .cm-cursorLayer { display: block }`,
+ * confirmed directly against the installed `@codemirror/view` source) —
+ * both classes chained on the same `.cm-editor` element outweigh CM6's own
+ * two-class rule, so this wins without `!important` and without touching
+ * `drawSelection()` or any other CM6 internal. Root stays genuinely
+ * focused throughout (required for `tableSelectionClearKeymap()` to keep
+ * receiving Backspace/Delete) — only the cursor's own paint layer is
+ * hidden, never `state.selection` itself.
+ */
+.cm-editor.cm-focused.cm-table-selection-active > .cm-scroller > .cm-cursorLayer {
+  display: none;
+}
+
 .markdown__editor .cm-editor .cm-foldPlaceholder {
   font-family: var(--font-sans);
   margin-inline: var(--space-6);
