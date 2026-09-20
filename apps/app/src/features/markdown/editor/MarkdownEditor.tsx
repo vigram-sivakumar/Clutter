@@ -20,6 +20,7 @@ import { TableActiveCellController } from './codemirror/table/tableActiveCellCon
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
+import { insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -551,6 +552,29 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     clearTableSelection(view, tableHandleMenu.selection);
+  };
+
+  // "Insert row above"/"Insert row below" — the second/third menu items
+  // wired to a real operation (row insertion only this milestone; column
+  // insertion and row/column deletion remain future work). Reuses
+  // tableRowInsertion.ts's own selection-aware helpers exactly the way
+  // handleClearTableSelectionFromMenu above reuses clearTableSelection —
+  // same "look up the current menu's own selection off state, no explicit
+  // close call needed" shape.
+  const handleInsertRowAboveFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    insertRowAboveSelection(view, tableHandleMenu.selection);
+  };
+
+  const handleInsertRowBelowFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    insertRowBelowSelection(view, tableHandleMenu.selection);
   };
 
   // A fenced code block's own floating "More actions" control — same
@@ -1273,6 +1297,8 @@ export const MarkdownEditor = forwardRef<
         selection={tableHandleMenu?.selection ?? null}
         onClose={closeTableHandleMenu}
         onClearContents={handleClearTableSelectionFromMenu}
+        onInsertRowAbove={handleInsertRowAboveFromMenu}
+        onInsertRowBelow={handleInsertRowBelowFromMenu}
         suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu

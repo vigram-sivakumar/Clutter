@@ -29,6 +29,10 @@ export interface TableHandleMenuProps {
    * operation milestone wires them.
    */
   readonly onClearContents: () => void;
+  /** "Insert row above" — row-only this milestone; a no-op (item still renders/responds normally) when `selection` is a column, per `TableHandleMenu`'s own `handleSelect`. */
+  readonly onInsertRowAbove: () => void;
+  /** Symmetric to `onInsertRowAbove`, for "Insert row below." */
+  readonly onInsertRowBelow: () => void;
   /**
    * Set to `true` immediately before this menu closes via an *external*
    * cause (the underlying `TableSelection` going `null` because of a cell
@@ -114,6 +118,8 @@ export function TableHandleMenu({
   selection,
   onClose,
   onClearContents,
+  onInsertRowAbove,
+  onInsertRowBelow,
   suppressReturnFocusRef,
 }: TableHandleMenuProps) {
   const items = selection?.kind === 'column' ? COLUMN_ITEMS : ROW_ITEMS;
@@ -121,10 +127,13 @@ export function TableHandleMenu({
   function handleSelect(id: string) {
     if (id === 'clear') {
       onClearContents();
+    } else if (id === 'insert-above') {
+      onInsertRowAbove();
+    } else if (id === 'insert-below') {
+      onInsertRowBelow();
     }
-    // insert-above/insert-below/insert-left/insert-right/delete: no-op
-    // this milestone — see this component's own `onClearContents` doc
-    // comment.
+    // insert-left/insert-right/delete: no-op this milestone — see this
+    // component's own `onClearContents` doc comment.
   }
 
   return (
