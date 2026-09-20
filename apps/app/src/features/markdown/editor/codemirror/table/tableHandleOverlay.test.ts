@@ -41,7 +41,7 @@ const TEST_TABLE_FROM = 0;
 /** Hover-only tests don't care about the view/controller `attachTableHandleOverlay` now also requires for its click-dispatch wiring — this wraps a throwaway pair so each hover test doesn't have to. */
 function attach(wrapper: HTMLElement, columnCount: number): void {
   const { view, controller } = mountRootView();
-  attachTableHandleOverlay(wrapper, columnCount, view, controller, TEST_TABLE_FROM);
+  attachTableHandleOverlay(wrapper, columnCount, view, controller, TEST_TABLE_FROM, null, null);
 }
 
 /**
@@ -263,6 +263,100 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
   });
 });
 
+describe('attachTableHandleOverlay — selected handle stays visible (visible = hovered || selected)', () => {
+  function hoverCell(wrapper: HTMLElement, cell: Element): void {
+    const event = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(event, 'target', { value: cell });
+    wrapper.dispatchEvent(event);
+  }
+
+  function columnVisible(wrapper: HTMLElement): boolean {
+    return wrapper.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible');
+  }
+
+  function rowVisible(wrapper: HTMLElement): boolean {
+    return wrapper.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible');
+  }
+
+  it('a selected column shows its handle even with no hover at all (fresh attach, never hovered)', () => {
+    const { view, controller } = mountRootView();
+    const { wrapper } = buildTable(2, 3);
+
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, 1, null);
+
+    expect(columnVisible(wrapper)).toBe(true);
+    expect(rowVisible(wrapper)).toBe(false);
+  });
+
+  it('a selected row shows its handle even with no hover at all (fresh attach, never hovered)', () => {
+    const { view, controller } = mountRootView();
+    const { wrapper } = buildTable(2, 3);
+
+    // Native `rowIndex` convention (header = 0) — row 1 is the first body row.
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1);
+
+    expect(rowVisible(wrapper)).toBe(true);
+    expect(columnVisible(wrapper)).toBe(false);
+  });
+
+  it('hovering a different column still shows it (hover takes over the shared element); leaving hover falls back to the selected column', () => {
+    const { view, controller } = mountRootView();
+    const { wrapper, table } = buildTable(2, 3);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, 0, null);
+
+    const otherCell = table.querySelectorAll('tbody td')[2]!; // column 2
+    hoverCell(wrapper, otherCell);
+    expect(columnVisible(wrapper)).toBe(true);
+    expect((wrapper.querySelector('.cm-table-column-handle') as HTMLElement).style.left).toBe('83.33333333333334%'); // (2 + 0.5) / 3
+
+    wrapper.dispatchEvent(new Event('pointerleave'));
+
+    expect(columnVisible(wrapper)).toBe(true);
+    expect((wrapper.querySelector('.cm-table-column-handle') as HTMLElement).style.left).toBe('16.666666666666664%'); // back to selected column 0: (0 + 0.5) / 3
+  });
+
+  it('moving the pointer away from the table entirely still leaves the selected row/column handle visible', () => {
+    const { view, controller } = mountRootView();
+    const { wrapper, table } = buildTable(2, 3);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1);
+
+    const bodyCell = table.querySelectorAll('tbody td')[1]!;
+    hoverCell(wrapper, bodyCell);
+    expect(rowVisible(wrapper)).toBe(true);
+
+    wrapper.dispatchEvent(new Event('pointerleave'));
+
+    expect(rowVisible(wrapper)).toBe(true); // still visible — row 1 is selected, not just hovered
+  });
+
+  it('hovering the header row falls back to the selected row handle instead of hiding it (header never gets a row handle of its own)', () => {
+    const { view, controller } = mountRootView();
+    const { wrapper, table } = buildTable(2, 3);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1);
+
+    const headerCell = table.querySelector('thead th')!;
+    hoverCell(wrapper, headerCell);
+
+    expect(rowVisible(wrapper)).toBe(true); // falls back to the selected row, never truly hidden
+    expect(columnVisible(wrapper)).toBe(true); // header hover still shows its own column handle as usual
+  });
+
+  it('with no selection at all, leaving hover hides the handle exactly as before this fix', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    const bodyCell = table.querySelectorAll('tbody td')[1]!;
+    hoverCell(wrapper, bodyCell);
+    expect(columnVisible(wrapper)).toBe(true);
+    expect(rowVisible(wrapper)).toBe(true);
+
+    wrapper.dispatchEvent(new Event('pointerleave'));
+
+    expect(columnVisible(wrapper)).toBe(false);
+    expect(rowVisible(wrapper)).toBe(false);
+  });
+});
+
 describe('attachTableHandleOverlay — click-to-select', () => {
   function hoverBodyCell(wrapper: HTMLElement, table: HTMLTableElement, rowIndexInBody: number, columnIndex: number): HTMLTableRowElement {
     const row = table.querySelectorAll('tbody tr')[rowIndexInBody]! as HTMLTableRowElement;
@@ -282,7 +376,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('clicking the column handle sets a column TableSelection for the hovered column', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
 
     hoverBodyCell(wrapper, table, 0, 2);
     click(wrapper.querySelector('.cm-table-column-handle-hit')!);
@@ -293,7 +387,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('clicking the row handle sets a row TableSelection using the native rowIndex (header + body combined)', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
 
     const row = hoverBodyCell(wrapper, table, 1, 0); // second body row -> rowIndex 2 (header=0, first body=1)
     click(wrapper.querySelector('.cm-table-row-handle-hit')!);
@@ -305,7 +399,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('a click on the column/row handle never modifies the document or the root selection', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
     view.dispatch({ selection: { anchor: 3 } });
     const docBefore = view.state.doc.toString();
     const selectionBefore = view.state.selection.main;
@@ -321,7 +415,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('clicking a handle while a cell is active cleanly deactivates it', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
     const container = document.createElement('div');
     document.body.appendChild(container);
     controller.activate(view, container, 0, 4, 0);
@@ -338,7 +432,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('the header row never offers an interactive row handle, so it cannot become a row selection', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
 
     const headerCell = table.querySelector('thead th')!;
     const event = new Event('pointermove', { bubbles: true });
@@ -356,7 +450,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
   it('a click on the handle before any hover (no column/row tracked yet) does nothing', () => {
     const { wrapper } = buildTable(2, 3);
     const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM);
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null);
 
     click(wrapper.querySelector('.cm-table-column-handle-hit')!);
     click(wrapper.querySelector('.cm-table-row-handle-hit')!);

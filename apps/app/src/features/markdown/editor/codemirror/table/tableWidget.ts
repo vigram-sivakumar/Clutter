@@ -342,7 +342,15 @@ export class TableWidget extends WidgetType {
     // overlay, matching `buildEditorExtensions.ts`'s `!readOnly` gate for
     // everything else that has no meaning in a permanently read-only view.
     if (this.controller) {
-      attachTableHandleOverlay(tableWrapper, this.headerCells.length, view, this.controller, this.tableFrom);
+      attachTableHandleOverlay(
+        tableWrapper,
+        this.headerCells.length,
+        view,
+        this.controller,
+        this.tableFrom,
+        this.selectedColumnIndex,
+        this.selectedRowIndex
+      );
     }
 
     // Column/row-selection outline (range outlines land later, reusing

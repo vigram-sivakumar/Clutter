@@ -116,13 +116,30 @@ function preventActivation(event: MouseEvent): void {
  * `view`/`controller`/`tableFrom` are only needed for the click-to-select
  * gesture (§ below) — hover alone (everything above this milestone) never
  * touched the root view at all.
+ *
+ * `selectedColumnIndex`/`selectedRowIndex` — this exact table's own
+ * currently-`TableSelection`-selected column/row (`TableWidget`'s own
+ * constructor fields, already scoped per-table), or `null`. Visibility for
+ * each axis is `hovered || selected`: whichever column/row the pointer is
+ * over always shows via the hover logic below exactly as before, and
+ * `hideColumn`/`hideRow` — called whenever hover ends, on this table, for
+ * any reason (`pointerleave`, hovering a target this axis has no handle
+ * for, or simply never having hovered yet) — fall back to showing the
+ * *selected* one instead of truly hiding, so a selected handle stays
+ * visible independent of hover. A single reused element pair per axis
+ * (unchanged) still means only one handle per axis is ever on screen at
+ * once — hover, while active, visually takes over the same element the
+ * selected state would otherwise occupy, then hands it back the moment
+ * hover ends.
  */
 export function attachTableHandleOverlay(
   wrapper: HTMLElement,
   columnCount: number,
   view: EditorView,
   controller: TableActiveCellController,
-  tableFrom: number
+  tableFrom: number,
+  selectedColumnIndex: number | null,
+  selectedRowIndex: number | null
 ): void {
   const column = createHandlePair('column');
   const row = createHandlePair('row');
@@ -166,12 +183,30 @@ export function attachTableHandleOverlay(
     currentRowIndex = rowElement.rowIndex;
   }
 
+  /** This table's own `<table>` element — resolved fresh, never cached, for the identical staleness reason `tableCellRangeSelection.ts`'s own `resolveCurrentTableWrapper` doc comment gives for `tableWrapper`: a `tableSelectionChanged`-triggered rebuild replaces it with a brand-new element. */
+  function resolveTableElement(): HTMLTableElement | null {
+    return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
+  }
+
+  /** Hover ending on the column axis (`pointerleave`, or a hovered target with no column handle) falls back to the selected column, if any, instead of truly hiding — the `visible = hovered || selected` contract this whole file's own top doc comment states. */
   function hideColumn(): void {
+    if (selectedColumnIndex !== null) {
+      showColumn(selectedColumnIndex);
+      return;
+    }
     hide(column);
     currentColumnIndex = null;
   }
 
+  /** Symmetric to `hideColumn`, for the row axis — `getNavigableRows`'s own header-is-0 convention already matches `<table>.rows`' native (thead+tbody combined) indexing, per `showRow`'s own doc comment, so `selectedRowIndex` indexes directly into it with no separate lookup. */
   function hideRow(): void {
+    if (selectedRowIndex !== null) {
+      const rowElement = resolveTableElement()?.rows[selectedRowIndex];
+      if (rowElement) {
+        showRow(rowElement);
+        return;
+      }
+    }
     hide(row);
     currentRowIndex = null;
   }
@@ -294,4 +329,14 @@ export function attachTableHandleOverlay(
     });
     view.focus();
   });
+
+  // Initial state — this widget may be freshly (re)built with a
+  // `TableSelection` already set (any selection change rebuilds
+  // `tableWidgetField`, which rebuilds this widget from scratch, per this
+  // file's own top doc comment) and no hover having occurred yet on this
+  // exact DOM instance. Reuses `hideColumn`/`hideRow` rather than a third
+  // code path — both already fall back to showing the selected handle when
+  // one exists, which is exactly "start in the selected state" here.
+  hideColumn();
+  hideRow();
 }
