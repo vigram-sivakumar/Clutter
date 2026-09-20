@@ -9,7 +9,7 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { tableRootSelectionSnap } from './tableRootSelectionSnap';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
-import { deleteRowSelection, tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './tableSelectionDeletion';
+import { deleteColumnSelection, deleteRowSelection, tableSelectionDeletionHistory, tableSelectionDeletionKeymap } from './tableSelectionDeletion';
 import { tableWidgetDecoration } from './tableWidgetField';
 
 const mountedViews: EditorView[] = [];
@@ -518,5 +518,151 @@ describe('deleteRowSelection — the menu-facing entry point', () => {
 
     expect(deleteRowSelection(view, stale)).toBe(false);
     expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+});
+
+describe('deleteColumnSelection — the menu-facing entry point', () => {
+  it('deletes the first column when called directly, outside the keymap', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    const handled = deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| Role | City |\n| --- | --- |\n| Designer | NYC |\n| Engineer | SF |\n| PM | LA |');
+  });
+
+  it('deletes a middle column and preserves alignment', () => {
+    const doc = '| Name | Role | City |\n| :-- | :-: | --: |\n| Vik | Designer | NYC |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| Name | City |\n| :-- | --: |\n| Vik | NYC |');
+  });
+
+  it('deletes the last column', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 2 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Sam | Engineer |\n| Ann | PM |');
+  });
+
+  it('deletes a single-column table\'s only column by deleting the whole table', () => {
+    const doc = '| Name |\n| --- |\n| Vik |\n| Sam |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    const handled = deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
+    expect(findEnclosingTable(view.state, 0)).toBeNull();
+  });
+
+  it('preserves a ragged row shorter than the deleted column', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer |\n| Sam | Engineer | SF |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 2 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Sam | Engineer |');
+  });
+
+  it('preserves escaped pipes in other cells', () => {
+    const doc = '| A | B |\n| --- | --- |\n| x | a \\| b |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| B |\n| --- |\n| a \\| b |');
+  });
+
+  it('preserves the header row (its remaining cells, unchanged)', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString().split('\n')[0]).toBe('| Name | City |');
+  });
+
+  it('selects the adjacent column after deletion', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+  });
+
+  it('is a no-op for a row selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    const handled = deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+
+  it('is a no-op for a range selection', () => {
+    const { view } = mountRootView(THREE_COL);
+    const selection: TableSelection = { kind: 'range', tableFrom: 0, anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } };
+
+    const handled = deleteColumnSelection(view, selection);
+
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+
+  it('is a no-op when the table can no longer be found at tableFrom', () => {
+    const { view } = mountRootView(THREE_COL);
+    const stale: TableSelection = { kind: 'column', tableFrom: 999, columnIndex: 0 };
+
+    expect(deleteColumnSelection(view, stale)).toBe(false);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+  });
+
+  it('undo restores the exact document and selection; redo re-applies the deletion', () => {
+    const { view } = mountRootView(THREE_COL);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 });
+    const depthBefore = undoDepth(view.state);
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+    const afterDelete = view.state.doc.toString();
+    expect(afterDelete).not.toBe(THREE_COL);
+    expect(undoDepth(view.state)).toBe(depthBefore + 1);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(THREE_COL);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe(afterDelete);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+  });
+
+  it('undo restores the whole table when the only column was deleted, and re-selects it', () => {
+    const doc = '| Name |\n| --- |\n| Vik |';
+    const { view } = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    deleteColumnSelection(view, view.state.field(tableSelectionField)!);
+    expect(view.state.doc.toString()).toBe('');
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.state.field(tableSelectionField)).toBeNull();
   });
 });

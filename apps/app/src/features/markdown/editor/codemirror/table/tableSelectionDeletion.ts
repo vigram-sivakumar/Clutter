@@ -23,11 +23,10 @@ import { tableSelectionChanged, tableSelectionField, type TableSelection } from 
  * `tableSelectionClear.ts`'s own content-clearing behavior, never
  * structural removal. Structural deletion is reachable only through
  * `TableHandleMenu.tsx`'s own "Delete row"/"Delete column" items, via this
- * module's own exported `deleteRowSelection` (row-only so far; a symmetric
- * `deleteColumnSelection` for "Delete column" is future work, not yet
- * wired) — the same "look up the current menu's own selection, dispatch
- * directly" shape `tableRowInsertion.ts`'s own `insertRowAboveSelection`
- * already establishes for the menu's insert items. `tableSelectionDeletionKeymap()`
+ * module's own exported `deleteRowSelection`/`deleteColumnSelection` — the
+ * same "look up the current menu's own selection, dispatch directly" shape
+ * `tableRowInsertion.ts`'s own `insertRowAboveSelection` already
+ * establishes for the menu's insert items. `tableSelectionDeletionKeymap()`
  * remains available standalone (this file's own test suite exercises it) if
  * a keyboard shortcut for structural deletion is ever reintroduced.
  *
@@ -315,6 +314,27 @@ function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: n
   const next = nextSelectionAfterColumnDeletion(table.from, columnIndex, headerColumnCount);
   dispatchDeletion(view, changes, next);
   return true;
+}
+
+/**
+ * Exported for `TableHandleMenu.tsx`'s "Delete column" item — the menu-driven
+ * entry point into this module's own `deleteSelectedColumn`, mirroring
+ * `deleteRowSelection`'s own selection-aware, return-`boolean` shape
+ * exactly (itself mirroring `insertColumnLeftSelection`'s/
+ * `insertColumnRightSelection`'s, `tableColumnInsertion.ts`). Deliberately
+ * not the same path as `tableSelectionDeletionKeymap()` below — see
+ * `deleteRowSelection`'s own doc comment for why structural deletion is
+ * reachable only through the menu.
+ */
+export function deleteColumnSelection(view: EditorView, selection: TableSelection): boolean {
+  if (selection.kind !== 'column') {
+    return false;
+  }
+  const table = findAllTables(view.state).find((t) => t.from === selection.tableFrom);
+  if (!table) {
+    return false;
+  }
+  return deleteSelectedColumn(view, table, selection.columnIndex);
 }
 
 function deleteTableSelection(view: EditorView, selection: TableSelection): boolean {

@@ -22,7 +22,7 @@ import { attachTableOutsideClickHandling } from './codemirror/table/tableSelecti
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
 import { insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
-import { deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
+import { deleteColumnSelection, deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -616,19 +616,29 @@ export const MarkdownEditor = forwardRef<
     view.focus();
   };
 
-  // "Delete row" — structural row deletion, reusing tableSelectionDeletion.ts's
-  // own existing deleteRowSelection (header deletion promotes the next body
-  // row; see that module's own deleteHeaderRow doc comment). Deliberately
-  // not reachable via Backspace/Delete — tableSelectionClearKeymap() still
-  // owns that keyboard path (Clear contents); this is the menu's own,
-  // separate entry point into structural deletion. "Delete column" stays
-  // inert until its own milestone.
+  // "Delete row"/"Delete column" — structural deletion, reusing
+  // tableSelectionDeletion.ts's own existing deleteRowSelection/
+  // deleteColumnSelection (header deletion promotes the next body row;
+  // deleting a table's only remaining column deletes the whole table — see
+  // that module's own deleteHeaderRow/deleteWholeTable doc comments).
+  // Deliberately not reachable via Backspace/Delete — tableSelectionClearKeymap()
+  // still owns that keyboard path (Clear contents); this is the menu's own,
+  // separate entry point into structural deletion.
   const handleDeleteRowFromMenu = () => {
     const view = viewRef.current;
     if (!tableHandleMenu || !view) {
       return;
     }
     deleteRowSelection(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  const handleDeleteColumnFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    deleteColumnSelection(view, tableHandleMenu.selection);
     view.focus();
   };
 
@@ -1357,6 +1367,7 @@ export const MarkdownEditor = forwardRef<
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}
         onInsertColumnRight={handleInsertColumnRightFromMenu}
         onDeleteRow={handleDeleteRowFromMenu}
+        onDeleteColumn={handleDeleteColumnFromMenu}
         suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu

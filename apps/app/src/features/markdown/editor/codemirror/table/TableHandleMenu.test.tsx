@@ -45,7 +45,9 @@ afterEach(() => {
 
 function renderMenu(
   selection: TableHandleMenuSelection,
-  overrides: Partial<Record<'onInsertColumnLeft' | 'onInsertColumnRight' | 'onInsertRowAbove' | 'onInsertRowBelow' | 'onClearContents' | 'onDeleteRow', () => void>> = {}
+  overrides: Partial<
+    Record<'onInsertColumnLeft' | 'onInsertColumnRight' | 'onInsertRowAbove' | 'onInsertRowBelow' | 'onClearContents' | 'onDeleteRow' | 'onDeleteColumn', () => void>
+  > = {}
 ) {
   const anchorEl = document.body.appendChild(document.createElement('div'));
   const anchor: TableHandleMenuAnchor = { current: anchorEl };
@@ -56,6 +58,7 @@ function renderMenu(
   const onInsertColumnLeft = overrides.onInsertColumnLeft ?? vi.fn();
   const onInsertColumnRight = overrides.onInsertColumnRight ?? vi.fn();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
+  const onDeleteColumn = overrides.onDeleteColumn ?? vi.fn();
 
   function Harness() {
     const suppressReturnFocusRef = useRef(false);
@@ -70,13 +73,14 @@ function renderMenu(
         onInsertColumnLeft={onInsertColumnLeft}
         onInsertColumnRight={onInsertColumnRight}
         onDeleteRow={onDeleteRow}
+        onDeleteColumn={onDeleteColumn}
         suppressReturnFocusRef={suppressReturnFocusRef}
       />
     );
   }
 
   render(<Harness />);
-  return { onClose, onClearContents, onInsertRowAbove, onInsertRowBelow, onInsertColumnLeft, onInsertColumnRight, onDeleteRow };
+  return { onClose, onClearContents, onInsertRowAbove, onInsertRowBelow, onInsertColumnLeft, onInsertColumnRight, onDeleteRow, onDeleteColumn };
 }
 
 describe('TableHandleMenu — column item wiring', () => {
@@ -119,20 +123,22 @@ describe('TableHandleMenu — column item wiring', () => {
   });
 });
 
-describe('TableHandleMenu — "Delete row" wiring', () => {
-  it('clicking "Delete row" calls onDeleteRow for a row selection', () => {
+describe('TableHandleMenu — "Delete row"/"Delete column" wiring', () => {
+  it('clicking "Delete row" calls onDeleteRow, and only that callback, for a row selection', () => {
     const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
 
     fireEvent.click(findMenuItem('Delete row')!);
 
     expect(handlers.onDeleteRow).toHaveBeenCalledTimes(1);
+    expect(handlers.onDeleteColumn).not.toHaveBeenCalled();
   });
 
-  it('clicking "Delete column" never calls onDeleteRow — deletion stays inert for a column selection', () => {
+  it('clicking "Delete column" calls onDeleteColumn, and only that callback, for a column selection', () => {
     const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
 
     fireEvent.click(findMenuItem('Delete column')!);
 
+    expect(handlers.onDeleteColumn).toHaveBeenCalledTimes(1);
     expect(handlers.onDeleteRow).not.toHaveBeenCalled();
   });
 });

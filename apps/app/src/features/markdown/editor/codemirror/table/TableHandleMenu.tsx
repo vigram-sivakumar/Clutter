@@ -38,13 +38,13 @@ export interface TableHandleMenuProps {
   /** Symmetric to `onInsertColumnLeft`, for "Insert column right." */
   readonly onInsertColumnRight: () => void;
   /**
-   * "Delete row" — row-only so far (`deleteRowSelection`,
-   * `tableSelectionDeletion.ts`); a no-op when `selection` is a column,
-   * matching `onInsertColumnLeft`/`onInsertColumnRight`'s own row-side
-   * no-op. "Delete column" remains inert (future milestone) — see this
-   * component's own `handleSelect`.
+   * "Delete row" (`deleteRowSelection`, `tableSelectionDeletion.ts`) — a
+   * no-op when `selection` is a column, matching
+   * `onInsertColumnLeft`/`onInsertColumnRight`'s own row-side no-op.
    */
   readonly onDeleteRow: () => void;
+  /** Symmetric to `onDeleteRow`, for "Delete column" (`deleteColumnSelection`). */
+  readonly onDeleteColumn: () => void;
   /**
    * Set to `true` immediately before this menu closes via an *external*
    * cause (the underlying `TableSelection` going `null` because of a cell
@@ -142,6 +142,7 @@ export function TableHandleMenu({
   onInsertColumnLeft,
   onInsertColumnRight,
   onDeleteRow,
+  onDeleteColumn,
   suppressReturnFocusRef,
 }: TableHandleMenuProps) {
   const items = selection?.kind === 'column' ? COLUMN_ITEMS : ROW_ITEMS;
@@ -159,9 +160,9 @@ export function TableHandleMenu({
       onInsertColumnRight();
     } else if (id === 'delete' && selection?.kind === 'row') {
       onDeleteRow();
+    } else if (id === 'delete' && selection?.kind === 'column') {
+      onDeleteColumn();
     }
-    // 'delete' for a column selection: no-op this milestone — see this
-    // component's own `onDeleteRow` doc comment.
   }
 
   return (
