@@ -36,9 +36,22 @@ export type TableColumnAlignment = 'left' | 'center' | 'right' | null;
  * alignment row's own single opaque `TableDelimiter` leaf — see this
  * module's own header comment) and remains the correct choice there.
  */
+/**
+ * Splits on `|` only when it isn't escaped (`\|`, GFM's own literal-pipe
+ * escape) — required for the header-row consumer specifically (this
+ * module's own top doc comment): a delimiter/alignment cell can only ever
+ * contain `-`/`:`, never a literal pipe to escape, but a real header cell
+ * legitimately can (`Milestone 6`'s own table-creation path generates
+ * exactly this). A naive `split('|')` would misread `\|` as a column
+ * boundary, corrupting the column count for any such header — this was
+ * confirmed as a real, reproducible bug via that path's own tests before
+ * this fix, not a theoretical concern.
+ */
+const UNESCAPED_PIPE = /(?<!\\)\|/;
+
 export function splitPipeRowCells(rowText: string): string[] {
   const trimmed = rowText.trim().replace(/^\|/, '').replace(/\|$/, '');
-  return trimmed.split('|').map((segment) => segment.trim());
+  return trimmed.split(UNESCAPED_PIPE).map((segment) => segment.trim());
 }
 
 export function parseTableAlignment(delimiterRowText: string): TableColumnAlignment[] {

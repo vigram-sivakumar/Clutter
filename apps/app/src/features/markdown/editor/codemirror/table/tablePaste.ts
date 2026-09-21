@@ -98,6 +98,12 @@ function parseHtmlTableGrid(html: string): string[][] | null {
   return rows.map((tr) => Array.from(tr.querySelectorAll('td, th')).map((cell) => (cell.textContent ?? '').trim()));
 }
 
+export interface ClipboardTable {
+  /** `'internal'` content is already-escaped raw Markdown (round-tripped through Clutter's own copy) — never re-escaped. `'html'`/`'text'` content is plain, unescaped text — a caller writing it into fresh Markdown source (e.g. `tableCreatePaste.ts`, building a brand-new table) must escape it itself; `tablePaste.ts`'s own existing-table paste never has, matching `TableActiveCellController.forwardToRoot`'s own verbatim-write precedent (see this module's own top doc comment). */
+  readonly source: 'internal' | 'html' | 'text';
+  readonly grid: string[][];
+}
+
 /**
  * Clipboard priority: the internal Clutter payload (exact Markdown,
  * survives even a 1x1 copy) first, then a real `<table>` in `text/html`,
@@ -106,8 +112,16 @@ function parseHtmlTableGrid(html: string): string[][] | null {
  * (of a single value into a single active cell) stays completely
  * unaffected by this feature; letting it fall through here means the
  * caller declines and ordinary CM6/browser paste proceeds.
+ *
+ * Exported for `tableCreatePaste.ts` (Milestone 6, paste-creates-a-table
+ * outside any existing table) to reuse this exact same parsing/priority
+ * logic rather than a second copy of it — the one thing that genuinely
+ * differs between the two milestones is what happens to the parsed grid
+ * afterward (write into an existing table's cells verbatim, vs. escape and
+ * serialize into a brand-new table's Markdown source), not how the
+ * clipboard itself is read.
  */
-function readClipboardGrid(event: ClipboardEvent): string[][] | null {
+export function readClipboardTable(event: ClipboardEvent): ClipboardTable | null {
   const data = event.clipboardData;
   if (!data) {
     return null;
@@ -125,7 +139,7 @@ function readClipboardGrid(event: ClipboardEvent): string[][] | null {
       ) {
         const grid = normalizeGrid((parsed as { rows: string[][] }).rows);
         if (grid) {
-          return grid;
+          return { source: 'internal', grid };
         }
       }
     } catch {
@@ -139,7 +153,7 @@ function readClipboardGrid(event: ClipboardEvent): string[][] | null {
     if (parsed) {
       const grid = normalizeGrid(parsed);
       if (grid) {
-        return grid;
+        return { source: 'html', grid };
       }
     }
   }
@@ -149,11 +163,15 @@ function readClipboardGrid(event: ClipboardEvent): string[][] | null {
     const normalized = text.replace(/\r\n/g, '\n').replace(/\n$/, '');
     const grid = normalizeGrid(normalized.split('\n').map((line) => line.split('\t')));
     if (grid) {
-      return grid;
+      return { source: 'text', grid };
     }
   }
 
   return null;
+}
+
+function readClipboardGrid(event: ClipboardEvent): string[][] | null {
+  return readClipboardTable(event)?.grid ?? null;
 }
 
 interface PasteBuildResult {

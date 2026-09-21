@@ -61,6 +61,7 @@ import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbe
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
 import { tableActivationNormalization } from './table/tableActivationNormalization';
 import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
+import { tableCreatePaste } from './table/tableCreatePaste';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './table/tableHandleMenuSync';
 import { tableHandleMenuSync } from './table/tableHandleMenuSync';
@@ -396,6 +397,16 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // deliberately a separate filter from `tableActivationNormalization()`
     // above, not an extension of it.
     tableRectangularNormalization(),
+    // Paste of tabular clipboard data *outside* any existing table —
+    // creates a brand-new one. Declines instantly whenever a `range`
+    // `TableSelection` is active (Milestone 5's `tablePaste()` territory)
+    // and needs no `tableActiveCellController` at all, so — unlike
+    // `tablePaste()` just above — it isn't grouped under that conditional.
+    // Relies entirely on `tableActivationNormalization()`'s own terminal-
+    // table trailing-newline guarantee and `tableRootSelectionSnap()`
+    // (both already unconditional here) for caret safety — see
+    // `tableCreatePaste()`'s own doc comment.
+    tableCreatePaste(),
     // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;
     // this one must win the tie at the one position they can both match
     // (an empty first line immediately above a table). See
