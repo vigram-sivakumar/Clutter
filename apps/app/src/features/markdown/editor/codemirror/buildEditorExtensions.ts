@@ -64,6 +64,11 @@ import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableDeletionSelectionField, tableWholeDeletionKeymap } from './table/tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './table/tableHandleMenuSync';
 import { tableHandleMenuSync } from './table/tableHandleMenuSync';
+import { tableRangeSelectionKeyboard } from './table/tableRangeSelectionKeyboard';
+import { tableRangeClipboard } from './table/tableRangeClipboard';
+import { tableRangeSelectionTyping } from './table/tableRangeSelectionTyping';
+import { tablePaste } from './table/tablePaste';
+import { tableRectangularNormalization } from './table/tableRectangularNormalization';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
 import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibility';
@@ -313,15 +318,39 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // gate), so its value there just always stays `null`. See
     // `tableSelection.ts`'s own doc comment.
     tableSelectionField,
-    // Unconditional (not gated on `tableActiveCellController`), same as
-    // `tableWidgetDecoration`/`tableDeletionSelectionField` above — a
-    // read-only note embed can still receive a selection landing inside a
-    // rendered table's replaced range (a click, a drag) even though it can
-    // never edit one, so the same root-selection invariant applies there
-    // too. See `tableRootSelectionSnap.ts`'s own doc comment.
-    tableRootSelectionSnap(),
     ...(tableActiveCellController
-      ? [tableActiveCellReconciliation(tableActiveCellController), tableBoundaryNavigation(tableActiveCellController)]
+      ? [
+          tableActiveCellReconciliation(tableActiveCellController),
+          // Listed before `tableBoundaryNavigation` — both `Prec.highest`
+          // on the same Arrow keys. This one must win the tie whenever a
+          // `range` `TableSelection` is active (it declines instantly
+          // otherwise, so `tableBoundaryNavigation`'s own line-adjacency
+          // entry keeps working exactly as before for every other case).
+          // See `tableRangeSelectionKeyboard.ts`'s own doc comment.
+          tableRangeSelectionKeyboard(tableActiveCellController),
+          tableBoundaryNavigation(tableActiveCellController),
+          // `domEventHandlers`, not a keymap — see `tableRangeSelectionTyping.ts`'s
+          // own doc comment for why ordinary character typing can't be
+          // caught by a `keymap` the way Tab/Enter/Arrow are above.
+          tableRangeSelectionTyping(tableActiveCellController),
+          // Copy/Cut for a `range` `TableSelection` — grouped here (not
+          // unconditionally) because a `range` selection itself can only
+          // ever be created via a cell drag, which is only wired when
+          // `tableActiveCellController` exists (a read-only note embed's
+          // cells carry no `mousedown` handler at all, `tableWidget.ts`'s
+          // own `if (this.controller)` gate) — this extension doesn't
+          // consume the controller value itself, only the grouping.
+          tableRangeClipboard(),
+          // Paste into an existing table, `range`-`TableSelection` target
+          // only — grouped here for the identical reason
+          // `tableRangeClipboard()` above is: a `range` selection can only
+          // exist when `tableActiveCellController` does. The active-cell
+          // paste target is handled separately, on the nested cell editor's
+          // own extensions (`MarkdownEditor.tsx`'s `setNestedExtensions`
+          // call) — see `tablePaste()`'s own doc comment for why root-only
+          // registration can't reach that case.
+          tablePaste(),
+        ]
       : []),
   ];
 
@@ -332,15 +361,41 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // note embed's nested view carries no dead keymap/completion/
     // normalization machinery, per this milestone's own "keep the
     // reusable mechanism minimal" instruction, not because any of it
-    // would behave incorrectly if left in.
-    return rendering;
+    // would behave incorrectly if left in. `tableRootSelectionSnap()` is
+    // still added explicitly below — a read-only note embed can still
+    // receive a selection landing inside a rendered table's replaced range
+    // (a click, a drag) even though it can never edit one, so the same
+    // root-selection invariant applies there too. No ordering concern in
+    // this branch: it is the only `transactionFilter` present (paste/edits
+    // are already blocked entirely, so `tableActivationNormalization()`/
+    // `tableRectangularNormalization()` are never installed here to race
+    // against). See `tableRootSelectionSnap.ts`'s own doc comment.
+    return [...rendering, tableRootSelectionSnap()];
   }
 
   return [
+    // Registered *first* among the table `transactionFilter`s — deliberately,
+    // not incidentally. CM6 runs multiple registered `transactionFilter`s in
+    // *reverse* registration order (confirmed against the installed
+    // `@codemirror/state` source), so the first-registered one runs *last*,
+    // seeing `tableActivationNormalization()`'s and
+    // `tableRectangularNormalization()`'s own edits already applied. This
+    // exact ordering fixed a real, confirmed bug: pasting a table whose last
+    // row was ragged left the root caret visibly inside the rendered table
+    // widget, because this filter previously ran *before* those two had
+    // finished shaping the document. See `tableRootSelectionSnap.ts`'s own
+    // doc comment for the full reasoning — do not move this without reading
+    // it first.
+    tableRootSelectionSnap(),
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
     tableActivationNormalization(),
+    // The rectangular-table invariant's own ongoing (not just at-birth)
+    // half — see that module's own top doc comment for why this is
+    // deliberately a separate filter from `tableActivationNormalization()`
+    // above, not an extension of it.
+    tableRectangularNormalization(),
     // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;
     // this one must win the tie at the one position they can both match
     // (an empty first line immediately above a table). See

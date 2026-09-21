@@ -347,26 +347,33 @@ describe('tableWidgetField — row-selection overlay (tableSelectionOverlay.ts)'
     expect(overlay.style.height).toBe('32px'); // the selected row's own height, not otherRow's, +2 outward expansion
   });
 
-  it('a ragged row (fewer cells than the header) is outlined only across its own rendered cells', async () => {
+  it("a ragged row (fewer real cells than the header) still renders and outlines the header's full rectangular width (rectangular-table invariant)", async () => {
     const view = mountViewWithSelectionField(RAGGED_ROW_TABLE);
     const table = findAllTables(view.state)[0]!;
-    // rowIndex 2 → the ragged "| 3 |" row → tBodies[0].rows[1], one cell.
+    // rowIndex 2 → the ragged "| 3 |" row → tBodies[0].rows[1].
     view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 }) });
 
     const tableEl = view.dom.querySelector('table') as HTMLTableElement;
     const raggedRow = tableEl.tBodies[0]!.rows[1]!;
-    expect(raggedRow.cells).toHaveLength(1);
+    // Rendering pads a ragged row out to the header's own column count
+    // (`tableWidgetField.ts`'s own `padRowCells`) — the missing second
+    // column renders as a real, empty `<td>`, never fewer cells than the
+    // header has `<th>`s.
+    expect(raggedRow.cells).toHaveLength(2);
 
     const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
     mockRect(scrollEl, { left: 0, top: 0, right: 400, bottom: 300, width: 400, height: 300 });
     mockRect(raggedRow.cells[0]!, { left: 0, top: 40, right: 100, bottom: 70, width: 100, height: 30 });
+    mockRect(raggedRow.cells[1]!, { left: 100, top: 40, right: 200, bottom: 70, width: 100, height: 30 });
 
     await Promise.resolve();
     const overlay = view.dom.querySelector('.cm-table-selection-overlay') as HTMLElement;
 
-    // Only as wide as the ragged row's own single rendered cell, never
-    // stretched out to the header's full two-column width.
-    expect(overlay.style.width).toBe('102px'); // 100 + 2 outward expansion
+    // Spans the full two-column width, matching the header — a ragged row
+    // is logically complete (its missing cell is empty, not absent), so
+    // its own row-selection overlay is no different from a non-ragged
+    // row's (the test right above this one).
+    expect(overlay.style.width).toBe('202px'); // 200 + 2 outward expansion
   });
 
   it('never renders both a column and a row overlay at once (mutually exclusive by TableSelection\'s own kind)', () => {
@@ -717,5 +724,42 @@ describe('tableWidgetField — row-selection overlay resize responsiveness', () 
     ourObserver(tableEl)!.trigger();
 
     expect(overlay.style.left).toBe('49px');
+  });
+});
+
+describe('tableWidgetField/TableWidget — clicking a synthetic (padded) cell materializes it (rectangular-table invariant)', () => {
+  const RAGGED_TABLE = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer |';
+
+  function mousedown(el: Element): void {
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  }
+
+  it('clicking the rendered (empty, synthetic) City cell of the ragged row materializes the source and activates the real cell', () => {
+    const controller = new TableActiveCellController();
+    const view = mountView(RAGGED_TABLE, controller);
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const raggedRow = tableEl.tBodies[0]!.rows[0]!;
+    expect(raggedRow.cells).toHaveLength(3); // padded for rendering — City renders as an empty <td>
+
+    mousedown(raggedRow.cells[2]!);
+
+    expect(view.state.doc.toString()).toContain('| Vik | Designer | |');
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('');
+  });
+
+  it('clicking a genuinely empty *real* cell (not synthetic) is completely unaffected — no extra document change', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik |  |';
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const docBefore = view.state.doc.toString();
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const row = tableEl.tBodies[0]!.rows[0]!;
+    mousedown(row.cells[1]!);
+
+    expect(view.state.doc.toString()).toBe(docBefore);
+    expect(controller.activeAnchor).not.toBeNull();
   });
 });

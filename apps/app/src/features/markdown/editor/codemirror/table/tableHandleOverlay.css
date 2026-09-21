@@ -14,7 +14,7 @@
  * re-centers itself on the same border-centerline point purely from its
  * own box size, which `translate(-50%, -50%)` already accounts for. Only
  * the border width genuinely needs to flow through a formula, and it does
- * (`calc(-1 * var(--cm-table-border-width) / 2)`), so the two stay
+ * (`calc(-1 * var(--cm-table-border-thickness) / 2)`), so the two stay
  * correct together if that token ever changes.
  */
 
@@ -29,12 +29,12 @@
 
 .cm-table-column-handle-hit,
 .cm-table-column-handle {
-  top: calc(-1 * var(--cm-table-border-width) / 2);
+  top: calc(-1 * var(--cm-table-border-thickness) / 2);
 }
 
 .cm-table-row-handle-hit,
 .cm-table-row-handle {
-  left: calc(-1 * var(--cm-table-border-width) / 2);
+  left: calc(-1 * var(--cm-table-border-thickness) / 2);
 }
 
 /* Larger, invisible pointer targets — sized beyond the visible 24x4/4x24

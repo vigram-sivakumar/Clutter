@@ -7,7 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
 import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
-import { insertRowAboveSelection, insertRowBelowSelection } from './tableRowInsertion';
+import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './tableRowInsertion';
 
 const mountedViews: EditorView[] = [];
 
@@ -245,5 +245,123 @@ describe('insertRowAboveSelection / insertRowBelowSelection — undo/redo', () =
 
     redo(view);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 });
+  });
+});
+
+const THREE_ROWS = '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Alex | Engineer |\n| Sam | PM |';
+
+describe('duplicateSelectedRow', () => {
+  it('duplicates the first body row immediately below it, keeping the original selected', () => {
+    const view = mountRootView(THREE_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 }); // Vik row
+
+    const handled = duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe(
+      '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Vik | Designer |\n| Alex | Engineer |\n| Sam | PM |'
+    );
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+  });
+
+  it('duplicates a middle body row immediately below it, keeping the original selected', () => {
+    const view = mountRootView(THREE_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 2 }); // Alex row
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe(
+      '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Alex | Engineer |\n| Alex | Engineer |\n| Sam | PM |'
+    );
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 });
+  });
+
+  it('duplicates the last body row immediately below it, keeping the original selected', () => {
+    const view = mountRootView(THREE_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 3 }); // Sam row
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe(
+      '| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Alex | Engineer |\n| Sam | PM |\n| Sam | PM |'
+    );
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 3 });
+  });
+
+  it('duplicates the only body row of a table', () => {
+    const view = mountRootView(TWO_COL.split('\n').slice(0, 3).join('\n')); // header + delim + one row
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik | Designer |\n| Vik | Designer |');
+  });
+
+  it('duplicating the header inserts the copy as a BODY row, never a second header — the header stays selected', () => {
+    const view = mountRootView(TWO_COL);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 }); // header
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toBe(
+      '| Name | Role |\n| --- | --- |\n| Name | Role |\n| Vik | Designer |\n| Sam | Engineer |'
+    );
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+  });
+
+  it('duplicates a row containing empty cells', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik |  |';
+    const view = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    const lines = view.state.doc.toString().split('\n');
+    expect(lines[2]).toBe(lines[3]);
+  });
+
+  it('duplicates a row containing Markdown formatting verbatim', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| **Vik** | *Designer* |';
+    const view = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toContain('| **Vik** | *Designer* |\n| **Vik** | *Designer* |');
+  });
+
+  it('duplicates a row in a table with more than two columns', () => {
+    const view = mountRootView(NAR);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(view.state.doc.toString()).toContain('| Bob | 30 | UX |\n| Bob | 30 | UX |');
+  });
+
+  it('undo/redo restores document and selection coherently', () => {
+    const view = mountRootView(THREE_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 2 });
+    const before = view.state.doc.toString();
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+    expect(undoDepth(view.state)).toBe(1);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(before);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 });
+
+    redo(view);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 });
+  });
+
+  it('returns false (no-op) for a non-row selection', () => {
+    const view = mountRootView(THREE_ROWS);
+    const before = view.state.doc.toString();
+
+    const handled = duplicateSelectedRow(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    expect(handled).toBe(false);
+    expect(view.state.doc.toString()).toBe(before);
   });
 });

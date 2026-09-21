@@ -28,7 +28,7 @@
 .cm-table-selection-overlay {
   position: absolute;
   box-sizing: border-box;
-  border-radius: var(--radius-sm);
+  border-radius: var(--cm-table-border-radius);
   border: 2px solid var(--border-focus);
   pointer-events: none;
   visibility: hidden;

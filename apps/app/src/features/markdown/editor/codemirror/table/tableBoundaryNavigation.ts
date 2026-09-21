@@ -6,11 +6,13 @@ import {
   endOfCellContent,
   findAllTables,
   getNavigableRows,
+  getRectangularRowCellBounds,
   getRowCellBounds,
   startOfCellContent,
   type CellBounds,
   type TableInfo,
 } from './tableGeometry';
+import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 
 /**
  * Root-editor counterpart to `tableCellNavigation.ts`'s own nested-editor
@@ -72,7 +74,12 @@ function trimmedCellRange(state: EditorState, bounds: CellBounds): { readonly fr
  * only; every call site here only ever asks for a cell `getNavigableRows`
  * has already confirmed exists).
  */
-function findCellWrapper(
+/**
+ * Exported for `tableRangeSelectionTyping.ts`'s own reuse — locating a
+ * cell's DOM wrapper by table/row/column is the same lookup this module
+ * already owns; no second implementation of it for that milestone.
+ */
+export function findCellWrapper(
   rootView: EditorView,
   tableFrom: number,
   rowKind: 'header' | 'body',
@@ -108,7 +115,15 @@ function findCellWrapper(
  * ArrowLeft (entering backward, at the table's own bottom-right — Left
  * always lands at content end, the same file's own established mirror).
  */
-function enterCellOf(
+/**
+ * Exported for `tableRangeSelectionKeyboard.ts`'s own reuse — reactivating
+ * a range selection's anchor cell before delegating to the existing
+ * per-key table navigation is the exact same "activate `(rowIndex,
+ * columnIndex)` of `table`" operation this boundary-entry module already
+ * owns; no second implementation of cell-DOM lookup + `controller.activate()`
+ * wiring is warranted for that milestone.
+ */
+export function enterCellOf(
   rootView: EditorView,
   controller: TableActiveCellController,
   table: TableInfo,
@@ -121,13 +136,29 @@ function enterCellOf(
   if (!row) {
     return false;
   }
-  const bounds = getRowCellBounds(row)[columnIndex];
+  const headerColumnCount = getRowCellBounds(navigableRows[0]!).length;
+  let targetTable = table;
+  let bounds = getRectangularRowCellBounds(headerColumnCount, row)[columnIndex];
   if (!bounds) {
     return false;
   }
+  // A `synthetic` target (rectangular-invariant padding —
+  // `getRectangularRowCellBounds`'s own doc comment) has no real source to
+  // activate yet — materialize it for real first, via the shared helper
+  // every other activation call site with this same requirement uses
+  // (`tableWidget.ts`'s click handler, `tableCellNavigation.ts`'s vertical
+  // move), then continue with the now-real, re-resolved bounds/table.
+  if (bounds.synthetic) {
+    const resolved = ensureRectangularCellBounds(rootView, table, rowIndex, columnIndex);
+    if (!resolved) {
+      return false;
+    }
+    targetTable = resolved.table;
+    bounds = resolved.bounds;
+  }
   const rowKind = rowIndex === 0 ? 'header' : 'body';
   const bodyRowIndex = rowIndex === 0 ? 0 : rowIndex - 1;
-  const wrapper = findCellWrapper(rootView, table.from, rowKind, bodyRowIndex, columnIndex);
+  const wrapper = findCellWrapper(rootView, targetTable.from, rowKind, bodyRowIndex, columnIndex);
   if (!wrapper) {
     return false;
   }
@@ -137,7 +168,15 @@ function enterCellOf(
   return true;
 }
 
-/** The table's own last navigable row and its own last column index — `null` if the table has no navigable rows or that row has no columns at all (defensive only; a real, activated table always has both). */
+/**
+ * The table's own last navigable row and its own last **header-defined**
+ * column index — `null` if the table has no navigable rows at all
+ * (defensive only; a real, activated table always has both). Deliberately
+ * the *header's* own column count, not `lastRow`'s own raw one: a ragged
+ * last row's own last real column is not the table's own logically last
+ * column (rectangular-invariant milestone's own finding — `enterCellOf`
+ * itself already materializes a `synthetic` target here if needed).
+ */
 function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } | null {
   const navigableRows = getNavigableRows(table.node);
   const rowIndex = navigableRows.length - 1;
@@ -145,7 +184,7 @@ function lastCell(table: TableInfo): { rowIndex: number; columnIndex: number } |
   if (!lastRow) {
     return null;
   }
-  const columnIndex = getRowCellBounds(lastRow).length - 1;
+  const columnIndex = getRowCellBounds(navigableRows[0]!).length - 1;
   if (columnIndex < 0) {
     return null;
   }

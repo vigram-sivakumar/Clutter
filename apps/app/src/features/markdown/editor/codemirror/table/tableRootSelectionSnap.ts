@@ -14,6 +14,33 @@ import { findEnclosingTable } from './tableGeometry';
  * rather than duplicated as its own mechanism (this is exactly the class
  * of problem those already solve for inline constructs).
  *
+ * **CRITICAL — must be the *first*-registered `transactionFilter` among
+ * every table-related one, so it runs *last*.** Confirmed directly against
+ * the installed `@codemirror/state` source: `EditorState.transactionFilter`
+ * runs its registered filters in *reverse* registration order — the
+ * facet's own `filterTransaction` loop counts down from `filters.length - 1`
+ * to `0`, so the *last*-registered filter sees the rawest transaction and
+ * runs first, and the *first*-registered filter runs last, seeing every
+ * other filter's edits (`tableActivationNormalization()`,
+ * `tableRectangularNormalization()`) already composed into the transaction
+ * it receives. This is not incidental — it is the entire point of this
+ * extension existing as a single global sanitizer rather than a per-path
+ * fix: it must see the document *after* every other table-shaping filter
+ * has already run, never an intermediate, not-yet-fully-normalized state.
+ * A real, confirmed bug traces to exactly this ordering being wrong once
+ * (`buildEditorExtensions.ts`'s own registration comment has the full
+ * story): pasting a table whose last row is ragged left the root caret
+ * visibly inside the rendered table widget, because this filter had been
+ * registered *after* (and therefore ran *before*)
+ * `tableActivationNormalization()`'s own terminal-table-safety fix and
+ * `tableRectangularNormalization()`'s own row-padding — it computed a
+ * "nothing more to do here" verdict against a document neither of those
+ * had finished shaping yet. `buildEditorExtensions.ts` registers this
+ * extension first among the table filter group specifically to prevent
+ * that class of bug from recurring — do not reorder it without
+ * re-deriving this reasoning from the installed CM6 source, not from
+ * intuition about "the order things are listed."
+ *
  * `EditorView.atomicRanges` was considered and rejected: it only pushes a
  * position out of a range when the position is *strictly interior*
  * (`pos > from && pos < to`, confirmed directly against the installed

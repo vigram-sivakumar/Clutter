@@ -8,6 +8,7 @@ import {
   emptyRowCellOffset,
   endOfCellContent,
   getNavigableRows,
+  getRectangularRowCellBounds,
   getRowCellBounds,
   insertRowAfterPosition,
   resolveCellAt,
@@ -15,6 +16,7 @@ import {
   startOfCellContent,
   type CellBounds,
 } from './tableGeometry';
+import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { tableSelectionField } from './tableSelection';
 import { clearTableSelection } from './tableSelectionClear';
 
@@ -53,15 +55,52 @@ interface FlatCell {
   readonly bounds: CellBounds;
 }
 
-/** Every logical cell of `table`, row-major (header first, then each `TableRow`) — the same flattening `tableTabKeymap.ts`/`tableArrowKeymap.ts` each kept as private local copies; consolidated here since this one file now owns every cell-to-cell navigation command. */
+/**
+ * Every logical cell of `table`, row-major (header first, then each
+ * `TableRow`) — the same flattening `tableTabKeymap.ts`/`tableArrowKeymap.ts`
+ * each kept as private local copies; consolidated here since this one file
+ * now owns every cell-to-cell navigation command. Uses
+ * `getRectangularRowCellBounds`, not `getRowCellBounds` directly — every
+ * navigable row contributes exactly `headerColumnCount` entries, `synthetic`
+ * ones included (rectangular-invariant milestone), so Tab/Shift-Tab/Left/
+ * Right can reach every logical cell even in a still-ragged row. A landed-on
+ * `synthetic` entry is materialized by its own caller before activating
+ * (`moveByFlatOffset`/`moveOrExit` below), never here — this function stays
+ * a pure, read-only query.
+ */
 function flattenNavigableCells(table: SyntaxNode): FlatCell[] {
+  const navigableRows = getNavigableRows(table);
+  const header = navigableRows[0];
+  const headerColumnCount = header ? getRowCellBounds(header).length : 0;
   const cells: FlatCell[] = [];
-  for (const row of getNavigableRows(table)) {
-    for (const [columnIndex, bounds] of getRowCellBounds(row).entries()) {
+  for (const row of navigableRows) {
+    for (const [columnIndex, bounds] of getRectangularRowCellBounds(headerColumnCount, row).entries()) {
       cells.push({ row, columnIndex, bounds });
     }
   }
   return cells;
+}
+
+/**
+ * `target`'s own real bounds — materializing them first if `target.bounds`
+ * is `synthetic` (rectangular-invariant padding). Shared by
+ * `moveByFlatOffset` (Tab/Shift-Tab) and `moveOrExit` (Left/Right) below,
+ * the two commands that land directly on a `flattenNavigableCells` result
+ * rather than re-deriving a target cell some other way (`moveOrExitVertical`
+ * has its own, symmetric handling — `tableCellNavigation.ts`'s own
+ * `buildTableCellCommands`). `null` only if the row can no longer be
+ * resolved after materializing (defensive only).
+ */
+function materializeFlatTarget(rootView: EditorView, table: SyntaxNode, target: FlatCell): CellBounds | null {
+  if (!target.bounds.synthetic) {
+    return target.bounds;
+  }
+  const rowIndex = getNavigableRows(table).findIndex((r) => r.from === target.row.from);
+  if (rowIndex === -1) {
+    return null;
+  }
+  const resolved = ensureRectangularCellBounds(rootView, { node: table, from: table.from, to: table.to }, rowIndex, target.columnIndex);
+  return resolved ? resolved.bounds : null;
 }
 
 function currentFlatIndex(cells: readonly FlatCell[], row: SyntaxNode, columnIndex: number): number {
@@ -91,17 +130,29 @@ function trimmedCellRange(state: EditorState, bounds: CellBounds): { readonly fr
   return { from: startOfCellContent(state, bounds), to: endOfCellContent(state, bounds) };
 }
 
+/** Every key `tableCellNavigation()`'s own keymap binds — shared with `runTableCellNavigationCommand`'s own key parameter so the two can never drift out of sync with each other. */
+export type TableCellNavigationKey = 'Tab' | 'Shift-Tab' | 'Enter' | 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
+
 /**
- * Builds the nested-editor keymap `Extension`. Pass `getRootView` (a
+ * Builds the nested-editor keymap's own command set. Pass `getRootView` (a
  * fresh-per-call getter, matching every other injected-reference
  * convention in this codebase) and the same `controller` instance that
- * will mount this nested editor, then install the result via
- * `controller.setNestedExtensions([tableCellNavigation(...)])` before the
- * first `activate()` call — every command below closes over both
+ * will mount this nested editor — every command below closes over both
  * directly, since a `Command`'s only argument is the nested `EditorView`
  * it fired on, not any outside context.
+ *
+ * Extracted from `tableCellNavigation()` itself (below) so the exact same
+ * commands can also be invoked programmatically — see
+ * `runTableCellNavigationCommand`'s own doc comment — without a second,
+ * parallel implementation of any of this navigation logic. Building this
+ * record twice (once per caller) is cheap and side-effect-free: every
+ * command closure only reads `controller`/`rootView.state` fresh at call
+ * time, never anything cached between builds.
  */
-export function tableCellNavigation(getRootView: () => EditorView, controller: TableActiveCellController): Extension {
+function buildTableCellCommands(
+  getRootView: () => EditorView,
+  controller: TableActiveCellController
+): Record<TableCellNavigationKey, Command> & { readonly clearSelection: Command } {
   function moveByFlatOffset(rootView: EditorView, offset: 1 | -1): boolean {
     const anchor = controller.activeAnchor;
     if (!anchor) {
@@ -127,10 +178,14 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     if (!container) {
       return true;
     }
+    const bounds = materializeFlatTarget(rootView, current.table, next);
+    if (!bounds) {
+      return true;
+    }
     // Landing position is always the destination cell's own content end,
     // for both directions — `tableTabKeymap.ts`'s own frozen requirement,
     // ported unchanged: makes it immediately convenient to keep typing.
-    const range = trimmedCellRange(rootView.state, next.bounds);
+    const range = trimmedCellRange(rootView.state, bounds);
     controller.activate(rootView, container, range.from, range.to, range.to);
     return true;
   }
@@ -169,6 +224,25 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     if (target) {
       const container = activeContainer(controller);
       if (!container) {
+        return true;
+      }
+      // A `synthetic` target (rectangular-invariant padding — `resolveCellAt`'s
+      // own doc comment) has no real source to activate yet — materialize
+      // it for real first, then activate the now-real bounds. `container`
+      // itself needs no re-resolution after that dispatch: it's only ever
+      // meaningful for `activate()`'s own *very first* lazy nested-view
+      // creation, and every activation from here on is re-parented
+      // correctly by `tableWidgetField`'s own rebuild regardless (that
+      // field's own `isActive` check, driven by `controller.activeAnchor`,
+      // not by whatever DOM node this function happened to pass in).
+      if (target.bounds.synthetic) {
+        const tableInfo = { node: current.table, from: current.table.from, to: current.table.to };
+        const resolved = ensureRectangularCellBounds(rootView, tableInfo, current.rowIndex + rowOffset, current.columnIndex);
+        if (!resolved) {
+          return true;
+        }
+        const range = trimmedCellRange(rootView.state, resolved.bounds);
+        controller.activate(rootView, container, range.from, range.to, range.from);
         return true;
       }
       const range = trimmedCellRange(rootView.state, target.bounds);
@@ -230,7 +304,11 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
       if (!container) {
         return true;
       }
-      const range = trimmedCellRange(rootView.state, next.bounds);
+      const bounds = materializeFlatTarget(rootView, current.table, next);
+      if (!bounds) {
+        return true;
+      }
+      const range = trimmedCellRange(rootView.state, bounds);
       const cursorPos = offset === 1 ? range.from : range.to;
       controller.activate(rootView, container, range.from, range.to, cursorPos);
       return true;
@@ -433,17 +511,58 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     return handled;
   };
 
+  return {
+    Tab: tabCommand,
+    'Shift-Tab': shiftTabCommand,
+    Enter: enterCommand,
+    ArrowUp: arrowUpCommand,
+    ArrowDown: arrowDownCommand,
+    ArrowLeft: arrowLeftCommand,
+    ArrowRight: arrowRightCommand,
+    clearSelection: clearSelectionCommand,
+  };
+}
+
+/**
+ * Builds the nested-editor keymap `Extension` (M4, docs/table-implementation-plan.md).
+ * Install the result via `controller.setNestedExtensions([tableCellNavigation(...)])`
+ * before the first `activate()` call.
+ */
+export function tableCellNavigation(getRootView: () => EditorView, controller: TableActiveCellController): Extension {
+  const commands = buildTableCellCommands(getRootView, controller);
   const bindings: readonly KeyBinding[] = [
-    { key: 'Tab', run: tabCommand },
-    { key: 'Shift-Tab', run: shiftTabCommand },
-    { key: 'Enter', run: enterCommand },
-    { key: 'ArrowUp', run: arrowUpCommand },
-    { key: 'ArrowDown', run: arrowDownCommand },
-    { key: 'ArrowLeft', run: arrowLeftCommand },
-    { key: 'ArrowRight', run: arrowRightCommand },
-    { key: 'Backspace', run: clearSelectionCommand },
-    { key: 'Delete', run: clearSelectionCommand },
+    { key: 'Tab', run: commands.Tab },
+    { key: 'Shift-Tab', run: commands['Shift-Tab'] },
+    { key: 'Enter', run: commands.Enter },
+    { key: 'ArrowUp', run: commands.ArrowUp },
+    { key: 'ArrowDown', run: commands.ArrowDown },
+    { key: 'ArrowLeft', run: commands.ArrowLeft },
+    { key: 'ArrowRight', run: commands.ArrowRight },
+    { key: 'Backspace', run: commands.clearSelection },
+    { key: 'Delete', run: commands.clearSelection },
   ];
 
   return Prec.highest(keymap.of(bindings));
+}
+
+/**
+ * Programmatic entry point for the same per-key table navigation
+ * `tableCellNavigation()`'s own keymap runs — used by
+ * `tableRangeSelectionKeyboard.ts` to hand off to ordinary cell-to-cell
+ * navigation immediately after reactivating a range selection's anchor
+ * cell (that module's own doc comment). `view` is the `EditorView` the
+ * command is invoked "as if bound to" — only `ArrowLeft`/`ArrowRight`
+ * actually read it (their own boundary check against the nested editor's
+ * caret position); every other command ignores its argument and re-derives
+ * everything from `controller`/`getRootView()` itself, exactly as it does
+ * when CM6 invokes it directly from the nested keymap.
+ */
+export function runTableCellNavigationCommand(
+  getRootView: () => EditorView,
+  controller: TableActiveCellController,
+  key: TableCellNavigationKey,
+  view: EditorView
+): boolean {
+  const commands = buildTableCellCommands(getRootView, controller);
+  return commands[key](view);
 }

@@ -149,6 +149,18 @@ export function findEnclosingRow(table: SyntaxNode, pos: number): SyntaxNode | n
 export interface CellBounds {
   readonly leftDelimiterTo: number;
   readonly rightDelimiterFrom: number;
+  /**
+   * `true` only for a bounds entry synthesized by `getRectangularRowCellBounds`
+   * for a column a ragged row has no real delimiters for yet — collapsed at
+   * the row's own `.to`, not a real, addressable source range. A genuinely
+   * empty *real* cell (`| |`, or even the tightest `||`) never sets this,
+   * even though its own `leftDelimiterTo`/`rightDelimiterFrom` can likewise
+   * be equal — `synthetic` is the only reliable signal, never inferred from
+   * position equality alone. Any caller about to *write* through a bounds
+   * value (not just read/render it) must check this first — see
+   * `tableRectangularNormalization.ts`'s own `ensureRectangularCellBounds`.
+   */
+  readonly synthetic?: boolean;
 }
 
 /** The column-gap `[leftDelimiter.to, rightDelimiter.from)` containing `pos`, or `null` if `pos` isn't between two `TableDelimiter` children of `row` (i.e. it's at the row's own leading/trailing edge, or `row` has no delimiter children at all — true of the alignment row, which is one opaque leaf `TableDelimiter`). Works identically for a populated or a fully empty cell, since it never consults `TableCell`. */
@@ -180,6 +192,44 @@ export function getRowCellBounds(row: SyntaxNode): CellBounds[] {
     prevDelimiterTo = child.to;
   }
   return bounds;
+}
+
+/**
+ * The rectangular-invariant counterpart to `getRowCellBounds`
+ * (`docs/table-range-selection-clipboard-ux-contract.md`'s "CRITICAL TABLE
+ * INVARIANT") — every table interaction (navigation, range selection,
+ * rendering) must be able to address exactly `headerColumnCount` columns
+ * in every row, never fewer, even when the row's own *source* is currently
+ * ragged (GFM tolerates a row with fewer cells than the header — a real,
+ * still-supported source shape, not something this function eliminates).
+ * Missing trailing columns are padded with `synthetic: true` bounds
+ * collapsed at `row.to` — a real, addressable (empty) logical cell for
+ * every read-only consumer (rendering, navigation, selection geometry),
+ * but never a range any caller may *write* through directly: `row.to` has
+ * no real delimiters around it yet, so an edit anchored there would insert
+ * raw, pipe-less text. A caller about to write through a resolved bounds
+ * value must go through `tableRectangularNormalization.ts`'s own
+ * `ensureRectangularCellBounds` first, which materializes the real source
+ * cell(s) before handing back real (never synthetic) bounds.
+ *
+ * `getRowCellBounds(row)` itself stays completely unchanged and is still
+ * the right choice for a caller that means "only the columns this row
+ * actually, currently has" — `tableSelectionClear.ts`'s column/range
+ * clearing, most notably, where a ragged row genuinely has nothing to
+ * clear at a missing column and contributing no change for it is the
+ * correct behavior, not a gap. This function is additive, opted into only
+ * where "every logical column, always" is the actual requirement.
+ */
+export function getRectangularRowCellBounds(headerColumnCount: number, row: SyntaxNode): CellBounds[] {
+  const bounds = getRowCellBounds(row);
+  if (bounds.length >= headerColumnCount) {
+    return bounds;
+  }
+  const padded = bounds.slice();
+  while (padded.length < headerColumnCount) {
+    padded.push({ leftDelimiterTo: row.to, rightDelimiterFrom: row.to, synthetic: true });
+  }
+  return padded;
 }
 
 /** The alignment/delimiter row (`| --- | ---: |`) is a single opaque `TableDelimiter` node — see `tableAlignment.ts`'s own doc comment — never a `TableHeader`/`TableRow`. */
@@ -400,18 +450,31 @@ export function resolveLogicalCell(state: EditorState, pos: number): LogicalCell
 /**
  * The inverse of `resolveLogicalCell`: given a table and a logical
  * `(rowIndex, columnIndex)` coordinate, returns that cell's own row and
- * bounds. `columnIndex` is clamped to the target row's own last available
- * column when that row is ragged (GFM tolerates a row with fewer cells
- * than the header) — every real row has at least one column, so this
- * only ever returns `null` when `rowIndex` itself is out of range.
+ * bounds. `columnIndex` addresses the table's own header-defined column
+ * space (`getRectangularRowCellBounds`), not just whatever a ragged row
+ * happens to currently have — a genuinely missing column returns a
+ * `synthetic` bounds (see that function's own doc comment), not the
+ * *wrong* real one. `null` only when `rowIndex` is out of range or the
+ * table has no header at all to define a column space against.
+ *
+ * **Changed from an earlier "clamp to the row's own last real column"
+ * behavior** — the rectangular-invariant milestone's own finding: clamping
+ * silently landed vertical navigation (`tableCellNavigation.ts`'s
+ * `moveOrExitVertical`) on the *wrong* column for a ragged row instead of a
+ * genuinely empty one at the *requested* index, which is what every other
+ * navigation command in this table already treats an empty cell as. Every
+ * caller resolving a `synthetic` result through to an actual cell
+ * activation must materialize it first — see
+ * `tableRectangularNormalization.ts`'s own `ensureRectangularCellBounds`.
  */
 export function resolveCellAt(table: SyntaxNode, rowIndex: number, columnIndex: number): { row: SyntaxNode; bounds: CellBounds } | null {
   const row = getNavigableRows(table)[rowIndex];
   if (!row) {
     return null;
   }
-  const rowBounds = getRowCellBounds(row);
-  const bounds = rowBounds[Math.min(columnIndex, rowBounds.length - 1)];
+  const header = getNavigableRows(table)[0];
+  const headerColumnCount = header ? getRowCellBounds(header).length : 0;
+  const bounds = getRectangularRowCellBounds(headerColumnCount, row)[columnIndex];
   if (!bounds) {
     return null;
   }

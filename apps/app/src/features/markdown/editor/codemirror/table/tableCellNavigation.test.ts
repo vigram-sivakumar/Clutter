@@ -535,3 +535,62 @@ describe('tableCellNavigation — ArrowLeft/ArrowRight (table boundary exit)', (
     expect(head < table.from || head >= table.to).toBe(true);
   });
 });
+
+describe('tableCellNavigation — rectangular-table invariant (navigation reaches every logical cell)', () => {
+  const RAGGED_TABLE = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer |';
+
+  it('Tab from the last real cell of a ragged row lands on (and materializes) the missing column', () => {
+    const root = mountRootView(RAGGED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+
+    dispatchKey(controller.nestedView!, 'Tab');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('');
+    expect(root.state.doc.toString()).toContain('| Vik | Designer | |');
+  });
+
+  it('Shift-Tab from the materialized column returns to the last real cell', () => {
+    const root = mountRootView(RAGGED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    dispatchKey(controller.nestedView!, 'Tab'); // lands on, materializes the missing City cell
+
+    dispatchKey(controller.nestedView!, 'Tab', true);
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
+  });
+
+  it('ArrowRight from the end of the last real cell also reaches the missing column', () => {
+    const root = mountRootView(RAGGED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Designer'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('');
+    expect(root.state.doc.toString()).toContain('| Vik | Designer | |');
+  });
+
+  it('ArrowUp from a real header cell into a ragged row below lands on the correct (materialized) column, not the row\'s own last real one', () => {
+    const root = mountRootView(RAGGED_TABLE);
+    const { controller } = activateCellContaining(root, 'City'); // header, column 2
+
+    dispatchKey(controller.nestedView!, 'ArrowDown');
+
+    // Column 2 of the data row is missing — must land on a genuinely
+    // empty, freshly-materialized cell there, never the wrong (Designer,
+    // column 1) cell a "clamp to last real column" behavior would produce.
+    expect(controller.nestedView!.state.doc.toString()).toBe('');
+    expect(root.state.doc.toString()).toContain('| Vik | Designer | |');
+  });
+
+  it('materializing via navigation is its own single, undoable step', () => {
+    const root = mountRootView(RAGGED_TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+
+    dispatchKey(controller.nestedView!, 'Tab');
+    expect(root.state.doc.toString()).toContain('| Vik | Designer | |');
+
+    undo(root);
+    expect(root.state.doc.toString()).toBe(RAGGED_TABLE);
+  });
+});

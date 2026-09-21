@@ -18,10 +18,11 @@ import {
 import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
+import { tableCellPaste } from './codemirror/table/tablePaste';
 import { attachTableOutsideClickHandling } from './codemirror/table/tableSelection';
 import { clearTableSelection } from './codemirror/table/tableSelectionClear';
-import { insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
-import { insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
+import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
+import { duplicateSelectedColumn, insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
 import { deleteColumnSelection, deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
@@ -573,6 +574,30 @@ export const MarkdownEditor = forwardRef<
     view.focus();
   };
 
+  // "Duplicate" (row/column handle menu) — reuses tableRowInsertion.ts's/
+  // tableColumnInsertion.ts's own dedicated duplicateSelectedRow/
+  // duplicateSelectedColumn (each already keeps the selection on the
+  // *original* row/column, never the new copy — see those functions' own
+  // doc comments), same "look up the current menu's own selection off
+  // state, view.focus() after" shape every other menu handler here uses.
+  const handleDuplicateRowFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    duplicateSelectedRow(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  const handleDuplicateColumnFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    duplicateSelectedColumn(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
   // "Insert row above"/"Insert row below"/"Insert column left"/"Insert
   // column right" — the row/column-insertion menu items wired to real
   // operations (row/column deletion remains future work). Reuses
@@ -1074,6 +1099,7 @@ export const MarkdownEditor = forwardRef<
     const tableActiveCellController = new TableActiveCellController();
     tableActiveCellController.setNestedExtensions([
       tableCellNavigation(() => viewRef.current!, tableActiveCellController),
+      tableCellPaste(() => viewRef.current!, tableActiveCellController),
     ]);
     tableActiveCellControllerRef.current = tableActiveCellController;
 
@@ -1362,6 +1388,8 @@ export const MarkdownEditor = forwardRef<
         selection={tableHandleMenu?.selection ?? null}
         onClose={closeTableHandleMenu}
         onClearContents={handleClearTableSelectionFromMenu}
+        onDuplicateRow={handleDuplicateRowFromMenu}
+        onDuplicateColumn={handleDuplicateColumnFromMenu}
         onInsertRowAbove={handleInsertRowAboveFromMenu}
         onInsertRowBelow={handleInsertRowBelowFromMenu}
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}

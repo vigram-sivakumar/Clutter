@@ -128,6 +128,12 @@ function resolveCellAt(view: EditorView, tableFrom: number, clientX: number, cli
 export function beginCellDragTracking(view: EditorView, controller: TableActiveCellController, tableFrom: number, anchor: CellCoordinate): void {
   let dragStarted = false;
   let currentHead: CellCoordinate = anchor;
+  // The anchor cell's own real, click-coordinate-refined caret — read here,
+  // before any drag/deactivation ever touches it, so a later typed
+  // character (`tableRangeSelectionTyping.ts`) can restore this exact
+  // position instead of an arbitrary one. `TableSelection.range`'s own
+  // `anchorCaretOffset` doc comment has the full reasoning.
+  const anchorCaretOffset = controller.nestedView?.state.selection.main.head ?? 0;
 
   function handleMouseMove(event: MouseEvent): void {
     const cell = resolveCellAt(view, tableFrom, event.clientX, event.clientY);
@@ -153,7 +159,7 @@ export function beginCellDragTracking(view: EditorView, controller: TableActiveC
       // handlers already use for the identical reason.
       controller.deactivate();
       view.dispatch({
-        effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'range', tableFrom, anchor, head: cell })],
+        effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of({ kind: 'range', tableFrom, anchor, head: cell, anchorCaretOffset })],
       });
       // `view.focus()`, right after `controller.deactivate()` — the exact
       // same fix `tableHandleOverlay.ts`'s own row/column click handlers
@@ -179,7 +185,7 @@ export function beginCellDragTracking(view: EditorView, controller: TableActiveC
       return;
     }
     currentHead = cell;
-    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'range', tableFrom, anchor, head: cell })] });
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'range', tableFrom, anchor, head: cell, anchorCaretOffset })] });
   }
 
   function handleMouseUp(): void {

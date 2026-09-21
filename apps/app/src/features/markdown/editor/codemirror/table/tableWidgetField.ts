@@ -93,6 +93,35 @@ export function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   });
 }
 
+/**
+ * The rectangular-table invariant's own rendering half
+ * (`docs/table-range-selection-clipboard-ux-contract.md`'s "CRITICAL TABLE
+ * INVARIANT" — `tableRectangularNormalization.ts`'s own top doc comment
+ * has the full two-layer design). `rowCells` above returns exactly as many
+ * entries as `row`'s own *source* currently has — correct and unchanged
+ * for every other caller, but insufficient on its own for rendering: a
+ * ragged row (fewer cells than the header) would render fewer `<td>`s than
+ * the header has `<th>`s, visually exposing the missing cell, for *any*
+ * table state — including a freshly-opened file that hasn't been edited
+ * yet, or a permanently read-only note embed that can never dispatch a
+ * normalizing transaction at all. Purely additive/visual: appends
+ * `synthetic: true`-flagged, empty `TableCellData` entries (collapsed at
+ * `rowEnd`, the row's own `.to`) up to `targetCount` — never a document
+ * edit. `TableWidget`'s own click handler checks `cell.synthetic` before
+ * activating one, materializing the real source cell first via
+ * `tableRectangularNormalization.ts`'s own `ensureRectangularCellBounds`.
+ */
+function padRowCells(cells: readonly TableCellData[], targetCount: number, rowEnd: number): TableCellData[] {
+  if (cells.length >= targetCount) {
+    return cells as TableCellData[];
+  }
+  const padded = cells.slice();
+  while (padded.length < targetCount) {
+    padded.push({ text: '', from: rowEnd, to: rowEnd, rawFrom: rowEnd, rawTo: rowEnd, synthetic: true });
+  }
+  return padded;
+}
+
 function buildTableWidgetRange(
   state: EditorState,
   table: TableInfo,
@@ -109,7 +138,7 @@ function buildTableWidgetRange(
   const alignments: TableColumnAlignment[] = alignRow && isAlignmentRow(alignRow) ? parseTableAlignment(state.sliceDoc(alignRow.from, alignRow.to)) : [];
 
   const headerCells = rowCells(state, header);
-  const bodyRows = navigableRows.slice(1).map((row) => rowCells(state, row));
+  const bodyRows = navigableRows.slice(1).map((row) => padRowCells(rowCells(state, row), headerCells.length, row.to));
 
   const activeAnchor = controller?.activeAnchor ?? null;
   // `false` (not throwing): a read-only note embed's nested view still

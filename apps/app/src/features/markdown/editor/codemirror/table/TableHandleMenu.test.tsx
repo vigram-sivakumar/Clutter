@@ -46,13 +46,26 @@ afterEach(() => {
 function renderMenu(
   selection: TableHandleMenuSelection,
   overrides: Partial<
-    Record<'onInsertColumnLeft' | 'onInsertColumnRight' | 'onInsertRowAbove' | 'onInsertRowBelow' | 'onClearContents' | 'onDeleteRow' | 'onDeleteColumn', () => void>
+    Record<
+      | 'onInsertColumnLeft'
+      | 'onInsertColumnRight'
+      | 'onInsertRowAbove'
+      | 'onInsertRowBelow'
+      | 'onClearContents'
+      | 'onDuplicateRow'
+      | 'onDuplicateColumn'
+      | 'onDeleteRow'
+      | 'onDeleteColumn',
+      () => void
+    >
   > = {}
 ) {
   const anchorEl = document.body.appendChild(document.createElement('div'));
   const anchor: TableHandleMenuAnchor = { current: anchorEl };
   const onClose = vi.fn();
   const onClearContents = overrides.onClearContents ?? vi.fn();
+  const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn();
+  const onDuplicateColumn = overrides.onDuplicateColumn ?? vi.fn();
   const onInsertRowAbove = overrides.onInsertRowAbove ?? vi.fn();
   const onInsertRowBelow = overrides.onInsertRowBelow ?? vi.fn();
   const onInsertColumnLeft = overrides.onInsertColumnLeft ?? vi.fn();
@@ -68,6 +81,8 @@ function renderMenu(
         selection={selection}
         onClose={onClose}
         onClearContents={onClearContents}
+        onDuplicateRow={onDuplicateRow}
+        onDuplicateColumn={onDuplicateColumn}
         onInsertRowAbove={onInsertRowAbove}
         onInsertRowBelow={onInsertRowBelow}
         onInsertColumnLeft={onInsertColumnLeft}
@@ -80,7 +95,18 @@ function renderMenu(
   }
 
   render(<Harness />);
-  return { onClose, onClearContents, onInsertRowAbove, onInsertRowBelow, onInsertColumnLeft, onInsertColumnRight, onDeleteRow, onDeleteColumn };
+  return {
+    onClose,
+    onClearContents,
+    onDuplicateRow,
+    onDuplicateColumn,
+    onInsertRowAbove,
+    onInsertRowBelow,
+    onInsertColumnLeft,
+    onInsertColumnRight,
+    onDeleteRow,
+    onDeleteColumn,
+  };
 }
 
 describe('TableHandleMenu — column item wiring', () => {
@@ -140,5 +166,30 @@ describe('TableHandleMenu — "Delete row"/"Delete column" wiring', () => {
 
     expect(handlers.onDeleteColumn).toHaveBeenCalledTimes(1);
     expect(handlers.onDeleteRow).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableHandleMenu — "Duplicate" wiring', () => {
+  it('lists Duplicate for both a row and a column selection', () => {
+    renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+    expect(findMenuItem('Duplicate')).not.toBeNull();
+  });
+
+  it('clicking "Duplicate" calls onDuplicateRow, and only that callback, for a row selection', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    fireEvent.click(findMenuItem('Duplicate')!);
+
+    expect(handlers.onDuplicateRow).toHaveBeenCalledTimes(1);
+    expect(handlers.onDuplicateColumn).not.toHaveBeenCalled();
+  });
+
+  it('clicking "Duplicate" calls onDuplicateColumn, and only that callback, for a column selection', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    fireEvent.click(findMenuItem('Duplicate')!);
+
+    expect(handlers.onDuplicateColumn).toHaveBeenCalledTimes(1);
+    expect(handlers.onDuplicateRow).not.toHaveBeenCalled();
   });
 });

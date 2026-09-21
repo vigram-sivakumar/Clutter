@@ -29,6 +29,17 @@ export interface TableHandleMenuProps {
    * operation milestone wires them.
    */
   readonly onClearContents: () => void;
+  /**
+   * "Duplicate" — row handle menu duplicates the selected row immediately
+   * below it; column handle menu duplicates the selected column immediately
+   * to its right. Two separate callbacks (not one shared, unlike
+   * `onClearContents`), mirroring `onDeleteRow`/`onDeleteColumn`'s own
+   * per-axis shape — this menu's own `handleSelect` picks the right one
+   * from `selection.kind`, matching "delete" exactly.
+   */
+  readonly onDuplicateRow: () => void;
+  /** Symmetric to `onDuplicateRow`, for the column handle menu. */
+  readonly onDuplicateColumn: () => void;
   /** "Insert row above" — row-only this milestone; a no-op (item still renders/responds normally) when `selection` is a column, per `TableHandleMenu`'s own `handleSelect`. */
   readonly onInsertRowAbove: () => void;
   /** Symmetric to `onInsertRowAbove`, for "Insert row below." */
@@ -70,6 +81,7 @@ export interface TableHandleMenuProps {
 // with which menu is even open.
 const ROW_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+  { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
   { id: 'insert-above', label: 'Insert above', icon: 'arrowUp', separatorBefore: true },
   { id: 'insert-below', label: 'Insert below', icon: 'arrowDown' },
   { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
@@ -77,6 +89,7 @@ const ROW_ITEMS: readonly OverflowMenuItemConfig[] = [
 
 const COLUMN_ITEMS: readonly OverflowMenuItemConfig[] = [
   { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+  { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
   { id: 'insert-left', label: 'Insert left', icon: 'arrowLeft', separatorBefore: true },
   { id: 'insert-right', label: 'Insert right', icon: 'arrowRight' },
   { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
@@ -137,6 +150,8 @@ export function TableHandleMenu({
   selection,
   onClose,
   onClearContents,
+  onDuplicateRow,
+  onDuplicateColumn,
   onInsertRowAbove,
   onInsertRowBelow,
   onInsertColumnLeft,
@@ -150,6 +165,10 @@ export function TableHandleMenu({
   function handleSelect(id: string) {
     if (id === 'clear') {
       onClearContents();
+    } else if (id === 'duplicate' && selection?.kind === 'row') {
+      onDuplicateRow();
+    } else if (id === 'duplicate' && selection?.kind === 'column') {
+      onDuplicateColumn();
     } else if (id === 'insert-above') {
       onInsertRowAbove();
     } else if (id === 'insert-below') {

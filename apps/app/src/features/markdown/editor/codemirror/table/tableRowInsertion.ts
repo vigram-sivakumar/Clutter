@@ -176,3 +176,59 @@ export function insertRowBelowSelection(view: EditorView, selection: TableSelect
   }
   return insertRowBelow(view, table, selection.rowIndex);
 }
+
+/**
+ * "Duplicate" (row handle menu) — inserts a copy of the selected row's own
+ * raw text immediately below it, keeping the *original* row selected, not
+ * the new copy. A genuinely dedicated operation, not a compose of
+ * `insertRowBelow` + "then also copy content": that function's own
+ * contract always selects the *new* row (`rowIndex + 1` — matching
+ * "insert below lands on the new row," the correct behavior for a blank
+ * insert), which is exactly backwards for Duplicate's own required
+ * selection identity (`docs/table-range-selection-clipboard-ux-contract.md`-
+ * adjacent milestone's own explicit "keep the existing `TableSelection`
+ * pointing to the ORIGINAL row" requirement) — reusing it and then trying
+ * to patch the selection back afterward would be a second, redundant
+ * dispatch for no benefit over just building the one correct transaction
+ * directly.
+ *
+ * **No header special-case needed.** `insertRowAfterPosition` (`tableGeometry.ts`)
+ * already resolves "immediately after this row" to the delimiter row's own
+ * `.to` when `row` is the header — the exact same position a *body* row's
+ * own duplicate needs relative to `row.to` — so duplicating the header
+ * naturally lands its copy as the table's first *body* row, immediately
+ * satisfying "duplicate must insert the duplicate BELOW the header as a
+ * BODY row... there must still be exactly one header row" without a
+ * distinct code path.
+ */
+function duplicateRow(view: EditorView, table: TableInfo, rowIndex: number): boolean {
+  const navigableRows = getNavigableRows(table.node);
+  const row = navigableRows[rowIndex];
+  if (!row) {
+    return false;
+  }
+  const insertPos = insertRowAfterPosition(row);
+  if (insertPos === null) {
+    return false;
+  }
+  const rowText = view.state.sliceDoc(row.from, row.to);
+  const changes: ChangeSpec[] = [{ from: insertPos, to: insertPos, insert: '\n' + rowText }];
+
+  // The selection stays on `rowIndex` — the original row, never the new
+  // copy — per this operation's own explicit selection-identity
+  // requirement.
+  dispatchInsertion(view, changes, { kind: 'row', tableFrom: table.from, rowIndex });
+  return true;
+}
+
+/** Exported for `TableHandleMenu.tsx`'s "Duplicate" item (row handle menu) — `false` (a no-op) for a non-`row` selection or a table that can no longer be found, mirroring every other menu-facing entry point in this file. */
+export function duplicateSelectedRow(view: EditorView, selection: TableSelection): boolean {
+  if (selection.kind !== 'row') {
+    return false;
+  }
+  const table = findAllTables(view.state).find((t) => t.from === selection.tableFrom);
+  if (!table) {
+    return false;
+  }
+  return duplicateRow(view, table, selection.rowIndex);
+}

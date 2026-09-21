@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history, redo, undo } from '@codemirror/commands';
@@ -60,6 +60,69 @@ describe('TableActiveCellController — click-activate', () => {
     controller.activate(root, container, shiftedFrom, shiftedTo, shiftedFrom);
 
     expect(controller.nestedView!.state.doc.toString()).toBe('b');
+  });
+});
+
+describe('TableActiveCellController — clickCoords caret refinement', () => {
+  /**
+   * jsdom has no real layout engine, so `EditorView.posAtCoords` can't be
+   * exercised end to end here (the same limitation `tableSelection.test.ts`'s
+   * own `mockPosAtCoords` already documents) — mocked at the `EditorView.prototype`
+   * level (not a specific instance) since `activate()` creates the nested
+   * `EditorView` lazily, internally; there's no instance to spy on until
+   * the call under test has already run.
+   */
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('refines the caret to the exact resolved position, overriding cursorPos\'s own coarser placement', () => {
+    const root = mountRootView('| a | bold text |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const posAtCoordsSpy = vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(2);
+
+    // cursorPos (`to`, end of "bold text" = 9) would place the caret at 9
+    // absent refinement — `clickCoords` must win.
+    controller.activate(root, container, 6, 15, 15, { x: 42, y: 7 });
+
+    expect(controller.nestedView!.state.selection.main.head).toBe(2);
+    expect(posAtCoordsSpy).toHaveBeenCalledWith({ x: 42, y: 7 });
+  });
+
+  it('leaves cursorPos\'s own placement standing when posAtCoords cannot resolve a position (null)', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(null);
+
+    controller.activate(root, container, 6, 10, 8, { x: 999, y: 999 }); // cursorPos 8 -> caret 2 within "bold"
+
+    expect(controller.nestedView!.state.selection.main.head).toBe(2);
+  });
+
+  it('never calls posAtCoords when clickCoords is omitted (every keyboard-driven activation)', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const posAtCoordsSpy = vi.spyOn(EditorView.prototype, 'posAtCoords');
+
+    controller.activate(root, container, 6, 10, 8);
+
+    expect(posAtCoordsSpy).not.toHaveBeenCalled();
+  });
+
+  it('refines the caret on a cell switch (reusing the already-mounted nested editor), not just first activation', () => {
+    const root = mountRootView('| a | bold | more |\n| - | - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    controller.activate(root, container, 6, 10, 10); // activate "bold" first (no coords)
+    vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(3);
+
+    controller.activate(root, container, 13, 17, 17, { x: 11, y: 22 }); // switch to "more"
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('more');
+    expect(controller.nestedView!.state.selection.main.head).toBe(3);
   });
 });
 

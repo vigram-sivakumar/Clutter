@@ -6,6 +6,10 @@ import { EditorView } from '@codemirror/view';
 import { buildEditorExtensions, type BuildEditorExtensionsOptions } from '../buildEditorExtensions';
 import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
+import { duplicateSelectedColumn } from './tableColumnInsertion';
+import { findAllTables, getNavigableRows, getRowCellBounds } from './tableGeometry';
+import { duplicateSelectedRow } from './tableRowInsertion';
+import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 
 /**
  * M5 (docs/table-implementation-plan.md) — verifies the actual production
@@ -476,5 +480,150 @@ describe('table live wiring — trailing-whitespace active-cell mismatch (rawFro
     expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(1);
     const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(nested.dom));
     expect(activeWrapper).toBeDefined();
+  });
+});
+
+describe('table live wiring — root selection is never left inside a pasted table (transactionFilter ordering regression)', () => {
+  const RAGGED_PASTE = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer | Delhi |\n| Alex | Engineer |';
+
+  it('pasting a table whose last row is ragged into an empty document never leaves the root caret inside the widget', () => {
+    const view = mount('', false, new TableActiveCellController());
+
+    // A real paste always places the resulting selection at the *end* of
+    // the pasted text (CM6's own paste handling does this explicitly) —
+    // set here to actually replicate that, not left to default to
+    // "map the old selection forward," which a bare `changes`-only
+    // dispatch would otherwise do and which doesn't represent a real paste.
+    view.dispatch({ changes: { from: 0, to: 0, insert: RAGGED_PASTE }, selection: { anchor: RAGGED_PASTE.length } });
+
+    const table = findAllTables(view.state)[0]!;
+    const head = view.state.selection.main.head;
+    // `tableRootSelectionSnap.ts`'s own invariant: root selection may be
+    // before a table or after one, never `>= table.from && < table.to`.
+    expect(head < table.from || head >= table.to).toBe(true);
+  });
+
+  it('the root caret lands on a real, editable line immediately after the normalized (padded) table, not mid-widget', () => {
+    const view = mount('', false, new TableActiveCellController());
+
+    view.dispatch({ changes: { from: 0, to: 0, insert: RAGGED_PASTE }, selection: { anchor: RAGGED_PASTE.length } });
+
+    const table = findAllTables(view.state)[0]!;
+    const head = view.state.selection.main.head;
+    // A genuine, addressable line exists at the caret, strictly after the
+    // table — not the giant, widget-spanning caret a position inside
+    // `[table.from, table.to)` would otherwise produce.
+    expect(head).toBeGreaterThan(table.to);
+    expect(view.state.doc.lineAt(head).text).toBe('');
+  });
+
+  it('the same regression, with a doc that already has content before the pasted table', () => {
+    const view = mount('Some notes above.\n\n', false, new TableActiveCellController());
+    const insertAt = view.state.doc.length;
+
+    view.dispatch({
+      changes: { from: insertAt, to: insertAt, insert: RAGGED_PASTE },
+      selection: { anchor: insertAt + RAGGED_PASTE.length },
+    });
+
+    const table = findAllTables(view.state)[0]!;
+    const head = view.state.selection.main.head;
+    expect(head < table.from || head >= table.to).toBe(true);
+  });
+});
+
+describe('table live wiring — Duplicate row/column, against the full production filter chain', () => {
+  const TABLE = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer | Delhi |\n| Alex | Engineer | Pune |';
+
+  it('duplicating a row keeps the whole table rectangular (tableRectangularNormalization still applies)', () => {
+    const view = mount(TABLE, false, new TableActiveCellController());
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 })] });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    const freshTable = findAllTables(view.state)[0]!;
+    const rows = getNavigableRows(freshTable.node);
+    const headerCount = getRowCellBounds(rows[0]!).length;
+    for (const row of rows) {
+      expect(getRowCellBounds(row).length).toBe(headerCount);
+    }
+  });
+
+  it('duplicating a column keeps the whole table rectangular', () => {
+    const view = mount(TABLE, false, new TableActiveCellController());
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 1 })] });
+
+    duplicateSelectedColumn(view, view.state.field(tableSelectionField)!);
+
+    const freshTable = findAllTables(view.state)[0]!;
+    const rows = getNavigableRows(freshTable.node);
+    const headerCount = getRowCellBounds(rows[0]!).length;
+    for (const row of rows) {
+      expect(getRowCellBounds(row).length).toBe(headerCount);
+    }
+  });
+
+  it('duplicating a row never leaves the root caret inside the table widget', () => {
+    const view = mount(TABLE, false, new TableActiveCellController());
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 2 })] });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    const freshTable = findAllTables(view.state)[0]!;
+    const head = view.state.selection.main.head;
+    expect(head < freshTable.from || head >= freshTable.to).toBe(true);
+  });
+
+  it('duplicating a column never leaves the root caret inside the table widget', () => {
+    const view = mount(TABLE, false, new TableActiveCellController());
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 })] });
+
+    duplicateSelectedColumn(view, view.state.field(tableSelectionField)!);
+
+    const freshTable = findAllTables(view.state)[0]!;
+    const head = view.state.selection.main.head;
+    expect(head < freshTable.from || head >= freshTable.to).toBe(true);
+  });
+
+  it('duplicating a row does not leave a nested cell active', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(TABLE, false, controller);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 })] });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    expect(controller.activeAnchor).toBeNull();
+  });
+
+  it('duplicating a column does not leave a nested cell active', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(TABLE, false, controller);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 })] });
+
+    duplicateSelectedColumn(view, view.state.field(tableSelectionField)!);
+
+    expect(controller.activeAnchor).toBeNull();
+  });
+
+  it('duplicating a row from a ragged source table does not create additional structural damage', () => {
+    const ragged = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer | Delhi |\n| Alex | Engineer |';
+    const view = mount(ragged, false, new TableActiveCellController());
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ effects: [tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 })] });
+
+    duplicateSelectedRow(view, view.state.field(tableSelectionField)!);
+
+    const freshTable = findAllTables(view.state)[0]!;
+    const rows = getNavigableRows(freshTable.node);
+    expect(rows).toHaveLength(4); // header + 3 body rows (Vik, its duplicate, Alex)
+    // The pre-existing ragged "Alex" row is untouched by duplication itself
+    // — rectangularizing it is `tableRectangularNormalization`'s own
+    // separate, already-verified responsibility (`tableRectangularNormalization.test.ts`).
   });
 });

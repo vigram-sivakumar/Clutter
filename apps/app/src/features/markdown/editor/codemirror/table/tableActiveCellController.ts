@@ -114,8 +114,24 @@ export class TableActiveCellController {
    * offset substring after an earlier edit shifted positions). This
    * method itself has no cache to go stale from — every call re-derives
    * the cell's text straight from `rootView.state`.
+   *
+   * `clickCoords`, when given, refines that initial `cursorPos` placement
+   * to the *exact* clicked character once the nested editor's own DOM
+   * actually exists to measure against — `cursorPos` alone cannot express
+   * "wherever the user's pointer landed" (`tableCellNavigation.ts`'s own
+   * keyboard-driven callers pass none; only `TableWidget.buildRow`'s mouse
+   * click handler does). This can only happen *after* this same call has
+   * mounted (or repositioned) the nested view into `container` below —
+   * `EditorView.posAtCoords` needs the nested editor's own `contentDOM`
+   * to already be attached and laid out at the coordinates being resolved
+   * against, which is exactly why this isn't (and can't be) resolved by
+   * the caller *before* calling `activate()` and passed in as `cursorPos`
+   * instead: the fix keeps `cursorPos` as the immediate, synchronous
+   * placement (still correct for every keyboard caller, and a reasonable
+   * fallback here too, applied first) and then corrects it in place, in
+   * the one call already responsible for mounting the DOM being measured.
    */
-  activate(rootView: EditorView, container: HTMLElement, from: number, to: number, cursorPos: number): void {
+  activate(rootView: EditorView, container: HTMLElement, from: number, to: number, cursorPos: number, clickCoords?: { x: number; y: number }): void {
     const text = rootView.state.sliceDoc(from, to);
     const caret = Math.max(0, Math.min(cursorPos - from, text.length));
     // Set before any dispatch below — forwardToRoot (fired synchronously
@@ -207,6 +223,44 @@ export class TableActiveCellController {
     // history) wherever tableWidgetField isn't installed (every M1–M4
     // test `EditorView` above included).
     rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
+
+    // Refines the caret from `cursorPos`'s own coarse placement (always
+    // `cell.to` — end of content — for `TableWidget.buildRow`'s mouse
+    // click handler, the one caller that passes `clickCoords`) to the
+    // exact character the user actually clicked.
+    //
+    // **Must run after the `tableActiveCellChanged` dispatch above, not
+    // before it — confirmed as a real bug via direct live-browser
+    // investigation, not a theoretical ordering concern.** At the point
+    // `container.appendChild`/the reset `dispatch` above have run, the
+    // nested editor's DOM has only been appended *alongside* `container`'s
+    // own still-present static HTML (`TableWidget.buildRow`'s inactive-cell
+    // branch had already set `wrapper.innerHTML` to the rendered Markdown
+    // before this activation, and neither `activate()` nor CM6's own
+    // `parent`-option mounting clears it first) — a transient, doubled-up
+    // DOM state that is never what the user actually sees, because the
+    // `tableActiveCellChanged` dispatch immediately above synchronously
+    // rebuilds `tableWidgetField`, and `TableWidget.toDOM()`'s own
+    // active-cell branch re-parents this *same* `nestedViewInstance.dom`
+    // into a brand-new, clean wrapper containing nothing else. Calling
+    // `posAtCoords` before that rebuild measures against the stale,
+    // doubled layout and resolves to the wrong character (confirmed
+    // directly: it consistently resolved to position 0 instead of the
+    // actually-clicked character) — calling it here, after the dispatch
+    // has already completed and relocated the same DOM node into its
+    // final position, measures against the real, final layout the user
+    // is looking at.
+    //
+    // `null` (coordinates that don't resolve to a real position in this
+    // cell's own tiny document — not expected for a click that just
+    // activated this exact cell, but defensive rather than assumed)
+    // leaves `cursorPos`'s own placement standing rather than guessing.
+    if (clickCoords) {
+      const precisePos = this.nestedViewInstance.posAtCoords(clickCoords);
+      if (precisePos !== null) {
+        this.nestedViewInstance.dispatch({ selection: { anchor: precisePos } });
+      }
+    }
   }
 
   /**

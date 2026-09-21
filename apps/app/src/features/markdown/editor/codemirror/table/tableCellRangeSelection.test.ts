@@ -162,7 +162,7 @@ describe('beginCellDragTracking — click vs. drag', () => {
     mouseup();
 
     expect(controller.activeAnchor).toBeNull();
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 }, anchorCaretOffset: 0 });
   });
 
   it('vertical drag (same column, different rows) creates a range', () => {
@@ -173,7 +173,7 @@ describe('beginCellDragTracking — click vs. drag', () => {
     moveOver(setTarget, findCell(view, 'Alex'));
     mouseup();
 
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 2, col: 0 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 2, col: 0 }, anchorCaretOffset: 0 });
   });
 
   it('multi-row x multi-column drag tracks the live head as the pointer crosses more cells', () => {
@@ -182,10 +182,10 @@ describe('beginCellDragTracking — click vs. drag', () => {
 
     mousedown(findCell(view, 'Vik'));
     moveOver(setTarget, findCell(view, 'Engineer')); // row 2, col 1 — first cross, arms the range
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 2, col: 1 }, anchorCaretOffset: 0 });
 
     moveOver(setTarget, findCell(view, 'Oslo')); // row 3, col 2 — live update
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 3, col: 2 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 3, col: 2 }, anchorCaretOffset: 0 });
     mouseup();
   });
 
@@ -197,7 +197,7 @@ describe('beginCellDragTracking — click vs. drag', () => {
     moveOver(setTarget, findCell(view, 'Vik')); // row 1, col 0
     mouseup();
 
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 3, col: 2 }, head: { row: 1, col: 0 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 3, col: 2 }, head: { row: 1, col: 0 }, anchorCaretOffset: 0 });
   });
 
   it('redundant mousemove events over the same already-current head do not dispatch again', () => {
@@ -243,7 +243,7 @@ describe('beginCellDragTracking — mutual exclusivity with row/column selection
     moveOver(setTarget, findCell(view, 'Sam'));
     mouseup();
 
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 2, col: 0 }, head: { row: 3, col: 0 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 2, col: 0 }, head: { row: 3, col: 0 }, anchorCaretOffset: 0 });
   });
 
   it('a range selection replaces an existing column selection', () => {
@@ -257,7 +257,7 @@ describe('beginCellDragTracking — mutual exclusivity with row/column selection
     moveOver(setTarget, findCell(view, 'Designer'));
     mouseup();
 
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 }, anchorCaretOffset: 0 });
   });
 
   it('clicking a cell after a range is selected clears the range and activates that cell', () => {
@@ -422,7 +422,7 @@ describe('beginCellDragTracking — focus after range promotion (regression)', (
     mousedown(findCell(view, 'Vik'));
     moveOver(setTarget, findCell(view, 'Designer'));
     mouseup();
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 }, anchorCaretOffset: 0 });
 
     dispatchKeyAtActiveElement('Backspace');
 
@@ -456,7 +456,7 @@ describe('beginCellDragTracking — focus after range promotion (regression)', (
 
     dispatchKeyAtActiveElement('Delete');
 
-    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 } });
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: from, anchor: { row: 1, col: 0 }, head: { row: 1, col: 1 }, anchorCaretOffset: 0 });
   });
 
   it('undo restores the cleared contents', () => {
@@ -473,5 +473,30 @@ describe('beginCellDragTracking — focus after range promotion (regression)', (
     undo(view);
 
     expect(view.state.doc.toString()).toBe(docBefore);
+  });
+});
+
+describe('beginCellDragTracking — range selection can include a ragged row\'s synthetic (padded) cell', () => {
+  it('dragging into the missing City cell of a ragged row includes it in the range, geometry unaffected by raggedness', () => {
+    const RAGGED_TABLE = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | Designer |\n| Alex | Engineer | Tokyo |';
+    const { view } = mountViewWithController(RAGGED_TABLE);
+    const setTarget = mockElementFromPoint();
+
+    const tableElBefore = view.dom.querySelector('table') as HTMLTableElement;
+    expect(tableElBefore.tBodies[0]!.rows[0]!.cells).toHaveLength(3); // rendered rectangular, City is an empty synthetic <td>
+
+    mousedown(findCell(view, 'Vik'));
+    // Activation rebuilds the table's own DOM (`tableWidgetField`'s own
+    // decoration rebuild) — re-query fresh afterward, never the
+    // pre-mousedown `raggedRow`/cell references (ADR-034's own "stale
+    // click-handler closures" bug class applies to a stale *test*
+    // reference just as much as production code).
+    const raggedRowAfter = (view.dom.querySelector('table') as HTMLTableElement).tBodies[0]!.rows[0]!;
+    moveOver(setTarget, raggedRowAfter.cells[2]!); // drag into the synthetic City cell
+
+    const current = selection(view);
+    expect(current?.kind).toBe('range');
+    expect(current).toMatchObject({ anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 } });
+    mouseup();
   });
 });

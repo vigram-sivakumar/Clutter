@@ -46,6 +46,28 @@ export type TableSelection =
       readonly tableFrom: number;
       readonly anchor: { readonly row: number; readonly col: number };
       readonly head: { readonly row: number; readonly col: number };
+      /**
+       * The anchor cell's own local caret offset (into its trimmed content,
+       * `tableGeometry.ts`'s `startOfCellContent`-relative — not a root
+       * document position), captured at the moment the drag gesture began
+       * (`tableCellRangeSelection.ts`'s own `beginCellDragTracking`) —
+       * `TableActiveCellController.activeAnchor`'s own caret was already
+       * correctly established there (by the same `mousedown`'s own
+       * `controller.activate()` call, click-coordinate-refined) before
+       * `deactivate()` discarded it to start the range. Reactivating the
+       * anchor later (typing while the range is selected —
+       * `tableRangeSelectionTyping.ts`) restores the caret to exactly
+       * where it was, not an arbitrary boundary.
+       *
+       * Optional, not required: every code path that actually *creates* a
+       * `range` selection (the one real producer, `tableCellRangeSelection.ts`)
+       * always sets it; test fixtures constructing a `TableSelection`
+       * object directly (most of this feature's own test suite) don't need
+       * to, and every reader of this field already falls back to a
+       * sensible default (content end) when it's absent — see
+       * `tableRangeSelectionTyping.ts`'s own doc comment.
+       */
+      readonly anchorCaretOffset?: number;
     };
 
 /**

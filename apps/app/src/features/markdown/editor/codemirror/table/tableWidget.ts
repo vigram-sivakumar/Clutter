@@ -3,9 +3,12 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import './tableWidget.css';
 import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
+import { findCellWrapper } from './tableBoundaryNavigation';
 import { beginCellDragTracking } from './tableCellRangeSelection';
+import { endOfCellContent, findAllTables, startOfCellContent } from './tableGeometry';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
+import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
 import {
   attachTableSelectionOverlayResize,
@@ -49,6 +52,17 @@ export interface TableCellData {
   readonly to: number;
   readonly rawFrom: number;
   readonly rawTo: number;
+  /**
+   * `true` only for a rendering-only, rectangular-padding entry
+   * (`tableWidgetField.ts`'s own `padRowCells`) a ragged row has no real
+   * source cell for yet — `from`/`to`/`rawFrom`/`rawTo` all collapse to the
+   * row's own end. `buildRow`'s own `mousedown` handler checks this before
+   * activating: a synthetic cell must be materialized into real source
+   * first (`tableRectangularNormalization.ts`'s own `ensureRectangularCellBounds`)
+   * — activating it directly would let the nested editor's own forward-to-
+   * root path insert raw, pipe-less text.
+   */
+  readonly synthetic?: boolean;
 }
 
 /**
@@ -618,6 +632,41 @@ export class TableWidget extends WidgetType {
             // event.clientY }` *inside* `activate()`, once that DOM is
             // real, via `EditorView.posAtCoords`; see that method's own
             // `clickCoords` doc comment.
+            //
+            // A `synthetic` cell (rectangular-invariant padding,
+            // `tableWidgetField.ts`'s own `padRowCells`) has no real source
+            // to activate yet — `cell.from`/`.to` both collapse to the
+            // row's own end, with no delimiters around them.
+            // `ensureRectangularCellBounds` materializes the row for real
+            // first (its own dispatch), then this re-resolves the click's
+            // own target cell and mount wrapper fresh against the
+            // now-current state — the same "never trust a range/DOM node
+            // captured before an edit" discipline every other activation
+            // path in this codebase already follows, required here because
+            // that dispatch itself rebuilds `tableWidgetField`'s own
+            // decorations, replacing this exact `wrapper` (ADR-034's own
+            // "stale click-handler closures" bug class).
+            if (cell.synthetic) {
+              const table = findAllTables(view.state).find((t) => t.from === this.tableFrom);
+              const resolved = table ? ensureRectangularCellBounds(view, table, rowIndex, columnIndex) : null;
+              if (!resolved) {
+                return;
+              }
+              const freshWrapper = findCellWrapper(
+                view,
+                resolved.table.from,
+                rowIndex === 0 ? 'header' : 'body',
+                rowIndex === 0 ? 0 : rowIndex - 1,
+                columnIndex
+              );
+              if (!freshWrapper) {
+                return;
+              }
+              const range = { from: startOfCellContent(view.state, resolved.bounds), to: endOfCellContent(view.state, resolved.bounds) };
+              controller.activate(view, freshWrapper, range.from, range.to, range.to, { x: event.clientX, y: event.clientY });
+              beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
+              return;
+            }
             controller.activate(view, wrapper, cell.from, cell.to, cell.to, { x: event.clientX, y: event.clientY });
             beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
           });

@@ -1,4 +1,8 @@
-/*
+:root {
+  --cm-table-border-radius: 0px;
+  --cm-table-border-color: var(--border-stronger);
+  --cm-table-border-thickness: 0.5px;
+} /*
  * Real HTML `<table>` projection styling (Architecture E, ADR-034 — see
  * `tableWidget.ts`'s own doc comment for the DOM structure this keys off:
  * `.cm-table-widget` > `.cm-table-wrapper` > `table` > `th`/`td` >
@@ -23,12 +27,11 @@
 .cm-editor .cm-table-wrapper {
   /* Single source of truth for the border width — referenced by
    * `tableHandleOverlay.css`'s own centerline math (`calc(-1 *
-   * var(--cm-table-border-width) / 2)`) so the column/row handle offset
+   * var(--cm-table-border-thickness) / 2)`) so the column/row handle offset
    * stays correct if this value ever changes, without a second place to
    * update. */
-  --cm-table-border-width: 1px;
-  border: var(--cm-table-border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-radius: var(--cm-table-border-radius);
   /* Anchor for the column/row hover-handle overlay (`tableHandleOverlay.ts`)
    * — its handles are absolutely-positioned children of this element so
    * they can extend past its own border without affecting table layout.
@@ -129,8 +132,8 @@
 
 .cm-editor .cm-table-wrapper th,
 .cm-editor .cm-table-wrapper td {
-  border-bottom: 1px solid var(--border-default);
-  border-right: 1px solid var(--border-default);
+  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-right: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
   padding: var(--space-6) var(--space-12);
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
@@ -149,7 +152,7 @@
 
 .cm-editor .cm-table-wrapper thead th {
   font-weight: var(--fw-regular);
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
   color: var(--foreground-tertiary);
   background: var(--surface-secondary);
 }
