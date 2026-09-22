@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { history, undoDepth } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { TableActiveCellController } from './tableActiveCellController';
 import { attachTableHandleOverlay, resolveHoveredCell } from './tableHandleOverlay';
+import { tableSelectionDeletionHistory } from './tableSelectionDeletion';
 import { tableSelectionField } from './tableSelection';
 
 const mountedViews: EditorView[] = [];
@@ -654,5 +656,221 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     hoverBodyCell(wrapper, table, 0, 0);
 
     expect(onMenuChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
+  /** A root view whose real document is an actual Markdown table (unlike `mountRootView`'s throwaway doc) — needed here because a completed drag dispatches a real `moveSelectedRowToIndex`/`moveSelectedColumnToIndex` transaction against `view.state`, not just a `TableSelection` value. `history()` is installed so undo/redo can be exercised. */
+  function mountRootViewWithTable(doc: string): { view: EditorView; controller: TableActiveCellController } {
+    const controller = new TableActiveCellController();
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({ doc, extensions: [markdownLanguageExtension(), tableSelectionField, tableSelectionDeletionHistory(), history()] }),
+      parent,
+    });
+    mountedViews.push(view);
+    return { view, controller };
+  }
+
+  const FOUR_ROWS = '| Name | Role |\n| --- | --- |\n| A | 1 |\n| B | 2 |\n| C | 3 |';
+
+  /** Distinct, non-zero rects for every row (header + 3 body), 40px tall each starting at `top`, so `resolveRowTargetIndex`'s own nearest-midpoint search has real geometry to work with — jsdom's default all-zero rects would make every row equidistant. Row `i`'s own midpoint is `top + i * 40 + 20`. */
+  function mockRowRects(table: HTMLTableElement, top = 0): void {
+    for (let i = 0; i < table.rows.length; i++) {
+      const row = table.rows[i]!;
+      const rowTop = top + i * 40;
+      row.getBoundingClientRect = () => ({ top: rowTop, height: 40, bottom: rowTop + 40, left: 0, right: 0, width: 0, x: 0, y: rowTop, toJSON: () => ({}) }) as DOMRect;
+    }
+  }
+
+  function mockWrapperRect(wrapper: HTMLElement, rect: { top: number; left: number; width: number; height: number }): void {
+    wrapper.getBoundingClientRect = () =>
+      ({ top: rect.top, left: rect.left, width: rect.width, height: rect.height, right: rect.left + rect.width, bottom: rect.top + rect.height, x: rect.left, y: rect.top, toJSON: () => ({}) }) as DOMRect;
+  }
+
+  function hoverBodyCell(wrapper: HTMLElement, table: HTMLTableElement, rowIndexInBody: number, columnIndex: number): void {
+    const row = table.querySelectorAll('tbody tr')[rowIndexInBody]!;
+    const cell = row.children[columnIndex]!;
+    const event = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(event, 'target', { value: cell });
+    wrapper.dispatchEvent(event);
+  }
+
+  /** `pointerdown`/`pointermove`/`pointerup` dispatched as plain `MouseEvent`s carrying `clientX`/`clientY`/`button` — jsdom event dispatch matches listeners by the event's own `type` string, not its constructor, and `handlePointerDown`/`handlePointerMove` (`tableHandleOverlay.ts`) only ever read those three properties, all present on `MouseEvent` too, so this is a faithful stand-in for a real `PointerEvent` without depending on this jsdom version's own support for that constructor. */
+  function pointer(type: string, el: EventTarget, x: number, y: number): void {
+    el.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true }));
+  }
+
+  function click(el: Element): void {
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  }
+
+  /** Same re-parenting `embedInViewDom` (the "opening the handle menu" describe block, above) uses — needed only by the two tests below that check whether the menu-change callback fires, since that path re-resolves its own anchor from `view.dom`. */
+  function embedInViewDom(view: EditorView, wrapper: HTMLElement, tableFromValue: number): void {
+    const widget = document.createElement('div');
+    widget.className = 'cm-table-widget';
+    widget.dataset.tableFrom = String(tableFromValue);
+    widget.appendChild(wrapper);
+    view.dom.appendChild(widget);
+  }
+
+  it('dragging a body row down past the threshold moves it, and the moved row remains selected', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0); // "A" row -> rowIndex 1
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60); // row 1's own midpoint (top 40 + 20)
+    pointer('pointermove', document, 10, 140); // row 3's own midpoint (top 120 + 20) — well past the threshold
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| B | 2 |\n| C | 3 |\n| A | 1 |');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 3 });
+  });
+
+  it('dragging the header row down promotes the row it lands on top of, and the header remains selected at its new (demoted) index', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    const headerCell = table.querySelector('thead th')!;
+    const hoverEvent = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(hoverEvent, 'target', { value: headerCell });
+    wrapper.dispatchEvent(hoverEvent); // rowIndex 0
+
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 20); // row 0's own midpoint
+    pointer('pointermove', document, 10, 100); // row 2's own midpoint
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 100, button: 0, bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe('| A | 1 |\n| --- | --- |\n| B | 2 |\n| Name | Role |\n| C | 3 |');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
+  });
+
+  it('a drag that never crosses the threshold does not move anything, and the ordinary click that follows still opens the menu', async () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    embedInViewDom(view, wrapper, TEST_TABLE_FROM);
+    const onMenuChange = vi.fn();
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
+
+    hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 11, 61); // 1px jitter, under DRAG_THRESHOLD_PX
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 11, clientY: 61, button: 0, bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS); // untouched — no drag ever started
+
+    click(rowHit);
+    // The row click handler's own menu-open call is deferred to a
+    // microtask (see `attachTableHandleOverlay`'s own row-click doc
+    // comment) — awaiting one lets it run before asserting.
+    await Promise.resolve();
+
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 });
+    expect(onMenuChange).toHaveBeenCalledOnce(); // the ordinary click still opens the menu, exactly as before
+  });
+
+  it('a completed drag never opens the handle menu, and the click that follows it is suppressed', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    embedInViewDom(view, wrapper, TEST_TABLE_FROM);
+    const onMenuChange = vi.fn();
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
+
+    hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140);
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+    expect(onMenuChange).not.toHaveBeenCalled();
+
+    // The browser's own trailing `click` (mousedown+mouseup both landed on
+    // `rowHit`) — must be swallowed, not treated as a fresh ordinary click.
+    click(rowHit);
+
+    expect(onMenuChange).not.toHaveBeenCalled();
+  });
+
+  it('dragging back to the same row is a no-op: the document is unchanged, but the row is still selected', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 1, 0); // "B" row -> rowIndex 2
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 100); // row 2's own midpoint
+    pointer('pointermove', document, 10, 140); // drag away, past the threshold...
+    pointer('pointermove', document, 10, 100); // ...then back to the exact same row
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 100, button: 0, bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
+  });
+
+  it('a completed drag reorder is exactly one undo step', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    const depthBefore = undoDepth(view.state);
+
+    hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140);
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+
+    expect(undoDepth(view.state)).toBe(depthBefore + 1);
+  });
+
+  it('column drag: dragging the first column past the threshold moves it to the target column', () => {
+    const doc = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |';
+    const { view, controller } = mountRootViewWithTable(doc);
+    const { wrapper, table } = buildTable(1, 3);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 300, height: 100 }); // 3 columns, 100px each
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0); // "a" cell -> columnIndex 0
+    const columnHit = wrapper.querySelector('.cm-table-column-handle-hit')!;
+    pointer('pointerdown', columnHit, 50, 10); // column 0's own midpoint
+    pointer('pointermove', document, 250, 10); // column 2's own midpoint
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 250, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe('| B | C | A |\n| --- | --- | --- |\n| b | c | a |');
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
+  });
+
+  it('a drag beginning while a cell is active deactivates it (no lingering nested editor)', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    controller.activate(view, container, 0, 4, 0);
+    expect(controller.activeAnchor).not.toBeNull();
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140); // crosses the threshold
+
+    expect(controller.activeAnchor).toBeNull();
+    expect(controller.nestedView!.dom.parentElement).toBeNull();
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
   });
 });

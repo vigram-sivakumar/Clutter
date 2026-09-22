@@ -11,7 +11,9 @@ import {
   columnMoveAvailability,
   moveSelectedColumnLeft,
   moveSelectedColumnRight,
+  moveSelectedColumnToIndex,
   moveSelectedRowDown,
+  moveSelectedRowToIndex,
   moveSelectedRowUp,
   resolveColumnMoveAvailability,
   resolveRowMoveAvailability,
@@ -548,5 +550,282 @@ describe('resolveColumnMoveAvailability', () => {
   it('returns null when the table cannot be found', () => {
     const view = mountRootView(THREE_COLS);
     expect(resolveColumnMoveAvailability(view, { kind: 'column', tableFrom: 9999, columnIndex: 0 })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// moveSelectedRowToIndex / moveSelectedColumnToIndex — drag-to-reorder engine
+// (arbitrary-distance moves; tableHandleOverlay.ts's own drag gesture calls
+// these directly once the pointer settles on a target index)
+// ---------------------------------------------------------------------------
+
+const FOUR_ROWS = '| Name | Role |\n| --- | --- |\n| A | 1 |\n| B | 2 |\n| C | 3 |\n| D | 4 |';
+
+describe('moveSelectedRowToIndex — body-only range moves', () => {
+  it('first body row to a middle position', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 }); // A
+
+    const handled = moveSelectedRowToIndex(view, currentSelection(view)!, 3);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| B | 2 |\n| C | 3 |\n| A | 1 |\n| D | 4 |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 3 });
+  });
+
+  it('a middle body row to the first body position', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 3 }); // C
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 1);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| C | 3 |\n| A | 1 |\n| B | 2 |\n| D | 4 |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+  });
+
+  it('a middle body row to the last position', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 2 }); // B
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 4);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| A | 1 |\n| C | 3 |\n| D | 4 |\n| B | 2 |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 4 });
+  });
+
+  it('the last body row to the first body position', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 4 }); // D
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 1);
+
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| D | 4 |\n| A | 1 |\n| B | 2 |\n| C | 3 |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+  });
+});
+
+describe('moveSelectedRowToIndex — crossing the header/body boundary over any distance', () => {
+  it('dragging the header all the way to the last position demotes it to the last body row', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 }); // header
+
+    const handled = moveSelectedRowToIndex(view, currentSelection(view)!, 4);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| A | 1 |\n| --- | --- |\n| B | 2 |\n| C | 3 |\n| D | 4 |\n| Name | Role |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 4 });
+  });
+
+  it('dragging the last body row all the way to the header position promotes it', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 4 }); // D
+
+    const handled = moveSelectedRowToIndex(view, currentSelection(view)!, 0);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| D | 4 |\n| --- | --- |\n| Name | Role |\n| A | 1 |\n| B | 2 |\n| C | 3 |');
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+  });
+
+  it('the delimiter/alignment row is untouched across a multi-row header crossing', () => {
+    const doc = '| Name | Role |\n| :-- | --: |\n| A | 1 |\n| B | 2 |\n| C | 3 |';
+    const view = mountRootView(doc);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 3);
+
+    expect(view.state.doc.toString()).toBe('| A | 1 |\n| :-- | --: |\n| B | 2 |\n| C | 3 |\n| Name | Role |');
+  });
+
+  it('keeps the table rectangular after a multi-row header crossing', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 3);
+
+    expect(view.state.doc.toString().split('\n')).toHaveLength(6);
+  });
+});
+
+describe('moveSelectedRowToIndex — no-op and guards', () => {
+  it('dragging to the same position is a no-op: unchanged document, selection stays put', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 2 });
+
+    const handled = moveSelectedRowToIndex(view, currentSelection(view)!, 2);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS);
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 2 });
+  });
+
+  it('returns false for a column selection', () => {
+    const view = mountRootView(FOUR_ROWS);
+    expect(moveSelectedRowToIndex(view, { kind: 'column', tableFrom: 0, columnIndex: 0 }, 2)).toBe(false);
+  });
+
+  it('returns false when the table can no longer be found', () => {
+    const view = mountRootView(FOUR_ROWS);
+    expect(moveSelectedRowToIndex(view, { kind: 'row', tableFrom: 9999, rowIndex: 1 }, 2)).toBe(false);
+  });
+
+  it('returns false for an out-of-range target index', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+    expect(moveSelectedRowToIndex(view, currentSelection(view)!, 99)).toBe(false);
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS);
+  });
+});
+
+describe('moveSelectedRowToIndex — undo/redo', () => {
+  it('a multi-position drag is exactly one undo step', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 1 });
+    const depthBefore = undoDepth(view.state);
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 4);
+    const afterMove = view.state.doc.toString();
+    expect(afterMove).not.toBe(FOUR_ROWS);
+    expect(undoDepth(view.state)).toBe(depthBefore + 1);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS);
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe(afterMove);
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 4 });
+  });
+
+  it('undo/redo across a header-crossing drag restores document and selection on both sides', () => {
+    const view = mountRootView(FOUR_ROWS);
+    selectTable(view, { kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    moveSelectedRowToIndex(view, currentSelection(view)!, 3);
+    const afterMove = view.state.doc.toString();
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(FOUR_ROWS);
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe(afterMove);
+    expect(currentSelection(view)).toEqual({ kind: 'row', tableFrom: 0, rowIndex: 3 });
+  });
+});
+
+const FOUR_COLS = '| A | B | C | D |\n| --- | --- | --- | --- |\n| a | b | c | d |';
+
+describe('moveSelectedColumnToIndex — range moves', () => {
+  it('first column to a middle position', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    const handled = moveSelectedColumnToIndex(view, currentSelection(view)!, 2);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe('| B | C | A | D |\n| --- | --- | --- | --- |\n| b | c | a | d |');
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 2 });
+  });
+
+  it('a middle column to the first position', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 2 });
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 0);
+
+    expect(view.state.doc.toString()).toBe('| C | A | B | D |\n| --- | --- | --- | --- |\n| c | a | b | d |');
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+  });
+
+  it('a middle column to the last position', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 3);
+
+    expect(view.state.doc.toString()).toBe('| A | C | D | B |\n| --- | --- | --- | --- |\n| a | c | d | b |');
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 3 });
+  });
+
+  it('the last column to the first position', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 3 });
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 0);
+
+    expect(view.state.doc.toString()).toBe('| D | A | B | C |\n| --- | --- | --- | --- |\n| d | a | b | c |');
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+  });
+
+  it('preserves alignment markers across a range move', () => {
+    const doc = '| A | B | C |\n| :-- | :-: | --: |\n| a | b | c |';
+    const view = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 2);
+
+    expect(view.state.doc.toString()).toBe('| B | C | A |\n| :-: | --: | :-- |\n| b | c | a |');
+  });
+
+  it('preserves escaped pipes across a range move', () => {
+    const doc = '| A | B | C |\n| --- | --- | --- |\n| a \\| x | b | c |';
+    const view = mountRootView(doc);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 2);
+
+    expect(view.state.doc.toString()).toBe('| B | C | A |\n| --- | --- | --- |\n| b | c | a \\| x |');
+  });
+});
+
+describe('moveSelectedColumnToIndex — no-op and guards', () => {
+  it('dragging to the same position is a no-op: unchanged document, selection stays put', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    const handled = moveSelectedColumnToIndex(view, currentSelection(view)!, 1);
+
+    expect(handled).toBe(true);
+    expect(view.state.doc.toString()).toBe(FOUR_COLS);
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+  });
+
+  it('returns false for a row selection', () => {
+    const view = mountRootView(FOUR_COLS);
+    expect(moveSelectedColumnToIndex(view, { kind: 'row', tableFrom: 0, rowIndex: 0 }, 2)).toBe(false);
+  });
+
+  it('returns false when the table can no longer be found', () => {
+    const view = mountRootView(FOUR_COLS);
+    expect(moveSelectedColumnToIndex(view, { kind: 'column', tableFrom: 9999, columnIndex: 0 }, 2)).toBe(false);
+  });
+
+  it('returns false for an out-of-range target index', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+    expect(moveSelectedColumnToIndex(view, currentSelection(view)!, 99)).toBe(false);
+    expect(view.state.doc.toString()).toBe(FOUR_COLS);
+  });
+});
+
+describe('moveSelectedColumnToIndex — undo/redo', () => {
+  it('a multi-position drag is exactly one undo step', () => {
+    const view = mountRootView(FOUR_COLS);
+    selectTable(view, { kind: 'column', tableFrom: 0, columnIndex: 0 });
+    const depthBefore = undoDepth(view.state);
+
+    moveSelectedColumnToIndex(view, currentSelection(view)!, 3);
+    const afterMove = view.state.doc.toString();
+    expect(afterMove).not.toBe(FOUR_COLS);
+    expect(undoDepth(view.state)).toBe(depthBefore + 1);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(FOUR_COLS);
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe(afterMove);
+    expect(currentSelection(view)).toEqual({ kind: 'column', tableFrom: 0, columnIndex: 3 });
   });
 });

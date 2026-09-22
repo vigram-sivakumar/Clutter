@@ -4,16 +4,63 @@ import './tableHandleOverlay.css';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { tableActiveCellChanged } from './tableActiveCellController';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
+import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
 import { tableSelectionChanged } from './tableSelection';
 
 /**
  * Column/row hover-handle overlay: shows on hover (one reusable element
  * pair per axis, repositioned rather than recreated per column/row — the
  * same shape `TableActiveCellController` already establishes for the
- * nested cell editor), and a press/release click on a handle selects that
- * whole column/row via `TableSelection` (`tableSelection.ts`). Drag,
- * reorder, and rectangular/multi-cell selection are later milestones —
- * not implemented here.
+ * nested cell editor), a press/release click on a handle selects that
+ * whole column/row via `TableSelection` (`tableSelection.ts`) and opens its
+ * menu, and a press-move-release past a small threshold instead drags that
+ * row/column to a new position (§ "Drag-to-reorder" below).
+ * Rectangular/multi-cell selection remains a later milestone.
+ *
+ * **Drag-to-reorder.** `pointerdown` on a handle's hit area starts tracking
+ * (only when a row/column is already hovered/tracked — the same guard the
+ * click handlers themselves use); `pointermove` past `DRAG_THRESHOLD_PX` on
+ * the gesture's own axis promotes it to a real drag — `controller
+ * .deactivate()` runs immediately (a *local* DOM-only operation, no
+ * `view.dispatch` — see below for why that distinction matters), and a
+ * thin drop indicator appears showing where the row/column would land.
+ * Releasing commits the move in exactly one transaction, reusing
+ * `tableRowColumnMove.ts`'s own `moveSelectedRowToIndex`/
+ * `moveSelectedColumnToIndex` — the identical engine `TableHandleMenu.tsx`'s
+ * "Move up"/"Move down"/"Move left"/"Move right" items already use for a
+ * ±1 step, generalized to any distance (that module's own top doc
+ * comment). No second reorder implementation exists anywhere in this
+ * feature.
+ *
+ * **Why nothing is `view.dispatch`ed until the drag actually commits.**
+ * `TableWidget.eq()` (`tableWidget.ts`) — and therefore whether CM6 tears
+ * down and rebuilds this exact table's whole DOM subtree via a fresh
+ * `toDOM()` call — compares `TableSelection`'s own selected row/column
+ * index and the active cell's own anchor on *every* dispatched transaction
+ * that touches either. `attachTableHandleOverlay` itself is called fresh
+ * on every such rebuild (this doc comment's own next paragraph). A
+ * mid-drag dispatch (e.g. selecting the dragged row the instant the
+ * threshold is crossed) would therefore destroy `wrapper` — and every
+ * element this drag session is manipulating (`column`/`row`, the drop
+ * indicators) — out from under the very gesture in progress, the instant
+ * it fired. So the whole drag lives as transient, local closure state
+ * (`dragSession`, below) with zero CM6 involvement until `pointerup`
+ * dispatches the one commit transaction — deliberately, not an oversight
+ * ("Keep the drag state transient; do not put pointer-position state into
+ * the document/state field unless there is a concrete reason" — there is
+ * no such reason here).
+ *
+ * **Distinguishing a drag from an ordinary click.** A real `click` event
+ * still fires after a `pointerdown`+`pointermove`+`pointerup` sequence as
+ * long as `pointerup` lands back on (or near) the same hit element — which
+ * it usually does here, since the drop indicator/target computation never
+ * moves the *handle* itself. Suppressing that trailing `click` is therefore
+ * not optional: `suppressNextClick` is set the instant a real drag (one
+ * that crossed the threshold) commits, and every `click` handler below
+ * checks and clears it first, before doing anything else. A press/release
+ * that never crosses the threshold never sets it, so an ordinary click's
+ * existing select-and-open-menu behavior (§ "Click-to-select" below) is
+ * completely unaffected — this is additive, not a rewrite of that path.
  *
  * Lives outside `<table>`'s own cell DOM entirely — appended as a sibling
  * of `.cm-table-scroll` inside `.cm-table-wrapper` (`tableWidget.ts`'s own
@@ -32,6 +79,9 @@ import { tableSelectionChanged } from './tableSelection';
  */
 
 const VISIBLE_CLASS = 'cm-table-handle-visible';
+
+/** Minimum pointer travel, in CSS pixels along the gesture's own axis (vertical for a row handle, horizontal for a column handle), before a press is treated as a drag rather than an eventual click. Small enough to feel immediate, large enough that an ordinary imprecise click never accidentally starts a drag. */
+const DRAG_THRESHOLD_PX = 4;
 
 export interface HoveredCellInfo {
   readonly columnIndex: number;
@@ -158,7 +208,11 @@ export function attachTableHandleOverlay(
 ): void {
   const column = createHandlePair('column');
   const row = createHandlePair('row');
-  wrapper.append(column.hit, column.visible, row.hit, row.visible);
+  const columnDropIndicator = document.createElement('div');
+  columnDropIndicator.className = 'cm-table-column-drop-indicator';
+  const rowDropIndicator = document.createElement('div');
+  rowDropIndicator.className = 'cm-table-row-drop-indicator';
+  wrapper.append(column.hit, column.visible, row.hit, row.visible, columnDropIndicator, rowDropIndicator);
 
   column.hit.addEventListener('mousedown', preventActivation);
   row.hit.addEventListener('mousedown', preventActivation);
@@ -202,6 +256,192 @@ export function attachTableHandleOverlay(
   function resolveTableElement(): HTMLTableElement | null {
     return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
   }
+
+  // ---------------------------------------------------------------------
+  // Drag-to-reorder (this file's own top doc comment, § "Drag-to-reorder")
+  // ---------------------------------------------------------------------
+
+  interface DragSession {
+    readonly axis: 'row' | 'column';
+    readonly startIndex: number;
+    targetIndex: number;
+    readonly startClientX: number;
+    readonly startClientY: number;
+    dragging: boolean;
+  }
+
+  let dragSession: DragSession | null = null;
+  // Set the instant a real drag (one that crossed `DRAG_THRESHOLD_PX`)
+  // commits — every `click` handler below checks and clears this first.
+  // See this file's own top doc comment, § "Distinguishing a drag from an
+  // ordinary click."
+  let suppressNextClick = false;
+
+  /** Column target purely from `clientX` against `wrapper`'s own bounds and `columnCount` — no per-cell measurement needed, mirroring `showColumn`'s own "even division, `table-layout: fixed`" reasoning (this function's own top doc comment). Clamped to a real column index even if the pointer strays outside the table entirely (a drag is free to leave the wrapper's own bounds mid-gesture). */
+  function resolveColumnTargetIndex(clientX: number): number {
+    const wrapperRect = wrapper.getBoundingClientRect();
+    if (wrapperRect.width <= 0) {
+      return dragSession?.targetIndex ?? 0;
+    }
+    const raw = Math.floor(((clientX - wrapperRect.left) / wrapperRect.width) * columnCount);
+    return Math.min(columnCount - 1, Math.max(0, raw));
+  }
+
+  /** Row target as "whichever row's own vertical midpoint `clientY` is nearest to" — the same native, thead+tbody-combined `rows` indexing `showRow`'s own doc comment already establishes as matching `getNavigableRows`'s convention exactly. Nearest-midpoint (not a containment test) so a pointer above the first row or below the last still resolves to a real, in-range index rather than `null`. */
+  function resolveRowTargetIndex(clientY: number): number {
+    const tableEl = resolveTableElement();
+    if (!tableEl || tableEl.rows.length === 0) {
+      return dragSession?.targetIndex ?? 0;
+    }
+    let nearestIndex = 0;
+    let nearestDistance = Infinity;
+    for (let i = 0; i < tableEl.rows.length; i++) {
+      const rect = tableEl.rows[i]!.getBoundingClientRect();
+      const distance = Math.abs(clientY - (rect.top + rect.height / 2));
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    return nearestIndex;
+  }
+
+  function hideDropIndicators(): void {
+    columnDropIndicator.classList.remove(VISIBLE_CLASS);
+    rowDropIndicator.classList.remove(VISIBLE_CLASS);
+  }
+
+  /** Positions/shows the column drop indicator at the boundary the dragged column would land on — its *left* edge if `targetIndex` is left of `startIndex` (moving left), its *right* edge otherwise — or hides it entirely once `targetIndex === startIndex` (this drag would be a no-op right now, per the milestone's own "dragging within the same position is a no-op" requirement: nothing to indicate). Pure percentage math, symmetric to `resolveColumnTargetIndex`/`showColumn` — no measurement needed. */
+  function updateColumnDropIndicator(startIndex: number, targetIndex: number): void {
+    if (targetIndex === startIndex) {
+      columnDropIndicator.classList.remove(VISIBLE_CLASS);
+      return;
+    }
+    const boundaryIndex = targetIndex < startIndex ? targetIndex : targetIndex + 1;
+    columnDropIndicator.style.left = `${(boundaryIndex / columnCount) * 100}%`;
+    columnDropIndicator.classList.add(VISIBLE_CLASS);
+  }
+
+  /** Symmetric to `updateColumnDropIndicator`, for the row axis — top/bottom edge of `targetIndex`'s own row rather than a percentage, since row height is content-driven (`showRow`'s own doc comment gives the identical reasoning for why rows, unlike columns, need a real measurement). */
+  function updateRowDropIndicator(startIndex: number, targetIndex: number): void {
+    if (targetIndex === startIndex) {
+      rowDropIndicator.classList.remove(VISIBLE_CLASS);
+      return;
+    }
+    const tableEl = resolveTableElement();
+    const targetRow = tableEl?.rows[targetIndex];
+    if (!targetRow) {
+      rowDropIndicator.classList.remove(VISIBLE_CLASS);
+      return;
+    }
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const rowRect = targetRow.getBoundingClientRect();
+    const borderWidth = parseFloat(getComputedStyle(wrapper).borderTopWidth) || 0;
+    const edgeY = targetIndex < startIndex ? rowRect.top : rowRect.bottom;
+    rowDropIndicator.style.top = `${edgeY - wrapperRect.top - borderWidth}px`;
+    rowDropIndicator.classList.add(VISIBLE_CLASS);
+  }
+
+  function stopTrackingPointer(): void {
+    document.removeEventListener('pointermove', handlePointerMove);
+    document.removeEventListener('pointerup', handlePointerUp);
+    document.removeEventListener('pointercancel', handlePointerCancel);
+  }
+
+  /**
+   * Commits a completed drag — one transaction, reusing
+   * `tableRowColumnMove.ts`'s own `moveSelectedRowToIndex`/
+   * `moveSelectedColumnToIndex` for an actual move. A same-position drag
+   * (the pointer wandered past the threshold and back) is still a genuine
+   * gesture the user completed, so it still selects the row/column — the
+   * milestone's own "the moved row/column remains selected after the
+   * move" — just via a plain selection-only dispatch (no `changes`, never
+   * entering undo history), mirroring the click handlers' own
+   * `controller.deactivate()` + `tableActiveCellChanged`+`tableSelectionChanged`
+   * shape exactly. Never opens the handle menu either way — that stays
+   * exclusively the `click` handlers' own concern (§ "Click-to-select").
+   */
+  function commitDrag(axis: 'row' | 'column', startIndex: number, targetIndex: number): void {
+    controller.deactivate();
+    if (targetIndex === startIndex) {
+      const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
+      view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)] });
+      view.focus();
+      return;
+    }
+    const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
+    const moved = axis === 'row' ? moveSelectedRowToIndex(view, selection, targetIndex) : moveSelectedColumnToIndex(view, selection, targetIndex);
+    if (moved) {
+      view.focus();
+    }
+  }
+
+  function handlePointerMove(event: PointerEvent): void {
+    const session = dragSession;
+    if (!session) {
+      return;
+    }
+    if (!session.dragging) {
+      const primaryDelta = session.axis === 'row' ? event.clientY - session.startClientY : event.clientX - session.startClientX;
+      if (Math.abs(primaryDelta) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+      session.dragging = true;
+      // Local DOM-only cleanup — deliberately *not* paired with a
+      // `view.dispatch` here; see this file's own top doc comment, §
+      // "Why nothing is view.dispatch'ed until the drag actually commits."
+      controller.deactivate();
+    }
+    session.targetIndex = session.axis === 'row' ? resolveRowTargetIndex(event.clientY) : resolveColumnTargetIndex(event.clientX);
+    if (session.axis === 'row') {
+      updateRowDropIndicator(session.startIndex, session.targetIndex);
+    } else {
+      updateColumnDropIndicator(session.startIndex, session.targetIndex);
+    }
+  }
+
+  function handlePointerUp(): void {
+    const session = dragSession;
+    dragSession = null;
+    stopTrackingPointer();
+    hideDropIndicators();
+    if (!session) {
+      return;
+    }
+    if (!session.dragging) {
+      // Never crossed the threshold — an ordinary press/release. The
+      // native `click` event this same gesture is about to fire handles
+      // select-and-open-menu exactly as before; nothing to do here.
+      return;
+    }
+    suppressNextClick = true;
+    commitDrag(session.axis, session.startIndex, session.targetIndex);
+  }
+
+  function handlePointerCancel(): void {
+    dragSession = null;
+    stopTrackingPointer();
+    hideDropIndicators();
+  }
+
+  /** Starts tracking a possible drag from `axis`'s own hit area — declines (mirrors every click handler's own identical guard) when nothing is currently hovered/tracked on that axis, and ignores anything but a primary-button press. Actual drag-vs-click disambiguation happens in `handlePointerMove`/`handlePointerUp` above. */
+  function handlePointerDown(axis: 'row' | 'column', event: PointerEvent): void {
+    if (event.button > 0) {
+      return;
+    }
+    const startIndex = axis === 'row' ? currentRowIndex : currentColumnIndex;
+    if (startIndex === null) {
+      return;
+    }
+    suppressNextClick = false;
+    dragSession = { axis, startIndex, targetIndex: startIndex, startClientX: event.clientX, startClientY: event.clientY, dragging: false };
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerCancel);
+  }
+
+  column.hit.addEventListener('pointerdown', (event) => handlePointerDown('column', event as PointerEvent));
+  row.hit.addEventListener('pointerdown', (event) => handlePointerDown('row', event as PointerEvent));
 
   /**
    * This exact table's own *current* visible column/row handle element —
@@ -291,13 +531,15 @@ export function attachTableHandleOverlay(
     hideRow();
   });
 
-  // Click-to-select (this milestone's own scope — press/release only, no
-  // drag/threshold gesture yet; see `preventActivation`'s own mousedown
-  // listener above for why a *drag* can't accidentally reach root CM6 or
-  // the nested cell editor either way). `click` fires only when
-  // mousedown+mouseup land on the same element, which is exactly "a
-  // press/release, not a drag" for this milestone's own narrow scope
-  // (real drag-vs-click threshold disambiguation is explicitly deferred).
+  // Click-to-select. `click` fires whenever mousedown+mouseup land on (or
+  // near) the same element — true for an ordinary press/release *and* for
+  // a completed drag that happened to release back over its own handle, so
+  // each handler below checks `suppressNextClick` first (set by
+  // `handlePointerUp` the instant a real drag commits — see this file's
+  // own top doc comment, § "Distinguishing a drag from an ordinary
+  // click") before doing anything else. `preventActivation`'s own
+  // mousedown listener above still guarantees neither a click nor a drag
+  // can ever reach root CM6 or the nested cell editor.
   //
   // Both dispatches below share the same shape: `controller.deactivate()`
   // first (never a no-op to skip even when nothing is active — safe
@@ -346,6 +588,10 @@ export function attachTableHandleOverlay(
   column.hit.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
     if (currentColumnIndex === null) {
       return;
     }
@@ -371,6 +617,10 @@ export function attachTableHandleOverlay(
   row.hit.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
     if (currentRowIndex === null) {
       return;
     }
