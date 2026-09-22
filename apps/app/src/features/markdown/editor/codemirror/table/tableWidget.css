@@ -251,3 +251,45 @@
 .cm-editor .cm-table-wrapper thead tr.cm-table-row-selected > th {
   background: var(--surface-secondary);
 }
+
+/* Suppresses the browser's own native `::selection` painting anywhere
+ * inside this widget's rendered (inactive-cell) content — a root
+ * selection that merely intersects a table's source range must not
+ * additionally paint a native text-selection highlight behind cell text;
+ * the table already shows its own whole-table visual state
+ * (`.cm-table-wrapper-selected`, above) or its own explicit
+ * `TableSelection` overlay (`tableSelectionOverlay.css`) instead. Root
+ * cause, confirmed by reading the installed `@codemirror/view` source
+ * (`drawSelection()`'s own `hideNativeSelection` theme): CM6 already
+ * neutralizes native selection painting everywhere it manages document
+ * text, but scopes that neutralization to `.cm-line` specifically
+ * (`".cm-line": { "& ::selection, &::selection": { backgroundColor:
+ * "transparent !important" } }`) — a block-replace decoration (this
+ * widget: `Decoration.replace({widget, block: true})`,
+ * `tableWidgetField.ts`'s own `buildTableWidgetRange`) is never wrapped
+ * in a `.cm-line`, since it stands in for what used to be several real
+ * *lines* of Markdown, not one. The browser's real native Selection Range
+ * still spans this widget's actual rendered text nodes whenever the root
+ * selection covers it (CM6 doesn't remove the native selection, it only
+ * hides its paint via that `.cm-line`-scoped rule and draws its own
+ * `cm-selectionBackground` layer instead), so without an equivalent rule
+ * here the native highlight leaks straight through.
+ *
+ * **Deliberately not `!important`, and deliberately scoped to the whole
+ * widget rather than excluding the active cell's own nested editor by
+ * hand** — CM6's own `.cm-line` rule above already *is* `!important`,
+ * and an `!important` declaration always wins over a non-`!important` one
+ * regardless of selector specificity or source order. The active cell's
+ * nested `EditorView` (`TableActiveCellController`, mounted via the same
+ * `createEditorView()` factory the root editor uses, which always
+ * includes `drawSelection()`) has its own real `.cm-line`s and therefore
+ * already carries that exact `!important` rule for its own subtree — this
+ * plain rule can never override it, so the nested editor's own selection
+ * handling (drawn via its own `cm-selectionBackground` layer, not
+ * `::selection` at all) is completely unaffected either way. This rule
+ * only ever has an effect in the one place CM6 leaves unprotected: the
+ * static `renderInlineMarkdown` markup of an *inactive* cell, which has
+ * no `.cm-line` of its own for CM6's own rule to ever reach. */
+.cm-editor .cm-table-widget ::selection {
+  background: transparent;
+}
