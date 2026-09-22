@@ -32,6 +32,9 @@ import {
   resolveColumnMoveAvailability,
   resolveRowMoveAvailability,
 } from './codemirror/table/tableRowColumnMove';
+import { resolveColumnAlignment, setSelectedColumnAlignment } from './codemirror/table/tableSetColumnAlignment';
+import { normalizeTableAt } from './codemirror/table/tableColumnNormalization';
+import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -687,6 +690,38 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     insertColumnRightSelection(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  // "Align" (column handle menu) — reuses tableSetColumnAlignment.ts's own
+  // setSelectedColumnAlignment, one handler for all three leaves (Left/
+  // Center/Right) since the only difference between them is which
+  // TableColumnAlignment value to pass through — same "look up the
+  // current menu's own selection off state, view.focus() after" shape
+  // every other menu handler here uses.
+  const handleSetColumnAlignmentFromMenu = (alignment: TableColumnAlignment) => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    setSelectedColumnAlignment(view, tableHandleMenu.selection, alignment);
+    view.focus();
+  };
+
+  // "Format table" (row and column handle menu) — reuses
+  // tableColumnNormalization.ts's own explicit-trigger normalizeTableAt,
+  // the table-wide analogue of handleFormatFencedCode below: both are
+  // deliberately manual, menu-driven reformatting commands, never an
+  // automatic/per-keystroke one (see that module's own top doc comment for
+  // why). Table-wide, not row/column-scoped, so it appears identically in
+  // both the row and column handle menus and ignores which axis is
+  // selected — only tableHandleMenu.selection.tableFrom is used.
+  const handleFormatTableFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    normalizeTableAt(view, tableHandleMenu.selection.tableFrom);
     view.focus();
   };
 
@@ -1449,8 +1484,11 @@ export const MarkdownEditor = forwardRef<
         onInsertRowBelow={handleInsertRowBelowFromMenu}
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}
         onInsertColumnRight={handleInsertColumnRightFromMenu}
+        onSetColumnAlignment={handleSetColumnAlignmentFromMenu}
+        columnAlignment={tableHandleMenu && viewRef.current ? resolveColumnAlignment(viewRef.current, tableHandleMenu.selection) : null}
         onDeleteRow={handleDeleteRowFromMenu}
         onDeleteColumn={handleDeleteColumnFromMenu}
+        onFormatTable={handleFormatTableFromMenu}
         suppressReturnFocusRef={tableHandleMenuSuppressReturnFocusRef}
       />
       <FencedCodeActionsMenu

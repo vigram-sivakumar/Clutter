@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TableHandleMenu, type TableHandleMenuAnchor } from './TableHandleMenu';
+import type { TableColumnAlignment } from './tableAlignment';
 import type { TableHandleMenuSelection } from './tableHandleMenuSync';
 
 /**
@@ -59,12 +60,15 @@ function renderMenu(
       | 'onMoveColumnLeft'
       | 'onMoveColumnRight'
       | 'onDeleteRow'
-      | 'onDeleteColumn',
+      | 'onDeleteColumn'
+      | 'onFormatTable',
       () => void
     >
   > & {
     rowMoveAvailability?: { canMoveUp: boolean; canMoveDown: boolean } | null;
     columnMoveAvailability?: { canMoveLeft: boolean; canMoveRight: boolean } | null;
+    onSetColumnAlignment?: (alignment: TableColumnAlignment) => void;
+    columnAlignment?: TableColumnAlignment | null;
   } = {}
 ) {
   const anchorEl = document.body.appendChild(document.createElement('div'));
@@ -83,11 +87,14 @@ function renderMenu(
   const onInsertColumnRight = overrides.onInsertColumnRight ?? vi.fn();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
   const onDeleteColumn = overrides.onDeleteColumn ?? vi.fn();
+  const onFormatTable = overrides.onFormatTable ?? vi.fn();
+  const onSetColumnAlignment = overrides.onSetColumnAlignment ?? vi.fn();
   // `??` would collapse an explicitly-passed `null` (testing the "cannot be
   // resolved" case) back to the default — `in` distinguishes "not passed at
   // all" from "passed as null" the way `??` alone cannot.
   const rowMoveAvailability = 'rowMoveAvailability' in overrides ? (overrides.rowMoveAvailability ?? null) : { canMoveUp: true, canMoveDown: true };
   const columnMoveAvailability = 'columnMoveAvailability' in overrides ? (overrides.columnMoveAvailability ?? null) : { canMoveLeft: true, canMoveRight: true };
+  const columnAlignment = 'columnAlignment' in overrides ? (overrides.columnAlignment ?? null) : null;
 
   function Harness() {
     const suppressReturnFocusRef = useRef(false);
@@ -109,8 +116,11 @@ function renderMenu(
         onInsertRowBelow={onInsertRowBelow}
         onInsertColumnLeft={onInsertColumnLeft}
         onInsertColumnRight={onInsertColumnRight}
+        onSetColumnAlignment={onSetColumnAlignment}
+        columnAlignment={columnAlignment}
         onDeleteRow={onDeleteRow}
         onDeleteColumn={onDeleteColumn}
+        onFormatTable={onFormatTable}
         suppressReturnFocusRef={suppressReturnFocusRef}
       />
     );
@@ -128,10 +138,12 @@ function renderMenu(
     onMoveColumnRight,
     onInsertRowAbove,
     onInsertRowBelow,
+    onSetColumnAlignment,
     onInsertColumnLeft,
     onInsertColumnRight,
     onDeleteRow,
     onDeleteColumn,
+    onFormatTable,
   };
 }
 
@@ -192,6 +204,25 @@ describe('TableHandleMenu — "Delete row"/"Delete column" wiring', () => {
 
     expect(handlers.onDeleteColumn).toHaveBeenCalledTimes(1);
     expect(handlers.onDeleteRow).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableHandleMenu — "Format table" wiring', () => {
+  it('lists Format table for both a row and a column selection', () => {
+    renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+    expect(findMenuItem('Format table')).not.toBeNull();
+  });
+
+  it('clicking "Format table" calls onFormatTable for a row selection', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+    fireEvent.click(findMenuItem('Format table')!);
+    expect(handlers.onFormatTable).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking "Format table" calls onFormatTable for a column selection', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+    fireEvent.click(findMenuItem('Format table')!);
+    expect(handlers.onFormatTable).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -310,5 +341,83 @@ describe('TableHandleMenu — "Duplicate" wiring', () => {
 
     expect(handlers.onDuplicateColumn).toHaveBeenCalledTimes(1);
     expect(handlers.onDuplicateRow).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableHandleMenu — "Align" submenu wiring', () => {
+  it('lists "Align" for a column selection, but not for a row selection', () => {
+    renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+    expect(findMenuItem('Align')).not.toBeNull();
+
+    cleanup();
+
+    renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 0 });
+    expect(findMenuItem('Align')).toBeNull();
+  });
+
+  it('hovering "Align" opens a submenu listing Left/Center/Right', () => {
+    renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+
+    expect(findMenuItem('Left')).not.toBeNull();
+    expect(findMenuItem('Center')).not.toBeNull();
+    expect(findMenuItem('Right')).not.toBeNull();
+  });
+
+  it('clicking "Left" calls onSetColumnAlignment("left"), and only that callback', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+    fireEvent.click(findMenuItem('Left')!);
+
+    expect(handlers.onSetColumnAlignment).toHaveBeenCalledExactlyOnceWith('left');
+  });
+
+  it('clicking "Center" calls onSetColumnAlignment("center")', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+    fireEvent.click(findMenuItem('Center')!);
+
+    expect(handlers.onSetColumnAlignment).toHaveBeenCalledExactlyOnceWith('center');
+  });
+
+  it('clicking "Right" calls onSetColumnAlignment("right")', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+    fireEvent.click(findMenuItem('Right')!);
+
+    expect(handlers.onSetColumnAlignment).toHaveBeenCalledExactlyOnceWith('right');
+  });
+
+  it('selecting Align never calls the Duplicate/Insert/Delete/Clear callbacks', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 });
+
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+    fireEvent.click(findMenuItem('Center')!);
+
+    expect(handlers.onDuplicateColumn).not.toHaveBeenCalled();
+    expect(handlers.onClearContents).not.toHaveBeenCalled();
+    expect(handlers.onDeleteColumn).not.toHaveBeenCalled();
+  });
+
+  it('marks the leaf matching the column\'s current alignment as selected, and no leaf when there is none', () => {
+    renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 }, { columnAlignment: 'center' });
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+
+    expect(findMenuItem('Center')!.classList.contains('entry-selected')).toBe(true);
+    expect(findMenuItem('Left')!.classList.contains('entry-selected')).toBe(false);
+    expect(findMenuItem('Right')!.classList.contains('entry-selected')).toBe(false);
+
+    cleanup();
+
+    renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 }, { columnAlignment: null });
+    fireEvent.mouseEnter(findMenuItem('Align')!);
+
+    expect(findMenuItem('Left')!.classList.contains('entry-selected')).toBe(false);
+    expect(findMenuItem('Center')!.classList.contains('entry-selected')).toBe(false);
+    expect(findMenuItem('Right')!.classList.contains('entry-selected')).toBe(false);
   });
 });

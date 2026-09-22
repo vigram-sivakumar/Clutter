@@ -4,6 +4,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { OverflowMenuBody } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 
+import type { TableColumnAlignment } from './tableAlignment';
 import { TABLE_HANDLE_MENU_CLASS } from './tableSelection';
 import type { TableHandleMenuSelection } from './tableHandleMenuSync';
 
@@ -66,9 +67,15 @@ export interface TableHandleMenuProps {
    * menu is open, mirroring `selection`'s own "owned by the caller, not
    * this component" shape.
    */
-  readonly rowMoveAvailability: { canMoveUp: boolean; canMoveDown: boolean } | null;
+  readonly rowMoveAvailability: {
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+  } | null;
   /** Symmetric to `rowMoveAvailability`, for the column handle menu. */
-  readonly columnMoveAvailability: { canMoveLeft: boolean; canMoveRight: boolean } | null;
+  readonly columnMoveAvailability: {
+    canMoveLeft: boolean;
+    canMoveRight: boolean;
+  } | null;
   /** "Insert row above" — row-only this milestone; a no-op (item still renders/responds normally) when `selection` is a column, per `TableHandleMenu`'s own `handleSelect`. */
   readonly onInsertRowAbove: () => void;
   /** Symmetric to `onInsertRowAbove`, for "Insert row below." */
@@ -78,6 +85,31 @@ export interface TableHandleMenuProps {
   /** Symmetric to `onInsertColumnLeft`, for "Insert column right." */
   readonly onInsertColumnRight: () => void;
   /**
+   * "Align" (column handle menu only — no row equivalent, so this is a
+   * no-op when `selection` is a row) — reuses
+   * `tableSetColumnAlignment.ts`'s own `setSelectedColumnAlignment`, one
+   * shared callback for all three leaves (mirroring `onClearContents`'s
+   * own "one callback, the caller's own dispatch decides what to do"
+   * shape, not three separate props) since the only per-leaf difference is
+   * which `TableColumnAlignment` value to pass through.
+   */
+  readonly onSetColumnAlignment: (alignment: TableColumnAlignment) => void;
+  /**
+   * The selected column's own *current* alignment — drives which "Align"
+   * submenu leaf renders as the current choice
+   * (`OverflowMenuSubmenuItemConfig.selected`). `null` covers both "no
+   * explicit alignment" (GFM's own plain `---`, not the same as an
+   * explicit `left` — see `tableSetColumnAlignment.ts`'s own top doc
+   * comment) and "nothing to report" (a row selection, or a table/column
+   * that can no longer be resolved) — no leaf renders `selected` either
+   * way, which is correct for both: a plain `---` column has no explicit
+   * current choice to highlight, and there is no column at all to have
+   * one for a row selection. Computed by `MarkdownEditor.tsx` fresh on
+   * every render this menu is open, mirroring `rowMoveAvailability`'s own
+   * "owned by the caller" shape.
+   */
+  readonly columnAlignment: TableColumnAlignment | null;
+  /**
    * "Delete row" (`deleteRowSelection`, `tableSelectionDeletion.ts`) — a
    * no-op when `selection` is a column, matching
    * `onInsertColumnLeft`/`onInsertColumnRight`'s own row-side no-op.
@@ -85,6 +117,15 @@ export interface TableHandleMenuProps {
   readonly onDeleteRow: () => void;
   /** Symmetric to `onDeleteRow`, for "Delete column" (`deleteColumnSelection`). */
   readonly onDeleteColumn: () => void;
+  /**
+   * "Format table" — reuses `tableColumnNormalization.ts`'s own explicit
+   * `normalizeTableAt`, the table-wide analogue of `FencedCodeActionsMenu`'s
+   * own "Format code" (same manual-trigger-only model, same `brush` icon).
+   * Table-wide, not row/column-scoped — appears identically in both the row
+   * and column handle menus, since it acts on the whole table regardless of
+   * which axis is currently selected.
+   */
+  readonly onFormatTable: () => void;
   /**
    * Set to `true` immediately before this menu closes via an *external*
    * cause (the underlying `TableSelection` going `null` because of a cell
@@ -109,27 +150,118 @@ export interface TableHandleMenuProps {
 // already scoped to one axis (the row handle's own menu only ever acts on
 // rows, the column handle's only ever columns), so the noun is redundant
 // with which menu is even open.
-function buildRowItems(availability: { canMoveUp: boolean; canMoveDown: boolean } | null): OverflowMenuItemConfig[] {
+function buildRowItems(
+  availability: { canMoveUp: boolean; canMoveDown: boolean } | null
+): OverflowMenuItemConfig[] {
   return [
-    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-    { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
-    { id: 'move-up', label: 'Move up', icon: 'arrowUp', disabled: !availability?.canMoveUp },
-    { id: 'move-down', label: 'Move down', icon: 'arrowDown', disabled: !availability?.canMoveDown },
-    { id: 'insert-above', label: 'Insert above', icon: 'arrowUp', separatorBefore: true },
+    {
+      id: 'insert-above',
+      label: 'Insert above',
+      icon: 'arrowUp',
+    },
     { id: 'insert-below', label: 'Insert below', icon: 'arrowDown' },
-    { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
+    {
+      id: 'move-up',
+      label: 'Move up',
+      icon: 'moveUp',
+      disabled: !availability?.canMoveUp,
+      separatorBefore: true,
+    },
+    {
+      id: 'move-down',
+      label: 'Move down',
+      icon: 'moveDown',
+      disabled: !availability?.canMoveDown,
+    },
+    {
+      id: 'duplicate',
+      label: 'Duplicate',
+      icon: 'copy',
+      separatorBefore: true,
+    },
+    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+    {
+      id: 'format',
+      label: 'Format table',
+      icon: 'brush',
+      separatorBefore: true,
+    },
+    {
+      id: 'delete',
+      label: 'Delete row',
+      icon: 'trash',
+    },
   ];
 }
 
-function buildColumnItems(availability: { canMoveLeft: boolean; canMoveRight: boolean } | null): OverflowMenuItemConfig[] {
+/** The "Align" submenu's own three leaves — `selected` marks whichever matches `currentAlignment` (`resolveColumnAlignment`, `tableSetColumnAlignment.ts`); none does for `null` (no explicit alignment set, or nothing to report — see `TableHandleMenuProps.columnAlignment`'s own doc comment), which is the correct "no current choice to highlight" rendering for that case, not a bug. */
+function buildAlignSubmenu(
+  currentAlignment: TableColumnAlignment | null
+): OverflowMenuItemConfig['submenu'] {
   return [
-    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-    { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
-    { id: 'move-left', label: 'Move left', icon: 'arrowLeft', disabled: !availability?.canMoveLeft },
-    { id: 'move-right', label: 'Move right', icon: 'arrowRight', disabled: !availability?.canMoveRight },
-    { id: 'insert-left', label: 'Insert left', icon: 'arrowLeft', separatorBefore: true },
+    { id: 'align-left', label: 'Left', selected: currentAlignment === 'left' },
+    {
+      id: 'align-center',
+      label: 'Center',
+      selected: currentAlignment === 'center',
+    },
+    {
+      id: 'align-right',
+      label: 'Right',
+      selected: currentAlignment === 'right',
+    },
+  ];
+}
+
+function buildColumnItems(
+  availability: { canMoveLeft: boolean; canMoveRight: boolean } | null,
+  currentAlignment: TableColumnAlignment | null
+): OverflowMenuItemConfig[] {
+  return [
+    {
+      id: 'insert-left',
+      label: 'Insert left',
+      icon: 'arrowLeft',
+    },
     { id: 'insert-right', label: 'Insert right', icon: 'arrowRight' },
-    { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
+    {
+      id: 'move-left',
+      label: 'Move left',
+      icon: 'moveLeft',
+      disabled: !availability?.canMoveLeft,
+      separatorBefore: true,
+    },
+    {
+      id: 'move-right',
+      label: 'Move right',
+      icon: 'moveRight',
+      disabled: !availability?.canMoveRight,
+    },
+    {
+      id: 'align',
+      label: 'Align',
+      icon: 'multiLine',
+      separatorBefore: true,
+      submenu: buildAlignSubmenu(currentAlignment),
+    },
+    {
+      id: 'duplicate',
+      label: 'Duplicate',
+      icon: 'copy',
+      separatorBefore: true,
+    },
+    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+    {
+      id: 'format',
+      label: 'Format table',
+      icon: 'brush',
+      separatorBefore: true,
+    },
+    {
+      id: 'delete',
+      label: 'Delete column',
+      icon: 'trash',
+    },
   ];
 }
 
@@ -146,6 +278,12 @@ function buildColumnItems(availability: { canMoveLeft: boolean; canMoveRight: bo
  * Insert above / Insert left
  * Insert below / Insert right
  * ───────────────
+ * Align ›            (column handle only)
+ *   Left
+ *   Center
+ *   Right
+ * ───────────────
+ * Format table
  * Delete row / Delete column
  * ```
  *
@@ -204,11 +342,17 @@ export function TableHandleMenu({
   onInsertRowBelow,
   onInsertColumnLeft,
   onInsertColumnRight,
+  onSetColumnAlignment,
+  columnAlignment,
   onDeleteRow,
   onDeleteColumn,
+  onFormatTable,
   suppressReturnFocusRef,
 }: TableHandleMenuProps) {
-  const items = selection?.kind === 'column' ? buildColumnItems(columnMoveAvailability) : buildRowItems(rowMoveAvailability);
+  const items =
+    selection?.kind === 'column'
+      ? buildColumnItems(columnMoveAvailability, columnAlignment)
+      : buildRowItems(rowMoveAvailability);
 
   function handleSelect(id: string) {
     if (id === 'clear') {
@@ -233,10 +377,18 @@ export function TableHandleMenu({
       onInsertColumnLeft();
     } else if (id === 'insert-right') {
       onInsertColumnRight();
+    } else if (id === 'align-left') {
+      onSetColumnAlignment('left');
+    } else if (id === 'align-center') {
+      onSetColumnAlignment('center');
+    } else if (id === 'align-right') {
+      onSetColumnAlignment('right');
     } else if (id === 'delete' && selection?.kind === 'row') {
       onDeleteRow();
     } else if (id === 'delete' && selection?.kind === 'column') {
       onDeleteColumn();
+    } else if (id === 'format') {
+      onFormatTable();
     }
   }
 
@@ -252,7 +404,6 @@ export function TableHandleMenu({
     >
       <OverflowMenuBody
         items={items}
-        size="small"
         onSelect={handleSelect}
         onOpenChange={(open) => {
           if (!open) {
@@ -260,6 +411,7 @@ export function TableHandleMenu({
           }
         }}
         suppressReturnFocusRef={suppressReturnFocusRef}
+        submenuClassName={TABLE_HANDLE_MENU_CLASS}
       />
     </Overlay>
   );

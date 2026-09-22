@@ -3,7 +3,7 @@ import { ChangeSet, EditorState, type Extension, type TransactionSpec } from '@c
 import type { SyntaxNode } from '@lezer/common';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { splitPipeRowCells } from './tableAlignment';
+import { buildDelimiterCellText, cellGapWidth, splitPipeRowCells } from './tableAlignment';
 import { buildWidthMatchedRowText, findEnclosingTable } from './tableGeometry';
 
 /**
@@ -128,7 +128,7 @@ function isInsideExcludedBlock(state: EditorState, pos: number): boolean {
  * this module's own header comment).
  */
 function computeColumnWidths(headerLineText: string): number[] {
-  return splitPipeRowCells(headerLineText).map((cell) => Math.max(1, cell.length) + 2);
+  return splitPipeRowCells(headerLineText).map((cell) => cellGapWidth(cell));
 }
 
 /**
@@ -153,9 +153,8 @@ function canonicalDelimiterRowText(delimiterRowText: string, widths: readonly nu
     const raw = rawCells[i] ?? '';
     const left = raw.startsWith(':');
     const right = raw.endsWith(':');
-    const colonCount = (left ? 1 : 0) + (right ? 1 : 0);
-    const dashCount = Math.max(1, width - 2 - colonCount);
-    return (left ? ':' : '') + '-'.repeat(dashCount) + (right ? ':' : '');
+    const alignment = left && right ? 'center' : right ? 'right' : left ? 'left' : null;
+    return buildDelimiterCellText(alignment, width);
   });
   return '| ' + cells.join(' | ') + ' |';
 }

@@ -70,3 +70,55 @@ export function parseTableAlignment(delimiterRowText: string): TableColumnAlignm
     return null;
   });
 }
+
+/**
+ * A cell's own target **total gap width** — padding included, the unit
+ * `padCellContent`/`buildWidthMatchedRowText`/`buildDelimiterCellText`
+ * (`tableGeometry.ts`, below) all work in: `" Name "` is 6
+ * (`Math.max(1, "Name".length) + 2`). Shared by `tableActivationNormalization.ts`'s
+ * own `computeColumnWidths` (header-only, at table-birth) and
+ * `tableColumnNormalization.ts`'s own full-table width computation
+ * (header *and* every body cell) — the same "what total gap width does
+ * this one cell's content need" question, asked over a different set of
+ * cells by each caller, not two different questions.
+ */
+export function cellGapWidth(content: string): number {
+  return Math.max(1, content.length) + 2;
+}
+
+/**
+ * `":---"` / `":---:"` / `"---:"` / `"---"`, sized to `width` (a total gap
+ * width, `cellGapWidth`'s own unit) — the GFM delimiter cell for one
+ * column, preserving whichever alignment colons apply. Extracted from
+ * `tableActivationNormalization.ts`'s own `canonicalDelimiterRowText`
+ * (its per-cell body, unchanged in behavior) so `tableColumnNormalization.ts`
+ * can build the identical shape of delimiter cell for a full-table
+ * normalization pass without re-deriving the same colon/dash-count rule a
+ * second time. `width` is clamped up to whatever the colons actually
+ * present require (`minimumDelimiterGapWidth`, below) — never rendered
+ * narrower than a valid GFM delimiter cell.
+ */
+export function buildDelimiterCellText(alignment: TableColumnAlignment, width: number): string {
+  const left = alignment === 'left' || alignment === 'center';
+  const right = alignment === 'right' || alignment === 'center';
+  const colonCount = (left ? 1 : 0) + (right ? 1 : 0);
+  const dashCount = Math.max(1, width - 2 - colonCount);
+  return (left ? ':' : '') + '-'.repeat(dashCount) + (right ? ':' : '');
+}
+
+/**
+ * The minimum valid **total gap width** GFM permits for a delimiter cell
+ * with `alignment` — at least one hyphen (GFM's own floor), plus one
+ * character per alignment colon actually present, plus the mandatory
+ * leading/trailing space `buildDelimiterCellText` always emits. `null`
+ * (no alignment declared, plain `---`) needs only the single hyphen: `1 +
+ * 0 + 2 = 3`. `'center'` (`:---:'`) needs both colons: `1 + 2 + 2 = 5`.
+ * The floor a full-table normalization pass must never let a column's
+ * computed width fall below, even for an all-empty column with a short
+ * header — a real GFM requirement, not this codebase's own stylistic
+ * choice.
+ */
+export function minimumDelimiterGapWidth(alignment: TableColumnAlignment): number {
+  const colonCount = alignment === 'center' ? 2 : alignment ? 1 : 0;
+  return 1 + colonCount + 2;
+}
