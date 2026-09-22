@@ -144,16 +144,16 @@ export class TableWidget extends WidgetType {
     readonly activeTo: number | null,
     /**
      * Whether this table should currently show the "selected" visual halo
-     * — true exactly when this exact table is armed for whole-table
+     * — true when either this exact table is armed for whole-table
      * deletion (`tableDeletionSelection.ts`, a first Backspace on the
-     * blank line below it; `tableWidgetField.ts`'s `buildTableWidgetRange`).
-     * Deliberately **not** derived from the root `EditorState.selection` —
-     * an ordinary document text selection overlapping this table's source
-     * range (a drag, Shift+Arrow, or `Ctrl+A`) is not the same thing as
-     * the user selecting the table, and must not produce this same visual
-     * (see `buildTableWidgetRange`'s own doc comment). Purely visual —
-     * never moves the root selection *into* this table's own hidden
-     * range; part of `eq()` so an arm/un-arm transition repaints the halo.
+     * blank line below it) **or** the root `EditorState.selection`
+     * genuinely overlaps this table's own source range (e.g. `Ctrl+A`, or
+     * an ordinary text selection dragged across it —
+     * `tableGeometry.ts`'s own `tableIntersectsSelectionRange`,
+     * `tableWidgetField.ts`'s `buildTableWidgetRange`). Purely visual in
+     * both cases — neither ever moves the root selection *into* this
+     * table's own hidden range; part of `eq()` so either transition
+     * repaints the halo.
      */
     readonly isSelected: boolean = false,
     /**

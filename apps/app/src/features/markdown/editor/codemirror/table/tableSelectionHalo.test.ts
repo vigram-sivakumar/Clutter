@@ -9,23 +9,19 @@ import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { tableDeletionSelectionChanged } from './tableDeletionSelection';
 import { findAllTables } from './tableGeometry';
-import { tableSelectionChanged, tableSelectionField } from './tableSelection';
+import { tableSelectionChanged } from './tableSelection';
 
 /**
- * Table selection halo — `.cm-table-wrapper-selected` reflects exactly one
- * thing: this exact table is armed for whole-table Backspace/Delete
- * (`tableDeletionSelection.ts`). It is deliberately **not** derived from
- * the root `EditorState.selection` — see `tableWidgetField.ts`'s own
- * `buildTableWidgetRange` doc comment for why a prior milestone's
- * "root selection overlapping the table shows the halo too" behavior was
- * reversed: an ordinary document text selection (a drag, Shift+Arrow, or
- * `Ctrl+A`) that happens to span or overlap a table's source range is not
- * the user selecting the table, and showing the same visual for both made
- * them visually indistinguishable. Mounted via `buildEditorExtensions()`
- * (the real production wiring), same convention `tableLiveWiring.test.ts`
- * already establishes, so `tableRootSelectionSnap`, `tableWidgetField`,
- * and `tableDeletionSelection` are all exercised together exactly as they
- * run in the app.
+ * Table selection halo milestone — verifies that the same
+ * `.cm-table-wrapper-selected` visual `tableDeletionSelection.ts`'s
+ * whole-table arm/delete state already uses is also shown whenever the
+ * root `EditorState.selection` genuinely overlaps a table's own source
+ * range (Ctrl+A, or an ordinary drag/shift-selection spanning across it),
+ * and suppressed while a cell inside that table is actively being edited.
+ * Mounted via `buildEditorExtensions()` (the real production wiring),
+ * same convention `tableLiveWiring.test.ts` already establishes, so
+ * `tableRootSelectionSnap`, `tableWidgetField`, and `tableDeletionSelection`
+ * are all exercised together exactly as they run in the app.
  */
 
 const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId' | 'getTableActiveCellController'> = {
@@ -104,8 +100,74 @@ function haloedTableFroms(view: EditorView): number[] {
 
 const BASIC_TABLE = '| a | b |\n| - | - |\n| 1 | 2 |';
 
-describe('table selection halo — armed for whole-table deletion', () => {
-  it('a table armed for whole-table deletion shows the halo', () => {
+describe('table selection halo — Ctrl+A / Select All', () => {
+  it('table-only document: the table shows the halo', () => {
+    const view = mount(BASIC_TABLE);
+
+    selectAll(view);
+
+    expect(haloedTableFroms(view)).toHaveLength(1);
+  });
+
+  it('table with content above and below: the table shows the halo', () => {
+    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
+    const view = mount(doc);
+
+    selectAll(view);
+
+    expect(haloedTableFroms(view)).toHaveLength(1);
+  });
+
+  it('multiple tables: every table shows the halo', () => {
+    const doc = `${BASIC_TABLE}\n\nBetween.\n\n${BASIC_TABLE}`;
+    const view = mount(doc);
+
+    selectAll(view);
+
+    expect(haloedTableFroms(view)).toHaveLength(2);
+  });
+});
+
+describe('table selection halo — ordinary text selection', () => {
+  it('a selection dragged across a table shows its halo', () => {
+    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
+    const view = mount(doc);
+    const from = doc.indexOf('Above');
+    const to = doc.indexOf('Below') + 'Below'.length;
+
+    view.dispatch({ selection: { anchor: from, head: to } });
+
+    expect(haloedTableFroms(view)).toHaveLength(1);
+  });
+
+  it('a selection covering only the first of two tables leaves the second without a halo', () => {
+    const doc = `${BASIC_TABLE}\n\nBetween.\n\n${BASIC_TABLE}`;
+    const view = mount(doc);
+    const firstTable = findAllTables(view.state)[0]!;
+    const to = doc.indexOf('Between.') + 'Between.'.length;
+
+    view.dispatch({ selection: { anchor: 0, head: to } });
+
+    const haloed = haloedTableFroms(view);
+    expect(haloed).toEqual([firstTable.from]);
+  });
+
+  it('collapsing the selection outside every table removes the halo', () => {
+    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
+    const view = mount(doc);
+    const from = doc.indexOf('Above');
+    const to = doc.indexOf('Below') + 'Below'.length;
+    view.dispatch({ selection: { anchor: from, head: to } });
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
+    view.dispatch({ selection: { anchor: doc.indexOf('Below.') } });
+
+    expect(haloedTableFroms(view)).toHaveLength(0);
+  });
+});
+
+describe('table selection halo — coexistence with whole-table deletion arming', () => {
+  it('a table armed for whole-table deletion still shows the halo (no root selection overlap needed)', () => {
     // Exactly one trailing blank line — the one position
     // `tableDeletionSelectionField`'s own re-validation
     // (`isCaretJustBelowTable`) accepts as "adjacent," immediately below
@@ -113,108 +175,83 @@ describe('table selection halo — armed for whole-table deletion', () => {
     const doc = `${BASIC_TABLE}\n`;
     const view = mount(doc);
     const table = findAllTables(view.state)[0]!;
+    // Collapsed caret on that blank line — never overlaps the table per
+    // `tableIntersectsSelectionRange`'s own `!range.empty` guard —
+    // confirming the halo here comes from the arm effect, not selection
+    // overlap.
     view.dispatch({ selection: { anchor: doc.length }, effects: tableDeletionSelectionChanged.of(table.from) });
 
     expect(haloedTableFroms(view)).toEqual([table.from]);
   });
 });
 
-describe('table selection halo — ordinary root text selection never shows it', () => {
-  it('table-only document: Ctrl+A does not halo the table', () => {
-    const view = mount(BASIC_TABLE);
-
-    selectAll(view);
-
-    expect(haloedTableFroms(view)).toHaveLength(0);
-  });
-
-  it('table with content above and below: Ctrl+A does not halo the table', () => {
-    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
-    const view = mount(doc);
-
-    selectAll(view);
-
-    expect(haloedTableFroms(view)).toHaveLength(0);
-  });
-
-  it('multiple tables: Ctrl+A does not halo either table', () => {
-    const doc = `${BASIC_TABLE}\n\nBetween.\n\n${BASIC_TABLE}`;
-    const view = mount(doc);
-
-    selectAll(view);
-
-    expect(haloedTableFroms(view)).toHaveLength(0);
-  });
-
-  it('a selection dragged from above the table to below it does not halo the table', () => {
-    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
-    const view = mount(doc);
-    const from = doc.indexOf('Above');
-    const to = doc.indexOf('Below') + 'Below'.length;
-
-    view.dispatch({ selection: { anchor: from, head: to } });
-
-    expect(haloedTableFroms(view)).toHaveLength(0);
-  });
-
-  it('a selection covering only the first of two tables does not halo either table', () => {
-    const doc = `${BASIC_TABLE}\n\nBetween.\n\n${BASIC_TABLE}`;
-    const view = mount(doc);
-    const to = doc.indexOf('Between.') + 'Between.'.length;
-
-    view.dispatch({ selection: { anchor: 0, head: to } });
-
-    expect(haloedTableFroms(view)).toHaveLength(0);
-  });
-});
-
-describe('table selection halo — cell activation clears a stale root selection', () => {
-  it('clicking a cell while a root selection spans the table collapses the root selection', () => {
-    const controller = new TableActiveCellController();
-    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
-    const view = mount(doc, controller);
-    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
-
-    const from = doc.indexOf('Above');
-    const to = doc.indexOf('Below') + 'Below'.length;
-    view.dispatch({ selection: { anchor: from, head: to } });
-    expect(view.state.selection.main.empty).toBe(false);
-
-    clickCell(findCell(view, 'a'));
-
-    expect(view.state.selection.main.empty).toBe(true);
-    // The active cell itself did mount, confirming activation genuinely
-    // happened rather than the selection merely collapsing for an
-    // unrelated reason.
-    expect(view.dom.querySelector('.cm-table-widget .cm-editor')).not.toBeNull();
-  });
-
-  it('clicking a cell while a root selection spans the table also clears any TableSelection', () => {
-    const controller = new TableActiveCellController();
-    const doc = `Above.\n${BASIC_TABLE}\n\nBelow.`;
-    const view = mount(doc, controller);
-    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
-    const table = findAllTables(view.state)[0]!;
-
-    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
-    const from = doc.indexOf('Above');
-    const to = doc.indexOf('Below') + 'Below'.length;
-    view.dispatch({ selection: { anchor: from, head: to } });
-
-    clickCell(findCell(view, 'a'));
-
-    expect(view.state.field(tableSelectionField, false) ?? null).toBeNull();
-    expect(view.state.selection.main.empty).toBe(true);
-  });
-
-  it('clicking a cell with an already-collapsed root selection leaves it collapsed at the same place it would otherwise be', () => {
+describe('table selection halo — suppressed during active-cell editing', () => {
+  it('does not show the halo for a table whose cell is currently active, even if the root selection still technically overlaps it', () => {
     const controller = new TableActiveCellController();
     const view = mount(BASIC_TABLE, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
 
+    // Simulate a stale full-document selection left over from before the
+    // click — activating a cell never itself changes the root selection
+    // (`TableActiveCellController.activate()`), so this is the realistic
+    // way the root selection can still overlap the table while a cell is
+    // active.
+    selectAll(view);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
     clickCell(findCell(view, 'a'));
 
-    expect(view.state.selection.main.empty).toBe(true);
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    // The active cell itself did mount, confirming activation genuinely
+    // happened rather than the halo merely disappearing for an unrelated
+    // reason.
     expect(view.dom.querySelector('.cm-table-widget .cm-editor')).not.toBeNull();
+  });
+});
+
+describe('table selection halo — suppressed while a TableSelection exists', () => {
+  it('does not show the halo for a table with a column TableSelection, even if the root selection still technically overlaps it', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    // Same "stale full-document selection" setup as the active-cell
+    // suppression test above — a `TableSelection` never itself moves the
+    // root selection either (`tableHandleOverlay.ts`'s own click
+    // dispatch), so this is the realistic way the two can coexist.
+    selectAll(view);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    // The minimal column-selected rendering did apply, confirming the halo
+    // genuinely got suppressed by the selection rather than disappearing
+    // for an unrelated reason.
+    expect(view.dom.querySelector('.cm-table-column-selected')).not.toBeNull();
+  });
+
+  it('does not show the halo for a table with a row TableSelection', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+
+    selectAll(view);
+    expect(haloedTableFroms(view)).toHaveLength(1);
+
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'row', tableFrom: table.from, rowIndex: 1 }) });
+
+    expect(haloedTableFroms(view)).toHaveLength(0);
+    expect(view.dom.querySelector('.cm-table-row-selected')).not.toBeNull();
+  });
+
+  it('clearing the TableSelection restores the halo if the root selection still overlaps the table', () => {
+    const view = mount(BASIC_TABLE);
+    const table = findAllTables(view.state)[0]!;
+    selectAll(view);
+    view.dispatch({ effects: tableSelectionChanged.of({ kind: 'column', tableFrom: table.from, columnIndex: 0 }) });
+    expect(haloedTableFroms(view)).toHaveLength(0);
+
+    view.dispatch({ effects: tableSelectionChanged.of(null) });
+
+    expect(haloedTableFroms(view)).toHaveLength(1);
   });
 });

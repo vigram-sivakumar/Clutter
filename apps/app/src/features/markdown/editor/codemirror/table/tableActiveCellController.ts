@@ -217,34 +217,12 @@ export class TableActiveCellController {
     // already be established here, first.
     this.nestedViewInstance.focus();
 
-    // Collapses a non-collapsed root selection in the same transaction —
-    // clicking into a cell to edit it is, from the user's perspective, no
-    // different from clicking anywhere else in an ordinary document: it
-    // ends whatever text selection existed before. Without this, a root
-    // selection dragged across (or entirely unrelated to) this table
-    // survives activation unchanged — stale, but no longer visible in the
-    // table itself once `tableWidgetField.ts`'s own halo stopped deriving
-    // from root-selection overlap (see that file's own doc comment): left
-    // alone, it would still leave `state.selection` reporting a large
-    // selected range a `Ctrl+C`/copy could act on, or the browser could
-    // still paint outside the table, even though nothing about it is
-    // visually true anymore. Collapsing to the selection's own current
-    // `head` — not `cursorPos`/`from`/`to`, which describe a position
-    // *inside the cell*, not a legal root-document position on their own
-    // terms — is always already a safe root position: `tableRootSelectionSnap`'s
-    // own invariant (root selection endpoints never resolve inside a
-    // table's replaced range) already guarantees `head` sits outside every
-    // table, so no further adjustment is needed here. A no-op when the
-    // selection is already collapsed — `EditorSelection.cursor(head)`
-    // where `head === anchor` already is is simply the same selection.
-    const collapsedRootSelection = { anchor: rootView.state.selection.main.head };
-
     // Tells tableWidgetField's StateField to rebuild even though nothing
     // in rootView's own document changed — see tableActiveCellChanged's
     // own doc comment. A no-op transaction (no changes, not added to
     // history) wherever tableWidgetField isn't installed (every M1–M4
     // test `EditorView` above included).
-    rootView.dispatch({ selection: collapsedRootSelection, effects: tableActiveCellChanged.of(null) });
+    rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
 
     // Refines the caret from `cursorPos`'s own coarse placement (always
     // `cell.to` — end of content — for `TableWidget.buildRow`'s mouse

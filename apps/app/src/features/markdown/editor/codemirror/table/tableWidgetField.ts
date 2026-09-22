@@ -7,7 +7,7 @@ import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { tableDeletionSelectionChanged, tableDeletionSelectionField } from './tableDeletionSelection';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
-import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
+import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, tableIntersectsSelectionRange, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField } from './tableSelection';
 import { TableWidget, type TableCellData } from './tableWidget';
 
@@ -173,20 +173,35 @@ function buildTableWidgetRange(
         }
       : null;
 
-  // The "selected" halo (`.cm-table-wrapper-selected`) reflects exactly
-  // one thing: this exact table is armed for whole-table Backspace/Delete
-  // (`tableDeletionSelection.ts`). It intentionally does **not** derive
-  // from the root `EditorState.selection` — an ordinary document text
-  // selection (a drag, Shift+Arrow, or Ctrl+A) that happens to span or
-  // overlap a table's source range is not the user selecting the table;
-  // conflating the two produced a table that visually looked "selected"
-  // (indistinguishable from an explicit `TableSelection`) for perfectly
-  // ordinary text selection that merely passes through it. Explicit
-  // `TableSelection` (column/row/range) renders its own dedicated overlay
-  // (`tableSelectionOverlay.ts`, wired below) — it has never used this
-  // halo class either, so removing the root-selection trigger here does
-  // not touch that rendering at all.
-  const showSelectionHalo = armedForDeletion === table.from;
+  // A cell belonging to *this* table is currently active — `activeAnchor`
+  // itself is the controller's one global active-cell position (the same
+  // value is passed to every table's widget, per this function's own
+  // per-cell containment check elsewhere in this file), so it must be
+  // range-checked against `table`'s own bounds here to mean "active in
+  // this table," not just "some cell somewhere is active."
+  const hasActiveCellInThisTable =
+    !!activeAnchor && activeAnchor.from >= table.from && activeAnchor.to <= table.to;
+
+  // The root-selection halo (Milestone: "table selection halo for normal
+  // root selections") is suppressed while a cell *in this table* is being
+  // edited — showing a root-selection-derived "whole table selected" halo
+  // at the same time as an active, focused cell would visually contradict
+  // what's actually being edited, even though nothing stops the root
+  // selection from technically still overlapping this table's range (e.g.
+  // a stale Ctrl+A selection from before the cell was clicked — activating
+  // a cell never changes the root selection, see
+  // `TableActiveCellController.activate()`'s own doc comment). Whole-table
+  // deletion arming (`armedForDeletion`) already can't coincide with an
+  // active cell — `tableDeletionSelectionField` un-arms itself on the same
+  // `tableActiveCellChanged` effect — so it needs no equivalent guard here.
+  // A `TableSelection` in this table is suppressed the same way, for the
+  // identical reason — a column/row selection is a strictly more specific
+  // claim about what's selected than a coarse "the root selection happens
+  // to overlap this table" halo, and the two must never both render at
+  // once (this milestone's own instruction).
+  const showSelectionHalo =
+    armedForDeletion === table.from ||
+    (!hasActiveCellInThisTable && !hasTableSelectionInThisTable && tableIntersectsSelectionRange(state.selection.main, table));
 
   const widget = new TableWidget(
     headerCells,
