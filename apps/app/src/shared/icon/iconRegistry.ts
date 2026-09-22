@@ -61,6 +61,10 @@ import MagnifyingGlass from './svg/magnifying-glass.svg?react';
 import Minus from './svg/minus.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
 import MoreVertical from './svg/more-vertical.svg?react';
+import MoveDown from './svg/move-down.svg?react';
+import MoveLeft from './svg/move-left.svg?react';
+import MoveRight from './svg/move-right.svg?react';
+import MoveUp from './svg/move-up.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
 import Layers from './svg/layers.svg?react';
@@ -162,6 +166,10 @@ export const iconRegistry = {
   minus: Minus,
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
+  moveDown: MoveDown,
+  moveLeft: MoveLeft,
+  moveRight: MoveRight,
+  moveUp: MoveUp,
   multiLine: MultiLine,
   hide: Hide,
   notePencil: NotePencil,
