@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState, SelectionRange } from '@codemirror/state';
+import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
@@ -95,31 +95,6 @@ export function getRowColumnSegments(row: SyntaxNode): RowColumnSegment[] {
     segments.push({ rawFrom: last.to, rawTo: row.to, leftDelimiter: last, rightDelimiter: null });
   }
   return segments;
-}
-
-/**
- * Whether a **non-collapsed** root selection range genuinely overlaps
- * `table`'s own `[from, to)` source range — used by `tableWidgetField.ts`
- * to decide whether a table should show the same visual "selected" halo
- * `tableDeletionSelection.ts`'s whole-table arm/delete state already
- * paints via `.cm-table-wrapper-selected` (`tableWidget.ts`'s own
- * `isSelected`). Deliberately an *open-interval* overlap test
- * (`range.from < table.to && range.to > table.from`), not the inclusive
- * `<=`/`>=` `tableRootSelectionSnap.ts` uses for its own boundary check:
- * that file is deciding "is this endpoint an unsafe place to rest a
- * caret," where touching `table.from`/`table.to` exactly is already
- * unsafe; this is deciding "does the selection actually cover some of the
- * table's own characters," where a selection that merely starts exactly
- * at `table.to` (touching, not covering) must not be treated as including
- * the table it doesn't actually span into. `range.empty` (a collapsed
- * caret) is excluded outright — CM6's `tableRootSelectionSnap` already
- * guarantees a collapsed caret is never `>= table.from && <= table.to` in
- * the first place (see that file's own doc comment), so this exclusion is
- * a defensive restatement of an invariant enforced elsewhere, not a new
- * one: this halo is for a genuine *selection*, never a caret position.
- */
-export function tableIntersectsSelectionRange(range: SelectionRange, table: TableInfo): boolean {
-  return !range.empty && range.from < table.to && range.to > table.from;
 }
 
 /** The `TableHeader`/`TableRow`/alignment-row (`TableDelimiter` as a direct child of `Table`) containing `pos`, walking a table's direct children the same way any table renderer needs to. */
