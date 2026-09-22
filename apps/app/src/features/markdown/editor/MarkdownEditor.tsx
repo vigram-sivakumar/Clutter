@@ -24,6 +24,14 @@ import { clearTableSelection } from './codemirror/table/tableSelectionClear';
 import { duplicateSelectedRow, insertRowAboveSelection, insertRowBelowSelection } from './codemirror/table/tableRowInsertion';
 import { duplicateSelectedColumn, insertColumnLeftSelection, insertColumnRightSelection } from './codemirror/table/tableColumnInsertion';
 import { deleteColumnSelection, deleteRowSelection } from './codemirror/table/tableSelectionDeletion';
+import {
+  moveSelectedColumnLeft,
+  moveSelectedColumnRight,
+  moveSelectedRowDown,
+  moveSelectedRowUp,
+  resolveColumnMoveAvailability,
+  resolveRowMoveAvailability,
+} from './codemirror/table/tableRowColumnMove';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
@@ -595,6 +603,47 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     duplicateSelectedColumn(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  // "Move up"/"Move down" (row handle menu) and "Move left"/"Move right"
+  // (column handle menu) — reuses tableRowColumnMove.ts's own selection-aware
+  // moveSelectedRowUp/moveSelectedRowDown/moveSelectedColumnLeft/
+  // moveSelectedColumnRight, same "look up the current menu's own selection
+  // off state, view.focus() after" shape every other menu handler here uses.
+  const handleMoveRowUpFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    moveSelectedRowUp(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  const handleMoveRowDownFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    moveSelectedRowDown(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  const handleMoveColumnLeftFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    moveSelectedColumnLeft(view, tableHandleMenu.selection);
+    view.focus();
+  };
+
+  const handleMoveColumnRightFromMenu = () => {
+    const view = viewRef.current;
+    if (!tableHandleMenu || !view) {
+      return;
+    }
+    moveSelectedColumnRight(view, tableHandleMenu.selection);
     view.focus();
   };
 
@@ -1390,6 +1439,12 @@ export const MarkdownEditor = forwardRef<
         onClearContents={handleClearTableSelectionFromMenu}
         onDuplicateRow={handleDuplicateRowFromMenu}
         onDuplicateColumn={handleDuplicateColumnFromMenu}
+        onMoveRowUp={handleMoveRowUpFromMenu}
+        onMoveRowDown={handleMoveRowDownFromMenu}
+        onMoveColumnLeft={handleMoveColumnLeftFromMenu}
+        onMoveColumnRight={handleMoveColumnRightFromMenu}
+        rowMoveAvailability={tableHandleMenu && viewRef.current ? resolveRowMoveAvailability(viewRef.current, tableHandleMenu.selection) : null}
+        columnMoveAvailability={tableHandleMenu && viewRef.current ? resolveColumnMoveAvailability(viewRef.current, tableHandleMenu.selection) : null}
         onInsertRowAbove={handleInsertRowAboveFromMenu}
         onInsertRowBelow={handleInsertRowBelowFromMenu}
         onInsertColumnLeft={handleInsertColumnLeftFromMenu}

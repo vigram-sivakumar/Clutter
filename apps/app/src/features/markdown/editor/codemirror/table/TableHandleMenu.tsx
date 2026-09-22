@@ -40,6 +40,35 @@ export interface TableHandleMenuProps {
   readonly onDuplicateRow: () => void;
   /** Symmetric to `onDuplicateRow`, for the column handle menu. */
   readonly onDuplicateColumn: () => void;
+  /**
+   * "Move up" (row handle menu) — reuses `tableRowColumnMove.ts`'s own
+   * `moveSelectedRowUp`. The header is just as movable as any other row
+   * (moving it down demotes it to a body row and promotes whichever row
+   * takes its slot — see that module's own top doc comment); disabled
+   * (`rowMoveAvailability.canMoveUp`) only at the table's first row,
+   * whatever currently occupies it.
+   */
+  readonly onMoveRowUp: () => void;
+  /** Symmetric to `onMoveRowUp`, for "Move down" — disabled only at the table's last row. */
+  readonly onMoveRowDown: () => void;
+  /** Symmetric to `onMoveRowUp`/`onMoveRowDown`, for the column handle menu's "Move left" — disabled at the table's first column. */
+  readonly onMoveColumnLeft: () => void;
+  /** Symmetric to `onMoveColumnLeft`, for "Move right" — disabled at the table's last column. */
+  readonly onMoveColumnRight: () => void;
+  /**
+   * Which Move directions are currently available for the active
+   * row/column selection — `null` renders every Move item disabled (no
+   * selection resolved yet, or the selected table could no longer be
+   * found), matching `resolveRowMoveAvailability`'s/
+   * `resolveColumnMoveAvailability`'s own `null`-means-"nothing to
+   * compute" contract (`tableRowColumnMove.ts`). Computed by
+   * `MarkdownEditor.tsx` (which owns `viewRef`) fresh on every render this
+   * menu is open, mirroring `selection`'s own "owned by the caller, not
+   * this component" shape.
+   */
+  readonly rowMoveAvailability: { canMoveUp: boolean; canMoveDown: boolean } | null;
+  /** Symmetric to `rowMoveAvailability`, for the column handle menu. */
+  readonly columnMoveAvailability: { canMoveLeft: boolean; canMoveRight: boolean } | null;
   /** "Insert row above" — row-only this milestone; a no-op (item still renders/responds normally) when `selection` is a column, per `TableHandleMenu`'s own `handleSelect`. */
   readonly onInsertRowAbove: () => void;
   /** Symmetric to `onInsertRowAbove`, for "Insert row below." */
@@ -73,33 +102,46 @@ export interface TableHandleMenuProps {
 }
 
 // Directional icons so the icon itself shows *where* the new row/column
-// lands relative to the selected one, not just that something gets added.
-// Labels stay direction-only ("Insert above"/"Insert below"/"Insert left"/
-// "Insert right") rather than repeating "row"/"column" — this menu is
-// already scoped to one axis (the row handle's own menu only ever inserts
+// lands (or moves to) relative to the selected one, not just that
+// something gets added/moved. Labels stay direction-only ("Insert above"/
+// "Insert below"/"Move up"/"Move down"/"Insert left"/"Insert right"/"Move
+// left"/"Move right") rather than repeating "row"/"column" — this menu is
+// already scoped to one axis (the row handle's own menu only ever acts on
 // rows, the column handle's only ever columns), so the noun is redundant
 // with which menu is even open.
-const ROW_ITEMS: readonly OverflowMenuItemConfig[] = [
-  { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
-  { id: 'insert-above', label: 'Insert above', icon: 'arrowUp', separatorBefore: true },
-  { id: 'insert-below', label: 'Insert below', icon: 'arrowDown' },
-  { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
-];
+function buildRowItems(availability: { canMoveUp: boolean; canMoveDown: boolean } | null): OverflowMenuItemConfig[] {
+  return [
+    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+    { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
+    { id: 'move-up', label: 'Move up', icon: 'arrowUp', disabled: !availability?.canMoveUp },
+    { id: 'move-down', label: 'Move down', icon: 'arrowDown', disabled: !availability?.canMoveDown },
+    { id: 'insert-above', label: 'Insert above', icon: 'arrowUp', separatorBefore: true },
+    { id: 'insert-below', label: 'Insert below', icon: 'arrowDown' },
+    { id: 'delete', label: 'Delete row', icon: 'trash', separatorBefore: true },
+  ];
+}
 
-const COLUMN_ITEMS: readonly OverflowMenuItemConfig[] = [
-  { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
-  { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
-  { id: 'insert-left', label: 'Insert left', icon: 'arrowLeft', separatorBefore: true },
-  { id: 'insert-right', label: 'Insert right', icon: 'arrowRight' },
-  { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
-];
+function buildColumnItems(availability: { canMoveLeft: boolean; canMoveRight: boolean } | null): OverflowMenuItemConfig[] {
+  return [
+    { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
+    { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
+    { id: 'move-left', label: 'Move left', icon: 'arrowLeft', disabled: !availability?.canMoveLeft },
+    { id: 'move-right', label: 'Move right', icon: 'arrowRight', disabled: !availability?.canMoveRight },
+    { id: 'insert-left', label: 'Insert left', icon: 'arrowLeft', separatorBefore: true },
+    { id: 'insert-right', label: 'Insert right', icon: 'arrowRight' },
+    { id: 'delete', label: 'Delete column', icon: 'trash', separatorBefore: true },
+  ];
+}
 
 /**
  * A row/column handle's own floating menu:
  *
  * ```
  * Clear contents
+ * ───────────────
+ * Duplicate
+ * Move up / Move left
+ * Move down / Move right
  * ───────────────
  * Insert above / Insert left
  * Insert below / Insert right
@@ -152,6 +194,12 @@ export function TableHandleMenu({
   onClearContents,
   onDuplicateRow,
   onDuplicateColumn,
+  onMoveRowUp,
+  onMoveRowDown,
+  onMoveColumnLeft,
+  onMoveColumnRight,
+  rowMoveAvailability,
+  columnMoveAvailability,
   onInsertRowAbove,
   onInsertRowBelow,
   onInsertColumnLeft,
@@ -160,7 +208,7 @@ export function TableHandleMenu({
   onDeleteColumn,
   suppressReturnFocusRef,
 }: TableHandleMenuProps) {
-  const items = selection?.kind === 'column' ? COLUMN_ITEMS : ROW_ITEMS;
+  const items = selection?.kind === 'column' ? buildColumnItems(columnMoveAvailability) : buildRowItems(rowMoveAvailability);
 
   function handleSelect(id: string) {
     if (id === 'clear') {
@@ -169,6 +217,14 @@ export function TableHandleMenu({
       onDuplicateRow();
     } else if (id === 'duplicate' && selection?.kind === 'column') {
       onDuplicateColumn();
+    } else if (id === 'move-up') {
+      onMoveRowUp();
+    } else if (id === 'move-down') {
+      onMoveRowDown();
+    } else if (id === 'move-left') {
+      onMoveColumnLeft();
+    } else if (id === 'move-right') {
+      onMoveColumnRight();
     } else if (id === 'insert-above') {
       onInsertRowAbove();
     } else if (id === 'insert-below') {

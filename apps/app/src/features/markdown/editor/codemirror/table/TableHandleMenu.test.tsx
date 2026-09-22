@@ -54,11 +54,18 @@ function renderMenu(
       | 'onClearContents'
       | 'onDuplicateRow'
       | 'onDuplicateColumn'
+      | 'onMoveRowUp'
+      | 'onMoveRowDown'
+      | 'onMoveColumnLeft'
+      | 'onMoveColumnRight'
       | 'onDeleteRow'
       | 'onDeleteColumn',
       () => void
     >
-  > = {}
+  > & {
+    rowMoveAvailability?: { canMoveUp: boolean; canMoveDown: boolean } | null;
+    columnMoveAvailability?: { canMoveLeft: boolean; canMoveRight: boolean } | null;
+  } = {}
 ) {
   const anchorEl = document.body.appendChild(document.createElement('div'));
   const anchor: TableHandleMenuAnchor = { current: anchorEl };
@@ -66,12 +73,21 @@ function renderMenu(
   const onClearContents = overrides.onClearContents ?? vi.fn();
   const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn();
   const onDuplicateColumn = overrides.onDuplicateColumn ?? vi.fn();
+  const onMoveRowUp = overrides.onMoveRowUp ?? vi.fn();
+  const onMoveRowDown = overrides.onMoveRowDown ?? vi.fn();
+  const onMoveColumnLeft = overrides.onMoveColumnLeft ?? vi.fn();
+  const onMoveColumnRight = overrides.onMoveColumnRight ?? vi.fn();
   const onInsertRowAbove = overrides.onInsertRowAbove ?? vi.fn();
   const onInsertRowBelow = overrides.onInsertRowBelow ?? vi.fn();
   const onInsertColumnLeft = overrides.onInsertColumnLeft ?? vi.fn();
   const onInsertColumnRight = overrides.onInsertColumnRight ?? vi.fn();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn();
   const onDeleteColumn = overrides.onDeleteColumn ?? vi.fn();
+  // `??` would collapse an explicitly-passed `null` (testing the "cannot be
+  // resolved" case) back to the default — `in` distinguishes "not passed at
+  // all" from "passed as null" the way `??` alone cannot.
+  const rowMoveAvailability = 'rowMoveAvailability' in overrides ? (overrides.rowMoveAvailability ?? null) : { canMoveUp: true, canMoveDown: true };
+  const columnMoveAvailability = 'columnMoveAvailability' in overrides ? (overrides.columnMoveAvailability ?? null) : { canMoveLeft: true, canMoveRight: true };
 
   function Harness() {
     const suppressReturnFocusRef = useRef(false);
@@ -83,6 +99,12 @@ function renderMenu(
         onClearContents={onClearContents}
         onDuplicateRow={onDuplicateRow}
         onDuplicateColumn={onDuplicateColumn}
+        onMoveRowUp={onMoveRowUp}
+        onMoveRowDown={onMoveRowDown}
+        onMoveColumnLeft={onMoveColumnLeft}
+        onMoveColumnRight={onMoveColumnRight}
+        rowMoveAvailability={rowMoveAvailability}
+        columnMoveAvailability={columnMoveAvailability}
         onInsertRowAbove={onInsertRowAbove}
         onInsertRowBelow={onInsertRowBelow}
         onInsertColumnLeft={onInsertColumnLeft}
@@ -100,6 +122,10 @@ function renderMenu(
     onClearContents,
     onDuplicateRow,
     onDuplicateColumn,
+    onMoveRowUp,
+    onMoveRowDown,
+    onMoveColumnLeft,
+    onMoveColumnRight,
     onInsertRowAbove,
     onInsertRowBelow,
     onInsertColumnLeft,
@@ -166,6 +192,99 @@ describe('TableHandleMenu — "Delete row"/"Delete column" wiring', () => {
 
     expect(handlers.onDeleteColumn).toHaveBeenCalledTimes(1);
     expect(handlers.onDeleteRow).not.toHaveBeenCalled();
+  });
+});
+
+describe('TableHandleMenu — "Move" wiring', () => {
+  it('lists Move up/down for a row selection and Move left/right for a column selection', () => {
+    renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+    expect(findMenuItem('Move up')).not.toBeNull();
+    expect(findMenuItem('Move down')).not.toBeNull();
+    expect(findMenuItem('Move left')).toBeNull();
+    expect(findMenuItem('Move right')).toBeNull();
+  });
+
+  it('clicking "Move up" calls onMoveRowUp, and only that callback, for a row selection', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    fireEvent.click(findMenuItem('Move up')!);
+
+    expect(handlers.onMoveRowUp).toHaveBeenCalledTimes(1);
+    expect(handlers.onMoveRowDown).not.toHaveBeenCalled();
+  });
+
+  it('clicking "Move down" calls onMoveRowDown, and only that callback, for a row selection', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 });
+
+    fireEvent.click(findMenuItem('Move down')!);
+
+    expect(handlers.onMoveRowDown).toHaveBeenCalledTimes(1);
+    expect(handlers.onMoveRowUp).not.toHaveBeenCalled();
+  });
+
+  it('clicking "Move left" calls onMoveColumnLeft, and only that callback, for a column selection', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    fireEvent.click(findMenuItem('Move left')!);
+
+    expect(handlers.onMoveColumnLeft).toHaveBeenCalledTimes(1);
+    expect(handlers.onMoveColumnRight).not.toHaveBeenCalled();
+  });
+
+  it('clicking "Move right" calls onMoveColumnRight, and only that callback, for a column selection', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 1 });
+
+    fireEvent.click(findMenuItem('Move right')!);
+
+    expect(handlers.onMoveColumnRight).toHaveBeenCalledTimes(1);
+    expect(handlers.onMoveColumnLeft).not.toHaveBeenCalled();
+  });
+
+  it('disables "Move up" when rowMoveAvailability.canMoveUp is false, and it does not fire on click', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 }, { rowMoveAvailability: { canMoveUp: false, canMoveDown: true } });
+
+    const item = findMenuItem('Move up')!;
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(item);
+    expect(handlers.onMoveRowUp).not.toHaveBeenCalled();
+  });
+
+  it('disables "Move down" when rowMoveAvailability.canMoveDown is false, and it does not fire on click', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 1 }, { rowMoveAvailability: { canMoveUp: true, canMoveDown: false } });
+
+    const item = findMenuItem('Move down')!;
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(item);
+    expect(handlers.onMoveRowDown).not.toHaveBeenCalled();
+  });
+
+  it('disables "Move left" when columnMoveAvailability.canMoveLeft is false, and it does not fire on click', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 }, { columnMoveAvailability: { canMoveLeft: false, canMoveRight: true } });
+
+    const item = findMenuItem('Move left')!;
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(item);
+    expect(handlers.onMoveColumnLeft).not.toHaveBeenCalled();
+  });
+
+  it('disables "Move right" when columnMoveAvailability.canMoveRight is false, and it does not fire on click', () => {
+    const handlers = renderMenu({ kind: 'column', tableFrom: 0, columnIndex: 0 }, { columnMoveAvailability: { canMoveLeft: true, canMoveRight: false } });
+
+    const item = findMenuItem('Move right')!;
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(item);
+    expect(handlers.onMoveColumnRight).not.toHaveBeenCalled();
+  });
+
+  it('disables both Move items for a row selection when rowMoveAvailability is null (header, or a table that could not be resolved)', () => {
+    const handlers = renderMenu({ kind: 'row', tableFrom: 0, rowIndex: 0 }, { rowMoveAvailability: null });
+
+    expect(findMenuItem('Move up')!.getAttribute('aria-disabled')).toBe('true');
+    expect(findMenuItem('Move down')!.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(findMenuItem('Move up')!);
+    fireEvent.click(findMenuItem('Move down')!);
+    expect(handlers.onMoveRowUp).not.toHaveBeenCalled();
+    expect(handlers.onMoveRowDown).not.toHaveBeenCalled();
   });
 });
 
