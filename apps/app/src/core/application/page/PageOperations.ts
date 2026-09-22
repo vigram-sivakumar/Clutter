@@ -194,7 +194,25 @@ export class PageOperations {
      * constructing this class — Application always supplies a real one
      * (see attachVault()); duplicate() itself throws if it's missing.
      */
-    private readonly duplicator?: VaultEntryDuplicator
+    private readonly duplicator?: VaultEntryDuplicator,
+    /**
+     * Composition-Root-injected hook (same shape/rationale as
+     * `openFallbackPage` above), applied to a document's own Markdown
+     * immediately before it's handed to the durable write path (`save()`
+     * below) — never during ordinary editing, never touching
+     * `DocumentSession`/`currentRevision`. Exists so this class can shape
+     * what actually reaches disk without depending on the concrete
+     * implementation (table-column normalization,
+     * `features/markdown/editor/codemirror/table/tableColumnNormalization.ts`)
+     * — that module depends on CM6/Lezer, which belongs to the editor/UI
+     * layer, not the Application layer this class lives in; `PageOperations`
+     * only ever sees the abstract `(markdown: string) => string` shape.
+     * Optional, like `duplicator`, so the many existing unit-test call sites
+     * that never exercise save-time normalization don't need an unrelated
+     * update just to keep constructing this class — real boot always
+     * supplies one (`Application.bootstrap()` → `AppShell.tsx`).
+     */
+    private readonly normalizeMarkdownForSave?: (markdown: string) => string
   ) {}
 
   /**
@@ -1247,12 +1265,25 @@ export class PageOperations {
     this.saveCoordinator.beginSave(session);
 
     const revision = session.currentRevision;
+    // Table-column normalization (durability-model.md's Durable stage
+    // only) — applied to the string handed to the Gate/draft-persist path,
+    // never to `revision` itself: `session`'s own committed content (what
+    // the open editor's `syncMarkdownIntoView`/undo history/dirty-check
+    // all reason about) stays exactly what the user typed. `completeSave`
+    // below is still called with this same, un-normalized `revision`, so
+    // dirty-state tracking is entirely unaffected by what actually landed
+    // on disk. A no-op function reference when unset (see this class's own
+    // constructor doc comment) — every existing caller/test that doesn't
+    // supply one keeps writing `revision.markdown` verbatim, unchanged.
+    const durableContent = this.normalizeMarkdownForSave
+      ? this.normalizeMarkdownForSave(revision.markdown)
+      : revision.markdown;
 
     try {
       if (page) {
         const result = await this.coordinator.enqueue(pageId, {
           kind: 'save',
-          content: revision.markdown,
+          content: durableContent,
         });
 
         if (result.status === 'abandoned') {
@@ -1260,7 +1291,7 @@ export class PageOperations {
           return;
         }
       } else {
-        await this.persistDraft(pageId, revision.markdown);
+        await this.persistDraft(pageId, durableContent);
       }
 
       this.saveCoordinator.completeSave(session, revision);

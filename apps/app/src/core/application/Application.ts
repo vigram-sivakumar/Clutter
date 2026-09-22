@@ -118,7 +118,21 @@ export class Application {
   private closed = false;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
 
-  static async bootstrap(rootPath: string): Promise<Application> {
+  static async bootstrap(
+    rootPath: string,
+    /**
+     * Threaded straight through to `PageOperations`'s own constructor
+     * (`attachVault()` below) — see that class's own doc comment for why
+     * it takes only the abstract `(markdown: string) => string` shape
+     * rather than importing the concrete table-normalization module
+     * itself. `AppShell.tsx` (the one place UI and this Composition Root
+     * already meet) is the real caller that supplies it; every existing
+     * test/dev call site that omits it keeps writing `revision.markdown`
+     * verbatim, unchanged, per `PageOperations`'s own optional-hook
+     * default.
+     */
+    normalizeMarkdownForSave?: (markdown: string) => string
+  ): Promise<Application> {
     // Shared between the write side (SelfWriteAwareFileSystem) and the read
     // side (SelfWriteAwareWatcher) so the filesystem watcher can recognize
     // and drop its own echo of a write this app just made, instead of
@@ -264,7 +278,7 @@ export class Application {
 
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
-    application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem);
+    application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem, normalizeMarkdownForSave);
 
     // ADR-017/ADR-019: today's note is no longer created through the Gate,
     // and no directory is scaffolded for it, here. open() below resolves
@@ -321,7 +335,11 @@ export class Application {
     // `this.fileSystem` only so existing attachVault() call sites in
     // tests, which don't exercise duplicate() and construct Application
     // with a single unwrapped fake, are unaffected.
-    rawFileSystem: VaultFileSystem = this.fileSystem
+    rawFileSystem: VaultFileSystem = this.fileSystem,
+    // See `bootstrap()`'s own doc comment on this same parameter, and
+    // `PageOperations`'s constructor doc comment for why it's threaded
+    // through as an opaque function rather than constructed here.
+    normalizeMarkdownForSave?: (markdown: string) => string
   ): void {
     const moveService = new MoveService(vault, this.fileSystem);
     const duplicator = new VaultEntryDuplicator(rawFileSystem);
@@ -391,7 +409,8 @@ export class Application {
       () => {
         void this.openFallbackPage();
       },
-      duplicator
+      duplicator,
+      normalizeMarkdownForSave
     );
     this.navigation = new NavigationRouter(
       this.folderOperations,

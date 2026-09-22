@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { findAllTables } from './tableGeometry';
-import { computeTableNormalizationChange, normalizeTableAt } from './tableColumnNormalization';
+import { computeTableNormalizationChange, normalizeAllTablesInMarkdown, normalizeTableAt } from './tableColumnNormalization';
 
 const mountedViews: EditorView[] = [];
 
@@ -150,5 +150,71 @@ describe('normalizeTableAt', () => {
     const doc = '| Name | Role     |\n| ---- | -------- |\n| Vik  | Designer |';
     const view = mountRootView(doc);
     expect(normalizeTableAt(view, 2)).toBe(false);
+  });
+});
+
+describe('normalizeAllTablesInMarkdown — the headless, save-path entry point', () => {
+  it('a long cell determines its own column width', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    const cityWidth = result.split('\n')[2]!.split('|')[3]!.length;
+    expect(result.split('\n')[0]!.split('|')[3]!.length).toBe(cityWidth);
+    expect(result.split('\n')[3]!.split('|')[3]!.length).toBe(cityWidth);
+    expect(result).toContain('Come on man this is really long table cells');
+  });
+
+  it('pads short cells out to the column width', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result).toBe(
+      '| Name | Role | City                                        |\n' +
+        '| ---- | ---- | ------------------------------------------- |\n' +
+        '| Vik  | UI   | Come on man this is really long table cells |\n' +
+        '| Sam  | UX   | Pune                                        |'
+    );
+  });
+
+  it('keeps empty cells padded to the column width, not collapsed', () => {
+    const doc =
+      '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Come on man this is really long table cells |\n| Sam | UX | Pune |\n|  |  |  |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    const lastLine = result.split('\n').at(-1)!;
+    expect(lastLine).toBe('|      |      |                                             |');
+  });
+
+  it('completes ragged Markdown into a rectangular, normalized table', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n|  |  | Bangalore |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result).toBe('| Name | Role | City      |\n| ---- | ---- | --------- |\n|      |      | Bangalore |');
+  });
+
+  it('preserves alignment markers while realigning widths', () => {
+    const doc = '| Name | Role | City |\n| :--- | :--: | ---: |\n| Vik | Designer | Delhi |\n| Alex | Engineer | Come on man this is really long table cells |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result.split('\n')[1]).toBe('| :--- | :------: | ------------------------------------------: |');
+  });
+
+  it('preserves escaped pipes as literal cell content', () => {
+    const doc = '| A | B |\n| --- | --- |\n| a \\| b | c |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result).toContain('a \\| b');
+  });
+
+  it('leaves non-table Markdown completely unchanged (same string reference)', () => {
+    const doc = '# Heading\n\nSome *paragraph* text with a [[WikiLink]] and no tables at all.\n\n- a list\n- item two';
+    expect(normalizeAllTablesInMarkdown(doc)).toBe(doc);
+  });
+
+  it('is a no-op (same string reference, no diff churn) when every table is already normalized', () => {
+    const doc = '| Name | Role     |\n| ---- | -------- |\n| Vik  | Designer |\n\nSome trailing prose.';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result).toBe(doc);
+  });
+
+  it('normalizes multiple tables in the same document independently', () => {
+    const doc = '| A | B |\n| --- | --- |\n| x | Long content here |\n\nSome text between.\n\n| C | D |\n| --- | --- |\n| y | z |';
+    const result = normalizeAllTablesInMarkdown(doc);
+    expect(result).toContain('| A | B                 |');
+    expect(result).toContain('| C | D |');
   });
 });

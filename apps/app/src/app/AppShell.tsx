@@ -3,6 +3,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { Application } from '../core/application/Application';
+import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
 
@@ -26,7 +27,12 @@ export function AppShell() {
 
     async function loadVault() {
       try {
-        const application = await Application.bootstrap(vaultPath);
+        // Table-column normalization applies to what's written to disk
+        // (the durable representation), not to the live editing session —
+        // see `PageOperations`'s own constructor doc comment for why this
+        // is injected here, the one place UI and the Composition Root
+        // already meet, rather than imported inside `core/application/`.
+        const application = await Application.bootstrap(vaultPath, normalizeAllTablesInMarkdown);
         await application.open();
 
         if (cancelled) {
