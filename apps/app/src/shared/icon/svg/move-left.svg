@@ -1,11 +1,11 @@
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
-    d="M7 4V12C7 13.1046 6.10457 14 5 14C3.89543 14 3 13.1046 3 12V4C3 2.89543 3.89543 2 5 2C6.10457 2 7 2.89543 7 4Z"
+    d="M8 4V12C8 13.1046 7.10457 14 6 14C4.89543 14 4 13.1046 4 12V4C4 2.89543 4.89543 2 6 2C7.10457 2 8 2.89543 8 4Z"
     stroke="currentColor"
     stroke-linecap="round"
   />
   <path
-    d="M9.5 8C9.50001 7.34872 11 6 11 6M9.5 8C9.49999 8.65128 11 10 11 10M9.5 8H13"
+    d="M10.5 8C10.5 7.34872 12 6 12 6M10.5 8C10.5 8.65128 12 10 12 10M10.5 8H14"
     stroke="currentColor"
     stroke-linecap="round"
     stroke-linejoin="round"
