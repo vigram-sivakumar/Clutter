@@ -36,3 +36,8 @@
 .page__cover:hover .page__cover__change {
   opacity: 1;
 }
+
+.page-cover__image {
+  user-select: none;
+  -webkit-user-drag: none;
+}

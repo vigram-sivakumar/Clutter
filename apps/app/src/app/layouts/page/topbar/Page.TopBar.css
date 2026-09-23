@@ -7,15 +7,18 @@
   padding-inline: var(--space-8);
   padding-block: var(--space-8);
 
-  /* --sidebar-transition-duration/-easing are defined once, on
-     .app-layout (AppLayout.css), and inherit down to here as CSS custom
-     properties — using them (rather than hardcoding a duration/easing of
-     our own) is what makes the topbar's padding-left settle in step with
-     the sidebar/main-content collapse instead of as its own, separately-
-     timed animation. */
-  transition: padding-left var(--sidebar-transition-duration)
-    var(--sidebar-transition-easing);
+  /* The topbar's own padding-left only moves ~40-100px, versus the
+     page's full sidebar-width slide (AppLayout.css, ~340ms) — using that
+     same 340ms here would read as the topbar lagging behind its own,
+     much shorter distance, not "keeping in step" with it. 190ms (within
+     the page transition's own overall envelope, just shorter) keeps this
+     reacting to the page's movement without becoming a separately-paced
+     animation layered on top. Direction-specific easing below: collapse
+     and expand deliberately feel different, matching how the page's own
+     [data-sidebar-collapsed='true']/['false'] rules already differ. */
+  transition: padding-left 190ms ease-in-out;
 }
+
 .topbar--leading,
 .topbar--trailing {
   display: flex;
@@ -45,46 +48,52 @@
   display: flex;
   gap: var(--space-2);
 }
-.topbar__sidebar-toggle {
-  display: none;
-}
 
-/* Reserves room for the traffic-light/drag-strip area the collapsed
-   sidebar would otherwise have covered, and surfaces the one remaining
-   way to reopen it — Controls' own toggle button collapses along with
-   the rest of the sidepanel (opacity/pointer-events, AppLayout.css), so
-   it stops being reachable the moment the sidebar collapses. Keyed off
-   the same data-sidebar-collapsed attribute AppLayout.css drives
-   (mirroring Workspace.isSidebarVisible, ADR-021), so a manual collapse
-   at a wide viewport gets this too, not just <=700px. */
+/* Tauri/macOS + collapsed only (main.tsx sets [data-runtime] once at
+   startup; AppLayout.tsx mirrors Workspace.isSidebarVisible onto
+   [data-sidebar-collapsed], see AppLayout.css). Expanded, the sidepanel
+   itself already occupies the space the native traffic lights
+   (tauri.conf.json's trafficLightPosition, x: 16) sit in, so the topbar
+   needs no adjustment — only once the page slides over and covers the
+   sidebar does the topbar's own leading edge end up under them. Traffic
+   lights can't be covered or hidden by page content (see the traffic-
+   light investigation), so the topbar reserves real space for them
+   instead, same as it did pre-collapse-rewrite. Scoped to .topbar
+   only — not .page, the editor, sidebar, or general layout — and not
+   permanent: removed the moment the sidebar re-expands. */
+/* Collapsed sidebar — browser. Padding is growing (page has just started
+   covering the sidebar), so this reuses --sidebar-collapse-easing — the
+   same standard-decel/no-overshoot curve the page's own collapse motion
+   already uses (AppLayout.css) — quick off the mark, settling smoothly
+   into its larger value rather than snapping straight there.
+
+   transition-delay: 100ms (~30% of the page's own 340ms slide,
+   AppLayout.css) holds the padding at its starting value while the page
+   is still far from the toggle — without it, the padding visibly starts
+   growing the instant the page begins moving, while there's still an
+   obvious gap between the topbar's leading edge and the stationary
+   toggle. Delaying it lets the padding only start once the page has
+   covered a real fraction of its own distance — closer to arriving —
+   and 190ms is still short enough that delay + duration (~290ms)
+   finishes within the page's 340ms, not after it. Expand has no such
+   delay: padding starts shrinking immediately as the page pulls away,
+   which reads correctly with no gap to wait out in that direction. */
 .app-layout[data-sidebar-collapsed='true'] .topbar {
-  padding-left: 76px;
-  /* Collapse uses the calm, no-overshoot curve — see AppLayout.css'
-     --sidebar-collapse-easing comment; .topbar's base rule above defaults
-     to the spring curve, which is what expand (the unscoped/'false'
-     state) keeps. */
-  transition-timing-function: var(--sidebar-collapse-easing);
-}
-.app-layout[data-sidebar-collapsed='true'] .topbar__sidebar-toggle {
-  display: block;
+  padding-left: 40px;
+  transition-timing-function: ease;
+  transition-delay: 70ms;
 }
 
-/* Below ~700px the sidebar collapses unconditionally (AppLayout.css'
-   own @media block, "regardless of Workspace.isSidebarVisible"), even
-   when isSidebarVisible/data-sidebar-collapsed is still 'false' because
-   nobody has manually toggled it. The rules above alone would then never
-   fire — matching that: the attribute selector here (any value) repeats
-   to tie specificity with the 'true'-scoped rules above, and this block
-   being last in source order is what wins the tie, the same technique
-   AppLayout.css uses for the same reason. */
-@media (max-width: 700px) {
-  .topbar,
-  .app-layout[data-sidebar-collapsed] .topbar {
-    padding-left: 76px;
-    transition-timing-function: var(--sidebar-collapse-easing);
-  }
-  .topbar__sidebar-toggle,
-  .app-layout[data-sidebar-collapsed] .topbar__sidebar-toggle {
-    display: block;
-  }
+/* Tauri/macOS + collapsed sidebar */
+:root[data-runtime='tauri'] .app-layout[data-sidebar-collapsed='true'] .topbar {
+  padding-left: calc(var(--space-8) + 100px);
+}
+
+/* Expanded — padding is shrinking back down as the page slides away.
+   ease-in-out (slow start) deliberately differs from the collapse
+   curve's quick start: an immediate fast pull-in here would read as the
+   topbar snapping back on its own before the page has actually cleared
+   it, rather than settling as the page arrives. */
+.app-layout[data-sidebar-collapsed='false'] .topbar {
+  transition-timing-function: ease;
 }

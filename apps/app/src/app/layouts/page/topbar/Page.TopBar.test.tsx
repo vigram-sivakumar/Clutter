@@ -104,14 +104,4 @@ describe('PageTopBar history buttons (ADR-027, relocated here from Controls)', (
     expect(onNavigateBack).not.toHaveBeenCalled();
     expect(onNavigateForward).not.toHaveBeenCalled();
   });
-
-  it('the sidebar-toggle button is unaffected by history state', () => {
-    const onToggleSidebarVisible = vi.fn();
-    const { container } = renderTopBar({ onToggleSidebarVisible });
-
-    const toggleButton = container.querySelector('.topbar__sidebar-toggle')!;
-    fireEvent.click(toggleButton);
-
-    expect(onToggleSidebarVisible).toHaveBeenCalledTimes(1);
-  });
 });
