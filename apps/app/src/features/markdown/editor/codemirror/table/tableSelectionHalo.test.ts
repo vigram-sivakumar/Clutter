@@ -360,6 +360,74 @@ describe('table selection halo — a root selection spanning the table is a sing
   });
 });
 
+/**
+ * Regression coverage for the selection-halo geometry — the halo's own CSS
+ * (`tableWidget.css`'s `.cm-editor .cm-table-wrapper-selected table` rule)
+ * paints the actual `<table>` element directly, not `.cm-table-scroll`
+ * (unconditionally `width`/`max-width: 100%`, so it would over-paint a
+ * small explicit-width table and under-paint an oversized one) or
+ * `.cm-table-wrapper` (still prose-capped for an explicit-width table).
+ * Structural coverage,
+ * not pixel geometry: jsdom computes no real layout/cascade (this file's
+ * own CSS-source tests above already establish that constraint), so what
+ * these tests *can* prove is that the element the CSS rule's selector
+ * would actually match — a real `<table>` nested inside
+ * `.cm-table-wrapper-selected` — exists, is the one and only `<table>` in
+ * this widget (not a decoy the selector could accidentally miss), and sits
+ * inside `.cm-table-scroll` as ordinary scrolled content rather than as
+ * some separately-positioned overlay — which is exactly why this fix needs
+ * no scroll-position math at all to "remain aligned while scrolling": a
+ * real DOM child of the scrolling container is already correctly
+ * positioned by the browser's own native scrolling, the same reasoning
+ * `tableSelectionOverlay.ts`'s own column/row/range functions rely on for
+ * their absolutely-positioned overlay, applied here to an element that
+ * needs no separate overlay in the first place.
+ */
+describe('table selection halo — geometry targets the actual <table>, not the scroll viewport', () => {
+  it('the halo\'s CSS target selector matches a real, unique <table> nested inside .cm-table-wrapper-selected > .cm-table-scroll', () => {
+    const doc = `${BASIC_TABLE}\n`;
+    const view = mount(doc);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ selection: { anchor: doc.length }, effects: tableDeletionSelectionChanged.of(table.from) });
+
+    const haloedWrapper = view.dom.querySelector('.cm-table-wrapper.cm-table-wrapper-selected');
+    expect(haloedWrapper).not.toBeNull();
+
+    // Exactly what `.cm-editor .cm-table-wrapper-selected table` (the CSS
+    // rule) selects: a `<table>` descendant, reached through the scroll
+    // container, not a sibling/cousin element the selector would miss.
+    const matchedByRule = haloedWrapper!.querySelector(':scope > .cm-table-scroll > table');
+    expect(matchedByRule).not.toBeNull();
+
+    // Exactly one — if the widget ever rendered more than one <table>
+    // under the same wrapper, `table` in the CSS selector would paint all
+    // of them, silently changing what "the halo" visually covers.
+    expect(haloedWrapper!.querySelectorAll('table')).toHaveLength(1);
+  });
+
+  it('the halo\'s target <table> is real scrolled content of .cm-table-scroll, not a sibling overlay needing its own scroll-position conversion', () => {
+    // A small table (no explicit widths) still renders its own single
+    // <table>, a direct child of .cm-table-scroll — the same parent/child
+    // relationship an explicit-width table has
+    // (`tableWidgetWidthArchitecture.test.ts`'s own DOM tests) —
+    // confirming this fix's geometry source is identical regardless of
+    // whether the table has explicit widths or not: there is no separate
+    // "narrow table" code path that needs its own coverage here.
+    const doc = `${BASIC_TABLE}\n`;
+    const view = mount(doc);
+    const table = findAllTables(view.state)[0]!;
+    view.dispatch({ selection: { anchor: doc.length }, effects: tableDeletionSelectionChanged.of(table.from) });
+
+    const scroll = view.dom.querySelector('.cm-table-wrapper-selected > .cm-table-scroll');
+    expect(scroll).not.toBeNull();
+    expect(scroll!.querySelector(':scope > table')).not.toBeNull();
+    // Not `.cm-table-wrapper--explicit-widths` — this table has no
+    // `{table-col-widths=...}` metadata, yet the halo's own target
+    // element (`<table>`) is structured identically either way.
+    expect(view.dom.querySelector('.cm-table-wrapper--explicit-widths')).toBeNull();
+  });
+});
+
 describe('tableWidget.css — native ::selection suppression', () => {
   const css = readFileSync(join(__dirname, 'tableWidget.css'), 'utf8');
 

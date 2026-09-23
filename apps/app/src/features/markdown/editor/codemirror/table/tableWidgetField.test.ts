@@ -763,3 +763,51 @@ describe('tableWidgetField/TableWidget — clicking a synthetic (padded) cell ma
     expect(controller.activeAnchor).not.toBeNull();
   });
 });
+
+describe('tableWidgetField/TableWidget — persisted column widths render as <colgroup>', () => {
+  it('renders a <col> per column, with no explicit width, when no metadata exists', () => {
+    const view = mountView('| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |');
+
+    const table = view.dom.querySelector('table')!;
+    const colEls = table.querySelectorAll('col');
+    expect(colEls).toHaveLength(3);
+    for (const col of colEls) {
+      expect((col as HTMLElement).style.width).toBe('');
+    }
+    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(false);
+  });
+
+  it('renders each <col> with its own persisted pixel width when valid metadata exists', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80,240"}';
+    const view = mountView(doc);
+
+    const table = view.dom.querySelector('table')!;
+    const colEls = Array.from(table.querySelectorAll('col')) as HTMLElement[];
+    expect(colEls.map((c) => c.style.width)).toEqual(['120px', '80px', '240px']);
+    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(true);
+  });
+
+  it('falls back to no explicit widths when the metadata is invalid (column-count mismatch)', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80"}';
+    const view = mountView(doc);
+
+    const table = view.dom.querySelector('table')!;
+    const colEls = table.querySelectorAll('col');
+    for (const col of colEls) {
+      expect((col as HTMLElement).style.width).toBe('');
+    }
+    expect(table.closest('.cm-table-wrapper')!.classList.contains('cm-table-wrapper--explicit-widths')).toBe(false);
+  });
+
+  it('rebuilds the widget (new <colgroup> widths) when only the attribute line changes, not the table body', () => {
+    const doc = '| Name | Role | City |\n| --- | --- | --- |\n| Vik | UI | Chennai |\n{table-col-widths="120,80,240"}';
+    const view = mountView(doc);
+    const attrStart = doc.indexOf('{table-col-widths');
+    const attrEnd = doc.length;
+
+    view.dispatch({ changes: { from: attrStart, to: attrEnd, insert: '{table-col-widths="120,80,500"}' } });
+
+    const colEls = Array.from(view.dom.querySelectorAll('col')) as HTMLElement[];
+    expect(colEls.map((c) => c.style.width)).toEqual(['120px', '80px', '500px']);
+  });
+});

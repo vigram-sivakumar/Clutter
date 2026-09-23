@@ -4,8 +4,9 @@ import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
 import { splitPipeRowCells } from './tableAlignment';
-import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
+import { arrayMove, findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, type TableSelection } from './tableSelection';
+import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnMove, resolveTableColumnWidths } from './tableColumnWidthMetadata';
 
 /**
  * "Move up"/"Move down" (row handle menu), "Move left"/"Move right" (column
@@ -67,14 +68,6 @@ import { tableSelectionChanged, type TableSelection } from './tableSelection';
  * original separators between those rows preserved exactly. A range that
  * never touches index 0 needs only the ordinary contiguous-range shape.
  */
-
-/** Standard "move element" permutation: returns a new array where the item at `from` (an index into `arr`) has been relocated to `to`, and everything between shifts to make room — `O(arr.length)`, no aliasing of `arr` itself. */
-function arrayMove<T>(arr: readonly T[], from: number, to: number): T[] {
-  const copy = arr.slice();
-  const [item] = copy.splice(from, 1);
-  copy.splice(to, 0, item as T);
-  return copy;
-}
 
 function dispatchMove(view: EditorView, changes: ChangeSpec[], nextSelection: TableSelection): void {
   const changeSet = view.state.changes(changes);
@@ -353,6 +346,20 @@ function moveColumn(view: EditorView, table: TableInfo, fromIndex: number, toInd
     if (change) {
       changes.push(change);
     }
+  }
+
+  // Width metadata follows the moved column, in the same transaction —
+  // never a second dispatch (see `tableColumnWidthMetadata.ts`'s own
+  // "Structural-operation synchronization" section). A `null` attribute
+  // (no persisted widths) or `null` change (metadata already at target
+  // shape, unreachable here since a real move always permutes a real
+  // array) contributes nothing to `changes`, matching every other
+  // conditional push in this function.
+  const attribute = resolveTableColumnWidths(view.state, table);
+  const nextWidths = nextWidthsAfterColumnMove(attribute?.widths ?? null, fromIndex, toIndex);
+  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
+  if (widthsChange) {
+    changes.push(widthsChange);
   }
 
   dispatchMove(view, changes, { kind: 'column', tableFrom: table.from, columnIndex: toIndex });

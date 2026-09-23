@@ -76,6 +76,7 @@ import { tableSelectionCaretVisibility } from './table/tableSelectionCaretVisibi
 import { tableSelectionClearKeymap } from './table/tableSelectionClear';
 import { tableSelectionDeletionHistory } from './table/tableSelectionDeletion';
 import { tableWidgetDecoration } from './table/tableWidgetField';
+import { tableColumnWidthsConcealment } from './table/tableColumnWidthsConcealment';
 
 /**
  * Every getter here follows the same "read fresh per rebuild/per click"
@@ -303,6 +304,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     linkMouseHandlers(),
     urlMouseHandlers(),
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.()),
+    tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
     // not gated on `tableActiveCellController`) — `buildTableWidgetRange`
     // reads this field on every rebuild via `state.field(...)`, which

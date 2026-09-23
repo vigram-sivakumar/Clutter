@@ -16,6 +16,14 @@ import type { SyntaxNode } from '@lezer/common';
  * syntax tree; no state of their own.
  */
 
+/** Standard "move element" permutation: returns a new array where the item at `from` (an index into `arr`) has been relocated to `to`, and everything between shifts to make room — `O(arr.length)`, no aliasing of `arr` itself. Lives here (rather than in `tableRowColumnMove.ts`, its original single consumer) so `tableColumnWidthMetadata.ts` can reuse the exact same permutation for a moved column's own width array without a circular import between the two feature modules. */
+export function arrayMove<T>(arr: readonly T[], from: number, to: number): T[] {
+  const copy = arr.slice();
+  const [item] = copy.splice(from, 1);
+  copy.splice(to, 0, item as T);
+  return copy;
+}
+
 export function findEnclosingTable(state: EditorState, pos: number): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolve(pos, 1);
   while (node && node.name !== 'Table') {

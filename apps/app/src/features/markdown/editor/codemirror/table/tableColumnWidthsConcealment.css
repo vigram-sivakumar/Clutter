@@ -1,0 +1,18 @@
+/*
+ * The table column-width attribute line's own concealed-line container
+ * (`tableColumnWidthsConcealment.ts`) — its text content is already
+ * removed by a paired `Decoration.replace({})` over the same range; this
+ * collapses the now-empty line's own box to zero height, so no blank gap
+ * is left between the rendered table and whatever follows it.
+ *
+ * `padding: 0`, never `margin`, per this codebase's permanent CM6 rule
+ * (`CLAUDE.md`) — margin on a CM6-managed line has twice corrupted
+ * cursor/navigation bookkeeping. `overflow: hidden` is defensive only
+ * (the line has no content left to overflow once concealed) — the real
+ * work is `height: 0`.
+ */
+.cm-editor .cm-table-col-widths-hidden-line {
+  height: 0;
+  padding: 0;
+  overflow: hidden;
+}

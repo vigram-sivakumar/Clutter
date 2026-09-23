@@ -6,6 +6,7 @@ import type { TableActiveCellController } from './tableActiveCellController';
 import { findCellWrapper } from './tableBoundaryNavigation';
 import { beginCellDragTracking } from './tableCellRangeSelection';
 import { endOfCellContent, findAllTables, startOfCellContent } from './tableGeometry';
+import { attachTableColumnResizeHandles } from './tableColumnResizeHandle';
 import { attachTableHandleOverlay } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
@@ -31,6 +32,13 @@ function rangeEq(a: SelectedRangeBounds, b: SelectedRangeBounds): boolean {
     return a === b;
   }
   return a.minRow === b.minRow && a.maxRow === b.maxRow && a.minCol === b.minCol && a.maxCol === b.maxCol;
+}
+
+function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null): boolean {
+  if (a === null || b === null) {
+    return a === b;
+  }
+  return a.length === b.length && a.every((width, i) => width === b[i]);
 }
 
 /**
@@ -188,7 +196,18 @@ export class TableWidget extends WidgetType {
      * new `TableWidget` instance is already constructed on every rebuild
      * regardless, at which point this getter is simply read again fresh.
      */
-    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined
+    readonly getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined = () => undefined,
+    /**
+     * This table's own persisted column widths (`tableColumnWidthMetadata.ts`'s
+     * `resolveTableColumnWidths`), or `null` when no valid metadata exists —
+     * `tableWidgetField.ts` resolves this fresh on every rebuild, the same
+     * "no state of its own" shape every other field here already follows.
+     * Part of `eq()`: a resize commit only ever rewrites the attribute line
+     * (never `rawText`, this table's own `[from, to)` range), so this field
+     * is what actually notices a resize happened and triggers a rebuild —
+     * see `toDOM()`'s own `<colgroup>` rendering below for how it's applied.
+     */
+    readonly columnWidths: readonly number[] | null = null
   ) {
     super();
   }
@@ -219,7 +238,8 @@ export class TableWidget extends WidgetType {
       this.isSelected === other.isSelected &&
       this.selectedColumnIndex === other.selectedColumnIndex &&
       this.selectedRowIndex === other.selectedRowIndex &&
-      rangeEq(this.selectedRange, other.selectedRange)
+      rangeEq(this.selectedRange, other.selectedRange) &&
+      columnWidthsEq(this.columnWidths, other.columnWidths)
     );
   }
 
@@ -308,7 +328,11 @@ export class TableWidget extends WidgetType {
         // belt-and-suspenders pairing already used for cell clicks, so a
         // later milestone's own handle click/drag handler doesn't have to
         // remember to revisit this check.
-        if (target?.closest('td, th, .cm-table-column-handle-hit, .cm-table-row-handle-hit')) {
+        // `.cm-table-column-resize-hit` (`tableColumnResizeHandle.ts`) is
+        // exempted for the identical reason — without it, this handler's
+        // own `preventDefault`/`stopPropagation` below would run on every
+        // resize-handle interaction too.
+        if (target?.closest('td, th, .cm-table-column-handle-hit, .cm-table-row-handle-hit, .cm-table-column-resize-hit')) {
           return;
         }
         event.preventDefault();
@@ -325,6 +349,17 @@ export class TableWidget extends WidgetType {
     if (this.isSelected) {
       tableWrapper.classList.add('cm-table-wrapper-selected');
     }
+    // Explicit column widths (persisted resize metadata) switch the table
+    // out of "stretch to 100% of the container, columns divide evenly"
+    // mode into "size to the literal sum of column widths, scroll
+    // horizontally past the container if needed" — `tableWidget.css`'s own
+    // `.cm-table-wrapper--explicit-widths` rule pair (on this element and
+    // `.cm-table-scroll`) implements both halves together. Scoped to only
+    // tables that actually have resized widths, not applied globally — an
+    // untouched table keeps today's exact rendering.
+    if (this.columnWidths !== null) {
+      tableWrapper.classList.add('cm-table-wrapper--explicit-widths');
+    }
     widget.appendChild(tableWrapper);
 
     // Horizontal-scroll container, split out from `.cm-table-wrapper`
@@ -339,6 +374,27 @@ export class TableWidget extends WidgetType {
 
     const table = document.createElement('table');
     tableScroll.appendChild(table);
+
+    // One `<col>` per column — the standard native mechanism for real
+    // per-column widths under `table-layout: fixed`, not a second layout
+    // system. Always present (even with no explicit widths) so the resize
+    // gesture (`tableColumnResizeHandle.ts`) always has a `<col>` per
+    // column to write an inline width onto directly, with no DOM
+    // restructuring needed the moment a drag starts. Carries an explicit
+    // pixel `width` only when `this.columnWidths` has a valid entry for
+    // that index — otherwise `table-layout: fixed`'s own even-division
+    // default applies exactly as it does with no `<colgroup>` at all.
+    const colgroup = document.createElement('colgroup');
+    for (let i = 0; i < this.headerCells.length; i++) {
+      const col = document.createElement('col');
+      col.dataset.columnIndex = String(i);
+      const width = this.columnWidths?.[i];
+      if (width !== undefined) {
+        col.style.width = `${width}px`;
+      }
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
 
     const thead = document.createElement('thead');
     // Row index 0 — `getNavigableRows(table)`'s own convention (the header
@@ -379,6 +435,11 @@ export class TableWidget extends WidgetType {
         this.selectedRowIndex,
         this.getOnTableHandleMenuChange
       );
+      // Column-boundary resize — a separate hit-target/gesture entirely
+      // (see `tableColumnResizeHandle.ts`'s own doc comment for why it
+      // cannot collide with the select/reorder handle above). Gated on
+      // `this.controller` for the same read-only-table reason.
+      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
     }
 
     // Column/row-selection outline (range outlines land later, reusing

@@ -7,6 +7,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { splitPipeRowCells } from './tableAlignment';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, tableSelectionField, type TableSelection } from './tableSelection';
+import { buildTableColumnWidthsAttributeChange, nextWidthsAfterColumnDeletion, resolveTableColumnWidths, tableRemovalRangeIncludingWidths } from './tableColumnWidthMetadata';
 
 /**
  * Structural deletion of a currently-selected table row or column
@@ -176,18 +177,26 @@ function dispatchDeletion(view: EditorView, changes: ChangeSpec[], nextSelection
 
 /**
  * Deletes the whole table — the only correct outcome for deleting a
- * single-column table's own last remaining column: unlike a row (which can
- * shrink to a valid zero-body-row, header-only table), a table cannot have
+ * single-column table's own last remaining column (unlike a row, which can
+ * shrink to a valid zero-body-row, header-only table, a table cannot have
  * zero columns and still be a valid GFM table, so there is no partial
- * remnant to preserve. Mirrors `tableDeletionSelection.ts`'s own
- * `deleteTable` shape exactly (delete `[table.from, table.to)`, land the
- * caret at the now-ordinary-text position `table.from` maps to) — not
- * reused directly because that function also always clears
- * `tableDeletionSelectionChanged`, an effect meaningless to this module's
- * own (always-null-here) whole-table-selection case.
+ * remnant to preserve) and for deleting a header row with no body row left
+ * to promote. Mirrors `tableDeletionSelection.ts`'s own `deleteTable` shape
+ * (delete the table's own range, land the caret at the position that range's
+ * own start maps to) — not reused directly because that function also
+ * always clears `tableDeletionSelectionChanged`, an effect meaningless to
+ * this module's own (always-null-here) whole-table-selection case.
+ *
+ * **Also removes the table's own width-metadata attribute line, when one
+ * exists**, via `tableRemovalRangeIncludingWidths` — in the same one-change
+ * removal, so undo restores both the table and its widths together. Fixed
+ * here, in the one function both cascades (column-count-1, header-with-no-
+ * body) already funnel through, rather than duplicated at each call site.
  */
 function deleteWholeTable(view: EditorView, table: TableInfo): void {
-  dispatchDeletion(view, [{ from: table.from, to: table.to, insert: '' }], null, table.from);
+  const attribute = resolveTableColumnWidths(view.state, table);
+  const range = tableRemovalRangeIncludingWidths(table, attribute);
+  dispatchDeletion(view, [{ from: range.from, to: range.to, insert: '' }], null, table.from);
 }
 
 /**
@@ -309,6 +318,19 @@ function deleteSelectedColumn(view: EditorView, table: TableInfo, columnIndex: n
     if (change) {
       changes.push(change);
     }
+  }
+
+  // Width metadata, same transaction — the deleted column's own width is
+  // removed from the array at the same index, mirroring the cell-content
+  // removal above (`nextWidthsAfterColumnDeletion`). Not reached for a
+  // single-column table (the `headerColumnCount <= 1` branch above already
+  // returned via `deleteWholeTable`, which removes the whole attribute line
+  // instead of shrinking it).
+  const attribute = resolveTableColumnWidths(view.state, table);
+  const nextWidths = nextWidthsAfterColumnDeletion(attribute?.widths ?? null, columnIndex);
+  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
+  if (widthsChange) {
+    changes.push(widthsChange);
   }
 
   const next = nextSelectionAfterColumnDeletion(table.from, columnIndex, headerColumnCount);

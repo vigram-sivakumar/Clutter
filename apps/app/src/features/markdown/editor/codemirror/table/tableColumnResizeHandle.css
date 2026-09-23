@@ -1,0 +1,49 @@
+/*
+ * Column-boundary resize hit-strips (`tableColumnResizeHandle.ts`) — one
+ * per internal column boundary, spanning the table's full height, living
+ * inside `.cm-table-scroll` (not `.cm-table-wrapper`, unlike the column
+ * select/reorder handle in `tableHandleOverlay.css`) so a strip scrolls
+ * together with the table's own horizontal overflow, matching what a
+ * boundary marker conceptually belongs to.
+ */
+.cm-table-column-resize-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+  /* Above the table's own cell content and the column select/reorder
+   * handle's own hit area (`tableHandleOverlay.css`) in the narrow case
+   * where a very narrow column puts both within reach of the same point —
+   * a deliberate, explicit tie-break, not an accident of paint order. */
+  z-index: 3;
+}
+
+/* Invisible until hovered/dragged — a thin highlight line only then, so a
+ * table with no resize interaction happening reads exactly as it always
+ * has. */
+.cm-table-column-resize-hit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border-active);
+  opacity: 0;
+}
+.cm-table-column-resize-hit:hover::after {
+  opacity: 1;
+}
+
+/* Global resize cursor while a column resize is in progress — the same
+ * `<body>`-scoped, `!important` pattern `tableHandleOverlay.css`'s own
+ * `body.cm-table-dragging-active` rule already establishes for reorder
+ * drags, for the identical reason: the pointer is free to travel anywhere
+ * during the drag, not just over the hit-strip itself. */
+body.cm-table-column-resizing-active,
+body.cm-table-column-resizing-active * {
+  cursor: col-resize !important;
+}

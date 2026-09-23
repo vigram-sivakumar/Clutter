@@ -4,6 +4,12 @@ import type { EditorView } from '@codemirror/view';
 import { splitPipeRowCells } from './tableAlignment';
 import { findAllTables, getNavigableRows, getRowColumnSegments, isAlignmentRow, type RowColumnSegment, type TableInfo } from './tableGeometry';
 import { tableSelectionChanged, type TableSelection } from './tableSelection';
+import {
+  buildTableColumnWidthsAttributeChange,
+  nextWidthsAfterColumnDuplication,
+  nextWidthsAfterColumnInsertion,
+  resolveTableColumnWidths,
+} from './tableColumnWidthMetadata';
 
 import type { SyntaxNode } from '@lezer/common';
 
@@ -126,6 +132,18 @@ function insertColumn(view: EditorView, table: TableInfo, columnIndex: number, s
     }
   }
 
+  // Width metadata, same transaction — see `tableColumnWidthMetadata.ts`'s
+  // own "Structural-operation synchronization" section. A table with no
+  // existing metadata stays that way (`nextWidthsAfterColumnInsertion`'s
+  // own "never fabricate metadata a table didn't already have" rule); one
+  // that does gets `DEFAULT_TABLE_COLUMN_WIDTH` inserted at `targetIndex`.
+  const attribute = resolveTableColumnWidths(view.state, table);
+  const nextWidths = nextWidthsAfterColumnInsertion(attribute?.widths ?? null, targetIndex);
+  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
+  if (widthsChange) {
+    changes.push(widthsChange);
+  }
+
   dispatchInsertion(view, changes, { kind: 'column', tableFrom: table.from, columnIndex: targetIndex });
   return true;
 }
@@ -234,6 +252,16 @@ function duplicateColumn(view: EditorView, table: TableInfo, columnIndex: number
     if (change) {
       changes.push(change);
     }
+  }
+
+  // Width metadata, same transaction — the duplicate's own width copies
+  // `columnIndex`'s own existing value verbatim, mirroring the cell-content
+  // copy above (`nextWidthsAfterColumnDuplication`).
+  const attribute = resolveTableColumnWidths(view.state, table);
+  const nextWidths = nextWidthsAfterColumnDuplication(attribute?.widths ?? null, columnIndex);
+  const widthsChange = buildTableColumnWidthsAttributeChange(attribute, nextWidths);
+  if (widthsChange) {
+    changes.push(widthsChange);
   }
 
   // The selection stays on `columnIndex` — the original column, never the
