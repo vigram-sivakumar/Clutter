@@ -125,13 +125,28 @@ function clampedWidthFromPointer(session: ResizeSession, clientX: number): numbe
  * widths (`TableWidget.columnWidths` — `null` when none exist), threaded
  * straight through rather than re-resolved here, matching every other
  * per-render value this widget already hands down rather than re-deriving.
+ *
+ * `restoreScrollLeftAfterPositioning`, when given, is applied to
+ * `tableScroll` immediately after this call's own deferred
+ * `positionBoundaries()` run below — `tableWidget.ts`'s own
+ * `pendingScrollRestoreByTableFrom` doc comment has the full reasoning for
+ * why cell activation's own scroll-position fix belongs here rather than
+ * at its own, earlier call site: a cell click's own widget rebuild
+ * replaces `.cm-table-scroll` with a fresh element (`scrollLeft` reset to
+ * 0), and restoring that position any earlier than this — before the last
+ * column's own resize-hit strip has actually been positioned — gets
+ * silently clamped short by the browser's own native `scrollLeft` setter,
+ * confirmed live. `undefined` (every caller except `TableWidget.toDOM()`'s
+ * own cell-activation path) restores nothing, matching this parameter's
+ * own absence before it existed.
  */
 export function attachTableColumnResizeHandles(
   wrapper: HTMLElement,
   tableFrom: number,
   view: EditorView,
   columnCount: number,
-  columnWidths: readonly number[] | null
+  columnWidths: readonly number[] | null,
+  restoreScrollLeftAfterPositioning?: number
 ): void {
   if (columnCount < 1) {
     return;
@@ -583,9 +598,22 @@ export function attachTableColumnResizeHandles(
   // `getBoundingClientRect()` on a still-detached subtree returns a
   // meaningless zero rect). `isConnected` re-checked at fire time in case a
   // second, unrelated rebuild lands first and discards this exact instance.
+  //
+  // `restoreScrollLeftAfterPositioning` is applied here, immediately after
+  // `positionBoundaries()` returns — not before, and not in any separate
+  // microtask of its own (see this function's own doc comment for why
+  // restoring any earlier gets silently clamped short by the browser's own
+  // native `scrollLeft` setter). No clamp math of its own: by this point
+  // `tableScroll`'s true scrollable extent already includes the last
+  // column's own resize-hit overhang that `positionBoundaries()` just
+  // applied, so a plain assignment clamps correctly on its own, the same
+  // as any ordinary `scrollLeft` write against settled layout.
   queueMicrotask(() => {
     if (wrapper.isConnected) {
       positionBoundaries();
+      if (restoreScrollLeftAfterPositioning !== undefined) {
+        tableScroll.scrollLeft = restoreScrollLeftAfterPositioning;
+      }
     }
   });
 }

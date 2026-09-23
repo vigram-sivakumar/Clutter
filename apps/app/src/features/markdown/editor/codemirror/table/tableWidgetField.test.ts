@@ -811,3 +811,142 @@ describe('tableWidgetField/TableWidget — persisted column widths render as <co
     expect(colEls.map((c) => c.style.width)).toEqual(['120px', '80px', '500px']);
   });
 });
+
+describe('tableWidgetField/TableWidget — cell activation preserves horizontal scroll position (no snap back to 0)', () => {
+  const WIDE_TABLE = '| A | B | C | D |\n| --- | --- | --- | --- |\n| 1111 | 2222 | 3333 | 4444 |';
+
+  function mousedown(el: Element): void {
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  }
+
+  /**
+   * The actual lifecycle under test, per `tableWidget.ts`'s own
+   * `pendingScrollRestoreByTableFrom` doc comment: `mousedown(...)` above
+   * captures the pre-rebuild `scrollLeft` and hands it to
+   * `TableWidget.toDOM()`'s own `attachTableColumnResizeHandles()` call,
+   * which restores it — with no clamp math of its own — from *inside*
+   * `tableColumnResizeHandle.ts`'s own pre-existing `queueMicrotask()`,
+   * immediately after that same callback's own `positionBoundaries()` call
+   * completes. A synchronous read right after `mousedown()` therefore sees
+   * the fresh `.cm-table-scroll`'s own untouched default (`0`) — only
+   * *awaiting* a microtask tick (this helper) lets the queued restoration
+   * actually run, the same one real production code already relies on.
+   */
+  async function flushPendingScrollRestore(): Promise<void> {
+    await Promise.resolve();
+  }
+
+  it('clicking a cell while horizontally scrolled preserves scrollLeft', async () => {
+    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    scrollEl.scrollLeft = 500;
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const cell = tableEl.tBodies[0]!.rows[0]!.cells[1]!;
+    mousedown(cell);
+
+    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    expect(freshScroll).not.toBe(scrollEl); // proves a genuine rebuild happened — not a no-op assertion
+    await flushPendingScrollRestore();
+    expect(freshScroll.scrollLeft).toBe(500);
+  });
+
+  it('clicking a header cell while horizontally scrolled preserves scrollLeft', async () => {
+    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    scrollEl.scrollLeft = 500;
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const headerCell = tableEl.tHead!.rows[0]!.cells[2]!;
+    mousedown(headerCell);
+
+    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    expect(freshScroll).not.toBe(scrollEl);
+    await flushPendingScrollRestore();
+    expect(freshScroll.scrollLeft).toBe(500);
+  });
+
+  it('clicking a body cell near the right edge preserves scroll position', async () => {
+    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    scrollEl.scrollLeft = 750; // near the max, right edge already visible
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const lastColumnCell = tableEl.tBodies[0]!.rows[0]!.cells[3]!;
+    mousedown(lastColumnCell);
+
+    await flushPendingScrollRestore();
+    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    expect(freshScroll.scrollLeft).toBe(750);
+  });
+
+  /**
+   * Regression coverage for the right-edge jerk — the *sequencing* itself,
+   * not a geometry formula (there is no `maxScrollLeft` calculation left
+   * to test; `restoreScrollLeftAfterPositioning` is a plain assignment).
+   * Two prior, purely-arithmetic fix attempts were each confirmed live to
+   * fail at the true right edge for two different reasons: reading
+   * `table.getBoundingClientRect().width` alone structurally excludes the
+   * last column's own resize-hit overhang, and reading `scroll.scrollWidth`
+   * (or even a fixed compensation added to the table width) still gets
+   * silently clamped short by the *browser's own* native `scrollLeft`
+   * setter, because the resize-hit strips' own position — the thing that
+   * actually gives the container its true scrollable extent — isn't set
+   * until `positionBoundaries()` itself runs, deferred to this file's own
+   * pre-existing `queueMicrotask()`. This test asserts the restoration
+   * literally cannot have happened yet immediately after `mousedown()`
+   * (the fresh scroll container sits at its own untouched default `0`) and
+   * only appears once that same microtask has actually had a chance to
+   * run — proving the fix's whole premise: correctness here is about
+   * *when* the write happens, not what it computes.
+   */
+  it('the captured scroll position is not restored until after positionBoundaries() has run, then survives exactly', async () => {
+    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    scrollEl.scrollLeft = 917; // an arbitrary, exact position — nothing here should round or clamp it
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const lastColumnCell = tableEl.tBodies[0]!.rows[0]!.cells[3]!;
+    mousedown(lastColumnCell);
+
+    const freshScroll = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    expect(freshScroll).not.toBe(scrollEl);
+    // Not yet — the queued restoration hasn't run at this synchronous point.
+    expect(freshScroll.scrollLeft).toBe(0);
+
+    await flushPendingScrollRestore();
+    // Restored exactly, unclamped — no formula, no rounding.
+    expect(freshScroll.scrollLeft).toBe(917);
+  });
+
+  it('activation still focuses the nested editor and mounts it in the clicked cell, independent of scroll restoration timing', async () => {
+    const doc = `${WIDE_TABLE}\n{table-col-widths="300,300,300,300"}`;
+    const controller = new TableActiveCellController();
+    const view = mountView(doc, controller);
+    const scrollEl = view.dom.querySelector('.cm-table-scroll') as HTMLElement;
+    scrollEl.scrollLeft = 500;
+
+    const tableEl = view.dom.querySelector('table') as HTMLTableElement;
+    const cell = tableEl.tBodies[0]!.rows[0]!.cells[1]!;
+    mousedown(cell);
+
+    // Focus/mount happen synchronously inside `controller.activate()`,
+    // well before the deferred scroll restoration — asserted before any
+    // microtask flush, to prove the two are genuinely independent.
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView).not.toBeNull();
+    const freshCell = (view.dom.querySelector('table') as HTMLTableElement).tBodies[0]!.rows[0]!.cells[1]!;
+    expect(freshCell.contains(controller.nestedView!.dom)).toBe(true);
+
+    await flushPendingScrollRestore();
+    expect(freshCell.contains(controller.nestedView!.dom)).toBe(true);
+  });
+});

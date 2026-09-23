@@ -42,6 +42,40 @@ function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null
 }
 
 /**
+ * Cell activation's own captured pre-rebuild `scrollLeft`, keyed by
+ * `tableFrom`, waiting to be handed to `attachTableColumnResizeHandles()`'s
+ * own `queueMicrotask()` callback (`tableColumnResizeHandle.ts`) — the
+ * single existing deferred point where restoring it is actually safe.
+ * `TableWidget.eq()` still rebuilds on every activation (`activeFrom`/
+ * `activeTo` staying part of it, this architecture's own unchanged
+ * active-cell contract), and every such rebuild replaces
+ * `.cm-table-scroll` with a brand-new element that starts at its own
+ * default `scrollLeft` of 0 — confirmed live (read-by-read instrumentation,
+ * two prior attempts) that restoring it any earlier than this is
+ * unreliable: `attachTableColumnResizeHandles()` appends the resize-hit
+ * strips synchronously during `toDOM()`, but the call that actually
+ * *positions* them — `positionBoundaries()`, including the last column's
+ * own strip extending past the table's own right edge — is itself
+ * deferred to that file's own `queueMicrotask()` (its own doc comment:
+ * `getBoundingClientRect()` on a still-detached subtree is meaningless, so
+ * it can't run synchronously inside `toDOM()`). Assigning `scrollLeft`
+ * *before* that microtask fires gets silently clamped by the browser's own
+ * native setter to whatever the container's incomplete, pre-positioning
+ * scrollable extent currently supports — confirmed live: the assignment
+ * itself reads back already-truncated in the same synchronous tick, and
+ * never self-corrects afterward. Waiting until *after* `positionBoundaries()`
+ * has actually run needs no clamp math of its own at all: by then the
+ * container's true scrollable extent already matches what the user was
+ * really looking at, and the browser's own native `scrollLeft` semantics
+ * clamp correctly on their own, the same way any ordinary assignment does.
+ *
+ * Set by `buildRow()`'s own mousedown handler below, immediately before
+ * calling `controller.activate()`; read and deleted by `toDOM()` when it
+ * calls `attachTableColumnResizeHandles()` for the resulting rebuild.
+ */
+const pendingScrollRestoreByTableFrom = new Map<number, number>();
+
+/**
  * One cell's raw text plus its trimmed source range (`from`/`to` —
  * `tableWidgetField.ts`'s own `rowCells` — excludes the padding spaces
  * around the text, matching `tableCellNavigation.ts`'s `trimmedCellRange`
@@ -439,7 +473,15 @@ export class TableWidget extends WidgetType {
       // (see `tableColumnResizeHandle.ts`'s own doc comment for why it
       // cannot collide with the select/reorder handle above). Gated on
       // `this.controller` for the same read-only-table reason.
-      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths);
+      //
+      // `pendingScrollRestoreByTableFrom` (this file's own doc comment) —
+      // read and cleared here, on *every* rebuild, not just the one a cell
+      // activation actually triggered: `undefined` on any other rebuild
+      // (a doc edit, a different table's own activation, ...), which
+      // `attachTableColumnResizeHandles()` treats as "nothing to restore."
+      const pendingScrollLeft = pendingScrollRestoreByTableFrom.get(this.tableFrom);
+      pendingScrollRestoreByTableFrom.delete(this.tableFrom);
+      attachTableColumnResizeHandles(tableWrapper, this.tableFrom, view, this.headerCells.length, this.columnWidths, pendingScrollLeft);
     }
 
     // Column/row-selection outline (range outlines land later, reusing
@@ -663,6 +705,29 @@ export class TableWidget extends WidgetType {
             // clicked position (visible as a second, simultaneous caret) and
             // winning the focus race against this cell's own activation.
             event.stopPropagation();
+            // Captured before any dispatch this handler may trigger below
+            // (a synthetic cell's own `ensureRectangularCellBounds` commit,
+            // then `controller.activate()`'s own `tableActiveCellChanged`
+            // dispatch) — both rebuild `tableWidgetField`'s decorations via
+            // `TableWidget.eq()` (still comparing `activeFrom`/`activeTo`,
+            // this architecture's own unchanged active-cell contract), and
+            // every such rebuild replaces `.cm-table-scroll` with a
+            // brand-new element (`toDOM()`'s own "always a fresh subtree"
+            // doc comment) that starts at its own default `scrollLeft` of
+            // 0 — silently resetting an already-scrolled table back to its
+            // start on every ordinary cell click. Handed to
+            // `pendingScrollRestoreByTableFrom` (this file's own doc
+            // comment on that map has the full timing reasoning) rather
+            // than restored here directly — `toDOM()` below picks it up
+            // and passes it on to `attachTableColumnResizeHandles()`, which
+            // restores it only once its own existing `positionBoundaries()`
+            // microtask has actually run.
+            const currentScroll = view.dom.querySelector<HTMLElement>(
+              `.cm-table-widget[data-table-from="${this.tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+            );
+            if (currentScroll) {
+              pendingScrollRestoreByTableFrom.set(this.tableFrom, currentScroll.scrollLeft);
+            }
             // `cell.from`/`cell.to` are captured in this exact `toDOM()`
             // call's own closure, always rebuilt fresh alongside the rest
             // of this cell's rendering — never a range surviving past the
