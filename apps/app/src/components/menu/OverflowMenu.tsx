@@ -174,6 +174,19 @@ export interface OverflowMenuBodyProps {
   onOpenChange(open: boolean): void;
   /** See OverflowMenuProps/useOverlayFocus's own doc comments — forwarded straight through to each item's onClick. */
   suppressReturnFocusRef: MutableRefObject<boolean>;
+  /**
+   * Applied as the `className` on every submenu's own nested `Overlay`
+   * (`OverflowSubmenuTrigger` below) — a submenu renders through its own,
+   * separate `document.body` portal, so a caller whose own outside-click
+   * detection walks DOM ancestry against a class marker on the *parent*
+   * menu's Overlay (rather than relying on the default backdrop `<div>`,
+   * see `TableHandleMenu.tsx`'s own doc comment for why it needs that)
+   * would otherwise see the submenu portal as "outside" and close/clear
+   * itself out from under a submenu click. Left `undefined` by default so
+   * every other caller (the ordinary `backdrop='transparent'` path) is
+   * unaffected.
+   */
+  submenuClassName?: string;
 }
 
 /**
@@ -193,6 +206,7 @@ export function OverflowMenuBody({
   onSelect,
   onOpenChange,
   suppressReturnFocusRef,
+  submenuClassName,
 }: OverflowMenuBodyProps) {
   // Held so an open submenu can return keyboard ownership to this menu's
   // own container (ArrowLeft, Escape, hovering away, ...) — see
@@ -247,6 +261,7 @@ export function OverflowMenuBody({
               onOpenChange(false);
             }}
             parentMenuRef={parentMenuRef}
+            submenuClassName={submenuClassName}
           />
         ) : (
           <MenuItem
@@ -323,6 +338,7 @@ function OverflowSubmenuTrigger({
   onCloseSubmenu,
   onSelectLeaf,
   parentMenuRef,
+  submenuClassName,
 }: {
   id: string;
   item: OverflowMenuItemConfig;
@@ -332,6 +348,8 @@ function OverflowSubmenuTrigger({
   onCloseSubmenu(): void;
   onSelectLeaf(id: string): void;
   parentMenuRef: RefObject<HTMLDivElement>;
+  /** See `OverflowMenuBodyProps.submenuClassName`'s own doc comment — forwarded straight through onto this submenu's own Overlay. */
+  submenuClassName?: string;
 }) {
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -372,6 +390,7 @@ function OverflowSubmenuTrigger({
         side="right"
         alignment="start"
         returnFocusRef={parentMenuRef}
+        className={submenuClassName}
       >
         <Menu size="small" onArrowLeft={onCloseSubmenu}>
           {submenu.map((leaf) => (
