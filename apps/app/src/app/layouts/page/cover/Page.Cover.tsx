@@ -16,7 +16,7 @@ export function PageCover({ src }: PageCoverProps) {
       <Button className="page__cover__change" size="small" isIconOnly>
         <AppIcon icon="moreVertical" />
       </Button>
-      <img src={src} className="page-cover__image" alt="" />
+      <img src={src} className="page-cover__image" alt="" draggable={false} />
     </aside>
   );
 }

@@ -1,12 +1,18 @@
 .controls {
   display: flex;
-  justify-content: space-between;
+  /* The sidebar-toggle button that used to sit here (space-between'd
+     against .create-controls) now renders in SidebarToggle instead,
+     absolutely positioned over this same top-left corner by
+     SidebarToggle.css — .controls itself only lays out create-controls
+     now, flex-end keeps it pinned to the trailing edge the way
+     space-between used to with two children. */
+  justify-content: flex-end;
   color: var(--foreground-tertiary);
-  padding-left: calc(72px + var(--sidebar-padding-inline));
   padding-right: var(--sidebar-padding-inline);
 
   z-index: 2;
 }
+
 .create-controls {
   display: flex;
 }

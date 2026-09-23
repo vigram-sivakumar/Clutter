@@ -36,16 +36,12 @@ type PageProps = {
   onTitleFlush?(): void;
   /** See PageTitle.onCancel — the Escape entry point for a channel-backed title, reverting its pending value. */
   onTitleCancel?(): void;
-  /** Forwarded to PageTopBar's sidebar-toggle button — see PageTopBarProps. */
-  isSidebarVisible?: boolean;
-  onToggleSidebarVisible?(): void;
   /**
    * Forwarded to PageTopBar's history buttons — the Workspace-owned
    * navigation-history state and NavigationRouter.back()/forward() handlers
-   * of ADR-027, which PageHost resolves and passes down. Optional for the
-   * same reason the sidebar-toggle pair above is: Page's own tests and any
-   * caller that doesn't care about history state shouldn't be forced to
-   * supply them.
+   * of ADR-027, which PageHost resolves and passes down. Optional so
+   * Page's own tests and any caller that doesn't care about history state
+   * shouldn't be forced to supply them.
    */
   canNavigateBack?: boolean;
   canNavigateForward?: boolean;
@@ -79,8 +75,6 @@ export function Page({
   onTitleEdit,
   onTitleFlush,
   onTitleCancel,
-  isSidebarVisible,
-  onToggleSidebarVisible,
   // PageTopBar requires these four, so the defaults stand in for a caller
   // that omitted them: "no history in either direction," which renders both
   // buttons disabled and therefore makes the no-op handlers unreachable.
@@ -105,8 +99,6 @@ export function Page({
           breadcrumbs={breadcrumbs}
           menu={menu}
           actions={actions}
-          isSidebarVisible={isSidebarVisible}
-          onToggleSidebarVisible={onToggleSidebarVisible}
           canNavigateBack={canNavigateBack}
           canNavigateForward={canNavigateForward}
           onNavigateBack={onNavigateBack}

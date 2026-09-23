@@ -499,8 +499,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     return (
       <>
         <Page
-          isSidebarVisible={workspace.isSidebarVisible}
-          onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
           canNavigateBack={workspace.canNavigateBack}
           canNavigateForward={workspace.canNavigateForward}
           onNavigateBack={() => application.navigation.back()}
@@ -565,8 +563,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
 
     return (
       <Page
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
@@ -613,8 +609,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
 
     return (
       <Page
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
@@ -677,8 +671,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
 
     return (
       <Page
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
@@ -744,8 +736,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     return (
       <Page
         titleKey={activePageId}
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
@@ -874,8 +864,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   return (
     <Page
       titleKey={activePageId}
-      isSidebarVisible={workspace.isSidebarVisible}
-      onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
       canNavigateBack={workspace.canNavigateBack}
       canNavigateForward={workspace.canNavigateForward}
       onNavigateBack={() => application.navigation.back()}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './AppLayout.css';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
+import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
@@ -94,15 +95,7 @@ export function AppLayout({ application }: AppLayoutProps) {
   }
 
   return (
-    <div
-      className="app-layout"
-      // Single mechanism, single source of truth (ADR-021): this attribute
-      // and the width-driven @media query in AppLayout.css are the only two
-      // things that ever set the sidebar's grid-template-columns/opacity —
-      // both toggle buttons (Controls, Page.TopBar) only ever flip
-      // Workspace.isSidebarVisible, never touch layout directly.
-      data-sidebar-collapsed={!workspace.isSidebarVisible}
-    >
+    <div className="app-layout" data-sidebar-collapsed={!workspace.isSidebarVisible}>
       <aside className="app-layout__sidepanel">
         <TauriDragStrip />
         {<Sidebar application={application} onOpenResource={openVaultResourceOverlay} />}
@@ -115,6 +108,10 @@ export function AppLayout({ application }: AppLayoutProps) {
           onOpenImageOverlay={openImageOverlay}
         />
       </main>
+      <SidebarToggle
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+      />
       <ImageOverlay
         image={resourceOverlay?.kind === 'image' ? resourceOverlay.image : null}
         onClose={closeResourceOverlay}

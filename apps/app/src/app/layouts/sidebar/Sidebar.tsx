@@ -127,15 +127,11 @@ export function Sidebar({ application, onOpenResource }: SidebarProps) {
 
   return (
     <aside className="sidebar" data-testid={testIds.sidebar.root}>
-      {/* Sidebar content always stays mounted — AppLayout is the single
-          place isSidebarVisible drives layout, via its CSS Grid collapse
-          (data-sidebar-collapsed), not a React unmount here. Two different
-          collapse techniques for the same state would defeat the point of
-          having one source of truth (ADR-021, M4). */}
-      <Controls
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-      />
+      {/* Sidebar content always stays mounted regardless of
+          isSidebarVisible; nothing currently unmounts it based on that
+          state. Controls no longer renders the sidebar-toggle button
+          itself — see SidebarToggle (app-layout/sidebar-toggle). */}
+      <Controls />
       <div className="sidebar--tabs">
         <Tabs
           value={workspace.activeSidebarTab}
