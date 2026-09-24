@@ -2,13 +2,13 @@
   align-items: center;
   border-radius: var(--radius-lg);
   width: 100%;
-  padding-block: var(--space-6);
+  padding-inline-end: var(--space-12);
 }
 .note-list .collection-entry__primary {
   display: flex;
   flex: 1 1 auto;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-12);
 
   min-width: 0;
@@ -25,12 +25,13 @@
   display: flex;
   flex: 1;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-12);
   min-width: 0;
 }
 .note-list .collection-entry__metadata {
+  height: var(--height-sm);
   flex-shrink: 0;
 }
 

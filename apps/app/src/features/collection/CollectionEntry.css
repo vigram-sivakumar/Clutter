@@ -10,8 +10,8 @@
   width: 100%;
 
   height: auto;
-  padding-inline: var(--space-12);
-  padding-block: var(--space-12);
+  padding-inline: var(--space-6);
+  padding-block: var(--space-6);
 
   cursor: pointer;
   transition: background-color 120ms ease;
@@ -41,7 +41,8 @@
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
   letter-spacing: var(--ls-body-small);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-medium);
+
   color: var(--foreground-primary);
 
   overflow: hidden;

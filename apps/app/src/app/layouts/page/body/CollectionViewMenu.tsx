@@ -24,27 +24,28 @@ const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string }> = [
  * `MODE_ITEMS.map` shape (a small mode-select menu with the current mode
  * indicated via MenuItem's existing `selected` prop — Entry's
  * `entry-selected` treatment) rather than a new menu/selection
- * abstraction. The trigger icon is `settings` (a sliders/adjustments
- * glyph) — the only existing "configure"-shaped icon in iconRegistry;
- * there's no icon literally named "configure".
+ * abstraction. The trigger icon is `configure` (svg/configure.svg).
  */
-export function CollectionViewMenu({ viewMode, onChange }: CollectionViewMenuProps) {
+export function CollectionViewMenu({
+  viewMode,
+  onChange,
+}: CollectionViewMenuProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
       <Button
+        className="page-title__button-outline-fill"
         ref={anchorRef}
-        size="small"
-        variant="ghost"
-        interaction="subtle"
+        size="large"
+        variant="outline-fill"
         isIconOnly
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <AppIcon icon="settings" />
+        <AppIcon icon="configure" />
       </Button>
       <Overlay
         open={open}

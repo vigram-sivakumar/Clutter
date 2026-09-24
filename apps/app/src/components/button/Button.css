@@ -21,7 +21,7 @@
 .button--large {
   height: var(--height-lg);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
 }
 .button--medium {
   height: var(--height-md);
@@ -46,7 +46,7 @@
   background: transparent;
 }
 .button--outline-fill {
-  background: var(--surface-subtle);
+  background: var(--surface-secondary);
   box-shadow: var(--shadow-inset-default);
 }
 .button--subtle {

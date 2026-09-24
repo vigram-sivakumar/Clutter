@@ -11,3 +11,6 @@
   min-width: 0;
   flex: 1 1 auto;
 }
+.page-title__button-outline-fill {
+  box-shadow: var(--shadow-inset-strong), var(--shadow-md);
+}

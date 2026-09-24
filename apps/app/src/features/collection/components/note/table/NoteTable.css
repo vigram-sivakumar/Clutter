@@ -1,8 +1,5 @@
 .note-table {
   width: 100%;
-  max-width: var(--editor-width-max);
-  margin-top: var(--space-32);
-  overflow-y: auto;
 }
 
 .note-table__header {
@@ -22,5 +19,5 @@
 
 .note-table__header-cell {
   padding-block: var(--space-8);
-  padding-inline: var(--space-12);
+  padding-inline: var(--space-6);
 }
