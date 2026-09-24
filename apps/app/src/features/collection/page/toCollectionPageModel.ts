@@ -33,7 +33,7 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
 
 /**
  * Formats a persisted `PageMetadata` timestamp (a full ISO instant, e.g.
- * `2026-07-08T14:03:00.000Z`) for the collection Table/Cards views' display
+ * `2026-07-08T14:03:00.000Z`) for the collection Table/List views' display
  * columns — reuses `formatDateDisplay`'s existing `ISODate`
  * (`YYYY-MM-DD`)-based classification rather than a second date-formatting
  * implementation; `'condensed'` mode is the same one the Tasks sidebar uses
@@ -53,14 +53,15 @@ function formatEntryTimestamp(isoTimestamp: string | null): string | undefined {
  * accumulation is prevented at creation time (PageOperations's
  * findReusableDraftId), not by filtering here.
  *
- * `created`/`updated`/`subfolderCount`/`noteCount` are the Table/Cards-view
- * display fields (Phase 1 collection-view wiring) — a note entry gets
- * created/updated from its own `EffectivePage` timestamps; a folder entry
- * gets subfolder/note counts from the same `membershipSelector` queries
- * `toFolderCollectionPageModel` already uses for that folder's own listing,
- * called one level down (the folder's children, not the folder itself).
- * `FolderMetadata` has no created/updated equivalent, so a folder entry
- * leaves both undefined — not a wiring gap, a genuinely missing field.
+ * `created`/`updated` are the Table/List-view display fields
+ * (collection-view wiring) — a note entry gets them from its own
+ * `EffectivePage` timestamps. `FolderMetadata` has no created/updated
+ * equivalent, so a folder entry leaves both undefined — not a wiring gap,
+ * a genuinely missing field. `subfolderCount`/`noteCount` are the reverse
+ * — only ever set for a folder entry, from the same `membershipSelector`
+ * queries `toFolderCollectionPageModel` already uses for that folder's own
+ * listing, called one level down (the folder's children, not the folder
+ * itself).
  */
 function toCollectionEntry(
   entry: Folder | EffectivePage,

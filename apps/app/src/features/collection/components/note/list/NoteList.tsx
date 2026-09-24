@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import { CollectionEntry } from '@features/collection/CollectionEntry';
 import './NoteList.css';
 
@@ -14,6 +14,9 @@ export interface NoteListProps extends HTMLAttributes<HTMLDivElement> {
   lastOpened?: string;
   created?: string;
   updated?: string;
+
+  /** Hover-gated trailing slot — see CollectionEntry's own `actions` doc comment. */
+  actions?: ReactNode;
 }
 
 export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
@@ -30,6 +33,8 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
       lastOpened,
       created,
       updated,
+
+      actions,
 
       className,
       ...props
@@ -56,6 +61,7 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
         isSelectable={isSelectable}
         isSelected={isSelected}
         onSelectedChange={onSelectedChange}
+        actions={actions}
       />
     );
   }

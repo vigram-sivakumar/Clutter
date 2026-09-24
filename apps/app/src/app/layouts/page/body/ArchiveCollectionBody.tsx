@@ -11,8 +11,15 @@ import { Resource } from '@features/notes/sidebar/Resource';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { Vault } from '@core/vault/models/Vault';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { renderEntry } from './CollectionBody';
-import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
+import {
+  renderFolderCard,
+  renderNoteListItem,
+  renderNoteTableRow,
+  type CollectionViewMode,
+} from './CollectionBody';
+import { NoteTable } from '@features/collection/components/note/table/NoteTable';
+import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
+import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 
 import { PageBody } from './Page.Body';
 
@@ -20,6 +27,7 @@ export interface ArchiveCollectionBodyProps {
   vault: Vault;
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
+  viewMode?: CollectionViewMode;
   resources: readonly VaultResource[];
   /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
   onOpenResource?(resource: VaultResource): void;
@@ -43,48 +51,34 @@ export interface ArchiveCollectionBodyProps {
    */
   onRestoreNote(pageId: string): void;
   onDeleteNote(pageId: string): void;
-  resolveWikiLink?: CompactMarkdownResolvers['resolveWikiLink'];
-  resolveTag?: CompactMarkdownResolvers['resolveTag'];
 }
 
 /**
- * The page-body rendering for the Archive folder view — deliberately not a
- * `CollectionPageModel`/`CollectionBody` extension: that model is folder/
- * note-shaped, with no room for a resource's `kind` (image vs. pdf), the
- * exact same reasoning AssetsCollectionBody/TasksCollectionBody already
- * established for their own collections (see AssetsCollectionBody's doc
- * comment). Archive is the one collection that needs all three entry
- * shapes together, so this reuses both existing row renderers directly —
- * `renderEntry` (exported from CollectionBody, now accepting an optional
- * `actions` node) for folders/notes, and the sidebar's own `Resource`
- * component for resources — rather than introducing a fourth row
- * implementation for any of them.
+ * The page-body rendering for the Archive folder view — folders/notes
+ * render through the exact same components every other collection page
+ * uses (renderFolderCard/renderNoteListItem/renderNoteTableRow, exported
+ * from CollectionBody, one rendering per entry shape, not a second
+ * implementation): folders always via FolderGrid/FolderCard, notes via
+ * NoteListGrid/NoteList (List) or NoteTable/NoteTableRow (Table) — same
+ * "folders don't switch with viewMode" rule CollectionBody itself follows.
+ * Restore/Delete reuse the `actions` slot those components now carry
+ * (CollectionEntry's `actions` prop). Resources (images/PDFs) stay on the
+ * sidebar's own `Resource` row component regardless of viewMode —
+ * CollectionEntryModel is folder/note-shaped, with no room for a
+ * resource's `kind`, the same reasoning AssetsCollectionBody/
+ * TasksCollectionBody already established for their own collections.
  *
- * Every row here gets exactly two hover-only icon buttons (Restore,
- * Delete permanently) via the same reused `actions` slot
- * (Entry's existing hover-gated `.entry__actions`, the same slot
- * Folder.tsx's own "+" button already shares with its overflow menu — no
- * new hover mechanism). A folder/note row keeps its normal navigation
- * onClick (opening it still works, and its topbar Restore/Delete are
- * unchanged — this is an additional path to the same two operations, not
- * a replacement, per the approved UX decision); a resource row instead
- * uses Resource's own `archiveActions` prop (it already has no menu here —
- * unchanged from before).
- *
- * Delete's confirmation reuses the exact same useConfirmationSurface/
- * Confirmation/Dialog primitive every other archived-delete flow already
- * uses (ResourceTopBarActions/Sidebar.Notes.tsx) — one confirmation
- * mechanism, shared, not a per-type one. The message text is also reused
- * verbatim: PAGE_DELETE_CONFIRMATION_MESSAGE for notes/resources (a leaf,
- * no descendant count), getFolderDeleteConfirmation(vault, folderId) for
- * folders (its existing descendant-aware message — a folder can contain
- * other archived items, so its delete copy says so, same as the topbar's
- * own folder-delete confirmation already does).
+ * Every folder/note row here gets exactly two hover-only icon buttons
+ * (Restore, Delete permanently); a resource row instead uses Resource's
+ * own `archiveActions` prop (unchanged from before). Delete's confirmation
+ * reuses the exact same useConfirmationSurface/Confirmation/Dialog
+ * primitive every other archived-delete flow already uses.
  */
 export function ArchiveCollectionBody({
   vault,
   folders = [],
   notes = [],
+  viewMode = 'list',
   resources,
   onOpenResource,
   onRestoreResource,
@@ -93,21 +87,19 @@ export function ArchiveCollectionBody({
   onDeleteFolder,
   onRestoreNote,
   onDeleteNote,
-  resolveWikiLink,
-  resolveTag,
 }: ArchiveCollectionBodyProps) {
-  const resolvers: CompactMarkdownResolvers = { resolveWikiLink, resolveTag };
   const confirmation = useConfirmationSurface();
 
   function requestDelete(title: string, message: string, onConfirm: () => void) {
     confirmation.request({ title, message, confirmLabel: 'Delete', onConfirm });
   }
 
-  // Entry's own click handler already refuses to fire the row's onClick
-  // when the click target is a nested <button> (see Entry.tsx's
-  // interactive-descendant guard) — the same reason Resource.tsx's
-  // archiveActions buttons (below) never needed stopPropagation either.
-  // No new event-isolation mechanism here, folder/note rows included.
+  // CollectionEntry's and NoteTableRow's own click handlers already refuse
+  // to fire the row's onClick when the click target is a nested <button>
+  // (the same interactive-descendant guard Entry.tsx originally
+  // established) — the same reason Resource.tsx's archiveActions buttons
+  // (below) never needed stopPropagation either. No new event-isolation
+  // mechanism here, folder/note rows included.
   function hoverActions(onRestore: () => void, onDeleteClick: () => void) {
     return (
       <>
@@ -135,38 +127,46 @@ export function ArchiveCollectionBody({
     );
   }
 
+  function folderActions(entry: CollectionEntryModel) {
+    return hoverActions(
+      () => onRestoreFolder(entry.id),
+      () =>
+        requestDelete(
+          'Delete permanently?',
+          getFolderDeleteConfirmation(vault, entry.id).message,
+          () => onDeleteFolder(entry.id)
+        )
+    );
+  }
+
+  function noteActions(entry: CollectionEntryModel) {
+    return hoverActions(
+      () => onRestoreNote(entry.id),
+      () =>
+        requestDelete('Delete permanently?', PAGE_DELETE_CONFIRMATION_MESSAGE, () =>
+          onDeleteNote(entry.id)
+        )
+    );
+  }
+
+  const noteRows = notes.map((entry) =>
+    viewMode === 'table'
+      ? renderNoteTableRow(entry, noteActions(entry))
+      : renderNoteListItem(entry, noteActions(entry))
+  );
+
   return (
     <>
       <PageBody className="collection__content">
-        {folders.map((entry) =>
-          renderEntry(
-            entry,
-            resolvers,
-            hoverActions(
-              () => onRestoreFolder(entry.id),
-              () =>
-                requestDelete(
-                  'Delete permanently?',
-                  getFolderDeleteConfirmation(vault, entry.id).message,
-                  () => onDeleteFolder(entry.id)
-                )
-            )
-          )
+        {folders.length > 0 && (
+          <FolderGrid>
+            {folders.map((entry) => renderFolderCard(entry, folderActions(entry)))}
+          </FolderGrid>
         )}
-        {notes.map((entry) =>
-          renderEntry(
-            entry,
-            resolvers,
-            hoverActions(
-              () => onRestoreNote(entry.id),
-              () =>
-                requestDelete(
-                  'Delete permanently?',
-                  PAGE_DELETE_CONFIRMATION_MESSAGE,
-                  () => onDeleteNote(entry.id)
-                )
-            )
-          )
+        {viewMode === 'table' ? (
+          <NoteTable>{noteRows}</NoteTable>
+        ) : (
+          <NoteListGrid>{noteRows}</NoteListGrid>
         )}
         {resources.map((resource) => (
           <Resource

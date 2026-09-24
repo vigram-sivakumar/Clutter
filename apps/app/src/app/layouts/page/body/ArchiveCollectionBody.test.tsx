@@ -121,8 +121,12 @@ function renderArchive(
   );
 }
 
+// A folder row renders via FolderCard ('.folder-card'), a note row via
+// NoteList ('.note-list') — List mode, the default every test below
+// renders with; neither is '.entry' (that's still Resource's own row,
+// unchanged). Table-mode tests below use '.note-table-row'/'.folder-card' directly.
 function actionButtonsFor(rowTitle: string): { restore: HTMLElement; deleteBtn: HTMLElement } {
-  const row = screen.getByText(rowTitle).closest('.entry')!;
+  const row = screen.getByText(rowTitle).closest('.folder-card, .note-list')!;
   const buttons = Array.from(row.querySelectorAll('button'));
   const restore = buttons.find((b) => b.getAttribute('aria-label') === 'Restore')!;
   const deleteBtn = buttons.find((b) => b.getAttribute('aria-label') === 'Delete permanently')!;
@@ -144,24 +148,24 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
     expect(screen.getByText('spec')).toBeInTheDocument();
   });
 
-  it('the existing folder row click behavior is unchanged', () => {
+  it('the folder row click behavior works through FolderCard', () => {
     const onClick = vi.fn();
     const folder = makeFolderEntry({ onClick });
 
     renderArchive({ folders: [folder], resources: [] });
 
-    fireEvent.click(screen.getByText('Old Project').closest('.entry')!);
+    fireEvent.click(screen.getByText('Old Project').closest('.folder-card')!);
 
     expect(onClick).toHaveBeenCalled();
   });
 
-  it('the existing note row click behavior is unchanged', () => {
+  it('the note row click behavior works through NoteList', () => {
     const onClick = vi.fn();
     const note = makeNoteEntry({ onClick });
 
     renderArchive({ notes: [note], resources: [] });
 
-    fireEvent.click(screen.getByText('Old Note').closest('.entry')!);
+    fireEvent.click(screen.getByText('Old Note').closest('.note-list')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -169,7 +173,37 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
   it('renders correctly with no folders, notes, or resources', () => {
     const { container } = renderArchive({ resources: [] });
 
+    expect(container.querySelectorAll('.note-list')).toHaveLength(0);
+    expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
     expect(container.querySelectorAll('.entry')).toHaveLength(0);
+  });
+
+  it('table mode renders notes as NoteTableRow; folders stay on FolderGrid/FolderCard', () => {
+    const folder = makeFolderEntry();
+    const note = makeNoteEntry();
+
+    const { container } = renderArchive({
+      folders: [folder],
+      notes: [note],
+      resources: [],
+      viewMode: 'table',
+    });
+
+    expect(container.querySelector('.note-table')).toBeInTheDocument();
+    expect(screen.getByText('Old Note').closest('.note-table-row')).toBeInTheDocument();
+    expect(screen.getByText('Old Project').closest('.folder-card')).toBeInTheDocument();
+    expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+  });
+
+  it('table mode: clicking a row still fires its onClick', () => {
+    const onClick = vi.fn();
+    const note = makeNoteEntry({ onClick });
+
+    renderArchive({ notes: [note], resources: [], viewMode: 'table' });
+
+    fireEvent.click(screen.getByText('Old Note').closest('.note-table-row')!);
+
+    expect(onClick).toHaveBeenCalled();
   });
 });
 
@@ -240,9 +274,10 @@ describe('ArchiveCollectionBody: hover actions — folders and notes now get the
     const { container } = renderArchive({ folders: [folder], notes: [note], resources: [] });
 
     expect(screen.queryByRole('button', { name: /more|overflow/i })).toBeNull();
-    // Scoped to .entry__actions — the row itself is also role="button" (it's
-    // clickable to open), so an unscoped button count would double-count it.
-    expect(container.querySelectorAll('.entry__actions button')).toHaveLength(4);
+    // Scoped to .collection-entry__actions (FolderCard's/NoteList's shared
+    // actions slot) — the row itself is also role="button" (it's clickable
+    // to open), so an unscoped button count would double-count it.
+    expect(container.querySelectorAll('.collection-entry__actions button')).toHaveLength(4);
   });
 });
 

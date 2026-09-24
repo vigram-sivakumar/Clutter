@@ -10,6 +10,14 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
   title?: string;
   description?: string;
   metadata?: ReactNode;
+  /**
+   * Hover-gated trailing slot, mirroring Entry's own `.entry__actions`
+   * (same opacity/visibility/pointer-events reveal pattern, in
+   * CollectionEntry.css) — added for Archive's Restore/Delete row actions,
+   * which have no other slot on this component. Omitted (the default)
+   * renders exactly the same row every existing caller already gets.
+   */
+  actions?: ReactNode;
 
   isSelected?: boolean;
 
@@ -27,6 +35,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       title,
       description,
       metadata,
+      actions,
       isSelectable = false,
       isSelected = false,
       onSelectedChange,
@@ -38,6 +47,24 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
     },
     ref
   ) {
+    // Mirrors Entry.tsx's own handleClick exactly — without this, a click
+    // on a nested interactive element (the `actions` slot's Restore/Delete
+    // buttons) would both fire its own onClick *and* bubble up to fire the
+    // row's onClick (navigate/open), a real double-fire bug that stayed
+    // latent while `actions` had no consumer.
+    const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      const interactiveElement = target.closest(
+        'button, a, input, select, textarea, [role="button"]'
+      );
+
+      if (interactiveElement && interactiveElement !== event.currentTarget) {
+        return;
+      }
+
+      onClick?.(event);
+    };
+
     // A role="button" <div> has no native Enter/Space activation the way a
     // real <button> does — mirrors Entry.tsx's own handleKeyDown exactly
     // (same target !== currentTarget guard, same native-click dispatch),
@@ -69,7 +96,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
         ]
           .filter(Boolean)
           .join(' ')}
-        onClick={onClick}
+        onClick={onClick ? handleClick : undefined}
         onKeyDown={onClick ? handleKeyDown : undefined}
         role={role ?? (onClick ? 'button' : undefined)}
         tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
@@ -108,6 +135,8 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             <div className="collection-entry__metadata">{metadata}</div>
           )}
         </div>
+
+        {actions && <div className="collection-entry__actions">{actions}</div>}
       </div>
     );
   }

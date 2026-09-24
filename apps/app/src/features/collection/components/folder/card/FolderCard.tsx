@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import './FolderCard.css';
 import { CollectionEntry } from '@features/collection/CollectionEntry';
 
@@ -14,6 +14,9 @@ export interface FolderCardProps extends HTMLAttributes<HTMLDivElement> {
   onSelectedChange?: (selected: boolean) => void;
 
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+
+  /** Hover-gated trailing slot — see CollectionEntry's own `actions` doc comment. */
+  actions?: ReactNode;
 }
 
 export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
@@ -28,6 +31,7 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
       onSelectedChange,
       className,
       onClick,
+      actions,
       ...props
     },
     ref
@@ -50,6 +54,7 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
         isSelectable={isSelectable}
         onSelectedChange={onSelectedChange}
         onClick={onClick}
+        actions={actions}
       />
     );
   }

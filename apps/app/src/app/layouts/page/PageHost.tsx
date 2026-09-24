@@ -149,12 +149,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
-  // Phase 1 collection-view wiring: local render state only, not persisted
+  // Collection-view wiring: local render state only, not persisted
   // (persistence is a separate, deliberately deferred decision) — shared
-  // across every collection-shaped branch below since only one ever
-  // renders per PageHost render, the same one-instance reasoning editorRef
-  // above already relies on. Archive doesn't read this — see its branch's
-  // own comment for why it stays on the List renderer for this pass.
+  // across every collection-shaped branch below (Folder, Archive,
+  // Workspace/Favorites/Tag) since only one ever renders per PageHost
+  // render, the same one-instance reasoning editorRef above already
+  // relies on.
   const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('list');
   const collectionViewSwitcher = (
     <Tabs
@@ -163,7 +163,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     >
       <Tab value="list">List</Tab>
       <Tab value="table">Table</Tab>
-      <Tab value="cards">Cards</Tab>
     </Tabs>
   );
 
@@ -565,12 +564,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
           onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          // Archive stays List-only this pass — its Restore/Delete hover
-          // actions have no supported slot on NoteTableRow/NoteList/
-          // FolderCard yet (see ArchiveCollectionBody's unchanged body
-          // below), so the switcher isn't offered there rather than
-          // offering two modes that would silently drop those actions.
-          actions={isArchiveView ? topBar.actions : <>{collectionViewSwitcher}{topBar.actions}</>}
+          actions={<>{collectionViewSwitcher}{topBar.actions}</>}
           coverImage={
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
@@ -583,6 +577,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 vault={vault}
                 folders={model.folders}
                 notes={model.notes}
+                viewMode={collectionViewMode}
                 resources={application.membershipSelector.getArchivedResources()}
                 onOpenResource={openArchivedResourceOverlay}
                 onRestoreResource={(id) =>
@@ -595,16 +590,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 onDeleteFolder={(id) => void application.folderOperations.delete(id)}
                 onRestoreNote={(id) => void application.pageOperations.restore(id)}
                 onDeleteNote={(id) => void application.pageOperations.delete(id)}
-                resolveWikiLink={resolveWikiLink}
-                resolveTag={resolveTag}
               />
             ) : (
               <CollectionBody
                 folders={model.folders}
                 notes={model.notes}
                 viewMode={collectionViewMode}
-                resolveWikiLink={resolveWikiLink}
-                resolveTag={resolveTag}
               />
             )
           }
@@ -749,8 +740,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             folders={model.folders}
             notes={model.notes}
             viewMode={collectionViewMode}
-            resolveWikiLink={resolveWikiLink}
-            resolveTag={resolveTag}
           />
         }
       />

@@ -66,3 +66,31 @@
 .note-table-row .collection-entry--selected {
   background: transparent;
 }
+
+/*
+ * Hover-gated row actions (Archive's Restore/Delete) — an absolutely
+ * positioned overlay pinned to the row's right edge rather than a 5th grid
+ * column, so it never disturbs `--collection-table-column`'s 4-column
+ * layout (which NoteTable's header also relies on).
+ */
+.note-table-row__actions {
+  position: absolute;
+  right: var(--space-12);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+.note-table-row:hover .note-table-row__actions,
+.note-table-row:focus-within .note-table-row__actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}

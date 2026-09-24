@@ -37,61 +37,95 @@ function folderEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionE
   };
 }
 
-describe('CollectionBody — compact Markdown title rendering', () => {
-  it('renders a plain-text note title verbatim, unchanged from before', () => {
-    const { getByText } = render(<CollectionBody notes={[noteEntry({ title: 'Plain title' })]} />);
-
-    expect(getByText('Plain title')).toBeDefined();
-  });
-
-  it('renders mixed Markdown in a note title as compact Markdown, not raw syntax', () => {
-    const { container } = render(
-      <CollectionBody
-        notes={[noteEntry({ title: '**Ship** [[Project Alpha]] by @2020-01-15 #urgent' })]}
-      />
+describe('CollectionBody — List mode (default)', () => {
+  it('renders a folder as FolderCard and a note as NoteList, both inside a NoteListGrid', () => {
+    const { container, getByText } = render(
+      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} />
     );
 
-    const content = container.querySelector('.entry__content')!;
-    expect(content.querySelector('strong')).toHaveTextContent('Ship');
-    expect(content.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Project Alpha');
-    expect(content.querySelector('.compact-markdown-tag')).toHaveTextContent('#urgent');
-    expect(content.querySelector('.compact-markdown-date')).toHaveTextContent('@15 January 2020');
-    expect(content).not.toHaveTextContent('**Ship**');
-    expect(content).not.toHaveTextContent('[[Project Alpha]]');
+    expect(container.querySelector('.note-list-grid')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
+    expect(getByText('My note').closest('.note-list')).toBeInTheDocument();
   });
 
-  it('resolves a note WikiLink through the injected resolveWikiLink, not the fallback', () => {
-    const resolveWikiLink = vi.fn().mockReturnValue({
-      status: 'resolved' as const,
-      displayLabel: 'Resolved Label',
-      activate: () => {},
-    });
-
-    const { container } = render(
-      <CollectionBody
-        notes={[noteEntry({ title: '[[Projects/Alpha|Alpha]]' })]}
-        resolveWikiLink={resolveWikiLink}
-      />
-    );
-
-    expect(resolveWikiLink).toHaveBeenCalledWith('Projects/Alpha', 'Alpha');
-    expect(container.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Label');
-  });
-
-  it('a plain folder title (never Markdown-bearing) renders unaffected through the same path', () => {
-    const { getByText } = render(<CollectionBody folders={[folderEntry({ title: 'My Folder' })]} />);
-
-    expect(getByText('My Folder')).toBeDefined();
-  });
-
-  it('row click still fires normally when the title contains Markdown', () => {
-    const onClick = vi.fn();
+  it('renders a note title verbatim — no Markdown resolution (NoteList has no such slot)', () => {
     const { getByText } = render(
-      <CollectionBody notes={[noteEntry({ title: '**Ship** it', onClick })]} />
+      <CollectionBody notes={[noteEntry({ title: '**Ship** [[Project Alpha]]' })]} />
     );
 
-    fireEvent.click(getByText('Ship').closest('.entry')!);
+    expect(getByText('**Ship** [[Project Alpha]]')).toBeInTheDocument();
+  });
+
+  it('clicking a note row fires its onClick', () => {
+    const onClick = vi.fn();
+    const { getByText } = render(<CollectionBody notes={[noteEntry({ onClick })]} />);
+
+    fireEvent.click(getByText('My note').closest('.note-list')!);
 
     expect(onClick).toHaveBeenCalled();
+  });
+
+  it('clicking a folder card fires its onClick', () => {
+    const onClick = vi.fn();
+    const { getByText } = render(<CollectionBody folders={[folderEntry({ onClick })]} />);
+
+    fireEvent.click(getByText('My Folder').closest('.folder-card')!);
+
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  it('shows subfolder/note counts on the folder card', () => {
+    const { getByText } = render(
+      <CollectionBody folders={[folderEntry({ subfolderCount: 2, noteCount: 5 })]} />
+    );
+
+    expect(getByText('2 Subfolders')).toBeInTheDocument();
+    expect(getByText('5 Notes')).toBeInTheDocument();
+  });
+
+  it('renders an empty collection with no rows and no crash', () => {
+    const { container } = render(<CollectionBody folders={[]} notes={[]} />);
+
+    expect(container.querySelectorAll('.note-list')).toHaveLength(0);
+    expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
+  });
+});
+
+describe('CollectionBody — Table mode', () => {
+  it('renders notes as NoteTableRow rows inside a NoteTable, folders still as FolderCard', () => {
+    const { container, getByText } = render(
+      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="table" />
+    );
+
+    expect(container.querySelector('.note-table')).toBeInTheDocument();
+    expect(getByText('My note').closest('.note-table-row')).toBeInTheDocument();
+    // Folders don't switch with viewMode — no folder-specific table row
+    // component exists, and FolderCard's row shape doesn't fit NoteTable's
+    // grid-column header, so folders stay on FolderGrid/FolderCard.
+    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
+    expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+  });
+
+  it('clicking a table row fires its onClick', () => {
+    const onClick = vi.fn();
+    const { getByText } = render(
+      <CollectionBody notes={[noteEntry({ onClick })]} viewMode="table" />
+    );
+
+    fireEvent.click(getByText('My note').closest('.note-table-row')!);
+
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  it('shows created/updated when present on the entry', () => {
+    const { getByText } = render(
+      <CollectionBody
+        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        viewMode="table"
+      />
+    );
+
+    expect(getByText('Today')).toBeInTheDocument();
+    expect(getByText('Yesterday')).toBeInTheDocument();
   });
 });

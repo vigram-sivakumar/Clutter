@@ -113,3 +113,24 @@
   .checkbox {
   display: flex;
 }
+
+/* Hover-gated actions slot — same reveal pattern as Entry's .entry__actions */
+.collection-entry__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  flex-shrink: 0;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+.collection-entry:hover .collection-entry__actions,
+.collection-entry:focus-visible .collection-entry__actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
