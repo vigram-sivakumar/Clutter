@@ -32,10 +32,30 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       onSelectedChange,
       onClick,
       className,
+      role,
+      tabIndex,
       ...props
     },
     ref
   ) {
+    // A role="button" <div> has no native Enter/Space activation the way a
+    // real <button> does — mirrors Entry.tsx's own handleKeyDown exactly
+    // (same target !== currentTarget guard, same native-click dispatch),
+    // so keyboard activation goes through the same path as a mouse click
+    // instead of a second, parallel implementation of it.
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      if (event.target !== event.currentTarget) {
+        return;
+      }
+
+      event.preventDefault();
+      event.currentTarget.click();
+    };
+
     return (
       <div
         {...props}
@@ -50,6 +70,9 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
           .filter(Boolean)
           .join(' ')}
         onClick={onClick}
+        onKeyDown={onClick ? handleKeyDown : undefined}
+        role={role ?? (onClick ? 'button' : undefined)}
+        tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
       >
         {(icon || emoji || isSelectable) && (
           <div className="collection-entry__leading">

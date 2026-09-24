@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -53,8 +53,9 @@ import {
   createTagCollectionRenameHandler,
 } from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
-import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
+import { CollectionBody, type CollectionViewMode } from '@app/layouts/page/body/CollectionBody';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
+import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
   TasksCollectionBody,
@@ -147,6 +148,24 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // Enter (Page's bodyFocusRef) move focus into the editor without Page
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
+
+  // Phase 1 collection-view wiring: local render state only, not persisted
+  // (persistence is a separate, deliberately deferred decision) — shared
+  // across every collection-shaped branch below since only one ever
+  // renders per PageHost render, the same one-instance reasoning editorRef
+  // above already relies on. Archive doesn't read this — see its branch's
+  // own comment for why it stays on the List renderer for this pass.
+  const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('list');
+  const collectionViewSwitcher = (
+    <Tabs
+      value={collectionViewMode}
+      onValueChange={(value) => setCollectionViewMode(value as CollectionViewMode)}
+    >
+      <Tab value="list">List</Tab>
+      <Tab value="table">Table</Tab>
+      <Tab value="cards">Cards</Tab>
+    </Tabs>
+  );
 
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
@@ -546,7 +565,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
           onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          actions={topBar.actions}
+          // Archive stays List-only this pass — its Restore/Delete hover
+          // actions have no supported slot on NoteTableRow/NoteList/
+          // FolderCard yet (see ArchiveCollectionBody's unchanged body
+          // below), so the switcher isn't offered there rather than
+          // offering two modes that would silently drop those actions.
+          actions={isArchiveView ? topBar.actions : <>{collectionViewSwitcher}{topBar.actions}</>}
           coverImage={
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
@@ -578,6 +602,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
               <CollectionBody
                 folders={model.folders}
                 notes={model.notes}
+                viewMode={collectionViewMode}
                 resolveWikiLink={resolveWikiLink}
                 resolveTag={resolveTag}
               />
@@ -718,10 +743,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
+        actions={collectionViewSwitcher}
         body={
           <CollectionBody
             folders={model.folders}
             notes={model.notes}
+            viewMode={collectionViewMode}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
           />

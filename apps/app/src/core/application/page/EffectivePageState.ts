@@ -14,8 +14,13 @@ type Unsubscribe = () => void;
  * second domain model: `description`/`icon`/`favorite` are the only
  * Category 2/4 fields included, because they're the only ones a page-list
  * row needs to render without a second Vault read. `Page`'s `analysis`,
- * timestamps, `path`, and `status` are deliberately excluded; add a field
- * only when a shipped consumer demonstrably needs it, never speculatively.
+ * `path`, and `status` are deliberately excluded; add a field only when a
+ * shipped consumer demonstrably needs it, never speculatively.
+ * `createdAt`/`updatedAt` are the one timestamp pair included, added for
+ * the collection Table view's "Date created"/"Date updated" columns
+ * (`toCollectionPageModel`'s shipped consumer) — a draft never has
+ * persisted `PageMetadata`, so it always resolves both to `null`
+ * pre-promotion, same as `icon`/`favorite` above.
  * `favorite` was added for the sidebar's per-row Favorite/Unfavorite menu
  * item, which needs current state to pick its label — same exception
  * ARCHITECTURE_RULES.md rule 13 already documents for getFavoritePages():
@@ -33,6 +38,8 @@ export interface EffectivePage {
   readonly markdown: string;
   readonly icon: string | null;
   readonly favorite: boolean;
+  readonly createdAt: string | null;
+  readonly updatedAt: string | null;
 }
 
 /**
@@ -232,6 +239,8 @@ export class EffectivePageState {
           : '',
       icon: page ? page.metadata.icon : null,
       favorite: page ? page.metadata.favorite : false,
+      createdAt: page ? page.metadata.createdAt : null,
+      updatedAt: page ? page.metadata.updatedAt : null,
     };
   }
 

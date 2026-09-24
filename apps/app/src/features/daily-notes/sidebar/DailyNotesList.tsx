@@ -202,6 +202,8 @@ function buildVirtualTodayEntry(
     markdown: '',
     icon: null,
     favorite: false,
+    createdAt: null,
+    updatedAt: null,
     isVirtual: true,
   };
 }
