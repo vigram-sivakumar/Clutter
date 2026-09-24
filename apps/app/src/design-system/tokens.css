@@ -79,11 +79,13 @@
   --md-badge-padding: 0.15em 0.4em;
   --md-embed-radius: var(--radius-md);
 
-  /* Editor width */
-  --editor-width: calc(100% - 80px);
+  /* Content width — the shared side-inset every page body (editor,
+     collection, title section) centers within; --editor-width-max/
+     --collection-width-max are the per-body-type caps layered on top. */
+  --content-width: calc(100% - 80px);
   --editor-width-max: 720px;
 
-  /* Collection width — same side-inset as the editor (--editor-width),
+  /* Collection width — same side-inset as every other body (--content-width),
      wider cap: collection Table rows (--collection-table-column,
      CollectionEntry.css) need ~920px minimum before columns compress. */
   --collection-width-max: 1280px;

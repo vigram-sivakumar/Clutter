@@ -1,12 +1,12 @@
 /*
  * Collection-page content width — independent of the Markdown editor's
- * --editor-width-max (720px). Same side-inset (--editor-width) as every
+ * --editor-width-max (720px). Same side-inset (--content-width) as every
  * other page body, wider cap (--collection-width-max, tokens.css) so
  * Table mode's NoteTable rows (--collection-table-column) have enough
  * room before their columns start compressing.
  */
 .collection__content {
-  width: var(--editor-width);
+  width: var(--content-width);
   max-width: var(--collection-width-max);
 }
 
