@@ -1,0 +1,25 @@
+/*
+ * Collection-page content width — independent of the Markdown editor's
+ * --editor-width-max (720px). Same side-inset (--editor-width) as every
+ * other page body, wider cap (--collection-width-max, tokens.css) so
+ * Table mode's NoteTable rows (--collection-table-column) have enough
+ * room before their columns start compressing.
+ */
+.collection__content {
+  width: var(--editor-width);
+  max-width: var(--collection-width-max);
+}
+
+/*
+ * Aligns the page title/header to the same width as the collection body
+ * below it, without Page.tsx knowing anything about page types.
+ * .page__header and .page__body are adjacent siblings under
+ * .page__content (Page.tsx) — this :has() reaches forward from the
+ * header to check whether the body it precedes is a collection body, the
+ * same forward-:has() pattern already used elsewhere in this codebase
+ * (Entry.css's .entry__trailing:has(.entry__actions), NoteTableRow.css's
+ * :has(.collection-entry--selected)).
+ */
+.page__header:has(+ .page__body .collection__content) .page-title-section {
+  max-width: var(--collection-width-max);
+}

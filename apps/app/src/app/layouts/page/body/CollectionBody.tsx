@@ -6,6 +6,7 @@ import { NoteListGrid } from '@features/collection/components/note/list/NoteList
 import { NoteList } from '@features/collection/components/note/list/NoteList';
 import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 import { FolderCard } from '@features/collection/components/folder/card/FolderCard';
+import './CollectionBody.css';
 
 import { PageBody } from './Page.Body';
 

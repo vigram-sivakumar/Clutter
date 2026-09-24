@@ -83,6 +83,11 @@
   --editor-width: calc(100% - 80px);
   --editor-width-max: 720px;
 
+  /* Collection width — same side-inset as the editor (--editor-width),
+     wider cap: collection Table rows (--collection-table-column,
+     CollectionEntry.css) need ~920px minimum before columns compress. */
+  --collection-width-max: 1280px;
+
   /* icon size */
   --icon-md: var(--space-16);
   --icon-sm: var(--space-12);
