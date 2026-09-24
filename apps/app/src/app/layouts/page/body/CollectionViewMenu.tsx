@@ -72,6 +72,8 @@ export function CollectionViewMenu({
               {label}
             </MenuItem>
           ))}
+          <div className="menu__divider" role="separator" />
+          <MenuGroupTitle>Properties</MenuGroupTitle>
         </Menu>
       </Overlay>
     </>
