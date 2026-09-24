@@ -4,6 +4,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
+import { MenuTitle } from '@components/menu/MenuTitle';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
@@ -23,7 +24,11 @@ export interface CollectionViewMenuProps {
   onSortChange: (next: CollectionSortState) => void;
 }
 
-const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string; icon: SystemIcon }> = [
+const VIEW_ITEMS: ReadonlyArray<{
+  mode: CollectionViewMode;
+  label: string;
+  icon: SystemIcon;
+}> = [
   { mode: 'list', label: 'List', icon: 'multiLine' },
   { mode: 'table', label: 'Table', icon: 'table' },
 ];
@@ -49,14 +54,40 @@ const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
   { key: 'updated', label: 'Updated' },
 ];
 
+type ConfigureMenuView = 'root' | 'properties';
+
 /**
- * The collection List/Table view-mode control — lives beside the page
- * title (PageTitleSection's `actions` slot), not the top bar. Built
- * directly on Overlay/Menu/MenuItem, mirroring ImageOptionsMenu.tsx's own
- * `MODE_ITEMS.map` shape (a small mode-select menu with the current mode
- * indicated via MenuItem's existing `selected` prop — Entry's
- * `entry-selected` treatment) rather than a new menu/selection
- * abstraction. The trigger icon is `configure` (svg/configure.svg).
+ * The collection List/Table/Properties/Sort-by control — lives beside the
+ * page title (PageTitleSection's `actions` slot), not the top bar.
+ *
+ * Properties is a nested/replacement view, not a second floating menu —
+ * one shared `<Menu>`, its children swapped by `view` state, exactly the
+ * pattern FencedCodeActionsMenu.tsx's Change Language view established
+ * (see that file's own, extensively documented comment for the full
+ * rationale — this reuses it rather than inventing a second navigation
+ * mechanism):
+ *
+ *  - The render-phase `view` reset on reopen (`wasOpen` compared during
+ *    render, not in a `useEffect`) — an effect-based reset would commit
+ *    and paint one stale frame (the Properties view flashing) before
+ *    correcting itself a moment later; this way React corrects the state
+ *    before anything is ever painted.
+ *  - Exactly one back-navigation control, the submenu's own header
+ *    button — clicking it returns to the root view, it does NOT close
+ *    the menu. Escape and the backdrop are unaffected: both still go
+ *    straight to `Overlay`'s own `onClose` and close the whole menu from
+ *    either view.
+ *  - `MenuTitle`'s `trailing` slot holds that back control, the same
+ *    slot and the same dismiss icon FencedCodeActionsMenu's own "Back to
+ *    actions" button already uses — not a new affordance.
+ *
+ * Unlike the fenced-code language view, there's no search input here, so
+ * none of that file's focus-juggling (`autoFocus={view === 'actions'}`,
+ * a `Search` ref, `aria-activedescendant` mirrored onto it) applies —
+ * `Menu`'s own default focus/keyboard handling already covers a plain
+ * list of `MenuItem`s in both views unchanged.
+ *
+ * The trigger icon is `configure` (svg/configure.svg).
  */
 export function CollectionViewMenu({
   viewMode,
@@ -67,7 +98,21 @@ export function CollectionViewMenu({
   onSortChange,
 }: CollectionViewMenuProps) {
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<ConfigureMenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
+
+  // Every fresh open must start on the root view — CollectionViewMenu
+  // itself never unmounts between opens (only its Overlay does), so
+  // `view` would otherwise resume wherever the previous open left off.
+  // See this component's own doc comment for why this runs during
+  // render rather than in a `useEffect`.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && view !== 'root') {
+      setView('root');
+    }
+  }
 
   return (
     <>
@@ -90,89 +135,137 @@ export function CollectionViewMenu({
         side="bottom"
         alignment="end"
       >
-        <Menu size="small">
-          <MenuGroupTitle>Layout</MenuGroupTitle>
-          {VIEW_ITEMS.map(({ mode, label, icon }) => (
-            <MenuItem
-              key={mode}
-              selected={mode === viewMode}
-              leading={<AppIcon icon={icon} />}
-              onClick={(event) => {
-                event.stopPropagation();
-                onChange(mode);
-                setOpen(false);
-              }}
-            >
-              {label}
-            </MenuItem>
-          ))}
-          <div className="menu__divider" role="separator" />
-          <MenuGroupTitle>Properties</MenuGroupTitle>
-          {PROPERTY_ITEMS.map(({ key, label }) => {
-            const checked = properties[key];
-            // Toggling a property doesn't close the menu (unlike a Layout
-            // selection) — these are independent on/off preferences a
-            // user plausibly sets several of in one sitting, not a
-            // single mutually-exclusive choice.
-            const toggle = () => onPropertiesChange({ ...properties, [key]: !checked });
-
-            return (
+        <Menu size="medium">
+          {view === 'root' ? (
+            <>
+              <MenuGroupTitle>Layout</MenuGroupTitle>
+              {VIEW_ITEMS.map(({ mode, label, icon }) => (
+                <MenuItem
+                  key={mode}
+                  selected={mode === viewMode}
+                  leading={<AppIcon icon={icon} />}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onChange(mode);
+                    setOpen(false);
+                  }}
+                >
+                  {label}
+                </MenuItem>
+              ))}
+              <div className="menu__divider" role="separator" />
               <MenuItem
-                key={key}
-                // A tick icon when checked, an empty `.app-icon`-sized
-                // span when not — always a non-null `leading` so Entry's
-                // own `.entry__leading` wrapper renders at the same fixed
-                // width either way (AppIcon's own sizing class, reused
-                // rather than inventing a second one), so toggling never
-                // shifts the label. Not MenuItem's `selected` prop (that
-                // highlights the whole row, Layout's own indicator) —
-                // this is a per-row glyph instead, as specified.
-                leading={checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                trailing={<AppIcon icon="chevronRight" />}
                 onClick={(event) => {
                   event.stopPropagation();
-                  toggle();
+                  setView('properties');
                 }}
               >
-                {label}
+                Properties
               </MenuItem>
-            );
-          })}
-          <div className="menu__divider" role="separator" />
-          <MenuGroupTitle>Sort by</MenuGroupTitle>
-          {SORT_ITEMS.map(({ key, label }) => {
-            const isActive = sort.key === key;
+              <div className="menu__divider" role="separator" />
+              <MenuGroupTitle>Sort by</MenuGroupTitle>
+              {SORT_ITEMS.map(({ key, label }) => {
+                const isActive = sort.key === key;
 
-            return (
-              <MenuItem
-                key={key}
-                leading={isActive ? <AppIcon icon="tick" /> : <span className="app-icon" />}
-                // Only the active row gets a direction arrow — unlike
-                // Properties' leading tick, there's exactly one active
-                // Sort-by row at a time, so no other row ever needs a
-                // placeholder to keep its label from shifting.
+                return (
+                  <MenuItem
+                    key={key}
+                    leading={
+                      isActive ? (
+                        <AppIcon icon="tick" />
+                      ) : (
+                        <span className="app-icon" />
+                      )
+                    }
+                    // Only the active row gets a direction arrow — unlike
+                    // Properties' leading tick, there's exactly one active
+                    // Sort-by row at a time, so no other row ever needs a
+                    // placeholder to keep its label from shifting.
+                    trailing={
+                      isActive ? (
+                        <AppIcon
+                          icon={sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
+                        />
+                      ) : undefined
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      // Re-clicking the already-active option flips its
+                      // direction; picking a different option activates it
+                      // at its own default ('down' — A→Z for Name, newest-
+                      // first for the three date keys, per
+                      // sortCollectionEntries' own doc comment).
+                      onSortChange(
+                        isActive
+                          ? {
+                              key,
+                              direction: sort.direction === 'down' ? 'up' : 'down',
+                            }
+                          : { key, direction: 'down' }
+                      );
+                    }}
+                  >
+                    {label}
+                  </MenuItem>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              <MenuTitle
                 trailing={
-                  isActive ? (
-                    <AppIcon icon={sort.direction === 'down' ? 'arrowDown' : 'arrowUp'} />
-                  ) : undefined
+                  <Button
+                    aria-label="Back to Configure"
+                    onClick={() => setView('root')}
+                    isIconOnly
+                    variant="ghost"
+                    interaction="subtle"
+                    size="small"
+                  >
+                    <AppIcon icon="dismiss" />
+                  </Button>
                 }
-                onClick={(event) => {
-                  event.stopPropagation();
-                  // Re-clicking the already-active option flips its
-                  // direction; picking a different option activates it
-                  // at its own default ('down' — A→Z for Name, newest-
-                  // first for the three date keys, per
-                  // sortCollectionEntries' own doc comment).
-                  onSortChange(
-                    isActive
-                      ? { key, direction: sort.direction === 'down' ? 'up' : 'down' }
-                      : { key, direction: 'down' }
-                  );
-                }}
               >
-                {label}
-              </MenuItem>
-            );
-          })}
+                Properties
+              </MenuTitle>
+              <div className="menu__divider" role="separator" />
+              {PROPERTY_ITEMS.map(({ key, label }) => {
+                const checked = properties[key];
+                // Toggling a property doesn't close the menu (unlike a
+                // Layout selection) — these are independent on/off
+                // preferences a user plausibly sets several of in one
+                // sitting, not a single mutually-exclusive choice.
+                const toggle = () =>
+                  onPropertiesChange({ ...properties, [key]: !checked });
+
+                return (
+                  <MenuItem
+                    key={key}
+                    // A tick icon when checked, an empty `.app-icon`-sized
+                    // span when not — always a non-null `leading` so
+                    // Entry's own `.entry__leading` wrapper renders at the
+                    // same fixed width either way (AppIcon's own sizing
+                    // class, reused rather than inventing a second one),
+                    // so toggling never shifts the label.
+                    leading={
+                      checked ? (
+                        <AppIcon icon="tick" />
+                      ) : (
+                        <span className="app-icon" />
+                      )
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggle();
+                    }}
+                  >
+                    {label}
+                  </MenuItem>
+                );
+              })}
+            </>
+          )}
         </Menu>
       </Overlay>
     </>
