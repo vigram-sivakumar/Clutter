@@ -54,8 +54,8 @@ import {
 } from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody, type CollectionViewMode } from '@app/layouts/page/body/CollectionBody';
+import { CollectionViewMenu } from '@app/layouts/page/body/CollectionViewMenu';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
-import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
   TasksCollectionBody,
@@ -154,16 +154,11 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // across every collection-shaped branch below (Folder, Archive,
   // Workspace/Favorites/Tag) since only one ever renders per PageHost
   // render, the same one-instance reasoning editorRef above already
-  // relies on.
+  // relies on. Lives beside the page title (Page's titleActions prop),
+  // not the top bar — see CollectionViewMenu's own doc comment.
   const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('list');
-  const collectionViewSwitcher = (
-    <Tabs
-      value={collectionViewMode}
-      onValueChange={(value) => setCollectionViewMode(value as CollectionViewMode)}
-    >
-      <Tab value="list">List</Tab>
-      <Tab value="table">Table</Tab>
-    </Tabs>
+  const collectionViewMenu = (
+    <CollectionViewMenu viewMode={collectionViewMode} onChange={setCollectionViewMode} />
   );
 
   // Composed once per render from the currently-attached Vault/PageOperations
@@ -564,7 +559,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
           onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          actions={<>{collectionViewSwitcher}{topBar.actions}</>}
+          actions={topBar.actions}
+          titleActions={collectionViewMenu}
           coverImage={
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
@@ -734,7 +730,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        actions={collectionViewSwitcher}
+        titleActions={collectionViewMenu}
         body={
           <CollectionBody
             folders={model.folders}

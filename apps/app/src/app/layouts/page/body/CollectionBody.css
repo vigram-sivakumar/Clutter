@@ -6,6 +6,8 @@
  * room before their columns start compressing.
  */
 .collection__content {
+  display: flex;
+  gap: 40px;
   width: var(--content-width);
   max-width: var(--collection-width-max);
 }

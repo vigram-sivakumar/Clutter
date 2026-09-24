@@ -1,0 +1,74 @@
+import { useRef, useState } from 'react';
+import { Button } from '@components/button/Button';
+import { Overlay } from '@components/overlay/Overlay';
+import { Menu } from '@components/menu/Menu';
+import { MenuItem } from '@components/menu/MenuItem';
+import { AppIcon } from '@shared/icon';
+
+import type { CollectionViewMode } from './CollectionBody';
+
+export interface CollectionViewMenuProps {
+  viewMode: CollectionViewMode;
+  onChange: (mode: CollectionViewMode) => void;
+}
+
+const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string }> = [
+  { mode: 'list', label: 'List' },
+  { mode: 'table', label: 'Table' },
+];
+
+/**
+ * The collection List/Table view-mode control — lives beside the page
+ * title (PageTitleSection's `actions` slot), not the top bar. Built
+ * directly on Overlay/Menu/MenuItem, mirroring ImageOptionsMenu.tsx's own
+ * `MODE_ITEMS.map` shape (a small mode-select menu with the current mode
+ * indicated via MenuItem's existing `selected` prop — Entry's
+ * `entry-selected` treatment) rather than a new menu/selection
+ * abstraction. The trigger icon is `settings` (a sliders/adjustments
+ * glyph) — the only existing "configure"-shaped icon in iconRegistry;
+ * there's no icon literally named "configure".
+ */
+export function CollectionViewMenu({ viewMode, onChange }: CollectionViewMenuProps) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <>
+      <Button
+        ref={anchorRef}
+        size="small"
+        variant="ghost"
+        interaction="subtle"
+        isIconOnly
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <AppIcon icon="settings" />
+      </Button>
+      <Overlay
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={anchorRef}
+        side="bottom"
+        alignment="end"
+      >
+        <Menu size="small">
+          {VIEW_ITEMS.map(({ mode, label }) => (
+            <MenuItem
+              key={mode}
+              selected={mode === viewMode}
+              onClick={(event) => {
+                event.stopPropagation();
+                onChange(mode);
+                setOpen(false);
+              }}
+            >
+              {label}
+            </MenuItem>
+          ))}
+        </Menu>
+      </Overlay>
+    </>
+  );
+}

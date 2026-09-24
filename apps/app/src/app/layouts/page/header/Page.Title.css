@@ -3,4 +3,11 @@
   font-weight: var(--fw-extrabold);
   line-height: var(--lh-display);
   letter-spacing: var(--ls-display);
+
+  /* Allows this to shrink/wrap within .page-title-section__row instead of
+     forcing the row wider than its container (and pushing a trailing
+     actions slot out of view) — a flex item's default min-width is its
+     own content's intrinsic size, not 0. */
+  min-width: 0;
+  flex: 1 1 auto;
 }

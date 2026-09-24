@@ -14,6 +14,13 @@ type PageProps = {
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
+  /**
+   * Trailing slot beside the page title itself (PageTitleSection's own
+   * `actions` prop) — distinct from `actions` above, which reaches
+   * PageTopBar instead. Generic capability; only collection pages
+   * currently supply anything here (the List/Table view menu).
+   */
+  titleActions?: ReactNode;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action — see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -74,6 +81,7 @@ export function Page({
   breadcrumbs,
   menu,
   actions,
+  titleActions,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -115,22 +123,25 @@ export function Page({
         />
         <div className="page__content">
           <header className="page__header">
-            <PageTitleSection>
-              <PageTitle
-                key={titleKey}
-                editable={titleEditable}
-                placeholder={titlePlaceholder}
-                autoFocus={shouldAutoFocusTitle}
-                onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
-                onCommit={onTitleCommit}
-                onEdit={onTitleEdit}
-                onFlush={onTitleFlush}
-                onCancel={onTitleCancel}
-              >
-                {title}
-              </PageTitle>
-              {description && <PageDescription>{description}</PageDescription>}
-            </PageTitleSection>
+            <PageTitleSection
+              title={
+                <PageTitle
+                  key={titleKey}
+                  editable={titleEditable}
+                  placeholder={titlePlaceholder}
+                  autoFocus={shouldAutoFocusTitle}
+                  onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
+                  onCommit={onTitleCommit}
+                  onEdit={onTitleEdit}
+                  onFlush={onTitleFlush}
+                  onCancel={onTitleCancel}
+                >
+                  {title}
+                </PageTitle>
+              }
+              description={description && <PageDescription>{description}</PageDescription>}
+              actions={titleActions}
+            />
           </header>
           <main className="page__body">{body}</main>
         </div>

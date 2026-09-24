@@ -8,3 +8,22 @@
 
   gap: var(--space-4);
 }
+
+.page-title-section__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+
+  /* Lets .page-title shrink/wrap instead of pushing .page-title-section__actions
+     out of the available width — a flex item's default min-width is its
+     content's intrinsic size, which would otherwise let a long title
+     overflow this row uncontained. */
+  min-width: 0;
+}
+
+.page-title-section__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
