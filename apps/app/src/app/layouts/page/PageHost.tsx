@@ -56,8 +56,10 @@ import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import {
   CollectionBody,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  DEFAULT_COLLECTION_SORT,
   type CollectionViewMode,
   type CollectionPropertyVisibility,
+  type CollectionSortState,
 } from '@app/layouts/page/body/CollectionBody';
 import { CollectionViewMenu } from '@app/layouts/page/body/CollectionViewMenu';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
@@ -167,12 +169,19 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   const [collectionProperties, setCollectionProperties] = useState<CollectionPropertyVisibility>(
     DEFAULT_COLLECTION_PROPERTY_VISIBILITY
   );
+  // Same local, unpersisted, shared-across-collection-branches reasoning
+  // as collectionViewMode above — the Configure menu's "Sort by" section.
+  const [collectionSort, setCollectionSort] = useState<CollectionSortState>(
+    DEFAULT_COLLECTION_SORT
+  );
   const collectionViewMenu = (
     <CollectionViewMenu
       viewMode={collectionViewMode}
       onChange={setCollectionViewMode}
       properties={collectionProperties}
       onPropertiesChange={setCollectionProperties}
+      sort={collectionSort}
+      onSortChange={setCollectionSort}
     />
   );
 
@@ -590,6 +599,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 notes={model.notes}
                 viewMode={collectionViewMode}
                 properties={collectionProperties}
+                sort={collectionSort}
                 resources={application.membershipSelector.getArchivedResources()}
                 onOpenResource={openArchivedResourceOverlay}
                 onRestoreResource={(id) =>
@@ -609,6 +619,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 notes={model.notes}
                 viewMode={collectionViewMode}
                 properties={collectionProperties}
+                sort={collectionSort}
               />
             )
           }
@@ -754,6 +765,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             notes={model.notes}
             viewMode={collectionViewMode}
             properties={collectionProperties}
+            sort={collectionSort}
           />
         }
       />

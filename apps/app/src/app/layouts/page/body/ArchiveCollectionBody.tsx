@@ -16,9 +16,12 @@ import {
   renderNoteListItem,
   renderNoteTableRow,
   toTableColumns,
+  sortCollectionEntries,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  DEFAULT_COLLECTION_SORT,
   type CollectionViewMode,
   type CollectionPropertyVisibility,
+  type CollectionSortState,
 } from './CollectionBody';
 import { NoteTable } from '@features/collection/components/note/table/NoteTable';
 import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
@@ -32,6 +35,7 @@ export interface ArchiveCollectionBodyProps {
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
   properties?: CollectionPropertyVisibility;
+  sort?: CollectionSortState;
   resources: readonly VaultResource[];
   /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
   onOpenResource?(resource: VaultResource): void;
@@ -84,6 +88,7 @@ export function ArchiveCollectionBody({
   notes = [],
   viewMode = 'table',
   properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  sort = DEFAULT_COLLECTION_SORT,
   resources,
   onOpenResource,
   onRestoreResource,
@@ -154,7 +159,10 @@ export function ArchiveCollectionBody({
     );
   }
 
-  const noteRows = notes.map((entry) =>
+  const sortedFolders = sortCollectionEntries(folders, sort);
+  const sortedNotes = sortCollectionEntries(notes, sort);
+
+  const noteRows = sortedNotes.map((entry) =>
     viewMode === 'table'
       ? renderNoteTableRow(entry, properties, noteActions(entry))
       : renderNoteListItem(entry, properties, noteActions(entry))
@@ -163,9 +171,9 @@ export function ArchiveCollectionBody({
   return (
     <>
       <PageBody className="collection__content">
-        {folders.length > 0 && (
+        {sortedFolders.length > 0 && (
           <FolderGrid>
-            {folders.map((entry) => renderFolderCard(entry, folderActions(entry)))}
+            {sortedFolders.map((entry) => renderFolderCard(entry, folderActions(entry)))}
           </FolderGrid>
         )}
         {viewMode === 'table' ? (

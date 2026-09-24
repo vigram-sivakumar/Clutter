@@ -20,6 +20,18 @@ export interface CollectionEntryModel {
    */
   readonly created?: string;
   readonly updated?: string;
+  /**
+   * Raw ISO instants backing `created`/`updated` — sort-only, never
+   * rendered. `created`/`updated` are display-formatted
+   * (`formatDateDisplay`), which sorts incorrectly as plain strings (e.g.
+   * "Today" vs "12 Aug 2026" aren't chronologically comparable); these are
+   * the same underlying `EffectivePage.createdAt`/`updatedAt` values the
+   * display strings were formatted from, kept alongside for the
+   * Configure menu's "Sort by" section to compare correctly. Same
+   * note-only, real-data-only rule as `created`/`updated`.
+   */
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
   readonly subfolderCount?: number;
   readonly noteCount?: number;
   /**

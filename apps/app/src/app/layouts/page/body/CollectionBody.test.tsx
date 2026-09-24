@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CollectionBody } from './CollectionBody';
+import { CollectionBody, sortCollectionEntries } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 afterEach(() => {
@@ -258,5 +258,72 @@ describe('CollectionBody — Properties visibility', () => {
     expect(header.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
     expect(row.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
     expect(header.querySelectorAll('.note-table__header-cell')).toHaveLength(1);
+  });
+});
+
+describe('sortCollectionEntries', () => {
+  const charlie = noteEntry({ id: 'c', title: 'Charlie', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+  const alpha = noteEntry({ id: 'a', title: 'Alpha', createdAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
+  const bravo = noteEntry({ id: 'b', title: 'Bravo', createdAt: '2026-02-01T00:00:00.000Z', updatedAt: '2026-02-01T00:00:00.000Z' });
+
+  it('sorts by name, down = A→Z', () => {
+    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'name', direction: 'down' });
+    expect(sorted.map((e) => e.title)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+  });
+
+  it('sorts by name, up = Z→A', () => {
+    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'name', direction: 'up' });
+    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+  });
+
+  it('sorts by created, down = newest first', () => {
+    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'created', direction: 'down' });
+    expect(sorted.map((e) => e.title)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+  });
+
+  it('sorts by created, up = oldest first', () => {
+    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'created', direction: 'up' });
+    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+  });
+
+  it('sorts by updated, down = newest first', () => {
+    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'updated', direction: 'down' });
+    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+  });
+
+  it('an entry missing the sorted date field always sorts last, regardless of direction', () => {
+    const noDate = noteEntry({ id: 'n', title: 'NoDate' });
+    const down = sortCollectionEntries([noDate, alpha], { key: 'created', direction: 'down' });
+    const up = sortCollectionEntries([noDate, alpha], { key: 'created', direction: 'up' });
+    expect(down[down.length - 1]!.title).toBe('NoDate');
+    expect(up[up.length - 1]!.title).toBe('NoDate');
+  });
+
+  it('lastOpened has no backing field, so sorting by it is a stable no-op', () => {
+    const input = [charlie, alpha, bravo];
+    const sorted = sortCollectionEntries(input, { key: 'lastOpened', direction: 'down' });
+    expect(sorted.map((e) => e.title)).toEqual(input.map((e) => e.title));
+  });
+
+  it('never mutates the input array', () => {
+    const input = [charlie, alpha, bravo];
+    const snapshot = [...input];
+    sortCollectionEntries(input, { key: 'name', direction: 'down' });
+    expect(input).toEqual(snapshot);
+  });
+
+  it('CollectionBody renders notes in the requested sort order', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[charlie, alpha, bravo]}
+        viewMode="table"
+        sort={{ key: 'name', direction: 'down' }}
+      />
+    );
+
+    const titles = [...container.querySelectorAll('.note-table-row__entry .collection-entry__title')].map(
+      (el) => el.textContent
+    );
+    expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 });

@@ -73,11 +73,90 @@ export function toTableColumns(properties: CollectionPropertyVisibility): NoteTa
   };
 }
 
+/**
+ * "Sort by" — the Configure menu's third section. `key` picks which field
+ * to order by; `direction` is deliberately `'down' | 'up'`, not
+ * `'asc' | 'desc'` — it names the arrow shown, not an abstract ordering,
+ * because what "down" *means* differs per key (Name: A→Z; the three date
+ * keys: newest-first) per the product spec. `sortCollectionEntries` below
+ * is the one place that translates `direction` into an actual comparison
+ * for each key.
+ */
+export type CollectionSortKey = 'name' | 'lastOpened' | 'created' | 'updated';
+export type CollectionSortDirection = 'down' | 'up';
+
+export interface CollectionSortState {
+  key: CollectionSortKey;
+  direction: CollectionSortDirection;
+}
+
+export const DEFAULT_COLLECTION_SORT: CollectionSortState = {
+  key: 'name',
+  direction: 'down',
+};
+
+/**
+ * `direction` is applied here, inside the date comparison, rather than by
+ * negating this function's result at the call site — the missing-value
+ * sentinel (always-last) must stay direction-independent, and a blanket
+ * negation of the whole return value would flip that sentinel along with
+ * the real comparison, putting a dateless entry first under 'down'.
+ */
+function compareRawDates(
+  a: string | undefined,
+  b: string | undefined,
+  direction: CollectionSortDirection
+): number {
+  // A missing date always sorts after a present one, regardless of
+  // direction — never presented as older or newer than a real date.
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+
+  const cmp = a < b ? -1 : a > b ? 1 : 0;
+  // "down" = newest first, i.e. the *larger* ISO timestamp sorts first —
+  // the reverse of this function's own ascending (a < b) comparison.
+  return direction === 'down' ? -cmp : cmp;
+}
+
+/**
+ * Sorts a copy of `entries` (never mutates the input — callers hold
+ * `readonly` arrays) by `sort`. `lastOpened` has no backing field on
+ * `CollectionEntryModel` (no data source exists — see that type's own
+ * doc comment), so sorting by it is a stable no-op: entries keep their
+ * current relative order rather than a fabricated comparison. A folder
+ * entry has no `createdAt`/`updatedAt` either (`FolderMetadata` doesn't
+ * track them), so sorting folders by a date key is the same honest no-op.
+ */
+export function sortCollectionEntries(
+  entries: readonly CollectionEntryModel[],
+  sort: CollectionSortState
+): CollectionEntryModel[] {
+  const copy = [...entries];
+
+  if (sort.key === 'lastOpened') {
+    return copy;
+  }
+
+  copy.sort((a, b) => {
+    if (sort.key === 'name') {
+      const cmp = a.title.localeCompare(b.title);
+      return sort.direction === 'down' ? cmp : -cmp;
+    }
+
+    const field = sort.key === 'created' ? 'createdAt' : 'updatedAt';
+    return compareRawDates(a[field], b[field], sort.direction);
+  });
+
+  return copy;
+}
+
 export interface CollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
   properties?: CollectionPropertyVisibility;
+  sort?: CollectionSortState;
 }
 
 /**
@@ -163,20 +242,24 @@ export function CollectionBody({
   notes = [],
   viewMode = 'table',
   properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  sort = DEFAULT_COLLECTION_SORT,
 }: CollectionBodyProps) {
+  const sortedFolders = sortCollectionEntries(folders, sort);
+  const sortedNotes = sortCollectionEntries(notes, sort);
+
   const noteSection =
     viewMode === 'table' ? (
       <NoteTable columns={toTableColumns(properties)}>
-        {notes.map((entry) => renderNoteTableRow(entry, properties))}
+        {sortedNotes.map((entry) => renderNoteTableRow(entry, properties))}
       </NoteTable>
     ) : (
-      <NoteListGrid>{notes.map((entry) => renderNoteListItem(entry, properties))}</NoteListGrid>
+      <NoteListGrid>{sortedNotes.map((entry) => renderNoteListItem(entry, properties))}</NoteListGrid>
     );
 
   return (
     <PageBody className="collection__content">
-      {folders.length > 0 && (
-        <FolderGrid>{folders.map((entry) => renderFolderCard(entry))}</FolderGrid>
+      {sortedFolders.length > 0 && (
+        <FolderGrid>{sortedFolders.map((entry) => renderFolderCard(entry))}</FolderGrid>
       )}
       {noteSection}
     </PageBody>

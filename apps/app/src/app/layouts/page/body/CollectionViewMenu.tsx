@@ -7,13 +7,20 @@ import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
-import type { CollectionViewMode, CollectionPropertyVisibility } from './CollectionBody';
+import type {
+  CollectionViewMode,
+  CollectionPropertyVisibility,
+  CollectionSortState,
+  CollectionSortKey,
+} from './CollectionBody';
 
 export interface CollectionViewMenuProps {
   viewMode: CollectionViewMode;
   onChange: (mode: CollectionViewMode) => void;
   properties: CollectionPropertyVisibility;
   onPropertiesChange: (next: CollectionPropertyVisibility) => void;
+  sort: CollectionSortState;
+  onSortChange: (next: CollectionSortState) => void;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string; icon: SystemIcon }> = [
@@ -26,6 +33,17 @@ const PROPERTY_ITEMS: ReadonlyArray<{
   label: string;
 }> = [
   { key: 'description', label: 'Description' },
+  { key: 'lastOpened', label: 'Last opened' },
+  { key: 'created', label: 'Created' },
+  { key: 'updated', label: 'Updated' },
+];
+
+// Deliberately the same labels as PROPERTY_ITEMS (Name is the one
+// exception, Properties has no such field) — the product spec is
+// explicit that Sort by reuses the existing Properties labels verbatim,
+// not "Last Viewed"/"Date Created"/"Date Updated".
+const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
+  { key: 'name', label: 'Name' },
   { key: 'lastOpened', label: 'Last opened' },
   { key: 'created', label: 'Created' },
   { key: 'updated', label: 'Updated' },
@@ -45,6 +63,8 @@ export function CollectionViewMenu({
   onChange,
   properties,
   onPropertiesChange,
+  sort,
+  onSortChange,
 }: CollectionViewMenuProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -111,6 +131,42 @@ export function CollectionViewMenu({
                 onClick={(event) => {
                   event.stopPropagation();
                   toggle();
+                }}
+              >
+                {label}
+              </MenuItem>
+            );
+          })}
+          <div className="menu__divider" role="separator" />
+          <MenuGroupTitle>Sort by</MenuGroupTitle>
+          {SORT_ITEMS.map(({ key, label }) => {
+            const isActive = sort.key === key;
+
+            return (
+              <MenuItem
+                key={key}
+                leading={isActive ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                // Only the active row gets a direction arrow — unlike
+                // Properties' leading tick, there's exactly one active
+                // Sort-by row at a time, so no other row ever needs a
+                // placeholder to keep its label from shifting.
+                trailing={
+                  isActive ? (
+                    <AppIcon icon={sort.direction === 'down' ? 'arrowDown' : 'arrowUp'} />
+                  ) : undefined
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  // Re-clicking the already-active option flips its
+                  // direction; picking a different option activates it
+                  // at its own default ('down' — A→Z for Name, newest-
+                  // first for the three date keys, per
+                  // sortCollectionEntries' own doc comment).
+                  onSortChange(
+                    isActive
+                      ? { key, direction: sort.direction === 'down' ? 'up' : 'down' }
+                      : { key, direction: 'down' }
+                  );
                 }}
               >
                 {label}
