@@ -84,6 +84,7 @@ const defaultFolderMetadata = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,

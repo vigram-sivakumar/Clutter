@@ -39,6 +39,7 @@ export class FolderBuilder {
         favorite: frontmatter?.favorite ?? false,
         description: frontmatter?.description ?? '',
         cover: frontmatter?.cover ?? null,
+        coverHidden: frontmatter?.coverHidden ?? false,
         status: frontmatter?.status ?? 'active',
         archivedAt: frontmatter?.archivedAt ?? null,
         originalPath: frontmatter?.originalPath ?? null,

@@ -25,6 +25,7 @@ function makeFolder(id: string, path: string, parentId: string | null = null): F
       favorite: false,
       description: '',
       cover: null,
+      coverHidden: false,
       status: 'active',
       archivedAt: null,
       originalPath: null,

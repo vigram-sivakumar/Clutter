@@ -13,6 +13,7 @@ function makePage(overrides: Partial<Page> = {}): Page {
     metadata: {
       icon: '📝',
       cover: null,
+      coverHidden: false,
       description: null,
       favorite: true,
       status: 'active',

@@ -16,6 +16,7 @@ function makePage(
     metadata: {
       icon: null,
       cover: null,
+      coverHidden: false,
       description: '',
       favorite: false,
       status: 'active',

@@ -16,9 +16,36 @@ type PageCoverProps = {
    * "Remove" is clicked: see the collapse-then-remove sequencing below.
    */
   onRemove?: () => void;
+  /**
+   * Durable state, not local — reflects the persisted `coverHidden`
+   * metadata (PageMetadata.coverHidden/FolderMetadata.coverHidden), read
+   * the same way `src` reflects persisted `cover`. This is the
+   * architectural point the "Hide" feature is built on: whether a cover
+   * is hidden is a fact about the resource, not a transient animation
+   * state PageCover invents locally — `removing`/`loadState` stay local
+   * because they represent *this component instance's* in-flight
+   * transition, not something another surface (or a reload) needs to
+   * agree on.
+   */
+  hidden?: boolean;
+  /**
+   * Persists `coverHidden: true` (PageHost's onHideCoverImage /
+   * onHideFolderCoverImage). Unlike Remove, this never touches `cover`
+   * itself and needs no local "hiding" flag to sequence a collapse-then-
+   * act: the collapse is a pure function of the `hidden` prop once it
+   * flips (see [data-hidden] in Page.Cover.css) — there is no "act"
+   * afterward, since hiding has nothing left to do once the box is
+   * visually collapsed. `cover` staying intact is what lets a future
+   * "Show" reverse straight into the entrance transition from this same
+   * collapsed box, instead of remounting from scratch.
+   */
+  onHide?: () => void;
 };
 
-const MENU_ITEMS: OverflowMenuItemConfig[] = [{ id: 'remove', label: 'Remove', icon: 'trash' }];
+const MENU_ITEMS: OverflowMenuItemConfig[] = [
+  { id: 'hide', label: 'Hide', icon: 'hide' },
+  { id: 'remove', label: 'Remove', icon: 'trash' },
+];
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -64,8 +91,19 @@ type LoadState = 'pending' | 'ready' | 'failed';
  * instantly — if `src` disappeared the moment "Remove" was clicked,
  * Page.tsx's own `{coverImage && <PageCover .../>}` would unmount this
  * component before any of that CSS transition ever had a chance to run.
+ *
+ * "Hide" is a third, simpler case built on the same collapse mechanism
+ * but with no local sequencing state of its own: unlike `removing`,
+ * `hidden` isn't something this component decides — it's a prop mirroring
+ * the persisted `coverHidden` metadata, so onHide's whole job is
+ * persisting `coverHidden: true` and letting the resulting prop change
+ * drive `[data-hidden]`'s collapse the normal React-render way, same as
+ * `src` changing drives `[data-loading]`'s. There is nothing to do once
+ * that collapse finishes — no `onTransitionEnd` branch, no unmount — the
+ * box simply stays mounted, collapsed, with `cover` untouched, ready for
+ * a future "Show" to reverse straight back into the entrance transition.
  */
-export function PageCover({ src, onRemove }: PageCoverProps) {
+export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>('pending');
@@ -143,10 +181,29 @@ export function PageCover({ src, onRemove }: PageCoverProps) {
   }
 
   function handleSelect(id: string): void {
+    if (id === 'hide') {
+      // No local state to flip first: `hidden` is driven entirely by the
+      // durable `coverHidden` prop, so persisting it is the whole action
+      // — the collapse plays automatically once PageHost re-renders with
+      // hidden: true (see [data-hidden] in Page.Cover.css), the same way
+      // `[data-loading]`'s collapse already plays from a prop/state
+      // change rather than an imperative animation call.
+      onHide?.();
+      return;
+    }
     if (id !== 'remove') {
       return;
     }
-    if (prefersReducedMotion()) {
+    // Reduced motion isn't the only case with no collapse left to
+    // animate: a hidden cover is already sitting at flex-basis: 0/
+    // flex-grow: 0 (Page.Cover.css's [data-hidden]), so setting
+    // `removing` too would change nothing — no transitionend would ever
+    // fire, and onRemove() (called only from that handler below) would
+    // never run, leaving the cover stuck mounted forever. Same shortcut
+    // as reduced motion, for the same underlying reason: nothing left to
+    // visually collapse, so act immediately instead of waiting on an
+    // animation that can't happen.
+    if (prefersReducedMotion() || hidden) {
       onRemove?.();
       return;
     }
@@ -177,6 +234,7 @@ export function PageCover({ src, onRemove }: PageCoverProps) {
       data-loading={loadState === 'pending' || undefined}
       data-load-failed={loadState === 'failed' || undefined}
       data-removing={removing || undefined}
+      data-hidden={hidden || undefined}
       onTransitionEnd={handleTransitionEnd}
     >
       <Button

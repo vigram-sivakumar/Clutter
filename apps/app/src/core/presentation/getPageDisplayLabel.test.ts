@@ -9,6 +9,7 @@ import type { Page } from '../vault/models/Page';
 const defaultMetadata: Page['metadata'] = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: null,
   favorite: false,
   status: 'active',

@@ -10,19 +10,53 @@
   border-radius: 0 var(--border-radius) var(--border-radius) 0;
   margin-left: calc(var(--border-radius) * -1);
 
-  /* Collapse/entrance. Only flex-basis is transitioned — .page__document
-     (flex: 1; min-width: 0, Page.css) needs no transition of its own to
-     "move into"/"out of" the freed space: the browser recomputes the
-     whole flex row's layout every frame while this basis animates, so
-     the document widens/narrows in natural lockstep for free, not as a
-     second, separately-timed motion. [data-removing]/[data-loading]
-     below snap min-width to 0 instantly (untransitioned) purely to lift
-     the 64px floor out of the way — flex-basis's own transition is
-     what's actually visible. */
-  transition: flex-basis 240ms ease;
+  /* Collapse/entrance. .page__document (flex: 1; min-width: 0, Page.css)
+     needs no transition of its own to "move into"/"out of" the freed
+     space: the browser recomputes the whole flex row's layout every
+     frame while these animate, so the document widens/narrows in
+     natural lockstep for free, not as a second, separately-timed
+     motion. [data-removing]/[data-loading] below snap min-width to 0
+     instantly (untransitioned) purely to lift the 64px floor out of the
+     way.
+
+     flex-grow is transitioned alongside flex-basis, not left to snap
+     instantly: at flex-basis: 0 the row still has positive free space
+     (.page__document's own basis is narrower than the row), so an
+     untransitioned flex-grow: 0 -> 1 the instant the collapsed state is
+     left would let the flex algorithm hand this item its grown share of
+     that leftover space in the very first frame — reproducing the same
+     "never actually starts at 0" bug flex-grow: 0 below was added to
+     fix, just on entry instead of at rest. Animating both in lockstep
+     keeps the rendered width itself at genuinely 0 until the transition
+     is actually under way. */
+  transition:
+    flex-basis 240ms ease,
+    flex-grow 240ms ease;
 }
 .page__cover[data-removing],
-.page__cover[data-loading] {
+.page__cover[data-loading],
+.page__cover[data-hidden] {
+  /* Same collapsed treatment as removing/loading — data-hidden reflects
+     the durable `coverHidden` metadata (Page.Cover.tsx's `hidden` prop),
+     not a local animation state, but the box that hosts it collapses
+     through the identical flex-grow/flex-basis transition: this is the
+     "same existing cover collapse animation" a Hide/Show toggle is
+     required to reuse, not a parallel one. Unlike [data-removing], this
+     state never triggers `onTransitionEnd`'s onRemove() — hiding keeps
+     the component mounted (and `cover` metadata intact) so a later
+     un-hide can reverse straight into the entrance transition without
+     ever unmounting/remounting.
+
+     flex-grow: 1 alone (the base rule's `flex: 1 5 240px`) still pulls a
+     share of the row's leftover free space even at flex-basis: 0 — .page
+     has .page__document (flex: 1 1 840px) as the only other item, so
+     whenever the row is wider than 840px the two siblings split the
+     remainder evenly via their equal flex-grow, leaving this "collapsed"
+     state resting at a real, nonzero width instead of 0. Zeroing
+     flex-grow here (only for these collapsed states — the expanded,
+     stable .page__cover below is untouched) stops it from claiming any
+     of that leftover space, so flex-basis: 0 is what actually renders. */
+  flex-grow: 0;
   flex-basis: 0;
   min-width: 0;
 }
@@ -31,13 +65,14 @@
    LoadState doc comment for why a permanently-collapsed dead end would
    be wrong here), but must never look like the animated entrance a real
    successful load gets — transition: none makes it an instant snap
-   instead. :not([data-removing]) is the one exception: if the user
-   removes a cover that had failed to load, the collapse itself must
-   still animate normally, not be silently suppressed by this rule too —
-   [data-load-failed] never gets cleared once set, so without this
-   exclusion a failed-then-removed cover would snap away instead of
-   collapsing. */
-.page__cover[data-load-failed]:not([data-removing]) {
+   instead. :not([data-removing]):not([data-hidden]) are the two
+   exceptions: removing or hiding a cover that had failed to load must
+   still animate its collapse normally, not be silently suppressed by
+   this rule too (and, symmetrically, a later un-hide of that same failed
+   cover must still animate its reveal) — [data-load-failed] never gets
+   cleared once set, so without these exclusions a failed cover would
+   snap instead of collapsing/expanding. */
+.page__cover[data-load-failed]:not([data-removing]):not([data-hidden]) {
   transition: none;
 }
 

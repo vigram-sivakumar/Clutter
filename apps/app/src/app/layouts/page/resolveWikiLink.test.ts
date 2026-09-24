@@ -29,6 +29,7 @@ const defaultFolderMetadata = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,
@@ -47,6 +48,7 @@ function makeFolder(overrides: Partial<Folder> & Pick<Folder, 'id' | 'path'>): F
 const defaultPageMetadata = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: '',
   favorite: false,
   status: 'active' as const,

@@ -111,6 +111,7 @@ function toFilteredCollectionPageModel(
       title: tag?.name ?? view.tagName,
       description: '',
       coverImage: null,
+      coverHidden: false,
       folders: [],
       notes,
     };
@@ -135,6 +136,7 @@ function toFilteredCollectionPageModel(
     title: getSystemLocationPresentation(view.kind).label,
     description: '',
     coverImage: null,
+    coverHidden: false,
     folders: rawFolders.map((child) =>
       toCollectionEntry(child, actions, workspace.activeFolderId === child.id)
     ),
@@ -194,6 +196,7 @@ function toFolderCollectionPageModel(
     title,
     description: folder.metadata.description,
     coverImage: folder.metadata.cover,
+    coverHidden: folder.metadata.coverHidden,
     folders,
     notes,
   };

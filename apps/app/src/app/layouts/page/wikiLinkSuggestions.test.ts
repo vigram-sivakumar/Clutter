@@ -27,6 +27,7 @@ function makeVault(pages: Page[]): Vault {
 const defaultPageMetadata = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: '',
   favorite: false,
   status: 'active' as const,
@@ -66,6 +67,7 @@ const defaultFolderMetadata = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,

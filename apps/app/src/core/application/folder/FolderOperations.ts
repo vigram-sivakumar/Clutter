@@ -483,21 +483,23 @@ export class FolderOperations {
   /**
    * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
    * kind — the folder-scoped counterpart to
-   * PageOperations.updateMetadata(). Scoped to `favorite`/`cover`/`icon`
-   * (not PageOperations' full description/cover/favorite set): those are
-   * the only folder metadata fields with a shipped writer today (cover
-   * added for the folder "Cover image" topbar action — FolderMetadata/
-   * FolderFrontmatter already carried `cover`, only this facade's patch
-   * type was still narrower than what the Gate's 'update-folder-metadata'
-   * operation already accepts, `Partial<FolderMetadata>`); widen further
-   * when a real caller needs another field, not speculatively. No
+   * PageOperations.updateMetadata(). Scoped to
+   * `favorite`/`cover`/`coverHidden`/`icon` (not PageOperations' full
+   * description/cover/favorite set): those are the only folder metadata
+   * fields with a shipped writer today (cover added for the folder
+   * "Cover image" topbar action, coverHidden for PageCover's "Hide"
+   * action — FolderMetadata/FolderFrontmatter already carried both,
+   * only this facade's patch type was still narrower than what the
+   * Gate's 'update-folder-metadata' operation already accepts,
+   * `Partial<FolderMetadata>`); widen further when a real caller needs
+   * another field, not speculatively. No
    * existence check of its own, same reasoning as archive()/restore()
    * above — the Gate's own dequeue-time guard abandons it if the folder is
    * gone by the time this dequeues.
    */
   public async updateMetadata(
     folderId: string,
-    patch: Partial<Pick<FolderMetadata, 'favorite' | 'cover' | 'icon'>>
+    patch: Partial<Pick<FolderMetadata, 'favorite' | 'cover' | 'coverHidden' | 'icon'>>
   ): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'update-folder-metadata',

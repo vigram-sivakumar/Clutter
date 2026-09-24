@@ -34,6 +34,7 @@ const defaultFolderMetadata = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,
@@ -43,6 +44,7 @@ const defaultFolderMetadata = {
 const defaultPageMetadata = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: '',
   favorite: false,
   status: 'active' as const,

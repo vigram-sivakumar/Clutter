@@ -18,6 +18,7 @@ const defaultFolderMetadata: Folder['metadata'] = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active',
   archivedAt: null,
   originalPath: null,
@@ -27,6 +28,7 @@ const defaultFolderMetadata: Folder['metadata'] = {
 const defaultPageMetadata: Page['metadata'] = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: null,
   favorite: false,
   status: 'active',

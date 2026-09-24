@@ -11,6 +11,7 @@ import { createTagSuggester } from './tagSuggestions';
 const defaultPageMetadata = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: '',
   favorite: false,
   status: 'active' as const,

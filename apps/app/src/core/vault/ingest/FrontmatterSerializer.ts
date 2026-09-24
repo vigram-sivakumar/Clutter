@@ -62,6 +62,13 @@ export class FrontmatterSerializer {
       ['favorite', page.metadata.favorite],
       ['icon', page.metadata.icon],
       ['cover', page.metadata.cover],
+      // `|| undefined`, not the bare boolean: unlike favorite (always
+      // written, true or false), coverHidden should only ever appear in
+      // frontmatter when actually hiding a cover — omitted while false,
+      // per the desired before/after shape (a plain `cover: ...` stays
+      // that way until Hide is used; it doesn't grow a `coverHidden:
+      // false` line on every save).
+      ['coverHidden', page.metadata.coverHidden || undefined],
       ['description', page.metadata.description],
       ['status', page.metadata.status],
       ['archivedAt', page.metadata.archivedAt],
@@ -110,6 +117,8 @@ export class FrontmatterSerializer {
       ['favorite', folder.metadata.favorite],
       ['description', folder.metadata.description],
       ['cover', folder.metadata.cover],
+      // See serializePage's identical `|| undefined` for coverHidden.
+      ['coverHidden', folder.metadata.coverHidden || undefined],
       ['status', folder.metadata.status],
       ['archivedAt', folder.metadata.archivedAt],
       ['originalPath', folder.metadata.originalPath],

@@ -14,6 +14,7 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
   return {
     icon: frontmatter.icon ?? null,
     cover: frontmatter.cover ?? null,
+    coverHidden: frontmatter.coverHidden ?? false,
     description: frontmatter.description ?? null,
     favorite: frontmatter.favorite ?? false,
     status: frontmatter.status ?? 'active',

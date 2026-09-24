@@ -20,6 +20,7 @@ const TODAY = toISODate(new Date());
 const defaultMetadata: Page['metadata'] = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: null,
   favorite: false,
   status: 'active',

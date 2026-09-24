@@ -20,6 +20,7 @@ const defaultFolderMetadata: Folder['metadata'] = {
   favorite: false,
   description: '',
   cover: null,
+  coverHidden: false,
   status: 'active',
   archivedAt: null,
   originalPath: null,
@@ -29,6 +30,7 @@ const defaultFolderMetadata: Folder['metadata'] = {
 const defaultPageMetadata: Page['metadata'] = {
   icon: null,
   cover: null,
+  coverHidden: false,
   description: null,
   favorite: false,
   status: 'active',
@@ -83,6 +85,7 @@ function makeArchivedFolder(options: {
     favorite: false,
     description: '',
     cover: null,
+    coverHidden: false,
     status: 'archived',
     archivedAt: '2026-07-29T00:00:00.000Z',
     originalPath: options.originalPath,

@@ -32,6 +32,7 @@ function makeAssetsFolder(): Folder {
       favorite: false,
       description: '',
       cover: null,
+      coverHidden: false,
       status: 'active',
       archivedAt: null,
       originalPath: null,

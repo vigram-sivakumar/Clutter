@@ -88,6 +88,7 @@ function makeFolder(id: string, path: string, parentId: string | null): Folder {
       favorite: false,
       description: '',
       cover: null,
+      coverHidden: false,
       status: 'active',
       archivedAt: null,
       originalPath: null,
@@ -514,6 +515,7 @@ describe('FolderTree: Daily Note membership (ADR-023) — the bug this phase fix
       metadata: {
         icon: null,
         cover: null,
+        coverHidden: false,
         description: null,
         favorite: false,
         status: 'active',

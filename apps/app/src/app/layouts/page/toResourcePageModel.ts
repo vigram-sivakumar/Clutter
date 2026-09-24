@@ -58,6 +58,7 @@ export function toResourcePageModel(
     // This allows the UI to reflect in-memory edits before they are persisted.
     markdown: revision.markdown,
     coverImage: page.metadata.cover,
+    coverHidden: page.metadata.coverHidden,
 
     updateDescription(description: string): void {
       onUpdateDescription(page.id, description);
@@ -100,6 +101,7 @@ export function toDraftPageModel(
     description: '',
     markdown: revision.markdown,
     coverImage: null,
+    coverHidden: false,
 
     updateDescription(): void {
       throw new Error('Not implemented');
@@ -120,6 +122,7 @@ export interface ResourcePageModel {
   description: string;
   markdown: string;
   coverImage: string | null;
+  coverHidden: boolean;
 
   updateDescription(description: string): void;
   updateMarkdown(markdown: string): void;

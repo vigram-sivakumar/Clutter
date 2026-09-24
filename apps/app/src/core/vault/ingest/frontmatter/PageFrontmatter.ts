@@ -11,6 +11,7 @@ export interface PageFrontmatter {
   type?: PageType;
   icon?: string;
   cover?: string;
+  coverHidden?: boolean;
   description?: string;
   favorite?: boolean;
   status?: PageStatus;

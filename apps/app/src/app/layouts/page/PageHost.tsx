@@ -366,7 +366,26 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { cover: null });
+    // coverHidden resets alongside cover, not just cover alone — without
+    // this, hiding a cover and then removing it would leave a stale
+    // coverHidden: true in frontmatter that silently carries over to
+    // whatever cover image gets set next, mounting it already-hidden
+    // for no reason visible in the UI that set it.
+    void application.pageOperations.updateMetadata(activePageId, {
+      cover: null,
+      coverHidden: false,
+    });
+  };
+
+  // Distinct from onRemoveCoverImage: leaves `cover` untouched, only sets
+  // coverHidden — see PageCover.tsx's own onHide doc comment for why this
+  // needs no further sequencing beyond persisting the flag.
+  const onHideCoverImage = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { coverHidden: true });
   };
 
   const onMoveNote = (destinationFolderId: string | null): void => {
@@ -443,9 +462,19 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // PageCover's own "Remove" menu action can call the exact same
     // removal, not a second copy of it — see the Note/DailyNote branch's
     // top-level onRemoveCoverImage for the equivalent page-level case.
+    // coverHidden resets alongside cover — see the Note/DailyNote
+    // branch's onRemoveCoverImage for why.
     const onRemoveFolderCoverImage = (): void =>
       void application.folderOperations.updateMetadata(folder.id, {
         cover: null,
+        coverHidden: false,
+      });
+    // Folder-scoped counterpart to the Note/DailyNote branch's
+    // onHideCoverImage above — same coverHidden-only patch, leaving
+    // `cover` untouched.
+    const onHideFolderCoverImage = (): void =>
+      void application.folderOperations.updateMetadata(folder.id, {
+        coverHidden: true,
       });
 
     const topBar = buildTopBarActions(folder, {
@@ -522,6 +551,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
           onRemoveCoverImage={onRemoveFolderCoverImage}
+          coverHidden={model.coverHidden}
+          onHideCoverImage={onHideFolderCoverImage}
           body={
             isArchiveView ? (
               <ArchiveCollectionBody
@@ -887,6 +918,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
       }
       onRemoveCoverImage={onRemoveCoverImage}
+      coverHidden={model.coverHidden}
+      onHideCoverImage={onHideCoverImage}
       bodyFocusRef={editorRef}
       body={
         <MarkdownBody>

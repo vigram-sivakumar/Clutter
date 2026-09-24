@@ -1456,12 +1456,14 @@ export class PagePersistenceCoordinator {
     description?: PageMetadata['description'];
     icon?: PageMetadata['icon'];
     cover?: PageMetadata['cover'];
+    coverHidden?: PageMetadata['coverHidden'];
     favorite?: PageMetadata['favorite'];
   } {
     const patch: {
       description?: PageMetadata['description'];
       icon?: PageMetadata['icon'];
       cover?: PageMetadata['cover'];
+      coverHidden?: PageMetadata['coverHidden'];
       favorite?: PageMetadata['favorite'];
     } = {};
 
@@ -1473,6 +1475,9 @@ export class PagePersistenceCoordinator {
     }
     if (frontmatter.cover !== undefined) {
       patch.cover = frontmatter.cover;
+    }
+    if (frontmatter.coverHidden !== undefined) {
+      patch.coverHidden = frontmatter.coverHidden;
     }
     if (frontmatter.favorite !== undefined) {
       patch.favorite = frontmatter.favorite;

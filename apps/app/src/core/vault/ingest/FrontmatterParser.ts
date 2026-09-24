@@ -110,6 +110,11 @@ export class FrontmatterParser {
             frontmatter.cover = scalar;
           }
           break;
+        case 'coverHidden':
+          if (typeof scalar === 'boolean') {
+            frontmatter.coverHidden = scalar;
+          }
+          break;
         case 'description':
           if (typeof scalar === 'string') {
             frontmatter.description = scalar;

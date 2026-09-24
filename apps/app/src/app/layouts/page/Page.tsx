@@ -18,6 +18,10 @@ type PageProps = {
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action — see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
   onRemoveCoverImage?(): void;
+  /** Forwarded to PageCover's `hidden` prop — the persisted `coverHidden` metadata, not local state. See Page.Cover.tsx's own doc comment. */
+  coverHidden?: boolean;
+  /** Forwarded to PageCover's "Hide" menu action. */
+  onHideCoverImage?(): void;
   /**
    * A handle onto whatever's rendered in `body`, so title's Enter can
    * advance focus into it — Page doesn't need to know what body actually
@@ -73,6 +77,8 @@ export function Page({
   body,
   coverImage,
   onRemoveCoverImage,
+  coverHidden,
+  onHideCoverImage,
   bodyFocusRef,
   onTitleCommit,
   onTitleEdit,
@@ -129,7 +135,14 @@ export function Page({
           <main className="page__body">{body}</main>
         </div>
       </div>
-      {coverImage && <PageCover src={coverImage} onRemove={onRemoveCoverImage} />}
+      {coverImage && (
+        <PageCover
+          src={coverImage}
+          onRemove={onRemoveCoverImage}
+          hidden={coverHidden}
+          onHide={onHideCoverImage}
+        />
+      )}
     </div>
   );
 }

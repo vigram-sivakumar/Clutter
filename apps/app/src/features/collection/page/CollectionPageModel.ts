@@ -17,6 +17,7 @@ export interface CollectionPageModel {
   readonly title: string;
   readonly description: string;
   readonly coverImage: string | null;
+  readonly coverHidden: boolean;
   readonly folders: readonly CollectionEntryModel[];
   readonly notes: readonly CollectionEntryModel[];
 }

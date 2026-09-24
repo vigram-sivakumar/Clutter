@@ -111,6 +111,7 @@ describe('toResourcePageModel', () => {
       metadata: {
         icon: null,
         cover: null,
+        coverHidden: false,
         description: null,
         favorite: false,
         status: 'active',
@@ -149,6 +150,7 @@ describe('toResourcePageModel', () => {
       metadata: {
         icon: null,
         cover: null,
+        coverHidden: false,
         description: null,
         favorite: false,
         status: 'active',
