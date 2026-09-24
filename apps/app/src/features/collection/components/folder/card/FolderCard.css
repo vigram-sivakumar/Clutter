@@ -4,5 +4,9 @@
   box-shadow: var(--shadow-inset-subtle);
 }
 .folder-card:hover {
-  background: var(--folder-card-surface-hover);
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle) 99%,
+    rgb(var(--state-base)) 1%
+  );
 }

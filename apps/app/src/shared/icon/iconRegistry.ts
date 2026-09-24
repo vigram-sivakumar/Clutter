@@ -93,6 +93,7 @@ import SquareFit from './svg/square-fit.svg?react';
 import SquiggleLine from './svg/squiggle-line.svg?react';
 import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
+import Table from './svg/table.svg?react';
 import Tag from './svg/tag.svg?react';
 import TeaCup from './svg/tea-cup.svg?react';
 import Template from './svg/template.svg?react';
@@ -197,6 +198,7 @@ export const iconRegistry = {
   squiggleLine: SquiggleLine,
   tabs: Tabs,
   tabsFlat: TabsFlat,
+  table: Table,
   tag: Tag,
   teaCup: TeaCup,
   template: Template,

@@ -3,7 +3,9 @@ import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { AppIcon } from '@shared/icon';
+import type { SystemIcon } from '@shared/icon';
 
 import type { CollectionViewMode } from './CollectionBody';
 
@@ -12,9 +14,9 @@ export interface CollectionViewMenuProps {
   onChange: (mode: CollectionViewMode) => void;
 }
 
-const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string }> = [
-  { mode: 'list', label: 'List' },
-  { mode: 'table', label: 'Table' },
+const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string; icon: SystemIcon }> = [
+  { mode: 'list', label: 'List', icon: 'multiLine' },
+  { mode: 'table', label: 'Table', icon: 'table' },
 ];
 
 /**
@@ -55,10 +57,12 @@ export function CollectionViewMenu({
         alignment="end"
       >
         <Menu size="small">
-          {VIEW_ITEMS.map(({ mode, label }) => (
+          <MenuGroupTitle>Layout</MenuGroupTitle>
+          {VIEW_ITEMS.map(({ mode, label, icon }) => (
             <MenuItem
               key={mode}
               selected={mode === viewMode}
+              leading={<AppIcon icon={icon} />}
               onClick={(event) => {
                 event.stopPropagation();
                 onChange(mode);
