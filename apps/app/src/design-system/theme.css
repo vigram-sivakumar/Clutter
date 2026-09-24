@@ -54,9 +54,16 @@ html.theme-transitioning [data-themeable] *::after {
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
+  --md-wiki-foreground: var(--foreground-primary);
+  --md-wiki-icon-foreground: var(--foreground-tertiary);
+  --md-wiki-underline: var(--link-underline);
+
   --md-link-foreground: #4f91ff;
-  --md-link-icon-foreground: var(--foreground-tertiary);
-  --md-link-underline: var(--link-underline);
+  --md-link-underline: color-mix(
+    in srgb,
+    var(--md-link-foreground) 50%,
+    transparent
+  );
 
   --md-tag-surface: var(--surface-tertiary);
   --md-tag-foreground: var(--foreground-secondary);
@@ -189,9 +196,16 @@ html.theme-transitioning [data-themeable] *::after {
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
-  --md-link-foreground: var(--foreground-primary);
-  --md-link-icon-foreground: var(--foreground-tertiary);
-  --md-link-underline: var(--link-underline);
+  --md-wiki-foreground: var(--foreground-primary);
+  --md-wiki-icon-foreground: var(--foreground-tertiary);
+  --md-wiki-underline: var(--link-underline);
+
+  --md-link-foreground: #245db8;
+  --md-link-underline: color-mix(
+    in srgb,
+    var(--md-link-foreground) 50%,
+    transparent
+  );
 
   --md-tag-surface: var(--surface-tertiary);
   --md-tag-foreground: var(--foreground-secondary);

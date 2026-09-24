@@ -58,6 +58,7 @@
   font-family: var(--font-sans);
   font-size: var(--cm-content);
   line-height: var(--lh-cm-content);
+
   /* `.cm-content` is a flex item of `.cm-scroller` (`flex: 2 1 auto`, set
    * by CM6 itself). Flex items default to `min-width: auto`, which floors
    * an item at its content's max-content width — it will never shrink
@@ -1581,7 +1582,7 @@
   align-items: center;
   gap: var(--md-marker-text-gap);
   vertical-align: bottom;
-  color: var(--md-link-foreground);
+  color: var(--md-wiki-foreground);
   cursor: pointer;
   text-indent: 0;
   padding-inline: var(--space-3);
@@ -1660,14 +1661,14 @@
   width: var(--icon-md);
   height: var(--icon-md);
   stroke-width: var(--icon-stroke);
-  color: var(--md-link-icon-foreground);
+  color: var(--md-wiki-icon-foreground);
 }
 
 .tok-wikilink__title {
   min-width: 0;
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
-  text-decoration-color: var(--md-link-underline);
+  text-decoration-color: var(--md-wiki-underline);
   text-underline-offset: var(--md-link-underline-offset);
 }
 
@@ -1687,7 +1688,7 @@
 }
 
 .cm-editor .tok-tag {
-  font-size: 0.85em;
+  font-size: 0.9em;
   font-weight: var(--fw-medium);
 
   color: var(--md-tag-foreground);
@@ -1857,7 +1858,9 @@
  * receiving Backspace/Delete) — only the cursor's own paint layer is
  * hidden, never `state.selection` itself.
  */
-.cm-editor.cm-focused.cm-table-selection-active > .cm-scroller > .cm-cursorLayer {
+.cm-editor.cm-focused.cm-table-selection-active
+  > .cm-scroller
+  > .cm-cursorLayer {
   display: none;
 }
 

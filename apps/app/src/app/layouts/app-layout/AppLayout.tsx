@@ -96,10 +96,12 @@ export function AppLayout({ application }: AppLayoutProps) {
 
   return (
     <div className="app-layout" data-sidebar-collapsed={!workspace.isSidebarVisible}>
-      <aside className="app-layout__sidepanel">
-        <TauriDragStrip />
-        {<Sidebar application={application} onOpenResource={openVaultResourceOverlay} />}
-      </aside>
+      <div className="app-layout__sidebar-slot">
+        <aside className="app-layout__sidepanel">
+          <TauriDragStrip />
+          {<Sidebar application={application} onOpenResource={openVaultResourceOverlay} />}
+        </aside>
+      </div>
       <main className="app-layout__page">
         <TauriDragStrip />
         <PageHost

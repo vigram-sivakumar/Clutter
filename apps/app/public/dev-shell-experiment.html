@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Shell resize experiment (TEMPORARY — delete this file when done)</title>
+<style>
+  /* TEMPORARY, isolated, throwaway test harness. No React, no build
+     dependency — plain static HTML served by Vite's public/ passthrough,
+     zero risk to the real app. Delete this file (and this note) once the
+     investigation is done: apps/app/public/dev-shell-experiment.html */
+
+  :root {
+    --sidebar-width: 280px;
+    --transition-duration: 340ms;
+    --transition-easing: cubic-bezier(0.34, 1.28, 0.64, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #0b0b0c;
+    color: #eee;
+  }
+
+  .controls {
+    padding: 8px 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    position: sticky;
+    top: 0;
+    background: #0b0b0c;
+    z-index: 10;
+  }
+  .controls button { cursor: pointer; padding: 6px 10px; }
+  .readout {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    white-space: pre;
+    line-height: 1.5;
+  }
+
+  .shell-label {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: #999;
+    padding: 6px 12px;
+    background: #151516;
+    border-top: 2px solid #444;
+  }
+
+  /* ===================== SHELL A — current architecture:
+     position: absolute, left + explicit calc() width ===================== */
+  .shellA {
+    position: relative;
+    height: 280px;
+    width: 100%;
+    overflow: hidden;
+    background: #1a1a1c;
+  }
+  .shellA .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: #26262a;
+    overflow: hidden;
+  }
+  .shellA .main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    background: #101012;
+    overflow: auto;
+    padding: 12px;
+    transition:
+      left var(--transition-duration) var(--transition-easing),
+      width var(--transition-duration) var(--transition-easing);
+  }
+  .shellA[data-collapsed='true'] .main {
+    left: 0;
+    width: 100%;
+  }
+
+  /* ===================== SHELL B — Craft-style: normal flow,
+     flex sidebar-slot (280px -> 0px) + flex: 1 main ===================== */
+  .shellB {
+    display: flex;
+    height: 280px;
+    width: 100%;
+    overflow: hidden;
+    background: #1a1a1c;
+  }
+  .shellB .sidebar-slot {
+    flex: 0 0 var(--sidebar-width);
+    width: var(--sidebar-width);
+    overflow: hidden;
+    background: #26262a;
+    transition: flex-basis var(--transition-duration) var(--transition-easing),
+      width var(--transition-duration) var(--transition-easing);
+  }
+  .shellB .sidebar-slot .sidebar {
+    width: var(--sidebar-width);
+    height: 100%;
+  }
+  .shellB[data-collapsed='true'] .sidebar-slot {
+    flex-basis: 0px;
+    width: 0px;
+  }
+  .shellB .main {
+    flex: 1;
+    min-width: 0;
+    background: #101012;
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .sidebar h3, .main h3 { margin: 0 0 8px; font-size: 13px; color: #888; }
+  .main p { font-size: 13px; line-height: 1.5; color: #ccc; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <button id="toggleA">Toggle Shell A collapse</button>
+  <button id="toggleB">Toggle Shell B collapse</button>
+  <button id="resetDiag">Reset diagnostics</button>
+  <button id="reportDiag">Report (console + on-screen)</button>
+</div>
+<div class="readout" id="readout"></div>
+
+<div class="shell-label">SHELL A — position: absolute, left + calc(100% - 280px)</div>
+<div class="shellA" id="shellA" data-collapsed="false">
+  <div class="sidebar"><h3>Sidebar A (280px, stationary)</h3></div>
+  <div class="main" id="mainA">
+    <h3>Main A</h3>
+    <p>The quick brown fox jumps over the lazy dog. Resize the window continuously and watch the readout above and the right edge of this panel.</p>
+    <p>This block reflows normally — plain paragraphs, no editor, no virtualization, nothing CodeMirror-like.</p>
+  </div>
+</div>
+
+<div class="shell-label">SHELL B — normal flow, flex sidebar-slot (280px&#8594;0) + main flex:1</div>
+<div class="shellB" id="shellB" data-collapsed="false">
+  <div class="sidebar-slot"><div class="sidebar"><h3>Sidebar B (slot 280px, stationary)</h3></div></div>
+  <div class="main" id="mainB">
+    <h3>Main B</h3>
+    <p>The quick brown fox jumps over the lazy dog. Same content, same window, same resize events — only the shell mechanism differs.</p>
+    <p>flex: 1; min-width: 0; is a normal layout participant, not position: absolute.</p>
+  </div>
+</div>
+
+<script>
+  const shellA = document.getElementById('shellA');
+  const shellB = document.getElementById('shellB');
+  const mainA = document.getElementById('mainA');
+  const mainB = document.getElementById('mainB');
+  const readout = document.getElementById('readout');
+
+  document.getElementById('toggleA').onclick = () => {
+    shellA.dataset.collapsed = shellA.dataset.collapsed === 'true' ? 'false' : 'true';
+  };
+  document.getElementById('toggleB').onclick = () => {
+    shellB.dataset.collapsed = shellB.dataset.collapsed === 'true' ? 'false' : 'true';
+  };
+
+  const SIDEBAR_WIDTH = 280;
+  const EPSILON = 1.5; // px tolerance for rounding/subpixel/scrollbar width
+
+  let state = null;
+  function resetState() {
+    state = {
+      startedAt: performance.now(),
+      resizeEvents: 0,
+      lastResizeAt: 0,
+      resizeGapsMs: [],
+      frames: 0,
+      staleFramesA: 0,
+      staleFramesB: 0,
+      maxDiscrepancyA: 0,
+      maxDiscrepancyB: 0,
+      minMainAWidth: Infinity,
+      maxMainAWidth: -Infinity,
+      minMainBWidth: Infinity,
+      maxMainBWidth: -Infinity,
+    };
+  }
+  resetState();
+
+  window.addEventListener('resize', () => {
+    const now = performance.now();
+    if (state.lastResizeAt) state.resizeGapsMs.push(now - state.lastResizeAt);
+    state.lastResizeAt = now;
+    state.resizeEvents++;
+  });
+
+  function expectedMainWidth(shellEl) {
+    const allocation = shellEl.dataset.collapsed === 'true' ? 0 : SIDEBAR_WIDTH;
+    return shellEl.getBoundingClientRect().width - allocation;
+  }
+
+  function tick() {
+    const wA = mainA.getBoundingClientRect().width;
+    const wB = mainB.getBoundingClientRect().width;
+    const expA = expectedMainWidth(shellA);
+    const expB = expectedMainWidth(shellB);
+    const diffA = Math.abs(wA - expA);
+    const diffB = Math.abs(wB - expB);
+
+    state.frames++;
+    if (diffA > EPSILON) state.staleFramesA++;
+    if (diffB > EPSILON) state.staleFramesB++;
+    if (diffA > state.maxDiscrepancyA) state.maxDiscrepancyA = diffA;
+    if (diffB > state.maxDiscrepancyB) state.maxDiscrepancyB = diffB;
+    state.minMainAWidth = Math.min(state.minMainAWidth, wA);
+    state.maxMainAWidth = Math.max(state.maxMainAWidth, wA);
+    state.minMainBWidth = Math.min(state.minMainBWidth, wB);
+    state.maxMainBWidth = Math.max(state.maxMainBWidth, wB);
+
+    readout.textContent =
+      `innerWidth: ${window.innerWidth}\n` +
+      `mainA width: ${wA.toFixed(1)}  (expected ${expA.toFixed(1)}, diff ${diffA.toFixed(1)})\n` +
+      `mainB width: ${wB.toFixed(1)}  (expected ${expB.toFixed(1)}, diff ${diffB.toFixed(1)})\n` +
+      `resizeEvents: ${state.resizeEvents}   staleFramesA: ${state.staleFramesA}   staleFramesB: ${state.staleFramesB}`;
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  function report() {
+    const gaps = state.resizeGapsMs;
+    const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+    const maxGap = gaps.length ? Math.max(...gaps) : 0;
+    const result = {
+      durationMs: Math.round(performance.now() - state.startedAt),
+      resizeEvents: state.resizeEvents,
+      avgResizeEventGapMs: Math.round(avgGap * 10) / 10,
+      maxResizeEventGapMs: Math.round(maxGap),
+      frames: state.frames,
+      staleFramesA: state.staleFramesA,
+      staleFramesB: state.staleFramesB,
+      staleFrameRatioA: state.frames ? Math.round((state.staleFramesA / state.frames) * 1000) / 10 + '%' : '0%',
+      staleFrameRatioB: state.frames ? Math.round((state.staleFramesB / state.frames) * 1000) / 10 + '%' : '0%',
+      maxDiscrepancyPxA: Math.round(state.maxDiscrepancyA * 10) / 10,
+      maxDiscrepancyPxB: Math.round(state.maxDiscrepancyB * 10) / 10,
+      mainAWidthRange: [Math.round(state.minMainAWidth), Math.round(state.maxMainAWidth)],
+      mainBWidthRange: [Math.round(state.minMainBWidth), Math.round(state.maxMainBWidth)],
+    };
+    console.log('[shellDiag] report:', result);
+    return result;
+  }
+
+  window.__shellDiag = { reset: resetState, report };
+  console.log('[shellDiag] ready. window.__shellDiag.reset() then drag-resize, then window.__shellDiag.report().');
+</script>
+
+</body>
+</html>
