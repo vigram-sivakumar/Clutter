@@ -545,7 +545,18 @@ describe('ResourceTopBarActions', () => {
       expect(screen.getByText('Choose image')).toBeDefined();
     });
 
-    it('submitting a URL invokes onSetCoverImage and keeps the picker open', () => {
+    it('submitting a URL invokes onSetCoverImage and closes the picker once the image finishes loading', () => {
+      const created: HTMLImageElement[] = [];
+      const OriginalImage = window.Image;
+      vi.stubGlobal(
+        'Image',
+        function (this: unknown, ...args: [number?, number?]) {
+          const img = new OriginalImage(...args);
+          created.push(img);
+          return img;
+        } as unknown as typeof Image
+      );
+
       const onSetCoverImage = vi.fn();
       render(
         <ResourceTopBarActions
@@ -563,10 +574,23 @@ describe('ResourceTopBarActions', () => {
       });
       fireEvent.click(screen.getByText('Add'));
 
+      // Still waiting on the image to load — picker stays open, nothing
+      // committed yet.
+      expect(onSetCoverImage).not.toHaveBeenCalled();
+      expect(screen.getByPlaceholderText('Paste image URL')).toBeDefined();
+
+      fireEvent.load(created[created.length - 1]!);
+
       expect(onSetCoverImage).toHaveBeenCalledWith(
         'https://example.com/cover.png'
       );
-      expect(screen.getByPlaceholderText('Paste image URL')).toBeDefined();
+      expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
+
+      // Restore only Image, not vi.unstubAllGlobals() — this file's own
+      // ResizeObserver stub (beforeAll above) is torn down once in
+      // afterAll, not per-test; unstubbing everything here would wipe it
+      // out for every test that runs after this one.
+      vi.stubGlobal('Image', OriginalImage);
     });
 
     it('submitting an uploaded file invokes onSetCoverImageFromUpload and closes the picker', async () => {

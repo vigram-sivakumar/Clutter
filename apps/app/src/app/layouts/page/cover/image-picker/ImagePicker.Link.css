@@ -8,3 +8,16 @@
 .image-picker-link .button {
   width: 100%;
 }
+
+/* No error/danger color token exists yet anywhere in the design system
+   (tokens.css/theme.css) — this is a deliberate, minimal, scoped-to-this-
+   file color rather than introducing a new global token for one inline
+   validation message. Typography otherwise matches .input__hint
+   (ImagePicker.css) it replaces in the error state. */
+.image-picker-link__error {
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-thin);
+  line-height: var(--lh-label-small);
+  color: #e5484d;
+  text-align: center;
+}

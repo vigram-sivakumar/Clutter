@@ -265,11 +265,19 @@ export function ResourceTopBarActions({
               onRemoveCoverImage?.();
             }}
             onLinkSubmit={(url) => {
+              setCoverPickerOpen(false);
               onSetCoverImage(url);
             }}
             onUploadSubmit={(sourcePath) => {
               setCoverPickerOpen(false);
               onSetCoverImageFromUpload?.(sourcePath);
+            }}
+            onUnsplashSelect={(url) => {
+              // Deliberately does not close the picker (contrast Link/
+              // Upload above) — Unsplash is browse-and-preview, so a
+              // user can keep looking after picking one. See
+              // ImagePicker.tsx's own onUnsplashSelect doc comment.
+              onSetCoverImage(url);
             }}
           />
         </Popover>

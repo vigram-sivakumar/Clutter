@@ -13,6 +13,16 @@ interface ImagePickerProps {
   onClose: () => void;
   onLinkSubmit: (url: string) => void;
   onUploadSubmit: (filePath: string) => void;
+  /**
+   * Separate from onLinkSubmit even though both ultimately set the same
+   * cover — Unsplash is a browse-and-preview surface (the picker stays
+   * open so a user can keep looking after picking one), while Link is a
+   * single deliberate paste-and-submit action (the picker closes, same
+   * as Upload already does). Distinct props exist so the caller can wire
+   * one to close the picker and the other not to, without this component
+   * having to know why.
+   */
+  onUnsplashSelect: (url: string) => void;
 }
 
 type ImagePickerTab = 'hide' | 'image';
@@ -36,6 +46,7 @@ export function ImagePicker({
   onClose,
   onLinkSubmit,
   onUploadSubmit,
+  onUnsplashSelect,
 }: ImagePickerProps) {
   const [activeTab, setActiveTab] = useState<ImagePickerTab>(
     hasCoverImage ? 'image' : 'hide'
@@ -129,7 +140,7 @@ export function ImagePicker({
           )}
 
           {imageSource === 'unsplash' && (
-            <ImagePickerUnsplash onSelect={onLinkSubmit} />
+            <ImagePickerUnsplash onSelect={onUnsplashSelect} />
           )}
         </>
       )}

@@ -439,6 +439,15 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // this component.
     const archiveConfirmation = getFolderArchiveConfirmation(vault, folder.id);
     const deleteConfirmation = getFolderDeleteConfirmation(vault, folder.id);
+    // Named (not inlined into buildTopBarActions' options below) so
+    // PageCover's own "Remove" menu action can call the exact same
+    // removal, not a second copy of it — see the Note/DailyNote branch's
+    // top-level onRemoveCoverImage for the equivalent page-level case.
+    const onRemoveFolderCoverImage = (): void =>
+      void application.folderOperations.updateMetadata(folder.id, {
+        cover: null,
+      });
+
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       vaultRoot: vault.root,
@@ -459,10 +468,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           });
         })();
       },
-      onRemoveCoverImage: () =>
-        void application.folderOperations.updateMetadata(folder.id, {
-          cover: null,
-        }),
+      onRemoveCoverImage: onRemoveFolderCoverImage,
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
@@ -515,6 +521,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           coverImage={
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
+          onRemoveCoverImage={onRemoveFolderCoverImage}
           body={
             isArchiveView ? (
               <ArchiveCollectionBody
@@ -879,6 +886,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       coverImage={
         application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
       }
+      onRemoveCoverImage={onRemoveCoverImage}
       bodyFocusRef={editorRef}
       body={
         <MarkdownBody>

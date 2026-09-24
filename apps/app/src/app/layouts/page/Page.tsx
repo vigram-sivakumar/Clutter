@@ -16,6 +16,8 @@ type PageProps = {
   actions?: ReactNode;
   body?: ReactNode;
   coverImage?: string;
+  /** Forwarded to PageCover's "Remove" menu action — see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
+  onRemoveCoverImage?(): void;
   /**
    * A handle onto whatever's rendered in `body`, so title's Enter can
    * advance focus into it — Page doesn't need to know what body actually
@@ -70,6 +72,7 @@ export function Page({
   actions,
   body,
   coverImage,
+  onRemoveCoverImage,
   bodyFocusRef,
   onTitleCommit,
   onTitleEdit,
@@ -126,7 +129,7 @@ export function Page({
           <main className="page__body">{body}</main>
         </div>
       </div>
-      {coverImage && <PageCover src={coverImage} />}
+      {coverImage && <PageCover src={coverImage} onRemove={onRemoveCoverImage} />}
     </div>
   );
 }

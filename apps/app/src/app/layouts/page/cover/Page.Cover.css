@@ -5,9 +5,46 @@
 
   position: relative;
   z-index: 1;
+  overflow: hidden;
 
   border-radius: 0 var(--border-radius) var(--border-radius) 0;
   margin-left: calc(var(--border-radius) * -1);
+
+  /* Collapse/entrance. Only flex-basis is transitioned — .page__document
+     (flex: 1; min-width: 0, Page.css) needs no transition of its own to
+     "move into"/"out of" the freed space: the browser recomputes the
+     whole flex row's layout every frame while this basis animates, so
+     the document widens/narrows in natural lockstep for free, not as a
+     second, separately-timed motion. [data-removing]/[data-loading]
+     below snap min-width to 0 instantly (untransitioned) purely to lift
+     the 64px floor out of the way — flex-basis's own transition is
+     what's actually visible. */
+  transition: flex-basis 240ms ease;
+}
+.page__cover[data-removing],
+.page__cover[data-loading] {
+  flex-basis: 0;
+  min-width: 0;
+}
+/* A failed image lands at the same expanded size a successful one does
+   (so More Actions/Remove stays reachable — see Page.Cover.tsx's own
+   LoadState doc comment for why a permanently-collapsed dead end would
+   be wrong here), but must never look like the animated entrance a real
+   successful load gets — transition: none makes it an instant snap
+   instead. :not([data-removing]) is the one exception: if the user
+   removes a cover that had failed to load, the collapse itself must
+   still animate normally, not be silently suppressed by this rule too —
+   [data-load-failed] never gets cleared once set, so without this
+   exclusion a failed-then-removed cover would snap away instead of
+   collapsing. */
+.page__cover[data-load-failed]:not([data-removing]) {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page__cover {
+    transition: none;
+  }
 }
 
 .page-cover__image {
@@ -33,7 +70,14 @@
 
   transition: opacity 160ms ease;
 }
-.page__cover:hover .page__cover__change {
+.page__cover:hover .page__cover__change,
+/* Keeps the trigger visible while its own menu is open — without this,
+   moving the pointer off the cover onto the menu itself (a separate,
+   portaled Overlay, so it doesn't count as :hover on .page__cover) fades
+   the trigger back out from under an open, still-interactive menu.
+   aria-expanded is already set for a11y below; reusing it here avoids a
+   second, redundant "is the menu open" flag just for this. */
+.page__cover__change[aria-expanded='true'] {
   opacity: 1;
 }
 
