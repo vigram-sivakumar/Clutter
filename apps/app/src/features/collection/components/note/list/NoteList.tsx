@@ -41,6 +41,14 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
     },
     ref
   ) {
+    // Only a truly present value gets a <span> — an unchecked/absent
+    // property must leave no trace in the DOM, not an empty element a
+    // stylesheet happens to hide. `hasMetadata` is what lets the whole
+    // metadata prop become `undefined` (rather than an empty-but-present
+    // Fragment) when nothing is left to show, so CollectionEntry's own
+    // `metadata && <div>` skips the wrapper too.
+    const hasMetadata = Boolean(lastOpened || created || updated);
+
     return (
       <CollectionEntry
         {...props}
@@ -52,11 +60,13 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
         title={title}
         description={description}
         metadata={
-          <>
-            <span>{lastOpened}</span>
-            <span>{created}</span>
-            <span>{updated}</span>
-          </>
+          hasMetadata ? (
+            <>
+              {lastOpened && <span>{lastOpened}</span>}
+              {created && <span>{created}</span>}
+              {updated && <span>{updated}</span>}
+            </>
+          ) : undefined
         }
         isSelectable={isSelectable}
         isSelected={isSelected}

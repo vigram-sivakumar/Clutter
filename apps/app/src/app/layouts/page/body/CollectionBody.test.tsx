@@ -37,10 +37,10 @@ function folderEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionE
   };
 }
 
-describe('CollectionBody — List mode (default)', () => {
+describe('CollectionBody — List mode (viewMode="list")', () => {
   it('renders a folder as FolderCard and a note as NoteList, both inside a NoteListGrid', () => {
     const { container, getByText } = render(
-      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} />
+      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
     );
 
     expect(container.querySelector('.note-list-grid')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('CollectionBody — List mode (default)', () => {
 
   it('renders a note title verbatim — no Markdown resolution (NoteList has no such slot)', () => {
     const { getByText } = render(
-      <CollectionBody notes={[noteEntry({ title: '**Ship** [[Project Alpha]]' })]} />
+      <CollectionBody notes={[noteEntry({ title: '**Ship** [[Project Alpha]]' })]} viewMode="list" />
     );
 
     expect(getByText('**Ship** [[Project Alpha]]')).toBeInTheDocument();
@@ -58,7 +58,9 @@ describe('CollectionBody — List mode (default)', () => {
 
   it('clicking a note row fires its onClick', () => {
     const onClick = vi.fn();
-    const { getByText } = render(<CollectionBody notes={[noteEntry({ onClick })]} />);
+    const { getByText } = render(
+      <CollectionBody notes={[noteEntry({ onClick })]} viewMode="list" />
+    );
 
     fireEvent.click(getByText('My note').closest('.note-list')!);
 
@@ -67,7 +69,9 @@ describe('CollectionBody — List mode (default)', () => {
 
   it('clicking a folder card fires its onClick', () => {
     const onClick = vi.fn();
-    const { getByText } = render(<CollectionBody folders={[folderEntry({ onClick })]} />);
+    const { getByText } = render(
+      <CollectionBody folders={[folderEntry({ onClick })]} viewMode="list" />
+    );
 
     fireEvent.click(getByText('My Folder').closest('.folder-card')!);
 
@@ -76,7 +80,10 @@ describe('CollectionBody — List mode (default)', () => {
 
   it('shows subfolder/note counts on the folder card', () => {
     const { getByText } = render(
-      <CollectionBody folders={[folderEntry({ subfolderCount: 2, noteCount: 5 })]} />
+      <CollectionBody
+        folders={[folderEntry({ subfolderCount: 2, noteCount: 5 })]}
+        viewMode="list"
+      />
     );
 
     expect(getByText('2 Subfolders')).toBeInTheDocument();
@@ -84,14 +91,21 @@ describe('CollectionBody — List mode (default)', () => {
   });
 
   it('renders an empty collection with no rows and no crash', () => {
-    const { container } = render(<CollectionBody folders={[]} notes={[]} />);
+    const { container } = render(<CollectionBody folders={[]} notes={[]} viewMode="list" />);
 
     expect(container.querySelectorAll('.note-list')).toHaveLength(0);
     expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
   });
 });
 
-describe('CollectionBody — Table mode', () => {
+describe('CollectionBody — Table mode (the default)', () => {
+  it('defaults to Table when viewMode is omitted', () => {
+    const { container } = render(<CollectionBody notes={[noteEntry()]} />);
+
+    expect(container.querySelector('.note-table')).toBeInTheDocument();
+    expect(container.querySelector('.note-list-grid')).not.toBeInTheDocument();
+  });
+
   it('renders notes as NoteTableRow rows inside a NoteTable, folders still as FolderCard', () => {
     const { container, getByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="table" />
@@ -127,5 +141,122 @@ describe('CollectionBody — Table mode', () => {
 
     expect(getByText('Today')).toBeInTheDocument();
     expect(getByText('Yesterday')).toBeInTheDocument();
+  });
+});
+
+describe('CollectionBody — Properties visibility', () => {
+  it('defaults to showing description ("No description..." fallback) and created/updated', () => {
+    const { getByText } = render(
+      <CollectionBody
+        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        viewMode="table"
+      />
+    );
+
+    expect(getByText('No description...')).toBeInTheDocument();
+    expect(getByText('Today')).toBeInTheDocument();
+    expect(getByText('Yesterday')).toBeInTheDocument();
+  });
+
+  it('hides description entirely (not just blanked) when unchecked', () => {
+    const { queryByText } = render(
+      <CollectionBody
+        notes={[noteEntry()]}
+        viewMode="table"
+        properties={{ description: false, lastOpened: true, created: true, updated: true }}
+      />
+    );
+
+    expect(queryByText('No description...')).not.toBeInTheDocument();
+  });
+
+  it('shows a real description when present and checked', () => {
+    const { getByText, queryByText } = render(
+      <CollectionBody
+        notes={[noteEntry({ description: 'A real description' })]}
+        viewMode="table"
+      />
+    );
+
+    expect(getByText('A real description')).toBeInTheDocument();
+    expect(queryByText('No description...')).not.toBeInTheDocument();
+  });
+
+  it('hides created/updated when unchecked, in both List and Table mode', () => {
+    const entry = noteEntry({ created: 'Today', updated: 'Yesterday' });
+    const hidden = { description: true, lastOpened: true, created: false, updated: false };
+
+    const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
+    expect(table.queryByText('Today')).not.toBeInTheDocument();
+    expect(table.queryByText('Yesterday')).not.toBeInTheDocument();
+    table.unmount();
+
+    const list = render(<CollectionBody notes={[entry]} viewMode="list" properties={hidden} />);
+    expect(list.queryByText('Today')).not.toBeInTheDocument();
+    expect(list.queryByText('Yesterday')).not.toBeInTheDocument();
+  });
+
+  it('never affects folder rows — FolderCard has no description/created/updated fields', () => {
+    const { getByText } = render(
+      <CollectionBody
+        folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
+        viewMode="table"
+        properties={{ description: false, lastOpened: false, created: false, updated: false }}
+      />
+    );
+
+    expect(getByText('My Folder')).toBeInTheDocument();
+    expect(getByText('1 Subfolders')).toBeInTheDocument();
+    expect(getByText('2 Notes')).toBeInTheDocument();
+  });
+
+  it('Table mode: an unchecked column removes its header cell entirely, not just its row values', () => {
+    const { queryByText } = render(
+      <CollectionBody
+        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        viewMode="table"
+        properties={{ description: true, lastOpened: true, created: false, updated: true }}
+      />
+    );
+
+    expect(queryByText('Date created')).not.toBeInTheDocument();
+    expect(queryByText('Last opened')).toBeInTheDocument();
+    expect(queryByText('Date updated')).toBeInTheDocument();
+  });
+
+  it('Table mode: the header and each row share the same narrowed grid-template-columns when columns are hidden', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        viewMode="table"
+        properties={{ description: true, lastOpened: false, created: false, updated: true }}
+      />
+    );
+
+    const header = container.querySelector('.note-table__header') as HTMLElement;
+    const row = container.querySelector('.note-table-row') as HTMLElement;
+
+    // Name + only the one visible optional column (Updated) — Last
+    // opened/Created contribute no track at all, so the remaining
+    // columns reflow rather than leaving reserved empty space.
+    expect(header.style.gridTemplateColumns).toBe('minmax(500px, 1fr) 140px');
+    expect(row.style.gridTemplateColumns).toBe(header.style.gridTemplateColumns);
+  });
+
+  it('Table mode: all columns hidden leaves only the Name column, on both header and row', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[noteEntry()]}
+        viewMode="table"
+        properties={{ description: false, lastOpened: false, created: false, updated: false }}
+      />
+    );
+
+    const header = container.querySelector('.note-table__header') as HTMLElement;
+    const row = container.querySelector('.note-table-row') as HTMLElement;
+
+    expect(header.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
+    expect(row.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
+    expect(header.querySelectorAll('.note-table__header-cell')).toHaveLength(1);
   });
 });

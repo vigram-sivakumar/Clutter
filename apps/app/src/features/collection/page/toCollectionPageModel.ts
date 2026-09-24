@@ -81,6 +81,7 @@ function toCollectionEntry(
     selected,
     created: isFolder(entry) ? undefined : formatEntryTimestamp(entry.createdAt),
     updated: isFolder(entry) ? undefined : formatEntryTimestamp(entry.updatedAt),
+    description: isFolder(entry) ? undefined : (entry.description ?? undefined),
     subfolderCount: isFolder(entry)
       ? membershipSelector.getVisibleChildFolders(entry.id).length
       : undefined,

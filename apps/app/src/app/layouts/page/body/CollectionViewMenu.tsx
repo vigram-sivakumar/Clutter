@@ -7,16 +7,28 @@ import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
-import type { CollectionViewMode } from './CollectionBody';
+import type { CollectionViewMode, CollectionPropertyVisibility } from './CollectionBody';
 
 export interface CollectionViewMenuProps {
   viewMode: CollectionViewMode;
   onChange: (mode: CollectionViewMode) => void;
+  properties: CollectionPropertyVisibility;
+  onPropertiesChange: (next: CollectionPropertyVisibility) => void;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string; icon: SystemIcon }> = [
   { mode: 'list', label: 'List', icon: 'multiLine' },
   { mode: 'table', label: 'Table', icon: 'table' },
+];
+
+const PROPERTY_ITEMS: ReadonlyArray<{
+  key: keyof CollectionPropertyVisibility;
+  label: string;
+}> = [
+  { key: 'description', label: 'Description' },
+  { key: 'lastOpened', label: 'Last opened' },
+  { key: 'created', label: 'Created' },
+  { key: 'updated', label: 'Updated' },
 ];
 
 /**
@@ -31,6 +43,8 @@ const VIEW_ITEMS: ReadonlyArray<{ mode: CollectionViewMode; label: string; icon:
 export function CollectionViewMenu({
   viewMode,
   onChange,
+  properties,
+  onPropertiesChange,
 }: CollectionViewMenuProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -74,6 +88,35 @@ export function CollectionViewMenu({
           ))}
           <div className="menu__divider" role="separator" />
           <MenuGroupTitle>Properties</MenuGroupTitle>
+          {PROPERTY_ITEMS.map(({ key, label }) => {
+            const checked = properties[key];
+            // Toggling a property doesn't close the menu (unlike a Layout
+            // selection) — these are independent on/off preferences a
+            // user plausibly sets several of in one sitting, not a
+            // single mutually-exclusive choice.
+            const toggle = () => onPropertiesChange({ ...properties, [key]: !checked });
+
+            return (
+              <MenuItem
+                key={key}
+                // A tick icon when checked, an empty `.app-icon`-sized
+                // span when not — always a non-null `leading` so Entry's
+                // own `.entry__leading` wrapper renders at the same fixed
+                // width either way (AppIcon's own sizing class, reused
+                // rather than inventing a second one), so toggling never
+                // shifts the label. Not MenuItem's `selected` prop (that
+                // highlights the whole row, Layout's own indicator) —
+                // this is a per-row glyph instead, as specified.
+                leading={checked ? <AppIcon icon="tick" /> : <span className="app-icon" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggle();
+                }}
+              >
+                {label}
+              </MenuItem>
+            );
+          })}
         </Menu>
       </Overlay>
     </>

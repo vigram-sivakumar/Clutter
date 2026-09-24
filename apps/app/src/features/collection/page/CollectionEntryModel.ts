@@ -22,4 +22,13 @@ export interface CollectionEntryModel {
   readonly updated?: string;
   readonly subfolderCount?: number;
   readonly noteCount?: number;
+  /**
+   * A note's own description (EffectivePage.description) — only ever set
+   * for a `note` entry, the same real-data-only rule `created`/`updated`
+   * follow. Folders have a description too (FolderMetadata.description),
+   * but nothing in the collection UI currently displays a folder's
+   * description, so it's left unpopulated here rather than threading data
+   * no consumer reads yet.
+   */
+  readonly description?: string;
 }

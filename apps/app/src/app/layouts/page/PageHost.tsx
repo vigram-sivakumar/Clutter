@@ -53,7 +53,12 @@ import {
   createTagCollectionRenameHandler,
 } from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
-import { CollectionBody, type CollectionViewMode } from '@app/layouts/page/body/CollectionBody';
+import {
+  CollectionBody,
+  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  type CollectionViewMode,
+  type CollectionPropertyVisibility,
+} from '@app/layouts/page/body/CollectionBody';
 import { CollectionViewMenu } from '@app/layouts/page/body/CollectionViewMenu';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
@@ -156,9 +161,19 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // render, the same one-instance reasoning editorRef above already
   // relies on. Lives beside the page title (Page's titleActions prop),
   // not the top bar — see CollectionViewMenu's own doc comment.
-  const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('list');
+  const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('table');
+  // Same local, unpersisted, shared-across-collection-branches reasoning
+  // as collectionViewMode above — the Properties section's checkbox state.
+  const [collectionProperties, setCollectionProperties] = useState<CollectionPropertyVisibility>(
+    DEFAULT_COLLECTION_PROPERTY_VISIBILITY
+  );
   const collectionViewMenu = (
-    <CollectionViewMenu viewMode={collectionViewMode} onChange={setCollectionViewMode} />
+    <CollectionViewMenu
+      viewMode={collectionViewMode}
+      onChange={setCollectionViewMode}
+      properties={collectionProperties}
+      onPropertiesChange={setCollectionProperties}
+    />
   );
 
   // Composed once per render from the currently-attached Vault/PageOperations
@@ -574,6 +589,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 folders={model.folders}
                 notes={model.notes}
                 viewMode={collectionViewMode}
+                properties={collectionProperties}
                 resources={application.membershipSelector.getArchivedResources()}
                 onOpenResource={openArchivedResourceOverlay}
                 onRestoreResource={(id) =>
@@ -592,6 +608,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 folders={model.folders}
                 notes={model.notes}
                 viewMode={collectionViewMode}
+                properties={collectionProperties}
               />
             )
           }
@@ -736,6 +753,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             folders={model.folders}
             notes={model.notes}
             viewMode={collectionViewMode}
+            properties={collectionProperties}
           />
         }
       />

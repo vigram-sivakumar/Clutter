@@ -15,7 +15,10 @@ import {
   renderFolderCard,
   renderNoteListItem,
   renderNoteTableRow,
+  toTableColumns,
+  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   type CollectionViewMode,
+  type CollectionPropertyVisibility,
 } from './CollectionBody';
 import { NoteTable } from '@features/collection/components/note/table/NoteTable';
 import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
@@ -28,6 +31,7 @@ export interface ArchiveCollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
+  properties?: CollectionPropertyVisibility;
   resources: readonly VaultResource[];
   /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
   onOpenResource?(resource: VaultResource): void;
@@ -78,7 +82,8 @@ export function ArchiveCollectionBody({
   vault,
   folders = [],
   notes = [],
-  viewMode = 'list',
+  viewMode = 'table',
+  properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   resources,
   onOpenResource,
   onRestoreResource,
@@ -151,8 +156,8 @@ export function ArchiveCollectionBody({
 
   const noteRows = notes.map((entry) =>
     viewMode === 'table'
-      ? renderNoteTableRow(entry, noteActions(entry))
-      : renderNoteListItem(entry, noteActions(entry))
+      ? renderNoteTableRow(entry, properties, noteActions(entry))
+      : renderNoteListItem(entry, properties, noteActions(entry))
   );
 
   return (
@@ -164,7 +169,7 @@ export function ArchiveCollectionBody({
           </FolderGrid>
         )}
         {viewMode === 'table' ? (
-          <NoteTable>{noteRows}</NoteTable>
+          <NoteTable columns={toTableColumns(properties)}>{noteRows}</NoteTable>
         ) : (
           <NoteListGrid>{noteRows}</NoteListGrid>
         )}

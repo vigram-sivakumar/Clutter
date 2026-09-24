@@ -1,10 +1,24 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import './NoteTableRow.css';
 import { CollectionEntry } from '@features/collection/CollectionEntry';
+import {
+  buildNoteTableGridTemplateColumns,
+  DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
+  type NoteTableColumnVisibility,
+} from './noteTableColumns';
 
 export interface NoteTableRowProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   description?: string;
+  /**
+   * Whether the description line (including its "No description..."
+   * fallback) renders at all — defaults to `true`, the original
+   * unconditional-fallback behavior. Set `false` to hide the whole line
+   * (a genuinely absent `description` still falls back to placeholder
+   * text when this is `true`; that's a different case from "hidden by
+   * preference" and this prop is what distinguishes them).
+   */
+  showDescription?: boolean;
   emoji?: string;
 
   isSelected?: boolean;
@@ -14,6 +28,16 @@ export interface NoteTableRowProps extends HTMLAttributes<HTMLDivElement> {
   lastOpened?: string;
   created?: string;
   updated?: string;
+  /**
+   * Which of the lastOpened/created/updated columns actually exist on
+   * this row — not just whether their content is shown. An unchecked
+   * column renders no cell at all and contributes no track to this row's
+   * own `grid-template-columns`, computed via the same
+   * `buildNoteTableGridTemplateColumns` NoteTable's header uses, so the
+   * two can never drift out of alignment. Defaults to all three visible,
+   * the original unconditional-column behavior.
+   */
+  columns?: NoteTableColumnVisibility;
 
   /**
    * Hover-gated trailing slot for the whole row (Archive's Restore/Delete)
@@ -29,6 +53,7 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
     {
       title,
       description,
+      showDescription = true,
       emoji,
 
       isSelected = false,
@@ -38,6 +63,7 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
       lastOpened,
       created,
       updated,
+      columns = DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
 
       actions,
 
@@ -45,10 +71,12 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
       onClick,
       role,
       tabIndex,
+      style,
       ...props
     },
     ref
   ) {
+    const gridTemplateColumns = buildNoteTableGridTemplateColumns(columns);
     // Mirrors CollectionEntry's own handleClick guard — without this, a
     // click on the `actions` slot's Restore/Delete buttons (a sibling of
     // the CollectionEntry cells below, not nested inside one) would bubble
@@ -93,32 +121,39 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
         onKeyDown={onClick ? handleKeyDown : undefined}
         role={role ?? (onClick ? 'button' : undefined)}
         tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
+        style={{ gridTemplateColumns, ...style }}
       >
         <CollectionEntry
           className="note-table-row__entry"
           icon="note"
           emoji={emoji}
           title={title}
-          description={description || 'No description...'}
+          description={showDescription ? description || 'No description...' : undefined}
           isSelectable={isSelectable}
           isSelected={isSelected}
           onSelectedChange={onSelectedChange}
         />
 
-        <CollectionEntry
-          className="note-table-row__last-opened"
-          metadata={lastOpened}
-        />
+        {columns.lastOpened && (
+          <CollectionEntry
+            className="note-table-row__last-opened"
+            metadata={lastOpened}
+          />
+        )}
 
-        <CollectionEntry
-          className="note-table-row__created"
-          metadata={created}
-        />
+        {columns.created && (
+          <CollectionEntry
+            className="note-table-row__created"
+            metadata={created}
+          />
+        )}
 
-        <CollectionEntry
-          className="note-table-row__updated"
-          metadata={updated}
-        />
+        {columns.updated && (
+          <CollectionEntry
+            className="note-table-row__updated"
+            metadata={updated}
+          />
+        )}
 
         {actions && <div className="note-table-row__actions">{actions}</div>}
       </div>

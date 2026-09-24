@@ -110,6 +110,13 @@ function renderArchive(
   return render(
     <ArchiveCollectionBody
       vault={makeVault()}
+      // Most of this file's assertions target List-mode selectors
+      // ('.note-list', per actionButtonsFor's own comment below) —
+      // ArchiveCollectionBody itself now defaults to Table (matching
+      // CollectionBody's own new default), so tests are pinned to List
+      // here explicitly rather than relying on a default that changed
+      // out from under them. Table-mode tests override this per-call.
+      viewMode="list"
       onRestoreResource={vi.fn()}
       onDeleteResource={vi.fn()}
       onRestoreFolder={vi.fn()}
