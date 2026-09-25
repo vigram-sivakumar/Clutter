@@ -601,7 +601,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       // excluding `folder.id` (and its descendants, via
       // buildMoveDestinationItems' own walk) is always excluding a real,
       // movable folder here, never a reserved one.
-      moveDestinations: buildMoveDestinationItems(application.membershipSelector, vault.root, folder.id),
+      moveDestinations: buildMoveDestinationItems(application.membershipSelector, folder.id),
       onMove: (destinationFolderId) => onMoveFolder(folder.id, destinationFolderId),
       onCreateFolder: (name) => application.folderOperations.create(name, null),
     });
@@ -1023,7 +1023,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     moveDestinations:
       page.type === 'note'
-        ? buildMoveDestinationItems(application.membershipSelector, vault.root)
+        ? buildMoveDestinationItems(application.membershipSelector)
         : undefined,
     onMove: page.type === 'note' ? onMoveNote : undefined,
     onCreateFolder:
