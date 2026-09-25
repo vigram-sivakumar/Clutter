@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { TransitionEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
-import { OverflowMenuBody } from '@components/menu/OverflowMenu';
-import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import { Menu } from '@components/menu/Menu';
+import { MenuItem } from '@components/menu/MenuItem';
+import { ImagePicker } from './image-picker/ImagePicker';
 import './Page.Cover.css';
 import { AppIcon } from '@shared/icon';
 
@@ -40,12 +41,21 @@ type PageCoverProps = {
    * collapsed box, instead of remounting from scratch.
    */
   onHide?: () => void;
+  /**
+   * Replaces the existing cover — the exact same
+   * PageHost.onSetCoverImage/onSetFolderCoverImage write path (and
+   * ImagePicker component) the page header's own "Cover image" picker
+   * (PageHeaderMoreActionsMenu) already uses to *set* a first cover, reused
+   * here unmodified to *change* one instead. Presence gates the "Change
+   * cover image" menu item the same way the rest of this codebase gates a
+   * capability on handler presence (see PageHeaderMoreActionsMenu's own
+   * convention).
+   */
+  onSetCoverImage?: (url: string) => void;
+  onSetCoverImageFromUpload?: (sourcePath: string) => void;
 };
 
-const MENU_ITEMS: OverflowMenuItemConfig[] = [
-  { id: 'hide', label: 'Hide', icon: 'hide' },
-  { id: 'remove', label: 'Remove', icon: 'trash' },
-];
+type MenuView = 'menu' | 'picker';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -103,13 +113,41 @@ type LoadState = 'pending' | 'ready' | 'failed';
  * box simply stays mounted, collapsed, with `cover` untouched, ready for
  * a future "Show" to reverse straight back into the entrance transition.
  */
-export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
+export function PageCover({
+  src,
+  onRemove,
+  hidden,
+  onHide,
+  onSetCoverImage,
+  onSetCoverImageFromUpload,
+}: PageCoverProps) {
   const [open, setOpen] = useState(false);
+  // 'menu' (Change cover image/Hide/Remove) vs 'picker' (the existing
+  // ImagePicker, swapped in unwrapped, in place — same one-Overlay,
+  // swap-in-place structure PageHeaderMoreActionsMenu's own root/cover
+  // views already use, and for the same reason: Overlay imposes no chrome
+  // of its own, so either already-self-styled surface can be hosted
+  // directly without a double border/width fight.
+  const [view, setView] = useState<MenuView>('menu');
   const [removing, setRemoving] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>('pending');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const suppressReturnFocusRef = useRef(false);
   const imgRef = useRef<HTMLImageElement>(null);
+
+  // Every fresh open must start on the menu view — this component doesn't
+  // unmount between opens (only its Overlay does), so `view` would
+  // otherwise resume on the picker if that's where a previous open left
+  // off. Render-phase reset, not a `useEffect` — same reasoning as
+  // PageHeaderMoreActionsMenu's own identical reset (see its doc comment
+  // for why an effect-based reset would flash the stale view for a frame).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && view !== 'menu') {
+      setView('menu');
+    }
+  }
 
   // Re-arms on every src change (a fresh cover, or an existing one
   // replaced) — each one gets its own "wait for this image" gate rather
@@ -118,7 +156,7 @@ export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
     if (prefersReducedMotion()) {
       // No entrance transition to wait for — show as soon as the
       // element exists, matching the removal side's own reduced-motion
-      // shortcut in handleSelect below. Whether this particular image
+      // shortcut in performRemove below. Whether this particular image
       // will actually load doesn't matter here: [data-load-failed]'s
       // only job is suppressing an *animation* that the reduced-motion
       // media query already suppresses globally.
@@ -180,20 +218,11 @@ export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
     setLoadState('failed');
   }
 
-  function handleSelect(id: string): void {
-    if (id === 'hide') {
-      // No local state to flip first: `hidden` is driven entirely by the
-      // durable `coverHidden` prop, so persisting it is the whole action
-      // — the collapse plays automatically once PageHost re-renders with
-      // hidden: true (see [data-hidden] in Page.Cover.css), the same way
-      // `[data-loading]`'s collapse already plays from a prop/state
-      // change rather than an imperative animation call.
-      onHide?.();
-      return;
-    }
-    if (id !== 'remove') {
-      return;
-    }
+  // Shared by the root menu's own "Remove" item and ImagePicker's "hide"
+  // tab (its own onRemove prop, wired below) — one removal sequence
+  // regardless of which surface requested it, not a second copy that
+  // skips the collapse animation.
+  function performRemove(): void {
     // Reduced motion isn't the only case with no collapse left to
     // animate: a hidden cover is already sitting at flex-basis: 0/
     // flex-grow: 0 (Page.Cover.css's [data-hidden]), so setting
@@ -208,6 +237,22 @@ export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
       return;
     }
     setRemoving(true);
+  }
+
+  function handleHide(): void {
+    setOpen(false);
+    // No local state to flip first: `hidden` is driven entirely by the
+    // durable `coverHidden` prop, so persisting it is the whole action —
+    // the collapse plays automatically once PageHost re-renders with
+    // hidden: true (see [data-hidden] in Page.Cover.css), the same way
+    // `[data-loading]`'s collapse already plays from a prop/state change
+    // rather than an imperative animation call.
+    onHide?.();
+  }
+
+  function handleRemove(): void {
+    setOpen(false);
+    performRemove();
   }
 
   function handleTransitionEnd(event: TransitionEvent<HTMLElement>): void {
@@ -244,6 +289,7 @@ export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
         isIconOnly
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="More actions"
         onClick={(event) => {
           event.stopPropagation();
           setOpen(!open);
@@ -259,12 +305,66 @@ export function PageCover({ src, onRemove, hidden, onHide }: PageCoverProps) {
         alignment="end"
         suppressReturnFocusRef={suppressReturnFocusRef}
       >
-        <OverflowMenuBody
-          items={MENU_ITEMS}
-          onSelect={handleSelect}
-          onOpenChange={setOpen}
-          suppressReturnFocusRef={suppressReturnFocusRef}
-        />
+        {view === 'menu' && (
+          <Menu size="medium">
+            {onSetCoverImage && (
+              <MenuItem
+                leading={<AppIcon icon="image" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setView('picker');
+                }}
+              >
+                Change cover image
+              </MenuItem>
+            )}
+            <MenuItem
+              leading={<AppIcon icon="hide" />}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleHide();
+              }}
+            >
+              Hide
+            </MenuItem>
+            <MenuItem
+              leading={<AppIcon icon="trash" />}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleRemove();
+              }}
+            >
+              Remove
+            </MenuItem>
+          </Menu>
+        )}
+
+        {view === 'picker' && onSetCoverImage && (
+          <div className="page__cover__picker">
+            <ImagePicker
+              hasCoverImage
+              onClose={() => setView('menu')}
+              onRemove={() => {
+                setView('menu');
+                handleRemove();
+              }}
+              onLinkSubmit={(url) => {
+                setOpen(false);
+                onSetCoverImage(url);
+              }}
+              onUploadSubmit={(sourcePath) => {
+                setOpen(false);
+                onSetCoverImageFromUpload?.(sourcePath);
+              }}
+              onUnsplashSelect={(url) => {
+                // Deliberately does not close the menu — same Unsplash
+                // browse-and-preview reasoning as PageHeaderMoreActionsMenu's
+                // own onUnsplashSelect (ImagePicker.tsx's own doc comment).
+                onSetCoverImage(url);
+              }}
+            />
+          </div>
+        )}
       </Overlay>
       <img
         ref={imgRef}

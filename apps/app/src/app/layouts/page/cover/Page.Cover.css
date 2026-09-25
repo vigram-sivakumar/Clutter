@@ -10,6 +10,9 @@
   border-radius: 0 var(--border-radius) var(--border-radius) 0;
   margin-left: calc(var(--border-radius) * -1);
 
+  user-select: none;
+  -webkit-user-select: none;
+
   /* Collapse/entrance. .page__document (flex: 1; min-width: 0, Page.css)
      needs no transition of its own to "move into"/"out of" the freed
      space: the browser recomputes the whole flex row's layout every
@@ -119,4 +122,13 @@
 .page-cover__image {
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* Composition-only styling for the swapped-in picker view — same 320px
+   ancestor width PageHeaderMoreActionsMenu.css's own
+   .page-header-more-actions-menu__cover gives the same unwrapped
+   ImagePicker elsewhere (see that rule's own doc comment for why
+   ImagePicker itself sets no width). */
+.page__cover__picker {
+  width: 320px;
 }

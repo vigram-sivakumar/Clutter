@@ -188,6 +188,8 @@ export function Page({
           onRemove={onRemoveCoverImage}
           hidden={coverHidden}
           onHide={onHideCoverImage}
+          onSetCoverImage={onSetCoverImage}
+          onSetCoverImageFromUpload={onSetCoverImageFromUpload}
         />
       )}
     </div>
