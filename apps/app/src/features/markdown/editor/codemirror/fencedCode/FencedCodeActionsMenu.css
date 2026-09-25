@@ -1,9 +1,9 @@
 /* Everything else — container styling, the language view's own header
-   (now `MenuTitle`, `@components/menu/MenuTitle.css`), row styling
-   (`MenuItem`) — comes from the shared `Menu`/`MenuItem`/`MenuTitle`
-   components, reused directly for both the Actions and language views.
-   Only the results list's own scroll cap and the empty-state row are
-   specific to this file. */
+   (now `MenuGroupTitle`, `@components/menu/MenuGroupTitle.css`), row
+   styling (`MenuItem`) — comes from the shared
+   `Menu`/`MenuItem`/`MenuGroupTitle` components, reused directly for
+   both the Actions and language views. Only the results list's own
+   scroll cap and the empty-state row are specific to this file. */
 
 /*
  * 264px caps the *whole* language-picker popup (title + search + list),

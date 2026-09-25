@@ -5,7 +5,7 @@ import { LanguageDescription } from '@codemirror/language';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
-import { MenuTitle } from '@components/menu/MenuTitle';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { Search } from '@components/search/Search';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
@@ -311,7 +311,7 @@ function LanguagePickerContent({
 
   return (
     <>
-      <MenuTitle
+      <MenuGroupTitle
         trailing={
           <Button
             aria-label="Back to actions"
@@ -326,7 +326,7 @@ function LanguagePickerContent({
         }
       >
         Change Language
-      </MenuTitle>
+      </MenuGroupTitle>
 
       <Search
         ref={searchRef}
