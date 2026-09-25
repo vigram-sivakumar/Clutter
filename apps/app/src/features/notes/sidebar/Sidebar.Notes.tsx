@@ -192,7 +192,7 @@ export function Notes({
     // Same flow as the topbar's Move (PageHost.tsx): same
     // buildMoveDestinationItems helper, same PageOperations.move() call —
     // nothing about Move is reimplemented for the sidebar.
-    noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
+    noteMoveDestinations: buildMoveDestinationItems(membershipSelector, vault.root),
     onMoveNote: (pageId, destinationFolderId) =>
       void pageOperations.move(pageId, destinationFolderId),
     // Same flow as the topbar's Move (PageHost.tsx): root-level creation
@@ -241,7 +241,7 @@ export function Notes({
     // buildMoveDestinationItems helper (excludeFolderId keeps a folder out
     // of its own destination list), same FolderOperations.move() call.
     getFolderMoveDestinations: (folderId) =>
-      buildMoveDestinationItems(membershipSelector, folderId),
+      buildMoveDestinationItems(membershipSelector, vault.root, folderId),
     onMoveFolder: (folderId, destinationFolderId) =>
       void folderOperations.move(folderId, destinationFolderId),
 

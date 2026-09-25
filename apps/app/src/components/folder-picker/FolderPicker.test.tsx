@@ -37,6 +37,27 @@ describe('FolderPicker', () => {
     expect(screen.queryByText('Vault root')).toBeNull();
   });
 
+  it("renders an item's secondaryLabel inline next to its title, in a separate span", () => {
+    const withSecondary: FolderPickerItem[] = [
+      { id: 'root', title: 'My Vault', secondaryLabel: 'Home', level: 0, parentId: null },
+      ...items,
+    ];
+    render(<FolderPicker items={withSecondary} onSelect={vi.fn()} />);
+
+    const title = screen.getByText('My Vault');
+    const secondary = screen.getByText('Home');
+
+    expect(title.className).toContain('folder-picker__title');
+    expect(secondary.className).toContain('folder-picker__secondary');
+    expect(secondary.parentElement).toBe(title.parentElement);
+  });
+
+  it('renders no secondary span for an item with no secondaryLabel', () => {
+    render(<FolderPicker items={items} onSelect={vi.fn()} />);
+
+    expect(document.querySelector('.folder-picker__secondary')).toBeNull();
+  });
+
   it('starts with every nested folder collapsed — only top-level items are visible', () => {
     render(<FolderPicker items={items} onSelect={vi.fn()} />);
 

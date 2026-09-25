@@ -43,11 +43,12 @@ export interface MoveDestinationPickerProps {
  *
  * Has no UI of its own for the vault root — no dedicated row, footer
  * action, or divider. When the caller's `items` includes the root sentinel
- * (buildMoveDestinationItems.ts prepends a "Home" item with id
- * ROOT_DESTINATION_ID), FolderPicker renders it as an ordinary top-level
- * row; this component is the one place that recognizes that id and
- * translates it back to `null` — the destination `PageOperations.move()`/
- * `FolderOperations.move()` already accept for "move to vault root".
+ * (buildMoveDestinationItems.ts prepends an item titled with the vault's
+ * own name, labeled "Home", with id ROOT_DESTINATION_ID), FolderPicker
+ * renders it as an ordinary top-level row; this component is the one place
+ * that recognizes that id and translates it back to `null` — the
+ * destination `PageOperations.move()`/`FolderOperations.move()` already
+ * accept for "move to vault root".
  */
 export function MoveDestinationPicker({
   anchorRef,
