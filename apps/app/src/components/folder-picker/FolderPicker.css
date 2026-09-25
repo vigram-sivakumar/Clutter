@@ -24,17 +24,37 @@
   display: flex;
   justify-content: start;
   flex-direction: column;
+  min-width: 0;
 }
 .create__icon {
   color: var(--foreground-secondary);
 }
+.folder-picker__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
+}
 .folder-picker__title {
   color: var(--foreground-primary);
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
 }
+/*
+ * Reuses .folder-picker__path's own tertiary/small-text tokens — same
+ * "Home" styling, just inline next to the title instead of stacked below
+ * it. flex-shrink: 0 keeps it (and its text) always fully visible; the
+ * title is the one that gives up space and ellipsizes first.
+ */
+.folder-picker__secondary,
 .folder-picker__path {
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   color: var(--foreground-tertiary);
+}
+.folder-picker__secondary {
+  flex-shrink: 0;
 }
 .folder-picker__create {
   display: flex;

@@ -33,6 +33,20 @@ export class MembershipSelector {
   ) {}
 
   /**
+   * The vault's own root path — not a membership question (ADR-023 §5:
+   * storage/identity stays Vault's job), so this is a plain pass-through,
+   * never derived/cached/computed, not a second implementation of anything
+   * Vault already owns. Exists only so a consumer holding a
+   * MembershipSelector (and nothing else) can reach the one Vault field it
+   * needs — e.g. getVaultDisplayName() for the Move picker's root
+   * destination — without a second constructor parameter threading
+   * `vault` itself through in parallel.
+   */
+  public get vaultRoot(): string {
+    return this.vault.root;
+  }
+
+  /**
    * Notes membership (ADR-023 §4): a page belongs to Notes if its type
    * makes no other named claim on it — today, exactly the pages that are
    * not Daily Notes. Identity-driven (`page.type`), never `folderId`-driven

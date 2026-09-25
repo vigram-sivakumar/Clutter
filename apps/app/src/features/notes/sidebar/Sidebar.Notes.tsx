@@ -32,6 +32,7 @@ import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmatio
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
@@ -376,7 +377,12 @@ export function Notes({
       </FavoritesSection>
       <Section
         hasHeader
-        title={getSystemLocationPresentation('workspace').label}
+        // The root-folders section header shows the vault's own physical
+        // folder name (getVaultDisplayName), not the generic 'workspace'
+        // system-location label — this section literally represents the
+        // vault root's own folder, unlike every other system-location use
+        // of that label (tabs, breadcrumbs, etc.), which stay untouched.
+        title={getVaultDisplayName(vault.root)}
         isCollapsible
         // isTitleToggle
         isEmpty={isFoldersEmpty}

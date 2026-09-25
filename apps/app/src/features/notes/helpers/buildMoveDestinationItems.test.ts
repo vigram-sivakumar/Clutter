@@ -50,8 +50,8 @@ function makeFolder(id: string, path: string, parentId: string | null = null): F
   };
 }
 
-function makeMembershipSelector(folders: Folder[]): MembershipSelector {
-  const vault = new Vault(ROOT, [], folders, [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+function makeMembershipSelector(folders: Folder[], root: string = ROOT): MembershipSelector {
+  const vault = new Vault(root, [], folders, [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
   const query = new VaultQuery(vault);
   const workspace = new Workspace();
   const fileSystem = new InMemoryVaultFileSystem();
@@ -95,20 +95,36 @@ function makeMembershipSelector(folders: Folder[]): MembershipSelector {
 }
 
 describe('buildMoveDestinationItems', () => {
-  it('never includes a row for the vault root — it is the implicit container, not an item', () => {
+  it('always includes a root row, first, titled with the vault\'s own physical folder name and labeled "Home"', () => {
     const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
     const membershipSelector = makeMembershipSelector([parent]);
 
     const items = buildMoveDestinationItems(membershipSelector);
 
-    expect(items.map((i) => i.id)).not.toContain('__vault-root__');
-    expect(items.every((i) => i.id !== '')).toBe(true);
+    expect(items[0]).toEqual({
+      id: '__vault-root__',
+      title: 'vault',
+      secondaryLabel: 'Home',
+      level: 0,
+      parentId: null,
+    });
   });
 
-  it('returns an empty list for a vault with no workspace folders', () => {
+  it('falls back to "Vault" only when the root folder name is genuinely empty', () => {
+    const membershipSelector = makeMembershipSelector([], '/');
+
+    expect(buildMoveDestinationItems(membershipSelector)[0]).toMatchObject({
+      title: 'Vault',
+      secondaryLabel: 'Home',
+    });
+  });
+
+  it('returns only the root row for a vault with no workspace folders', () => {
     const membershipSelector = makeMembershipSelector([]);
 
-    expect(buildMoveDestinationItems(membershipSelector)).toEqual([]);
+    expect(buildMoveDestinationItems(membershipSelector)).toEqual([
+      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
+    ]);
   });
 
   it('includes ordinary workspace folders, nested with increasing level and correct parentId', () => {
@@ -119,7 +135,7 @@ describe('buildMoveDestinationItems', () => {
     const items = buildMoveDestinationItems(membershipSelector);
     const ids = items.map((item) => item.id);
 
-    expect(ids).toEqual(['folder-parent', 'folder-child']);
+    expect(ids).toEqual(['__vault-root__', 'folder-parent', 'folder-child']);
     expect(items.find((i) => i.id === 'folder-parent')).toMatchObject({ level: 0, parentId: null });
     expect(items.find((i) => i.id === 'folder-child')).toMatchObject({
       level: 1,
@@ -143,10 +159,12 @@ describe('buildMoveDestinationItems', () => {
 
     const items = buildMoveDestinationItems(membershipSelector);
 
-    expect(items).toEqual([]);
+    expect(items).toEqual([
+      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
+    ]);
   });
 
-  it('excludes an excluded folder id and every one of its descendants', () => {
+  it('excludes an excluded folder id and every one of its descendants, but keeps the root row', () => {
     const source = makeFolder('folder-1', `${ROOT}/Projects`);
     const child = makeFolder('folder-2', `${ROOT}/Projects/Sub`, 'folder-1');
     const sibling = makeFolder('folder-3', `${ROOT}/Other`);
@@ -155,6 +173,7 @@ describe('buildMoveDestinationItems', () => {
     const items = buildMoveDestinationItems(membershipSelector, 'folder-1');
     const ids = items.map((item) => item.id);
 
+    expect(ids).toContain('__vault-root__');
     expect(ids).not.toContain('folder-1');
     expect(ids).not.toContain('folder-2');
     expect(ids).toContain('folder-3');

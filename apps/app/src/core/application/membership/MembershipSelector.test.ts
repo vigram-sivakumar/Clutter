@@ -184,6 +184,14 @@ function setup(
   };
 }
 
+describe('MembershipSelector.vaultRoot', () => {
+  it("passes through the vault's own root path unchanged", () => {
+    const { membershipSelector } = setup();
+
+    expect(membershipSelector.vaultRoot).toBe(ROOT);
+  });
+});
+
 describe('MembershipSelector.getWorkspaceFolders (ADR-023)', () => {
   it('excludes every reserved folder, migrated from the retired VaultQuery.getVisibleRootFolders coverage', () => {
     const folders = [

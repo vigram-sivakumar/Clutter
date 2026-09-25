@@ -36,6 +36,7 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
+import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -377,7 +378,7 @@ describe('Sidebar Notes: clicking the "Workspace" section header title navigates
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
 
-    fireEvent.click(screen.getByText('Workspace'));
+    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
 
     expect(deps.navigation.openWorkspace).toHaveBeenCalledTimes(1);
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
@@ -400,7 +401,7 @@ describe('Sidebar Notes: clicking the "Workspace" section header title navigates
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
 
     function clickWorkspaceCaret() {
-      const header = screen.getByText('Workspace').closest('.section-header') as HTMLElement;
+      const header = screen.getByText(getVaultDisplayName(ROOT)).closest('.section-header') as HTMLElement;
       const caret = header.querySelector('.section-header__caret') as HTMLElement;
       fireEvent.click(caret);
     }
