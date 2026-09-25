@@ -30,7 +30,7 @@ const items: FolderPickerItem[] = [
   { id: 'folder-2', title: 'Finance', level: 0, parentId: null },
 ];
 
-function Harness({ onSelect }: { onSelect: (id: string) => void }) {
+function Harness({ onSelect }: { onSelect: (id: string | null) => void }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -103,7 +103,7 @@ describe('MoveDestinationPicker', () => {
       onSelect,
       onCreateFolder,
     }: {
-      onSelect: (id: string) => void;
+      onSelect: (id: string | null) => void;
       onCreateFolder: (name: string) => Promise<string>;
     }) {
       const anchorRef = useRef<HTMLButtonElement>(null);
@@ -163,7 +163,7 @@ function MoveDestinationPickerHarness({
   onSelect,
 }: {
   items: FolderPickerItem[];
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
 }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   return (

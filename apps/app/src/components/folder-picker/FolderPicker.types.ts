@@ -15,13 +15,21 @@ export interface FolderPickerItem {
   /**
    * The item's parent folder id, or `null` for a top-level item — the one
    * piece of tree structure FolderPicker needs to know which rows are
-   * currently visible under its own collapsed/expanded state. Never the
-   * vault root itself: FolderPicker renders no root row (its caller
-   * represents "move to root" separately, outside this list, via the
-   * existing `null` destination contract).
+   * currently visible under its own collapsed/expanded state.
    */
   parentId: string | null;
 }
+
+/**
+ * The sentinel id a Move destination list (buildMoveDestinationItems.ts)
+ * uses to represent the vault root as an ordinary top-level
+ * FolderPickerItem ("Home") — FolderPicker itself renders it exactly like
+ * any other row, with no special-casing. MoveDestinationPicker is the one
+ * place that recognizes this id and translates it back to the `null`
+ * destination every Move facade method (PageOperations.move/
+ * FolderOperations.move) already accepts.
+ */
+export const ROOT_DESTINATION_ID = '__vault-root__';
 
 export interface FolderPickerProps {
   items: FolderPickerItem[];
