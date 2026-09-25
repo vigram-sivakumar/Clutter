@@ -3,14 +3,22 @@
   align-items: baseline;
   gap: var(--space-12);
 }
-.page-header-controls__emoji,
-.page-header-controls__emoji
-  .app-icon
-  .page-header-controls__emoji
-  .app-icon
-  .emoji-icon {
+.page-header-controls__emoji {
   height: 72px;
   width: 72px;
+}
+
+.page-header-controls__emoji .app-icon {
+  height: 72px;
+  width: 72px;
+}
+
+.page-header-controls__emoji .app-icon svg {
+  height: 72px;
+  width: 72px;
+}
+
+.page-header-controls__emoji .emoji-icon {
   font-size: 72px;
 }
 .page-header-controls__emoji:hover {
@@ -30,6 +38,11 @@
   color: var(--foreground-secondary);
 }
 
+.page-header-controls__icon .app-icon {
+  height: 72px;
+  width: 72px;
+}
+
 .page-header-controls__menu {
   height: 16px;
   width: var(--height-sm);
@@ -40,6 +53,18 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
+  /* WKWebView (the Tauri desktop runtime) can leave this stuck at
+     opacity: 1 after the pointer has genuinely left .page-title-section
+     — confirmed directly in the real Tauri app, not inferred from
+     Chromium: :hover on the ancestor correctly reads false and
+     pointer-events correctly flips to none at the moment of exit, but
+     the opacity transition on this rule intermittently never completes.
+     will-change gives opacity its own compositing layer, which resolved
+     it in direct A/B testing in the real runtime (reproducible without
+     it, not reproducible with it). No effect on Chromium, where this
+     never reproduced in the first place. See PageTitleSection's own
+     :hover rule for the ancestor selector that drives this. */
+  will-change: opacity;
 }
 
 /* Stays visible while its own menu is open, independent of hover — the
