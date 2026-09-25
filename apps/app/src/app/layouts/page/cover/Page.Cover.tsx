@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import type { TransitionEvent } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
@@ -20,25 +19,30 @@ type PageCoverProps = {
   /**
    * Durable state, not local — reflects the persisted `coverHidden`
    * metadata (PageMetadata.coverHidden/FolderMetadata.coverHidden), read
-   * the same way `src` reflects persisted `cover`. This is the
-   * architectural point the "Hide" feature is built on: whether a cover
-   * is hidden is a fact about the resource, not a transient animation
-   * state PageCover invents locally — `removing`/`loadState` stay local
-   * because they represent *this component instance's* in-flight
-   * transition, not something another surface (or a reload) needs to
-   * agree on.
+   * the same way `src` reflects persisted `cover`. Whether a cover is
+   * hidden is a fact about the resource, not a transient animation state
+   * PageCover invents locally.
+   *
+   * The collapse/expand transition (Page.Cover.css's `[data-hidden]`
+   * rule) is a pure function of this prop, and PageCover has no logic of
+   * its own distinguishing "the user just toggled this on the open
+   * resource" from "a different resource's already-hidden cover just
+   * mounted" — that distinction is resolved one layer up, by keying this
+   * component on the active resource's id (see PageHost's own
+   * `coverKey`/`titleKey` usage). A fresh mount always paints its final
+   * `hidden` state directly, since CSS transitions never animate an
+   * element's first paint; only a `hidden` prop change on an
+   * already-mounted instance (i.e. a real Hide/Show click on the note
+   * that's already open) animates. This is what keeps navigation between
+   * two notes with different `coverHidden` values instant, with no
+   * flash-then-collapse.
    */
   hidden?: boolean;
   /**
    * Persists `coverHidden: true` (PageHost's onHideCoverImage /
-   * onHideFolderCoverImage). Unlike Remove, this never touches `cover`
-   * itself and needs no local "hiding" flag to sequence a collapse-then-
-   * act: the collapse is a pure function of the `hidden` prop once it
-   * flips (see [data-hidden] in Page.Cover.css) — there is no "act"
-   * afterward, since hiding has nothing left to do once the box is
-   * visually collapsed. `cover` staying intact is what lets a future
-   * "Show" reverse straight into the entrance transition from this same
-   * collapsed box, instead of remounting from scratch.
+   * onHideFolderCoverImage). Never touches `cover` itself — the collapse
+   * plays automatically once the resulting `hidden` prop change re-renders
+   * this same mounted instance (see `hidden`'s own doc comment above).
    */
   onHide?: () => void;
   /**
@@ -57,61 +61,13 @@ type PageCoverProps = {
 
 type MenuView = 'menu' | 'picker';
 
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
 /**
- * Three states, not two: `pending` (default — this image hasn't resolved
- * yet, stay collapsed), `ready` (loaded successfully — play the normal
- * entrance transition), `failed` (errored — never treated as a
- * successful load; see Page.Cover.css's `[data-load-failed]` rule for
- * why this is a *snap* to the expanded box, not an animated entrance).
- * Kept as one union rather than two booleans specifically so "loaded"
- * and "failed" can never both be true at once.
- */
-type LoadState = 'pending' | 'ready' | 'failed';
-
-/**
- * Two mirrored, one-directional transitions share the same mechanism —
- * .page__cover's own `flex-basis` (Page.Cover.css) — and the same
- * always-present box: entering (this image hasn't finished loading yet,
- * so stay collapsed) and removing (the user asked to remove it, so
- * collapse again before actually leaving). Neither ever touches the
- * cover's defined width/height or reads the image's intrinsic size —
- * `loadState` only gates *when* the box is allowed to expand into the
- * space CSS already allocates it, never *how big* it expands to.
- *
- * A failed image is deliberately NOT the same outcome as a loaded one:
- * it still ends up at the expanded box size (so More Actions/Remove
- * stays reachable — a cover that fails to load, e.g. dead external link
- * rot on an already-persisted cover, shouldn't become a permanent,
- * unreachable dead end), but gets there as an instant snap, never the
- * animated entrance a real successful load gets. See
- * Page.Cover.css's `[data-load-failed]:not([data-removing])` rule.
- * Nothing here modifies the persisted cover on failure — this is a
- * purely presentational distinction.
- *
- * "Remove" doesn't call onRemove synchronously — it flips `removing`,
- * which triggers the same collapse transition. Only once that transition
- * actually finishes (the `transitionend` handler below, guarded so it
- * only fires the real removal for this direction, not the entry one —
- * see its own comment) does the real removal fire. This is what keeps
- * the cover mounted throughout the collapse instead of popping out
- * instantly — if `src` disappeared the moment "Remove" was clicked,
- * Page.tsx's own `{coverImage && <PageCover .../>}` would unmount this
- * component before any of that CSS transition ever had a chance to run.
- *
- * "Hide" is a third, simpler case built on the same collapse mechanism
- * but with no local sequencing state of its own: unlike `removing`,
- * `hidden` isn't something this component decides — it's a prop mirroring
- * the persisted `coverHidden` metadata, so onHide's whole job is
- * persisting `coverHidden: true` and letting the resulting prop change
- * drive `[data-hidden]`'s collapse the normal React-render way, same as
- * `src` changing drives `[data-loading]`'s. There is nothing to do once
- * that collapse finishes — no `onTransitionEnd` branch, no unmount — the
- * box simply stays mounted, collapsed, with `cover` untouched, ready for
- * a future "Show" to reverse straight back into the entrance transition.
+ * Adding, changing, and removing a cover all go through the normal render
+ * flow — no loading/mount/unmount choreography of any kind. Only Hide/Show
+ * (the `hidden` prop) animates, via Page.Cover.css's `[data-hidden]`
+ * collapse transition; see `hidden`'s own doc comment above for how
+ * PageHost keying this component by the active resource keeps that
+ * transition from firing on navigation.
  */
 export function PageCover({
   src,
@@ -129,11 +85,8 @@ export function PageCover({
   // of its own, so either already-self-styled surface can be hosted
   // directly without a double border/width fight.
   const [view, setView] = useState<MenuView>('menu');
-  const [removing, setRemoving] = useState(false);
-  const [loadState, setLoadState] = useState<LoadState>('pending');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const suppressReturnFocusRef = useRef(false);
-  const imgRef = useRef<HTMLImageElement>(null);
 
   // Every fresh open must start on the menu view — this component doesn't
   // unmount between opens (only its Overlay does), so `view` would
@@ -149,94 +102,8 @@ export function PageCover({
     }
   }
 
-  // Re-arms on every src change (a fresh cover, or an existing one
-  // replaced) — each one gets its own "wait for this image" gate rather
-  // than inheriting a previous image's readiness.
-  useEffect(() => {
-    if (prefersReducedMotion()) {
-      // No entrance transition to wait for — show as soon as the
-      // element exists, matching the removal side's own reduced-motion
-      // shortcut in performRemove below. Whether this particular image
-      // will actually load doesn't matter here: [data-load-failed]'s
-      // only job is suppressing an *animation* that the reduced-motion
-      // media query already suppresses globally.
-      setLoadState('ready');
-      return;
-    }
-    setLoadState('pending');
-    // Covers the case where the browser resolves the image from cache
-    // before this effect's onLoad/onError listeners below would
-    // otherwise catch it (this is now the *common* case, not an edge
-    // case — the image picker itself already preloaded this exact URL
-    // moments before the write that mounts this component, so the
-    // browser's HTTP cache almost always already has it).
-    // `naturalWidth > 0` is what actually distinguishes a successfully-
-    // decoded cached image from a cached failure — `.complete` alone is
-    // true for both.
-    const img = imgRef.current;
-    if (!img?.complete) {
-      return;
-    }
-    // Flipping straight to ready/failed here, in the same effect
-    // execution as the `setLoadState('pending')` above, would let React
-    // batch both updates into one commit with no real paint of the
-    // collapsed frame in between — the box would mount already at full
-    // size instead of animating in. Deferring across two rAFs forces a
-    // genuine paint boundary: the first rAF runs after the browser has
-    // painted the 'pending'/collapsed commit, and the second rAF's
-    // callback is what actually flips the state, so the CSS transition
-    // always has a real prior frame to animate from. Not a JS animation
-    // loop — this fires once per src change, CSS still owns the motion.
-    let cancelled = false;
-    let secondFrame: number | undefined;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => {
-        if (cancelled) {
-          return;
-        }
-        setLoadState(img.naturalWidth > 0 ? 'ready' : 'failed');
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame !== undefined) {
-        cancelAnimationFrame(secondFrame);
-      }
-    };
-  }, [src]);
-
   if (!src) {
     return null;
-  }
-
-  function handleImageLoad(): void {
-    setLoadState('ready');
-  }
-
-  function handleImageError(): void {
-    setLoadState('failed');
-  }
-
-  // Shared by the root menu's own "Remove" item and ImagePicker's "hide"
-  // tab (its own onRemove prop, wired below) — one removal sequence
-  // regardless of which surface requested it, not a second copy that
-  // skips the collapse animation.
-  function performRemove(): void {
-    // Reduced motion isn't the only case with no collapse left to
-    // animate: a hidden cover is already sitting at flex-basis: 0/
-    // flex-grow: 0 (Page.Cover.css's [data-hidden]), so setting
-    // `removing` too would change nothing — no transitionend would ever
-    // fire, and onRemove() (called only from that handler below) would
-    // never run, leaving the cover stuck mounted forever. Same shortcut
-    // as reduced motion, for the same underlying reason: nothing left to
-    // visually collapse, so act immediately instead of waiting on an
-    // animation that can't happen.
-    if (prefersReducedMotion() || hidden) {
-      onRemove?.();
-      return;
-    }
-    setRemoving(true);
   }
 
   function handleHide(): void {
@@ -244,44 +111,21 @@ export function PageCover({
     // No local state to flip first: `hidden` is driven entirely by the
     // durable `coverHidden` prop, so persisting it is the whole action —
     // the collapse plays automatically once PageHost re-renders with
-    // hidden: true (see [data-hidden] in Page.Cover.css), the same way
-    // `[data-loading]`'s collapse already plays from a prop/state change
-    // rather than an imperative animation call.
+    // hidden: true (see [data-hidden] in Page.Cover.css).
     onHide?.();
   }
 
+  // Shared by the root menu's own "Remove" item and ImagePicker's "hide"
+  // tab (its own onRemove prop, wired below) — removal is immediate and
+  // unanimated either way, through the normal `{coverImage && <PageCover
+  // .../>}` unmount in Page.tsx.
   function handleRemove(): void {
     setOpen(false);
-    performRemove();
-  }
-
-  function handleTransitionEnd(event: TransitionEvent<HTMLElement>): void {
-    // Ignore bubbled transitions from descendants (e.g. the More-actions
-    // button's own opacity hover-transition) — only this element's own
-    // flex-basis collapse should ever be considered here.
-    if (event.target !== event.currentTarget) {
-      return;
-    }
-    // The same property/element transitions for both entering (collapsed
-    // -> expanded, once ready) and removing (expanded -> collapsed, once
-    // requested) — only the removing direction should ever trigger the
-    // real removal. Without this guard, the entry transition finishing
-    // would immediately remove the cover the instant it finished
-    // appearing.
-    if (removing) {
-      onRemove?.();
-    }
+    onRemove?.();
   }
 
   return (
-    <aside
-      className="page__cover"
-      data-loading={loadState === 'pending' || undefined}
-      data-load-failed={loadState === 'failed' || undefined}
-      data-removing={removing || undefined}
-      data-hidden={hidden || undefined}
-      onTransitionEnd={handleTransitionEnd}
-    >
+    <aside className="page__cover" data-hidden={hidden || undefined}>
       <Button
         className="page__cover__change"
         ref={triggerRef}
@@ -366,15 +210,7 @@ export function PageCover({
           </div>
         )}
       </Overlay>
-      <img
-        ref={imgRef}
-        src={src}
-        className="page-cover__image"
-        alt=""
-        draggable={false}
-        onLoad={handleImageLoad}
-        onError={handleImageError}
-      />
+      <img src={src} className="page-cover__image" alt="" draggable={false} />
     </aside>
   );
 }

@@ -13,14 +13,13 @@
   user-select: none;
   -webkit-user-select: none;
 
-  /* Collapse/entrance. .page__document (flex: 1; min-width: 0, Page.css)
-     needs no transition of its own to "move into"/"out of" the freed
-     space: the browser recomputes the whole flex row's layout every
-     frame while these animate, so the document widens/narrows in
-     natural lockstep for free, not as a second, separately-timed
-     motion. [data-removing]/[data-loading] below snap min-width to 0
-     instantly (untransitioned) purely to lift the 64px floor out of the
-     way.
+  /* Hide/Show collapse transition only — see Page.Cover.tsx's own `hidden`
+     doc comment for why adding/changing/removing a cover never touches
+     this. .page__document (flex: 1; min-width: 0, Page.css) needs no
+     transition of its own to "move into"/"out of" the freed space: the
+     browser recomputes the whole flex row's layout every frame while
+     these animate, so the document widens/narrows in natural lockstep
+     for free, not as a second, separately-timed motion.
 
      flex-grow is transitioned alongside flex-basis, not left to snap
      instantly: at flex-basis: 0 the row still has positive free space
@@ -36,19 +35,13 @@
     flex-basis 240ms ease,
     flex-grow 240ms ease;
 }
-.page__cover[data-removing],
-.page__cover[data-loading],
 .page__cover[data-hidden] {
-  /* Same collapsed treatment as removing/loading — data-hidden reflects
-     the durable `coverHidden` metadata (Page.Cover.tsx's `hidden` prop),
-     not a local animation state, but the box that hosts it collapses
-     through the identical flex-grow/flex-basis transition: this is the
-     "same existing cover collapse animation" a Hide/Show toggle is
-     required to reuse, not a parallel one. Unlike [data-removing], this
-     state never triggers `onTransitionEnd`'s onRemove() — hiding keeps
-     the component mounted (and `cover` metadata intact) so a later
-     un-hide can reverse straight into the entrance transition without
-     ever unmounting/remounting.
+  /* data-hidden reflects the durable `coverHidden` metadata
+     (Page.Cover.tsx's `hidden` prop) — this rule only ever animates when
+     it changes on an already-mounted PageCover (a real Hide/Show click on
+     the open note), never on navigation to a note whose cover starts
+     hidden; see Page.Cover.tsx's own `hidden` doc comment for how that's
+     kept true (keying PageCover by the active resource).
 
      flex-grow: 1 alone (the base rule's `flex: 1 5 240px`) still pulls a
      share of the row's leftover free space even at flex-basis: 0 — .page
@@ -56,27 +49,12 @@
      whenever the row is wider than 840px the two siblings split the
      remainder evenly via their equal flex-grow, leaving this "collapsed"
      state resting at a real, nonzero width instead of 0. Zeroing
-     flex-grow here (only for these collapsed states — the expanded,
-     stable .page__cover below is untouched) stops it from claiming any
-     of that leftover space, so flex-basis: 0 is what actually renders. */
+     flex-grow here (only for this collapsed state — the expanded, stable
+     .page__cover below is untouched) stops it from claiming any of that
+     leftover space, so flex-basis: 0 is what actually renders. */
   flex-grow: 0;
   flex-basis: 0;
   min-width: 0;
-}
-/* A failed image lands at the same expanded size a successful one does
-   (so More Actions/Remove stays reachable — see Page.Cover.tsx's own
-   LoadState doc comment for why a permanently-collapsed dead end would
-   be wrong here), but must never look like the animated entrance a real
-   successful load gets — transition: none makes it an instant snap
-   instead. :not([data-removing]):not([data-hidden]) are the two
-   exceptions: removing or hiding a cover that had failed to load must
-   still animate its collapse normally, not be silently suppressed by
-   this rule too (and, symmetrically, a later un-hide of that same failed
-   cover must still animate its reveal) — [data-load-failed] never gets
-   cleared once set, so without these exclusions a failed cover would
-   snap instead of collapsing/expanding. */
-.page__cover[data-load-failed]:not([data-removing]):not([data-hidden]) {
-  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -105,6 +83,7 @@
   color: black;
   border-radius: 50%;
   opacity: 0;
+  box-shadow: var(--shadow-xs);
 
   transition: opacity 160ms ease;
 }

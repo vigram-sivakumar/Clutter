@@ -47,6 +47,21 @@ type PageProps = {
   /** Forwarded to PageTitleSection's More-actions "Show cover image" item — reveals an existing hidden cover without opening the picker. */
   onShowCoverImage?(): void;
   /**
+   * React key for `<PageCover>` (not for `Page` itself — same convention
+   * as `titleKey` above), keyed by the active resource's own id (a page's
+   * `activePageId`, a folder's `id`). This is what keeps the Hide/Show
+   * collapse transition (Page.Cover.css's `[data-hidden]` rule) from
+   * playing on navigation: switching to a different resource gives
+   * PageCover a different key, so React mounts a fresh instance rather
+   * than changing `hidden` on the one that was already showing the
+   * previous resource's cover — and a fresh mount always paints its
+   * `hidden` state directly, since CSS transitions never animate an
+   * element's first paint. Only a `hidden` change on an instance that
+   * stays mounted (an actual Hide/Show click on the note that's already
+   * open) ever animates. See Page.Cover.tsx's own `hidden` doc comment.
+   */
+  coverKey?: string;
+  /**
    * A handle onto whatever's rendered in `body`, so title's Enter can
    * advance focus into it — Page doesn't need to know what body actually
    * is (MarkdownEditor today, a future page type's own editing surface
@@ -112,6 +127,7 @@ export function Page({
   coverHidden,
   onHideCoverImage,
   onShowCoverImage,
+  coverKey,
   bodyFocusRef,
   onTitleCommit,
   onTitleEdit,
@@ -184,6 +200,7 @@ export function Page({
       </div>
       {coverImage && (
         <PageCover
+          key={coverKey}
           src={coverImage}
           onRemove={onRemoveCoverImage}
           hidden={coverHidden}

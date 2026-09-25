@@ -91,13 +91,7 @@ describe('PageCover — More actions menu', () => {
     expect(document.querySelector('.menu')).not.toBeInTheDocument();
   });
 
-  it('clicking Remove (reduced motion) calls onRemove directly and closes the menu, unchanged from before', () => {
-    vi.stubGlobal('matchMedia', () => ({
-      matches: true,
-      media: '',
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
+  it('clicking Remove calls onRemove immediately, with no removal animation or delay', () => {
     const { onRemove, onHide, onSetCoverImage } = renderCover();
 
     fireEvent.click(screen.getByText('Remove'));
@@ -153,5 +147,54 @@ describe('PageCover — More actions menu', () => {
 
     expect(screen.getByText('Change cover image')).toBeInTheDocument();
     expect(document.querySelector('.image-picker')).not.toBeInTheDocument();
+  });
+});
+
+describe('PageCover — add/change/remove has no lifecycle animation machinery', () => {
+  it('renders the image immediately on mount, with no loading/removing markers', () => {
+    render(<PageCover src="cover.png" />);
+
+    const cover = document.querySelector('.page__cover')!;
+    expect(cover).not.toHaveAttribute('data-loading');
+    expect(cover).not.toHaveAttribute('data-removing');
+    expect(cover).not.toHaveAttribute('data-load-failed');
+    expect(document.querySelector('.page-cover__image')).toBeInTheDocument();
+  });
+
+  it('replacing src just swaps the rendered image, with no transient state in between', () => {
+    const { rerender } = render(<PageCover src="cover.png" />);
+
+    rerender(<PageCover src="cover2.png" />);
+
+    const img = document.querySelector<HTMLImageElement>('.page-cover__image')!;
+    expect(img.src).toContain('cover2.png');
+    const cover = document.querySelector('.page__cover')!;
+    expect(cover).not.toHaveAttribute('data-loading');
+    expect(cover).not.toHaveAttribute('data-removing');
+  });
+
+  it('unmounts immediately once src becomes falsy — no animated exit to wait for', () => {
+    const { rerender } = render(<PageCover src="cover.png" />);
+    expect(document.querySelector('.page__cover')).toBeInTheDocument();
+
+    rerender(<PageCover src={undefined} />);
+
+    expect(document.querySelector('.page__cover')).not.toBeInTheDocument();
+  });
+});
+
+describe('PageCover — hidden/show only', () => {
+  it('reflects the hidden prop as data-hidden, with the collapse driven purely by CSS', () => {
+    const { rerender } = render(<PageCover src="cover.png" hidden={false} />);
+    expect(document.querySelector('.page__cover')).not.toHaveAttribute('data-hidden');
+
+    rerender(<PageCover src="cover.png" hidden />);
+    expect(document.querySelector('.page__cover')).toHaveAttribute('data-hidden');
+  });
+
+  it('a fresh mount with hidden already true renders collapsed immediately — no flash of the visible cover first', () => {
+    render(<PageCover src="cover.png" hidden />);
+
+    expect(document.querySelector('.page__cover')).toHaveAttribute('data-hidden');
   });
 });

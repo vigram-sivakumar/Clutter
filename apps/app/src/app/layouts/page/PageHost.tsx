@@ -668,6 +668,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           coverHidden={model.coverHidden}
           onHideCoverImage={onHideFolderCoverImage}
           onShowCoverImage={onShowFolderCoverImage}
+          coverKey={folder.id}
           body={
             isArchiveView ? (
               <ArchiveCollectionBody
@@ -928,6 +929,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         onSetCoverImage={onSetCoverImage}
         onSetCoverImageFromUpload={onSetCoverImageFromUpload}
         onRemoveCoverImage={onRemoveCoverImage}
+        coverKey={activePageId}
         bodyFocusRef={editorRef}
         onTitleCommit={(title) =>
           void application.pageOperations.updateDraftTitle(activePageId, title)
@@ -1070,6 +1072,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       coverHidden={model.coverHidden}
       onHideCoverImage={onHideCoverImage}
       onShowCoverImage={onShowCoverImage}
+      coverKey={activePageId}
       bodyFocusRef={editorRef}
       body={
         <MarkdownBody>
