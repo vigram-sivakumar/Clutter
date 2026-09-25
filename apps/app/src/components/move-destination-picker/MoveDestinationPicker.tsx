@@ -2,10 +2,7 @@ import type { RefObject } from 'react';
 
 import { Popover } from '@components/popover/Popover';
 import { FolderPicker } from '@components/folder-picker/FolderPicker';
-import {
-  ROOT_DESTINATION_ID,
-  type FolderPickerItem,
-} from '@components/folder-picker/FolderPicker.types';
+import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import type {
   OverlayAlignment,
   OverlaySide,
@@ -16,8 +13,7 @@ export interface MoveDestinationPickerProps {
   open: boolean;
   onClose: () => void;
   items: FolderPickerItem[];
-  /** `null` when the selected item is the vault root (ROOT_DESTINATION_ID). */
-  onSelect: (destinationFolderId: string | null) => void;
+  onSelect: (destinationFolderId: string) => void;
   /**
    * Present only when the caller wants FolderPicker's "Create ..." row
    * offered for a non-matching search — orchestration only: this
@@ -41,14 +37,13 @@ export interface MoveDestinationPickerProps {
  * implementation. Callers only ever supply a folder list (via
  * buildMoveDestinationItems.ts) and a selection handler.
  *
- * Has no UI of its own for the vault root — no dedicated row, footer
- * action, or divider. When the caller's `items` includes the root sentinel
- * (buildMoveDestinationItems.ts prepends an item titled with the vault's
- * own name, labeled "Home", with id ROOT_DESTINATION_ID), FolderPicker
- * renders it as an ordinary top-level row; this component is the one place
- * that recognizes that id and translates it back to `null` — the
- * destination `PageOperations.move()`/`FolderOperations.move()` already
- * accept for "move to vault root".
+ * Deliberately has no UI representation for the vault root — no row, no
+ * footer action, no divider, nothing. `PageOperations.move()`/
+ * `FolderOperations.move()` still accept `null` as a destination
+ * (root-as-null remains a fully supported backend contract, unchanged),
+ * but exposing it in this picker is a separate, not-yet-decided UX
+ * question; this component only ever calls `onSelect` with a real folder
+ * id, never invents a synthetic root item to route through the same path.
  */
 export function MoveDestinationPicker({
   anchorRef,
@@ -64,9 +59,7 @@ export function MoveDestinationPicker({
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} side={side} alignment={alignment}>
       <FolderPicker
         items={items}
-        onSelect={(item) =>
-          onSelect(item.id === ROOT_DESTINATION_ID ? null : item.id)
-        }
+        onSelect={(item) => onSelect(item.id)}
         onCreate={
           onCreateFolder
             ? (name) => void onCreateFolder(name).then((id) => onSelect(id))

@@ -1,13 +1,11 @@
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
-import {
-  ROOT_DESTINATION_ID,
-  type FolderPickerAncestor,
-  type FolderPickerItem,
+import type {
+  FolderPickerAncestor,
+  FolderPickerItem,
 } from '@components/folder-picker/FolderPicker.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
-import { VaultPath } from '@core/vault/ingest/VaultPath';
 
 /**
  * The one place a Move destination-picker's folder list is built — shared
@@ -26,17 +24,12 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
  *   to descend into an effectively-archived folder, so nothing nested
  *   inside one can appear either.
  *
- * The vault root is included as the first item, with id ROOT_DESTINATION_ID.
- * Its `title` is the vault's own name (derived from `vaultRoot` via
- * VaultPath.filename, per ARCHITECTURE_RULES.md rule 10 — path-string
- * semantics live only in VaultPath — never a hardcoded "Vault"/"Root"), and
- * its `secondaryLabel` is "Home", rendered inline next to the title in
- * FolderPicker's existing muted/small-text styling — so the row reads as
- * "this folder, which is Home" rather than inventing a synthetic name for
- * the vault.
- * MoveDestinationPicker is the one place that recognizes that sentinel id
- * and translates it back to the `null` destination every Move facade
- * method already accepts.
+ * The vault root is deliberately never included as an item — it's the
+ * implicit container, not a destination row (FolderPickerItem has no
+ * concept of "this represents the root"). MoveDestinationPicker represents
+ * "move to root" separately, outside FolderPicker's own list, via the
+ * existing `null` destination contract every Move facade method already
+ * accepts.
  *
  * `excludeFolderId`, when given (a folder being moved, never a page), is
  * the one exclusion this helper does add: the folder itself is omitted,
@@ -48,18 +41,9 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
  */
 export function buildMoveDestinationItems(
   membershipSelector: MembershipSelector,
-  vaultRoot: string,
   excludeFolderId?: string
 ): FolderPickerItem[] {
-  const items: FolderPickerItem[] = [
-    {
-      id: ROOT_DESTINATION_ID,
-      title: VaultPath.filename(vaultRoot),
-      secondaryLabel: 'Home',
-      level: 0,
-      parentId: null,
-    },
-  ];
+  const items: FolderPickerItem[] = [];
 
   function walk(
     folders: readonly Folder[],
@@ -117,14 +101,7 @@ export function buildResourceMoveDestinationItems(
   membershipSelector: MembershipSelector,
   query: VaultQuery
 ): FolderPickerItem[] {
-  // Resource Move keeps its prior, narrower contract (no vault-root
-  // destination — a resource's natural home is a folder or Assets/) even
-  // though buildMoveDestinationItems now offers root to every other caller.
-  // The root item is filtered straight back out, so its vaultRoot-derived
-  // title is never rendered — no real vault root path needed here.
-  const items = buildMoveDestinationItems(membershipSelector, '').filter(
-    (item) => item.id !== ROOT_DESTINATION_ID
-  );
+  const items = buildMoveDestinationItems(membershipSelector);
   const assetsFolder = query
     .getRootFolders()
     .find((folder) => membershipSelector.isAssetsStorageFolder(folder));

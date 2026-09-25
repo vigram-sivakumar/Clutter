@@ -192,15 +192,8 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
               onClick={() => onSelect(item)}
             >
               <div className="folder-picker__content">
-                <div className="folder-picker__title-row">
-                  <span className="folder-picker__title">{item.title}</span>
-                  {item.secondaryLabel && (
-                    <span className="folder-picker__secondary">{item.secondaryLabel}</span>
-                  )}
-                </div>
-                {!item.secondaryLabel && path && (
-                  <span className="folder-picker__path">{path}</span>
-                )}
+                <span className="folder-picker__title">{item.title}</span>
+                {path && <span className="folder-picker__path">{path}</span>}
               </div>
             </Entry>
           );

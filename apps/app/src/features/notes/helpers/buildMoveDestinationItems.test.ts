@@ -95,27 +95,20 @@ function makeMembershipSelector(folders: Folder[]): MembershipSelector {
 }
 
 describe('buildMoveDestinationItems', () => {
-  it('always includes a root row, first, titled with the vault\'s own name and labeled "Home"', () => {
+  it('never includes a row for the vault root — it is the implicit container, not an item', () => {
     const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
     const membershipSelector = makeMembershipSelector([parent]);
 
-    const items = buildMoveDestinationItems(membershipSelector, ROOT);
+    const items = buildMoveDestinationItems(membershipSelector);
 
-    expect(items[0]).toEqual({
-      id: '__vault-root__',
-      title: 'vault',
-      secondaryLabel: 'Home',
-      level: 0,
-      parentId: null,
-    });
+    expect(items.map((i) => i.id)).not.toContain('__vault-root__');
+    expect(items.every((i) => i.id !== '')).toBe(true);
   });
 
-  it('returns only the root row for a vault with no workspace folders', () => {
+  it('returns an empty list for a vault with no workspace folders', () => {
     const membershipSelector = makeMembershipSelector([]);
 
-    expect(buildMoveDestinationItems(membershipSelector, ROOT)).toEqual([
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
-    ]);
+    expect(buildMoveDestinationItems(membershipSelector)).toEqual([]);
   });
 
   it('includes ordinary workspace folders, nested with increasing level and correct parentId', () => {
@@ -123,10 +116,10 @@ describe('buildMoveDestinationItems', () => {
     const child = makeFolder('folder-child', `${ROOT}/Parent/Child`, 'folder-parent');
     const membershipSelector = makeMembershipSelector([parent, child]);
 
-    const items = buildMoveDestinationItems(membershipSelector, ROOT);
+    const items = buildMoveDestinationItems(membershipSelector);
     const ids = items.map((item) => item.id);
 
-    expect(ids).toEqual(['__vault-root__', 'folder-parent', 'folder-child']);
+    expect(ids).toEqual(['folder-parent', 'folder-child']);
     expect(items.find((i) => i.id === 'folder-parent')).toMatchObject({ level: 0, parentId: null });
     expect(items.find((i) => i.id === 'folder-child')).toMatchObject({
       level: 1,
@@ -138,7 +131,7 @@ describe('buildMoveDestinationItems', () => {
     const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
     const membershipSelector = makeMembershipSelector([archive]);
 
-    const items = buildMoveDestinationItems(membershipSelector, ROOT);
+    const items = buildMoveDestinationItems(membershipSelector);
 
     expect(items.map((i) => i.id)).not.toContain('folder-archive');
   });
@@ -148,23 +141,20 @@ describe('buildMoveDestinationItems', () => {
     const nested = makeFolder('folder-nested', `${ROOT}/Daily Notes/2026`, 'folder-daily-notes');
     const membershipSelector = makeMembershipSelector([dailyNotes, nested]);
 
-    const items = buildMoveDestinationItems(membershipSelector, ROOT);
+    const items = buildMoveDestinationItems(membershipSelector);
 
-    expect(items).toEqual([
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
-    ]);
+    expect(items).toEqual([]);
   });
 
-  it('excludes an excluded folder id and every one of its descendants, but keeps Home', () => {
+  it('excludes an excluded folder id and every one of its descendants', () => {
     const source = makeFolder('folder-1', `${ROOT}/Projects`);
     const child = makeFolder('folder-2', `${ROOT}/Projects/Sub`, 'folder-1');
     const sibling = makeFolder('folder-3', `${ROOT}/Other`);
     const membershipSelector = makeMembershipSelector([source, child, sibling]);
 
-    const items = buildMoveDestinationItems(membershipSelector, ROOT, 'folder-1');
+    const items = buildMoveDestinationItems(membershipSelector, 'folder-1');
     const ids = items.map((item) => item.id);
 
-    expect(ids).toContain('__vault-root__');
     expect(ids).not.toContain('folder-1');
     expect(ids).not.toContain('folder-2');
     expect(ids).toContain('folder-3');
