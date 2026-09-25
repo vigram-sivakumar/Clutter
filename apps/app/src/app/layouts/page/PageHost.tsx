@@ -7,7 +7,10 @@ import { createResourceLocationActions } from '@app/layouts/resourceLocationActi
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
+import {
+  buildBreadcrumbs,
+  buildBreadcrumbsForDraft,
+} from '@core/presentation/buildBreadcrumbs';
 import {
   getPageTitlePlaceholder,
   getFolderTitlePlaceholder,
@@ -22,12 +25,16 @@ import {
   PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
 } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
-import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
+import {
+  toResourcePageModel,
+  toDraftPageModel,
+} from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import {
   getSystemLocationPresentation,
@@ -36,6 +43,7 @@ import {
 import type { SystemLocationId } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
 import { createDateResolver } from '@app/layouts/page/resolveDate';
+import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNavControls';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
@@ -63,6 +71,10 @@ import {
   type CollectionSortState,
 } from '@app/layouts/page/body/CollectionBody';
 import { CollectionViewMenu } from '@app/layouts/page/body/CollectionViewMenu';
+import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
+import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
+import { Button } from '@components/button/Button';
+import { AppIcon } from '@shared/icon';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
@@ -100,13 +112,15 @@ interface PageHostProps {
   ) => void;
 }
 
-const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>([
-  'tasks-today',
-  'tasks-upcoming',
-  'tasks-completed',
-  'tasks-all',
-  'tasks-unscheduled',
-]);
+const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
+  [
+    'tasks-today',
+    'tasks-upcoming',
+    'tasks-completed',
+    'tasks-all',
+    'tasks-unscheduled',
+  ]
+);
 
 /**
  * The note-open half of `MarkdownEditor`'s focus policy (the other half —
@@ -125,6 +139,39 @@ function focusEditorOnOpen(title: string): boolean {
   return title !== '';
 }
 
+/** Resolved Configure-menu state for the currently active collection — always fully populated, never partial. */
+interface CollectionViewState {
+  readonly viewMode: CollectionViewMode;
+  readonly properties: CollectionPropertyVisibility;
+  readonly sort: CollectionSortState;
+}
+
+/**
+ * Resolves a collection's Configure-menu state from
+ * `CollectionViewConfigStore`, falling back to today's exact defaults for
+ * any field the collection has never persisted (or, when `collectionViewKey`
+ * is `undefined` — the active view isn't a collection at all — for every
+ * field). The store's own `PersistedCollectionLayout`/
+ * `PersistedCollectionProperties`/`PersistedCollectionSort` types are
+ * structurally identical to `CollectionViewMode`/`CollectionPropertyVisibility`/
+ * `CollectionSortState` by design (see `CollectionViewConfigStore`'s own
+ * doc comment), so no field-by-field conversion is needed here.
+ */
+function resolveCollectionViewState(
+  store: CollectionViewConfigStore,
+  collectionViewKey: string | undefined
+): CollectionViewState {
+  const persisted = collectionViewKey
+    ? store.get(collectionViewKey)
+    : undefined;
+
+  return {
+    viewMode: persisted?.layout ?? 'table',
+    properties: persisted?.properties ?? DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+    sort: persisted?.sort ?? DEFAULT_COLLECTION_SORT,
+  };
+}
+
 /**
  * PageHost is the composition root for page rendering.
  *
@@ -136,7 +183,11 @@ function focusEditorOnOpen(title: string): boolean {
  * Page dispatch currently uses a switch statement but is expected to evolve into a registry
  * when multiple page types justify the abstraction.
  */
-export function PageHost({ application, onOpenResource, onOpenImageOverlay }: PageHostProps) {
+export function PageHost({
+  application,
+  onOpenResource,
+  onOpenImageOverlay,
+}: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
 
@@ -157,24 +208,82 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
-  // Collection-view wiring: local render state only, not persisted
-  // (persistence is a separate, deliberately deferred decision) — shared
-  // across every collection-shaped branch below (Folder, Archive,
-  // Workspace/Favorites/Tag) since only one ever renders per PageHost
-  // render, the same one-instance reasoning editorRef above already
-  // relies on. Lives beside the page title (Page's titleActions prop),
-  // not the top bar — see CollectionViewMenu's own doc comment.
-  const [collectionViewMode, setCollectionViewMode] = useState<CollectionViewMode>('table');
-  // Same local, unpersisted, shared-across-collection-branches reasoning
-  // as collectionViewMode above — the Properties section's checkbox state.
-  const [collectionProperties, setCollectionProperties] = useState<CollectionPropertyVisibility>(
-    DEFAULT_COLLECTION_PROPERTY_VISIBILITY
-  );
-  // Same local, unpersisted, shared-across-collection-branches reasoning
-  // as collectionViewMode above — the Configure menu's "Sort by" section.
-  const [collectionSort, setCollectionSort] = useState<CollectionSortState>(
-    DEFAULT_COLLECTION_SORT
-  );
+  // Collection-view wiring: persisted per collection through
+  // CollectionViewConfigStore, keyed by the current collection's identity
+  // (workspace.activeView, via deriveCollectionViewKey) — shared across
+  // every collection-shaped branch below (Folder, Archive, Workspace/
+  // Favorites/Tag) since only one ever renders per PageHost render, the
+  // same one-instance reasoning editorRef above already relies on. Lives
+  // beside the page title (Page's titleActions prop), not the top bar —
+  // see CollectionViewMenu's own doc comment.
+  const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
+
+  // Render-phase reset when the collection identity changes (navigating
+  // from collection A to collection B, or back) — the same "compare during
+  // render, not in a useEffect" pattern CollectionViewMenu.tsx's own
+  // `wasOpen` reset already uses, so switching collections never paints
+  // one stale frame of the previous collection's configuration before
+  // correcting itself a moment later.
+  const [lastCollectionViewKey, setLastCollectionViewKey] =
+    useState(collectionViewKey);
+  const [collectionViewState, setCollectionViewState] =
+    useState<CollectionViewState>(() =>
+      resolveCollectionViewState(
+        application.collectionViewConfigStore,
+        collectionViewKey
+      )
+    );
+  if (collectionViewKey !== lastCollectionViewKey) {
+    setLastCollectionViewKey(collectionViewKey);
+    setCollectionViewState(
+      resolveCollectionViewState(
+        application.collectionViewConfigStore,
+        collectionViewKey
+      )
+    );
+  }
+
+  const {
+    viewMode: collectionViewMode,
+    properties: collectionProperties,
+    sort: collectionSort,
+  } = collectionViewState;
+
+  // Each handler updates the render-phase-visible local state immediately
+  // (so the menu reflects the change without waiting on a store round
+  // trip) and, when the active view is actually a collection
+  // (collectionViewKey defined), persists it — a page or an out-of-scope
+  // filtered view (tasks/assets) never renders collectionViewMenu at all,
+  // so collectionViewKey is only ever undefined here when these handlers
+  // can't be reached in the first place, but the guard keeps this
+  // correct even so.
+  const setCollectionViewMode = (mode: CollectionViewMode): void => {
+    setCollectionViewState((previous) => ({ ...previous, viewMode: mode }));
+    if (collectionViewKey) {
+      application.collectionViewConfigStore.update(collectionViewKey, {
+        layout: mode,
+      });
+    }
+  };
+  const setCollectionProperties = (
+    next: CollectionPropertyVisibility
+  ): void => {
+    setCollectionViewState((previous) => ({ ...previous, properties: next }));
+    if (collectionViewKey) {
+      application.collectionViewConfigStore.update(collectionViewKey, {
+        properties: next,
+      });
+    }
+  };
+  const setCollectionSort = (next: CollectionSortState): void => {
+    setCollectionViewState((previous) => ({ ...previous, sort: next }));
+    if (collectionViewKey) {
+      application.collectionViewConfigStore.update(collectionViewKey, {
+        sort: next,
+      });
+    }
+  };
+
   const collectionViewMenu = (
     <CollectionViewMenu
       viewMode={collectionViewMode}
@@ -204,11 +313,17 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // Resource embed autocomplete only, this milestone — no resolver for a
   // renderer to call yet (resolveResourceEmbed.ts exists but isn't wired
   // through as an injected prop until a rendering milestone needs it).
-  const getEmbedSuggestions = createEmbedSuggester(vault, application.membershipSelector);
+  const getEmbedSuggestions = createEmbedSuggester(
+    vault,
+    application.membershipSelector
+  );
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // ADR-032's heading-suggestion counterpart, scoped to whichever page the
   // in-progress ![[Page# target already names.
-  const getEmbedHeadingSuggestions = createEmbedHeadingSuggester(vault, application.effectivePageState);
+  const getEmbedHeadingSuggestions = createEmbedHeadingSuggester(
+    vault,
+    application.effectivePageState
+  );
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // this milestone's rendering counterpart to getEmbedSuggestions.
   const resolveEmbedImage = createEmbedImageResolver(vault, (path) =>
@@ -236,7 +351,10 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   // — the note-embed counterpart, unchanged since ADR-032/Milestones 3-5
   // (see resolvePageEmbed.ts's own doc comment): reads through
   // EffectivePageState, never a second draft-vs-committed resolution.
-  const resolvePageEmbed = createPageEmbedResolver(vault, application.effectivePageState);
+  const resolvePageEmbed = createPageEmbedResolver(
+    vault,
+    application.effectivePageState
+  );
   // A note embed's own "open source note" action — the exact same
   // one-line pageOperations.open(id) pattern resolveWikiLink.ts's own
   // activate() already establishes, never a second implementation.
@@ -288,6 +406,13 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
   const getTagSuggestions = createTagSuggester(vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveDate = createDateResolver(vault, application.pageOperations);
+  // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
+  // this exact same resolveDate/openAtPath flow — the same one the
+  // editor's inline date links and Sidebar's calendar already open
+  // through — rather than a second Daily-Note-opening implementation.
+  const onNavigateToDailyNote = (date: string): void => {
+    resolveDate(date).activate();
+  };
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
@@ -383,7 +508,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { cover: url });
+    void application.pageOperations.updateMetadata(activePageId, {
+      cover: url,
+    });
   };
 
   const onSetCoverImageFromUpload = (sourcePath: string): void => {
@@ -424,7 +551,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { icon: emoji });
+    void application.pageOperations.updateMetadata(activePageId, {
+      icon: emoji,
+    });
   };
 
   const onRemoveEmoji = (): void => {
@@ -432,7 +561,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { icon: null });
+    void application.pageOperations.updateMetadata(activePageId, {
+      icon: null,
+    });
   };
 
   // Distinct from onRemoveCoverImage: leaves `cover` untouched, only sets
@@ -443,7 +574,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { coverHidden: true });
+    void application.pageOperations.updateMetadata(activePageId, {
+      coverHidden: true,
+    });
   };
 
   // The reveal counterpart to onHideCoverImage above — same coverHidden-only
@@ -455,7 +588,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       return;
     }
 
-    void application.pageOperations.updateMetadata(activePageId, { coverHidden: false });
+    void application.pageOperations.updateMetadata(activePageId, {
+      coverHidden: false,
+    });
   };
 
   const onMoveNote = (destinationFolderId: string | null): void => {
@@ -466,7 +601,10 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     void application.pageOperations.move(activePageId, destinationFolderId);
   };
 
-  const onMoveFolder = (folderId: string, destinationFolderId: string | null): void => {
+  const onMoveFolder = (
+    folderId: string,
+    destinationFolderId: string | null
+  ): void => {
     void application.folderOperations.move(folderId, destinationFolderId);
   };
 
@@ -517,7 +655,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       }
     );
 
-    const breadcrumbs = buildBreadcrumbs(folder, vault, application.membershipSelector, onOpenFolder);
+    const breadcrumbs = buildBreadcrumbs(
+      folder,
+      vault,
+      application.membershipSelector,
+      onOpenFolder
+    );
     // Confirmation copy is computed here (one predicate, shared with the
     // sidebar's identical computation in Sidebar.Notes.tsx) and handed to
     // ResourceTopBarActions as a message — that component owns showing the
@@ -558,7 +701,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // <Page>) needs the exact same set/upload calls buildTopBarActions'
     // own cover-image menu item already uses, not a second copy.
     const onSetFolderCoverImage = (url: string): void =>
-      void application.folderOperations.updateMetadata(folder.id, { cover: url });
+      void application.folderOperations.updateMetadata(folder.id, {
+        cover: url,
+      });
     const onSetFolderCoverImageFromUpload = (sourcePath: string): void => {
       void (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
@@ -572,9 +717,13 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // ChangeIconPicker already uses (icon: null clears it, same as
     // cover's own null-to-clear convention above).
     const onSelectFolderEmoji = (emoji: string): void =>
-      void application.folderOperations.updateMetadata(folder.id, { icon: emoji });
+      void application.folderOperations.updateMetadata(folder.id, {
+        icon: emoji,
+      });
     const onRemoveFolderEmoji = (): void =>
-      void application.folderOperations.updateMetadata(folder.id, { icon: null });
+      void application.folderOperations.updateMetadata(folder.id, {
+        icon: null,
+      });
 
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
@@ -601,8 +750,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       // excluding `folder.id` (and its descendants, via
       // buildMoveDestinationItems' own walk) is always excluding a real,
       // movable folder here, never a reserved one.
-      moveDestinations: buildMoveDestinationItems(application.membershipSelector, folder.id),
-      onMove: (destinationFolderId) => onMoveFolder(folder.id, destinationFolderId),
+      moveDestinations: buildMoveDestinationItems(
+        application.membershipSelector,
+        folder.id
+      ),
+      onMove: (destinationFolderId) =>
+        onMoveFolder(folder.id, destinationFolderId),
       onCreateFolder: (name) => application.folderOperations.create(name, null),
     });
     // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
@@ -630,9 +783,60 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // because this page represents the whole collection of daily notes,
     // not one specific day — see SystemLocationPresentation's own doc
     // comment on that field.
-    const folderSystemIcon = folderSystemLocationId
-      ? (getSystemLocationPresentation(folderSystemLocationId).collectionIcon ??
-        getSystemLocationPresentation(folderSystemLocationId).icon)
+    //
+    // FEATURE FLAG — reserved-folder header icon is implemented but not
+    // yet ready to expose; flip to `true` to enable it. While `false`, a
+    // reserved folder's header shows no icon, matching UI from before this
+    // feature existed. Remove this flag (and just keep the `? ... : undefined`
+    // logic below unconditional) once ready to ship.
+    const SHOW_RESERVED_FOLDER_ICON = false;
+    const folderSystemIcon =
+      folderSystemLocationId && SHOW_RESERVED_FOLDER_ICON
+        ? (getSystemLocationPresentation(folderSystemLocationId)
+            .collectionIcon ??
+          getSystemLocationPresentation(folderSystemLocationId).icon)
+        : undefined;
+    // Primary "New note" action handler — wired to the exact same
+    // PageOperations.openDraft({ folderId }) call Sidebar.Notes.tsx's own
+    // "+" row action already uses for "new note in this folder" (ADR-017
+    // draft flow), not a new creation path. Shared by two entry points
+    // below: the title-adjacent Button, and NoteTable's always-rendered
+    // trailing "New Note" row (CollectionBody's onCreateNote) — one
+    // handler, two live controls, not two implementations. Only defined
+    // for an ordinary folder: a reserved one (Archive, Templates, Daily
+    // Notes — folderSystemLocationId truthy) has no established "create a
+    // note here" affordance today (rule 12 — never wire a live control to
+    // an invented handler), matching the same `!folderSystemLocationId`
+    // gate showMoreActions/emoji already use.
+    const onCreateNote = !folderSystemLocationId
+      ? () => void application.pageOperations.openDraft({ folderId: folder.id })
+      : undefined;
+    // Title-adjacent (PageTitleSection's `actions` slot, after the
+    // Configure/CollectionViewMenu button, at the far right).
+    const newNoteAction = onCreateNote ? (
+      <Button
+        isIconOnly
+        variant="primary"
+        aria-label="New"
+        onClick={onCreateNote}
+      >
+        <AppIcon icon="plus" />
+      </Button>
+    ) : undefined;
+    // Folders grid's "Create folder" card handler (CollectionBody's
+    // onCreateFolder) — same `!folderSystemLocationId` gate as
+    // newNoteAction above (no established "create a folder here" for a
+    // reserved one), reusing FolderOperations.create()/open() via
+    // createAndOpenFolder.ts, the same create-then-open shape
+    // duplicateAndOpenPage.ts already established for Duplicate. Creates
+    // as a subfolder of the folder currently being viewed.
+    const onCreateSubfolder = !folderSystemLocationId
+      ? () =>
+          void createAndOpenFolder(
+            application.folderOperations,
+            getFolderTitlePlaceholder(),
+            folder.id
+          )
       : undefined;
 
     return (
@@ -646,23 +850,47 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           description={model.description}
           titleEditable={isRenameable}
           titlePlaceholder={getFolderTitlePlaceholder()}
-          onTitleEdit={isRenameable ? (name) => onEditFolderName(folder.id, name) : undefined}
-          onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
-          onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
+          onTitleEdit={
+            isRenameable
+              ? (name) => onEditFolderName(folder.id, name)
+              : undefined
+          }
+          onTitleFlush={
+            isRenameable ? () => onFlushFolderName(folder.id) : undefined
+          }
+          onTitleCancel={
+            isRenameable ? () => onCancelFolderName(folder.id) : undefined
+          }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
-          titleActions={collectionViewMenu}
-          emoji={folderSystemLocationId ? undefined : (folder.metadata.icon ?? undefined)}
+          titleActions={
+            <>
+              {collectionViewMenu}
+              {newNoteAction}
+            </>
+          }
+          emoji={
+            folderSystemLocationId
+              ? undefined
+              : (folder.metadata.icon ?? undefined)
+          }
           icon={folderSystemIcon}
           showMoreActions={!folderSystemLocationId}
-          onSelectEmoji={folderSystemLocationId ? undefined : onSelectFolderEmoji}
-          onRemoveEmoji={folderSystemLocationId ? undefined : onRemoveFolderEmoji}
-          onSetCoverImage={folderSystemLocationId ? undefined : onSetFolderCoverImage}
+          onSelectEmoji={
+            folderSystemLocationId ? undefined : onSelectFolderEmoji
+          }
+          onRemoveEmoji={
+            folderSystemLocationId ? undefined : onRemoveFolderEmoji
+          }
+          onSetCoverImage={
+            folderSystemLocationId ? undefined : onSetFolderCoverImage
+          }
           onSetCoverImageFromUpload={
             folderSystemLocationId ? undefined : onSetFolderCoverImageFromUpload
           }
           coverImage={
-            application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+            application.resolveCoverImageForDisplay(model.coverImage) ??
+            undefined
           }
           onRemoveCoverImage={onRemoveFolderCoverImage}
           coverHidden={model.coverHidden}
@@ -686,10 +914,18 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 onDeleteResource={(id) =>
                   void application.resourceOperations.deleteResource(id)
                 }
-                onRestoreFolder={(id) => void application.folderOperations.restore(id)}
-                onDeleteFolder={(id) => void application.folderOperations.delete(id)}
-                onRestoreNote={(id) => void application.pageOperations.restore(id)}
-                onDeleteNote={(id) => void application.pageOperations.delete(id)}
+                onRestoreFolder={(id) =>
+                  void application.folderOperations.restore(id)
+                }
+                onDeleteFolder={(id) =>
+                  void application.folderOperations.delete(id)
+                }
+                onRestoreNote={(id) =>
+                  void application.pageOperations.restore(id)
+                }
+                onDeleteNote={(id) =>
+                  void application.pageOperations.delete(id)
+                }
               />
             ) : (
               <CollectionBody
@@ -698,6 +934,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 viewMode={collectionViewMode}
                 properties={collectionProperties}
                 sort={collectionSort}
+                onCreateFolder={onCreateSubfolder}
+                onCreateNote={onCreateNote}
               />
             )
           }
@@ -744,9 +982,14 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
               application.query
             )}
             onMoveResource={(id, destinationFolderId) =>
-              void application.resourceOperations.moveResource(id, destinationFolderId)
+              void application.resourceOperations.moveResource(
+                id,
+                destinationFolderId
+              )
             }
-            onCreateFolder={(name) => application.folderOperations.create(name, null)}
+            onCreateFolder={(name) =>
+              application.folderOperations.create(name, null)
+            }
           />
         }
       />
@@ -781,8 +1024,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             view={view}
             tasks={[...vault.tasks()]}
             workspace={workspace}
-            onToggleComplete={(task) => void application.taskOperations.toggleComplete(task)}
-            onOpenTask={(task) => void application.pageOperations.open(task.sourcePageId)}
+            onToggleComplete={(task) =>
+              void application.taskOperations.toggleComplete(task)
+            }
+            onOpenTask={(task) =>
+              void application.pageOperations.open(task.sourcePageId)
+            }
             onOpenCompleted={() => application.navigation.openTasksCompleted()}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
@@ -840,6 +1087,45 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // payload's own kind name vs. the presentation table's key).
     const filteredViewSystemLocationId: SystemLocationId =
       view.kind === 'tag' ? 'tags' : view.kind;
+    // "New note" action handler: only for Workspace-root (the vault's own
+    // root note listing), wired to the exact same root-level
+    // PageOperations.openDraft({ folderId: null }) call the sidebar's
+    // "New" shortcut already uses (buildNotesShortcutHandler.ts's
+    // 'new-note' case) — not a new creation path. Shared by the title-
+    // adjacent Button below and NoteTable's trailing "New Note" row
+    // (CollectionBody's onCreateNote). Favorites and a Tag's notes are
+    // filters, not containers — neither has an existing "create a note in
+    // this view" call to wire to, so per rule 12 (never wire a live
+    // control to an invented handler) they get none.
+    const onCreateNote =
+      view.kind === 'workspace'
+        ? () => void application.pageOperations.openDraft({ folderId: null })
+        : undefined;
+    // Title-adjacent "New" action.
+    const newNoteAction = onCreateNote ? (
+      <Button
+        isIconOnly
+        variant="primary"
+        aria-label="New"
+        onClick={onCreateNote}
+      >
+        <AppIcon icon="plus" />
+      </Button>
+    ) : undefined;
+    // Folders grid's "Create folder" card handler — same `view.kind ===
+    // 'workspace'` gate as newNoteAction above, reusing
+    // FolderOperations.create()/open() via createAndOpenFolder.ts.
+    // Creates at the vault root (parentId: null), the same root scope
+    // Workspace-root's own folder listing already shows.
+    const onCreateFolder =
+      view.kind === 'workspace'
+        ? () =>
+            void createAndOpenFolder(
+              application.folderOperations,
+              getFolderTitlePlaceholder(),
+              null
+            )
+        : undefined;
 
     return (
       <Page
@@ -852,7 +1138,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        titleActions={collectionViewMenu}
+        titleActions={
+          <>
+            {collectionViewMenu}
+            {newNoteAction}
+          </>
+        }
         icon={getSystemLocationPresentation(filteredViewSystemLocationId).icon}
         showMoreActions={false}
         body={
@@ -862,6 +1153,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             viewMode={collectionViewMode}
             properties={collectionProperties}
             sort={collectionSort}
+            onCreateFolder={onCreateFolder}
+            onCreateNote={onCreateNote}
           />
         }
       />
@@ -926,6 +1219,14 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         // — a fresh Daily Note draft never offers an emoji control either.
         onSelectEmoji={draft.type === 'note' ? onSelectEmoji : undefined}
         onRemoveEmoji={draft.type === 'note' ? onRemoveEmoji : undefined}
+        belowDescription={
+          draft.type === 'daily-note' && draft.title ? (
+            <DailyNoteNavControls
+              date={draft.title}
+              onNavigateToDate={onNavigateToDailyNote}
+            />
+          ) : undefined
+        }
         onSetCoverImage={onSetCoverImage}
         onSetCoverImageFromUpload={onSetCoverImageFromUpload}
         onRemoveCoverImage={onRemoveCoverImage}
@@ -973,9 +1274,14 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
                 application.query
               )}
               onMoveResource={(id, destinationFolderId) =>
-                void application.resourceOperations.moveResource(id, destinationFolderId)
+                void application.resourceOperations.moveResource(
+                  id,
+                  destinationFolderId
+                )
               }
-              onCreateFolder={(name) => application.folderOperations.create(name, null)}
+              onCreateFolder={(name) =>
+                application.folderOperations.create(name, null)
+              }
             />
           </MarkdownBody>
         }
@@ -983,7 +1289,12 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     );
   }
 
-  const breadcrumbs = buildBreadcrumbs(page, vault, application.membershipSelector, onOpenFolder);
+  const breadcrumbs = buildBreadcrumbs(
+    page,
+    vault,
+    application.membershipSelector,
+    onOpenFolder
+  );
 
   // Note and Daily Note render identically today (both markdown-editable,
   // both resolve through toResourcePageModel/buildTopBarActions) — this
@@ -1049,9 +1360,13 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       title={model.title}
       description={model.description}
       titleEditable={isRenameable}
-      onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
+      onTitleEdit={
+        isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined
+      }
       onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
-      onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
+      onTitleCancel={
+        isRenameable ? () => onCancelPageTitle(page.id) : undefined
+      }
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
       // Page-header-controls configuration: a Note is user-owned (its
@@ -1060,9 +1375,19 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       // title is already its calendar identity — but keeps More actions
       // on hover, same as a Note (isRenameable above draws the same
       // note-vs-daily-note line for the title's own editability).
-      emoji={page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined}
+      emoji={
+        page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined
+      }
       onSelectEmoji={page.type === 'note' ? onSelectEmoji : undefined}
       onRemoveEmoji={page.type === 'note' ? onRemoveEmoji : undefined}
+      belowDescription={
+        page.type === 'daily-note' ? (
+          <DailyNoteNavControls
+            date={page.name}
+            onNavigateToDate={onNavigateToDailyNote}
+          />
+        ) : undefined
+      }
       onSetCoverImage={onSetCoverImage}
       onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       coverImage={
@@ -1113,9 +1438,14 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
               application.query
             )}
             onMoveResource={(id, destinationFolderId) =>
-              void application.resourceOperations.moveResource(id, destinationFolderId)
+              void application.resourceOperations.moveResource(
+                id,
+                destinationFolderId
+              )
             }
-            onCreateFolder={(name) => application.folderOperations.create(name, null)}
+            onCreateFolder={(name) =>
+              application.folderOperations.create(name, null)
+            }
           />
         </MarkdownBody>
       }

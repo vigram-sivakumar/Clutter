@@ -20,7 +20,13 @@ export default defineConfig({
   },
 
   server: {
-    port: 5173,
+    // VITE_PORT lets the Tauri dev flow (dev:tauri, tauri.conf.json's
+    // beforeDevCommand/devUrl) run its own Vite instance on a different
+    // port than the plain web dev server (dev/dev:web, still 5173 by
+    // default) — so a real Tauri/WKWebView window can run side-by-side
+    // with an already-running web dev server instead of port-conflicting
+    // with it.
+    port: Number(process.env.VITE_PORT) || 5173,
     strictPort: true,
   },
 

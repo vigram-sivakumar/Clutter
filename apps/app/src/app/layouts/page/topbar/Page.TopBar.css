@@ -7,6 +7,9 @@
   padding-inline: var(--space-8);
   padding-block: var(--space-8);
 
+  user-select: none;
+  -webkit-user-select: none;
+
   /* The topbar's own padding-left only moves ~40-100px, versus the
      page's full sidebar-width slide (AppLayout.css, ~340ms) — using that
      same 340ms here would read as the topbar lagging behind its own,

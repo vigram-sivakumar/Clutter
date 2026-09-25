@@ -13,8 +13,6 @@ import { Dialog } from '@components/dialog/Dialog';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
-import { Popover } from '@components/popover/Popover';
-import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -97,37 +95,6 @@ export interface ResourceTopBarActionsProps {
    * ReservedFolderTopBarActions is a separate renderer).
    */
   onToggleFavorite?: () => void;
-  /**
-   * Present only when the caller's menu includes an `add-cover-image`
-   * item — mirrors moveDestinations/onMove's shape exactly (a capability-
-   * gating prop, not a plain callback): its presence is what makes
-   * `add-cover-image` open the cover popover instead of falling through to
-   * `handlers`, the same way `moveDestinations !== undefined` gates
-   * `move-to`. Invoked with the submitted URL; the caller is responsible
-   * for persisting it (PageOperations.updateMetadata/FolderOperations.
-   * updateMetadata, both of which already accept a `cover` patch) — this
-   * component never persists anything itself.
-   */
-  onSetCoverImage?: (url: string) => void;
-  /**
-   * Present alongside onSetCoverImage when the cover picker supports upload.
-   * Invoked with the absolute source path from the native file picker;
-   * the caller imports into the vault and persists the vault-relative
-   * reference via updateMetadata.
-   */
-  onSetCoverImageFromUpload?: (sourcePath: string) => void;
-  /**
-   * Invoked when the cover picker's "none" tab is selected — the caller
-   * clears cover via updateMetadata({ cover: null }), same as onSetCoverImage
-   * but for removal.
-   */
-  onRemoveCoverImage?: () => void;
-  /**
-   * Whether the resource currently has a cover — drives which top-level
-   * picker tab is selected on open (image vs hide), without persisting
-   * tab choice in localStorage.
-   */
-  hasCoverImage?: boolean;
 }
 
 /**
@@ -156,30 +123,13 @@ export function ResourceTopBarActions({
   onCreateFolder,
   isFavorite,
   onToggleFavorite,
-  onSetCoverImage,
-  onSetCoverImageFromUpload,
-  onRemoveCoverImage,
-  hasCoverImage = false,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  // Same "does this row's own trigger button anchor a second popover"
-  // shape as moveTrigger below, just a plain boolean instead of a
-  // destination-list-driven hook — the cover picker has no list to
-  // manage, only an open/closed state. Anchored on the exact same
-  // moveTrigger.triggerRef (the overflow button itself), same as
-  // MoveDestinationPicker already does, since both popovers open off the
-  // one trigger button this menu has.
-  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const confirmation = useConfirmationSurface();
   const moveTrigger = useMoveDestinationTrigger(moveDestinations);
 
   function handleMenuSelect(id: string) {
     moveTrigger.handleSelect(id, (id) => {
-      if (id === 'add-cover-image' && onSetCoverImage) {
-        setCoverPickerOpen(true);
-        return;
-      }
-
       if (id === 'delete' && deleteConfirmationMessage !== undefined) {
         // A resource-type-neutral title — unlike 'Archive this folder?'
         // below (archive confirmation stays folder-only), Delete
@@ -248,39 +198,6 @@ export function ResourceTopBarActions({
           side={OVERFLOW_SIDE}
           alignment={OVERFLOW_ALIGNMENT}
         />
-      )}
-      {onSetCoverImage && (
-        <Popover
-          anchorRef={moveTrigger.triggerRef}
-          open={coverPickerOpen}
-          onClose={() => setCoverPickerOpen(false)}
-          side={OVERFLOW_SIDE}
-          alignment={OVERFLOW_ALIGNMENT}
-          size="medium"
-        >
-          <ImagePicker
-            hasCoverImage={hasCoverImage}
-            onClose={() => setCoverPickerOpen(false)}
-            onRemove={() => {
-              onRemoveCoverImage?.();
-            }}
-            onLinkSubmit={(url) => {
-              setCoverPickerOpen(false);
-              onSetCoverImage(url);
-            }}
-            onUploadSubmit={(sourcePath) => {
-              setCoverPickerOpen(false);
-              onSetCoverImageFromUpload?.(sourcePath);
-            }}
-            onUnsplashSelect={(url) => {
-              // Deliberately does not close the picker (contrast Link/
-              // Upload above) — Unsplash is browse-and-preview, so a
-              // user can keep looking after picking one. See
-              // ImagePicker.tsx's own onUnsplashSelect doc comment.
-              onSetCoverImage(url);
-            }}
-          />
-        </Popover>
       )}
       <Dialog
         open={confirmation.pending !== null}

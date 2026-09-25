@@ -1,5 +1,18 @@
 .daily-note-nav-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+}
+.daily-notes-calendar {
+  background-color: var(--surface-secondary);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+
+  padding: var(--space-12);
+
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  width: 280px;
+}
+
+.daily-notes-calendar .calendar-toggle {
+  display: none;
 }

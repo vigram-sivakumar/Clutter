@@ -22,6 +22,14 @@ type PageProps = {
    * currently supply anything here (the List/Table view menu).
    */
   titleActions?: ReactNode;
+  /**
+   * Forwarded to PageTitleSection's own `belowDescription` slot — the
+   * generic "below title/description" area. Only a Daily Note (real or
+   * draft) currently supplies anything (its [Calendar] [←] [Today] [→]
+   * nav row), decided by PageHost the same way it decides `emoji`/`icon`
+   * below.
+   */
+  belowDescription?: ReactNode;
   /** Forwarded to PageTitleSection's own `emoji`/`icon`/`showMoreActions` — see that component's doc comment for the three page-header-controls configurations (user-owned, system-reserved, Daily Notes). PageHost decides which applies per page type; Page itself just forwards whatever it's given. */
   emoji?: string;
   icon?: SystemIcon;
@@ -114,6 +122,7 @@ export function Page({
   menu,
   actions,
   titleActions,
+  belowDescription,
   emoji,
   icon,
   showMoreActions,
@@ -182,6 +191,7 @@ export function Page({
               }
               description={description && <PageDescription>{description}</PageDescription>}
               actions={titleActions}
+              belowDescription={belowDescription}
               emoji={emoji}
               icon={icon}
               showMoreActions={showMoreActions}

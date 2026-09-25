@@ -157,6 +157,26 @@ export interface CollectionBodyProps {
   viewMode?: CollectionViewMode;
   properties?: CollectionPropertyVisibility;
   sort?: CollectionSortState;
+  /**
+   * Present only when this page supports creating a folder here (see
+   * PageHost.tsx's own call sites — an ordinary folder or the Workspace-
+   * root view; absent everywhere else, e.g. reserved folders and
+   * ArchiveCollectionBody's separate rendering). Its presence is what
+   * renders the permanent "Create folder" card as the folders grid's
+   * last item, and is also what keeps the grid mounted when there are
+   * zero folders — every other caller keeps today's exact behavior
+   * (no grid at all when folders is empty).
+   */
+  onCreateFolder?: () => void;
+  /**
+   * Wires each view mode's trailing "New Note" row (see NoteTable's and
+   * NoteListGrid's own doc comments) — same "presence is the capability
+   * gate" convention as onCreateFolder above. Table mode always renders
+   * its row regardless of note count; list mode only gets one when
+   * sortedNotes is non-empty (below) — list's own empty state is not
+   * this row, so it's withheld rather than forwarded as-is.
+   */
+  onCreateNote?: () => void;
 }
 
 /**
@@ -178,6 +198,27 @@ export function renderFolderCard(entry: CollectionEntryModel, actions?: ReactNod
       isSelected={entry.selected}
       onClick={entry.onClick}
       actions={actions}
+    />
+  );
+}
+
+/**
+ * The permanent "Create folder" grid card — always the last item in the
+ * folders grid (CollectionBody appends it after every real FolderCard).
+ * Reuses FolderCard itself (icon="plus", no title so its metadata row
+ * never renders — see FolderCard's own doc comments) rather than a
+ * second card component; `folder-card--create` is the one thing that
+ * distinguishes it, so its width can be tuned independently later without
+ * touching every other FolderCard.
+ */
+function renderCreateFolderCard(onCreateFolder: () => void) {
+  return (
+    <FolderCard
+      key="create-folder"
+      icon="plus"
+      className="folder-card--create"
+      aria-label="Create folder"
+      onClick={onCreateFolder}
     />
   );
 }
@@ -243,25 +284,38 @@ export function CollectionBody({
   viewMode = 'table',
   properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   sort = DEFAULT_COLLECTION_SORT,
+  onCreateFolder,
+  onCreateNote,
 }: CollectionBodyProps) {
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
   const noteSection =
     viewMode === 'table' ? (
-      <NoteTable columns={toTableColumns(properties)}>
+      <NoteTable columns={toTableColumns(properties)} onCreateNote={onCreateNote}>
         {sortedNotes.map((entry) => renderNoteTableRow(entry, properties))}
       </NoteTable>
     ) : (
-      <NoteListGrid>{sortedNotes.map((entry) => renderNoteListItem(entry, properties))}</NoteListGrid>
+      <NoteListGrid
+        onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
+      >
+        {sortedNotes.map((entry) => renderNoteListItem(entry, properties))}
+      </NoteListGrid>
     );
 
   return (
     <PageBody className="collection__content">
-      {sortedFolders.length > 0 && (
-        <FolderGrid>{sortedFolders.map((entry) => renderFolderCard(entry))}</FolderGrid>
+      {(sortedFolders.length > 0 || onCreateFolder) && (
+        <FolderGrid>
+          {sortedFolders.map((entry) => renderFolderCard(entry))}
+          {onCreateFolder && renderCreateFolderCard(onCreateFolder)}
+        </FolderGrid>
       )}
       {noteSection}
+      {/* Trailing breathing room below the last row/card — see this
+          class's own comment in CollectionBody.css for why it's a real
+          flex child rather than padding on .collection__content. */}
+      <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
   );
 }

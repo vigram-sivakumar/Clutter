@@ -18,8 +18,7 @@ export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
 };
 
 /**
- * The Name column is always present (`minmax(500px, 1fr)`, matching
- * `--collection-table-column`'s original first track); each optional
+ * The Name column is always present (`minmax(400px, 1fr)`); each optional
  * column contributes its `140px` track only when visible, so a hidden
  * column reserves no grid space at all — the remaining columns reflow
  * into the space it would have used.
@@ -27,7 +26,7 @@ export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
 export function buildNoteTableGridTemplateColumns(
   visibility: NoteTableColumnVisibility
 ): string {
-  const columns = ['minmax(500px, 1fr)'];
+  const columns = ['minmax(400px, 1fr)'];
 
   if (visibility.lastOpened) {
     columns.push('140px');

@@ -5,4 +5,14 @@
   width: var(--content-width);
   max-width: var(--editor-width-max);
   height: 100%;
+  /* This is a flex item along .page__body's (row) main axis, so its
+     default min-width is its own content's intrinsic min-content size —
+     for a collection page that content includes NoteTable's fixed-track
+     grid (--collection-table-column), which is often wider than the
+     available width. Without this, that intrinsic width would win over
+     `width` above and blow this element (and everything in it) out
+     horizontally instead of letting NoteTable contain and scroll its own
+     overflow. Same "flex child needs an explicit 0 minimum" fix as
+     .page__content's own min-height: 0, just on the other axis. */
+  min-width: 0;
 }

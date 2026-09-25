@@ -42,6 +42,10 @@
   color: var(--foreground-secondary);
 }
 
+.note-table-row__description-empty {
+  color: var(--foreground-placeholder);
+}
+
 /* Show the checkbox when hovering anywhere on the row */
 .note-table-row:hover
   .note-table-row__entry.collection-entry--selectable

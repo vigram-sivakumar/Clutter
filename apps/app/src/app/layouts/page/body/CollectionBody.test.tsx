@@ -239,7 +239,7 @@ describe('CollectionBody — Properties visibility', () => {
     // Name + only the one visible optional column (Updated) — Last
     // opened/Created contribute no track at all, so the remaining
     // columns reflow rather than leaving reserved empty space.
-    expect(header.style.gridTemplateColumns).toBe('minmax(500px, 1fr) 140px');
+    expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr) 140px');
     expect(row.style.gridTemplateColumns).toBe(header.style.gridTemplateColumns);
   });
 
@@ -255,8 +255,8 @@ describe('CollectionBody — Properties visibility', () => {
     const header = container.querySelector('.note-table__header') as HTMLElement;
     const row = container.querySelector('.note-table-row') as HTMLElement;
 
-    expect(header.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
-    expect(row.style.gridTemplateColumns).toBe('minmax(500px, 1fr)');
+    expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
+    expect(row.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
     expect(header.querySelectorAll('.note-table__header-cell')).toHaveLength(1);
   });
 });

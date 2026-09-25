@@ -22,6 +22,7 @@ import { ResourceOperations } from './resource/ResourceOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
 import { FoldStateStore } from './editor/FoldStateStore';
+import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -101,6 +102,15 @@ export class Application {
    * rationale).
    */
   public readonly foldStateStore: FoldStateStore;
+  /**
+   * Persisted per-collection Layout/Properties/Sort configuration, through
+   * a sibling top-level key of the same `.clutter/workspace.json`
+   * `foldStateStore` above owns (`collectionViewConfig`, vs. `foldState`/
+   * `embedCollapse`) — loaded once in `bootstrap()` below. Not Gate-backed
+   * and not owned by `Workspace`, for the same reasons `foldStateStore`
+   * isn't (see `CollectionViewConfigStore`'s own doc comment).
+   */
+  public readonly collectionViewConfigStore: CollectionViewConfigStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -184,6 +194,15 @@ export class Application {
     // content is caught and discarded inside FoldStateStore.load() itself
     // (never thrown), so a corrupted workspace.json can never block boot.
     const foldStateStore = await FoldStateStore.load(fileSystem, rootPath);
+
+    // Same "read a small .clutter/*.json config at boot, tolerate absence"
+    // shape as foldStateStore above — a sibling top-level key of the same
+    // reserved file, malformed content caught and discarded inside
+    // CollectionViewConfigStore.load() itself, never thrown.
+    const collectionViewConfigStore = await CollectionViewConfigStore.load(
+      fileSystem,
+      rootPath
+    );
 
     // Tag presentation metadata (icon today, color later) is read directly
     // here, once — not through VaultScanner (this isn't Page/Folder
@@ -271,7 +290,8 @@ export class Application {
       fileSystem,
       selfWriteRegistry,
       runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver,
-      foldStateStore
+      foldStateStore,
+      collectionViewConfigStore
     );
 
     application.rootPath = rootPath;
@@ -300,7 +320,14 @@ export class Application {
     // tests that construct Application directly without exercising fold
     // state (ADR-033) — real boot always passes a loaded store from
     // bootstrap() below.
-    foldStateStore: FoldStateStore = FoldStateStore.empty(fileSystem, '')
+    foldStateStore: FoldStateStore = FoldStateStore.empty(fileSystem, ''),
+    // Same default-to-empty-store reasoning as foldStateStore above, for
+    // the many existing tests that construct Application directly without
+    // exercising collection-view persistence.
+    collectionViewConfigStore: CollectionViewConfigStore = CollectionViewConfigStore.empty(
+      fileSystem,
+      ''
+    )
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -311,6 +338,7 @@ export class Application {
     this.coverImageUrlResolver = coverImageUrlResolver;
     this.selfWriteRegistry = selfWriteRegistry;
     this.foldStateStore = foldStateStore;
+    this.collectionViewConfigStore = collectionViewConfigStore;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();
@@ -435,7 +463,8 @@ export class Application {
       vault,
       this.fileSystem,
       this.rootPath,
-      this.pageOperations
+      this.pageOperations,
+      this.collectionViewConfigStore
     );
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with

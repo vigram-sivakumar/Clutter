@@ -11,12 +11,21 @@ export interface NoteTableProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
   /** Defaults to all three optional columns visible — the original, unconditional-header behavior. See noteTableColumns.ts's own doc comment. */
   columns?: NoteTableColumnVisibility;
+  /**
+   * Wires the always-rendered trailing "New Note" row's click. Absent
+   * (the default) keeps that row exactly as it's always been — present
+   * but inert (no onClick, so CollectionEntry never gives it `role`/
+   * `tabIndex` either) — e.g. ArchiveCollectionBody's own NoteTable,
+   * which has no "create a note here" concept and so never passes this.
+   */
+  onCreateNote?: () => void;
 }
 
 export function NoteTable({
   children,
   className,
   columns = DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
+  onCreateNote,
   ...props
 }: NoteTableProps) {
   const gridTemplateColumns = buildNoteTableGridTemplateColumns(columns);
@@ -56,6 +65,7 @@ export function NoteTable({
           className="note-table__new-note"
           icon="plus"
           title="New Note"
+          onClick={onCreateNote}
         />
       </div>
     </div>

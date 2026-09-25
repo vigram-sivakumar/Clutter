@@ -9,13 +9,13 @@
 }
 
 .page-header-controls__emoji .app-icon {
-  height: 72px;
-  width: 72px;
+  height: fit-content;
+  width: fit-content;
 }
 
 .page-header-controls__emoji .app-icon svg {
-  height: 72px;
-  width: 72px;
+  height: 64px;
+  width: 64px;
 }
 
 .page-header-controls__emoji .emoji-icon {

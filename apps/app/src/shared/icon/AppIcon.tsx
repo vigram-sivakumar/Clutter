@@ -10,6 +10,7 @@ export interface AppIconProps {
   emoji?: string | null;
   size?: number;
   slotSize?: number;
+  strokeWidth?: number;
   className?: string;
 }
 
@@ -18,6 +19,7 @@ export function AppIcon({
   emoji,
   size = DEFAULT_SIZE,
   slotSize = 20,
+  strokeWidth = DEFAULT_STROKE_WIDTH,
   className,
 }: AppIconProps) {
   const Icon = icon ? iconRegistry[icon] : null;
@@ -30,7 +32,7 @@ export function AppIcon({
       {emoji ? (
         <span className="emoji-icon">{emoji}</span>
       ) : Icon ? (
-        <Icon width={size} height={size} strokeWidth={DEFAULT_STROKE_WIDTH} />
+        <Icon width={size} height={size} strokeWidth={strokeWidth} />
       ) : null}
     </span>
   );

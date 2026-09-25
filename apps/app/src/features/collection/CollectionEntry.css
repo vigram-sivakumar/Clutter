@@ -1,5 +1,5 @@
 :root {
-  --collection-table-column: minmax(500px, 1fr) 140px 140px 140px;
+  --collection-table-column: minmax(400px, 1fr) 140px 140px 140px;
   --collection-gutter: var(--space-0);
   --collection-table-divider-offset: var(--space-0);
 }

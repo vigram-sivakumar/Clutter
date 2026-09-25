@@ -40,6 +40,13 @@ interface PageTitleSectionProps extends Omit<
    * this, and only collection pages currently pass anything through it.
    */
   actions?: ReactNode;
+  /**
+   * Generic slot rendered below `description`, inside `.page-title-section__content`
+   * — same "PageTitleSection stays reusable, caller decides what fills it"
+   * pattern as `actions` above. Only Daily Notes (PageHost) currently pass
+   * anything through it (the [Calendar] [←] [Today] [→] row).
+   */
+  belowDescription?: ReactNode;
 }
 
 export function PageTitleSection({
@@ -57,6 +64,7 @@ export function PageTitleSection({
   onRemoveCoverImage,
   onShowCoverImage,
   actions,
+  belowDescription,
   className,
   ...props
 }: PageTitleSectionProps) {
@@ -90,6 +98,7 @@ export function PageTitleSection({
         </div>
 
         {description}
+        {belowDescription}
       </div>
     </header>
   );

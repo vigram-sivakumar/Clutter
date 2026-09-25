@@ -1,0 +1,7 @@
+.page-title__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--lh-display);
+}

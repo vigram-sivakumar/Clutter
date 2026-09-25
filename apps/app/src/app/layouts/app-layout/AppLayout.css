@@ -44,6 +44,8 @@
   position: relative;
   z-index: 1;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-layout__page {

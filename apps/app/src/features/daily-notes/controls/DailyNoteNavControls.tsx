@@ -22,7 +22,10 @@ interface DailyNoteNavControlsProps {
  * PageHost renders this, and only for a Daily Note (real or draft) — see
  * PageTitleSection's `belowDescription` slot.
  */
-export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavControlsProps) {
+export function DailyNoteNavControls({
+  date,
+  onNavigateToDate,
+}: DailyNoteNavControlsProps) {
   const calendar = useOverlay<HTMLButtonElement>();
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('month');
 
@@ -42,7 +45,7 @@ export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavCon
         aria-label="Open calendar"
         onClick={calendar.toggle}
       >
-        <AppIcon icon="calendar" />
+        <AppIcon icon="calendarDots" />
       </Button>
       <Button
         isIconOnly
@@ -51,7 +54,7 @@ export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavCon
         aria-label="Previous day"
         onClick={() => shiftDate(-1)}
       >
-        <AppIcon icon="chevronLeft" />
+        <AppIcon icon="arrowLeft" />
       </Button>
       <Button
         isIconOnly
@@ -60,7 +63,7 @@ export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavCon
         aria-label="Today"
         onClick={() => onNavigateToDate(toISODate(new Date()))}
       >
-        <AppIcon icon="calendarToday" />
+        <AppIcon icon="calendarDot" />
       </Button>
       <Button
         isIconOnly
@@ -69,7 +72,7 @@ export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavCon
         aria-label="Next day"
         onClick={() => shiftDate(1)}
       >
-        <AppIcon icon="chevronRight" />
+        <AppIcon icon="arrowRight" />
       </Button>
 
       <Overlay
@@ -79,15 +82,17 @@ export function DailyNoteNavControls({ date, onNavigateToDate }: DailyNoteNavCon
         side="bottom"
         alignment="start"
       >
-        <Calendar
-          mode={calendarMode}
-          selectedDate={date}
-          onModeChange={setCalendarMode}
-          onSelectedDateChange={(selected) => {
-            calendar.hide();
-            onNavigateToDate(selected);
-          }}
-        />
+        <div className="daily-notes-calendar">
+          <Calendar
+            mode={calendarMode}
+            selectedDate={date}
+            onModeChange={setCalendarMode}
+            onSelectedDateChange={(selected) => {
+              calendar.hide();
+              onNavigateToDate(selected);
+            }}
+          />
+        </div>
       </Overlay>
     </div>
   );

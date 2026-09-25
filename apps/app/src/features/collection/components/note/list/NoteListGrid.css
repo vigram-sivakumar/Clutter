@@ -3,6 +3,9 @@
   flex-direction: column;
 
   gap: var(--space-0);
+}
 
-  overflow-y: auto;
+.note-list-grid__new-note .collection-entry__title {
+  color: var(--foreground-tertiary);
+  font-weight: var(--fw-regular);
 }

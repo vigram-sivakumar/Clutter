@@ -49,11 +49,6 @@ export function buildFolderTopBarMenu(
       disabled: status === 'archived',
     },
     {
-      id: 'add-cover-image',
-      label: 'Cover image',
-      icon: 'image',
-    },
-    {
       id: 'toggle-favorite',
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',

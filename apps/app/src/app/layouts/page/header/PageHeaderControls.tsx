@@ -115,7 +115,7 @@ export function PageHeaderControls({
       )}
       {icon && (
         <span className="page-header-controls__icon">
-          <AppIcon icon={icon} size={72} />
+          <AppIcon icon={icon} size={64} strokeWidth={0.8} />
         </span>
       )}
       {showMoreActions && (

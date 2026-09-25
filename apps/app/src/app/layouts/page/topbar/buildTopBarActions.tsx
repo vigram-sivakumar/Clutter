@@ -110,15 +110,6 @@ export interface BuildTopBarActionsOptions {
    * `isFavoritable` check; Daily Notes do not support favoriting.
    */
   onToggleFavorite?: () => void;
-  /**
-   * Forwarded to ResourceTopBarActions — see its matching prop. Invoked
-   * with the submitted cover URL; the Composition Root's caller (PageHost)
-   * supplies a closure over PageOperations.updateMetadata/FolderOperations.
-   * updateMetadata for whichever resource type this call was made for.
-   */
-  onSetCoverImage?: (url: string) => void;
-  onSetCoverImageFromUpload?: (sourcePath: string) => void;
-  onRemoveCoverImage?: () => void;
 }
 
 /**
@@ -136,7 +127,6 @@ export function buildTopBarActions(
   // unsupported item already has elsewhere.
   const isFavoritable = !isPage(resource) || resource.type === 'note';
   const isFavorite = isFavoritable ? resource.metadata.favorite : false;
-  const hasCoverImage = resource.metadata.cover !== null;
   // Deletion-UX product decision: permanent Delete is withdrawn from every
   // ordinary workspace resource (Archive is its removal action instead)
   // and preserved only for a resource that is itself archived or a
@@ -185,10 +175,6 @@ export function buildTopBarActions(
       onCreateFolder: options.onCreateFolder,
       isFavorite,
       onToggleFavorite: isFavoritable ? options.onToggleFavorite : undefined,
-      onSetCoverImage: options.onSetCoverImage,
-      onSetCoverImageFromUpload: options.onSetCoverImageFromUpload,
-      onRemoveCoverImage: options.onRemoveCoverImage,
-      hasCoverImage,
       onRevealInFinder,
       onCopyPath,
     }),
@@ -207,30 +193,12 @@ export function buildTopBarActions(
  * be archived at all), the same "no Delete entry point" treatment every
  * persisted ordinary resource now gets, see buildTopBarActions' isDeletable.
  */
-export function buildDraftTopBarActions(
-  type: PageType,
-  options?: {
-    onSetCoverImage?: (url: string) => void;
-    onSetCoverImageFromUpload?: (sourcePath: string) => void;
-    onRemoveCoverImage?: () => void;
-  }
-): TopBarParts {
+export function buildDraftTopBarActions(type: PageType): TopBarParts {
   return {
     actions: renderTopBarActions(type, {
       // A draft has no persisted PageMetadata (ADR-017) — favorite is
       // always false pre-promotion, same as EffectivePage's draft case.
       menu: buildMenuForType(type, 'draft', false, false),
-      // A plain Note draft's add-cover-image item is never disabled
-      // (buildNoteTopBarMenu) — PageOperations.updateMetadata() already
-      // promotes a draft on a committed cover patch (persistDraft), the
-      // same mechanism title/body commits already use, so this closure
-      // works unchanged whether the draft is a Note or already a real
-      // page. A Daily Note draft's item is disabled instead
-      // (buildDailyNoteTopBarMenu), so this is never invoked for one.
-      onSetCoverImage: options?.onSetCoverImage,
-      onSetCoverImageFromUpload: options?.onSetCoverImageFromUpload,
-      onRemoveCoverImage: options?.onRemoveCoverImage,
-      hasCoverImage: false,
     }),
   };
 }

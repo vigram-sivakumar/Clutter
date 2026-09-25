@@ -1,8 +1,8 @@
-import { ensureClutterDirectory } from '../../vault/initialize/ensureClutterDirectory';
 import {
-  EMPTY_WORKSPACE_STATE_FILE_CONTENTS,
-  WORKSPACE_STATE_RELATIVE_PATH,
-} from '../../vault/initialize/ReservedResources';
+  mergeAndWriteWorkspaceStateFile,
+  readWorkspaceStateFileText,
+} from '../../vault/initialize/workspaceStateFile';
+import { WORKSPACE_STATE_RELATIVE_PATH } from '../../vault/initialize/ReservedResources';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
 /**
@@ -22,26 +22,30 @@ export interface PersistedFoldEntry {
 }
 
 /**
- * Owns `.clutter/workspace.json` end-to-end — one reader, one writer,
- * mirroring the shape `TagOperations` already establishes for
- * `.clutter/tags.json` (ADR-033). Persists exactly one thing: per-`pageId`
- * CM6 fold ranges. Deliberately not a method on `Workspace` — `Workspace`
- * is zero-dependency, in-memory-only navigation state by explicit,
- * twice-reaffirmed design (ADR-006, ADR-021), and fold state is editor
- * content state, not navigation state. See ADR-033 for the full rationale,
- * including why this is not merged into `editorHistoryCache` (session-
- * lifetime only, deliberately not a persistence mechanism) and why this
- * does not go through the Persistence Gate (`.clutter/*` is out of the
- * Gate's scope — ARCHITECTURE_RULES.md rule 2).
+ * Owns two top-level keys of `.clutter/workspace.json` end-to-end —
+ * `foldState`/`embedCollapse` — mirroring the shape `TagOperations` already
+ * establishes for `.clutter/tags.json` (ADR-033). Persists per-`pageId` CM6
+ * fold ranges (and the embed-collapse flag, see below). Deliberately not a
+ * method on `Workspace` — `Workspace` is zero-dependency, in-memory-only
+ * navigation state by explicit, twice-reaffirmed design (ADR-006,
+ * ADR-021), and fold state is editor content state, not navigation state.
+ * See ADR-033 for the full rationale, including why this is not merged
+ * into `editorHistoryCache` (session-lifetime only, deliberately not a
+ * persistence mechanism) and why this does not go through the Persistence
+ * Gate (`.clutter/*` is out of the Gate's scope — ARCHITECTURE_RULES.md
+ * rule 2).
  *
- * In-memory-authoritative, not read-merge-write per call (unlike
- * `TagOperations.updateMetadata`): this store is the sole owner of the
- * entire in-memory map for the session, loaded once at boot via `load()`,
- * so every `set()` serializes straight from memory. `otherKeys` preserves
- * any top-level JSON keys besides `foldState` this store doesn't know
- * about (none exist today), so a future sibling feature that also writes
- * `.clutter/workspace.json` round-trips safely through this store even if
- * it happens to run in the same session.
+ * In-memory-authoritative for its own two keys, not read-merge-write per
+ * call (unlike `TagOperations.updateMetadata`): this store is the sole
+ * owner of `entries`/`embedCollapse` for the entire session, loaded once
+ * at boot via `load()`, so every `set()` serializes those two straight
+ * from memory. It no longer caches a boot-time snapshot of *other*
+ * top-level keys, though: `.clutter/workspace.json` gained a second
+ * independent writer (`CollectionViewConfigStore`'s `collectionViewConfig`
+ * key), so `persist()` layers its own two keys onto whatever the file
+ * freshly holds via `mergeAndWriteWorkspaceStateFile` instead — see that
+ * function's own doc comment for why a cached snapshot is no longer safe
+ * once a second writer exists.
  */
 export class FoldStateStore {
   private readonly entries: Map<string, PersistedFoldEntry>;
@@ -61,18 +65,15 @@ export class FoldStateStore {
    * are simply two separate in-memory structures serialized together.
    */
   private readonly embedCollapse: Map<string, Map<string, boolean>>;
-  private readonly otherKeys: Record<string, unknown>;
 
   private constructor(
     private readonly fileSystem: VaultFileSystem,
     private readonly rootPath: string,
     entries: Map<string, PersistedFoldEntry>,
-    embedCollapse: Map<string, Map<string, boolean>>,
-    otherKeys: Record<string, unknown>
+    embedCollapse: Map<string, Map<string, boolean>>
   ) {
     this.entries = entries;
     this.embedCollapse = embedCollapse;
-    this.otherKeys = otherKeys;
   }
 
   /**
@@ -82,7 +83,7 @@ export class FoldStateStore {
    * goes through `load()` instead (see `Application.bootstrap()`).
    */
   static empty(fileSystem: VaultFileSystem, rootPath: string): FoldStateStore {
-    return new FoldStateStore(fileSystem, rootPath, new Map(), new Map(), {});
+    return new FoldStateStore(fileSystem, rootPath, new Map(), new Map());
   }
 
   /**
@@ -95,11 +96,7 @@ export class FoldStateStore {
    * from starting).
    */
   static async load(fileSystem: VaultFileSystem, rootPath: string): Promise<FoldStateStore> {
-    const path = `${rootPath}/${WORKSPACE_STATE_RELATIVE_PATH}`;
-
-    const contents = (await fileSystem.exists(path))
-      ? await fileSystem.readFile(path)
-      : EMPTY_WORKSPACE_STATE_FILE_CONTENTS;
+    const contents = await readWorkspaceStateFileText(fileSystem, rootPath);
 
     let parsed: unknown;
     try {
@@ -108,17 +105,17 @@ export class FoldStateStore {
       console.warn(
         `FoldStateStore: ${WORKSPACE_STATE_RELATIVE_PATH} contains invalid JSON — starting with empty fold state.`
       );
-      return new FoldStateStore(fileSystem, rootPath, new Map(), new Map(), {});
+      return new FoldStateStore(fileSystem, rootPath, new Map(), new Map());
     }
 
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       console.warn(
         `FoldStateStore: ${WORKSPACE_STATE_RELATIVE_PATH}'s top level is not an object — starting with empty fold state.`
       );
-      return new FoldStateStore(fileSystem, rootPath, new Map(), new Map(), {});
+      return new FoldStateStore(fileSystem, rootPath, new Map(), new Map());
     }
 
-    const { foldState, embedCollapse: rawEmbedCollapse, ...otherKeys } = parsed as Record<string, unknown>;
+    const { foldState, embedCollapse: rawEmbedCollapse } = parsed as Record<string, unknown>;
     const entries = new Map<string, PersistedFoldEntry>();
 
     if (foldState !== undefined) {
@@ -161,7 +158,7 @@ export class FoldStateStore {
       }
     }
 
-    return new FoldStateStore(fileSystem, rootPath, entries, embedCollapse, otherKeys);
+    return new FoldStateStore(fileSystem, rootPath, entries, embedCollapse);
   }
 
   /**
@@ -243,10 +240,16 @@ export class FoldStateStore {
     void this.persist();
   }
 
+  /**
+   * Writes `foldState`/`embedCollapse` via `mergeAndWriteWorkspaceStateFile`
+   * — reading the file's other top-level keys fresh immediately before
+   * writing, rather than from a boot-time snapshot — so a concurrent write
+   * from `CollectionViewConfigStore` (a second, independent owner of a
+   * sibling key in this same file) is never clobbered by this store
+   * persisting a stale copy of it, and vice versa. See that function's own
+   * doc comment for the full rationale.
+   */
   private async persist(): Promise<void> {
-    await ensureClutterDirectory(this.fileSystem, this.rootPath);
-
-    const path = `${this.rootPath}/${WORKSPACE_STATE_RELATIVE_PATH}`;
     const foldState: Record<string, PersistedFoldEntry> = {};
     for (const [pageId, entry] of this.entries) {
       foldState[pageId] = entry;
@@ -256,10 +259,10 @@ export class FoldStateStore {
       embedCollapse[hostPageId] = Object.fromEntries(hostMap);
     }
 
-    await this.fileSystem.writeFile(
-      path,
-      JSON.stringify({ ...this.otherKeys, foldState, embedCollapse }, null, 2)
-    );
+    await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, {
+      foldState,
+      embedCollapse,
+    });
   }
 }
 

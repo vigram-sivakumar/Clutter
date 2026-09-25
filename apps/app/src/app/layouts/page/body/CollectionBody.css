@@ -13,6 +13,23 @@
 }
 
 /*
+ * Breathing room below the last row/card when scrolled to the bottom of
+ * .page__content (the actual scroll container — see Page.css). A real
+ * trailing flex child, not padding-bottom on .collection__content itself
+ * — that container has an explicit `height: 100%` (Page.Body.css) that
+ * never grows to fit tall content, so NoteTable/NoteListGrid (each
+ * `flex-shrink: 0`, deliberately allowed to overflow it — see NoteTable's
+ * own comment) end up extending past .collection__content's own box.
+ * Padding on that box would then sit behind/above the overflow instead
+ * of after the true last row. flex-shrink: 0 here for the same reason
+ * NoteTable has it — so this spacer can't get squeezed away to nothing.
+ */
+.collection__bottom-spacer {
+  height: 20vh;
+  flex-shrink: 0;
+}
+
+/*
  * Aligns the page title/header to the same width as the collection body
  * below it, without Page.tsx knowing anything about page types.
  * .page__header and .page__body are adjacent siblings under

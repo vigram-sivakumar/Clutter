@@ -33,29 +33,14 @@ export function buildDailyNoteTopBarMenu(
       icon: 'description',
     },
     {
-      // Never disabled for state === 'draft' — unlike archive/delete/
-      // restore, this item works on an unpersisted Daily Note draft:
-      // PageOperations.updateMetadata() promotes it via the same
-      // persistDraft() path save()'s body trigger already uses (ADR-017's
-      // second amendment, Cover Image milestone). Setting a cover is an
-      // explicit, affirmative user action, not incidental interaction with
-      // an unopened draft, so it's exactly the kind of "committed,
-      // persistent, user-owned change" this ADR's promotion rule already
-      // covers for the body.
-      id: 'add-cover-image',
-      label: 'Cover image',
-      icon: 'image',
-    },
-    {
       id: 'version-history',
       label: 'Version history',
       icon: 'clock',
     },
-    // 'page' — a Daily Note is a Page, same as an ordinary Note. Unlike
-    // add-cover-image above, Reveal in Finder/Copy path have nothing to
-    // act on for a draft (no path until first save), so — like archive/
-    // restore/delete — they're `disabled`, not omitted, for `state ===
-    // 'draft'`.
+    // 'page' — a Daily Note is a Page, same as an ordinary Note.
+    // Reveal in Finder/Copy path have nothing to act on for a draft (no
+    // path until first save), so — like archive/restore/delete — they're
+    // `disabled`, not omitted, for `state === 'draft'`.
     ...buildLocationActionMenuItems('page', { disabled: !persisted }),
     state === 'archived'
       ? {

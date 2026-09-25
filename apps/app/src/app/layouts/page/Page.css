@@ -51,6 +51,14 @@
      below) stay outside it and never scroll. */
   min-height: 0;
   overflow-y: auto;
+  /* Without this, the browser's overflow computed-value rule ("if one of
+     overflow-x/overflow-y is visible and the other isn't, the visible one
+     becomes auto") would silently turn this into overflow-x: auto too,
+     letting a too-wide descendant (e.g. NoteTable) open a second,
+     page-level horizontal scrollbar here instead of scrolling within
+     itself. This is the only vertical scroll container (see comment
+     above) — it must never also become a horizontal one. */
+  overflow-x: hidden;
 
   position: relative;
 

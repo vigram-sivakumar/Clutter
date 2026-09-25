@@ -197,6 +197,11 @@ export function ArchiveCollectionBody({
             )}
           />
         ))}
+        {/* Trailing breathing room below the last row/card — see
+            .collection__bottom-spacer's own comment in
+            CollectionBody.css for why it's a real flex child rather
+            than padding on .collection__content. */}
+        <div className="collection__bottom-spacer" aria-hidden="true" />
       </PageBody>
       <Dialog open={confirmation.pending !== null} onClose={confirmation.cancel} size="medium">
         {confirmation.pending && (

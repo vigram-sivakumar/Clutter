@@ -4,7 +4,6 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
-import { MenuTitle } from '@components/menu/MenuTitle';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
@@ -77,9 +76,9 @@ type ConfigureMenuView = 'root' | 'properties';
  *    the menu. Escape and the backdrop are unaffected: both still go
  *    straight to `Overlay`'s own `onClose` and close the whole menu from
  *    either view.
- *  - `MenuTitle`'s `trailing` slot holds that back control, the same
- *    slot and the same dismiss icon FencedCodeActionsMenu's own "Back to
- *    actions" button already uses — not a new affordance.
+ *  - `MenuGroupTitle`'s `trailing` slot holds that back control, the
+ *    same slot and the same dismiss icon FencedCodeActionsMenu's own
+ *    "Back to actions" button already uses — not a new affordance.
  *
  * Unlike the fenced-code language view, there's no search input here, so
  * none of that file's focus-juggling (`autoFocus={view === 'actions'}`,
@@ -213,7 +212,7 @@ export function CollectionViewMenu({
             </>
           ) : (
             <>
-              <MenuTitle
+              <MenuGroupTitle
                 trailing={
                   <Button
                     aria-label="Back to Configure"
@@ -228,7 +227,7 @@ export function CollectionViewMenu({
                 }
               >
                 Properties
-              </MenuTitle>
+              </MenuGroupTitle>
               <div className="menu__divider" role="separator" />
               {PROPERTY_ITEMS.map(({ key, label }) => {
                 const checked = properties[key];

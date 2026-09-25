@@ -56,11 +56,6 @@ export function buildNoteTopBarMenu(
       icon: 'copy',
     },
     {
-      id: 'add-cover-image',
-      label: 'Cover image',
-      icon: 'image',
-    },
-    {
       id: 'move-to',
       label: 'Move to…',
       icon: 'arrowDownRight',

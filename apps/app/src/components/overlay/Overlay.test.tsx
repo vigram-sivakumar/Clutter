@@ -613,6 +613,35 @@ describe('Overlay', () => {
       expect(surface.style.left).toBe('260px');
     });
   });
+
+  it('repositions when the anchor moves for a reason that fires neither a resize nor a scroll event (e.g. a sibling/ancestor layout change, such as a cover image animating into the page)', async () => {
+    render(<Harness />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('146px');
+    });
+
+    // Simulates the anchor's own box being unchanged in size (still
+    // 100x40, same as the original anchorRect) but shifted on screen —
+    // exactly what a layout reflow elsewhere in the document does, and
+    // exactly the case ResizeObserver (which only reports size changes)
+    // cannot detect. Deliberately fires no window resize/scroll event.
+    anchorRect = createRect({
+      top: 300,
+      left: 400,
+      width: 100,
+      height: 40,
+    });
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('346px');
+      expect(surface.style.left).toBe('400px');
+    });
+  });
 });
 
 describe('Overlay centered positioning', () => {

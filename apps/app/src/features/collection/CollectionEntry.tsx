@@ -9,6 +9,7 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
 
   title?: string;
   description?: string;
+  descriptionClassName?: string;
   metadata?: ReactNode;
   /**
    * Hover-gated trailing slot, mirroring Entry's own `.entry__actions`
@@ -34,6 +35,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       emoji,
       title,
       description,
+      descriptionClassName,
       metadata,
       actions,
       isSelectable = false,
@@ -127,7 +129,16 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             {title && <div className="collection-entry__title">{title}</div>}
 
             {description && (
-              <div className="collection-entry__description">{description}</div>
+              <div
+                className={[
+                  'collection-entry__description',
+                  descriptionClassName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {description}
+              </div>
             )}
           </div>
 

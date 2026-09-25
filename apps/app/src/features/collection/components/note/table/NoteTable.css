@@ -1,5 +1,41 @@
 .note-table {
   width: 100%;
+
+  /* The table is the horizontal-scroll container, not the page: its own
+     header/rows (.note-table__header, .note-table-row) are allowed to
+     grow past 100% via `width: fit-content; min-width: 100%` on their own
+     --collection-table-column grid, and this is what contains that
+     overflow locally instead of it escaping to .page-content/.page__body
+     and blowing out the page's own width (see Page.Body.css's own
+     min-width: 0 comment). overflow-y is explicitly hidden — vertical
+     scrolling stays owned by .page__content (Page.css) alone; this must
+     never become a second vertical scroll container. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* base.css sets `* { overscroll-behavior: none }` globally — inert on
+     most elements (overscroll-behavior only affects scroll containers),
+     but overflow-x: auto above just made *this* element one, which
+     activates that rule here and blocks scroll-chaining on BOTH axes,
+     including a vertical wheel delta this container has no scroll range
+     to consume in the first place (overflow-y is hidden). Without this
+     override, a vertical wheel over the table would be silently
+     swallowed instead of reaching .page__content. overscroll-behavior-y
+     restores normal chaining for the axis this table doesn't own; the
+     shorthand's x-behavior is left at the inherited `none`, which is
+     harmless here since there's no horizontal scroll container above
+     this one to chain to anyway (.page__content is overflow-x: hidden). */
+  overscroll-behavior-y: auto;
+  /* .note-table is itself a flex item along .page-content's (column)
+     main axis. Giving it any overflow other than `visible` changes its
+     automatic minimum size from "auto" (floored at its own content
+     height) to 0 per the flexbox spec, which would let flex-shrink
+     compress it — and, since overflow-y is hidden, silently clip rows off
+     the bottom — whenever .page-content's fixed `height: 100%` is
+     shorter than the table's natural content height. flex-shrink: 0 keeps
+     the table at its full natural height so it can only ever overflow
+     .page-content vertically (letting .page__content scroll it), never
+     get squeezed shorter than its own rows. */
+  flex-shrink: 0;
 }
 
 .note-table__header {

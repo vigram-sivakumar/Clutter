@@ -128,7 +128,14 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
           icon="note"
           emoji={emoji}
           title={title}
-          description={showDescription ? description || 'No description...' : undefined}
+          description={
+            showDescription ? description || 'No description...' : undefined
+          }
+          descriptionClassName={
+            showDescription && !description
+              ? 'note-table-row__description-empty'
+              : undefined
+          }
           isSelectable={isSelectable}
           isSelected={isSelected}
           onSelectedChange={onSelectedChange}

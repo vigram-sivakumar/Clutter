@@ -6,6 +6,22 @@
   max-width: var(--editor-width-max);
   padding-top: 40px;
 
+  gap: var(--space-12);
+}
+
+/* The More actions button stays mounted (PageHeaderControls.css sets its
+   resting opacity/pointer-events to hidden) — this is the one hover surface
+   that reveals it, so it owns the reveal rule rather than PageHeaderControls
+   guessing at its own container's hover state. */
+.page-title-section:hover .page-header-controls__menu {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.page-title-section__content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   gap: var(--space-4);
 }
 
@@ -26,4 +42,5 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  gap: var(--space-6);
 }

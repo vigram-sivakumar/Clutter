@@ -7,6 +7,8 @@ import {
 import { ensureClutterDirectory } from '../../vault/initialize/ensureClutterDirectory';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import type { PageOperations } from '../page/PageOperations';
+import type { CollectionViewConfigStore } from '../collection/CollectionViewConfigStore';
+import { collectionViewKeyForTag } from '../collection/collectionViewKey';
 
 /**
  * Matches a `#identifier` occurrence in one line of Markdown — deliberately
@@ -65,7 +67,15 @@ export class TagOperations {
     private readonly vault: Vault,
     private readonly fileSystem: VaultFileSystem,
     private readonly rootPath: string,
-    private readonly pageOperations: PageOperations
+    private readonly pageOperations: PageOperations,
+    // Optional — only real boot (Application.attachVault) supplies it;
+    // existing tests constructing TagOperations directly are unaffected.
+    // Used solely by rename() below to move a renamed tag's persisted
+    // Configure-menu configuration (CollectionViewConfigStore) to its new
+    // key, so it isn't orphaned under the old tag name — the smallest
+    // integration point for that requirement, not a reason to route any
+    // other collection-view-config concern through TagOperations.
+    private readonly collectionViewConfigStore?: CollectionViewConfigStore
   ) {}
 
   /**
@@ -160,6 +170,23 @@ export class TagOperations {
           this.rewriteOccurrences(markdown, oldIdentity, canonicalName)
         )
       )
+    );
+
+    // Moves this tag's persisted Configure-menu configuration (Layout/
+    // Properties/Sort — CollectionViewConfigStore) from its old key to its
+    // new one, so a rename never orphans it. `oldName` (not `oldIdentity`)
+    // is the exact string used here deliberately: every caller of
+    // rename() (Sidebar.Tags.tsx, tagCollectionRename.ts) always passes
+    // the tag's current `Tag.name` as `oldName`, which is exactly the
+    // same string a tag's `FilteredView.tagName` — and therefore its
+    // collectionViewKey — holds while that tag's collection view is open.
+    // A same-identity, different-spelling rename (e.g. "Project" ->
+    // "project") still needs this: findCollision() already allows it
+    // (newIdentity === oldIdentity), but the persisted key's exact string
+    // still changes.
+    this.collectionViewConfigStore?.renameKey(
+      collectionViewKeyForTag(oldName),
+      collectionViewKeyForTag(canonicalName)
     );
   }
 
