@@ -179,14 +179,29 @@ export function useOverlayPosition({
     });
   }, [anchorRef, surfaceRef, side, alignment, offset]);
 
-  // Position the overlay before the browser paints it.
+  // Position the overlay before the browser paints it. Deliberately has no
+  // dependency array: it must re-run after *every* commit while open, not
+  // just when `open`/`updatePosition` identity changes. A caller that swaps
+  // an overlay's children in place while it's open (e.g. PageCover's More
+  // Actions menu -> ImagePicker swap, both hosted in one Overlay instance)
+  // changes the surface's size within the same commit as that state
+  // update, with no anchor movement and no `open`/`updatePosition` change
+  // to re-trigger a dependency-gated effect. Without this recompute running
+  // synchronously here, the new content first paints at the *old* size's
+  // position (wrong for `alignment="end"`, whose `left` depends on the
+  // surface's own width), then jumps once the async ResizeObserver/rAF
+  // correction (below) catches up — a visible shift-then-snap-back. Running
+  // on every render fixes this because `updatePosition` only calls
+  // `setState` when the computed position actually changed (see its own
+  // definition above), so a render where nothing moved costs a cheap pair
+  // of `getBoundingClientRect()` calls and no extra re-render.
   useLayoutEffect(() => {
     if (!open) {
       return;
     }
 
     updatePosition();
-  }, [open, updatePosition]);
+  });
 
   // Keep the overlay aligned as its elements or surroundings change.
   useEffect(() => {
@@ -219,6 +234,39 @@ export function useOverlayPosition({
       resizeObserver.disconnect();
     };
   }, [open, anchorRef, surfaceRef, updatePosition]);
+
+  // The anchor can also move for reasons none of the mechanisms above
+  // ever observe: a layout change elsewhere in the document (e.g. a
+  // sibling/ancestor growing or an animated CSS property like flex-basis
+  // reflowing the row it sits in) shifts the anchor's on-screen position
+  // without changing the anchor's *own* box size — the one thing
+  // ResizeObserver reports — and without firing `scroll` or `resize`
+  // either. A CSS transition compounds this: the anchor's position keeps
+  // changing every frame for the transition's whole duration, not just
+  // once at the moment the triggering DOM change lands, so even a
+  // MutationObserver (one callback, at mutation time) can't track it
+  // smoothly through to the end. Continuously re-measuring on every
+  // animation frame while open is the one mechanism that covers all of
+  // this uniformly — `updatePosition` only calls `setState` when the
+  // computed position actually differs (see its own definition above),
+  // so a frame where nothing has moved costs a cheap pair of
+  // `getBoundingClientRect()` calls and no re-render.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let frameId: number;
+
+    const tick = () => {
+      updatePosition();
+      frameId = requestAnimationFrame(tick);
+    };
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [open, updatePosition]);
 
   return position;
 }
