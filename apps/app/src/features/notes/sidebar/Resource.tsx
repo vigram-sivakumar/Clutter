@@ -143,6 +143,7 @@ export function Resource({
         {isEditing ? (
           <EditableText
             value={editingStem}
+            className="editable-text--nowrap"
             autoFocus
             onCommit={onTitleCommit ?? (() => {})}
             onEditingEnd={onTitleEditingEnd}

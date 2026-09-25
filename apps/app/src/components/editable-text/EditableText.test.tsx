@@ -458,14 +458,14 @@ describe('EditableText imperative focus handle', () => {
   });
 });
 
-// Single-line, never-wrap CSS — jsdom does not compute real layout/paint,
-// so `.editable-text`'s own overflow/white-space declarations are
-// verified against the stylesheet source itself, the same convention
-// `wikiLinkStrikethroughComposition.test.ts` uses for CSS-only assertions
-// elsewhere in this codebase. Behavioral proof that a caret placed at the
-// end is actually scrolled into view lives in the "scroll to caret" block
-// below, which exercises the real placeCaretAtEnd code path.
-describe('EditableText.css — single-line, no-wrap, scrollable overflow', () => {
+// Wrap-capable by default, single-line only when opted in — jsdom does not
+// compute real layout/paint, so `.editable-text`'s own overflow/white-space
+// declarations are verified against the stylesheet source itself, the same
+// convention `wikiLinkStrikethroughComposition.test.ts` uses for CSS-only
+// assertions elsewhere in this codebase. Behavioral proof that a caret
+// placed at the end is actually scrolled into view lives in the "scroll to
+// caret" block below, which exercises the real placeCaretAtEnd code path.
+describe('EditableText.css — wrap-capable by default, opt-in single-line/no-wrap variant', () => {
   const css = readFileSync(join(__dirname, 'EditableText.css'), 'utf8');
   const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -476,21 +476,26 @@ describe('EditableText.css — single-line, no-wrap, scrollable overflow', () =>
     return match![1] ?? '';
   }
 
-  it('never wraps — white-space is nowrap, not pre-wrap/normal', () => {
-    expect(rule('.editable-text')).toMatch(/white-space\s*:\s*nowrap\s*;/);
+  it('the base class wraps — a page title using it unadorned can grow multiple lines', () => {
+    expect(rule('.editable-text')).toMatch(/white-space\s*:\s*pre-wrap\s*;/);
+    expect(rule('.editable-text')).not.toMatch(/white-space\s*:\s*nowrap\s*;/);
   });
 
-  it('is horizontally scrollable, not hard-clipped, so both native and scripted scroll-to-caret work', () => {
-    expect(rule('.editable-text')).toMatch(/overflow-x\s*:\s*auto\s*;/);
+  it('the --nowrap variant never wraps — white-space is nowrap, not pre-wrap/normal', () => {
+    expect(rule('.editable-text--nowrap')).toMatch(/white-space\s*:\s*nowrap\s*;/);
   });
 
-  it('never grows a second line — vertical overflow is clipped', () => {
-    expect(rule('.editable-text')).toMatch(/overflow-y\s*:\s*hidden\s*;/);
+  it('the --nowrap variant is horizontally scrollable, not hard-clipped, so both native and scripted scroll-to-caret work', () => {
+    expect(rule('.editable-text--nowrap')).toMatch(/overflow-x\s*:\s*auto\s*;/);
   });
 
-  it('hides the horizontal scrollbar so scrolling reads as plain text, not a visible scroll widget', () => {
-    expect(rule('.editable-text')).toMatch(/scrollbar-width\s*:\s*none\s*;/);
-    expect(cssWithoutComments).toMatch(/\.editable-text::-webkit-scrollbar\s*\{\s*display\s*:\s*none\s*;\s*\}/);
+  it('the --nowrap variant never grows a second line — vertical overflow is clipped', () => {
+    expect(rule('.editable-text--nowrap')).toMatch(/overflow-y\s*:\s*hidden\s*;/);
+  });
+
+  it('the --nowrap variant hides the horizontal scrollbar so scrolling reads as plain text, not a visible scroll widget', () => {
+    expect(rule('.editable-text--nowrap')).toMatch(/scrollbar-width\s*:\s*none\s*;/);
+    expect(cssWithoutComments).toMatch(/\.editable-text--nowrap::-webkit-scrollbar\s*\{\s*display\s*:\s*none\s*;\s*\}/);
   });
 });
 

@@ -148,6 +148,7 @@ export function Note({
           <EditableText
             value={title ?? ''}
             placeholder={titlePlaceholder}
+            className="editable-text--nowrap"
             autoFocus
             onCommit={onTitleCommit ?? (() => {})}
             onEdit={onTitleEdit}

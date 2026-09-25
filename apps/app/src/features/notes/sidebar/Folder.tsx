@@ -169,6 +169,7 @@ export function Folder({
           <EditableText
             value={title ?? ''}
             placeholder={titlePlaceholder}
+            className="editable-text--nowrap"
             autoFocus
             onCommit={onTitleCommit ?? (() => {})}
             onEdit={onTitleEdit}

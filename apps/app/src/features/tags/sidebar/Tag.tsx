@@ -87,6 +87,7 @@ export function Tag({
         {isEditing ? (
           <EditableText
             value={title ?? ''}
+            className="editable-text--nowrap"
             autoFocus
             onCommit={onTitleCommit ?? (() => {})}
             onCancel={onTitleCancel}

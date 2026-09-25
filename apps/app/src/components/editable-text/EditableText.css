@@ -1,28 +1,37 @@
-/*
- * Single-line, never-wrapping editable field — deliberately independent
- * of the surrounding editor/document's own line-wrapping behavior (this
- * is a plain contentEditable row field, not CodeMirror). `overflow-x: auto`
- * (rather than `hidden`) is what makes both native "keep the caret
- * visible while typing past the edge" behavior AND the imperative
- * `scrollLeft` nudge in EditableText.tsx's `placeCaretAtEnd` actually take
- * effect — `hidden` still clips visually but browsers are inconsistent
- * about auto-scrolling a caret into view inside a non-`auto`/`scroll`
- * overflow box. The scrollbar itself is hidden (`scrollbar-width: none` +
- * the `::-webkit-scrollbar` rule below) so this reads as plain truncation-
- * free text, not a visible scroll widget, while staying fully scrollable
- * by keyboard/caret and by the `scrollLeft` assignment.
- */
 .editable-text {
   outline: none;
   cursor: text;
   position: relative;
   min-width: 1px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/*
+ * Opt-in variant for a single-line, never-wrapping editable field —
+ * deliberately independent of the surrounding editor/document's own
+ * line-wrapping behavior (this is a plain contentEditable row field, not
+ * CodeMirror). Scoped to consumers that need it (e.g. sidebar row titles,
+ * which truncate rather than wrap) rather than applied to every
+ * EditableText instance — a page title, for example, still needs the base
+ * class's wrapping. `overflow-x: auto` (rather than `hidden`) is what
+ * makes both native "keep the caret visible while typing past the edge"
+ * behavior AND the imperative `scrollLeft` nudge in EditableText.tsx's
+ * `placeCaretAtEnd` actually take effect — `hidden` still clips visually
+ * but browsers are inconsistent about auto-scrolling a caret into view
+ * inside a non-`auto`/`scroll` overflow box. The scrollbar itself is
+ * hidden (`scrollbar-width: none` + the `::-webkit-scrollbar` rule below)
+ * so this reads as plain truncation-free text, not a visible scroll
+ * widget, while staying fully scrollable by keyboard/caret and by the
+ * `scrollLeft` assignment.
+ */
+.editable-text--nowrap {
   white-space: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
 }
-.editable-text::-webkit-scrollbar {
+.editable-text--nowrap::-webkit-scrollbar {
   display: none;
 }
 

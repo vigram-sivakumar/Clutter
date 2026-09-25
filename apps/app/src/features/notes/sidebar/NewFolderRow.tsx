@@ -46,6 +46,7 @@ export function NewFolderRow({ level, onCommit, onCancel }: NewFolderRowProps) {
       <EditableText
         value=""
         placeholder={getFolderTitlePlaceholder()}
+        className="editable-text--nowrap"
         autoFocus
         onCommit={(name) => {
           const trimmed = name.trim();

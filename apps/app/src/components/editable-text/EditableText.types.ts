@@ -10,6 +10,17 @@ export interface EditableTextProps {
   placeholder?: string;
 
   /**
+   * Extra class name(s) appended to the root element, alongside the base
+   * `editable-text` class (and `editable-text--shake` while rejecting a
+   * submit). EditableText itself stays wrap-capable by default; a
+   * consumer that instead wants the single-line, truncate-at-rest
+   * behavior (e.g. a sidebar row title) opts in explicitly via
+   * `className="editable-text--nowrap"` rather than that being the
+   * component's own default — see EditableText.css.
+   */
+  className?: string;
+
+  /**
    * Prevents the component from entering edit mode.
    */
   isDisabled?: boolean;

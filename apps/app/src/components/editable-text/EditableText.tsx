@@ -117,6 +117,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
     {
       value,
       placeholder,
+      className,
       isDisabled = false,
       autoFocus = false,
       onCommit,
@@ -298,7 +299,13 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
     return (
       <div
         ref={editableElementRef}
-        className={isShaking ? 'editable-text editable-text--shake' : 'editable-text'}
+        className={[
+          'editable-text',
+          className,
+          isShaking && 'editable-text--shake',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         contentEditable={!isDisabled}
         suppressContentEditableWarning
         spellCheck={false}
