@@ -1,4 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
+import type { SystemIcon } from '@shared/icon';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
@@ -21,14 +22,30 @@ type PageProps = {
    * currently supply anything here (the List/Table view menu).
    */
   titleActions?: ReactNode;
+  /** Forwarded to PageTitleSection's own `emoji`/`icon`/`showMoreActions` — see that component's doc comment for the three page-header-controls configurations (user-owned, system-reserved, Daily Notes). PageHost decides which applies per page type; Page itself just forwards whatever it's given. */
+  emoji?: string;
+  icon?: SystemIcon;
+  showMoreActions?: boolean;
+  /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. a Daily Note never gets onSelectEmoji). */
+  onSelectEmoji?(emoji: string): void;
+  onRemoveEmoji?(): void;
+  onSetCoverImage?(url: string): void;
+  onSetCoverImageFromUpload?(sourcePath: string): void;
   body?: ReactNode;
   coverImage?: string;
-  /** Forwarded to PageCover's "Remove" menu action — see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
+  /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
   onRemoveCoverImage?(): void;
-  /** Forwarded to PageCover's `hidden` prop — the persisted `coverHidden` metadata, not local state. See Page.Cover.tsx's own doc comment. */
+  /**
+   * Forwarded to PageCover's `hidden` prop — the persisted `coverHidden`
+   * metadata, not local state (see Page.Cover.tsx's own doc comment) —
+   * and to PageTitleSection, which uses it to swap the More-actions
+   * "Cover image" item for "Show cover image" once a cover is hidden.
+   */
   coverHidden?: boolean;
   /** Forwarded to PageCover's "Hide" menu action. */
   onHideCoverImage?(): void;
+  /** Forwarded to PageTitleSection's More-actions "Show cover image" item — reveals an existing hidden cover without opening the picker. */
+  onShowCoverImage?(): void;
   /**
    * A handle onto whatever's rendered in `body`, so title's Enter can
    * advance focus into it — Page doesn't need to know what body actually
@@ -82,11 +99,19 @@ export function Page({
   menu,
   actions,
   titleActions,
+  emoji,
+  icon,
+  showMoreActions,
+  onSelectEmoji,
+  onRemoveEmoji,
+  onSetCoverImage,
+  onSetCoverImageFromUpload,
   body,
   coverImage,
   onRemoveCoverImage,
   coverHidden,
   onHideCoverImage,
+  onShowCoverImage,
   bodyFocusRef,
   onTitleCommit,
   onTitleEdit,
@@ -141,6 +166,17 @@ export function Page({
               }
               description={description && <PageDescription>{description}</PageDescription>}
               actions={titleActions}
+              emoji={emoji}
+              icon={icon}
+              showMoreActions={showMoreActions}
+              onSelectEmoji={onSelectEmoji}
+              onRemoveEmoji={onRemoveEmoji}
+              hasCoverImage={Boolean(coverImage)}
+              coverHidden={coverHidden}
+              onSetCoverImage={onSetCoverImage}
+              onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+              onRemoveCoverImage={onRemoveCoverImage}
+              onShowCoverImage={onShowCoverImage}
             />
           </header>
           <main className="page__body">{body}</main>

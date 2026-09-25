@@ -1,0 +1,12 @@
+/* Composition-only styling for the swapped-in Cover image view — the
+   explicit width ImagePicker itself has always relied on an ancestor to
+   supply (it sets no width of its own; .image-picker__buttons/__tabs are
+   width: 100% relative to whatever contains them). 320px matches the
+   same size ResourceTopBarActions' own Popover (size="medium") already
+   gives it elsewhere in the app. EmojiTray needs no such rule — it sets
+   its own `width: fit-content` (EmojiTray.css) and is rendered directly,
+   unwrapped. */
+
+.page-header-more-actions-menu__cover {
+  width: 320px;
+}

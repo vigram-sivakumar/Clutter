@@ -33,6 +33,7 @@ import {
   getSystemLocationPresentation,
   getSystemLocationForFolder,
 } from '@core/presentation/systemPresentation';
+import type { SystemLocationId } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
 import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
@@ -414,6 +415,26 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     });
   };
 
+  // Same shared-across-draft-and-persisted reasoning as onSetCoverImage
+  // above — the page header's More-actions "Emoji" entry point (unset)
+  // and the emoji button's own ChangeIconPicker (already set) both funnel
+  // here, exactly one write path either way.
+  const onSelectEmoji = (emoji: string): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { icon: emoji });
+  };
+
+  const onRemoveEmoji = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { icon: null });
+  };
+
   // Distinct from onRemoveCoverImage: leaves `cover` untouched, only sets
   // coverHidden — see PageCover.tsx's own onHide doc comment for why this
   // needs no further sequencing beyond persisting the flag.
@@ -423,6 +444,18 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     }
 
     void application.pageOperations.updateMetadata(activePageId, { coverHidden: true });
+  };
+
+  // The reveal counterpart to onHideCoverImage above — same coverHidden-only
+  // patch, flipped back to false. Reached from the More-actions "Show cover
+  // image" item (PageHeaderMoreActionsMenu), never the picker: it must not
+  // touch `cover` itself.
+  const onShowCoverImage = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { coverHidden: false });
   };
 
   const onMoveNote = (destinationFolderId: string | null): void => {
@@ -513,6 +546,35 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       void application.folderOperations.updateMetadata(folder.id, {
         coverHidden: true,
       });
+    // Folder-scoped counterpart to the Note/DailyNote branch's
+    // onShowCoverImage above — reveals the existing cover without touching
+    // `cover`.
+    const onShowFolderCoverImage = (): void =>
+      void application.folderOperations.updateMetadata(folder.id, {
+        coverHidden: false,
+      });
+    // Named for the same reason onRemoveFolderCoverImage above is — the
+    // More-actions "Cover image" picker (PageHeaderMoreActionsMenu, via
+    // <Page>) needs the exact same set/upload calls buildTopBarActions'
+    // own cover-image menu item already uses, not a second copy.
+    const onSetFolderCoverImage = (url: string): void =>
+      void application.folderOperations.updateMetadata(folder.id, { cover: url });
+    const onSetFolderCoverImageFromUpload = (sourcePath: string): void => {
+      void (async () => {
+        const relativePath = await application.importCoverAsset(sourcePath);
+        await application.folderOperations.updateMetadata(folder.id, {
+          cover: relativePath,
+        });
+      })();
+    };
+    // The More-actions "Emoji" entry point's persistence — same
+    // FolderOperations.updateMetadata write path sidebar Folder.tsx's own
+    // ChangeIconPicker already uses (icon: null clears it, same as
+    // cover's own null-to-clear convention above).
+    const onSelectFolderEmoji = (emoji: string): void =>
+      void application.folderOperations.updateMetadata(folder.id, { icon: emoji });
+    const onRemoveFolderEmoji = (): void =>
+      void application.folderOperations.updateMetadata(folder.id, { icon: null });
 
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
@@ -524,17 +586,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         void application.folderOperations.updateMetadata(folder.id, {
           favorite: !folder.metadata.favorite,
         }),
-      onSetCoverImage: (url) =>
-        void application.folderOperations.updateMetadata(folder.id, { cover: url }),
-      onSetCoverImageFromUpload: (sourcePath) => {
-        void (async () => {
-          const relativePath = await application.importCoverAsset(sourcePath);
-          await application.folderOperations.updateMetadata(folder.id, {
-            cover: relativePath,
-          });
-        })();
-      },
-      onRemoveCoverImage: onRemoveFolderCoverImage,
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
@@ -565,8 +616,24 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // component's own doc comment for why this isn't a CollectionPageModel
     // extension. Every other folder (including every other reserved one)
     // keeps the exact same CollectionBody rendering as before.
-    const isArchiveView =
-      getSystemLocationForFolder(folder, application.membershipSelector) === 'archive';
+    const folderSystemLocationId = getSystemLocationForFolder(
+      folder,
+      application.membershipSelector
+    );
+    const isArchiveView = folderSystemLocationId === 'archive';
+    // Page-header-controls configuration (final UX rules): a reserved
+    // folder (Archive, Inbox, Templates, Daily Notes) is system-reserved —
+    // its fixed icon always shows, never an editable emoji, never More
+    // actions. An ordinary folder is user-owned — its own metadata.icon
+    // (if set) always shows, and More actions is hover-revealed. Daily
+    // Notes' `collectionIcon` (not `icon`) applies here specifically
+    // because this page represents the whole collection of daily notes,
+    // not one specific day — see SystemLocationPresentation's own doc
+    // comment on that field.
+    const folderSystemIcon = folderSystemLocationId
+      ? (getSystemLocationPresentation(folderSystemLocationId).collectionIcon ??
+        getSystemLocationPresentation(folderSystemLocationId).icon)
+      : undefined;
 
     return (
       <>
@@ -585,12 +652,22 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
           titleActions={collectionViewMenu}
+          emoji={folderSystemLocationId ? undefined : (folder.metadata.icon ?? undefined)}
+          icon={folderSystemIcon}
+          showMoreActions={!folderSystemLocationId}
+          onSelectEmoji={folderSystemLocationId ? undefined : onSelectFolderEmoji}
+          onRemoveEmoji={folderSystemLocationId ? undefined : onRemoveFolderEmoji}
+          onSetCoverImage={folderSystemLocationId ? undefined : onSetFolderCoverImage}
+          onSetCoverImageFromUpload={
+            folderSystemLocationId ? undefined : onSetFolderCoverImageFromUpload
+          }
           coverImage={
             application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
           }
           onRemoveCoverImage={onRemoveFolderCoverImage}
           coverHidden={model.coverHidden}
           onHideCoverImage={onHideFolderCoverImage}
+          onShowCoverImage={onShowFolderCoverImage}
           body={
             isArchiveView ? (
               <ArchiveCollectionBody
@@ -648,6 +725,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         title={getSystemLocationPresentation('assets').label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
+        icon={getSystemLocationPresentation('assets').icon}
+        showMoreActions={false}
         body={
           <AssetsCollectionBody
             resources={resources}
@@ -694,6 +773,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
+        icon={getSystemLocationPresentation(view).icon}
+        showMoreActions={false}
         body={
           <TasksCollectionBody
             view={view}
@@ -746,6 +827,18 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             view.tagName
           )
         : undefined;
+    // Page-header-controls configuration: every filtered view that reaches
+    // this branch (Workspace, Favorites, and an individual tag's notes) is
+    // system-reserved for header-presentation purposes — a fixed icon
+    // always shows, never an emoji control, never More actions. This is
+    // deliberately true for Tags too even though a Tag entity can carry
+    // its own icon (Tag.icon) and its title is renameable (onTitleCommit
+    // above, unaffected by this) — the header always shows the generic
+    // Tags icon, not a per-tag one. `view.kind` 'tag' maps to the
+    // SystemLocationId 'tags' (singular vs. plural — the filtered-view
+    // payload's own kind name vs. the presentation table's key).
+    const filteredViewSystemLocationId: SystemLocationId =
+      view.kind === 'tag' ? 'tags' : view.kind;
 
     return (
       <Page
@@ -759,6 +852,8 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
         titleActions={collectionViewMenu}
+        icon={getSystemLocationPresentation(filteredViewSystemLocationId).icon}
+        showMoreActions={false}
         body={
           <CollectionBody
             folders={model.folders}
@@ -807,11 +902,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       onUpdateMarkdown,
       onRequestSave
     );
-    const draftTopBar = buildDraftTopBarActions(draft.type, {
-      onSetCoverImage,
-      onSetCoverImageFromUpload,
-      onRemoveCoverImage,
-    });
+    const draftTopBar = buildDraftTopBarActions(draft.type);
 
     return (
       <Page
@@ -829,6 +920,14 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
         // archive/restore/delete render disabled, not omitted, since they
         // don't apply until this draft is actually persisted.
         actions={draftTopBar.actions}
+        // Same user-owned-vs-Daily-Note gating as the persisted branch
+        // below (page.type === 'note' there, draft.type === 'note' here)
+        // — a fresh Daily Note draft never offers an emoji control either.
+        onSelectEmoji={draft.type === 'note' ? onSelectEmoji : undefined}
+        onRemoveEmoji={draft.type === 'note' ? onRemoveEmoji : undefined}
+        onSetCoverImage={onSetCoverImage}
+        onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+        onRemoveCoverImage={onRemoveCoverImage}
         bodyFocusRef={editorRef}
         onTitleCommit={(title) =>
           void application.pageOperations.updateDraftTitle(activePageId, title)
@@ -914,9 +1013,6 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     onDelete,
     onDuplicate,
     onToggleFavorite,
-    onSetCoverImage,
-    onSetCoverImageFromUpload,
-    onRemoveCoverImage,
     // A note/daily-note delete is only ever reachable here for an
     // archived/Archive-descendant page (buildTopBarActions.tsx's
     // isDeletable) — every such delete now requires confirmation, so this
@@ -956,12 +1052,24 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
       onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
+      // Page-header-controls configuration: a Note is user-owned (its
+      // metadata.icon, when set, always shows; More actions is
+      // hover-revealed). A Daily Note shows neither emoji nor icon — its
+      // title is already its calendar identity — but keeps More actions
+      // on hover, same as a Note (isRenameable above draws the same
+      // note-vs-daily-note line for the title's own editability).
+      emoji={page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined}
+      onSelectEmoji={page.type === 'note' ? onSelectEmoji : undefined}
+      onRemoveEmoji={page.type === 'note' ? onRemoveEmoji : undefined}
+      onSetCoverImage={onSetCoverImage}
+      onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       coverImage={
         application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
       }
       onRemoveCoverImage={onRemoveCoverImage}
       coverHidden={model.coverHidden}
       onHideCoverImage={onHideCoverImage}
+      onShowCoverImage={onShowCoverImage}
       bodyFocusRef={editorRef}
       body={
         <MarkdownBody>

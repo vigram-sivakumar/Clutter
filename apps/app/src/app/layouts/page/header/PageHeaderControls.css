@@ -1,0 +1,55 @@
+.page-header-controls {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
+}
+.page-header-controls__emoji,
+.page-header-controls__emoji
+  .app-icon
+  .page-header-controls__emoji
+  .app-icon
+  .emoji-icon {
+  height: 72px;
+  width: 72px;
+  font-size: 72px;
+}
+.page-header-controls__emoji:hover {
+  opacity: var(--opacity-subtle);
+  transition: opacity 120ms ease;
+}
+
+/* The system-icon slot — same footprint as .page-header-controls__emoji
+   above so a system-reserved page's header doesn't jump when compared to
+   a user-owned one, but not a Button: nothing here is user-editable. */
+.page-header-controls__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72px;
+  width: 72px;
+  color: var(--foreground-secondary);
+}
+
+.page-header-controls__menu {
+  height: 16px;
+  width: var(--height-sm);
+
+  /* Hidden at rest, revealed by the containing PageTitleSection's own
+     :hover rule (Page.TitleSection.css) — stays mounted throughout so
+     revealing it never shifts layout. */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+/* Stays visible while its own menu is open, independent of hover — the
+   menu itself (PageHeaderMoreActionsMenu's Overlay) portals to
+   document.body, outside .page-title-section, so moving the mouse onto
+   an open menu's items is not "hovering the title section" and would
+   otherwise fade this trigger out from under its own open popup.
+   aria-expanded is already set by the button itself (open state), not a
+   class added just for this. */
+.page-header-controls__menu[aria-expanded='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
