@@ -1683,6 +1683,24 @@
   text-underline-offset: var(--md-link-underline-offset);
   cursor: pointer;
 }
+
+/* WKWebView (Tauri/macOS) rasterizes a 0.5px (= 1 device px at 2x DPR)
+ * `text-decoration-thickness` inconsistently depending on each
+ * occurrence's sub-pixel horizontal offset in the line — confirmed live
+ * inside the actual Tauri app: computed `text-decoration-thickness` was
+ * identical (0.5px) across every instance of the same repeated
+ * `[Google](www.google.co.in)` link, so this is rasterization, not a
+ * CSS/decoration bug (the bug that WAS real — `.tok-link`/`.tok-link-strike`
+ * nesting order — is fixed separately, in `inlineLivePreviewParticipants.ts`).
+ * 1px (= 2 device px) gives WKWebView's rasterizer enough budget to render
+ * consistently regardless of offset. Chromium (web) already renders 0.5px
+ * consistently and is deliberately left untouched — this rule is scoped to
+ * `[data-runtime='tauri']` only (set once at startup by `main.tsx`), the
+ * same precedented pattern `Page.TopBar.css` and `SidebarToggle.css` use
+ * for other WKWebView-specific rendering differences. */
+:root[data-runtime='tauri'] .cm-editor .tok-link {
+  text-decoration-thickness: 1px;
+}
 /* A struck link is two nested spans (`inlineLivePreviewParticipants.ts`'s
  * `linkContentDecorations`) — an outer `.tok-link` (unchanged, above:
  * color + thin transparent underline) wrapping an inner `.tok-link-strike`
