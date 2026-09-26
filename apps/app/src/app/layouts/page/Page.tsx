@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
 import type { SystemIcon } from '@shared/icon';
+import type { CoverLayout } from '@core/vault/models/PageMetadata';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
@@ -54,6 +55,22 @@ type PageProps = {
   onHideCoverImage?(): void;
   /** Forwarded to PageTitleSection's More-actions "Show cover image" item — reveals an existing hidden cover without opening the picker. */
   onShowCoverImage?(): void;
+  /**
+   * Where the cover renders relative to the title — 'side' (default) or
+   * 'above'. Drives PageCover's placement in the DOM: 'side' keeps it a
+   * sibling of `.page__document` (the original, unchanged layout — see
+   * Page.Cover.css's base `.page__cover` rules); 'above' mounts it
+   * *inside* `.page__content`, immediately before `.page__header`, so it
+   * scrolls with the title/body instead of participating in `.page`'s
+   * outer row layout (see Page.Cover.css's `.page__content > .page__cover`
+   * override, keyed off this DOM position rather than a layout class).
+   * Layout switching itself is never animated — a structural/positional
+   * change, not a visibility change — kept deliberately separate from the
+   * Side layout's Hide/Show collapse transition, which 'above' never uses.
+   */
+  coverLayout?: CoverLayout;
+  /** Forwarded to PageCover's "Layout" menu action. */
+  onSetCoverLayout?(layout: CoverLayout): void;
   /**
    * React key for `<PageCover>` (not for `Page` itself — same convention
    * as `titleKey` above), keyed by the active resource's own id (a page's
@@ -136,6 +153,8 @@ export function Page({
   coverHidden,
   onHideCoverImage,
   onShowCoverImage,
+  coverLayout = 'side',
+  onSetCoverLayout,
   coverKey,
   bodyFocusRef,
   onTitleCommit,
@@ -159,6 +178,21 @@ export function Page({
   // page-type knowledge Page itself would otherwise need.
   const shouldAutoFocusTitle = Boolean(titleEditable) && title === '';
 
+  const cover = coverImage && (
+    <PageCover
+      key={coverKey}
+      src={coverImage}
+      onRemove={onRemoveCoverImage}
+      hidden={coverHidden}
+      onHide={onHideCoverImage}
+      onSetCoverImage={onSetCoverImage}
+      onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+      layout={coverLayout}
+      onSetLayout={onSetCoverLayout}
+      hasEmoji={Boolean(emoji)}
+    />
+  );
+
   return (
     <div className="page">
       <div className="page__document">
@@ -172,6 +206,7 @@ export function Page({
           onNavigateForward={onNavigateForward}
         />
         <div className="page__content">
+          {coverLayout === 'above' && cover}
           <header className="page__header">
             <PageTitleSection
               title={
@@ -208,17 +243,7 @@ export function Page({
           <main className="page__body">{body}</main>
         </div>
       </div>
-      {coverImage && (
-        <PageCover
-          key={coverKey}
-          src={coverImage}
-          onRemove={onRemoveCoverImage}
-          hidden={coverHidden}
-          onHide={onHideCoverImage}
-          onSetCoverImage={onSetCoverImage}
-          onSetCoverImageFromUpload={onSetCoverImageFromUpload}
-        />
-      )}
+      {coverLayout === 'side' && cover}
     </div>
   );
 }

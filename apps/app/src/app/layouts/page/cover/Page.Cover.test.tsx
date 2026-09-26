@@ -150,6 +150,55 @@ describe('PageCover — More actions menu', () => {
   });
 });
 
+describe('PageCover — Position menu', () => {
+  it('omits the Position section when onSetLayout is not supplied', () => {
+    renderCover({ onSetLayout: undefined });
+
+    expect(screen.queryByText('Position')).not.toBeInTheDocument();
+    expect(screen.queryByText('Right')).not.toBeInTheDocument();
+    expect(screen.queryByText('Top')).not.toBeInTheDocument();
+  });
+
+  it('lists Right and Top when onSetLayout is supplied, with the current layout selected', () => {
+    renderCover({ onSetLayout: vi.fn(), layout: 'above' });
+
+    expect(screen.getByText('Position')).toBeInTheDocument();
+    const side = screen.getByText('Right').closest('[role="menuitem"]')!;
+    const above = screen.getByText('Top').closest('[role="menuitem"]')!;
+    expect(side.className).not.toContain('entry-selected');
+    expect(above.className).toContain('entry-selected');
+  });
+
+  it('clicking Top calls onSetLayout("above") and closes the menu — never onHide/onRemove/onSetCoverImage', () => {
+    const onSetLayout = vi.fn();
+    const { onHide, onRemove, onSetCoverImage } = renderCover({ onSetLayout });
+
+    fireEvent.click(screen.getByText('Top'));
+
+    expect(onSetLayout).toHaveBeenCalledWith('above');
+    expect(onHide).not.toHaveBeenCalled();
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(onSetCoverImage).not.toHaveBeenCalled();
+    expect(document.querySelector('.menu')).not.toBeInTheDocument();
+  });
+
+  it('clicking Right calls onSetLayout("side")', () => {
+    const onSetLayout = vi.fn();
+    renderCover({ onSetLayout, layout: 'above' });
+
+    fireEvent.click(screen.getByText('Right'));
+
+    expect(onSetLayout).toHaveBeenCalledWith('side');
+  });
+
+  it('defaults the selected row to Right when layout is not supplied', () => {
+    renderCover({ onSetLayout: vi.fn() });
+
+    const side = screen.getByText('Right').closest('[role="menuitem"]')!;
+    expect(side.className).toContain('entry-selected');
+  });
+});
+
 describe('PageCover — add/change/remove has no lifecycle animation machinery', () => {
   it('renders the image immediately on mount, with no loading/removing markers', () => {
     render(<PageCover src="cover.png" />);

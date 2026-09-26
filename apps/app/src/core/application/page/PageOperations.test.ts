@@ -54,6 +54,7 @@ const defaultFolderMetadata = {
   description: '',
   cover: null,
   coverHidden: false,
+  coverLayout: 'side' as const,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,
@@ -399,6 +400,44 @@ describe('PageOperations.updateMetadata()', () => {
       pageOperations.updateMetadata('does-not-exist', { description: 'x' })
     ).rejects.toThrow(/Page not found/);
   });
+
+  it('defaults coverLayout to "side" when absent from frontmatter', async () => {
+    const page = buildPage();
+    const { vault } = setup(page);
+
+    expect(vault.getPage(page.id)!.metadata.coverLayout).toBe('side');
+  });
+
+  it('persists a coverLayout patch to disk and the vault, omitting it from frontmatter when set back to "side"', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, { coverLayout: 'above' });
+
+    expect(vault.getPage(page.id)!.metadata.coverLayout).toBe('above');
+    expect(await fileSystem.readFile(page.path)).toContain(
+      'coverLayout: above'
+    );
+
+    await pageOperations.updateMetadata(page.id, { coverLayout: 'side' });
+
+    expect(vault.getPage(page.id)!.metadata.coverLayout).toBe('side');
+    expect(await fileSystem.readFile(page.path)).not.toContain('coverLayout');
+  });
+
+  it('changing coverLayout never touches cover or coverHidden', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, { cover: 'cover.png' });
+    await pageOperations.updateMetadata(page.id, { coverHidden: true });
+    await pageOperations.updateMetadata(page.id, { coverLayout: 'above' });
+
+    const updated = vault.getPage(page.id)!;
+    expect(updated.metadata.cover).toBe('cover.png');
+    expect(updated.metadata.coverHidden).toBe(true);
+    expect(updated.metadata.coverLayout).toBe('above');
+  });
 });
 
 describe('PageOperations.save(): round-trip and failure behavior', () => {
@@ -588,6 +627,7 @@ function makeFolder(id: string, path: string): Folder {
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'active',
       archivedAt: null,
       originalPath: null,

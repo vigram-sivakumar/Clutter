@@ -63,6 +63,82 @@
   }
 }
 
+/* Above-title layout: Page.tsx mounts this same PageCover *inside*
+   `.page__content`, immediately before `.page__header`, instead of as a
+   `.page__document` sibling (see Page.tsx's own `coverLayout` doc
+   comment) — so it scrolls with the title/body and is keyed off that DOM
+   position (a direct `.page__content` child), not a layout class.
+   `.page__content` is a `flex-direction: column` container with
+   `align-items` left at its default `stretch`, so this alone gives the
+   cover the same width as the title/body content area without any width
+   math of our own — `max-width` only needs to cancel the base rule's
+   Side-specific `var(--app-sidebar-width)` cap (padding-inline, not
+   margin, insets the image itself — margin here would push the box wider
+   than its 100% width, per the content-box model). 240px reuses the Side
+   layout's own `min-width` value above (not a new, screenshot-derived
+   number) purely as a reasonable default cover height.
+
+   `transition: none` is the important rule here, not the sizing: Side's
+   Hide/Show collapse (the base `.page__cover` transition + its
+   `[data-hidden]` rule above) must never apply to this instance — every
+   Above-layout state change (add/change/remove/hide/show) is instant, per
+   the product spec. Specificity (two classes) beats the plain
+   `.page__cover` rule's transition regardless of stylesheet order. */
+.page__content > .page__cover {
+  transition: none;
+
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  padding-inline: 8px;
+  min-width: 0;
+  height: 240px;
+
+  margin-left: 0;
+  margin-bottom: -52px;
+  border-radius: var(--border-radius);
+}
+.page__content > .page__cover .page__cover__change {
+  top: 12px;
+  right: 20px;
+}
+
+/* Above layout + a user emoji only (never a system icon — PageCover's own
+   `hasEmoji` doc comment) pulls the cover's bottom edge up so it lands at
+   the emoji badge's vertical center instead of its top edge, letting the
+   emoji visually sit half over the cover. The title section itself is
+   never touched (stays in normal flow, per Page.TitleSection.css) — only
+   the cover gains negative space via its own margin.
+
+   Value tuned directly against the running app rather than derived from a
+   fixed formula (the title/emoji spacing this targets isn't captured by a
+   single shared token today), so it's named here as a local,
+   clearly-scoped variable rather than inlining a bare `-104px`.
+   `hasEmoji` (not layout) is what
+   PageCover exposes — this rule itself supplies the "only in Above"
+   restriction via the `.page__content >` ancestor, which Side's
+   `.page__cover` (a `.page` child) never matches, so a system-icon page's
+   or Side layout's cover is completely unaffected regardless of
+   `data-emoji-overlap`. */
+.page__content > .page__cover[data-emoji-overlap] {
+  --emoji-overlap: 104px;
+  margin-bottom: calc(-1 * var(--emoji-overlap));
+}
+
+/* Above-layout's own instant hide/show: `display: none` rather than the
+   Side layout's flex-basis/flex-grow collapse — `.page__content`'s own
+   `gap` (Page.css) applies between flex children regardless of their
+   size, so a merely zero-height cover would still leave a stray gap above
+   the title; removing it from layout entirely avoids that, and since
+   Above never animates this transition anyway, `display: none` costs
+   nothing. Three selectors (0,3,0) deliberately outrank both the plain
+   `.page__cover[data-hidden]` rule (Side's animated collapse, 0,2,0) and
+   `.page__content > .page__cover` above (0,2,0), so this wins regardless
+   of stylesheet order whenever both apply at once. */
+.page__content > .page__cover[data-hidden] {
+  display: none;
+}
+
 .page-cover__image {
   display: block;
   width: 100%;

@@ -14,6 +14,7 @@ function makePage(overrides: Partial<Page> = {}): Page {
       icon: '📝',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       description: null,
       favorite: true,
       status: 'active',
@@ -78,6 +79,26 @@ describe('FrontmatterSerializer round-trip', () => {
     const second = serializer.serializePage(page);
 
     expect(first).toBe(second);
+  });
+
+  it('omits coverLayout when it is the default ("side")', () => {
+    const page = makePage();
+
+    const frontmatterBlock = serializer.serializePage(page);
+
+    expect(frontmatterBlock).not.toContain('coverLayout');
+  });
+
+  it('writes and round-trips a non-default coverLayout ("above")', () => {
+    const page = makePage({
+      metadata: { ...makePage().metadata, coverLayout: 'above' },
+    });
+
+    const frontmatterBlock = serializer.serializePage(page);
+    const parsed = parser.parse(`${frontmatterBlock}\n`);
+
+    expect(frontmatterBlock).toContain('coverLayout: above');
+    expect(parsed.frontmatter.coverLayout).toBe('above');
   });
 
   it('omits undefined optional fields rather than emitting "undefined"', () => {

@@ -21,6 +21,7 @@ const defaultMetadata: Page['metadata'] = {
   icon: null,
   cover: null,
   coverHidden: false,
+  coverLayout: 'side' as const,
   description: null,
   favorite: false,
   status: 'active',

@@ -98,8 +98,9 @@ export function PageTitleSection({
         </div>
 
         {description}
-        {belowDescription}
       </div>
+      {/* This is should be outside the content div */}
+      {belowDescription}
     </header>
   );
 }

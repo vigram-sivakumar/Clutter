@@ -40,6 +40,7 @@ export class FolderBuilder {
         description: frontmatter?.description ?? '',
         cover: frontmatter?.cover ?? null,
         coverHidden: frontmatter?.coverHidden ?? false,
+        coverLayout: frontmatter?.coverLayout ?? 'side',
         status: frontmatter?.status ?? 'active',
         archivedAt: frontmatter?.archivedAt ?? null,
         originalPath: frontmatter?.originalPath ?? null,

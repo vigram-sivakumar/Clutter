@@ -1457,6 +1457,7 @@ export class PagePersistenceCoordinator {
     icon?: PageMetadata['icon'];
     cover?: PageMetadata['cover'];
     coverHidden?: PageMetadata['coverHidden'];
+    coverLayout?: PageMetadata['coverLayout'];
     favorite?: PageMetadata['favorite'];
   } {
     const patch: {
@@ -1464,6 +1465,7 @@ export class PagePersistenceCoordinator {
       icon?: PageMetadata['icon'];
       cover?: PageMetadata['cover'];
       coverHidden?: PageMetadata['coverHidden'];
+      coverLayout?: PageMetadata['coverLayout'];
       favorite?: PageMetadata['favorite'];
     } = {};
 
@@ -1478,6 +1480,9 @@ export class PagePersistenceCoordinator {
     }
     if (frontmatter.coverHidden !== undefined) {
       patch.coverHidden = frontmatter.coverHidden;
+    }
+    if (frontmatter.coverLayout !== undefined) {
+      patch.coverLayout = frontmatter.coverLayout;
     }
     if (frontmatter.favorite !== undefined) {
       patch.favorite = frontmatter.favorite;

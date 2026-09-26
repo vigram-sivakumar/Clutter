@@ -26,6 +26,7 @@ function makePage(overrides: Partial<Page> = {}): Page {
       description: null,
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'active',
       archivedAt: null,
       originalPath: null,

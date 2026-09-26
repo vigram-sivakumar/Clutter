@@ -35,6 +35,7 @@ const defaultFolderMetadata = {
   description: '',
   cover: null,
   coverHidden: false,
+  coverLayout: 'side' as const,
   status: 'active' as const,
   archivedAt: null,
   originalPath: null,

@@ -1,3 +1,5 @@
+import type { CoverLayout } from '../../models';
+
 export interface FolderFrontmatter {
   id?: string;
 
@@ -6,6 +8,7 @@ export interface FolderFrontmatter {
   description?: string;
   cover?: string;
   coverHidden?: boolean;
+  coverLayout?: CoverLayout;
   status?: 'active' | 'archived';
   archivedAt?: string | null;
   originalPath?: string | null;

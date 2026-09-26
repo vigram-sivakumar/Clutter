@@ -149,6 +149,7 @@ function toFilteredCollectionPageModel(
       description: '',
       coverImage: null,
       coverHidden: false,
+      coverLayout: 'side',
       folders: [],
       notes,
     };
@@ -174,6 +175,7 @@ function toFilteredCollectionPageModel(
     description: '',
     coverImage: null,
     coverHidden: false,
+    coverLayout: 'side',
     folders: rawFolders.map((child) =>
       toCollectionEntry(child, actions, workspace.activeFolderId === child.id, membershipSelector)
     ),
@@ -234,6 +236,7 @@ function toFolderCollectionPageModel(
     description: folder.metadata.description,
     coverImage: folder.metadata.cover,
     coverHidden: folder.metadata.coverHidden,
+    coverLayout: folder.metadata.coverLayout,
     folders,
     notes,
   };

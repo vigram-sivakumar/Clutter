@@ -26,6 +26,7 @@ function makeFolder(id: string, path: string): Folder {
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'active',
       archivedAt: null,
       originalPath: null,

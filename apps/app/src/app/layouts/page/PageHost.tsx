@@ -593,6 +593,18 @@ export function PageHost({
     });
   };
 
+  // PageCover's own "Layout" menu action — only ever changes coverLayout,
+  // never cover/coverHidden (see PageCover.tsx's onSetLayout doc comment).
+  const onSetCoverLayout = (layout: 'side' | 'above'): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, {
+      coverLayout: layout,
+    });
+  };
+
   const onMoveNote = (destinationFolderId: string | null): void => {
     if (!activePageId) {
       return;
@@ -695,6 +707,12 @@ export function PageHost({
     const onShowFolderCoverImage = (): void =>
       void application.folderOperations.updateMetadata(folder.id, {
         coverHidden: false,
+      });
+    // Folder-scoped counterpart to the Note/DailyNote branch's
+    // onSetCoverLayout above — only ever changes coverLayout.
+    const onSetFolderCoverLayout = (layout: 'side' | 'above'): void =>
+      void application.folderOperations.updateMetadata(folder.id, {
+        coverLayout: layout,
       });
     // Named for the same reason onRemoveFolderCoverImage above is — the
     // More-actions "Cover image" picker (PageHeaderMoreActionsMenu, via
@@ -896,6 +914,8 @@ export function PageHost({
           coverHidden={model.coverHidden}
           onHideCoverImage={onHideFolderCoverImage}
           onShowCoverImage={onShowFolderCoverImage}
+          coverLayout={model.coverLayout}
+          onSetCoverLayout={onSetFolderCoverLayout}
           coverKey={folder.id}
           body={
             isArchiveView ? (
@@ -1397,6 +1417,8 @@ export function PageHost({
       coverHidden={model.coverHidden}
       onHideCoverImage={onHideCoverImage}
       onShowCoverImage={onShowCoverImage}
+      coverLayout={model.coverLayout}
+      onSetCoverLayout={onSetCoverLayout}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
       body={

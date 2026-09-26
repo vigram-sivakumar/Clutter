@@ -42,6 +42,7 @@ function makeFolder(overrides: Partial<Folder> & Pick<Folder, 'id' | 'path'>): F
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'active',
       archivedAt: null,
       originalPath: null,

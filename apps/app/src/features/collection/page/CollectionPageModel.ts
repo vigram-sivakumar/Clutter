@@ -1,4 +1,5 @@
 import type { CollectionEntryModel } from './CollectionEntryModel';
+import type { CoverLayout } from '@core/vault/models/PageMetadata';
 
 export interface CollectionPageActions {
   onOpenFolder(id: string): void;
@@ -18,6 +19,7 @@ export interface CollectionPageModel {
   readonly description: string;
   readonly coverImage: string | null;
   readonly coverHidden: boolean;
+  readonly coverLayout: CoverLayout;
   readonly folders: readonly CollectionEntryModel[];
   readonly notes: readonly CollectionEntryModel[];
 }

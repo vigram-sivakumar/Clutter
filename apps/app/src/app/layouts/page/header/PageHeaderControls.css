@@ -1,7 +1,8 @@
 .page-header-controls {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   gap: var(--space-12);
+  z-index: 1;
 }
 .page-header-controls__emoji {
   height: 72px;

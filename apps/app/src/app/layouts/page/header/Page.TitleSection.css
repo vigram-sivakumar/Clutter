@@ -27,7 +27,7 @@
 
 .page-title-section__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-8);
 
@@ -43,4 +43,5 @@
   align-items: center;
   flex-shrink: 0;
   gap: var(--space-6);
+  min-height: var(--lh-display);
 }

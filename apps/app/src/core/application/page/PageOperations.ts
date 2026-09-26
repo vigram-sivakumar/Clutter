@@ -85,7 +85,7 @@ export interface CreatePageOptions {
  */
 export type EditablePageMetadata = Pick<
   PageMetadata,
-  'description' | 'icon' | 'cover' | 'coverHidden' | 'favorite'
+  'description' | 'icon' | 'cover' | 'coverHidden' | 'coverLayout' | 'favorite'
 >;
 
 /** The public shape UI reads for a draft it can't find in the Vault yet — see PageOperations.getDraft(). */
@@ -1302,8 +1302,8 @@ export class PageOperations {
   }
 
   /**
-   * Updates user-editable metadata (description, icon, cover, favorite) for
-   * a page — persisted or still a draft.
+   * Updates user-editable metadata (description, icon, cover, coverHidden,
+   * coverLayout, favorite) for a page — persisted or still a draft.
    *
    * Persisted branch (unchanged from before this milestone): deliberately
    * does not touch DocumentSession or SaveCoordinator — a metadata edit is

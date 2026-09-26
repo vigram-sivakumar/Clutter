@@ -69,6 +69,12 @@ export class FrontmatterSerializer {
       // that way until Hide is used; it doesn't grow a `coverHidden:
       // false` line on every save).
       ['coverHidden', page.metadata.coverHidden || undefined],
+      // Same omit-on-default convention as coverHidden above, keyed to
+      // coverLayout's own default ('side') instead of `false`.
+      [
+        'coverLayout',
+        page.metadata.coverLayout === 'side' ? undefined : page.metadata.coverLayout,
+      ],
       ['description', page.metadata.description],
       ['status', page.metadata.status],
       ['archivedAt', page.metadata.archivedAt],
@@ -119,6 +125,11 @@ export class FrontmatterSerializer {
       ['cover', folder.metadata.cover],
       // See serializePage's identical `|| undefined` for coverHidden.
       ['coverHidden', folder.metadata.coverHidden || undefined],
+      // See serializePage's identical default-omission for coverLayout.
+      [
+        'coverLayout',
+        folder.metadata.coverLayout === 'side' ? undefined : folder.metadata.coverLayout,
+      ],
       ['status', folder.metadata.status],
       ['archivedAt', folder.metadata.archivedAt],
       ['originalPath', folder.metadata.originalPath],

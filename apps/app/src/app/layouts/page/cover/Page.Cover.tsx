@@ -3,9 +3,11 @@ import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { ImagePicker } from './image-picker/ImagePicker';
 import './Page.Cover.css';
 import { AppIcon } from '@shared/icon';
+import type { CoverLayout } from '@core/vault/models/PageMetadata';
 
 type PageCoverProps = {
   src?: string;
@@ -57,6 +59,33 @@ type PageCoverProps = {
    */
   onSetCoverImage?: (url: string) => void;
   onSetCoverImageFromUpload?: (sourcePath: string) => void;
+  /**
+   * Current persisted `coverLayout` ('side' default, or 'above') — drives
+   * which of the two "Position" menu rows below shows as selected. Read the
+   * same way `hidden` reads `coverHidden`: durable state, not local.
+   */
+  layout?: CoverLayout;
+  /**
+   * Persists a new `coverLayout` (PageHost's onSetCoverLayout /
+   * onSetFolderCoverLayout) — only ever that field, mirroring onHide's own
+   * "persist the one flag, nothing else" shape. Presence gates the
+   * "Position" menu section the same way onSetCoverImage gates "Change
+   * cover image", so the section only ever appears once a real handler is
+   * wired — never a dead control (rule 12).
+   */
+  onSetLayout?: (layout: CoverLayout) => void;
+  /**
+   * Whether the title has a user-picked emoji (PageTitleSection/Page's own
+   * `emoji` prop) — never a system icon (Daily Notes' fixed calendar
+   * glyph, Page's separate `icon` prop): a fact about the resource, read
+   * the same way `hidden` reads `coverHidden`, not derived from the DOM
+   * here. Only ever visually relevant in Above layout (Page.Cover.css's
+   * `[data-emoji-overlap]` rule is scoped to a `.page__content` ancestor,
+   * which only exists there — see Page.tsx's own `coverLayout` doc
+   * comment), so this prop stays a plain fact and carries no layout
+   * knowledge of its own.
+   */
+  hasEmoji?: boolean;
 };
 
 type MenuView = 'menu' | 'picker';
@@ -76,6 +105,9 @@ export function PageCover({
   onHide,
   onSetCoverImage,
   onSetCoverImageFromUpload,
+  layout = 'side',
+  onSetLayout,
+  hasEmoji,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
   // 'menu' (Change cover image/Hide/Remove) vs 'picker' (the existing
@@ -125,7 +157,11 @@ export function PageCover({
   }
 
   return (
-    <aside className="page__cover" data-hidden={hidden || undefined}>
+    <aside
+      className="page__cover"
+      data-hidden={hidden || undefined}
+      data-emoji-overlap={hasEmoji || undefined}
+    >
       <Button
         className="page__cover__change"
         ref={triggerRef}
@@ -161,6 +197,35 @@ export function PageCover({
               >
                 Change cover image
               </MenuItem>
+            )}
+            {onSetLayout && (
+              <>
+                <div className="menu__divider" role="separator" />
+                <MenuGroupTitle>Position</MenuGroupTitle>
+                <MenuItem
+                  leading={<AppIcon icon="positionRight" />}
+                  selected={layout === 'side'}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen(false);
+                    onSetLayout('side');
+                  }}
+                >
+                  Right
+                </MenuItem>
+                <MenuItem
+                  leading={<AppIcon icon="positionTop" />}
+                  selected={layout === 'above'}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen(false);
+                    onSetLayout('above');
+                  }}
+                >
+                  Top
+                </MenuItem>
+                <div className="menu__divider" role="separator" />
+              </>
             )}
             <MenuItem
               leading={<AppIcon icon="hide" />}

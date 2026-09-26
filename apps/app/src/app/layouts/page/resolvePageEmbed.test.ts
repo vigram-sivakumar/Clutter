@@ -26,6 +26,7 @@ const defaultPageMetadata = {
   icon: null,
   cover: null,
   coverHidden: false,
+  coverLayout: 'side' as const,
   description: '',
   favorite: false,
   status: 'active' as const,

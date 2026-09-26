@@ -115,6 +115,11 @@ export class FrontmatterParser {
             frontmatter.coverHidden = scalar;
           }
           break;
+        case 'coverLayout':
+          if (scalar === 'side' || scalar === 'above') {
+            frontmatter.coverLayout = scalar;
+          }
+          break;
         case 'description':
           if (typeof scalar === 'string') {
             frontmatter.description = scalar;

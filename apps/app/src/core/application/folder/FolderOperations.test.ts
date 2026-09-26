@@ -32,6 +32,7 @@ function makeFolder(id: string, path: string, parentId: string | null = null): F
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'active',
       archivedAt: null,
       originalPath: null,
@@ -51,6 +52,7 @@ function makePage(id: string, path: string, parentId: string | null): Page {
       icon: null,
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       description: null,
       favorite: false,
       status: 'active',
@@ -783,6 +785,7 @@ describe('FolderOperations.archive() (ADR-026)', () => {
         description: '',
         cover: null,
         coverHidden: false,
+        coverLayout: 'side' as const,
         status: 'archived',
         archivedAt: '2026-01-01T00:00:00.000Z',
         originalPath: `${ROOT}/Projects`,
@@ -951,6 +954,7 @@ function makeArchivedFolder(options: {
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status: 'archived',
       archivedAt: '2026-07-29T00:00:00.000Z',
       originalPath: options.originalPath,
@@ -1163,6 +1167,44 @@ describe('FolderOperations.updateMetadata() (cover)', () => {
     );
     const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
     expect(content).toContain('https://example.com/cover.png');
+  });
+});
+
+describe('FolderOperations.updateMetadata() (coverLayout)', () => {
+  it('defaults to "side" and omits coverLayout from .folder.md when absent', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      ['---', 'id: folder-1', '---', ''].join('\n')
+    );
+
+    expect(vault.getFolder('folder-1')!.metadata.coverLayout).toBe('side');
+
+    await folderOperations.updateMetadata('folder-1', { cover: 'x.png' });
+
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).not.toContain('coverLayout');
+  });
+
+  it('sets coverLayout in the vault and persists it to the .folder.md on disk, independent of coverHidden', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', {
+      cover: 'https://example.com/cover.png',
+      coverHidden: true,
+    });
+    await folderOperations.updateMetadata('folder-1', { coverLayout: 'above' });
+
+    const updated = vault.getFolder('folder-1')!;
+    expect(updated.metadata.coverLayout).toBe('above');
+    expect(updated.metadata.coverHidden).toBe(true);
+    expect(updated.metadata.cover).toBe('https://example.com/cover.png');
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('coverLayout: above');
   });
 });
 

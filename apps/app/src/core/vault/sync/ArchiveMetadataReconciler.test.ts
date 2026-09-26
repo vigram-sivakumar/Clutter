@@ -22,6 +22,7 @@ function buildFolder(path: string, status: 'active' | 'archived'): Folder {
       description: '',
       cover: null,
       coverHidden: false,
+      coverLayout: 'side' as const,
       status,
       archivedAt: status === 'archived' ? '2024-01-01T00:00:00.000Z' : null,
       originalPath: status === 'archived' ? `${ROOT}/Projects` : null,

@@ -39,6 +39,97 @@ describe('Page — title autofocus', () => {
   });
 });
 
+describe('Page — cover layout placement', () => {
+  it('defaults to Side: PageCover renders as a .page__document sibling, not inside .page__content', () => {
+    render(<Page title="Note" body={<div />} coverImage="cover.png" />);
+
+    const page = document.querySelector('.page')!;
+    const content = document.querySelector('.page__content')!;
+    expect(Array.from(page.children).some((c) => c.classList.contains('page__cover'))).toBe(
+      true
+    );
+    expect(content.querySelector('.page__cover')).toBeNull();
+  });
+
+  it('Above: PageCover renders inside .page__content, immediately before .page__header', () => {
+    render(
+      <Page title="Note" body={<div />} coverImage="cover.png" coverLayout="above" />
+    );
+
+    const page = document.querySelector('.page')!;
+    const content = document.querySelector('.page__content')!;
+    // Never a direct .page child in Above layout.
+    expect(Array.from(page.children).some((c) => c.classList.contains('page__cover'))).toBe(
+      false
+    );
+    expect(content.firstElementChild!.classList.contains('page__cover')).toBe(true);
+    expect(content.children[1]!.classList.contains('page__header')).toBe(true);
+  });
+
+  it('renders no cover element at all when there is no coverImage, regardless of coverLayout', () => {
+    render(<Page title="Note" body={<div />} coverLayout="above" />);
+
+    expect(document.querySelector('.page__cover')).toBeNull();
+  });
+});
+
+describe('Page — cover/emoji overlap attribute (Above layout, user emoji only)', () => {
+  it('Above + cover + emoji: sets data-emoji-overlap on the cover', () => {
+    render(
+      <Page
+        title="Note"
+        body={<div />}
+        coverImage="cover.png"
+        coverLayout="above"
+        emoji="🎉"
+      />
+    );
+
+    expect(document.querySelector('.page__cover')).toHaveProperty(
+      'dataset.emojiOverlap',
+      'true'
+    );
+  });
+
+  it('Above + cover + no emoji: does not set data-emoji-overlap', () => {
+    render(<Page title="Note" body={<div />} coverImage="cover.png" coverLayout="above" />);
+
+    expect(document.querySelector('.page__cover')).not.toHaveProperty(
+      'dataset.emojiOverlap'
+    );
+  });
+
+  it('Side + cover + emoji: the cover still gets the hasEmoji fact, but Side CSS never matches it (no .page__content ancestor)', () => {
+    render(
+      <Page title="Note" body={<div />} coverImage="cover.png" coverLayout="side" emoji="🎉" />
+    );
+
+    const cover = document.querySelector('.page__cover')!;
+    // Fact is still passed through (PageCover doesn't know about layout) —
+    // what actually prevents the overlap in Side is the CSS ancestor
+    // selector, verified structurally: the cover is a .page child, not a
+    // .page__content descendant.
+    expect(cover.parentElement!.classList.contains('page')).toBe(true);
+    expect(document.querySelector('.page__content > .page__cover')).toBeNull();
+  });
+
+  it('a system icon (not emoji) never sets data-emoji-overlap', () => {
+    render(
+      <Page
+        title="Daily Note"
+        body={<div />}
+        coverImage="cover.png"
+        coverLayout="above"
+        icon="calendar"
+      />
+    );
+
+    expect(document.querySelector('.page__cover')).not.toHaveProperty(
+      'dataset.emojiOverlap'
+    );
+  });
+});
+
 describe('Page — title Enter advances focus to the body', () => {
   it('calls bodyFocusRef.focusAtNewLineAtStart() when Enter is pressed in the title', () => {
     const bodyFocusRef = makeBodyFocusRef();
