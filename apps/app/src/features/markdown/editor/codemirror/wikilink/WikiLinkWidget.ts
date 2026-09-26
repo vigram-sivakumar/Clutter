@@ -25,9 +25,17 @@ import type { WikiLinkResolution } from './wikiLinkResolution';
  * construct (`~~[[Page]]~~` → `tok-strike`, arbitrary depth/order), applied
  * directly onto this widget's own root element. This is what lets
  * `.tok-strike`'s plain, non-descendant `text-decoration-line` rule apply
- * to a WikiLink correctly despite `.tok-wikilink` being an atomic
- * (`display: inline-flex`) box that an ancestor's decoration line cannot
- * otherwise paint through — no CSS ancestor selector is needed or used.
+ * to a WikiLink correctly with no CSS ancestor selector needed or used —
+ * `.tok-wikilink` is an ordinary, fragmentable inline element (not an
+ * atomic box; see `MarkdownEditor.css`'s `.tok-wikilink` rule), so this
+ * self-composed class is the *only* source of a struck WikiLink's
+ * strikethrough: `Strikethrough`'s own renderer
+ * (`STRIKETHROUGH_PROTECTED_NODE_NAMES` in `inlineLivePreviewParticipants.ts`)
+ * excludes `WikiLink` from its own ancestor `.tok-strike` span for exactly
+ * this reason — otherwise the ancestor's propagated line-through and this
+ * self-composed one would be two overlapping decorating boxes painting the
+ * same line, which WKWebView doesn't reliably composite (the same bug
+ * fixed for Markdown links; see that file's own doc comments).
  */
 export class WikiLinkWidget extends WidgetType {
   constructor(

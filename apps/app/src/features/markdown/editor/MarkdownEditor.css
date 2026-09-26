@@ -1578,31 +1578,48 @@
 }
 
 .cm-editor .tok-wikilink {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--md-marker-text-gap);
-  vertical-align: bottom;
   color: var(--md-wiki-foreground);
   cursor: pointer;
   text-indent: 0;
   padding-inline: var(--space-3);
 }
 
-/* `inline-flex` above makes `.tok-wikilink` an atomic inline-level box, and
- * `text-decoration-line` does not paint through such a box from an
- * ancestor — e.g. `~~[[Page]]~~` struck through "normal link" but not the
- * WikiLink widget itself. **Superseded by inline-formatting composition at
- * the token level (see docs/editor-architecture-decisions.md, "Inline
- * formatting composition at the token level")** for the `~~~~`
- * Strikethrough case specifically: a `.tok-strike .tok-wikilink`
- * descendant-selector rule used to live here; it's gone because
- * WikiLink/Tag/Date's own widgets now carry `collectActiveInlineClasses`'s
- * enclosing delimited-mark content classes (including `tok-strike`)
- * directly on their own root element, so the plain, unqualified
- * `.tok-strike` rule already applies with no ancestor selector at all,
- * correct at any nesting depth/order/combination by construction.
+/* `.tok-wikilink` is a plain, fragmentable inline element — deliberately
+ * *not* `inline-flex`/`inline-block` (2026-09-27 change; see
+ * `WikiLinkWidget.ts`'s own doc comment and `STRIKETHROUGH_PROTECTED_NODE_NAMES`
+ * in `inlineLivePreviewParticipants.ts`), so a long WikiLink title wraps
+ * across lines with surrounding prose the same way `.tok-link` already
+ * does, instead of the whole widget jumping to the next line as one
+ * unbreakable unit. `.tok-wikilink__icon-wrap` below keeps its own
+ * `inline-flex` — that's fine to stay atomic, since it's a small fixed-size
+ * icon glyph that was never meant to fragment — but the outer element it
+ * sits inside must not be, since it can carry an arbitrarily long title.
+ * Losing atomicity here does *not* reopen the ancestor-`.tok-strike`
+ * propagation issue that atomicity used to (incidentally) block: struck
+ * WikiLinks get their strikethrough from a self-composed `tok-strike` class
+ * on this element's own root (via `collectActiveInlineClasses`,
+ * `wikiLinkLivePreview.ts`), and `Strikethrough`'s own renderer excludes
+ * `WikiLink` from ever wrapping it in an *ancestor* `.tok-strike` span in
+ * the first place (`STRIKETHROUGH_PROTECTED_NODE_NAMES`) — the same
+ * sibling-not-descendant structure `.tok-link` uses, not CSS atomicity.
  *
- * A second rule used to live here for the completed-task case —
+ * `align-items`/`gap` (flex-only properties) that used to live on this rule
+ * are gone with the flex layout; `.tok-wikilink__icon-wrap`'s own
+ * `vertical-align`/`margin-inline-end` (below) now do that alignment and
+ * spacing job instead, scoped to the one piece that still needs it.
+ *
+ * A `.tok-strike .tok-wikilink` descendant-selector rule and a completed-task
+ * descendant-selector rule used to live here too — both superseded by
+ * inline-formatting composition at the token level (see
+ * docs/editor-architecture-decisions.md, "Inline formatting composition at
+ * the token level"): WikiLink/Tag/Date's own widgets now carry
+ * `collectActiveInlineClasses`'s enclosing delimited-mark content classes
+ * (including `tok-strike`) directly on their own root element, so the
+ * plain, unqualified `.tok-strike` rule already applies with no ancestor
+ * selector at all, correct at any nesting depth/order/combination by
+ * construction.
+ *
+ * The completed-task rule specifically —
  * `.cm-line:has(.cm-task-checkbox[aria-checked='true']) .tok-wikilink` —
  * removed for the same "compose directly" reason at the time
  * (`isNodeOnCompletedTask` in `taskEngagement.ts` made `cm-task-completed`
@@ -1634,12 +1651,21 @@
  * text at the surrounding font size, not a fixed-height block header.
  * `unresolved`/`ambiguous` WikiLinks render no icon-wrap at all
  * (`WikiLinkWidget.ts`'s own `toDOM`), so no icon rule is needed for them. */
+/* `vertical-align`/`margin-inline-end` take over the alignment/spacing job
+ * `.tok-wikilink`'s own `align-items`/`gap` used to do before that element
+ * stopped being a flex container (see its own rule's comment, above) —
+ * this icon-wrap is now the only atomic inline-level box in a WikiLink, so
+ * it's the one that needs a line-box `vertical-align` to sit correctly
+ * against the surrounding text baseline. `flex: none` (a flex-*child*
+ * property) is gone with it: this box is no longer inside a flex container,
+ * only a flex container itself for centering its own glyph. */
 .tok-wikilink__icon-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: none;
+  vertical-align: middle;
+  margin-inline-end: var(--md-marker-text-gap);
   width: var(--md-marker-width);
   height: var(--md-marker-height);
 }

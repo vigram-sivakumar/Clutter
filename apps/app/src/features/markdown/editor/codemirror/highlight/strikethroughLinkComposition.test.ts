@@ -9,19 +9,24 @@ import { createInlineLivePreviewParticipants, type ParticipantResolvers } from '
 import { inlineLivePreviewRegion } from './inlineLivePreviewRegion';
 
 /**
- * Coverage for the final `Strikethrough`/`Link`/`URL`/`Autolink` decoration
- * architecture: `.tok-link` mirrors `.tok-wikilink`'s own outer/inner split
- * — the link's own root composes `tok-strike` onto itself when struck
- * (owning `color`), an inner `.tok-link-title` owns the underline
- * exclusively (mirroring `.tok-wikilink__title`) — and `strikethroughRenderer`
- * (`inlineLivePreviewParticipants.ts`) never lets an *ancestor* `.tok-strike`
- * wrap a link in the first place (splits its own ranges around
- * `Link`/`Autolink`/`URL` descendants instead of one mark spanning them).
- * Both fixes are needed together: composing `tok-strike` onto the link's
- * own root only avoids the WKWebView compositing bug if there is no
- * *second*, ancestor-owned `.tok-strike` decorating box also touching the
- * same text — see `linkContentDecorations`'s and `strikethroughRenderer`'s
- * own doc comments for the full mechanism.
+ * Coverage for the final `Strikethrough`/`Link`/`URL`/`Autolink`/`WikiLink`
+ * decoration architecture: `.tok-link` mirrors `.tok-wikilink`'s own
+ * outer/inner split — the link's own root composes `tok-strike` onto
+ * itself when struck (owning `color`), an inner `.tok-link-title` owns the
+ * underline exclusively (mirroring `.tok-wikilink__title`) — and
+ * `strikethroughRenderer` (`inlineLivePreviewParticipants.ts`) never lets
+ * an *ancestor* `.tok-strike` wrap a link in the first place (splits its
+ * own ranges around `Link`/`Autolink`/`URL`/`WikiLink` descendants instead
+ * of one mark spanning them). Both fixes are needed together: composing
+ * `tok-strike` onto the link's own root only avoids the WKWebView
+ * compositing bug if there is no *second*, ancestor-owned `.tok-strike`
+ * decorating box also touching the same text — see
+ * `linkContentDecorations`'s and `strikethroughRenderer`'s own doc
+ * comments for the full mechanism. `WikiLink` joined
+ * `STRIKETHROUGH_PROTECTED_NODE_NAMES` once `.tok-wikilink`'s outer element
+ * stopped being an atomic (`inline-flex`) box for line-wrapping — see
+ * `docs/editor-architecture-decisions.md`'s "WikiLink wrapping" entry —
+ * so it needs the exact same protection Link/Autolink/URL already had.
  *
  * These are DOM-structure tests only — jsdom has no real layout engine, so
  * "does a long link fragment across visual lines" (`getClientRects()`)
@@ -209,14 +214,37 @@ describe('Strikethrough + Link/URL/Autolink: link is always a sibling of any anc
     expect(hasBareStrikeAncestor(link)).toBe(false);
   });
 
-  it('regression: struck WikiLink/Tag/InlineCode are unaffected — still self-compose tok-strike onto their own root, exactly as before', () => {
-    const view = mountView('Lead. ~~[[Page]] #tag `code`~~', noResolvers, true);
-    const wikilink = view.dom.querySelector('.tok-wikilink');
+  it('regression: struck Tag/InlineCode are unaffected — still self-compose tok-strike onto their own root, exactly as before, and remain a descendant of the ancestor gap span (they are not protected)', () => {
+    const view = mountView('Lead. ~~x #tag `code`~~', noResolvers, true);
     const tag = view.dom.querySelector('.tok-tag');
     const code = view.dom.querySelector('.tok-code');
-    expect(wikilink?.classList.contains('tok-strike')).toBe(true);
     expect(tag?.classList.contains('tok-strike')).toBe(true);
     expect(code?.classList.contains('tok-strike')).toBe(true);
+  });
+
+  it('14. ~~before [[Page]] after~~ — struck WikiLink composes tok-strike onto its own root (not an ancestor), exactly like Link — WikiLink joined STRIKETHROUGH_PROTECTED_NODE_NAMES once .tok-wikilink stopped being an atomic box', () => {
+    const view = mountView('Lead. ~~before [[Page]] after~~', noResolvers, true);
+    const wikilink = view.dom.querySelector('.tok-wikilink');
+    expect(wikilink?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(wikilink)).toBe(false);
+
+    const bareStrikeSpans = Array.from(view.dom.querySelectorAll('.tok-strike')).filter(
+      (s) => !SELF_COMPOSING_STRIKE_CLASSES.some((cls) => s.classList.contains(cls))
+    );
+    expect(bareStrikeSpans.map((s) => s.textContent)).toEqual(['before ', ' after']);
+  });
+
+  it('15. ~~[[Page]]~~ — WikiLink fills the entire strikethrough; self-composes tok-strike, no bare wrapper needed', () => {
+    const view = mountView('Lead. ~~[[Page]]~~', noResolvers, true);
+    const wikilink = view.dom.querySelector('.tok-wikilink');
+    expect(wikilink?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(wikilink)).toBe(false);
+  });
+
+  it('regression: an UNSTRUCK WikiLink never carries tok-strike', () => {
+    const view = mountView('Lead. [[Page]] plain.', noResolvers, true);
+    const wikilink = view.dom.querySelector('.tok-wikilink');
+    expect(wikilink?.classList.contains('tok-strike')).toBe(false);
   });
 
   it('regression: an UNSTRUCK link never carries tok-strike and still has a .tok-link-title inner span', () => {
