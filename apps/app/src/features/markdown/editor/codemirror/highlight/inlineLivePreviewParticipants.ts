@@ -306,18 +306,58 @@ function collectActiveStrikeClass(node: SyntaxNodeRef): readonly string[] {
  * outer, unchanged `tok-link` span (still owns color + the thin
  * transparent underline) wrapping an inner `tok-link-strike` span that
  * declares its own, independently-styled `text-decoration-line:
- * line-through`. Confirmed live against a mounted `EditorView`: CM6 nests
- * same-range `Decoration.mark` ranges with the later-pushed one innermost,
- * so `tok-link-strike` is pushed first here, `tok-link` second. Also
- * confirmed live (via an isolated DOM fixture, not assumed): the inner
- * span's own opaque decorating box paints on top of and fully occludes the
- * ancestor wrapper's thinner propagated line — no visible third/stray line
- * — as long as its own thickness is at least the ancestor's (which has no
- * explicit thickness at all, i.e. the browser default, comfortably thinner
- * than `tok-link-strike`'s own explicit value).
+ * line-through` — so `tok-link-strike`'s `currentColor` resolves to the
+ * link's own blue (inherited from its `tok-link` parent), not the
+ * surrounding plain text's color the way it would the other way around.
+ *
+ * Getting CM6 to nest them in that specific order (`tok-link` outer,
+ * `tok-link-strike` inner) is **not** a matter of push order into the
+ * `decorations` array — that was tried and confirmed wrong via a real,
+ * reproduced bug: two `Decoration.mark`s over the exact identical
+ * `[from, to)` range, both built with the same `inclusiveStart`/
+ * `inclusiveEnd`, get the exact same internal `(startSide, endSide)`
+ * sort key (`MarkDecoration`'s constructor maps `inclusiveStart` to
+ * `startSide -1` or `500000000`, `inclusiveEnd` to `endSide 1` or
+ * `-600000000` — nothing else feeds that key). Two decorations with an
+ * identical sort key are a genuine tie, and which one CM6 ends up
+ * rendering as the outer wrapper for a *given* pair depends on where in
+ * the whole line's merged/sorted decoration set they land relative to
+ * every other decoration — which varies with what else surrounds them,
+ * not with this function's own return-array order. Confirmed live: of two
+ * struck links inside one `~~...~~` span, the first nested correctly and
+ * the second did not, from the exact same code path; a third real
+ * document (a struck WikiLink followed by three struck links and a struck
+ * tag) had every single link nested backwards. Push order previously
+ * "worked" in an earlier isolated test purely by accidental agreement
+ * with that traversal-dependent tie-break, not because it controlled
+ * anything.
+ *
+ * The actual fix: give the two marks *different*, non-tied sort keys via
+ * the only public lever `MarkDecorationSpec` exposes for it —
+ * `inclusiveStart`/`inclusiveEnd`. `tok-link` is always built inclusive
+ * (`startSide -1`, `endSide 1`), `tok-link-strike` always non-inclusive
+ * (`startSide 500000000`, `endSide -600000000`). `-1 < 500000000` at the
+ * shared start position, so `tok-link` always opens first (outer); `1 >
+ * -600000000` at the shared end position, so `tok-link` always closes
+ * last (still outer). This holds regardless of traversal order, sibling
+ * content, or which call site (Link's own label/URL-fallback range, or a
+ * bare `URL`) produced the pair — there is no tie left to break.
+ * `tok-link-strike` doesn't need inclusive edges itself: the reason the
+ * *outer* mark needs them (absorbing a zero-width widget exactly filling
+ * the range, e.g. a WikiLink used as a link label) applies to whichever
+ * mark is outermost, which is now always `tok-link`.
+ *
+ * Also confirmed live (via an isolated DOM fixture, not assumed): the
+ * inner span's own opaque decorating box paints on top of and fully
+ * occludes the ancestor `Strikethrough` wrapper's thinner propagated line
+ * — no visible third/stray line — as long as its own thickness is at
+ * least the ancestor's (which has no explicit thickness at all, i.e. the
+ * browser default, comfortably thinner than `tok-link-strike`'s own
+ * explicit value).
  *
  * Not used when the link isn't struck: `collectActiveStrikeClass` returns
- * `[]`, and the ordinary single `tok-link` mark is completely unaffected.
+ * `[]`, and the ordinary single `tok-link` mark (honoring the `inclusive`
+ * parameter exactly as before) is completely unaffected.
  */
 function linkContentDecorations(
   from: number,
@@ -325,14 +365,14 @@ function linkContentDecorations(
   strikeClasses: readonly string[],
   inclusive: boolean
 ): Range<Decoration>[] {
-  const mark = (cls: string) =>
+  const mark = (cls: string, markInclusive: boolean) =>
     Decoration.mark(
-      inclusive ? { class: cls, inclusiveStart: true, inclusiveEnd: true } : { class: cls }
+      markInclusive ? { class: cls, inclusiveStart: true, inclusiveEnd: true } : { class: cls }
     ).range(from, to);
   if (strikeClasses.length === 0) {
-    return [mark('tok-link')];
+    return [mark('tok-link', inclusive)];
   }
-  return [mark('tok-link-strike'), mark('tok-link')];
+  return [mark('tok-link', true), mark('tok-link-strike', false)];
 }
 
 /**
