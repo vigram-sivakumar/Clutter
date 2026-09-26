@@ -1719,13 +1719,33 @@
  * function's own doc comment for the full reasoning, including why the
  * *ancestor* `Strikethrough` node's own `.tok-strike`-only wrapper (which
  * still exists around this link, propagating its line-through through any
- * non-atomic descendant by default) is a non-issue here: this inner span's
- * own opaque decorating box paints on top of and fully occludes it
- * (confirmed live), so no stray/third line is ever visible. */
+ * non-atomic descendant by default) is a non-issue **on Chromium/web**:
+ * this inner span's own opaque decorating box paints on top of and fully
+ * occludes it there (confirmed live). **Not true on WKWebView (Tauri/
+ * macOS)** — confirmed live in the real Tauri app that WebKit does not
+ * reliably paint the descendant's own decorating box over the ancestor's
+ * propagated one, leaving a thin sliver of the ancestor's line visible
+ * alongside ours despite both computing exactly the intended values. No
+ * non-atomic CSS mechanism exists to suppress that propagation (would
+ * need `display: inline-block`/`inline-flex`, rejected — breaks natural
+ * wrapping for long multi-word link labels, confirmed live). Since the
+ * artifact can't be eliminated without that trade-off, the Tauri-only
+ * override below instead makes the two lines close enough in weight that
+ * the leak reads as one line rather than a mismatched double line. */
 .cm-editor .tok-link-strike {
   text-decoration-line: line-through;
   text-decoration-color: currentColor;
   text-decoration-thickness: 1.5px;
+}
+/* Tauri-only: matches `.tok-link`'s own Tauri override above exactly
+ * (`0.05em`, not a literal `0.5px` — see that rule's own comment for why
+ * `0.5px` specifically is the value WKWebView rasterizes inconsistently
+ * per sub-pixel offset) so the underline and strikethrough render at the
+ * same visual weight, minimizing the visibility of the WebKit-only
+ * occlusion artifact described above. Web/Chromium keeps the base rule's
+ * `1.5px` untouched. */
+:root[data-runtime='tauri'] .cm-editor .tok-link-strike {
+  text-decoration-thickness: 0.05em;
 }
 
 .tok-wikilink[data-wikilink-status='unresolved'] {
