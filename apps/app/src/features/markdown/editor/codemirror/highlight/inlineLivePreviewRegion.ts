@@ -9,8 +9,8 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
-import { isTokenEngaged } from '../semanticToken/tokenEngagement';
-import { revealedMarkerRanges, type ParticipantRenderer } from './inlineLivePreviewParticipants';
+import { isTokenEngaged, widenThroughFlushAncestors } from '../semanticToken/tokenEngagement';
+import { revealedMarkNodeRanges, type ParticipantRenderer } from './inlineLivePreviewParticipants';
 
 /**
  * Heading content classing (`tok-heading1`-`tok-heading6`), folded into
@@ -61,61 +61,72 @@ const HEADING_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
 
 /**
  * The single authoritative mechanism for resolving inline Live Preview
- * visibility, per the Inline Live Preview Region ODR
- * (docs/editor-research/inline-live-preview-region-odr-v1.md). Supersedes
+ * visibility. Originally built per the Inline Live Preview Region ODR
+ * (docs/editor-research/inline-live-preview-region-odr-v1.md); its central
+ * "ancestor-or-self engaged ⇒ whole region is source" rule is **superseded
+ * below (2026-09-26 correction)** — see docs/editor-architecture-decisions.md's
+ * correction entry of that name for the full investigation. Supersedes
  * `emphasisLivePreview.ts` (Emphasis/StrongEmphasis) and
  * `strikethroughLivePreview.ts` (Strikethrough), both retired in the same
- * commit that introduced this file.
+ * commit that introduced this file — that history is unaffected by the
+ * correction below.
  *
- * **Why those two were replaced rather than coordinated (ODR §1, §8):**
- * each ran its own traversal and asked `isTokenEngaged` about its own node
- * kinds only, so neither could observe that it was participating in one
- * nested formatting region. With the caret between an outer `~~` and an
- * inner `__` in `~~__Text__~~`, the outer Strikethrough revealed while the
- * inner StrongEmphasis stayed concealed — a half-preview/half-source state
- * verified in the real app. `emphasisLivePreview`'s traversal
- * short-circuit was already structurally correct; its *scope* was not —
- * it protected exactly the node kinds that happened to share one file.
- * The scope of a visibility decision is a grammar fact (which kinds can
- * nest inside which), never an implementation fact (how the code is split
- * across files). ODR §4.6 locks that; this file is where it is enforced.
+ * **Corrected rule (2026-09-26): each participant node resolves its own
+ * engagement independently.** The original rule — a directly-engaged
+ * participant is a "region root" whose entire subtree renders as source,
+ * with no descendant participant ever running — was confirmed to cause a
+ * generic bug: a WikiLink, Tag, Link, or ordinary formatted span sitting
+ * anywhere inside an engaged ancestor (`**bold text [[Page]] #tag more**`
+ * with the caret in "bold text") lost its own rendering — becoming raw,
+ * un-clickable Markdown — purely because the caret was somewhere *else*
+ * inside the same ancestor, never because the caret came anywhere near
+ * that construct itself. The fix removes the "region root" concept
+ * entirely: a participant's own engagement is decided from its own range,
+ * widened only through a flush (zero-gap, no-sibling) chain of enclosing
+ * delimited-mark ancestors ({@link widenThroughFlushAncestors}) — never
+ * simply "is some ancestor's range, anywhere, engaged." An engaged
+ * participant reveals only *its own* markers
+ * ({@link revealedMarkNodeRanges}) and traversal *continues descending*
+ * into its children (no `return false`), so every nested participant —
+ * marker-hiding or widget-replace alike — independently decides its own
+ * preview/source state from the same caret position, exactly as it would
+ * if the ancestor weren't there at all.
  *
- * **The rule (ODR §3, §4.1):** a node renders as *source* if and only if
- * some visibility-participating **ancestor-or-self** is directly engaged.
- * "Directly engaged" is the existing, unmodified `isTokenEngaged`
- * containment check (ODR §4.3) — this file changes *which nodes it is
- * asked about and in what order*, never what it means.
+ * Concretely, for `~~**a** and **b**~~` with the caret inside `**a**`:
+ * Strikethrough is engaged (caret is within its own range) and reveals its
+ * `~~` marks; `**a**` is independently engaged (caret is within *its* own
+ * range too) and reveals its `**` marks; `**b**` is independently *not*
+ * engaged (the caret never entered its range, and it shares no flush
+ * boundary with Strikethrough to inherit through) and renders normally,
+ * still bold. This replaces the old accepted consequence "siblings inside
+ * an engaged ancestor also render as source," which is no longer true by
+ * design — it was the symptom, not a tolerated trade-off.
  *
- * **How one downward pass computes that (ODR §5), with no ancestor
- * walking and no stored state:**
+ * **Why "flush ancestors," not "no widening at all" ({@link
+ * widenThroughFlushAncestors}'s own doc comment has the full mechanism):**
+ * a bare per-node check alone reopens a *different*, already-fixed
+ * regression — `**[[Page]]**` (WikiLink is the construct's *entire*
+ * content, zero gap on both sides) needs a caret at the outer `**`
+ * boundary to still show the whole thing as one coherent unit (fully raw,
+ * or fully the compact widget), never a broken `**` + still-compact-widget
+ * seam. Widening is preserved for exactly that zero-gap-on-both-sides
+ * case and nowhere else — the moment real sibling content exists on
+ * either side (the general case this correction is for), the widen
+ * doesn't apply and each construct is independent.
+ *
+ * **How one downward pass computes that, with no ancestor walking beyond
+ * the flush check and no stored state:**
  *  - Non-participants are transparent: keep descending.
- *  - A participant that *is* directly engaged is the region root — return
- *    `false` so `iterate` never descends into it *as ordinary traversal*.
- *    No descendant's `render`/participant path ever runs, so nothing
- *    inside can emit a conflicting `tok-*`/widget/atomic decoration, and
- *    the whole region still renders as source. Correction (see docs/
- *    editor-architecture-decisions.md's nested-visibility entry): the
- *    engaged branch does perform one additional, separate subtree walk
- *    purely to discover nested marker-contract constructs' own marker
- *    ranges (`revealedMarkerRanges`) — this is not "ordinary traversal
- *    resuming," never calls a participant renderer, and changes nothing
- *    about which region is source vs. preview.
- *  - A participant that is *not* engaged emits its own concealing
- *    decorations and descent continues. By the containment invariant
- *    (every nested participant's range is a strict subset of its
- *    ancestor's), a selection outside the ancestor's range is necessarily
- *    outside every descendant's, so each descendant's own check
- *    independently and correctly comes out disengaged too.
- *
- * Those two cases are exhaustive, which is what makes a region always
- * wholly preview or wholly source (ODR §4.4) without any construct-pair
- * logic, precedence table, or knowledge of what kind an ancestor is.
- *
- * *Accepted consequence of §4.4, recorded because it can surprise:*
- * sibling constructs inside an engaged ancestor also render as source —
- * with the caret inside `**a**` in `~~**a** and **b**~~`, the caret lies
- * within the enclosing Strikethrough, so `**b**` reveals too. The region,
- * not the word, is the unit.
+ *  - A participant that is engaged (bare range, or flush-widened) reveals
+ *    only its own marker children via `revealedMarkNodeRanges` (a no-op
+ *    for the widget-replace family and bare `URL`, which have no markers
+ *    of their own) and keeps descending — no `tok-*` content class, no
+ *    widget, no atomic range for *this* node, but every descendant gets
+ *    its own independent chance to render normally.
+ *  - A participant that is not engaged emits its own concealing
+ *    decorations (marker replace + content class, or widget replace) via
+ *    its registered `render`, and descent continues exactly as before —
+ *    unchanged from every prior phase.
  *
  * Ranges are collected into an array and sorted once via
  * `Decoration.set(ranges, true)` rather than inserted in visitation order
@@ -124,32 +135,30 @@ const HEADING_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  * `RangeSetBuilder.add`'s strictly-non-decreasing-`from` requirement
  * rejects but `Decoration.set(_, true)` sorts and tolerates.
  *
- * **Out of scope, deliberately (ODR §7, §10):** block-level rendering
- * (heading/list/blockquote markers are line-scoped, not subtree-scoped,
- * and keep their existing owner); `liveMarkSelectionSnap`'s
- * `transactionFilter` (neither introduced nor removed here); `Task`
- * (fused into block-level list rendering, out of scope per ODR §4.10 —
- * its inclusion in the ODR's own §10 Phase 3 text is a recorded
- * erratum); and the known whole-document initial-caret limitation, where
+ * **Out of scope, deliberately:** block-level rendering (heading/list/
+ * blockquote markers are line-scoped, not subtree-scoped, and keep their
+ * existing owner); `liveMarkSelectionSnap`'s `transactionFilter` (neither
+ * introduced nor removed here); `Task` (fused into block-level list
+ * rendering); and the known whole-document initial-caret limitation, where
  * a construct spanning the entire document loads revealed because
  * `createEditorView.ts` seeds the caret at `doc.length`, an inclusive
  * boundary. That limitation is unrelated to nesting and is pinned, not
  * solved, in this file's test suite.
  *
- * **`atomicRanges` (Phase 3, ODR §10 as revised):** derived from the
- * *same* single traversal as `decorations`, never by inspecting the
- * merged decoration set afterward. Each participant's renderer already
- * returns `{decorations, atomic?}` (`inlineLivePreviewParticipants.ts`)
- * — `atomic` is present only for the widget-replace family (`WikiLink`/
- * `Tag`/`Date`), absent for ordinary marker-hiding participants, so "is
- * this atomic" is a per-participant-owned fact read at the source, not a
- * property re-derived from the shape of the final `DecorationSet`. When a
- * region is engaged, the traversal returns `false` *before* calling any
- * renderer — so neither a widget's `decorations` nor its `atomic` range
- * is ever emitted for an engaged occurrence, automatically, from the same
- * short-circuit that already governs ordinary participants. The
- * visibility algorithm itself (`isTokenEngaged` → `return false` →
- * render) is unchanged from Phases 1–2.
+ * **`atomicRanges`:** derived from the *same* single traversal as
+ * `decorations`, never by inspecting the merged decoration set afterward.
+ * Each participant's renderer already returns `{decorations, atomic?}`
+ * (`inlineLivePreviewParticipants.ts`) — `atomic` is present only for the
+ * widget-replace family (`WikiLink`/`Tag`/`Date`), absent for ordinary
+ * marker-hiding participants, so "is this atomic" is a per-participant-owned
+ * fact read at the source, not a property re-derived from the shape of the
+ * final `DecorationSet`. An engaged participant's `render` is never called
+ * at all (the engaged branch returns before reaching it), so neither its
+ * `decorations` nor its `atomic` range is ever emitted for that one
+ * occurrence — but, per the correction above, this now only withholds the
+ * *engaged node's own* atomic range, never a nested descendant's: a Tag
+ * sitting inside an engaged-but-not-flush ancestor stays atomic, exactly
+ * as it stays a rendered widget.
  */
 function buildDecorations(
   view: EditorView,
@@ -188,32 +197,19 @@ function buildDecorations(
           return;
         }
 
-        if (isTokenEngaged(view.state, { from: node.from, to: node.to })) {
-          // Region root. `return false` still stops ordinary traversal
-          // from resuming below this point — no descendant participant
-          // renderer runs, so no `tok-*` content decoration, no widget,
-          // no atomic range is ever produced inside an engaged region.
-          // That half of region atomicity (docs/editor-architecture-
-          // decisions.md's "Nested inline Live Preview visibility") is
-          // completely unchanged.
-          //
-          // What differs from a bare `return false`: `revealedMarkerRanges`
-          // performs its own separate, narrowly-scoped walk over this
-          // node's subtree (same tree, same call), discovering every
-          // marker-contract construct nested inside — not just this
-          // node's own marks — and emitting each one's `cm-marker
-          // cm-{construct}-marker` spans with no `--concealed` modifier.
-          // This is the fix for the confirmed nested-marker bug: previously
-          // only the region root's own two marks were reachable here, so
-          // `***bold italic***` engaged showed the outer `Emphasis` marks
-          // but never the nested `StrongEmphasis` marks. See
-          // `revealedMarkerRanges`'s own doc comment in
-          // inlineLivePreviewParticipants.ts for the full rationale,
-          // including why this stays additive-only (no content decoration,
-          // no widget, no atomic range) and a no-op for every construct not
-          // registered in `MARKER_CONSTRUCTS`.
-          ranges.push(...revealedMarkerRanges(node.node));
-          return false;
+        if (isTokenEngaged(view.state, widenThroughFlushAncestors(node.node))) {
+          // Engaged: reveal only this node's own marker children (a no-op
+          // for the widget-replace family and bare URL, which have none)
+          // and keep descending — no `return false`. Every nested
+          // participant gets its own independent engagement check against
+          // the same caret position, so a sibling or descendant elsewhere
+          // in this engaged construct is never forced raw merely because
+          // this ancestor is engaged. See this function's own doc comment
+          // ("Corrected rule (2026-09-26)") for the full rationale and
+          // docs/editor-architecture-decisions.md's correction entry for
+          // the investigation this replaces.
+          ranges.push(...revealedMarkNodeRanges(node.node));
+          return;
         }
 
         const result = render(node, view.state);

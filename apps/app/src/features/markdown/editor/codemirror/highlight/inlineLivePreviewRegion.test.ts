@@ -249,9 +249,17 @@ describe('inlineLivePreviewRegion', () => {
   });
 
   // ===================================================================
-  // ODR §9.3 — INVARIANT: region coherence (no mixed preview/source)
+  // ODR §9.3 — INVARIANT: region coherence for a flush (no-sibling)
+  // nesting chain (narrowed 2026-09-26 — see docs/editor-architecture-
+  // decisions.md's correction of this name). `~~__Text__~~` has no
+  // siblings at any level (StrongEmphasis is Strikethrough's *entire*
+  // content), so it stays a single coherent unit end to end via
+  // `widenThroughFlushAncestors` — this invariant no longer extends to a
+  // construct with genuine sibling content (see the sibling-independence
+  // test in the block above, which replaces the old "§4.4 accepted
+  // consequence").
   // ===================================================================
-  describe('INVARIANT: a region is never partly preview and partly source', () => {
+  describe('INVARIANT: a flush (no-sibling) nesting chain is never partly preview and partly source', () => {
     it('no caret position in ~~__Text__~~ produces a mixed state', () => {
       const doc = 'before ~~__Text__~~ after';
       const regionFrom = doc.indexOf('~~__Text__~~');
@@ -267,15 +275,26 @@ describe('inlineLivePreviewRegion', () => {
       }
     });
 
-    it('accepted §4.4 consequence: siblings inside an engaged ancestor also render as source', () => {
+    it('CORRECTED 2026-09-26 (nested-inline-rendering generic fix): a sibling inside an engaged ancestor stays independently rendered, not swept into source', () => {
+      // Previously (per the now-superseded §4.4 "accepted consequence"),
+      // the caret inside `**a**` used to force the *whole* enclosing
+      // Strikethrough to source, `**b**` included, purely because `**b**`
+      // shared an ancestor with the caret — not because the caret ever
+      // touched it. `**b**` is a genuine sibling (real text sits between
+      // it and both the Strikethrough's own marks and `**a**`), so it
+      // shares no flush boundary with the engaged Strikethrough and must
+      // resolve its own engagement independently. See docs/editor-
+      // architecture-decisions.md's correction of this name for the full
+      // investigation.
       const doc = 'x ~~**a** and **b**~~ y';
       const insideA = doc.indexOf('a', doc.indexOf('**'));
 
       const view = mountViewWithSelection(doc, insideA);
 
-      // The caret is inside `**a**`, which is inside the Strikethrough —
-      // so the whole Strikethrough region reveals, `**b**` included.
-      expect(visibleText(view)).toBe(doc);
+      // `~~` and `**a**`'s own `**` reveal (the caret genuinely sits
+      // within both of their own ranges); `**b**` stays bold and concealed.
+      expect(visibleText(view)).toBe('x ~~**a** and b~~ y');
+      expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('b');
     });
   });
 
@@ -382,6 +401,14 @@ describe('inlineLivePreviewRegion', () => {
     });
 
     it('~~***bold _italic_ `code`***~~ — four-level nesting resolves via the same mechanism, no combination-specific logic', () => {
+      // Updated 2026-09-26 (nested-inline-rendering generic fix): `` `code` ``
+      // is a genuine sibling of `_italic_` (real text — "bold " — sits
+      // before it, breaking the flush chain up to the engaged ancestors),
+      // so it independently resolves as NOT engaged and stays concealed +
+      // tok-code-styled, exactly as it would outside any engaged ancestor.
+      // `~~`/`***`/`_..._`, each genuinely containing the caret in its own
+      // right (or flush-widened, for `~~`/`***`, since they're mutually
+      // sole content of one another), reveal as before.
       const doc = '~~***bold _italic_ `code`***~~';
       const midOfItalic = doc.indexOf('italic');
 
@@ -392,15 +419,16 @@ describe('inlineLivePreviewRegion', () => {
         { text: '**', cls: 'cm-strong-marker', concealed: false },
         { text: '_', cls: 'cm-emphasis-marker', concealed: false },
         { text: '_', cls: 'cm-emphasis-marker', concealed: false },
-        { text: '`', cls: 'cm-code-marker', concealed: false },
-        { text: '`', cls: 'cm-code-marker', concealed: false },
+        { text: '', cls: 'cm-code-marker', concealed: true },
+        { text: '', cls: 'cm-code-marker', concealed: true },
         { text: '**', cls: 'cm-strong-marker', concealed: false },
         { text: '*', cls: 'cm-emphasis-marker', concealed: false },
         { text: '~~', cls: 'cm-strike-marker', concealed: false },
       ]);
-      expect(engaged.dom.querySelector('[class*="tok-"]')).toBeNull();
-      expect(visibleText(engaged)).toBe(doc);
-      // No widget/atomic-range machinery was pulled in by the nested walk.
+      expect(engaged.dom.querySelector('.tok-code')?.textContent).toBe('code');
+      expect(visibleText(engaged)).toBe('~~***bold _italic_ code***~~');
+      // The untouched InlineCode sibling still isn't atomic — only the
+      // widget-replace family ever registers atomic ranges.
       expect(isAtomicAnywhere(engaged)).toBe(false);
     });
 
@@ -417,7 +445,15 @@ describe('inlineLivePreviewRegion', () => {
       expect(visibleText(engaged)).toBe(doc);
     });
 
-    it('**bold `code` _italic_ ~~strike~~** — sibling constructs at one nesting level all resolve independently', () => {
+    it('**bold `code` _italic_ ~~strike~~** — sibling constructs at one nesting level truly resolve independently: only the one actually containing the caret reveals', () => {
+      // Updated 2026-09-26 (nested-inline-rendering generic fix): this
+      // test's own title was already the intended contract, but the
+      // pre-fix assertion actually pinned the opposite — every sibling
+      // revealing together purely because they shared an engaged
+      // StrongEmphasis ancestor. `_italic_` and `~~strike~~` are genuine
+      // siblings of `` `code` `` (real text separates all three), so with
+      // the caret in "code" only InlineCode's own marks reveal; the
+      // untouched siblings stay concealed and independently styled.
       const doc = '**bold `code` _italic_ ~~strike~~**';
       const engaged = mountViewWithSelection(doc, doc.indexOf('code'));
 
@@ -425,12 +461,15 @@ describe('inlineLivePreviewRegion', () => {
         { text: '**', cls: 'cm-strong-marker', concealed: false },
         { text: '`', cls: 'cm-code-marker', concealed: false },
         { text: '`', cls: 'cm-code-marker', concealed: false },
-        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
-        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
-        { text: '~~', cls: 'cm-strike-marker', concealed: false },
-        { text: '~~', cls: 'cm-strike-marker', concealed: false },
+        { text: '', cls: 'cm-emphasis-marker', concealed: true },
+        { text: '', cls: 'cm-emphasis-marker', concealed: true },
+        { text: '', cls: 'cm-strike-marker', concealed: true },
+        { text: '', cls: 'cm-strike-marker', concealed: true },
         { text: '**', cls: 'cm-strong-marker', concealed: false },
       ]);
+      expect(engaged.dom.querySelector('.tok-emphasis')?.textContent).toBe('italic');
+      expect(engaged.dom.querySelector('.tok-strike')?.textContent).toBe('strike');
+      expect(visibleText(engaged)).toBe('**bold `code` italic strike**');
     });
 
     it('Link is a marker-contract construct (marker-color unification): engaging it reveals [ ] ( ) as cm-marker spans, label/url stay unstyled raw text', () => {
@@ -1390,12 +1429,34 @@ describe('inlineLivePreviewRegion', () => {
       expect(isAtomicAnywhere(view)).toBe(false);
     });
 
-    it('**x #tag**: the Tag is not atomic while the enclosing StrongEmphasis region is engaged — the generalized defect this ODR prevents, for the widget family', () => {
+    it('**x #tag**: CORRECTED 2026-09-26 — the Tag stays atomic while the enclosing StrongEmphasis is engaged elsewhere, since it is a genuine sibling of "x " and shares no flush boundary with it', () => {
+      // Previously this asserted the opposite: the Tag lost its widget (and
+      // its atomic range) purely because the caret sat at the StrongEmphasis
+      // boundary, nowhere near the Tag itself — exactly the generic bug this
+      // fix removes. "x " is real sibling content between the `**` marker
+      // and the Tag, so `widenThroughFlushAncestors` does not widen the Tag
+      // through StrongEmphasis, and the Tag independently resolves as not
+      // engaged: it keeps rendering (and stays atomic) exactly as it would
+      // outside any formatting at all.
       const doc = 'before **x #tag** after';
       const outerFrom = 'before '.length; // caret at the StrongEmphasis boundary, outside Tag's own range
       const view = mountViewWithSelection(doc, outerFrom);
 
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(isAtomicAnywhere(view)).toBe(true);
+    });
+
+    it('**#tag**: zero-gap sole content still stays fully coherent — a caret at the outer boundary keeps the Tag fully raw, never a half-revealed **/widget seam', () => {
+      // Contrast with the sibling case above: here the Tag IS the entire
+      // StrongEmphasis content (flush on both sides), so the pre-existing
+      // zero-gap invariant (preserved by widenThroughFlushAncestors) still
+      // applies — the whole thing resolves as one coherent unit.
+      const doc = 'before **#tag** after';
+      const outerFrom = 'before '.length;
+      const view = mountViewWithSelection(doc, outerFrom);
+
       expect(visibleText(view)).toBe(doc);
+      expect(view.dom.querySelector('[data-tag-status]')).toBeNull();
       expect(isAtomicAnywhere(view)).toBe(false);
     });
   });
@@ -1596,6 +1657,98 @@ describe('inlineLivePreviewRegion', () => {
 
         expect(found, `${nodeName} not found in ${source}`).toBe(true);
       }
+    });
+  });
+
+  // ===================================================================
+  // Regression suite for the reported bug (2026-09-26): a cursor entering
+  // ANY parent delimited-mark construct (bold, italic, strikethrough,
+  // highlight) must not disable a nested WikiLink/Tag/Link/URL/other
+  // formatting construct's own rendering, at any nesting depth. See
+  // docs/editor-architecture-decisions.md's correction of this name and
+  // `tokenEngagement.ts`'s `widenThroughFlushAncestors` for the mechanism.
+  // WikiLink's own equivalent coverage lives in wikiLinkLivePreview.test.ts
+  // since it isn't a participant of this shared traversal.
+  // ===================================================================
+  describe('REGRESSION: a parent construct being engaged never disables a sibling child construct\'s own rendering', () => {
+    it('**This contains #tag [Google](url)**: cursor in the plain-text portion of Bold leaves the Tag and Link fully rendered', () => {
+      const doc = 'x **This contains #tag [Google](https://example.com)** y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText);
+
+      // The outer ** reveals (the caret genuinely sits within StrongEmphasis's
+      // own range) but the Tag and Link, both genuine siblings of the plain
+      // text the caret is actually in, stay normally rendered.
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      expect(visibleText(view)).toBe('x **This contains #tag Google** y');
+    });
+
+    it('~~This contains #tag [Google](url)~~: cursor in the plain-text portion of Strikethrough leaves the Tag and Link fully rendered', () => {
+      const doc = 'x ~~This contains #tag [Google](https://example.com)~~ y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText);
+
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      expect(visibleText(view)).toBe('x ~~This contains #tag Google~~ y');
+    });
+
+    it('*This contains #tag [Google](url)*: cursor in the plain-text portion of Emphasis leaves the Tag and Link fully rendered', () => {
+      const doc = 'x *This contains #tag [Google](https://example.com)* y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText);
+
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      expect(visibleText(view)).toBe('x *This contains #tag Google* y');
+    });
+
+    it('==This contains #tag [Google](url)==: cursor in the plain-text portion of Highlight leaves the Tag and Link fully rendered', () => {
+      const doc = 'x ==This contains #tag [Google](https://example.com)== y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText);
+
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      expect(visibleText(view)).toBe('x ==This contains #tag Google== y');
+    });
+
+    it('~~**This contains #tag [Google](url)**~~: cursor in the outer Strikethrough plain text leaves Bold styling, Tag, and Link all fully rendered at two nesting levels', () => {
+      const doc = 'x ~~**This contains #tag [Google](https://example.com)**~~ y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText);
+
+      // Bold's own StrongEmphasis IS flush-nested as Strikethrough's entire
+      // content, so it too reveals (the caret is within its own range as
+      // well) — but Tag/Link, genuine siblings of the plain text deeper
+      // inside, still resolve independently and stay rendered.
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      expect(visibleText(view)).toBe('x ~~**This contains #tag Google**~~ y');
+    });
+
+    it('~~**This contains #tag [Google](url)**~~: cursor inside the inner ** marker itself (not touching the Tag/Link) still leaves them rendered', () => {
+      const doc = 'x ~~**This contains #tag [Google](https://example.com)**~~ y';
+      // One character inside the opening "**", genuinely inside both
+      // Strikethrough's and StrongEmphasis's own ranges but nowhere near
+      // Tag/Link.
+      const insideOpeningStrong = doc.indexOf('**') + 1;
+      const view = mountViewWithSelection(doc, insideOpeningStrong);
+
+      expect(view.dom.querySelector('[data-tag-status]')).not.toBeNull();
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+    });
+
+    it('a nested WikiLink-shaped sibling case for Link/Tag together: cursor on one sibling leaves the other fully rendered too', () => {
+      const doc = 'x **#first [a](url) #second** y';
+      const cursorInFirstTag = doc.indexOf('first') + 1;
+      const view = mountViewWithSelection(doc, cursorInFirstTag);
+
+      // #first is engaged directly (caret inside it) so it goes raw; the
+      // Link and #second, both untouched siblings, stay rendered.
+      expect(view.dom.querySelectorAll('[data-tag-status]')).toHaveLength(1);
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('a');
     });
   });
 });

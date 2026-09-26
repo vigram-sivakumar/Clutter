@@ -84,25 +84,46 @@ describe('handleTagClick', () => {
   });
 });
 
-// Regression: a Tag nested inside an enclosing delimited-mark construct
-// must decline to activate while the cursor is engaging that enclosing
-// construct — see wikiLinkMouseHandlers.test.ts's identical regression
-// block for the shared root cause (findAtRestTokenAt used to check only
-// the bare node's own range).
-describe('handleTagClick — cursor inside an enclosing formatting construct but outside the Tag itself', () => {
+// CORRECTED 2026-09-26 (nested-inline-rendering generic fix — see
+// docs/editor-architecture-decisions.md's correction of that name and
+// tokenEngagement.ts's `widenThroughFlushAncestors`). Previously this block
+// asserted a Tag nested inside an enclosing delimited-mark construct must
+// decline to activate whenever the cursor merely engaged that enclosing
+// construct, anywhere — the click-side symptom of the same generic bug the
+// decoration-side fix removes. A Tag that is a genuine *sibling* of other
+// content inside the enclosing construct (real text — "x " — sits between
+// the `**` and the `#`, breaking the flush chain) now correctly activates
+// regardless of where else the cursor sits in that construct, matching
+// what `inlineLivePreviewRegion.test.ts`'s own corrected sibling-Tag tests
+// now render: the Tag stays a normal, clickable widget.
+describe('handleTagClick — cursor elsewhere in an enclosing formatting construct, outside the Tag itself (a genuine sibling)', () => {
   // "x " keeps a valid tag-preceding context (a `#` must be preceded by
   // whitespace/line-start, isValidTagPrecedingContext) while also keeping
   // "**" left-flanking (CommonMark requires the character right after an
   // opening "**" to be non-whitespace) — same doc shape
   // inlineLivePreviewRegion.test.ts's own Tag/StrongEmphasis composition
   // tests already use for the identical reason.
-  it('does not activate a click inside the tag text when the selection sits between the ** and the #', () => {
+  it('still activates a click on the Tag even while the selection sits between the ** and the # — the Tag is a sibling, not flush, so it is unaffected by the enclosing construct\'s own engagement', () => {
     const activate = vi.fn();
     const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
     const doc = '**x #project**';
     const view = mountView(doc, resolver);
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Tag
+    const clickPos = doc.indexOf('project') + 2;
+    const handled = handleTagClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not activate a click on a zero-gap sole-content Tag (**#project**) while the selection engages the enclosing StrongEmphasis — the pre-existing zero-gap invariant is unaffected', () => {
+    const activate = vi.fn();
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
+    const doc = '**#project**';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside the outer "**", flush against the Tag on both sides
     const clickPos = doc.indexOf('project') + 2;
     const handled = handleTagClick(view, clickPos, false, () => resolver);
 

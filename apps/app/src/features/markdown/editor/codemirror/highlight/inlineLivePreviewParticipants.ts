@@ -183,11 +183,25 @@ function delimitedInlineRenderer(
  * own `text-decoration`, so an ancestor `.tok-strike` propagating into it
  * is the WKWebView compositing bug this exists to structurally avoid;
  * `URL` reuses the same `tok-link` class for the same reason).
+ *
+ * `WikiLink` joins this set for the same reason, added once `.tok-wikilink`
+ * stopped being an atomic (`display: inline-flex`) box (see
+ * `MarkdownEditor.css`'s `.tok-wikilink` rule and `WikiLinkWidget.ts`'s own
+ * doc comment): atomicity used to be what stopped an ancestor's propagated
+ * line-through from *also* reaching the widget, on top of the `tok-strike`
+ * it already self-composes onto its own root via `collectActiveInlineClasses`
+ * (`wikiLinkLivePreview.ts`) — two overlapping decorating boxes painting the
+ * same line-through is exactly the WebKit compositing bug this mechanism
+ * exists to avoid. Excluding `WikiLink` from the ancestor's gap here makes
+ * the self-composed class the *only* source of its strike, the same way
+ * `Link`/`Autolink`/`URL` already work, so dropping atomicity for line-
+ * wrapping is safe without reintroducing that bug.
  */
 const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
   'Link',
   'Autolink',
   'URL',
+  'WikiLink',
 ]);
 
 /**
@@ -199,10 +213,12 @@ const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
  * depth, unlike that one) — reused because it already correctly handles
  * arbitrary nesting depth,
  * e.g. a `Link` inside `StrongEmphasis` inside `Strikethrough`), collecting
- * the document-offset range of every descendant `Link`/`Autolink`/`URL`
- * node, at any depth. Ranges, not DOM/decoration objects — the gap
- * computation this feeds is purely a document-offset calculation,
- * independent of how CM6 later renders it.
+ * the document-offset range of every descendant `Link`/`Autolink`/`URL`/
+ * `WikiLink` node, at any depth. Ranges, not DOM/decoration objects — the
+ * gap computation this feeds is purely a document-offset calculation,
+ * independent of how CM6 later renders it. `WikiLink` is a Lezer leaf
+ * (`wikiLinkSyntax.ts`'s `cx.addElement`) with no children of its own, so
+ * it needs no special-cased descent handling the way `Image` does, below.
  *
  * Does not skip descending into a found node's own children (e.g. a
  * `Link`'s nested `URL` child) — the `URL` found that way is always fully
@@ -331,42 +347,41 @@ function computeStrikethroughGaps(
  * between `Link`/`Autolink`/`URL` descendants, and none at all over their
  * own ranges.
  *
- * Why: `.tok-link`'s own `text-decoration` (the underline) conflicts with
- * an ancestor `.tok-strike`'s propagated `line-through` the moment both
- * apply to the same element — and WKWebView doesn't reliably composite two
- * overlapping decorating boxes even when a descendant's own is given an
- * independent color/thickness to try to win that conflict (confirmed live
- * in the real Tauri app: a stray line was visible despite every computed
- * style being exactly correct — see this repo's own investigation
- * history). CSS has no standards-compliant way to sever ancestor/descendant
- * `text-decoration` propagation without making the descendant atomic
- * (`inline-block`/`inline-flex`), which breaks natural wrapping for long
- * link labels (confirmed live, rejected).
+ * Why: `.tok-link`'s own `text-decoration` (the underline, now owned by its
+ * inner `.tok-link-title` — see `linkContentDecorations`'s own doc comment)
+ * conflicts with an ancestor `.tok-strike`'s propagated `line-through` the
+ * moment both apply within the same element's painted region — and
+ * WKWebView doesn't reliably composite two overlapping decorating boxes
+ * even when a descendant's own is given an independent color/thickness to
+ * try to win that conflict (confirmed live in the real Tauri app: a stray
+ * line was visible despite every computed style being exactly correct —
+ * see this repo's own investigation history). CSS has no standards-
+ * compliant way to sever ancestor/descendant `text-decoration` propagation
+ * without making the descendant atomic (`inline-block`/`inline-flex`),
+ * which breaks natural wrapping for long link labels (confirmed live,
+ * rejected).
  *
  * The fix implemented here is structural, not visual: make the link a
- * **sibling** of `.tok-strike`, never its descendant, by construction —
- * and, since the link is never inside a `.tok-strike` context anymore, it
- * never needs to *own* any strikethrough styling of its own either.
- * `<span class="tok-strike">before </span><span class="tok-link">...</span>
- * <span class="tok-strike"> after</span>` has no ancestor `.tok-strike` for
- * anything to propagate from in the first place — the WKWebView compositing
- * bug has nothing to trigger on, root cause removed rather than mitigated.
- * A struck link therefore renders with no strikethrough line across its
- * own text at all (only the surrounding plain text shows one) — a
- * deliberate trade of "visually complete struck-link appearance" for
- * "zero decoration ownership overlap, zero engine-compositing risk."
- * `linkRenderer`/`urlRenderer`/`autolinkRenderer` are completely untouched
- * by *this* function: they never ask "am I struck" at all anymore (see
- * `linkContentDecorations`'s own doc comment) — only `Strikethrough`'s own
- * participant needed to change.
+ * **sibling** of any ancestor-owned `.tok-strike` gap span, never its
+ * descendant, by construction. `<span class="tok-strike">before </span>
+ * <span class="tok-link tok-strike">...</span><span class="tok-strike">
+ * after</span>` — the link composes `tok-strike` onto its *own* root
+ * instead (`linkRenderer`/`urlRenderer`/`autolinkRenderer`, via
+ * `collectActiveStrikeClass`), so it still shows a strikethrough, but there
+ * is no longer any ancestor `.tok-strike` wrapping it for a second,
+ * independently-positioned decorating box to propagate from — the WKWebView
+ * compositing bug has nothing to trigger on, root cause removed rather than
+ * mitigated. Same reasoning, same mechanism, for `WikiLink`: see
+ * `STRIKETHROUGH_PROTECTED_NODE_NAMES`'s own doc comment for why it joined
+ * this set once `.tok-wikilink` stopped being an atomic box.
  *
- * Every other struck construct (plain text, `Tag`, `WikiLink`, `InlineCode`,
+ * Every other struck construct (plain text, `Tag`, `InlineCode`,
  * `StrongEmphasis`/`Emphasis`/`Highlight` wrapping non-link content) is
  * unaffected: `STRIKETHROUGH_PROTECTED_NODE_NAMES` excludes only
- * `Link`/`Autolink`/`URL`, so their content still falls inside a gap and
- * still receives `tok-strike` exactly as before. A `Link` nested inside
- * `StrongEmphasis`/`Emphasis`/`Highlight` inside a `Strikethrough` (e.g.
- * `~~**[Google](url)**~~`) is unaffected in the other direction too:
+ * `Link`/`Autolink`/`URL`/`WikiLink`, so their content still falls inside a
+ * gap and still receives `tok-strike` exactly as before. A `Link` nested
+ * inside `StrongEmphasis`/`Emphasis`/`Highlight` inside a `Strikethrough`
+ * (e.g. `~~**[Google](url)**~~`) is unaffected in the other direction too:
  * `StrongEmphasis`'s own registered participant still wraps the *entire*
  * `**...**` content — including the link — in its own `tok-strong` mark,
  * completely independently of this function, since `.tok-strong` declares

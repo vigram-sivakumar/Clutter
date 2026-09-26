@@ -645,28 +645,42 @@ describe('wikiLinkLivePreview', () => {
   });
 
   // ===================================================================
-  // Known, not-yet-fixed side effect of wikiLinkLivePreview.ts's generic
-  // ancestor-widening (isDelimitedMarkConstruct), discovered while
-  // investigating Link (docs/editor-architecture-decisions.md, "A live,
-  // already-shipped side effect discovered while investigating Link").
-  // Link's own two LinkMark children (opening "[" and closing ")")
-  // structurally match the "two identically-named children ending in
-  // Mark" check even though Link is not a registered delimited-inline
-  // participant — so a caret at the Link's OWN bracket, nowhere near a
-  // nested WikiLink, incorrectly widens WikiLink's engagement boundary to
-  // include the whole Link. Pinned here as documented-but-unfixed current
-  // behavior, per this file's own convention for known limitations (see
-  // the "known, deferred limitation" block below), not silently untested.
+  // FIXED 2026-09-26 (nested-inline-rendering generic fix). This was
+  // previously a documented, deliberately-unfixed limitation: `wikiLinkLivePreview.ts`'s
+  // old `widenToEnclosingDelimitedRegion` widened through *every* enclosing
+  // delimited-mark ancestor unconditionally, including Link (whose own two
+  // `LinkMark` children — opening `[` and closing `)` — structurally match
+  // the "two identically-named children ending in Mark" check even though
+  // Link is not a registered delimited-inline participant) — so a caret at
+  // the Link's OWN bracket, nowhere near a nested WikiLink, incorrectly
+  // widened the WikiLink's engagement boundary to include the whole Link.
+  // The generic fix (`widenThroughFlushAncestors`, requiring the widened
+  // node to be its ancestor's *entire* content, zero gap on both sides)
+  // resolves this as a side effect, with no Link-specific or WikiLink-
+  // specific code: "See " sits between Link's own content-start and the
+  // WikiLink, breaking the flush chain, so the WikiLink no longer widens
+  // through Link at all.
   // ===================================================================
-  describe('KNOWN LIMITATION: a WikiLink nested in a Link label is falsely widened by the Link\'s own LinkMark pair', () => {
-    it('caret at the Link\'s own opening bracket (nowhere near the WikiLink) incorrectly reveals the nested WikiLink — documents current behavior, not desired behavior', () => {
+  describe('a WikiLink nested in a Link label resolves its own engagement independently of a caret elsewhere in the Link', () => {
+    it('caret at the Link\'s own opening bracket (nowhere near the WikiLink) leaves the nested WikiLink compact', () => {
       const doc = 'x [See [[Page]]](https://example.com) y';
       const linkOpenBracket = doc.indexOf('[See') + 1;
       const view = mountViewWithSelection(doc, linkOpenBracket, resolvedAs('Page'), true);
 
-      // Desired behavior would be "See Page" (WikiLink stays compact,
-      // since the caret isn't inside it) — current behavior incorrectly
-      // reveals it. This assertion documents the bug, not an endorsement.
+      // The caret genuinely sits inside Link's own range, so Link itself
+      // is directly engaged (unaffected by this fix, and correct) and
+      // shows its own real raw source — but the nested WikiLink, sharing
+      // no flush boundary with Link ("See " sits between them), resolves
+      // its own engagement independently and stays the compact widget.
+      expect(visibleText(view)).toBe('x [See Page](https://example.com) y');
+      expect(view.dom.querySelector('[data-wikilink-status]')).not.toBeNull();
+    });
+
+    it('caret genuinely inside the nested WikiLink still reveals it', () => {
+      const doc = 'x [See [[Page]]](https://example.com) y';
+      const insideWikiLink = doc.indexOf('Page') + 1;
+      const view = mountViewWithSelection(doc, insideWikiLink, resolvedAs('Page'), true);
+
       expect(visibleText(view)).toContain('[[Page]]');
     });
   });
@@ -758,6 +772,64 @@ describe('wikiLinkLivePreview', () => {
       // bare WikiLink's own boundary.
       const before = mountViewWithSelection(doc, nodeFrom - 1, resolvedAs('Project A'), true);
       expect(visibleText(before)).toBe('before Project A after');
+    });
+  });
+
+  // ===================================================================
+  // Regression suite for the reported bug (2026-09-26): a cursor entering
+  // ANY parent delimited-mark construct must not disable a nested
+  // WikiLink's own rendering merely because it shares an ancestor with the
+  // caret, unless the WikiLink is that ancestor's entire zero-gap content
+  // (in which case the pre-existing "no impossible mixed state" invariant
+  // still applies). See docs/editor-architecture-decisions.md's correction
+  // of this name and `tokenEngagement.ts`'s `widenThroughFlushAncestors`.
+  // ===================================================================
+  describe('REGRESSION: a parent construct being engaged never disables a sibling WikiLink\'s own rendering', () => {
+    it('**This contains [[My Page]]**: cursor in the Bold plain text leaves the WikiLink fully rendered', () => {
+      const doc = 'x **This contains [[My Page]]** y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText, resolvedAs('My Page'), true);
+
+      expect(view.dom.querySelector('[data-wikilink-status]')).not.toBeNull();
+      expect(visibleText(view)).toBe('x **This contains My Page** y');
+    });
+
+    it('~~This contains [[My Page]]~~: cursor in the Strikethrough plain text leaves the WikiLink fully rendered', () => {
+      const doc = 'x ~~This contains [[My Page]]~~ y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText, resolvedAs('My Page'), true);
+
+      expect(view.dom.querySelector('[data-wikilink-status]')).not.toBeNull();
+      expect(visibleText(view)).toBe('x ~~This contains My Page~~ y');
+    });
+
+    it('~~**This contains [[My Page]]**~~: cursor in the outer Strikethrough plain text at two nesting levels still leaves the WikiLink rendered', () => {
+      const doc = 'x ~~**This contains [[My Page]]**~~ y';
+      const cursorInPlainText = doc.indexOf('This') + 2;
+      const view = mountViewWithSelection(doc, cursorInPlainText, resolvedAs('My Page'), true);
+
+      expect(view.dom.querySelector('[data-wikilink-status]')).not.toBeNull();
+      expect(visibleText(view)).toBe('x ~~**This contains My Page**~~ y');
+    });
+
+    it('a WikiLink sibling of another WikiLink: engaging one by direct caret placement leaves the untouched one rendered', () => {
+      // No resolver injected — each WikiLink falls back to its own raw path
+      // as its display label, so the two are independently distinguishable.
+      const doc = 'x **[[First Page]] and [[Second Page]]** y';
+      const cursorInFirst = doc.indexOf('First') + 1;
+      const view = mountViewWithSelection(doc, cursorInFirst, undefined, true);
+
+      // Only one widget remains — the untouched "Second Page" one.
+      expect(view.dom.querySelectorAll('[data-wikilink-status]')).toHaveLength(1);
+      expect(visibleText(view)).toContain('[[First Page]]');
+      expect(visibleText(view)).toContain('Second Page');
+    });
+
+    it('**[[Page]]**: the pre-existing zero-gap invariant is unaffected — a caret at the outer boundary still shows the whole thing as one coherent unit, never a broken **/widget seam', () => {
+      const doc = '**[[Page]]**';
+      const view = mountViewWithSelection(doc, 0, resolvedAs('Page'), true);
+
+      expect(visibleText(view)).toBe(doc);
     });
   });
 });

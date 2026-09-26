@@ -149,22 +149,41 @@ describe('handleDateClick', () => {
   });
 });
 
-// Regression: a Date nested inside an enclosing delimited-mark construct
-// must decline to activate while the cursor is engaging that enclosing
-// construct — see wikiLinkMouseHandlers.test.ts's identical regression
-// block for the shared root cause (findAtRestTokenAt used to check only
-// the bare node's own range).
-describe('handleDateClick — cursor inside an enclosing formatting construct but outside the Date itself', () => {
+// CORRECTED 2026-09-26 (nested-inline-rendering generic fix — see
+// docs/editor-architecture-decisions.md's correction of that name and
+// tokenEngagement.ts's `widenThroughFlushAncestors`). Previously this block
+// asserted a Date nested inside an enclosing delimited-mark construct must
+// decline to activate whenever the cursor merely engaged that enclosing
+// construct, anywhere — the click-side symptom of the same generic bug the
+// decoration-side fix removes. A Date that is a genuine *sibling* of other
+// content inside the enclosing construct (real text — "x " — sits between
+// the `**` and the `@`, breaking the flush chain) now correctly activates
+// regardless of where else the cursor sits in that construct.
+describe('handleDateClick — cursor elsewhere in an enclosing formatting construct, outside the Date itself (a genuine sibling)', () => {
   // "x " keeps a valid date-preceding context (isValidDatePrecedingContext
   // mirrors the Tag rule) while also keeping "**" left-flanking, same
   // reasoning as tagMouseHandlers.test.ts's identical regression block.
-  it('does not activate a click inside the date text when the selection sits between the ** and the @', () => {
+  it('still activates a click on the Date even while the selection sits between the ** and the @ — the Date is a sibling, not flush, so it is unaffected by the enclosing construct\'s own engagement', () => {
     const activate = vi.fn();
     const resolver: ResolveDate = () => ({ activate });
     const doc = '**x @2026-08-20**';
     const view = mountView(doc, resolver);
 
     view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Date
+    const clickPos = doc.indexOf('2026') + 2;
+    const handled = handleDateClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not activate a click on a zero-gap sole-content Date (**@2026-08-20**) while the selection engages the enclosing StrongEmphasis — the pre-existing zero-gap invariant is unaffected', () => {
+    const activate = vi.fn();
+    const resolver: ResolveDate = () => ({ activate });
+    const doc = '**@2026-08-20**';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside the outer "**", flush against the Date on both sides
     const clickPos = doc.indexOf('2026') + 2;
     const handled = handleDateClick(view, clickPos, false, () => resolver);
 

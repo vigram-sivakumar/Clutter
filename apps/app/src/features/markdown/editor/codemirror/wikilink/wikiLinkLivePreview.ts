@@ -9,7 +9,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { collectActiveInlineClasses } from '../highlight/inlineLivePreviewParticipants';
-import { isTokenEngaged, widenToEnclosingDelimitedRegion } from '../semanticToken/tokenEngagement';
+import { isTokenEngaged, widenThroughFlushAncestors } from '../semanticToken/tokenEngagement';
 import { getWikiLinkMarkerRanges, renderWikiLink } from './wikiLinkDecorations';
 import type { ResolveWikiLink } from './wikiLinkResolution';
 
@@ -42,6 +42,25 @@ import type { ResolveWikiLink } from './wikiLinkResolution';
  * Reuses `isTokenEngaged` unchanged (imported, never modified) — the exact
  * same containment check every other construct uses, just evaluated from
  * this file's own tree scan instead of the shared traversal's.
+ *
+ * **Corrected 2026-09-26 (nested-inline-rendering generic fix):** the
+ * engagement check now widens through `widenThroughFlushAncestors`
+ * (`tokenEngagement.ts`) instead of the retired `widenToEnclosingDelimitedRegion`
+ * — flush (zero-gap, no-sibling) ancestors only, not every enclosing
+ * delimited-mark ancestor unconditionally. A WikiLink that is a *sibling*
+ * of other content inside an engaged ancestor (`**bold text [[Page]] more**`
+ * with the caret in "bold text") now correctly stays a compact widget,
+ * where it previously went raw purely because the caret was elsewhere in
+ * the same enclosing StrongEmphasis. `**[[Page]]**`-style zero-gap nesting
+ * (WikiLink is the ancestor's *entire* content) is unaffected — see
+ * `widenThroughFlushAncestors`'s own doc comment and this file's own test
+ * suite's "regression: engagement boundary matches the enclosing formatting
+ * region, no gap" block, which still passes unchanged. This also
+ * incidentally resolves this file's own previously-documented "KNOWN
+ * LIMITATION" (a WikiLink nested in a Link label falsely widened by the
+ * Link's own bracket pair) as a side effect of the same generic fix, since
+ * a WikiLink that isn't flush against Link's own marks no longer widens
+ * through it at all.
  */
 function buildDecorations(
   view: EditorView,
@@ -68,7 +87,7 @@ function buildDecorations(
           return;
         }
 
-        if (isTokenEngaged(view.state, widenToEnclosingDelimitedRegion(node.node))) {
+        if (isTokenEngaged(view.state, widenThroughFlushAncestors(node.node))) {
           // Engaged: the raw source stays ordinary, undecorated document
           // text — see this function's own doc comment above — except for
           // its own `[[`/`|`/`]]` punctuation, which now paints via the

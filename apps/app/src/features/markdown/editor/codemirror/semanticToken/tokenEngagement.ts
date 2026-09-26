@@ -81,43 +81,63 @@ function resolveTokenNode(
 }
 
 /**
- * Widens a token's own range to include any directly enclosing chain of
- * delimited-inline-formatting ancestors (Emphasis, StrongEmphasis,
- * Strikethrough, Highlight, InlineCode — every construct
- * `delimitedInlineRenderer` in `inlineLivePreviewParticipants.ts` handles),
- * without naming any of them: `isDelimitedMarkConstruct` is the same
- * structural fact `delimitedInlineRenderer` itself keys off (`firstChild`/
- * `lastChild` same-name check), so this composes with any current or
- * future participant following that convention with zero new knowledge
- * added about what that participant is. Stops at the first ancestor that
- * doesn't match — ordinary block containers (Paragraph, Document,
- * ListItem, TableCell, ...) never have two identically-`Mark`-named
- * children bracketing their content, so the walk naturally terminates at
- * the paragraph boundary rather than reaching the document root.
+ * Widens a token's own range outward through an ancestor chain of
+ * delimited-inline-formatting constructs (Emphasis, StrongEmphasis,
+ * Strikethrough, Highlight, InlineCode, Link, Autolink — every construct
+ * `isDelimitedMarkConstruct` recognizes), but **only while this node (or
+ * the previously-widened result) is that ancestor's entire content** —
+ * flush against both of the ancestor's own delimiter marks, with no
+ * sibling text or construct on either side. The walk stops the moment
+ * either side has a gap: from that point, the ancestor's own engagement
+ * state implies nothing about this node, which must resolve its own
+ * engagement independently.
  *
- * Promoted here (2026-09-15) from `wikiLinkLivePreview.ts`'s own
- * `widenToEnclosingLivePreviewRegion` (that file's original, WikiLink-only
- * copy now delegates here) once the same gap was found on the click side:
- * `**[[Page]]**` renders correctly as raw/editable while the cursor sits
- * between the `**` and the `[[` (the decoration path already widened via
- * that copy), but a *click* landing inside `[[Page]]`'s own narrower node
- * range used to check only the bare `WikiLink` node's range via
- * {@link isTokenEngaged} — missing the still-current selection sitting
- * just outside it — and so treated the click as landing on an at-rest
- * link and activated navigation, even though the construct was visibly
- * rendered as plain editable source at that exact moment. Centralizing
- * the widen here, inside {@link findAtRestTokenAt} itself, is what fixes
- * every semantic token kind's click/keyboard-activation path at once
- * (WikiLink, Link, Autolink/URL, Tag, Date, Embed, ...) rather than
- * requiring each kind's own mouse-handler file to remember to widen —
- * the "one shared choke point" principle {@link isTokenEngaged}'s own doc
- * comment already establishes for the read-only guard applies identically
- * here.
+ * **Corrected 2026-09-26 (nested-inline-rendering generic fix, see
+ * docs/editor-architecture-decisions.md's correction of that name).**
+ * Superseded the previous `widenToEnclosingDelimitedRegion`, which widened
+ * through *every* enclosing delimited-mark ancestor unconditionally,
+ * regardless of whether this node was flush against that ancestor's own
+ * marks or merely sat *somewhere* inside it alongside unrelated sibling
+ * content. That unconditional widen was the generic root cause of a
+ * confirmed bug: a WikiLink/Tag/Link/plain-formatted sibling anywhere
+ * inside an engaged ancestor (e.g. `**bold text [[Page]] #tag more**`)
+ * was treated as itself engaged the instant the cursor entered *any* part
+ * of that ancestor, even far from the sibling itself — exposing it as raw
+ * Markdown though the cursor never came near it. The flush condition
+ * added here is the fix: two children of the same delimited construct
+ * that are genuinely siblings (not zero-gap nested) never share a flush
+ * boundary with the ancestor at the same time, so widening naturally
+ * excludes exactly the sibling-contamination case while preserving the
+ * one case flush widening exists for — the ancestor's marker sits
+ * immediately against a nested construct that *is* its entire content
+ * (`**[[Page]]**`, `**~~[[Page]]~~**`), where a caret at the ancestor's
+ * own outer boundary must still show the whole thing as one coherent
+ * raw/rendered unit rather than a broken half-revealed-half-widget seam
+ * (the original regression `widenToEnclosingDelimitedRegion` was written
+ * to fix — see docs/editor-architecture-decisions.md's "regression:
+ * engagement boundary matches the enclosing formatting region, no gap").
+ *
+ * Ordinary block containers (Paragraph, Document, ListItem, TableCell,
+ * ...) never satisfy `isDelimitedMarkConstruct` in the first place, so the
+ * walk still naturally terminates at the paragraph boundary without
+ * needing to name any container type.
+ *
+ * Shared by both the decoration side (`inlineLivePreviewRegion.ts`'s own
+ * per-participant engagement check, and `wikiLinkLivePreview.ts`'s
+ * standalone one) and the click-activation side ({@link findAtRestTokenAt},
+ * below) — the same single definition of "engaged" everywhere, so a
+ * rendered widget and its own click-to-activate resolution can never
+ * disagree about whether the cursor currently occupies it.
  */
-export function widenToEnclosingDelimitedRegion(node: SyntaxNode): TokenNodeRange {
+export function widenThroughFlushAncestors(node: SyntaxNode): TokenNodeRange {
   let widest: TokenNodeRange = { from: node.from, to: node.to };
   let ancestor: SyntaxNode | null = node.parent;
   while (ancestor && isDelimitedMarkConstruct(ancestor)) {
+    const openMark = ancestor.firstChild;
+    const closeMark = ancestor.lastChild;
+    if (!openMark || !closeMark || openMark.to !== widest.from || closeMark.from !== widest.to) {
+      break;
+    }
     widest = { from: ancestor.from, to: ancestor.to };
     ancestor = ancestor.parent;
   }
@@ -142,7 +162,7 @@ export function findTokenAt(
 /**
  * Same as {@link findTokenAt}, but only returns a node that is currently
  * at rest (not engaged) — checked against the node's own range *widened*
- * to any enclosing delimited-mark construct ({@link widenToEnclosingDelimitedRegion}),
+ * to any flush-enclosing delimited-mark construct ({@link widenThroughFlushAncestors}),
  * not the bare node range, so this agrees with whatever the decoration
  * side actually rendered (raw/editable vs. at-rest widget) at the moment
  * of the click. The returned range itself stays the token's own narrow
@@ -159,7 +179,7 @@ export function findAtRestTokenAt(
   if (!node) {
     return null;
   }
-  if (isTokenEngaged(state, widenToEnclosingDelimitedRegion(node))) {
+  if (isTokenEngaged(state, widenThroughFlushAncestors(node))) {
     return null;
   }
   return { from: node.from, to: node.to };
