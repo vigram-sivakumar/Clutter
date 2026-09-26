@@ -1751,4 +1751,181 @@ describe('inlineLivePreviewRegion', () => {
       expect(view.dom.querySelector('.tok-link')?.textContent).toBe('a');
     });
   });
+
+  // ===================================================================
+  // Regression suite for the refined bug report (2026-09-27): "inside X"
+  // and "X is active" were being conflated. An ACTIVE parent construct
+  // must suppress only its OWN formatting/markers, never its descendants'
+  // rendering (already fixed above) NOR leave its own formatting class
+  // stuck on descendants that keep rendering normally. See docs/editor-
+  // architecture-decisions.md's "active-parent-formatting fix" entry and
+  // `collectActiveInlineClasses`'s own doc comment
+  // (`inlineLivePreviewParticipants.ts`) for the mechanism.
+  // WikiLink's own equivalent coverage lives in wikiLinkLivePreview.test.ts.
+  //
+  // Invariant under test, for every construct kind (Strong/Emphasis/
+  // Highlight/Strikethrough):
+  //   OUTSIDE the active parent: every descendant inside it carries the
+  //     parent's own class (e.g. tok-strike).
+  //   INSIDE the active parent (its own plain text, not a child's own
+  //     range): every descendant still renders/styles normally, but NONE
+  //     of them carry the parent's class anymore.
+  // ===================================================================
+  describe('REGRESSION: an ACTIVE parent construct suppresses only its own formatting — never leaves it stuck on descendants', () => {
+    /** Every inline construct kind this suite exercises, built once per test around one shared plain-text anchor ("plain") so cursor positions are comparable across cases. */
+    function struckDoc(inner: string): string {
+      return `x ~~plain ${inner}~~ y`;
+    }
+
+    it('1. plain text inside Strikethrough: struck when Strikethrough is inactive, un-struck when active', () => {
+      const doc = struckDoc('more text');
+      const outside = mountViewWithSelection(doc, 0);
+      expect(outside.dom.querySelector('.tok-strike')?.textContent).toContain('plain');
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      // The whole Strikethrough is now raw source (its own `~~` revealed,
+      // per the existing active-marker behavior) — no `.tok-strike` element
+      // exists at all while engaged.
+      expect(insidePlainText.dom.querySelector('.tok-strike')).toBeNull();
+      expect(visibleText(insidePlainText)).toBe(doc);
+    });
+
+    it('2. Tag inside Strikethrough: struck when inactive, un-struck (but still a rendered Tag) when Strikethrough is active', () => {
+      const doc = struckDoc('#tag');
+      const outside = mountViewWithSelection(doc, 0);
+      const tagOutside = outside.dom.querySelector('[data-tag-status]');
+      expect(tagOutside).not.toBeNull();
+      expect(tagOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      const tagActive = insidePlainText.dom.querySelector('[data-tag-status]');
+      expect(tagActive, 'Tag must still be rendered as a Tag').not.toBeNull();
+      expect(tagActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('3. Markdown Link inside Strikethrough: struck when inactive, un-struck (but still a rendered Link) when Strikethrough is active', () => {
+      const doc = struckDoc('[Google](https://example.com)');
+      const outside = mountViewWithSelection(doc, 0);
+      const linkOutside = outside.dom.querySelector('.tok-link');
+      expect(linkOutside?.textContent).toBe('Google');
+      expect(linkOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      // The Link itself is a sibling of the caret's plain text, not flush
+      // against Strikethrough's own marks, so it keeps rendering normally
+      // (its own syntax stays concealed) while the surrounding Strikethrough
+      // marks reveal.
+      expect(visibleText(insidePlainText)).toBe('x ~~plain Google~~ y');
+      const linkActive = insidePlainText.dom.querySelector('.tok-link');
+      expect(linkActive, 'Link must still be rendered').not.toBeNull();
+      expect(linkActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('4. Raw URL inside Strikethrough: struck when inactive, un-struck (but still a rendered URL) when Strikethrough is active', () => {
+      const doc = struckDoc('https://example.com');
+      const outside = mountViewWithSelection(doc, 0);
+      const urlOutside = outside.dom.querySelector('.tok-link');
+      expect(urlOutside?.textContent).toBe('https://example.com');
+      expect(urlOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      expect(visibleText(insidePlainText)).toBe(doc);
+    });
+
+    it('5. Strong inside Strikethrough: Strong keeps its own styling, loses only the inherited strike, when Strikethrough is active', () => {
+      const doc = struckDoc('**bold**');
+      const outside = mountViewWithSelection(doc, 0);
+      const strongOutside = outside.dom.querySelector('.tok-strong');
+      expect(strongOutside?.textContent).toBe('bold');
+      expect(strongOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      const strongActive = insidePlainText.dom.querySelector('.tok-strong');
+      expect(strongActive, 'Strong must still render bold').not.toBeNull();
+      expect(strongActive!.textContent).toBe('bold');
+      expect(strongActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('6. Emphasis inside Strikethrough: Emphasis keeps its own styling, loses only the inherited strike, when Strikethrough is active', () => {
+      const doc = struckDoc('*italic*');
+      const outside = mountViewWithSelection(doc, 0);
+      const emphasisOutside = outside.dom.querySelector('.tok-emphasis');
+      expect(emphasisOutside?.textContent).toBe('italic');
+      expect(emphasisOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      const emphasisActive = insidePlainText.dom.querySelector('.tok-emphasis');
+      expect(emphasisActive, 'Emphasis must still render italic').not.toBeNull();
+      expect(emphasisActive!.textContent).toBe('italic');
+      expect(emphasisActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('7. Highlight inside Strikethrough: Highlight keeps its own styling, loses only the inherited strike, when Strikethrough is active', () => {
+      const doc = struckDoc('==marked==');
+      const outside = mountViewWithSelection(doc, 0);
+      const highlightOutside = outside.dom.querySelector('.tok-highlight');
+      expect(highlightOutside?.textContent).toBe('marked');
+      expect(highlightOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      const highlightActive = insidePlainText.dom.querySelector('.tok-highlight');
+      expect(highlightActive, 'Highlight must still render marked').not.toBeNull();
+      expect(highlightActive!.textContent).toBe('marked');
+      expect(highlightActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('8. multiple different inline constructs inside one Strikethrough: every one loses only the strike, independently, while active', () => {
+      const doc = 'x ~~plain **bold** *italic* ==marked== #tag [Google](https://example.com)~~ y';
+
+      const outside = mountViewWithSelection(doc, 0);
+      for (const selector of ['.tok-strong', '.tok-emphasis', '.tok-highlight', '.tok-link']) {
+        const el = outside.dom.querySelector(selector);
+        expect(el, `${selector} outside`).not.toBeNull();
+        expect(el!.classList.contains('tok-strike'), `${selector} outside should be struck`).toBe(true);
+      }
+      expect(outside.dom.querySelector('[data-tag-status]')!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2);
+      // Cursor sits in the outer Strikethrough's own plain text — every
+      // sibling construct keeps rendering/styling, none carry tok-strike.
+      for (const selector of ['.tok-strong', '.tok-emphasis', '.tok-highlight']) {
+        const el = insidePlainText.dom.querySelector(selector);
+        expect(el, `${selector} while active`).not.toBeNull();
+        expect(el!.classList.contains('tok-strike'), `${selector} while active must not be struck`).toBe(false);
+      }
+      const tagActive = insidePlainText.dom.querySelector('[data-tag-status]');
+      expect(tagActive).not.toBeNull();
+      expect(tagActive!.classList.contains('tok-strike')).toBe(false);
+      expect(insidePlainText.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+    });
+
+    it('9. nested Strong + Link inside Strikethrough: cursor in the outer Strikethrough plain text un-strikes both, cursor in the inner Strong plain text un-strikes only Strikethrough (Strong itself is genuinely engaged too, so it has no content class of its own to keep)', () => {
+      const doc = 'x ~~outer **inner [Google](https://example.com)** more~~ y';
+
+      const outside = mountViewWithSelection(doc, 0);
+      const strongOutside = outside.dom.querySelector('.tok-strong');
+      expect(strongOutside!.classList.contains('tok-strike')).toBe(true);
+      const linkOutside = outside.dom.querySelector('.tok-link');
+      expect(linkOutside!.classList.contains('tok-strike')).toBe(true);
+      // Link composes tok-strike onto its own root (needed to avoid the
+      // ancestor-line-through compositing bug) but never tok-strong — Bold
+      // has no such conflict, so the Link is simply a genuine DOM
+      // descendant of Bold's own `.tok-strong` wrapping mark instead.
+      expect(linkOutside!.closest('.tok-strong')).not.toBeNull();
+
+      // Cursor in the outer Strikethrough's own plain text ("outer"),
+      // outside the inner Strong entirely: Strong keeps its own bold
+      // styling and the Link stays its own genuine DOM descendant, but
+      // nothing carries tok-strike anymore.
+      const cursorInOuterPlainText = doc.indexOf('outer') + 2;
+      const activeOuter = mountViewWithSelection(doc, cursorInOuterPlainText);
+      const strongActiveOuter = activeOuter.dom.querySelector('.tok-strong');
+      expect(strongActiveOuter, 'Strong must still render').not.toBeNull();
+      expect(strongActiveOuter!.classList.contains('tok-strike')).toBe(false);
+      const linkActiveOuter = activeOuter.dom.querySelector('.tok-link');
+      expect(linkActiveOuter?.textContent).toBe('Google');
+      expect(linkActiveOuter!.classList.contains('tok-strike')).toBe(false);
+      expect(linkActiveOuter!.closest('.tok-strong')).not.toBeNull();
+    });
+  });
 });

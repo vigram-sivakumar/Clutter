@@ -9,7 +9,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { collectActiveInlineClasses } from '../highlight/inlineLivePreviewParticipants';
-import { isTokenEngaged, widenThroughFlushAncestors } from '../semanticToken/tokenEngagement';
+import { isConstructEngaged } from '../semanticToken/tokenEngagement';
 import { getWikiLinkMarkerRanges, renderWikiLink } from './wikiLinkDecorations';
 import type { ResolveWikiLink } from './wikiLinkResolution';
 
@@ -39,20 +39,21 @@ import type { ResolveWikiLink } from './wikiLinkResolution';
  * around: with no concealment left anywhere in this file, the mark had no
  * class, no attributes, and no styling — nothing left for it to do.
  *
- * Reuses `isTokenEngaged` unchanged (imported, never modified) — the exact
- * same containment check every other construct uses, just evaluated from
+ * Reuses `isConstructEngaged` (`tokenEngagement.ts`) unchanged — the exact
+ * same engagement check every other construct uses, just evaluated from
  * this file's own tree scan instead of the shared traversal's.
  *
  * **Corrected 2026-09-26 (nested-inline-rendering generic fix):** the
- * engagement check now widens through `widenThroughFlushAncestors`
- * (`tokenEngagement.ts`) instead of the retired `widenToEnclosingDelimitedRegion`
- * — flush (zero-gap, no-sibling) ancestors only, not every enclosing
- * delimited-mark ancestor unconditionally. A WikiLink that is a *sibling*
- * of other content inside an engaged ancestor (`**bold text [[Page]] more**`
- * with the caret in "bold text") now correctly stays a compact widget,
- * where it previously went raw purely because the caret was elsewhere in
- * the same enclosing StrongEmphasis. `**[[Page]]**`-style zero-gap nesting
- * (WikiLink is the ancestor's *entire* content) is unaffected — see
+ * engagement check widens through `widenThroughFlushAncestors`
+ * (`tokenEngagement.ts`, reached via `isConstructEngaged`) instead of the
+ * retired `widenToEnclosingDelimitedRegion` — flush (zero-gap, no-sibling)
+ * ancestors only, not every enclosing delimited-mark ancestor
+ * unconditionally. A WikiLink that is a *sibling* of other content inside
+ * an engaged ancestor (`**bold text [[Page]] more**` with the caret in
+ * "bold text") now correctly stays a compact widget, where it previously
+ * went raw purely because the caret was elsewhere in the same enclosing
+ * StrongEmphasis. `**[[Page]]**`-style zero-gap nesting (WikiLink is the
+ * ancestor's *entire* content) is unaffected — see
  * `widenThroughFlushAncestors`'s own doc comment and this file's own test
  * suite's "regression: engagement boundary matches the enclosing formatting
  * region, no gap" block, which still passes unchanged. This also
@@ -61,6 +62,16 @@ import type { ResolveWikiLink } from './wikiLinkResolution';
  * Link's own bracket pair) as a side effect of the same generic fix, since
  * a WikiLink that isn't flush against Link's own marks no longer widens
  * through it at all.
+ *
+ * **Further corrected 2026-09-27 (active-parent-formatting fix):**
+ * `collectActiveInlineClasses` (below, `../highlight/inlineLivePreviewParticipants`)
+ * now also takes `view.state` — an *active* enclosing construct (e.g. the
+ * caret sitting elsewhere inside an engaged Strikethrough) no longer
+ * contributes its own content class (`tok-strike`) onto this WikiLink's
+ * root, even though the WikiLink itself stays correctly rendered as a
+ * compact widget. See that function's own doc comment for the full
+ * mechanism — this file passes `state` through unchanged, no WikiLink-
+ * specific logic added here.
  */
 function buildDecorations(
   view: EditorView,
@@ -87,7 +98,7 @@ function buildDecorations(
           return;
         }
 
-        if (isTokenEngaged(view.state, widenThroughFlushAncestors(node.node))) {
+        if (isConstructEngaged(view.state, node.node)) {
           // Engaged: the raw source stays ordinary, undecorated document
           // text — see this function's own doc comment above — except for
           // its own `[[`/`|`/`]]` punctuation, which now paints via the
@@ -105,7 +116,7 @@ function buildDecorations(
         }
 
         const raw = view.state.sliceDoc(node.from, node.to);
-        const extraClasses = [...collectActiveInlineClasses(node)];
+        const extraClasses = [...collectActiveInlineClasses(node, view.state)];
         const widget = renderWikiLink(raw, getResolver, extraClasses);
         if (!widget) {
           return;

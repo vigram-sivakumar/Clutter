@@ -832,6 +832,76 @@ describe('wikiLinkLivePreview', () => {
       expect(visibleText(view)).toBe(doc);
     });
   });
+
+  // ===================================================================
+  // Regression suite for the refined bug report (2026-09-27): "inside X"
+  // vs. "X is active". A WikiLink nested in an ACTIVE Strikethrough/Bold/
+  // Emphasis/Highlight must keep rendering as a WikiLink (already proven
+  // above) but must also stop carrying that ancestor's own formatting
+  // class on its own root — mirroring what a real DOM `.tok-strike`
+  // wrapper would (not) do while the ancestor's own content-mark
+  // decoration is withheld during engagement. See docs/editor-architecture-
+  // decisions.md's "active-parent-formatting fix" entry.
+  // ===================================================================
+  describe('REGRESSION: an ACTIVE parent construct suppresses only its own formatting on a nested WikiLink — never leaves it stuck', () => {
+    it('~~plain [[Page]]~~: the WikiLink carries tok-strike when Strikethrough is inactive, but not when it is active', () => {
+      const doc = 'x ~~plain [[Page]]~~ y';
+
+      const outside = mountViewWithSelection(doc, 0, resolvedAs('Page'), true);
+      const widgetOutside = outside.dom.querySelector('[data-wikilink-status]');
+      expect(widgetOutside).not.toBeNull();
+      expect(widgetOutside!.classList.contains('tok-strike')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2, resolvedAs('Page'), true);
+      const widgetActive = insidePlainText.dom.querySelector('[data-wikilink-status]');
+      expect(widgetActive, 'WikiLink must still be rendered').not.toBeNull();
+      expect(widgetActive!.classList.contains('tok-strike')).toBe(false);
+    });
+
+    it('**plain [[Page]]**: the same holds for an active Bold ancestor (tok-strong is not the class under test here, but the mechanism is construct-agnostic — verified via Strikethrough nested inside)', () => {
+      const doc = 'x ~~**plain [[Page]]**~~ y';
+
+      const outside = mountViewWithSelection(doc, 0, resolvedAs('Page'), true);
+      expect(outside.dom.querySelector('[data-wikilink-status]')!.classList.contains('tok-strike')).toBe(true);
+
+      // Caret in the OUTER Strikethrough's own plain text ("outer" text
+      // would be needed for a sibling case, but here Bold is flush/sole
+      // content of Strikethrough, so both reveal their own marks together
+      // per the pre-existing zero-gap invariant) — use a genuinely nested
+      // shape instead: Bold has its own plain text sibling to the WikiLink.
+      const nestedDoc = 'x ~~before **plain [[Page]]** after~~ y';
+      const activeStrikeOnly = mountViewWithSelection(nestedDoc, nestedDoc.indexOf('before') + 2, resolvedAs('Page'), true);
+      const widget = activeStrikeOnly.dom.querySelector('[data-wikilink-status]');
+      expect(widget, 'WikiLink must still be rendered').not.toBeNull();
+      expect(widget!.classList.contains('tok-strike')).toBe(false);
+      // Bold is inactive here (caret is in Strikethrough's own plain text,
+      // not Bold's) — its class still composes normally.
+      expect(widget!.classList.contains('tok-strong')).toBe(true);
+    });
+
+    it('~~before **plain [[Page]]** after~~: caret inside the inner Bold\'s own plain text un-strikes AND un-bolds the WikiLink (both ancestors are now active)', () => {
+      const doc = 'x ~~before **plain [[Page]]** after~~ y';
+      const cursorInBoldPlainText = doc.indexOf('plain') + 2;
+      const view = mountViewWithSelection(doc, cursorInBoldPlainText, resolvedAs('Page'), true);
+
+      const widget = view.dom.querySelector('[data-wikilink-status]');
+      expect(widget, 'WikiLink must still be rendered').not.toBeNull();
+      expect(widget!.classList.contains('tok-strike')).toBe(false);
+      expect(widget!.classList.contains('tok-strong')).toBe(false);
+    });
+
+    it('==plain [[Page]]==: the same holds for an active Highlight ancestor', () => {
+      const doc = 'x ==plain [[Page]]== y';
+
+      const outside = mountViewWithSelection(doc, 0, resolvedAs('Page'), true);
+      expect(outside.dom.querySelector('[data-wikilink-status]')!.classList.contains('tok-highlight')).toBe(true);
+
+      const insidePlainText = mountViewWithSelection(doc, doc.indexOf('plain') + 2, resolvedAs('Page'), true);
+      const widget = insidePlainText.dom.querySelector('[data-wikilink-status]');
+      expect(widget, 'WikiLink must still be rendered').not.toBeNull();
+      expect(widget!.classList.contains('tok-highlight')).toBe(false);
+    });
+  });
 });
 
 // =====================================================================

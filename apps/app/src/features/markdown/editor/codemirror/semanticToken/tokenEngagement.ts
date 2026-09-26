@@ -2,7 +2,38 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { isDelimitedMarkConstruct } from '../highlight/inlineLivePreviewParticipants';
+/**
+ * Structural (not name-based) test for "does this node parse as an
+ * ordinary delimited-mark construct" — exactly two children whose own
+ * name is identical and ends in `Mark`, bracketing the content. Every
+ * `delimitedInlineRenderer` participant (Emphasis, StrongEmphasis,
+ * Strikethrough, Highlight, InlineCode, Autolink) and `Link` itself
+ * (whose own `firstChild`/`lastChild` are both `LinkMark`, per
+ * `linkRenderer`'s own doc comment, in `inlineLivePreviewParticipants.ts`)
+ * satisfy this by construction; ordinary block containers (Paragraph,
+ * Document, ListItem, TableCell, ...) never do, so a walk built on this
+ * check naturally stops at a paragraph boundary without needing to name
+ * any container type.
+ *
+ * **Lives here, not in `inlineLivePreviewParticipants.ts` (moved
+ * 2026-09-27)**: this module's own `widenThroughFlushAncestors` and
+ * `isConstructEngaged` need it, and `inlineLivePreviewParticipants.ts`
+ * needs `isConstructEngaged` in turn (see that function's own doc
+ * comment) — keeping the structural test here avoids a circular import
+ * between the two files while `collectActiveInlineClasses` still reuses
+ * this exact same fact, unchanged, via the import below.
+ */
+export function isDelimitedMarkConstruct(node: SyntaxNode): boolean {
+  const first = node.firstChild;
+  const last = node.lastChild;
+  return (
+    !!first &&
+    !!last &&
+    first !== last &&
+    first.name === last.name &&
+    first.name.endsWith('Mark')
+  );
+}
 
 /**
  * Generic reveal-on-engagement query mechanism, extracted from the
@@ -145,6 +176,26 @@ export function widenThroughFlushAncestors(node: SyntaxNode): TokenNodeRange {
 }
 
 /**
+ * The one, shared answer to "is this specific delimited-mark construct
+ * *itself* currently engaged (active/revealed)" — `isTokenEngaged` over
+ * `widenThroughFlushAncestors(node)`, extracted (2026-09-27) as its own
+ * named function because it is now needed at a *third* independent call
+ * site: `inlineLivePreviewRegion.ts`'s own per-participant check,
+ * `wikiLinkLivePreview.ts`'s standalone one, and — new —
+ * `inlineLivePreviewParticipants.ts`'s `collectActiveInlineClasses`, which
+ * needs to ask this question about each of a node's *ancestors* in turn
+ * (see that function's own doc comment for why: an active parent's own
+ * content class must not keep composing onto a descendant that itself
+ * stays independently rendered). Three independent call sites reconstructing
+ * `isTokenEngaged(state, widenThroughFlushAncestors(x))` by hand is exactly
+ * the duplication this codebase's own conventions call for consolidating
+ * into one named fact once a second consumer appears, doubly so for a third.
+ */
+export function isConstructEngaged(state: EditorState, node: SyntaxNode): boolean {
+  return isTokenEngaged(state, widenThroughFlushAncestors(node));
+}
+
+/**
  * Finds the token node (if any, per `isTokenNode`) whose range contains
  * `pos`, scoped to a narrow window around `pos` rather than the whole
  * document — this is called from hot paths (mouse handlers, arrow-key
@@ -179,7 +230,7 @@ export function findAtRestTokenAt(
   if (!node) {
     return null;
   }
-  if (isTokenEngaged(state, widenThroughFlushAncestors(node))) {
+  if (isConstructEngaged(state, node)) {
     return null;
   }
   return { from: node.from, to: node.to };

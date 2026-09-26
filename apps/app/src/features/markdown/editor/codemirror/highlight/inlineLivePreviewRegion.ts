@@ -9,7 +9,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
-import { isTokenEngaged, widenThroughFlushAncestors } from '../semanticToken/tokenEngagement';
+import { isConstructEngaged } from '../semanticToken/tokenEngagement';
 import { revealedMarkNodeRanges, type ParticipantRenderer } from './inlineLivePreviewParticipants';
 
 /**
@@ -197,7 +197,7 @@ function buildDecorations(
           return;
         }
 
-        if (isTokenEngaged(view.state, widenThroughFlushAncestors(node.node))) {
+        if (isConstructEngaged(view.state, node.node)) {
           // Engaged: reveal only this node's own marker children (a no-op
           // for the widget-replace family and bare URL, which have none)
           // and keep descending — no `return false`. Every nested

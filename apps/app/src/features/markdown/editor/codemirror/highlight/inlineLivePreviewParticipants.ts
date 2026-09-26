@@ -4,6 +4,7 @@ import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common';
 
 import { renderDate } from '../date/dateDecorations';
 import type { ResolveDate } from '../date/dateResolution';
+import { isConstructEngaged, isDelimitedMarkConstruct } from '../semanticToken/tokenEngagement';
 import { renderTag } from '../tag/tagDecorations';
 import type { ResolveTag } from '../tag/tagResolution';
 import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
@@ -126,7 +127,7 @@ function delimitedInlineRenderer(
   contentClass: string,
   markerClass?: string
 ): ParticipantRenderer {
-  return (node) => {
+  return (node, state) => {
     const openMark = node.node.firstChild;
     const closeMark = node.node.lastChild;
     if (
@@ -160,7 +161,7 @@ function delimitedInlineRenderer(
       // wrapper at all. Ordinary (non-widget) content is unaffected: plain
       // text and concealed zero-width marker ranges compose into this mark
       // the same way regardless of inclusivity, so this is purely additive.
-      const classes = [contentClass, ...collectActiveStrikeClass(node)].join(
+      const classes = [contentClass, ...collectActiveStrikeClass(node, state)].join(
         ' '
       );
       decorations.push(
@@ -388,7 +389,7 @@ function computeStrikethroughGaps(
  * no `text-decoration` and has no conflict to avoid. Only `Strikethrough`'s
  * own decoration needed splitting.
  */
-const strikethroughRenderer: ParticipantRenderer = (node) => {
+const strikethroughRenderer: ParticipantRenderer = (node, state) => {
   const strikeNode = node.node;
   const openMark = strikeNode.firstChild;
   const closeMark = strikeNode.lastChild;
@@ -417,7 +418,7 @@ const strikethroughRenderer: ParticipantRenderer = (node) => {
       closeMark.from,
       protectedRanges
     );
-    const classes = ['tok-strike', ...collectActiveStrikeClass(node)].join(' ');
+    const classes = ['tok-strike', ...collectActiveStrikeClass(node, state)].join(' ');
     for (const gap of gaps) {
       // inclusiveStart/inclusiveEnd are per-gap, not blanket true — see
       // computeStrikethroughGaps's own doc comment for why: true only on
@@ -438,35 +439,6 @@ const strikethroughRenderer: ParticipantRenderer = (node) => {
   decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
   return { decorations };
 };
-
-/**
- * Structural (not name-based) test for "does this node parse as an
- * ordinary delimited-mark construct" — exactly two children whose own
- * name is identical and ends in `Mark`, bracketing the content. Every
- * `delimitedInlineRenderer` participant (Emphasis, StrongEmphasis,
- * Strikethrough, Highlight, InlineCode, Autolink) and `Link` itself
- * (whose own `firstChild`/`lastChild` are both `LinkMark`, per
- * `linkRenderer`'s own doc comment) satisfy this by construction; ordinary
- * block containers (Paragraph, Document, ListItem, TableCell, ...) never
- * do, so a walk built on this check naturally stops at a paragraph
- * boundary without needing to name any container type.
- *
- * Originally local to `wikiLinkLivePreview.ts` (`widenToEnclosingLivePreviewRegion`'s
- * own engagement-boundary walk); promoted here, unchanged, so
- * `collectActiveInlineClasses` below can reuse the identical structural
- * fact rather than re-deriving or duplicating it.
- */
-export function isDelimitedMarkConstruct(node: SyntaxNode): boolean {
-  const first = node.firstChild;
-  const last = node.lastChild;
-  return (
-    !!first &&
-    !!last &&
-    first !== last &&
-    first.name === last.name &&
-    first.name.endsWith('Mark')
-  );
-}
 
 /**
  * The rendered CSS class each delimited-mark construct's own content
@@ -490,9 +462,10 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
 /**
  * Inline-formatting composition for widget-family constructs (WikiLink,
  * Tag, Date, and any future inline widget): walks a node's ancestors and
- * collects the content class of every enclosing delimited-mark construct,
- * innermost first, stopping at the first ancestor that doesn't structurally
- * qualify (`isDelimitedMarkConstruct`) — the same termination `widenToEnclosingLivePreviewRegion`
+ * collects the content class of every enclosing delimited-mark construct
+ * that is currently **inactive** (not itself engaged/revealed), innermost
+ * first, stopping at the first ancestor that doesn't structurally qualify
+ * (`isDelimitedMarkConstruct`) — the same termination `widenToEnclosingLivePreviewRegion`
  * already relies on.
  *
  * Per docs/editor-architecture-decisions.md's "Inline formatting
@@ -506,22 +479,50 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  * or whether the widget is an atomic (`display: inline-flex`) box: nothing
  * here asks CSS to cross an element boundary at all.
  *
- * Deliberately pure and tree-only — no `EditorState`/`EditorView` parameter,
- * no knowledge of engagement, selection, or any other state source (e.g.
- * completed-task line state, which is a *different*, independently-solved
- * concern — see `docs/editor-architecture-decisions.md`). Adding a new
- * delimited-mark construct never requires touching this function: it only
- * needs a `contentClass` entry above, the same one its own participant
+ * **"Inside X" vs. "X is active" — corrected 2026-09-27 (active-parent-
+ * formatting fix, see docs/editor-architecture-decisions.md's entry of
+ * that name).** Previously this function composed an ancestor's content
+ * class purely from tree containment, with no regard for whether that
+ * ancestor was currently engaged. That was correct for an *inactive*
+ * ancestor (its own `Decoration.mark` genuinely wraps this occurrence in
+ * the real DOM, so composing the same class here keeps a widget-family
+ * node's styling consistent regardless of atomicity) but wrong for an
+ * *active* one: `inlineLivePreviewRegion.ts`'s traversal never emits an
+ * engaged construct's content-mark decoration at all (only its own bare
+ * markers reveal, via `revealedMarkNodeRanges`) — there is no real
+ * `.tok-strike`/`.tok-strong`/etc. DOM ancestor to mirror in that state, so
+ * composing the class here anyway left the parent's formatting visually
+ * "stuck" on every descendant even after the parent's own plain-text
+ * content correctly stopped showing it. Confirmed live: `~~plain [[Page]]~~`
+ * with the caret in "plain" correctly un-struck the plain text but the
+ * WikiLink widget kept `tok-strike` on its own root regardless. The fix:
+ * for each ancestor, skip its content class when `isConstructEngaged`
+ * (`tokenEngagement.ts`) says that specific ancestor is itself currently
+ * active — walking still continues past it, so a *further-out*, inactive
+ * ancestor's class still composes normally (`~~**[[Page]]**~~` with the
+ * caret only in the outer `~~`'s plain text still composes `tok-strong`
+ * from the inactive inner Bold, just not `tok-strike` from the active outer
+ * Strikethrough). This generalizes to every delimited-mark kind uniformly
+ * (Strong/Emphasis/Highlight/Strikethrough/Link) — nothing here names a
+ * specific construct.
+ *
+ * Takes `state` for exactly this one purpose (engagement is state-
+ * dependent) — still no other state source is read (e.g. completed-task
+ * line state, which is a *different*, independently-solved concern — see
+ * `docs/editor-architecture-decisions.md`). Adding a new delimited-mark
+ * construct never requires touching this function: it only needs a
+ * `contentClass` entry above, the same one its own participant
  * registration already needs.
  */
 export function collectActiveInlineClasses(
-  node: SyntaxNodeRef
+  node: SyntaxNodeRef,
+  state: EditorState
 ): readonly string[] {
   const classes: string[] = [];
   let ancestor = node.node.parent;
   while (ancestor && isDelimitedMarkConstruct(ancestor)) {
     const contentClass = INLINE_CONTENT_CLASS_BY_NODE_NAME.get(ancestor.name);
-    if (contentClass) {
+    if (contentClass && !isConstructEngaged(state, ancestor)) {
       classes.push(contentClass);
     }
     ancestor = ancestor.parent;
@@ -542,10 +543,11 @@ export function collectActiveInlineClasses(
  * `wikiLinkLivePreview.ts`) already compose the full `collectActiveInlineClasses`
  * result and are untouched by this — this helper exists only for the
  * `Decoration.mark` call sites below, which previously composed no ancestor
- * classes at all.
+ * classes at all. Takes `state` only to forward it — see
+ * `collectActiveInlineClasses`'s own doc comment for what it's used for.
  */
-function collectActiveStrikeClass(node: SyntaxNodeRef): readonly string[] {
-  return collectActiveInlineClasses(node).filter((cls) => cls === 'tok-strike');
+function collectActiveStrikeClass(node: SyntaxNodeRef, state: EditorState): readonly string[] {
+  return collectActiveInlineClasses(node, state).filter((cls) => cls === 'tok-strike');
 }
 
 /**
@@ -744,7 +746,7 @@ function widgetReplaceRenderer(
   render: (raw: string, extraClasses: readonly string[]) => WidgetType | null
 ): ParticipantRenderer {
   return (node, state) => {
-    const extraClasses = [...collectActiveInlineClasses(node)];
+    const extraClasses = [...collectActiveInlineClasses(node, state)];
     const widget = render(state.sliceDoc(node.from, node.to), extraClasses);
     if (!widget) {
       return { decorations: [] };
@@ -802,7 +804,7 @@ function widgetReplaceRenderer(
  * the same "conceal marks, class the content between them" shape as the
  * non-empty branch, just with the URL node standing in for the label.
  */
-const linkRenderer: ParticipantRenderer = (node) => {
+const linkRenderer: ParticipantRenderer = (node, state) => {
   const linkNode = node.node;
   const marks: SyntaxNode[] = [];
   let urlNode: SyntaxNode | null = null;
@@ -819,7 +821,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
     return { decorations: [] };
   }
 
-  const strikeClasses = collectActiveStrikeClass(node);
+  const strikeClasses = collectActiveStrikeClass(node, state);
   const decorations: Range<Decoration>[] = [
     Decoration.replace({}).range(openMark.from, openMark.to),
   ];
@@ -900,7 +902,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
  * not a change to how `Image` is registered (or not) in this map, and not
  * a change to `Link`/`Autolink`'s own behavior.
  */
-const urlRenderer: ParticipantRenderer = (node) => {
+const urlRenderer: ParticipantRenderer = (node, state) => {
   const parentName = node.node.parent?.name;
   if (
     parentName === 'Link' ||
@@ -910,7 +912,7 @@ const urlRenderer: ParticipantRenderer = (node) => {
     return { decorations: [] };
   }
   return {
-    decorations: linkContentDecorations(node.from, node.to, collectActiveStrikeClass(node)),
+    decorations: linkContentDecorations(node.from, node.to, collectActiveStrikeClass(node, state)),
   };
 };
 
@@ -930,7 +932,7 @@ const urlRenderer: ParticipantRenderer = (node) => {
  * now goes through `linkContentDecorations` instead of one directly-built
  * mark.
  */
-const autolinkRenderer: ParticipantRenderer = (node) => {
+const autolinkRenderer: ParticipantRenderer = (node, state) => {
   const autolinkNode = node.node;
   const openMark = autolinkNode.firstChild;
   const closeMark = autolinkNode.lastChild;
@@ -950,7 +952,7 @@ const autolinkRenderer: ParticipantRenderer = (node) => {
   ];
   if (openMark.to < closeMark.from) {
     decorations.push(
-      ...linkContentDecorations(openMark.to, closeMark.from, collectActiveStrikeClass(node))
+      ...linkContentDecorations(openMark.to, closeMark.from, collectActiveStrikeClass(node, state))
     );
   }
   decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
