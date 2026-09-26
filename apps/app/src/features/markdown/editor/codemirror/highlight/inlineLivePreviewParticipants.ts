@@ -177,6 +177,254 @@ function delimitedInlineRenderer(
 }
 
 /**
+ * Node names whose own decoration must never sit under an *ancestor*
+ * `.tok-strike` mark — see `strikethroughRenderer`'s own doc comment for
+ * the full reasoning (in short: `Link`/`Autolink`'s `tok-link` declares its
+ * own `text-decoration`, so an ancestor `.tok-strike` propagating into it
+ * is the WKWebView compositing bug this exists to structurally avoid;
+ * `URL` reuses the same `tok-link` class for the same reason).
+ */
+const STRIKETHROUGH_PROTECTED_NODE_NAMES: ReadonlySet<string> = new Set([
+  'Link',
+  'Autolink',
+  'URL',
+]);
+
+/**
+ * Depth-first walk of a `Strikethrough` node's own subtree (the same
+ * `cursor()`-based traversal shape the retired subtree-walking
+ * `revealedMarkerRanges` used to use, before it was superseded by the
+ * single-node `revealedMarkNodeRanges`, below — this function still needs
+ * a genuine subtree walk since it collects every descendant `Link` at any
+ * depth, unlike that one) — reused because it already correctly handles
+ * arbitrary nesting depth,
+ * e.g. a `Link` inside `StrongEmphasis` inside `Strikethrough`), collecting
+ * the document-offset range of every descendant `Link`/`Autolink`/`URL`
+ * node, at any depth. Ranges, not DOM/decoration objects — the gap
+ * computation this feeds is purely a document-offset calculation,
+ * independent of how CM6 later renders it.
+ *
+ * Does not skip descending into a found node's own children (e.g. a
+ * `Link`'s nested `URL` child) — the `URL` found that way is always fully
+ * contained within its parent `Link`'s already-collected range, so it's
+ * redundant but harmless; `mergeProtectedRanges` collapses it away rather
+ * than this function needing to track "have I already found an ancestor
+ * protected node" itself.
+ *
+ * Does skip descending into `Image` — an Image's own destination is parsed
+ * as a nested `URL` node (`![alt](url)` is structurally a `Link` sibling
+ * shape: `LinkMark URL LinkMark`), but that `URL` isn't rendered via
+ * `tok-link`/`linkContentDecorations` at all (`imageLivePreview.ts` widget-
+ * replaces the whole `Image` node instead), so it has no text-decoration
+ * conflict to protect against. Treating it as protected anyway produced a
+ * real bug: for a Strikethrough whose entire content is one Image (e.g.
+ * `~~![alt](url)~~`), the "protected" URL span covers nearly the whole
+ * range, leaving only slivers before/after it — both of which fall inside
+ * the Image widget's own replaced range and so never render, making
+ * `.tok-strike` disappear entirely instead of wrapping the image.
+ */
+function collectProtectedLinkRanges(
+  root: SyntaxNode
+): { from: number; to: number }[] {
+  const ranges: { from: number; to: number }[] = [];
+  const cursor = root.cursor();
+  let hasNext = true;
+  do {
+    if (STRIKETHROUGH_PROTECTED_NODE_NAMES.has(cursor.name)) {
+      ranges.push({ from: cursor.from, to: cursor.to });
+    }
+    hasNext = cursor.next(cursor.name !== 'Image');
+  } while (hasNext && cursor.from < root.to);
+  return ranges;
+}
+
+/**
+ * Sorts and merges overlapping/nested/touching ranges into the minimal
+ * disjoint set covering the same total span — standard interval-merge,
+ * needed because `collectProtectedLinkRanges` can return nested duplicates
+ * (a `Link`'s own range plus its `URL` child's range, both protected) or,
+ * in principle, adjacent unrelated protected nodes with no gap between
+ * them (`[a](u)[b](u)`, zero characters apart).
+ */
+function mergeProtectedRanges(
+  ranges: readonly { from: number; to: number }[]
+): { from: number; to: number }[] {
+  if (ranges.length === 0) {
+    return [];
+  }
+  const sorted = [...ranges].sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: { from: number; to: number }[] = [{ ...sorted[0]! }];
+  for (const range of sorted.slice(1)) {
+    const last = merged[merged.length - 1]!;
+    if (range.from <= last.to) {
+      last.to = Math.max(last.to, range.to);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+/**
+ * The complement of `protectedRanges` within `[from, to)` — the sub-ranges
+ * `strikethroughRenderer` should still class `tok-strike`, having carved
+ * out every protected (`Link`/`Autolink`/`URL`) descendant. `protectedRanges`
+ * must already be sorted and disjoint (i.e. already passed through
+ * `mergeProtectedRanges`) — this function doesn't re-sort or re-merge.
+ *
+ * Each gap also reports, per edge, whether that edge sits at the
+ * `Strikethrough` construct's own outer boundary (`from`/`to`) or abuts a
+ * protected range instead — `strikethroughRenderer` needs this to decide
+ * `inclusiveStart`/`inclusiveEnd` per gap, not just per call. An edge at
+ * the construct's own boundary still needs to be inclusive, exactly like
+ * `delimitedInlineRenderer`'s single mark always was, so a gap mark can
+ * still visually wrap a widget-replace participant (WikiLink/Tag/Date)
+ * sitting exactly at that boundary. An edge that abuts a protected range
+ * must NOT be inclusive: confirmed live via a real reproduced bug
+ * (`~~**[Google](url)**~~`) — an inclusive edge there doesn't just "wrap a
+ * zero-width widget sitting in the gap," it also absorbs the *adjacent*
+ * `Link` mark that starts/ends exactly at that same position into becoming
+ * a child of this gap's own span, recreating the exact ancestor
+ * relationship this whole mechanism exists to avoid.
+ */
+function computeStrikethroughGaps(
+  from: number,
+  to: number,
+  protectedRanges: readonly { from: number; to: number }[]
+): { from: number; to: number; inclusiveStart: boolean; inclusiveEnd: boolean }[] {
+  const gaps: { from: number; to: number; inclusiveStart: boolean; inclusiveEnd: boolean }[] = [];
+  let cursor = from;
+  let cursorAtOuterBoundary = true;
+  for (const protectedRange of protectedRanges) {
+    if (cursor >= to) {
+      break;
+    }
+    if (protectedRange.from > cursor) {
+      gaps.push({
+        from: cursor,
+        to: Math.min(protectedRange.from, to),
+        inclusiveStart: cursorAtOuterBoundary,
+        inclusiveEnd: false,
+      });
+    }
+    cursor = Math.max(cursor, protectedRange.to);
+    cursorAtOuterBoundary = false;
+  }
+  if (cursor < to) {
+    gaps.push({
+      from: cursor,
+      to,
+      inclusiveStart: cursorAtOuterBoundary,
+      inclusiveEnd: true,
+    });
+  }
+  return gaps;
+}
+
+/**
+ * Dedicated `Strikethrough` renderer — replaces this one construct's
+ * former shared `delimitedInlineRenderer('StrikethroughMark', 'tok-strike',
+ * 'cm-strike-marker')` registration. Marker concealment (`~~`/`~~`) is
+ * unchanged, copied verbatim from that factory. The one thing this changes:
+ * where `delimitedInlineRenderer` emits *one* `tok-strike` mark spanning
+ * the entire content range, this emits one `tok-strike` mark per *gap*
+ * between `Link`/`Autolink`/`URL` descendants, and none at all over their
+ * own ranges.
+ *
+ * Why: `.tok-link`'s own `text-decoration` (the underline) conflicts with
+ * an ancestor `.tok-strike`'s propagated `line-through` the moment both
+ * apply to the same element — and WKWebView doesn't reliably composite two
+ * overlapping decorating boxes even when a descendant's own is given an
+ * independent color/thickness to try to win that conflict (confirmed live
+ * in the real Tauri app: a stray line was visible despite every computed
+ * style being exactly correct — see this repo's own investigation
+ * history). CSS has no standards-compliant way to sever ancestor/descendant
+ * `text-decoration` propagation without making the descendant atomic
+ * (`inline-block`/`inline-flex`), which breaks natural wrapping for long
+ * link labels (confirmed live, rejected).
+ *
+ * The fix implemented here is structural, not visual: make the link a
+ * **sibling** of `.tok-strike`, never its descendant, by construction —
+ * and, since the link is never inside a `.tok-strike` context anymore, it
+ * never needs to *own* any strikethrough styling of its own either.
+ * `<span class="tok-strike">before </span><span class="tok-link">...</span>
+ * <span class="tok-strike"> after</span>` has no ancestor `.tok-strike` for
+ * anything to propagate from in the first place — the WKWebView compositing
+ * bug has nothing to trigger on, root cause removed rather than mitigated.
+ * A struck link therefore renders with no strikethrough line across its
+ * own text at all (only the surrounding plain text shows one) — a
+ * deliberate trade of "visually complete struck-link appearance" for
+ * "zero decoration ownership overlap, zero engine-compositing risk."
+ * `linkRenderer`/`urlRenderer`/`autolinkRenderer` are completely untouched
+ * by *this* function: they never ask "am I struck" at all anymore (see
+ * `linkContentDecorations`'s own doc comment) — only `Strikethrough`'s own
+ * participant needed to change.
+ *
+ * Every other struck construct (plain text, `Tag`, `WikiLink`, `InlineCode`,
+ * `StrongEmphasis`/`Emphasis`/`Highlight` wrapping non-link content) is
+ * unaffected: `STRIKETHROUGH_PROTECTED_NODE_NAMES` excludes only
+ * `Link`/`Autolink`/`URL`, so their content still falls inside a gap and
+ * still receives `tok-strike` exactly as before. A `Link` nested inside
+ * `StrongEmphasis`/`Emphasis`/`Highlight` inside a `Strikethrough` (e.g.
+ * `~~**[Google](url)**~~`) is unaffected in the other direction too:
+ * `StrongEmphasis`'s own registered participant still wraps the *entire*
+ * `**...**` content — including the link — in its own `tok-strong` mark,
+ * completely independently of this function, since `.tok-strong` declares
+ * no `text-decoration` and has no conflict to avoid. Only `Strikethrough`'s
+ * own decoration needed splitting.
+ */
+const strikethroughRenderer: ParticipantRenderer = (node) => {
+  const strikeNode = node.node;
+  const openMark = strikeNode.firstChild;
+  const closeMark = strikeNode.lastChild;
+  if (
+    !openMark ||
+    openMark.name !== 'StrikethroughMark' ||
+    !closeMark ||
+    closeMark.name !== 'StrikethroughMark'
+  ) {
+    return { decorations: [] };
+  }
+
+  const markerDecoration = Decoration.replace({
+    widget: new ConcealedMarkerWidget('cm-strike-marker'),
+  });
+  const decorations: Range<Decoration>[] = [
+    markerDecoration.range(openMark.from, openMark.to),
+  ];
+
+  if (openMark.to < closeMark.from) {
+    const protectedRanges = mergeProtectedRanges(
+      collectProtectedLinkRanges(strikeNode)
+    );
+    const gaps = computeStrikethroughGaps(
+      openMark.to,
+      closeMark.from,
+      protectedRanges
+    );
+    const classes = ['tok-strike', ...collectActiveStrikeClass(node)].join(' ');
+    for (const gap of gaps) {
+      // inclusiveStart/inclusiveEnd are per-gap, not blanket true — see
+      // computeStrikethroughGaps's own doc comment for why: true only on
+      // an edge that sits at this Strikethrough's own outer boundary
+      // (needed to still wrap a widget-replace participant, e.g. WikiLink,
+      // sitting exactly at that edge), false on an edge that abuts a
+      // protected Link/Autolink/URL range (an inclusive edge there would
+      // absorb the adjacent link into becoming this mark's own child).
+      decorations.push(
+        Decoration.mark({
+          class: classes,
+          inclusiveStart: gap.inclusiveStart,
+          inclusiveEnd: gap.inclusiveEnd,
+        }).range(gap.from, gap.to)
+      );
+    }
+  }
+  decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
+  return { decorations };
+};
+
+/**
  * Structural (not name-based) test for "does this node parse as an
  * ordinary delimited-mark construct" — exactly two children whose own
  * name is identical and ends in `Mark`, bracketing the content. Every
@@ -286,98 +534,66 @@ function collectActiveStrikeClass(node: SyntaxNodeRef): readonly string[] {
 }
 
 /**
- * A struck link (`~~[text](url)~~`) needs two independently-styled native
- * `text-decoration-line`s at once: its own thin, semi-transparent
- * underline, and a thicker, fully-opaque strikethrough. One element can
- * never produce that — `text-decoration-color`/`-thickness` apply to every
- * line listed in one element's own `text-decoration-line`, with no per-line
- * override. Composing `tok-strike` onto the link's own span (the way every
- * other `Decoration.mark` participant does via `collectActiveStrikeClass`)
- * doesn't fix this either: the *ancestor* `Strikethrough` node's own
- * `tok-strike`-only wrapper mark already covers this same range (built by
- * its own `delimitedInlineRenderer('StrikethroughMark', 'tok-strike', ...)`
- * registration below), and that ancestor's propagated line-through paints
- * through any non-atomic descendant regardless of what the descendant's own
- * `text-decoration-line` says — the same propagation mechanism
- * `docs/editor-architecture-decisions.md`'s atomic-box notes describe for
- * WikiLink/Tag/Date, just without an atomic box to stop it here.
+ * `Link`/`URL`/`Autolink` content mirrors `WikiLinkWidget.ts`'s own
+ * outer/inner ownership split exactly, not a link-specific invention:
+ * `.tok-wikilink` (outer) owns `color` and composes `tok-strike` onto
+ * itself when struck; `.tok-wikilink__title` (inner) owns only the
+ * underline. That split works with zero conflict because `color` is an
+ * *inherited* CSS property (set once on the outer, reaches the inner for
+ * free) while `text-decoration-line`/`-color`/`-thickness` are not — two
+ * *different* elements each declaring their own `text-decoration` never
+ * fight over one element's single `text-decoration-line` value the way
+ * one element's `underline` shorthand would against `.tok-strike`'s
+ * `line-through` one (confirmed live: composing `tok-strike` onto a single
+ * `.tok-link` that also declares its own underline reintroduces exactly
+ * that conflict — the split exists specifically to avoid it).
  *
- * The fix is two nested marks over the identical range instead of one: an
- * outer, unchanged `tok-link` span (still owns color + the thin
- * transparent underline) wrapping an inner `tok-link-strike` span that
- * declares its own, independently-styled `text-decoration-line:
- * line-through` — so `tok-link-strike`'s `currentColor` resolves to the
- * link's own blue (inherited from its `tok-link` parent), not the
- * surrounding plain text's color the way it would the other way around.
+ * `tok-link` (outer, this function's first mark) owns `color` + composes
+ * `tok-strike` when `strikeClasses` is non-empty; `tok-link-title` (inner,
+ * second mark) owns the underline exclusively (`MarkdownEditor.css`: same
+ * shape as `.tok-wikilink__title` — thickness, offset — with the link's
+ * own `--md-link-underline` color token instead of wiki's).
  *
- * Getting CM6 to nest them in that specific order (`tok-link` outer,
- * `tok-link-strike` inner) is **not** a matter of push order into the
- * `decorations` array — that was tried and confirmed wrong via a real,
- * reproduced bug: two `Decoration.mark`s over the exact identical
- * `[from, to)` range, both built with the same `inclusiveStart`/
- * `inclusiveEnd`, get the exact same internal `(startSide, endSide)`
- * sort key (`MarkDecoration`'s constructor maps `inclusiveStart` to
- * `startSide -1` or `500000000`, `inclusiveEnd` to `endSide 1` or
- * `-600000000` — nothing else feeds that key). Two decorations with an
- * identical sort key are a genuine tie, and which one CM6 ends up
- * rendering as the outer wrapper for a *given* pair depends on where in
- * the whole line's merged/sorted decoration set they land relative to
- * every other decoration — which varies with what else surrounds them,
- * not with this function's own return-array order. Confirmed live: of two
- * struck links inside one `~~...~~` span, the first nested correctly and
- * the second did not, from the exact same code path; a third real
- * document (a struck WikiLink followed by three struck links and a struck
- * tag) had every single link nested backwards. Push order previously
- * "worked" in an earlier isolated test purely by accidental agreement
- * with that traversal-dependent tie-break, not because it controlled
- * anything.
+ * This alone would still be wrong without `strikethroughRenderer`'s own
+ * fix (below): composing `tok-strike` onto the link's own root only avoids
+ * a *conflict* if the link is never *also* wrapped by an ancestor
+ * `.tok-strike` from `Strikethrough`'s own decoration — otherwise the
+ * ancestor's separate, differently-`currentColor`'d propagated line and
+ * this self-composed one are two competing decorating boxes on the same
+ * text again, the exact WKWebView compositing bug this whole mechanism
+ * exists to avoid. `strikethroughRenderer` splits its own ranges around
+ * `Link`/`Autolink`/`URL` descendants specifically so no such ancestor
+ * ever exists — the two fixes are complementary, not alternatives: this
+ * one gives the link a *single, self-owned* decorating box for its
+ * strikethrough (matching WikiLink); that one guarantees no second,
+ * ancestor-owned one ever coexists with it.
  *
- * The actual fix: give the two marks *different*, non-tied sort keys via
- * the only public lever `MarkDecorationSpec` exposes for it —
- * `inclusiveStart`/`inclusiveEnd`. `tok-link` is always built inclusive
- * (`startSide -1`, `endSide 1`), `tok-link-strike` always non-inclusive
- * (`startSide 500000000`, `endSide -600000000`). `-1 < 500000000` at the
- * shared start position, so `tok-link` always opens first (outer); `1 >
- * -600000000` at the shared end position, so `tok-link` always closes
- * last (still outer). This holds regardless of traversal order, sibling
- * content, or which call site (Link's own label/URL-fallback range, or a
- * bare `URL`) produced the pair — there is no tie left to break.
- * `tok-link-strike` doesn't need inclusive edges itself: the reason the
- * *outer* mark needs them (absorbing a zero-width widget exactly filling
- * the range, e.g. a WikiLink used as a link label) applies to whichever
- * mark is outermost, which is now always `tok-link`.
- *
- * Also confirmed live (via an isolated DOM fixture, not assumed): the
- * inner span's own opaque decorating box paints on top of and fully
- * occludes the ancestor `Strikethrough` wrapper's thinner propagated line
- * — no visible third/stray line — as long as its own thickness is at
- * least the ancestor's (which has no explicit thickness at all, i.e. the
- * browser default, comfortably thinner than `tok-link-strike`'s own
- * explicit value).
- *
- * Not used when the link isn't struck: `collectActiveStrikeClass` returns
- * `[]`, and the ordinary single `tok-link` mark (honoring the `inclusive`
- * parameter exactly as before) is completely unaffected.
+ * Getting CM6 to nest the two marks in that specific order (`tok-link`
+ * outer, `tok-link-title` inner) is not a matter of push order — a real,
+ * reproduced bug (documented on the retired `tok-link`/`tok-link-strike`
+ * version of this same split, recoverable from history) proved push order
+ * alone is a traversal-dependent tie, not a control mechanism, when both
+ * marks share the same `inclusiveStart`/`inclusiveEnd`. The fix is the
+ * same one used there: give the two marks different, non-tied CM6 sort
+ * keys via those flags — `tok-link`/`tok-strike` always inclusive (opens
+ * first, closes last: always outer), `tok-link-title` always non-inclusive
+ * (always inner).
  */
 function linkContentDecorations(
   from: number,
   to: number,
-  strikeClasses: readonly string[],
-  inclusive: boolean
+  strikeClasses: readonly string[]
 ): Range<Decoration>[] {
-  const mark = (cls: string, markInclusive: boolean) =>
-    Decoration.mark(
-      markInclusive ? { class: cls, inclusiveStart: true, inclusiveEnd: true } : { class: cls }
-    ).range(from, to);
-  if (strikeClasses.length === 0) {
-    return [mark('tok-link', inclusive)];
-  }
-  return [mark('tok-link', true), mark('tok-link-strike', false)];
+  const outerClass = ['tok-link', ...strikeClasses].join(' ');
+  return [
+    Decoration.mark({ class: outerClass, inclusiveStart: true, inclusiveEnd: true }).range(from, to),
+    Decoration.mark({ class: 'tok-link-title' }).range(from, to),
+  ];
 }
 
 /**
  * Which node names are marker-contract constructs for the *engaged*
- * subtree walk (`revealedMarkerRanges` below), and which node name each
+ * marker reveal (`revealedMarkNodeRanges` below), and which node name each
  * one's own direct marker children carry. Deliberately explicit and
  * construct-scoped — never "any node whose name ends in `Mark`" — so
  * block-level mark owners (`HeaderMark`/`QuoteMark`/`ListMark`/
@@ -422,56 +638,56 @@ const MARKER_CONSTRUCTS: ReadonlyMap<
 ]);
 
 /**
- * Discovers every marker-contract construct's own marker ranges within an
- * **engaged** region's subtree, replacing the old per-node
- * `delimitedMarkerOnlyRenderer` lookup (which only ever reached the
- * engaged node's *own* two marks, per that function's now-superseded doc
- * comment — see docs/editor-architecture-decisions.md's correction entry
- * on nested inline Live Preview visibility).
+ * Reveals one engaged marker-contract construct's own direct marker
+ * children as `cm-marker cm-{construct}-marker` spans, with no
+ * `--concealed` modifier — engaged is the one state an inline marker is
+ * actually visible in, so it's the one state `--md-marker-foreground`
+ * needs to reach. A no-op (returns `[]`) for any node whose name isn't a
+ * key in `MARKER_CONSTRUCTS` (the widget-replace family — Tag/Date — and
+ * bare `URL`, none of which have markers of their own to reveal).
  *
- * This is the fix for the confirmed bug: `inlineLivePreviewRegion.ts`'s
- * traversal still returns `false` at the engaged region root — region
- * atomicity (no descendant participant renderer runs, no `tok-*` content
- * decoration, no widget, no atomic range) is completely unchanged. This
- * function is called *in place of* resuming that traversal, and performs
- * a second, separate, narrowly-scoped walk over the engaged node's own
- * subtree using the *same* Lezer tree — never a second parser, never
- * combination-specific branches. For each descendant (including the root
- * itself) whose name is a key in `MARKER_CONSTRUCTS`, its direct marker
- * children (found the same way `delimitedInlineRenderer` already finds
- * two-mark constructs' delimiters, generalized to "however many direct
- * children carry the registered mark node name" rather than assuming
- * exactly `firstChild`/`lastChild`) become `cm-marker cm-{construct}-marker`
- * spans with no `--concealed` modifier — engaged is the one state an
- * inline marker is actually visible in, so it's the one state
- * `--md-marker-foreground` needs to reach (same reasoning the retired
- * `delimitedMarkerOnlyRenderer` doc comment already established).
- *
- * Nesting depth is never inspected or branched on: `***bold italic***`'s
- * `Emphasis > StrongEmphasis` is walked as two ordinary marker-construct
- * nodes, `~~***bold _italic_ `code`***~~`'s four levels are walked
- * identically. Content stays completely unstyled — this function only
- * ever pushes `cm-marker` ranges, never a `tok-*` range, so raw/unclassed
- * engaged content is a property of what this function *doesn't* do, not
- * something it enforces separately.
+ * **Single-node, not a subtree walk — corrected 2026-09-26 (nested-inline-
+ * rendering generic fix, see docs/editor-architecture-decisions.md's
+ * correction of that name).** Superseded the previous `revealedMarkerRanges`,
+ * which walked an *entire* engaged region's subtree and revealed every
+ * nested marker-contract construct's marks unconditionally — correct only
+ * because `inlineLivePreviewRegion.ts`'s traversal used to `return false`
+ * at the engaged root, meaning that subtree walk was the *only* pass ever
+ * reaching descendants at all. Once that traversal stopped short-circuiting
+ * (so nested constructs — WikiLink, Tag, Link, and ordinary marker
+ * constructs alike — resolve their own engagement independently instead of
+ * inheriting "raw" from an ancestor), a whole-subtree marker reveal would
+ * have re-introduced exactly the bug this fix removes: a sibling
+ * marker-contract construct nested inside an engaged ancestor (e.g. the
+ * un-engaged `**b**` in `~~**a** and **b**~~` with the caret in `**a**`)
+ * would have had its own `**` marks force-revealed too, even though the
+ * caret never touched it. This function is called once per participant
+ * node that `inlineLivePreviewRegion.ts`'s own traversal determines is
+ * engaged (bare range or flush-widened, see
+ * `tokenEngagement.ts`'s `widenThroughFlushAncestors`) — each engaged
+ * ancestor in a nesting chain reveals its own marks via its own call,
+ * exactly the same way `***bold italic***` engaged at "bold" still reveals
+ * both the outer `Emphasis` and the inner `StrongEmphasis` marks: both
+ * nodes are independently, genuinely engaged (the caret sits within both
+ * nodes' own ranges), not because one subtree walk found both from a
+ * single root.
  */
-export function revealedMarkerRanges(
-  root: SyntaxNode
+export function revealedMarkNodeRanges(
+  node: SyntaxNode
 ): readonly Range<Decoration>[] {
+  const spec = MARKER_CONSTRUCTS.get(node.name);
+  if (!spec) {
+    return [];
+  }
+  const decoration = Decoration.mark({
+    class: `cm-marker ${spec.markerClass}`,
+  });
   const ranges: Range<Decoration>[] = [];
-  const cursor = root.cursor();
-  do {
-    const spec = MARKER_CONSTRUCTS.get(cursor.name);
-    if (!spec) continue;
-    const decoration = Decoration.mark({
-      class: `cm-marker ${spec.markerClass}`,
-    });
-    for (let child = cursor.node.firstChild; child; child = child.nextSibling) {
-      if (child.name === spec.markNodeName) {
-        ranges.push(decoration.range(child.from, child.to));
-      }
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.name === spec.markNodeName) {
+      ranges.push(decoration.range(child.from, child.to));
     }
-  } while (cursor.next() && cursor.from < root.to);
+  }
   return ranges;
 }
 
@@ -601,7 +817,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
     // portion (`](url "title")`) stays concealed as one combined range,
     // exactly as it always has.
     decorations.push(
-      ...linkContentDecorations(openMark.to, labelCloseMark.from, strikeClasses, true)
+      ...linkContentDecorations(openMark.to, labelCloseMark.from, strikeClasses)
     );
     decorations.push(
       Decoration.replace({}).range(labelCloseMark.from, linkNode.to)
@@ -616,7 +832,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
       Decoration.replace({}).range(labelCloseMark.from, urlNode.from)
     );
     decorations.push(
-      ...linkContentDecorations(urlNode.from, urlNode.to, strikeClasses, true)
+      ...linkContentDecorations(urlNode.from, urlNode.to, strikeClasses)
     );
     decorations.push(Decoration.replace({}).range(urlNode.to, linkNode.to));
   }
@@ -679,13 +895,51 @@ const urlRenderer: ParticipantRenderer = (node) => {
     return { decorations: [] };
   }
   return {
-    decorations: linkContentDecorations(
-      node.from,
-      node.to,
-      collectActiveStrikeClass(node),
-      false
-    ),
+    decorations: linkContentDecorations(node.from, node.to, collectActiveStrikeClass(node)),
   };
+};
+
+/**
+ * `Autolink` (`<https://...>`) — deliberately its own renderer now, not
+ * `delimitedInlineRenderer`. Its shape (`Autolink > [LinkMark, URL,
+ * LinkMark]`) still fits that generic factory structurally, but that
+ * factory composes `collectActiveStrikeClass` onto its own single mark —
+ * exactly the "one element, two conflicting text-decoration declarations"
+ * shape `linkContentDecorations` exists to avoid for `Link`/`URL`. Reusing
+ * it here would leave Autolink as the one remaining place a struck link
+ * still self-applied `tok-strike` directly (a real, previously-flagged gap
+ * — confirmed live: `<https://x>` inside `~~...~~` rendered
+ * `class="tok-link tok-strike"` on one span, the exact conflict this whole
+ * mechanism exists to prevent). Concealment logic (marks `<`/`>`) is
+ * copied verbatim from `delimitedInlineRenderer`; only the content range
+ * now goes through `linkContentDecorations` instead of one directly-built
+ * mark.
+ */
+const autolinkRenderer: ParticipantRenderer = (node) => {
+  const autolinkNode = node.node;
+  const openMark = autolinkNode.firstChild;
+  const closeMark = autolinkNode.lastChild;
+  if (
+    !openMark ||
+    openMark.name !== 'LinkMark' ||
+    !closeMark ||
+    closeMark.name !== 'LinkMark'
+  ) {
+    return { decorations: [] };
+  }
+  const markerDecoration = Decoration.replace({
+    widget: new ConcealedMarkerWidget('cm-link-marker'),
+  });
+  const decorations: Range<Decoration>[] = [
+    markerDecoration.range(openMark.from, openMark.to),
+  ];
+  if (openMark.to < closeMark.from) {
+    decorations.push(
+      ...linkContentDecorations(openMark.to, closeMark.from, collectActiveStrikeClass(node))
+    );
+  }
+  decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
+  return { decorations };
 };
 
 /**
@@ -730,14 +984,11 @@ export function createInlineLivePreviewParticipants(
       'StrongEmphasis',
       delimitedInlineRenderer('EmphasisMark', 'tok-strong', 'cm-strong-marker'),
     ],
-    [
-      'Strikethrough',
-      delimitedInlineRenderer(
-        'StrikethroughMark',
-        'tok-strike',
-        'cm-strike-marker'
-      ),
-    ],
+    // Not delimitedInlineRenderer (unlike every sibling entry here) —
+    // Strikethrough needs its own tok-strike decoration split around any
+    // Link/Autolink/URL descendant, never emitted as one mark spanning a
+    // link. See strikethroughRenderer's own doc comment for why.
+    ['Strikethrough', strikethroughRenderer],
     [
       'Highlight',
       delimitedInlineRenderer(
@@ -751,19 +1002,10 @@ export function createInlineLivePreviewParticipants(
       delimitedInlineRenderer('CodeMark', 'tok-code', 'cm-code-marker'),
     ],
     ['Link', linkRenderer],
-    // Autolink (`<https://...>`) fits delimitedInlineRenderer's own
-    // 2-same-named-mark-child shape exactly (`Autolink > [LinkMark, URL,
-    // LinkMark]`) — reused unmodified, no Autolink-specific renderer
-    // needed. Conceals `<`/`>`, classes the URL content `tok-link` — same
-    // class Link's own label already uses. `markerClass` now passed (marker-
-    // color unification): at rest this only affects which class the
-    // (invisible) `ConcealedMarkerWidget` carries for test-query continuity;
-    // engaged, it's what makes `revealedMarkerRanges` paint `<`/`>` via the
-    // shared `cm-marker` contract, matching `Link`'s own registration above.
-    [
-      'Autolink',
-      delimitedInlineRenderer('LinkMark', 'tok-link', 'cm-link-marker'),
-    ],
+    // Not delimitedInlineRenderer — see autolinkRenderer's own doc comment
+    // for why Autolink needs the same linkContentDecorations path Link/URL
+    // use, rather than the generic factory's single self-composed mark.
+    ['Autolink', autolinkRenderer],
     ['URL', urlRenderer],
     [
       'Tag',

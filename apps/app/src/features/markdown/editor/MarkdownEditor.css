@@ -1673,83 +1673,37 @@
 }
 
 /* Markdown [label](url), bare URL, and Autolink — click activates/navigates
-   (link/linkMouseHandlers.ts, link/urlMouseHandlers.ts), so cursor: pointer
-   like tok-wikilink/tok-tag. */
+ * (link/linkMouseHandlers.ts, link/urlMouseHandlers.ts), so cursor: pointer
+ * like tok-wikilink/tok-tag. Owns color only, deliberately no
+ * text-decoration of its own — mirrors `.tok-wikilink` exactly: `color` is
+ * an inherited property that reaches `.tok-link-title` for free, while
+ * `.tok-strike` (composed onto this element when struck, see
+ * `linkContentDecorations`'s own doc comment) needs this element's
+ * text-decoration-line to be otherwise unclaimed so its own
+ * `line-through` applies with no shorthand conflict. */
 .cm-editor .tok-link {
   color: var(--md-link-foreground);
-  text-decoration: underline;
-  text-decoration-thickness: 0.5px;
-  text-decoration-color: var(--md-link-underline);
-  text-underline-offset: var(--md-link-underline-offset);
   cursor: pointer;
 }
 
-/* WKWebView (Tauri/macOS) rasterizes a literal 0.5px (= exactly 1 device px
- * at 2x DPR) `text-decoration-thickness` inconsistently depending on each
- * occurrence's sub-pixel horizontal offset in the line — confirmed live
- * inside the actual Tauri app: computed `text-decoration-thickness` was
- * identical (0.5px) across every instance of the same repeated
- * `[Google](www.google.co.in)` link, so this is rasterization, not a
- * CSS/decoration bug (the bug that WAS real — `.tok-link`/`.tok-link-strike`
- * nesting order — is fixed separately, in `inlineLivePreviewParticipants.ts`).
- * An earlier version of this rule used a flat `1px`, which did render
- * consistently but was visibly heavier than `.tok-wikilink__title`'s own
- * underline (`0.05em`, ~0.8px at this editor's font size) — trading a
- * link-vs-itself inconsistency for a link-vs-wikilink one. `0.05em` is used
- * here instead: the same value already proven to render consistently for
- * WikiLink's underline on this exact engine (a fractional ~0.8px device
- * value, not the exact-1-device-pixel edge case `0.5px` hits), so it both
- * fixes the rasterization issue and restores visual parity with WikiLink's
- * underline weight. Chromium (web) already renders the base rule's `0.5px`
- * consistently and is deliberately left untouched — this rule is scoped to
- * `[data-runtime='tauri']` only (set once at startup by `main.tsx`), the
- * same precedented pattern `Page.TopBar.css` and `SidebarToggle.css` use
- * for other WKWebView-specific rendering differences. */
-:root[data-runtime='tauri'] .cm-editor .tok-link {
+/* Same shape as `.tok-wikilink__title` (thickness, offset) — the link's
+ * own `--md-link-underline` token (a 50%-transparent mix of
+ * `--md-link-foreground`) in place of wiki's `--md-wiki-underline`. Owns
+ * the underline exclusively so `.tok-link`'s own composed `tok-strike`
+ * (above) never has to share a `text-decoration-line` with it. */
+.cm-editor .tok-link-title {
+  text-decoration: underline;
   text-decoration-thickness: 0.05em;
-}
-/* A struck link is two nested spans (`inlineLivePreviewParticipants.ts`'s
- * `linkContentDecorations`) — an outer `.tok-link` (unchanged, above:
- * color + thin transparent underline) wrapping an inner `.tok-link-strike`
- * that owns the strikethrough as its own, independently-styled native
- * `text-decoration-line: line-through`. `text-decoration-color`/`-thickness`
- * can't differ per line within one element's own `text-decoration-line`
- * value, which is why this can't be one class on one span the way
- * `.tok-strike` alone works for every other struck construct — see that
- * function's own doc comment for the full reasoning, including why the
- * *ancestor* `Strikethrough` node's own `.tok-strike`-only wrapper (which
- * still exists around this link, propagating its line-through through any
- * non-atomic descendant by default) is a non-issue **on Chromium/web**:
- * this inner span's own opaque decorating box paints on top of and fully
- * occludes it there (confirmed live). **Not true on WKWebView (Tauri/
- * macOS)** — confirmed live in the real Tauri app that WebKit does not
- * reliably paint the descendant's own decorating box over the ancestor's
- * propagated one, leaving a thin sliver of the ancestor's line visible
- * alongside ours despite both computing exactly the intended values. No
- * non-atomic CSS mechanism exists to suppress that propagation (would
- * need `display: inline-block`/`inline-flex`, rejected — breaks natural
- * wrapping for long multi-word link labels, confirmed live). Since the
- * artifact can't be eliminated without that trade-off, the Tauri-only
- * override below instead makes the two lines close enough in weight that
- * the leak reads as one line rather than a mismatched double line. */
-.cm-editor .tok-link-strike {
-  text-decoration-line: line-through;
-  text-decoration-color: currentColor;
-  text-decoration-thickness: 1.5px;
-}
-/* Tauri-only: matches `.tok-link`'s own Tauri override above exactly
- * (`0.05em`, not a literal `0.5px` — see that rule's own comment for why
- * `0.5px` specifically is the value WKWebView rasterizes inconsistently
- * per sub-pixel offset) so the underline and strikethrough render at the
- * same visual weight, minimizing the visibility of the WebKit-only
- * occlusion artifact described above. Web/Chromium keeps the base rule's
- * `1.5px` untouched. */
-:root[data-runtime='tauri'] .cm-editor .tok-link-strike {
-  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-link-underline-offset);
 }
 
 .tok-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);
+  text-decoration: underline;
+  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--md-wiki-underline);
+  text-underline-offset: var(--md-link-underline-offset);
 }
 
 .cm-editor .tok-tag {
