@@ -1683,6 +1683,26 @@
   text-underline-offset: var(--md-link-underline-offset);
   cursor: pointer;
 }
+/* A struck link is two nested spans (`inlineLivePreviewParticipants.ts`'s
+ * `linkContentDecorations`) — an outer `.tok-link` (unchanged, above:
+ * color + thin transparent underline) wrapping an inner `.tok-link-strike`
+ * that owns the strikethrough as its own, independently-styled native
+ * `text-decoration-line: line-through`. `text-decoration-color`/`-thickness`
+ * can't differ per line within one element's own `text-decoration-line`
+ * value, which is why this can't be one class on one span the way
+ * `.tok-strike` alone works for every other struck construct — see that
+ * function's own doc comment for the full reasoning, including why the
+ * *ancestor* `Strikethrough` node's own `.tok-strike`-only wrapper (which
+ * still exists around this link, propagating its line-through through any
+ * non-atomic descendant by default) is a non-issue here: this inner span's
+ * own opaque decorating box paints on top of and fully occludes it
+ * (confirmed live), so no stray/third line is ever visible. */
+.cm-editor .tok-link-strike {
+  text-decoration-line: line-through;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1.5px;
+}
+
 .tok-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);
 }

@@ -286,6 +286,56 @@ function collectActiveStrikeClass(node: SyntaxNodeRef): readonly string[] {
 }
 
 /**
+ * A struck link (`~~[text](url)~~`) needs two independently-styled native
+ * `text-decoration-line`s at once: its own thin, semi-transparent
+ * underline, and a thicker, fully-opaque strikethrough. One element can
+ * never produce that — `text-decoration-color`/`-thickness` apply to every
+ * line listed in one element's own `text-decoration-line`, with no per-line
+ * override. Composing `tok-strike` onto the link's own span (the way every
+ * other `Decoration.mark` participant does via `collectActiveStrikeClass`)
+ * doesn't fix this either: the *ancestor* `Strikethrough` node's own
+ * `tok-strike`-only wrapper mark already covers this same range (built by
+ * its own `delimitedInlineRenderer('StrikethroughMark', 'tok-strike', ...)`
+ * registration below), and that ancestor's propagated line-through paints
+ * through any non-atomic descendant regardless of what the descendant's own
+ * `text-decoration-line` says — the same propagation mechanism
+ * `docs/editor-architecture-decisions.md`'s atomic-box notes describe for
+ * WikiLink/Tag/Date, just without an atomic box to stop it here.
+ *
+ * The fix is two nested marks over the identical range instead of one: an
+ * outer, unchanged `tok-link` span (still owns color + the thin
+ * transparent underline) wrapping an inner `tok-link-strike` span that
+ * declares its own, independently-styled `text-decoration-line:
+ * line-through`. Confirmed live against a mounted `EditorView`: CM6 nests
+ * same-range `Decoration.mark` ranges with the later-pushed one innermost,
+ * so `tok-link-strike` is pushed first here, `tok-link` second. Also
+ * confirmed live (via an isolated DOM fixture, not assumed): the inner
+ * span's own opaque decorating box paints on top of and fully occludes the
+ * ancestor wrapper's thinner propagated line — no visible third/stray line
+ * — as long as its own thickness is at least the ancestor's (which has no
+ * explicit thickness at all, i.e. the browser default, comfortably thinner
+ * than `tok-link-strike`'s own explicit value).
+ *
+ * Not used when the link isn't struck: `collectActiveStrikeClass` returns
+ * `[]`, and the ordinary single `tok-link` mark is completely unaffected.
+ */
+function linkContentDecorations(
+  from: number,
+  to: number,
+  strikeClasses: readonly string[],
+  inclusive: boolean
+): Range<Decoration>[] {
+  const mark = (cls: string) =>
+    Decoration.mark(
+      inclusive ? { class: cls, inclusiveStart: true, inclusiveEnd: true } : { class: cls }
+    ).range(from, to);
+  if (strikeClasses.length === 0) {
+    return [mark('tok-link')];
+  }
+  return [mark('tok-link-strike'), mark('tok-link')];
+}
+
+/**
  * Which node names are marker-contract constructs for the *engaged*
  * subtree walk (`revealedMarkerRanges` below), and which node name each
  * one's own direct marker children carry. Deliberately explicit and
@@ -498,7 +548,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
     return { decorations: [] };
   }
 
-  const linkClasses = ['tok-link', ...collectActiveStrikeClass(node)].join(' ');
+  const strikeClasses = collectActiveStrikeClass(node);
   const decorations: Range<Decoration>[] = [
     Decoration.replace({}).range(openMark.from, openMark.to),
   ];
@@ -511,11 +561,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
     // portion (`](url "title")`) stays concealed as one combined range,
     // exactly as it always has.
     decorations.push(
-      Decoration.mark({
-        class: linkClasses,
-        inclusiveStart: true,
-        inclusiveEnd: true,
-      }).range(openMark.to, labelCloseMark.from)
+      ...linkContentDecorations(openMark.to, labelCloseMark.from, strikeClasses, true)
     );
     decorations.push(
       Decoration.replace({}).range(labelCloseMark.from, linkNode.to)
@@ -530,11 +576,7 @@ const linkRenderer: ParticipantRenderer = (node) => {
       Decoration.replace({}).range(labelCloseMark.from, urlNode.from)
     );
     decorations.push(
-      Decoration.mark({
-        class: linkClasses,
-        inclusiveStart: true,
-        inclusiveEnd: true,
-      }).range(urlNode.from, urlNode.to)
+      ...linkContentDecorations(urlNode.from, urlNode.to, strikeClasses, true)
     );
     decorations.push(Decoration.replace({}).range(urlNode.to, linkNode.to));
   }
@@ -596,11 +638,13 @@ const urlRenderer: ParticipantRenderer = (node) => {
   ) {
     return { decorations: [] };
   }
-  const classes = ['tok-link', ...collectActiveStrikeClass(node)].join(' ');
   return {
-    decorations: [
-      Decoration.mark({ class: classes }).range(node.from, node.to),
-    ],
+    decorations: linkContentDecorations(
+      node.from,
+      node.to,
+      collectActiveStrikeClass(node),
+      false
+    ),
   };
 };
 
