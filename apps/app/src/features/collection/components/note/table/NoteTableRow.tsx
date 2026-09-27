@@ -11,7 +11,7 @@ export interface NoteTableRowProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
   description?: string;
   /**
-   * Whether the description line (including its "No description..."
+   * Whether the description line (including its "No description"
    * fallback) renders at all — defaults to `true`, the original
    * unconditional-fallback behavior. Set `false` to hide the whole line
    * (a genuinely absent `description` still falls back to placeholder
@@ -129,7 +129,7 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
           emoji={emoji}
           title={title}
           description={
-            showDescription ? description || 'No description...' : undefined
+            showDescription ? description || 'No description' : undefined
           }
           descriptionClassName={
             showDescription && !description
