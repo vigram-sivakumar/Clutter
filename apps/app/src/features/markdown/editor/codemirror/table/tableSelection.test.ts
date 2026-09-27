@@ -5,6 +5,8 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
+import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
 import { tableActiveCellChanged, TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
 import { findAllTables } from './tableGeometry';
@@ -700,6 +702,181 @@ describe('attachTableOutsideClickHandling — root-selection-collapse fallback',
 
     expect(view.state.doc.toString()).toBe(docBefore);
     expect(undoDepth(view.state)).toBe(depthBefore);
+    detach();
+  });
+});
+
+describe('attachTableOutsideClickHandling — ownership boundary: a click CM6 already handled must never be re-decided', () => {
+  /**
+   * Regression coverage for the 2026-09-27 correction (this function's own
+   * "Ownership boundary" doc comment): a real double-click on ordinary
+   * text used to be silently collapsed back to a plain caret by this
+   * fallback, discarding the word-range selection CM6's own native
+   * mousedown handling had *just* dispatched for the very same click —
+   * because the fallback fired unconditionally on every `mousedown` that
+   * reached `document`, with no way to tell "CM6 already owns this" from
+   * "CM6 never even saw this." These tests exercise the fallback's own
+   * decision function directly (not CM6's real word/line-selection logic,
+   * which needs real layout jsdom doesn't have — `wikiLinkMouseHandlers.
+   * dom.test.ts` documents the same constraint) by pre-seeding a non-empty
+   * "root selection" — standing in for whatever CM6 itself would have just
+   * produced — and asserting the fallback leaves it completely alone
+   * whenever the click's target is inside `view.contentDOM`, regardless of
+   * *why* the selection is non-empty or what construct the target belongs
+   * to. No test here varies by construct type on purpose: the fix is a
+   * single DOM-containment check with no per-construct branch, so a plain
+   * line and a real WikiLink widget must behave identically.
+   */
+  function mountPlainView(doc: string, extraExtensions: readonly unknown[] = []): { view: EditorView; controller: TableActiveCellController } {
+    const controller = new TableActiveCellController();
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({
+        doc,
+        extensions: [markdownLanguageExtension(), ...(extraExtensions as never[])],
+      }),
+      parent,
+    });
+    mountedViews.push(view);
+    return { view, controller };
+  }
+
+  /**
+   * Dispatched directly *on* `document` — deliberately not on `target`
+   * itself. Dispatching on `target` would make the event genuinely bubble
+   * through `view.contentDOM` first, which would also invoke CM6's own
+   * *real* internal mousedown handling (registered on `contentDOM`
+   * independently of anything under test here) — and that handling's own
+   * click-to-selection math depends on real pixel geometry
+   * (`posAndSideAtCoords`) that jsdom cannot provide, making its outcome
+   * essentially arbitrary in this environment and an unrelated confound
+   * for what these tests actually check: `handleMouseDown`'s own
+   * `view.contentDOM.contains(event.target)` decision. Dispatching
+   * directly on `document` with `target` overridden (the same
+   * `Object.defineProperty` technique this file already uses above for
+   * `pointermove`'s own `target`) reaches only the listener under test,
+   * with `event.target` reading exactly as a real bubbled event's would.
+   * `detail` defaults to `1` (an ordinary click); tests pass `2`/`3` to
+   * shape it like the second/third click of a double-/triple-click — the
+   * fallback's own decision must never read `event.detail` at all, and
+   * these tests vary it precisely to prove that, not because a different
+   * outcome is expected.
+   */
+  function mousedownOn(target: Element, detail = 1): void {
+    const event = new MouseEvent('mousedown', { cancelable: true, button: 0, detail });
+    Object.defineProperty(event, 'target', { value: target });
+    document.dispatchEvent(event);
+  }
+
+  it.each([
+    ['a plain click (detail 1)', 1],
+    ['shaped like the second click of a double-click (detail 2)', 2],
+    ['shaped like the third click of a triple-click (detail 3)', 3],
+  ])('%s on ordinary text does not collapse a pre-existing non-empty root selection', (_label, detail) => {
+    const { view, controller } = mountPlainView('hello world plaintext example');
+    const detach = attachTableOutsideClickHandling(view, controller);
+    // Stands in for the word/line range CM6's own native mousedown
+    // handling would have just dispatched for this same click.
+    view.dispatch({ selection: { anchor: 6, head: 11 } });
+    const posAtCoordsSpy = vi.spyOn(view, 'posAtCoords');
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+    const line = view.contentDOM.querySelector('.cm-line')!;
+
+    mousedownOn(line, detail);
+
+    expect(view.state.selection.main.from).toBe(6);
+    expect(view.state.selection.main.to).toBe(11);
+    // The guard short-circuits before ever resolving coordinates or
+    // dispatching — not merely "dispatches but restores the same value."
+    expect(posAtCoordsSpy).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('a click landing inside an existing non-empty selection (the ambiguous "start a new drag from here" case) leaves it alone', () => {
+    // CM6 itself defers deciding whether this becomes a fresh click or a
+    // drag until the pointer actually moves (`MouseSelection`'s own
+    // `dragging: null` case) — it does not dispatch anything synchronously
+    // on this mousedown, so the pre-existing selection is exactly what
+    // this fallback would see if it ran. It must still leave it alone: a
+    // click starting inside a selection, meant to begin dragging a new
+    // one, must not be collapsed out from under the gesture before it
+    // even starts.
+    const { view, controller } = mountPlainView('hello world plaintext example');
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: 11 } });
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+    const line = view.contentDOM.querySelector('.cm-line')!;
+
+    mousedownOn(line);
+
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(11);
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('a click on text inside bold/strikethrough markup does not collapse a pre-existing non-empty root selection', () => {
+    // Bold/strikethrough render as plain marked text runs, not widgets —
+    // included to document that the guard needs no per-construct case at
+    // all, not because this DOM shape is expected to differ from plain
+    // text.
+    const { view, controller } = mountPlainView('a **bold** and ~~struck~~ word');
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+    const line = view.contentDOM.querySelector('.cm-line')!;
+
+    mousedownOn(line, 2);
+
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(5);
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('a click on a real WikiLink widget does not collapse a pre-existing non-empty root selection', () => {
+    // The one case in the original bug report backed by a real inline
+    // *widget* (not just marked text) — WikiLink's own DOM lives inside
+    // `view.contentDOM` exactly like everything else (`WikiLinkWidget.ts`
+    // has no `stopPropagation()` of its own, only `ignoreEvent()`, which
+    // gates CM6's own internal handler dispatch, not native DOM
+    // propagation — confirmed by reading that file directly), so this is
+    // the same containment guard, exercised against real widget DOM
+    // instead of a plain text node.
+    const resolver: ResolveWikiLink = () => ({
+      status: 'resolved',
+      icon: 'note',
+      emoji: null,
+      displayLabel: 'Project A',
+      activate: () => {},
+    });
+    const { view, controller } = mountPlainView('Text before [[Project/Project A]]', [wikiLinkLivePreview(() => resolver)]);
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: 5 } });
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+    const widget = view.dom.querySelector('[data-wikilink-status]');
+    expect(widget).not.toBeNull();
+
+    mousedownOn(widget as Element, 2);
+
+    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.to).toBe(5);
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it('still collapses a stale selection for a click genuinely outside contentDOM (the fallback\'s own original scenario, unaffected by the guard)', () => {
+    const { view, controller } = mountPlainView('hello world plaintext example');
+    const detach = attachTableOutsideClickHandling(view, controller);
+    view.dispatch({ selection: { anchor: 0, head: 11 } });
+    vi.spyOn(view, 'posAtCoords').mockReturnValue(20);
+
+    mousedownOn(outsideElement());
+
+    expect(view.state.selection.main.from).toBe(20);
+    expect(view.state.selection.main.to).toBe(20);
     detach();
   });
 });

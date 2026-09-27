@@ -296,6 +296,36 @@ export const tableSelectionField = StateField.define<TableSelection | null>({
  * this can never modify the document or enter undo history, and never
  * synthesizes or otherwise touches the *native* DOM Selection — only
  * CM6's own logical `state.selection`.
+ *
+ * **Ownership boundary this fallback must never cross (2026-09-27
+ * correction): a click whose target lands inside `view.contentDOM`.**
+ * This fallback exists *only* for the one class of click CM6's own
+ * `contentDOM` mousedown handler structurally cannot see at all — a
+ * target outside `contentDOM` entirely (this doc comment's own
+ * "Confirmed directly" paragraph above). For any click whose target *is*
+ * inside `contentDOM`, CM6's own native mousedown handling has, by
+ * construction, already run and already fully decided what this click
+ * does to `state.selection` — collapse to the click point, extend a
+ * shift-click, select the word/line under a double/triple-click, or drive
+ * a live drag-selection — *before* this listener ever sees the event
+ * (DOM bubble order: `contentDOM`, an ancestor of any such target, is
+ * strictly closer to the target than `document` is, so its own listener
+ * always fires first). Confirmed as a real, reproducible regression, not
+ * a theoretical race: a real double-click on ordinary paragraph text
+ * dispatches CM6's own correct word-range selection first, and this
+ * fallback — finding `state.selection` non-empty a moment later, purely
+ * because CM6 had just *correctly* made it so — collapsed it right back
+ * down to a plain caret on every single click, silently discarding
+ * double-click word selection, triple-click line selection, and
+ * in-progress drag-selection alike. A table's own cell/handle/wrapper
+ * `mousedown` listeners (this doc comment's own first section) already
+ * guarantee their clicks never reach this handler at all, so this guard
+ * is never actually exercised *by* a table interaction — it exists purely
+ * to keep this fallback out of CM6's way for every click that lands on
+ * ordinary editor content (plain text, links, WikiLinks, tags, bold/
+ * strikethrough, or any future inline construct), uniformly, with no
+ * per-construct special-casing: "is this inside `contentDOM`" is the one
+ * signal that is always correct, unlike click count or timing.
  */
 
 /**
@@ -347,8 +377,23 @@ export function attachTableOutsideClickHandling(view: EditorView, controller: Ta
     // cell nor a `TableSelection`, so it would never reach the branch
     // above at all, yet it is the exact scenario this fallback exists
     // for.
+    //
+    // Ownership guard (this function's own doc comment, "Ownership
+    // boundary this fallback must never cross"): a target inside
+    // `view.contentDOM` has already been fully handled by CM6's own native
+    // mousedown logic by the time this listener runs, including whatever
+    // it decided about a stale non-empty selection — collapse it, extend
+    // it, or replace it with a word/line range. Re-deciding that here
+    // races CM6's own synchronous dispatch and clobbers it. This is never
+    // true *because* of a table interaction specifically (every table
+    // cell/handle/wrapper mousedown already stops propagation long before
+    // reaching this handler at all — see this function's own first
+    // section) — it is true for ordinary editor content in general, which
+    // is exactly what this guard checks, with no construct-specific case
+    // of its own.
     let selectionAnchor: number | null = null;
-    if (!view.state.selection.main.empty) {
+    const clickReachedCM6Content = target instanceof Node && view.contentDOM.contains(target);
+    if (!clickReachedCM6Content && !view.state.selection.main.empty) {
       const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (pos !== null) {
         selectionAnchor = pos;
