@@ -62,3 +62,39 @@ describe('MarkdownEditor.css — WikiLink text-decoration composition', () => {
     }
   });
 });
+
+/**
+ * Regression coverage for the WikiLink icon/DOM-structure consistency fix
+ * (WikiLinkWidget.ts, 2026-09-27): a resolved and an unresolved WikiLink
+ * now share the identical icon+title DOM structure (see
+ * `wikiLinkLivePreview.test.ts`'s own "resolved and unresolved WikiLinks
+ * share the identical icon+title DOM structure" suite for the DOM-level
+ * proof), so the only difference left between them must be status-scoped
+ * styling — opacity — never a text-decoration declaration duplicating what
+ * `.tok-wikilink__title` (present unconditionally now) already provides.
+ */
+describe('MarkdownEditor.css — unresolved WikiLink opacity, no duplicated underline', () => {
+  const css = readFileSync(join(__dirname, 'MarkdownEditor.css'), 'utf8');
+  const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it("declares the unresolved status's reduced opacity", () => {
+    const match = cssWithoutComments.match(/\.tok-wikilink\[data-wikilink-status='unresolved'\]\s*\{([^}]*)\}/);
+    expect(match, ".tok-wikilink[data-wikilink-status='unresolved'] rule not found").not.toBeNull();
+    expect(match![1]).toMatch(/opacity\s*:\s*var\(--opacity-medium\)\s*;/);
+  });
+
+  it('no longer duplicates the underline on the unresolved rule — .tok-wikilink__title already declares it unconditionally for every status', () => {
+    const match = cssWithoutComments.match(/\.tok-wikilink\[data-wikilink-status='unresolved'\]\s*\{([^}]*)\}/);
+    expect(match).not.toBeNull();
+    expect(
+      match![1],
+      'a duplicated text-decoration here would stack a second decorating box on top of .tok-wikilink__title\'s own, the same WKWebView compositing risk this file\'s struck-link investigation already found elsewhere'
+    ).not.toMatch(/text-decoration/);
+  });
+
+  it('.tok-wikilink__title declares the underline unconditionally (not status-scoped) so every status gets it from one place', () => {
+    const match = cssWithoutComments.match(/\.tok-wikilink__title\s*\{([^}]*)\}/);
+    expect(match, '.tok-wikilink__title rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/text-decoration\s*:\s*underline\s*;/);
+  });
+});

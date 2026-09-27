@@ -1642,15 +1642,18 @@
  * and `- [x] ~~**[[Page]]**~~` (completed-task dimming), and the
  * equivalent Tag/Date cases. */
 
-/* A resolved WikiLink's own identity icon — emoji if assigned, else its
- * page type's default icon (`WikiLinkWidget.ts`'s own `PAGE_IDENTITY_ICON_BY_KIND`
+/* A WikiLink's own identity icon — emoji if assigned, else its page type's
+ * default icon (`WikiLinkWidget.ts`'s own `PAGE_IDENTITY_ICON_BY_KIND`
  * usage) — the same emoji-or-default pairing `.cm-note-embed__icon-wrap`
  * renders for a note embed's header, via the identical shared
  * `resolution.icon`/`resolution.emoji` data. Sized in `em` (unlike the note
  * embed's fixed `--icon-wrapper-md`) since this sits inline within running
  * text at the surrounding font size, not a fixed-height block header.
- * `unresolved`/`ambiguous` WikiLinks render no icon-wrap at all
- * (`WikiLinkWidget.ts`'s own `toDOM`), so no icon rule is needed for them. */
+ * **Corrected 2026-09-27**: every status — resolved, unresolved, ambiguous —
+ * renders this same icon-wrap now (`WikiLinkWidget.ts`'s own `toDOM`),
+ * using the generic default `'note'` icon when there's no real resolved
+ * page to derive a type-specific one from; this rule is no longer
+ * resolved-only. */
 /* `vertical-align`/`margin-inline-end` take over the alignment/spacing job
  * `.tok-wikilink`'s own `align-items`/`gap` used to do before that element
  * stopped being a flex container (see its own rule's comment, above) —
@@ -1724,12 +1727,20 @@
   text-underline-offset: var(--md-link-underline-offset);
 }
 
+/* Underline is no longer declared here (removed 2026-09-27): before the
+ * icon/DOM-structure fix, above, an unresolved WikiLink had no
+ * `.tok-wikilink__title` child to carry it (its content was direct text on
+ * this element), so this rule declared the underline itself. Now every
+ * status shares the identical icon+title structure, and `.tok-wikilink__title`
+ * already declares the exact same underline unconditionally — repeating it
+ * here would leave two overlapping decorating boxes on the same text
+ * (ancestor-propagated + the title's own), the same class of WKWebView
+ * compositing risk this file's own struck-link investigation already found
+ * and fixed elsewhere (see the `.tok-strike`/`STRIKETHROUGH_PROTECTED_NODE_NAMES`
+ * entries above). Opacity is the only status-specific rule left, applied to
+ * the whole (now icon-inclusive) element. */
 .tok-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);
-  text-decoration: underline;
-  text-decoration-thickness: 0.05em;
-  text-decoration-color: var(--md-wiki-underline);
-  text-underline-offset: var(--md-link-underline-offset);
 }
 
 .cm-editor .tok-tag {

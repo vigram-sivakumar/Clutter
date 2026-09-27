@@ -73,39 +73,57 @@ export class WikiLinkWidget extends WidgetType {
     span.setAttribute('aria-label', `${this.resolution.status}: ${this.resolution.displayLabel}`);
     span.dataset.wikilinkStatus = this.resolution.status;
 
-    // A resolved WikiLink's at-rest presentation mirrors a Note embed's
-    // own header exactly — its target's assigned emoji if it has one,
-    // else its type's own canonical default icon — via the same shared
+    // Every status renders the identical icon+title structure — a
+    // resolved WikiLink's own identity icon (its target's assigned emoji,
+    // else its type's canonical default icon, via the same shared
     // `resolution.icon`/`resolution.emoji` pair `NoteEmbedWidget.ts`
-    // consumes (both computed by the one shared `resolvePageIdentityIcon()`
-    // — see that module's own doc comment). Purely a rendering concern:
-    // never reflected into the Markdown (still just `[[Note]]`), and never
-    // shown once the raw syntax is revealed — this whole widget is
-    // replaced by plain text on engage (`wikiLinkLivePreview.ts`), so no
-    // separate "hide the icon while engaged" logic is needed here.
-    // `unresolved`/`ambiguous` reference no real page to have one, so they
-    // keep the previous flat-text rendering unchanged.
-    if (this.resolution.status === 'resolved') {
-      const iconWrap = document.createElement('span');
-      iconWrap.classList.add('tok-wikilink__icon-wrap');
-      if (this.resolution.emoji) {
-        const emojiSpan = document.createElement('span');
-        emojiSpan.classList.add('tok-wikilink__emoji');
-        emojiSpan.textContent = this.resolution.emoji;
-        iconWrap.append(emojiSpan);
-      } else {
-        iconWrap.innerHTML = PAGE_IDENTITY_ICON_BY_KIND[this.resolution.icon];
-        iconWrap.querySelector('svg')?.classList.add('tok-wikilink__icon');
-      }
-
-      const titleSpan = document.createElement('span');
-      titleSpan.classList.add('tok-wikilink__title');
-      titleSpan.textContent = this.resolution.displayLabel;
-
-      span.append(iconWrap, titleSpan);
+    // consumes) when resolved, or the generic default `'note'` icon
+    // otherwise (`unresolved`/`ambiguous` reference no real page to derive
+    // a type-specific icon from, so the generic default stands in — the
+    // same fallback `getPageIcon()` itself uses for a plain note
+    // elsewhere in the app). Purely a rendering concern: never reflected
+    // into the Markdown (still just `[[Note]]`), and never shown once the
+    // raw syntax is revealed — this whole widget is replaced by plain text
+    // on engage (`wikiLinkLivePreview.ts`), so no separate "hide the icon
+    // while engaged" logic is needed here.
+    //
+    // **Corrected 2026-09-27 (icon/DOM-structure consistency fix)**:
+    // previously this branched on `status === 'resolved'`, rendering the
+    // icon+title structure only then and falling back to a flat
+    // `span.textContent = displayLabel` (no icon, no `.tok-wikilink__title`)
+    // for `unresolved`/`ambiguous` — a real, reported inconsistency: an
+    // unresolved WikiLink (note doesn't exist yet) looked structurally
+    // different from a resolved one, missing the note icon entirely,
+    // rather than differing only in the intentional reduced-opacity status
+    // styling (`.tok-wikilink[data-wikilink-status='unresolved']` in
+    // `MarkdownEditor.css`). The fix removes the branch entirely: every
+    // status builds the same icon-wrap + title-span pair, using the same
+    // `PAGE_IDENTITY_ICON_BY_KIND` lookup and the same DOM/class
+    // structure — resolved/unresolved/ambiguous differ only in which icon
+    // key is used (the resolved target's own, or the generic default) and
+    // in `data-wikilink-status`-scoped CSS, never in DOM shape. Click
+    // activation, note-creation-on-demand, and navigation are all wired
+    // through `resolution.activate`/`wikiLinkMouseHandlers.ts` and
+    // completely untouched by this — this is a rendering-only change.
+    const iconWrap = document.createElement('span');
+    iconWrap.classList.add('tok-wikilink__icon-wrap');
+    const emoji = this.resolution.status === 'resolved' ? this.resolution.emoji : null;
+    const icon = this.resolution.status === 'resolved' ? this.resolution.icon : 'note';
+    if (emoji) {
+      const emojiSpan = document.createElement('span');
+      emojiSpan.classList.add('tok-wikilink__emoji');
+      emojiSpan.textContent = emoji;
+      iconWrap.append(emojiSpan);
     } else {
-      span.textContent = this.resolution.displayLabel;
+      iconWrap.innerHTML = PAGE_IDENTITY_ICON_BY_KIND[icon];
+      iconWrap.querySelector('svg')?.classList.add('tok-wikilink__icon');
     }
+
+    const titleSpan = document.createElement('span');
+    titleSpan.classList.add('tok-wikilink__title');
+    titleSpan.textContent = this.resolution.displayLabel;
+
+    span.append(iconWrap, titleSpan);
 
     return span;
   }

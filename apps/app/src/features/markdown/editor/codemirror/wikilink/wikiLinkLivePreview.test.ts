@@ -148,6 +148,101 @@ describe('wikiLinkLivePreview', () => {
   });
 
   // ===================================================================
+  // Regression suite (2026-09-27): resolved and unresolved WikiLinks must
+  // share the exact same icon+title DOM structure — only the
+  // resolved/unresolved status (and its opacity/interaction styling) may
+  // differ, never whether the note icon exists at all. Previously
+  // `WikiLinkWidget.toDOM()` built the icon-wrap/title-span pair only for
+  // `status === 'resolved'`, falling back to flat `textContent` (no icon)
+  // for `unresolved`/`ambiguous`. See docs/editor-architecture-decisions.md
+  // for the fix.
+  // ===================================================================
+  describe('REGRESSION: resolved and unresolved WikiLinks share the identical icon+title DOM structure', () => {
+    function iconWrapOf(view: EditorView, status: string) {
+      return view.dom.querySelector(`[data-wikilink-status="${status}"] .tok-wikilink__icon-wrap`);
+    }
+
+    it('1. a resolved WikiLink has the note icon', () => {
+      const view = mountView('before [[Projects/Project A]] after', resolvedAs('Project A'));
+      const iconWrap = iconWrapOf(view, 'resolved');
+      expect(iconWrap).not.toBeNull();
+      expect(iconWrap!.querySelector('svg.tok-wikilink__icon')).not.toBeNull();
+    });
+
+    it('2. an unresolved WikiLink also has the exact same note icon', () => {
+      const view = mountView('before [[Projects/Missing]] after', () => ({
+        status: 'unresolved',
+        displayLabel: 'Missing',
+        activate: () => {},
+      }));
+      const iconWrap = iconWrapOf(view, 'unresolved');
+      expect(iconWrap).not.toBeNull();
+      expect(iconWrap!.querySelector('svg.tok-wikilink__icon')).not.toBeNull();
+    });
+
+    it('3. both use the same icon DOM/classes — identical markup for the icon-wrap, differing only in status/opacity', () => {
+      const resolvedView = mountView('before [[Projects/Project A]] after', resolvedAs('Project A'));
+      const unresolvedView = mountView('before [[Projects/Missing]] after', () => ({
+        status: 'unresolved',
+        displayLabel: 'Missing',
+        activate: () => {},
+      }));
+
+      const resolvedWidget = resolvedView.dom.querySelector('[data-wikilink-status="resolved"]');
+      const unresolvedWidget = unresolvedView.dom.querySelector('[data-wikilink-status="unresolved"]');
+      expect(resolvedWidget).not.toBeNull();
+      expect(unresolvedWidget).not.toBeNull();
+
+      // Same two-child structure: icon-wrap then title span.
+      expect(Array.from(resolvedWidget!.children).map((el) => el.className)).toEqual([
+        'tok-wikilink__icon-wrap',
+        'tok-wikilink__title',
+      ]);
+      expect(Array.from(unresolvedWidget!.children).map((el) => el.className)).toEqual([
+        'tok-wikilink__icon-wrap',
+        'tok-wikilink__title',
+      ]);
+
+      // Identical icon markup — both use the generic 'note' icon here
+      // (the resolved fixture is itself resolved as a plain note).
+      expect(iconWrapOf(resolvedView, 'resolved')!.innerHTML).toBe(iconWrapOf(unresolvedView, 'unresolved')!.innerHTML);
+    });
+
+    it('an ambiguous WikiLink also gets the same icon+title structure (the generic default icon, since no single resolved page exists)', () => {
+      const view = mountView('before [[Project]] after', () => ({
+        status: 'ambiguous',
+        displayLabel: 'Project',
+        activate: () => {},
+      }));
+      const iconWrap = iconWrapOf(view, 'ambiguous');
+      expect(iconWrap).not.toBeNull();
+      expect(iconWrap!.querySelector('svg.tok-wikilink__icon')).not.toBeNull();
+      expect(view.dom.querySelector('[data-wikilink-status="ambiguous"] .tok-wikilink__title')?.textContent).toBe('Project');
+    });
+
+    it('4. an unresolved WikiLink retains the existing reduced opacity, unaffected by the icon fix', () => {
+      const view = mountView('before [[Projects/Missing]] after', () => ({
+        status: 'unresolved',
+        displayLabel: 'Missing',
+        activate: () => {},
+      }));
+      // The status attribute this rule is scoped to is still present on
+      // the outer element (the icon fix didn't move it or restructure
+      // where it lives) — jsdom doesn't load real stylesheets, so the
+      // actual opacity value is verified against the CSS source itself,
+      // below (`MarkdownEditor.css — unresolved WikiLink opacity` suite).
+      const widget = view.dom.querySelector('[data-wikilink-status="unresolved"]');
+      expect(widget).not.toBeNull();
+      expect(widget!.tagName).toBe('SPAN');
+    });
+
+    it('resolved WikiLink display label/title text is unaffected by the icon fix', () => {
+      const view = mountView('before [[Projects/Project A]] after', resolvedAs('Project A'));
+      expect(view.dom.querySelector('[data-wikilink-status="resolved"] .tok-wikilink__title')?.textContent).toBe('Project A');
+    });
+  });
+
+  // ===================================================================
   // Regression: an empty or whitespace-only path resolves through every
   // resolution branch (a real resolver's unresolved case,
   // fallbackWikiLinkResolution) to an empty displayLabel — an at-rest

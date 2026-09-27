@@ -87,6 +87,25 @@ describe('handleWikiLinkClick', () => {
 
     expect(() => handleWikiLinkClick(view, nodeFrom + 2, false, () => undefined)).not.toThrow();
   });
+
+  // Regression guard for the icon/DOM-structure consistency fix
+  // (WikiLinkWidget.ts, 2026-09-27): click activation must be completely
+  // unaffected by an unresolved WikiLink now also rendering the icon+title
+  // structure — clicking it still calls `resolution.activate` exactly as
+  // before (the real app's `activate` is what creates the missing note on
+  // demand and then opens it; this module only ever calls that callback,
+  // never anything DOM-structure-dependent).
+  it('a click on an unresolved (non-empty) WikiLink still activates it — the same create-and-open callback as before the icon fix', () => {
+    const activate = vi.fn();
+    const resolver: ResolveWikiLink = () => ({ status: 'unresolved', displayLabel: 'Missing note', activate });
+    const view = mountView('Text before [[Missing note]]', resolver);
+    const nodeFrom = 'Text before '.length;
+
+    const handled = handleWikiLinkClick(view, nodeFrom + 3, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
 });
 
 // Regression: a WikiLink nested inside an enclosing delimited-mark
