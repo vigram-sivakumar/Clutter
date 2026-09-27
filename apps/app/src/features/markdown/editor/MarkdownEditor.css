@@ -1699,6 +1699,7 @@
   text-decoration-thickness: 0.05em;
   text-decoration-color: var(--md-wiki-underline);
   text-underline-offset: var(--md-link-underline-offset);
+  padding-right: var(--space-4);
 }
 
 /* Markdown [label](url), bare URL, and Autolink — click activates/navigates
