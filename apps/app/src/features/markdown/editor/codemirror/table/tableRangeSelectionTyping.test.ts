@@ -249,7 +249,19 @@ describe('tableRangeSelectionTyping — end-to-end with a real drag gesture', ()
     const { view, controller } = mountViewWithController(TABLE);
     const setTarget = mockElementFromPoint();
 
-    findCell(view, 'Vik').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    // `button: 0, detail: 1` — a real browser mousedown always carries
+    // both (detail is the click count, never `0` for a genuine click; the
+    // DOM spec's own default for a hand-constructed `MouseEventInit` is
+    // `0`, which a real gesture never produces). This now matters where it
+    // didn't before this suite's own 2026-09-27 update
+    // (`TableActiveCellController.activate()`'s "why forwarding" doc
+    // comment): the inactive-cell click handler forwards this exact event
+    // to CM6's own native mousedown handling, which reads `detail` to
+    // decide word/line-select — an unset `detail` of `0` fell through to
+    // CM6's *line-select* branch instead of placing a plain caret,
+    // confirmed as the actual cause of this test's own regression when
+    // that forwarding was introduced.
+    findCell(view, 'Vik').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1 }));
     setTarget(findCell(view, 'Designer'));
     document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true }));
     document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));

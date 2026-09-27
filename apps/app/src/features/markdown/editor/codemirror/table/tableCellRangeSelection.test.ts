@@ -52,8 +52,25 @@ function findCell(view: EditorView, text: string): HTMLElement {
   return cell as HTMLElement;
 }
 
+/**
+ * `button: 0, detail: 1` — a real browser mousedown always carries both
+ * (detail is the 1-based click count; the DOM spec's own default for a
+ * hand-constructed `MouseEventInit` with neither specified is `0`, which a
+ * genuine mousedown never produces). This started mattering with the
+ * 2026-09-27 inactive-cell forwarding fix
+ * (`TableActiveCellController.activate()`'s own "why forwarding" doc
+ * comment): the inactive-cell click handler now forwards this exact event
+ * to CM6's own native mousedown handling, which reads `detail` to decide
+ * word/line-select — an unset `detail` of `0` fell through to CM6's own
+ * *line-select* branch instead of leaving a plain collapsed caret,
+ * confirmed as the cause of every one of this file's own tests regressing
+ * when that forwarding was introduced (the anchor cell's own caret,
+ * captured via `activeAnchor`/`nestedView.state.selection.main.head` right
+ * before a cross-cell drag promotes to a range, silently became "end of
+ * cell content" instead of "start of cell content").
+ */
 function mousedown(el: Element): void {
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1 }));
 }
 
 function mouseup(): void {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EditorState } from '@codemirror/state';
+import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history, redo, undo } from '@codemirror/commands';
 
@@ -63,66 +63,137 @@ describe('TableActiveCellController — click-activate', () => {
   });
 });
 
-describe('TableActiveCellController — clickCoords caret refinement', () => {
+describe('TableActiveCellController — sourceEvent forwarding (2026-09-27: replaces the old clickCoords refinement)', () => {
   /**
-   * jsdom has no real layout engine, so `EditorView.posAtCoords` can't be
-   * exercised end to end here (the same limitation `tableSelection.test.ts`'s
-   * own `mockPosAtCoords` already documents) — mocked at the `EditorView.prototype`
-   * level (not a specific instance) since `activate()` creates the nested
-   * `EditorView` lazily, internally; there's no instance to spy on until
-   * the call under test has already run.
+   * jsdom has no real layout engine, so CM6's own click-to-position
+   * resolution can't be exercised end to end here (the same limitation
+   * `tableSelection.test.ts`'s own `mockPosAtCoords` already documents) —
+   * `basicMouseSelection` (`@codemirror/view`, `handlers.mousedown`) calls
+   * `view.posAndSideAtCoords(coords, false)`, not `posAtCoords`, so that's
+   * the method mocked here, at the `EditorView.prototype` level (not a
+   * specific instance) since `activate()` creates the nested `EditorView`
+   * lazily, internally — there's no instance to spy on until the call
+   * under test has already run.
    */
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('refines the caret to the exact resolved position, overriding cursorPos\'s own coarser placement', () => {
+  function makeMousedown(overrides: Partial<MouseEvent> = {}): MouseEvent {
+    return new MouseEvent('mousedown', {
+      clientX: 42,
+      clientY: 7,
+      button: 0,
+      detail: 1,
+      bubbles: true,
+      cancelable: true,
+      ...overrides,
+    });
+  }
+
+  it('forwards a real mousedown to the nested contentDOM, and CM6 places the caret at the resolved position, overriding cursorPos\'s own coarser placement', () => {
     const root = mountRootView('| a | bold text |\n| - | - |');
     const controller = new TableActiveCellController();
     const container = makeContainer();
-    const posAtCoordsSpy = vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(2);
+    vi.spyOn(EditorView.prototype, 'posAndSideAtCoords').mockReturnValue({ pos: 2, assoc: 1 });
 
     // cursorPos (`to`, end of "bold text" = 9) would place the caret at 9
-    // absent refinement — `clickCoords` must win.
-    controller.activate(root, container, 6, 15, 15, { x: 42, y: 7 });
-
-    expect(controller.nestedView!.state.selection.main.head).toBe(2);
-    expect(posAtCoordsSpy).toHaveBeenCalledWith({ x: 42, y: 7 });
-  });
-
-  it('leaves cursorPos\'s own placement standing when posAtCoords cannot resolve a position (null)', () => {
-    const root = mountRootView('| a | bold |\n| - | - |');
-    const controller = new TableActiveCellController();
-    const container = makeContainer();
-    vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(null);
-
-    controller.activate(root, container, 6, 10, 8, { x: 999, y: 999 }); // cursorPos 8 -> caret 2 within "bold"
+    // absent forwarding — CM6's own resolution of the forwarded event must
+    // win.
+    controller.activate(root, container, 6, 15, 15, makeMousedown());
 
     expect(controller.nestedView!.state.selection.main.head).toBe(2);
   });
 
-  it('never calls posAtCoords when clickCoords is omitted (every keyboard-driven activation)', () => {
+  it('never dispatches a forwarded mousedown when sourceEvent is omitted (every keyboard-driven activation) — cursorPos\'s own placement stands', () => {
     const root = mountRootView('| a | bold |\n| - | - |');
     const controller = new TableActiveCellController();
     const container = makeContainer();
-    const posAtCoordsSpy = vi.spyOn(EditorView.prototype, 'posAtCoords');
+    controller.activate(root, container, 6, 10, 8); // cursorPos 8 -> caret 2 within "bold"
 
-    controller.activate(root, container, 6, 10, 8);
+    const dispatchSpy = vi.spyOn(controller.nestedView!.contentDOM, 'dispatchEvent');
+    // A second, keyboard-style activation (still no sourceEvent) on the
+    // same already-mounted nested view — must not forward anything either.
+    controller.activate(root, container, 6, 10, 9);
 
-    expect(posAtCoordsSpy).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(controller.nestedView!.state.selection.main.head).toBe(3);
   });
 
-  it('refines the caret on a cell switch (reusing the already-mounted nested editor), not just first activation', () => {
+  it('forwards on a cell switch (reusing the already-mounted nested editor), not just first activation', () => {
     const root = mountRootView('| a | bold | more |\n| - | - | - |');
     const controller = new TableActiveCellController();
     const container = makeContainer();
-    controller.activate(root, container, 6, 10, 10); // activate "bold" first (no coords)
-    vi.spyOn(EditorView.prototype, 'posAtCoords').mockReturnValue(3);
+    controller.activate(root, container, 6, 10, 10); // activate "bold" first (no event)
+    vi.spyOn(EditorView.prototype, 'posAndSideAtCoords').mockReturnValue({ pos: 3, assoc: 1 });
 
-    controller.activate(root, container, 13, 17, 17, { x: 11, y: 22 }); // switch to "more"
+    controller.activate(root, container, 13, 17, 17, makeMousedown({ clientX: 11, clientY: 22 })); // switch to "more"
 
     expect(controller.nestedView!.state.doc.toString()).toBe('more');
     expect(controller.nestedView!.state.selection.main.head).toBe(3);
+  });
+
+  it('forwards clientX/clientY, button, detail, shiftKey, ctrlKey, metaKey, and altKey unchanged, and always forces button 0', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    controller.activate(root, container, 6, 10, 10); // mount first, uneventfully
+    const captured: MouseEvent[] = [];
+    controller.nestedView!.contentDOM.addEventListener('mousedown', (e) => captured.push(e as MouseEvent));
+
+    controller.activate(
+      root,
+      container,
+      6,
+      10,
+      10,
+      makeMousedown({ clientX: 123, clientY: 456, button: 0, detail: 1, shiftKey: true, ctrlKey: true, metaKey: true, altKey: true })
+    );
+
+    expect(captured).toHaveLength(1);
+    const forwarded = captured[0]!;
+    expect(forwarded.clientX).toBe(123);
+    expect(forwarded.clientY).toBe(456);
+    expect(forwarded.button).toBe(0);
+    expect(forwarded.detail).toBe(1);
+    expect(forwarded.shiftKey).toBe(true);
+    expect(forwarded.ctrlKey).toBe(true);
+    expect(forwarded.metaKey).toBe(true);
+    expect(forwarded.altKey).toBe(true);
+  });
+
+  it('the forwarded mousedown does not bubble — document never observes it', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const documentSpy = vi.fn();
+    document.addEventListener('mousedown', documentSpy);
+
+    controller.activate(root, container, 6, 10, 10, makeMousedown());
+
+    expect(documentSpy).not.toHaveBeenCalled();
+    document.removeEventListener('mousedown', documentSpy);
+  });
+
+  it('produces exactly one CM6-owned (select.pointer) selection transaction from the forwarded gesture — no separate manual coordinate-refinement dispatch racing it', () => {
+    const root = mountRootView('| a | bold text |\n| - | - |');
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    vi.spyOn(EditorView.prototype, 'posAndSideAtCoords').mockReturnValue({ pos: 2, assoc: 1 });
+    controller.activate(root, container, 6, 15, 15); // mount first, uneventfully
+    // Counts every `select.pointer`-tagged transaction — CM6's own tag for
+    // exactly the kind of dispatch `basicMouseSelection` produces — from
+    // this point on, so the initial (unrelated) mount dispatch above isn't
+    // counted.
+    let pointerCount = 0;
+    const countingExt = EditorView.updateListener.of((u) => {
+      pointerCount += u.transactions.filter((tr) => tr.isUserEvent('select.pointer')).length;
+    });
+    controller.nestedView!.dispatch({ effects: StateEffect.appendConfig.of(countingExt) });
+
+    controller.activate(root, container, 6, 15, 15, makeMousedown());
+
+    expect(pointerCount).toBe(1);
   });
 });
 

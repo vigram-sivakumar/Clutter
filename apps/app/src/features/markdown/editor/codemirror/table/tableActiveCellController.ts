@@ -115,23 +115,86 @@ export class TableActiveCellController {
    * method itself has no cache to go stale from — every call re-derives
    * the cell's text straight from `rootView.state`.
    *
-   * `clickCoords`, when given, refines that initial `cursorPos` placement
-   * to the *exact* clicked character once the nested editor's own DOM
-   * actually exists to measure against — `cursorPos` alone cannot express
-   * "wherever the user's pointer landed" (`tableCellNavigation.ts`'s own
-   * keyboard-driven callers pass none; only `TableWidget.buildRow`'s mouse
-   * click handler does). This can only happen *after* this same call has
-   * mounted (or repositioned) the nested view into `container` below —
-   * `EditorView.posAtCoords` needs the nested editor's own `contentDOM`
-   * to already be attached and laid out at the coordinates being resolved
-   * against, which is exactly why this isn't (and can't be) resolved by
-   * the caller *before* calling `activate()` and passed in as `cursorPos`
-   * instead: the fix keeps `cursorPos` as the immediate, synchronous
-   * placement (still correct for every keyboard caller, and a reasonable
-   * fallback here too, applied first) and then corrects it in place, in
-   * the one call already responsible for mounting the DOM being measured.
+   * `sourceEvent`, when given, is the *original* `mousedown` that caused
+   * this activation (`TableWidget.buildRow`'s inactive-cell click handler
+   * — the one caller that passes one; every keyboard-driven caller in
+   * `tableCellNavigation.ts`/`tableBoundaryNavigation.ts`/
+   * `tableRangeSelectionTyping.ts` omits it). It is forwarded, once the
+   * nested editor's own DOM is real and in its final position (see
+   * "Forwarding timing" below), as a genuine synthetic `mousedown` at the
+   * nested view's own `contentDOM` — letting CM6's own native mouse-
+   * selection machinery (`handlers.mousedown`/`basicMouseSelection`,
+   * `@codemirror/view`) own the *entire* gesture from that point on,
+   * including the exact-character caret placement `cursorPos` alone
+   * cannot express, and — the reason this replaced a plain coordinate
+   * refinement — real drag-to-select and double/triple-click semantics,
+   * which a one-shot `posAtCoords` call could never produce.
+   *
+   * **Why forwarding, not a one-shot coordinate refinement (2026-09-27
+   * correction — replaces this method's previous `clickCoords`
+   * parameter).** `TableWidget.buildRow`'s own inactive-cell `mousedown`
+   * listener calls `preventDefault()`/`stopPropagation()` on the
+   * *original* event before this method ever mounts the nested editor —
+   * required so root CM6's own `contentDOM` listener (further up the same
+   * tree) doesn't also process the click (`TableWidget`'s own doc
+   * comment). But that means the nested editor's own `contentDOM` — which
+   * doesn't exist yet at that moment — never receives the initiating
+   * event at all, so CM6's own native mouse-selection tracking
+   * (`@codemirror/view`'s internal `MouseSelection`, which installs its
+   * own `document`-level `mousemove`/`mouseup` listeners) never gets
+   * initialized for this gesture. Confirmed directly, live: a real
+   * mousedown-drag across text in a *previously inactive* cell collapsed
+   * to a plain caret at the drag's start position — the drag itself was
+   * silently lost — while the identical drag against an *already active*
+   * cell worked correctly, because that cell's nested `contentDOM`
+   * already existed and received its own initiating `mousedown` natively.
+   * A one-shot `posAtCoords`-and-dispatch-a-collapsed-cursor (this
+   * method's previous behavior) only ever fixed the *placement*, never
+   * the lost drag itself. Forwarding the *original* event as a real
+   * `mousedown` at the now-existing `contentDOM` closes that gap
+   * directly: CM6's own `handlers.mousedown` performs the identical
+   * `posAndSideAtCoords` resolution a plain refinement did, *and* installs
+   * its own drag-tracking, from one single mechanism — not two.
+   * Confirmed this doesn't need to cover double-/triple-click itself:
+   * only the *first* `mousedown` of such a gesture is the one this method
+   * ever intercepts (it activates the cell); by the second/third
+   * `mousedown`, the cell is already active and `TableWidget.buildRow`'s
+   * *other* branch (no `activate()` call) lets CM6 see those natively,
+   * exactly as it always has — confirmed live, unaffected by this change
+   * either way.
+   *
+   * **Forwarding timing.** Dispatched at the exact point this method's
+   * own previous `clickCoords` refinement used to run — after the
+   * `tableActiveCellChanged` dispatch below, never before. Calling
+   * `posAndSideAtCoords`/dispatching any mousedown earlier measures
+   * against the transient, doubled-up DOM state this method's own next
+   * paragraph documents (the nested view freshly appended *alongside*
+   * `container`'s still-present static HTML, before `tableWidgetField`'s
+   * synchronous rebuild re-parents it into its final, clean wrapper) —
+   * confirmed, previously, to resolve to the wrong position (position 0)
+   * when attempted too early. The same timing constraint that governed
+   * the old coordinate refinement governs the forwarded event for the
+   * identical reason: both need the nested `contentDOM`'s *real*, final
+   * layout to measure anything against.
+   *
+   * **No two competing mechanisms.** This forwarded `mousedown` is the
+   * *only* thing this method does in response to `sourceEvent` — there is
+   * no separate `posAtCoords`/dispatch alongside it. A plain click with no
+   * drag still ends up with exactly the same collapsed-caret-at-the-
+   * click-point result as before: CM6's own `basicMouseSelection`
+   * produces a plain cursor for `event.detail === 1` with no subsequent
+   * `mousemove`, identical in effect to the old refinement, just arrived
+   * at via CM6's own real mechanism instead of a hand-rolled duplicate of
+   * it.
+   *
+   * **Never bubbles.** Dispatched with `bubbles: false` — its only job is
+   * to reach the nested `contentDOM`'s own `mousedown` listener; it must
+   * not re-enter root's own `contentDOM` handling or
+   * `attachTableOutsideClickHandling`'s `document`-level listener a
+   * second time for the same physical gesture (confirmed empirically: a
+   * `document`-level observer sees zero events from this dispatch).
    */
-  activate(rootView: EditorView, container: HTMLElement, from: number, to: number, cursorPos: number, clickCoords?: { x: number; y: number }): void {
+  activate(rootView: EditorView, container: HTMLElement, from: number, to: number, cursorPos: number, sourceEvent?: MouseEvent): void {
     const text = rootView.state.sliceDoc(from, to);
     const caret = Math.max(0, Math.min(cursorPos - from, text.length));
     // Set before any dispatch below — forwardToRoot (fired synchronously
@@ -224,42 +287,47 @@ export class TableActiveCellController {
     // test `EditorView` above included).
     rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
 
-    // Refines the caret from `cursorPos`'s own coarse placement (always
-    // `cell.to` — end of content — for `TableWidget.buildRow`'s mouse
-    // click handler, the one caller that passes `clickCoords`) to the
-    // exact character the user actually clicked.
+    // Forwards the original gesture to CM6's own native mouse-selection
+    // handling — see this method's own "Why forwarding" doc comment for
+    // the full reasoning and "Forwarding timing" for why this must run
+    // here, after the `tableActiveCellChanged` dispatch above, never
+    // before (identical timing constraint the previous coordinate-only
+    // refinement already had, for the identical reason: the nested
+    // `contentDOM` is only in its final, measurable position once that
+    // dispatch's synchronous `tableWidgetField` rebuild has re-parented
+    // it there).
     //
-    // **Must run after the `tableActiveCellChanged` dispatch above, not
-    // before it — confirmed as a real bug via direct live-browser
-    // investigation, not a theoretical ordering concern.** At the point
-    // `container.appendChild`/the reset `dispatch` above have run, the
-    // nested editor's DOM has only been appended *alongside* `container`'s
-    // own still-present static HTML (`TableWidget.buildRow`'s inactive-cell
-    // branch had already set `wrapper.innerHTML` to the rendered Markdown
-    // before this activation, and neither `activate()` nor CM6's own
-    // `parent`-option mounting clears it first) — a transient, doubled-up
-    // DOM state that is never what the user actually sees, because the
-    // `tableActiveCellChanged` dispatch immediately above synchronously
-    // rebuilds `tableWidgetField`, and `TableWidget.toDOM()`'s own
-    // active-cell branch re-parents this *same* `nestedViewInstance.dom`
-    // into a brand-new, clean wrapper containing nothing else. Calling
-    // `posAtCoords` before that rebuild measures against the stale,
-    // doubled layout and resolves to the wrong character (confirmed
-    // directly: it consistently resolved to position 0 instead of the
-    // actually-clicked character) — calling it here, after the dispatch
-    // has already completed and relocated the same DOM node into its
-    // final position, measures against the real, final layout the user
-    // is looking at.
+    // `bubbles: false` — this dispatch's only job is to reach the nested
+    // `contentDOM`'s own `mousedown` listener (`@codemirror/view`'s
+    // `handlers.mousedown`, installed directly on that element); it must
+    // never continue on to root's own `contentDOM` or to
+    // `attachTableOutsideClickHandling`'s `document`-level listener,
+    // which would otherwise see a second `mousedown` for this same
+    // physical gesture.
     //
-    // `null` (coordinates that don't resolve to a real position in this
-    // cell's own tiny document — not expected for a click that just
-    // activated this exact cell, but defensive rather than assumed)
-    // leaves `cursorPos`'s own placement standing rather than guessing.
-    if (clickCoords) {
-      const precisePos = this.nestedViewInstance.posAtCoords(clickCoords);
-      if (precisePos !== null) {
-        this.nestedViewInstance.dispatch({ selection: { anchor: precisePos } });
-      }
+    // Every field CM6's own `handlers.mousedown`/`basicMouseSelection`
+    // actually reads is forwarded: `clientX`/`clientY` (position
+    // resolution), `button` (must be `0`, the only button
+    // `basicMouseSelection` engages for), `detail` (click-count — word/
+    // line-select; in practice always `1` here, since a `detail` of `2`/
+    // `3` never reaches this method at all — see this method's own doc
+    // comment), `shiftKey` (extend-selection), and `ctrlKey`/`metaKey`/
+    // `altKey` (multi-cursor-add modifier, and a faithful forward for any
+    // future CM6 extension that reads them — no cost to include).
+    if (sourceEvent) {
+      const forwarded = new MouseEvent('mousedown', {
+        clientX: sourceEvent.clientX,
+        clientY: sourceEvent.clientY,
+        button: 0,
+        detail: sourceEvent.detail,
+        shiftKey: sourceEvent.shiftKey,
+        ctrlKey: sourceEvent.ctrlKey,
+        metaKey: sourceEvent.metaKey,
+        altKey: sourceEvent.altKey,
+        bubbles: false,
+        cancelable: true,
+      });
+      this.nestedViewInstance.contentDOM.dispatchEvent(forwarded);
     }
   }
 

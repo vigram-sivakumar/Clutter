@@ -753,11 +753,14 @@ export class TableWidget extends WidgetType {
             //
             // `cell.to` is still passed as `cursorPos` (the immediate,
             // synchronous placement `activate()` needs before its own
-            // nested DOM exists to measure anything against) — the actual
-            // clicked position is resolved from `{ x: event.clientX, y:
-            // event.clientY }` *inside* `activate()`, once that DOM is
-            // real, via `EditorView.posAtCoords`; see that method's own
-            // `clickCoords` doc comment.
+            // nested DOM exists to measure anything against) — `event`
+            // itself is also passed through, forwarded *inside*
+            // `activate()` as a genuine `mousedown` at the nested editor's
+            // own `contentDOM` once that DOM is real, letting CM6's own
+            // native mouse-selection handling resolve the actual clicked
+            // position (and, unlike a one-shot coordinate refinement, own
+            // any subsequent drag) — see that method's own "Why
+            // forwarding" doc comment.
             //
             // A `synthetic` cell (rectangular-invariant padding,
             // `tableWidgetField.ts`'s own `padRowCells`) has no real source
@@ -789,11 +792,11 @@ export class TableWidget extends WidgetType {
                 return;
               }
               const range = { from: startOfCellContent(view.state, resolved.bounds), to: endOfCellContent(view.state, resolved.bounds) };
-              controller.activate(view, freshWrapper, range.from, range.to, range.to, { x: event.clientX, y: event.clientY });
+              controller.activate(view, freshWrapper, range.from, range.to, range.to, event);
               beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
               return;
             }
-            controller.activate(view, wrapper, cell.from, cell.to, cell.to, { x: event.clientX, y: event.clientY });
+            controller.activate(view, wrapper, cell.from, cell.to, cell.to, event);
             beginCellDragTracking(view, controller, this.tableFrom, { row: rowIndex, col: columnIndex });
           });
         }
