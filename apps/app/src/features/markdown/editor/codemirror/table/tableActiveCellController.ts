@@ -38,6 +38,57 @@ const cellContentReset = Annotation.define<boolean>();
  */
 export const tableActiveCellChanged = StateEffect.define<null>();
 
+/**
+ * The `selection` field to fold into a table interaction's own root-view
+ * dispatch, collapsing a stale non-empty root `EditorSelection` in place —
+ * or `{}` (nothing) when the root selection is already empty, so spreading
+ * this into a dispatch call contributes no field at all rather than a
+ * redundant no-op collapse.
+ *
+ * **Ownership boundary, not a general-purpose selection fixer (2026-09-27,
+ * table-selection state + visual milestone).** Every table interaction
+ * that takes over a mousedown or keyboard command from CM6 — cell
+ * activation (`activate()`, below), a column/row handle click
+ * (`tableHandleOverlay.ts`) — inherits, in that moment, the "reconcile a
+ * stale selection" responsibility CM6's own `contentDOM` mousedown handler
+ * would otherwise have discharged automatically, simply by virtue of
+ * having intercepted the event before CM6 could. This is *not* the same
+ * problem `attachTableOutsideClickHandling`'s own root-selection-collapse
+ * fallback (`tableSelection.ts`) solves — that one resolves a *new* click
+ * position for a click landing genuinely outside `contentDOM`; this one
+ * has no click position to resolve at all (the interaction target is a
+ * cell or a handle, not a document position) and simply collapses root's
+ * *own* selection to its own current head, in place. Never dispatches
+ * itself — every caller must fold this into the *same* transaction that
+ * also sets its own table-interaction effect(s), never a second,
+ * independent dispatch for the same gesture (the exact class of bug the
+ * 2026-09-27 double-click regression traced back to: two dispatches racing
+ * for one physical interaction).
+ *
+ * Collapses to `main.head`, not a resolved click/cell position — there is
+ * no meaningful "where the pointer landed in root's own document" for a
+ * click that never touched root content at all; collapsing in place is
+ * sufficient to make the stale selection stop rendering, which is the
+ * entire contract here.
+ *
+ * Deliberately does not touch `tableRootSelectionSnap.ts`'s own territory:
+ * that filter keeps a *still-current* selection's endpoints out of a
+ * table's replaced range (a positional-validity concern, running on every
+ * selection-affecting transaction regardless of table interaction); this
+ * function only ever fires at the specific moment a table interaction has
+ * just taken ownership, addressing a selection that has *become stale*,
+ * not one that is still the user's intentional current selection (e.g. a
+ * `Ctrl+A` spanning the table, left completely alone unless and until the
+ * user then goes on to interact with the table itself).
+ */
+export function getRootSelectionCollapse(view: EditorView): { selection?: { anchor: number } } {
+  const main = view.state.selection.main;
+  if (main.empty) {
+    return {};
+  }
+  return { selection: { anchor: main.head } };
+}
+
 export interface CellRange {
   readonly from: number;
   readonly to: number;
@@ -285,7 +336,20 @@ export class TableActiveCellController {
     // own doc comment. A no-op transaction (no changes, not added to
     // history) wherever tableWidgetField isn't installed (every M1–M4
     // test `EditorView` above included).
-    rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
+    //
+    // `getRootSelectionCollapse` is folded into this same transaction,
+    // never a second dispatch — see that function's own doc comment. This
+    // is the one place every cell-activation path (mouse click,
+    // `TableWidget.buildRow`'s inactive-cell handler, and every
+    // keyboard-driven caller in `tableCellNavigation.ts`/
+    // `tableBoundaryNavigation.ts`/`tableRangeSelectionTyping.ts`) already
+    // funnels through, so this single call covers all of them uniformly —
+    // no separate reconciliation needed at any of those call sites. Root's
+    // selection only, never the nested view's own (this dispatch is on
+    // `rootView`, not `this.nestedViewInstance`) — the nested editor's own
+    // selection, set moments ago above and refined further below by
+    // forwarding, is completely unaffected.
+    rootView.dispatch({ effects: tableActiveCellChanged.of(null), ...getRootSelectionCollapse(rootView) });
 
     // Forwards the original gesture to CM6's own native mouse-selection
     // handling — see this method's own "Why forwarding" doc comment for

@@ -2,7 +2,7 @@ import type { EditorView } from '@codemirror/view';
 
 import './tableHandleOverlay.css';
 import type { TableActiveCellController } from './tableActiveCellController';
-import { tableActiveCellChanged } from './tableActiveCellController';
+import { getRootSelectionCollapse, tableActiveCellChanged } from './tableActiveCellController';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
 import { tableSelectionChanged } from './tableSelection';
@@ -365,7 +365,12 @@ export function attachTableHandleOverlay(
     controller.deactivate();
     if (targetIndex === startIndex) {
       const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
-      view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)] });
+      // Same shape as the click handlers below (§ "Click-to-select") —
+      // same reasoning for folding in `getRootSelectionCollapse` here too,
+      // not just there: this is still a row/column handle interaction
+      // taking ownership and setting `tableSelectionChanged`, just via a
+      // same-position drag-and-release instead of a plain click.
+      view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)], ...getRootSelectionCollapse(view) });
       view.focus();
       return;
     }
@@ -597,8 +602,18 @@ export function attachTableHandleOverlay(
     }
     const selection = { kind: 'column' as const, tableFrom, columnIndex: currentColumnIndex };
     controller.deactivate();
+    // `getRootSelectionCollapse` folded into this same dispatch — never a
+    // second one — collapses a stale non-empty root selection at the exact
+    // moment this handle click takes ownership (`tableActiveCellController.ts`'s
+    // own doc comment on that function has the full reasoning). Needed
+    // here independently of `activate()`'s own equivalent call: a handle
+    // click never calls `activate()` at all (it calls `deactivate()`
+    // instead), so a user can reach this path — e.g. selecting text
+    // elsewhere, then clicking a column handle directly — without ever
+    // having activated a cell first.
     view.dispatch({
       effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
+      ...getRootSelectionCollapse(view),
     });
     view.focus();
     // Opens/updates this column's own menu — anchored to the *current*
@@ -626,8 +641,11 @@ export function attachTableHandleOverlay(
     }
     const selection = { kind: 'row' as const, tableFrom, rowIndex: currentRowIndex };
     controller.deactivate();
+    // Same reasoning as the column handler's own click handler above —
+    // see that one's comment on `getRootSelectionCollapse`.
     view.dispatch({
       effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
+      ...getRootSelectionCollapse(view),
     });
     view.focus();
     // Opens/updates this row's own menu — same "re-resolve fresh, never

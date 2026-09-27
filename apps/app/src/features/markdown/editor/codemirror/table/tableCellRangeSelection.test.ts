@@ -231,6 +231,47 @@ describe('beginCellDragTracking — click vs. drag', () => {
 
     expect(dispatchSpy.mock.calls.length).toBe(callsAfterFirstCross);
   });
+
+  /**
+   * Regression coverage for the table-selection state milestone's own
+   * "cross-cell drag does not require another collapse call" finding
+   * (`getRootSelectionCollapse`'s own doc comment, `tableActiveCellController.ts`):
+   * every cross-cell drag's own initiating `mousedown` always activates
+   * *some* cell first (`TableWidget.buildRow`'s own per-cell listener,
+   * cell-first design — this module's own header comment), and that
+   * activation's own `controller.activate()` call already collapses a
+   * stale root selection (root has no focus/keyboard input between that
+   * activation and this same drag's later cross-cell crossing, so it
+   * cannot become non-empty again in between). `beginCellDragTracking`
+   * itself was deliberately left untouched by that milestone — this test
+   * proves why that was safe, not just asserts the end state.
+   */
+  it('a stale root selection is already collapsed by the initiating activate() before any cross-cell crossing — the promotion itself needs no separate collapse', () => {
+    const { view, controller } = mountViewWithController(TABLE);
+    const setTarget = mockElementFromPoint();
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    expect(view.state.selection.main.empty).toBe(false);
+
+    mousedown(findCell(view, 'Vik'));
+    // Already collapsed here, before any drag/crossing at all — proves the
+    // collapse came from activate() itself, not from the promotion below.
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(controller.activeAnchor).not.toBeNull();
+
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+    moveOver(setTarget, findCell(view, 'Delhi'));
+    mouseup();
+
+    expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 1, col: 2 }, anchorCaretOffset: 0 });
+    expect(view.state.selection.main.empty).toBe(true);
+    // The promotion's own dispatch(es) never carry a `selection` field —
+    // confirming `beginCellDragTracking` needed no change of its own.
+    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
+      const spec = args[0];
+      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
+    });
+    expect(dispatchesWithSelection).toHaveLength(0);
+  });
 });
 
 describe('beginCellDragTracking — mutual exclusivity with row/column selection and the active cell', () => {

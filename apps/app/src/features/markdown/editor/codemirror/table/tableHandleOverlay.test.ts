@@ -499,6 +499,74 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(view.state.selection.main.to).toBe(selectionBefore.to);
   });
 
+  /**
+   * Regression coverage for the 2026-09-27 table-selection state
+   * reconciliation milestone: a non-empty root selection left over from
+   * before the handle click — e.g. text selected elsewhere in the
+   * document — must not keep rendering underneath the new blue/purple
+   * `TableSelection` overlay. `getRootSelectionCollapse`
+   * (`tableActiveCellController.ts`) is folded into this same click's own
+   * dispatch precisely because a handle click never calls `activate()` at
+   * all (it calls `deactivate()` instead — see this describe block's own
+   * "cleanly deactivates it" test below), so `activate()`'s own equivalent
+   * collapse can never reach this path: a user can select text elsewhere
+   * and click a column/row handle directly, without ever having activated
+   * a cell in between.
+   */
+  it('a click on the column/row handle collapses a stale non-empty root selection, in the same transaction as the TableSelection dispatch', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    expect(view.state.selection.main.empty).toBe(false);
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+
+    hoverBodyCell(wrapper, table, 0, 1);
+    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
+    // Exactly one dispatch carries the collapse — the same one that also
+    // sets `tableSelectionChanged` — never a second, separate transaction
+    // for the same click.
+    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
+      const spec = args[0];
+      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
+    });
+    expect(dispatchesWithSelection).toHaveLength(1);
+    expect((dispatchesWithSelection[0]![0] as { effects?: unknown }).effects).toBeDefined();
+  });
+
+  it('a row handle click collapses a stale non-empty root selection the same way the column handle does', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
+
+    expect(view.state.selection.main.empty).toBe(true);
+    expect(view.state.field(tableSelectionField)?.kind).toBe('row');
+  });
+
+  it('does not dispatch a selection field at all when the root selection is already empty (no redundant no-op collapse)', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    const { view, controller } = mountRootView();
+    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    expect(view.state.selection.main.empty).toBe(true);
+    const dispatchSpy = vi.spyOn(view, 'dispatch');
+
+    hoverBodyCell(wrapper, table, 0, 1);
+    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+
+    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
+      const spec = args[0];
+      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
+    });
+    expect(dispatchesWithSelection).toHaveLength(0);
+  });
+
   it('clicking a handle while a cell is active cleanly deactivates it', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();

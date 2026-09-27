@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -439,5 +441,43 @@ describe('attachTableSelectionOverlayResize', () => {
     const result = attachTableSelectionOverlayResize(table, () => {});
 
     expect(result).toBeNull();
+  });
+});
+
+/**
+ * CSS-source-only coverage for the 2026-09-27 "one selection visual
+ * language" correction — jsdom can't compute real paint, so this asserts
+ * against the stylesheet's own declarations directly, the same pattern
+ * `wikiLinkStrikethroughComposition.test.ts` already uses for a CSS-only
+ * regression. Verifies the overlay now uses the same `--selection-surface`
+ * token as CM6's own text selection (`editorTheme.ts`) and no longer uses
+ * `--border-focus`/an accent token for any part of its own selection
+ * treatment — real cross-theme contrast/legibility is a browser/Tauri
+ * concern, not something this file can assert.
+ */
+describe('tableSelectionOverlay.css — selection visual language', () => {
+  const css = readFileSync(join(__dirname, 'tableSelectionOverlay.css'), 'utf8');
+  const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const overlayRule = cssWithoutComments.match(/(?<![\w.-])\.cm-table-selection-overlay\s*\{([^}]*)\}/);
+
+  it('the base .cm-table-selection-overlay rule exists', () => {
+    expect(overlayRule, '.cm-table-selection-overlay rule not found').not.toBeNull();
+  });
+
+  it('fills with the same --selection-surface token CM6 text selection uses', () => {
+    expect(overlayRule![1]).toMatch(/background\s*:\s*var\(--selection-surface\)\s*;/);
+  });
+
+  it('no longer uses --border-focus (or any --accent-* token) anywhere in the rule', () => {
+    expect(overlayRule![1]).not.toMatch(/--border-focus/);
+    expect(overlayRule![1]).not.toMatch(/--accent-/);
+  });
+
+  it('borders with the existing --surface-primary token, not a new table-specific selection color', () => {
+    expect(overlayRule![1]).toMatch(/border\s*:\s*2px\s+solid\s+var\(--surface-primary\)\s*;/);
+  });
+
+  it('never introduces a new --table-selection-* token', () => {
+    expect(cssWithoutComments).not.toMatch(/--table-selection/);
   });
 });

@@ -5,7 +5,7 @@ import { EditorView } from '@codemirror/view';
 import { history, redo, undo } from '@codemirror/commands';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { TableActiveCellController } from './tableActiveCellController';
+import { getRootSelectionCollapse, TableActiveCellController } from './tableActiveCellController';
 
 const mountedViews: EditorView[] = [];
 
@@ -60,6 +60,122 @@ describe('TableActiveCellController — click-activate', () => {
     controller.activate(root, container, shiftedFrom, shiftedTo, shiftedFrom);
 
     expect(controller.nestedView!.state.doc.toString()).toBe('b');
+  });
+});
+
+describe('getRootSelectionCollapse', () => {
+  it('returns {} when the root selection is already empty', () => {
+    const root = mountRootView('hello world');
+    root.dispatch({ selection: { anchor: 3 } });
+
+    expect(getRootSelectionCollapse(root)).toEqual({});
+  });
+
+  it('returns a selection collapsing to the current head when non-empty', () => {
+    const root = mountRootView('hello world');
+    root.dispatch({ selection: { anchor: 2, head: 8 } });
+
+    expect(getRootSelectionCollapse(root)).toEqual({ selection: { anchor: 8 } });
+  });
+});
+
+describe('TableActiveCellController — root selection reconciliation (2026-09-27)', () => {
+  /**
+   * Regression coverage for the table-selection state milestone: none of
+   * `activate()`'s own root-view dispatches ever included a `selection`
+   * field before this — a stale non-empty root selection (text selected
+   * elsewhere in the document) survived cell activation untouched, then
+   * kept rendering underneath whatever the table did next. `activate()`
+   * is the single method every cell-activation path funnels through
+   * (mouse click, `TableWidget.buildRow`'s inactive-cell handler, and
+   * every keyboard-driven caller — `tableCellNavigation.ts`,
+   * `tableBoundaryNavigation.ts`, `tableRangeSelectionTyping.ts`) — one
+   * fix here covers all of them; these tests exercise `activate()`
+   * directly, both with and without a `sourceEvent` (mouse vs. keyboard
+   * activation), rather than duplicating the fix's own reasoning per
+   * caller.
+   */
+  it('mouse activation (a sourceEvent is passed) collapses a stale non-empty root selection', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    root.dispatch({ selection: { anchor: 0, head: root.state.doc.length } });
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+
+    controller.activate(root, container, 6, 10, 8, new MouseEvent('mousedown', { button: 0, detail: 1 }));
+
+    expect(root.state.selection.main.empty).toBe(true);
+  });
+
+  it('keyboard activation (no sourceEvent) collapses a stale non-empty root selection just the same', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    root.dispatch({ selection: { anchor: 0, head: root.state.doc.length } });
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+
+    controller.activate(root, container, 6, 10, 8); // tableCellNavigation.ts/tableBoundaryNavigation.ts's own shape — no event
+
+    expect(root.state.selection.main.empty).toBe(true);
+  });
+
+  it('folds the collapse into the same dispatch as tableActiveCellChanged — never a second transaction', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    root.dispatch({ selection: { anchor: 0, head: root.state.doc.length } });
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const dispatchSpy = vi.spyOn(root, 'dispatch');
+
+    controller.activate(root, container, 6, 10, 8);
+
+    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
+      const spec = args[0];
+      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
+    });
+    expect(dispatchesWithSelection).toHaveLength(1);
+    expect((dispatchesWithSelection[0]![0] as { effects?: unknown }).effects).toBeDefined();
+  });
+
+  it('does not dispatch a selection field at all when the root selection is already empty', () => {
+    const root = mountRootView('| a | bold |\n| - | - |');
+    expect(root.state.selection.main.empty).toBe(true);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const dispatchSpy = vi.spyOn(root, 'dispatch');
+
+    controller.activate(root, container, 6, 10, 8);
+
+    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
+      const spec = args[0];
+      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
+    });
+    expect(dispatchesWithSelection).toHaveLength(0);
+  });
+
+  it('never touches the nested view\'s own selection — only root\'s', () => {
+    const root = mountRootView('| a | bold text |\n| - | - |');
+    root.dispatch({ selection: { anchor: 0, head: root.state.doc.length } });
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+
+    controller.activate(root, container, 6, 15, 9); // "bold text", cursorPos 9 -> local caret 3
+
+    // The nested view's own caret placement is entirely `cursorPos`'s (and,
+    // when a sourceEvent is given, the forwarded mousedown's) concern —
+    // unaffected by root's own selection ever being collapsed alongside it.
+    expect(controller.nestedView!.state.doc.toString()).toBe('bold text');
+    expect(controller.nestedView!.state.selection.main.head).toBe(3);
+  });
+
+  it('a real Ctrl+A-style root selection with no table interaction at all is left completely untouched', () => {
+    const root = mountRootView('| a | bold |\n| - | - |\nplain text');
+    root.dispatch({ selection: { anchor: 0, head: root.state.doc.length } });
+    const before = root.state.selection.main;
+
+    // No table interaction happens in this test at all — asserting the
+    // fix is genuinely scoped to the moment a table interaction takes
+    // ownership, not something that runs unconditionally.
+    expect(root.state.selection.main.from).toBe(before.from);
+    expect(root.state.selection.main.to).toBe(before.to);
+    expect(root.state.selection.main.empty).toBe(false);
   });
 });
 

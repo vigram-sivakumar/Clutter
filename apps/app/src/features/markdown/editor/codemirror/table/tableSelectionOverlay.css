@@ -24,12 +24,51 @@
  * during that gap. `positionColumnSelectionOverlay()` adds
  * `.cm-table-selection-overlay-visible` once it has computed real
  * geometry.
+ *
+ * **One selection visual language (2026-09-27 correction).** `background:
+ * var(--selection-surface)` — the same token `editorTheme.ts` uses for
+ * CM6's own `.cm-selectionBackground` (root and nested-cell text
+ * selection) — is the actual signal that makes this read as the same
+ * selection system as ordinary text selection, which a border alone,
+ * in any color, never could: text selection is a fill, not an outline.
+ * `--selection-surface` is reused directly, not copied into a new
+ * `--table-selection-*` token — there is exactly one semantic "this is
+ * selected" surface color in this design system, and this overlay now
+ * uses it, same as everything else that means the same thing.
+ *
+ * The border no longer uses `--border-focus` (the accent/focus-ring
+ * token) — keeping any accent-colored element here, regardless of the
+ * fill, would leave a second, competing "this is selected" signal next
+ * to the new one, undoing the point of unifying them. The existing
+ * precedent one file over, `.cm-table-wrapper-selected table`
+ * (`tableWidget.css`) — the whole-table delete-arming halo, a separate
+ * concern from this one but visually the closest existing analogue —
+ * already pairs a `var(--selection-surface)` fill with a thin separator
+ * ring in `var(--surface-primary)` (the editor's own background color in
+ * either theme), there to keep the solid fill from reading as merged
+ * into the table's own grid lines rather than to signal anything
+ * selection-specific itself. Reused here for the identical reason.
+ *
+ * **Border, not that precedent's `box-shadow: inset`, despite reusing its
+ * color token.** `.cm-table-wrapper-selected table` paints its ring
+ * *inside* the table's own real border-box. This overlay's own box is a
+ * separate, absolutely-positioned sibling element already deliberately
+ * expanded 1px *outward* from the actual cell geometry specifically so a
+ * *border's* centerline lands on the table's existing 1px grid line
+ * (this comment's own opening paragraph) — an inset shadow on this
+ * already-outward-expanded box would sit at the wrong edge entirely, no
+ * longer aligned with anything. A `border` in the same `--surface-primary`
+ * token preserves that existing, still-correct geometry unchanged while
+ * still using the identical color/semantic as the precedent — the
+ * smallest treatment that keeps the region's own boundary clearly
+ * legible against the new fill without any remaining accent color.
  */
 .cm-table-selection-overlay {
   position: absolute;
   box-sizing: border-box;
   border-radius: var(--cm-table-border-radius);
-  border: 2px solid var(--border-focus);
+  background: var(--selection-surface);
+  border: 2px solid var(--surface-primary);
   pointer-events: none;
   visibility: hidden;
 }
