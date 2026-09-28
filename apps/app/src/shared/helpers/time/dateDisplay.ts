@@ -52,7 +52,7 @@ import type { ISODate } from './types';
  *   Every other date in `referenceDate`'s year — regardless of how far
  *   from today, unlike `'compact'`/`'condensed'`'s "within the current
  *   week" cutoff — gets its abbreviated weekday plus an abbreviated date,
- *   `"Wed 30 Sep"`, so a task's day-of-week is always legible at a glance.
+ *   `"Wed, 30 Sep"`, so a task's day-of-week is always legible at a glance.
  *   A date outside `referenceDate`'s year drops the weekday and abbreviates
  *   the year to its last two digits instead — `"19 Nov 27"` — the only
  *   mode that ever shortens the year rather than showing it in full or
@@ -229,7 +229,7 @@ export function formatDateDisplay(
     }
 
     if (relation.year === referenceDate.getFullYear()) {
-      return `${WEEKDAY_LABELS_SHORT[relation.weekdayIndex]} ${relation.day} ${monthLabel}`;
+      return `${WEEKDAY_LABELS_SHORT[relation.weekdayIndex]}, ${relation.day} ${monthLabel}`;
     }
 
     return `${relation.day} ${monthLabel} ${String(relation.year).slice(-2)}`;

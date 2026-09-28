@@ -199,11 +199,11 @@ describe('formatDateDisplay', () => {
     });
 
     it('another day within the current week includes its abbreviated weekday, unlike compact/condensed', () => {
-      expect(formatDateDisplay('2026-08-22', 'contextual', REFERENCE)).toBe('Sat 22 Aug');
+      expect(formatDateDisplay('2026-08-22', 'contextual', REFERENCE)).toBe('Sat, 22 Aug');
     });
 
     it('a date outside the current week, still in the current year, still includes the abbreviated weekday — no "current week" cutoff in this mode', () => {
-      expect(formatDateDisplay('2026-12-25', 'contextual', REFERENCE)).toBe('Fri 25 Dec');
+      expect(formatDateDisplay('2026-12-25', 'contextual', REFERENCE)).toBe('Fri, 25 Dec');
     });
 
     it('a date in a different year drops the weekday and abbreviates the year to two digits', () => {
@@ -211,7 +211,7 @@ describe('formatDateDisplay', () => {
     });
 
     it('every month abbreviates to its short form', () => {
-      expect(formatDateDisplay('2026-09-30', 'contextual', REFERENCE)).toBe('Wed 30 Sep');
+      expect(formatDateDisplay('2026-09-30', 'contextual', REFERENCE)).toBe('Wed, 30 Sep');
       expect(formatDateDisplay('2027-11-19', 'contextual', REFERENCE)).toBe('19 Nov 27');
     });
 
@@ -222,7 +222,7 @@ describe('formatDateDisplay', () => {
 
     it('month boundary: a date in the next month but the same year keeps its weekday and drops the year', () => {
       const lateAugust = new Date(2026, 7, 25); // Tue, 2026-08-25
-      expect(formatDateDisplay('2026-09-01', 'contextual', lateAugust)).toBe('Tue 1 Sep');
+      expect(formatDateDisplay('2026-09-01', 'contextual', lateAugust)).toBe('Tue, 1 Sep');
     });
 
     it('never derives "today"/"tomorrow"/"yesterday" via UTC-shifted math — classification matches the reference date\'s local calendar day', () => {

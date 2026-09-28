@@ -31,8 +31,8 @@ describe('formatTaskDueDate', () => {
     // @date does. Unlike the weekday-name-only 'condensed'/'compact'
     // modes, there's no "within the current week" cutoff here — the
     // weekday is always shown alongside the day/month.
-    expect(formatTaskDueDate('2026-08-15')).toBe('Sat 15 Aug');
-    expect(formatTaskDueDate('2026-09-30')).toBe('Wed 30 Sep');
+    expect(formatTaskDueDate('2026-08-15')).toBe('Sat, 15 Aug');
+    expect(formatTaskDueDate('2026-09-30')).toBe('Wed, 30 Sep');
   });
 
   it('renders day + abbreviated month + two-digit year, no weekday, for dates outside the current year', () => {
@@ -41,6 +41,6 @@ describe('formatTaskDueDate', () => {
 
   it('renders the abbreviated weekday alongside the date for another day within the current week', () => {
     // System time is 2026-08-04 (Tuesday); 2026-08-07 (Friday) is later the same week.
-    expect(formatTaskDueDate('2026-08-07')).toBe('Fri 7 Aug');
+    expect(formatTaskDueDate('2026-08-07')).toBe('Fri, 7 Aug');
   });
 });
