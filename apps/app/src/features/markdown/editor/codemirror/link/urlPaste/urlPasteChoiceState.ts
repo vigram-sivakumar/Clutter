@@ -1,5 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { RangeSet, RangeValue, StateEffect, StateField, type EditorState } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
 
 /**
  * Per-pasted-URL-occurrence tracking for the transient "Paste as" menu.
@@ -56,6 +57,45 @@ function isEligibleHttpsUrl(text: string): boolean {
   }
 }
 
+/** A bare domain host, e.g. `example.com` or `www.example.com` — at least
+ * one dot-separated label, no scheme, no spaces. */
+function isDomainLikeHost(host: string): boolean {
+  return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/.test(host);
+}
+
+/**
+ * Text eligible for the paste menu: `isEligibleHttpsUrl`'s existing
+ * explicit-`https://` rule, widened to also accept a domain-like
+ * destination with no scheme at all (`example.com`, `example.com/path`).
+ * A relative Markdown destination (`./docs`, `../docs`, `#section`) never
+ * has a dot-separated host up front, so it never matches here — this
+ * check only recognizes *this* text as a URL candidate for the menu; it
+ * never rewrites it (the pasted text is stored and later inserted
+ * unchanged, see `entry.url` below).
+ */
+function isEligiblePasteUrlText(text: string): boolean {
+  if (isEligibleHttpsUrl(text)) {
+    return true;
+  }
+  const host = text.split(/[/?#]/, 1)[0] ?? '';
+  return isDomainLikeHost(host);
+}
+
+/**
+ * The node whose own range is exactly `[fromB, toB)` — climbing from
+ * Lezer's innermost `resolve()` result (which, for a boundary position,
+ * may land on a descendant narrower than the full pasted range, e.g. a
+ * `Link`'s own opening `LinkMark` rather than the `Link` itself) up to the
+ * first ancestor whose bounds match the whole paste exactly.
+ */
+function resolveExactNode(state: EditorState, fromB: number, toB: number): SyntaxNode | null {
+  let node: SyntaxNode | null = syntaxTree(state).resolve(fromB, 1);
+  while (node && (node.from !== fromB || node.to !== toB)) {
+    node = node.parent;
+  }
+  return node;
+}
+
 /**
  * True when `fromB..toB` is exactly a bare `URL` Lezer node's own range in
  * `state`'s (already-updated) syntax tree — not a child of `Link`,
@@ -63,12 +103,74 @@ function isEligibleHttpsUrl(text: string): boolean {
  * are explicitly excluded), and not merely a substring of a larger paste.
  */
 function isBarePastedUrlNode(state: EditorState, fromB: number, toB: number): boolean {
-  const node = syntaxTree(state).resolve(fromB, 1);
-  if (node.name !== 'URL' || node.from !== fromB || node.to !== toB) {
+  const node = resolveExactNode(state, fromB, toB);
+  if (!node || node.name !== 'URL') {
     return false;
   }
   const parentName = node.parent?.name;
   return parentName !== 'Link' && parentName !== 'Autolink' && parentName !== 'Image';
+}
+
+/**
+ * True when `fromB..toB` is exactly a `Link` node whose label is itself a
+ * bare `URL` node — `[www.example.com](https://www.example.com)`, the
+ * shape produced when the pasted text is really just a domain-like URL
+ * doubled as its own label. A genuine descriptive link
+ * (`[Example](https://example.com)`) never has a label that parses as its
+ * own `URL` node — Lezer only recognizes `www.example.com`-shaped text
+ * that way — so it stays excluded exactly as before, without inspecting
+ * the label text at all.
+ */
+function isDomainLabeledLinkPaste(state: EditorState, fromB: number, toB: number): boolean {
+  const node = resolveExactNode(state, fromB, toB);
+  if (!node || node.name !== 'Link') {
+    return false;
+  }
+  const openMark = node.firstChild;
+  const label = openMark?.nextSibling ?? null;
+  const labelCloseMark = label?.nextSibling ?? null;
+  return (
+    !!openMark &&
+    openMark.name === 'LinkMark' &&
+    !!label &&
+    label.name === 'URL' &&
+    !!labelCloseMark &&
+    labelCloseMark.name === 'LinkMark' &&
+    label.from === openMark.to &&
+    label.to === labelCloseMark.from
+  );
+}
+
+function hasExcludedPasteAncestor(node: SyntaxNode): boolean {
+  for (let n: SyntaxNode | null = node; n; n = n.parent) {
+    if (n.name === 'Link' || n.name === 'Autolink' || n.name === 'Image') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * True when `fromB..toB` is plain text (no `URL`/`Link`/`Autolink` node of
+ * its own — those are handled by `isBarePastedUrlNode`/
+ * `isDomainLabeledLinkPaste` above) that is, in its entirety, a domain-like
+ * destination with no scheme — `google.co.in`, `example.com/path`. Lezer's
+ * autolink recognition requires an explicit scheme or a `www.` prefix, so
+ * a bare domain like `google.co.in` never becomes its own `URL` node at
+ * all; this is the fallback that still recognizes it as a URL candidate
+ * for the menu, purely from the pasted text itself.
+ */
+function isPlainDomainLikePaste(state: EditorState, fromB: number, toB: number): boolean {
+  const node = syntaxTree(state).resolve(fromB, 1);
+  if (node.name === 'URL' || node.name === 'Link' || node.name === 'Autolink') {
+    return false;
+  }
+  if (hasExcludedPasteAncestor(node)) {
+    return false;
+  }
+  const text = state.sliceDoc(fromB, toB);
+  const host = text.split(/[/?#]/, 1)[0] ?? '';
+  return isDomainLikeHost(host);
 }
 
 export const urlPasteChoiceField = StateField.define<RangeSet<UrlPasteValue>>({
@@ -107,20 +209,25 @@ export const urlPasteChoiceField = StateField.define<RangeSet<UrlPasteValue>>({
       }
     }
 
-    // Seeds a fresh entry for a just-pasted bare HTTPS URL — the one and
-    // only creation path, gated on `tr.isUserEvent('input.paste')` (CM6's
-    // own tag for a paste-originated transaction, @codemirror/view's
-    // `doPaste`) so the menu never appears for typed URLs, existing
-    // links, or a cursor merely re-entering old text.
+    // Seeds a fresh entry for a just-pasted bare URL (an explicit
+    // https:// URL, a domain-like destination with no scheme, or a
+    // domain-labeled Link) — the one and only creation path, gated on
+    // `tr.isUserEvent('input.paste')` (CM6's own tag for a
+    // paste-originated transaction, @codemirror/view's `doPaste`) so the
+    // menu never appears for typed URLs, existing links, or a cursor
+    // merely re-entering old text.
     if (tr.docChanged && tr.isUserEvent('input.paste')) {
       tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
-        if (isBarePastedUrlNode(tr.state, fromB, toB)) {
+        const eligible =
+          (isBarePastedUrlNode(tr.state, fromB, toB) &&
+            isEligiblePasteUrlText(tr.state.sliceDoc(fromB, toB))) ||
+          isDomainLabeledLinkPaste(tr.state, fromB, toB) ||
+          isPlainDomainLikePaste(tr.state, fromB, toB);
+        if (eligible) {
           const url = tr.state.sliceDoc(fromB, toB);
-          if (isEligibleHttpsUrl(url)) {
-            next = next.update({
-              add: [new UrlPasteValue(nextUrlPasteOccurrenceId++, url).range(fromB, toB)],
-            });
-          }
+          next = next.update({
+            add: [new UrlPasteValue(nextUrlPasteOccurrenceId++, url).range(fromB, toB)],
+          });
         }
       });
     }

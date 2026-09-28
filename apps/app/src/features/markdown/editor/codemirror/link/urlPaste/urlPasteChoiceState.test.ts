@@ -226,6 +226,154 @@ describe('urlPasteChoiceField', () => {
     expect(getUrlPasteEntries(view.state)[0]!.id).toBe(second.id);
   });
 
+  it('pasting a bare HTTPS URL still creates a pending entry (existing scheme behavior preserved)', () => {
+    const view = mountView();
+    paste(view, 'https://example.com');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('https://example.com');
+  });
+
+  it('pasting a bare HTTP URL still creates no entry (existing scheme behavior preserved)', () => {
+    const view = mountView();
+    paste(view, 'http://example.com');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a domain-labeled Markdown link (label doubles as the destination domain) creates a pending entry', () => {
+    const view = mountView();
+    paste(view, '[www.example.com](https://www.example.com)');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('[www.example.com](https://www.example.com)');
+  });
+
+  it('pasting a bare scheme-less domain creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'example.com');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('example.com');
+  });
+
+  it('pasting a bare scheme-less domain with a path creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'example.com/path');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('example.com/path');
+  });
+
+  it('pasting a domain-labeled Markdown link with a path creates a pending entry', () => {
+    const view = mountView();
+    paste(view, '[www.example.com/path](https://www.example.com/path)');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('[www.example.com/path](https://www.example.com/path)');
+  });
+
+  it('pasting example.org creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'example.org');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('example.org');
+  });
+
+  it('pasting a multi-label TLD domain (example.co.uk) creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'example.co.uk');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('example.co.uk');
+  });
+
+  it('pasting google.com creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'google.com');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('google.com');
+  });
+
+  it('pasting google.co.in creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'google.co.in');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('google.co.in');
+  });
+
+  it('pasting [www.google.co.in](https://www.google.co.in) creates a pending entry', () => {
+    const view = mountView();
+    paste(view, '[www.google.co.in](https://www.google.co.in)');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('[www.google.co.in](https://www.google.co.in)');
+  });
+
+  it('pasting a scheme-less domain with a query string creates a pending entry', () => {
+    const view = mountView();
+    paste(view, 'example.co.uk/path?q=test');
+
+    const entries = getUrlPasteEntries(view.state);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.url).toBe('example.co.uk/path?q=test');
+  });
+
+  it('pasting an absolute /docs Markdown path creates no entry', () => {
+    const view = mountView();
+    paste(view, '/docs');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a bare ?query destination creates no entry', () => {
+    const view = mountView();
+    paste(view, '?query');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a relative file path with no domain-like host creates no entry', () => {
+    const view = mountView();
+    paste(view, 'some/file.txt');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a relative ./docs destination creates no entry', () => {
+    const view = mountView();
+    paste(view, './docs');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a relative ../docs destination creates no entry', () => {
+    const view = mountView();
+    paste(view, '../docs');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
+  it('pasting a #section fragment creates no entry', () => {
+    const view = mountView();
+    paste(view, '#section');
+
+    expect(getUrlPasteEntries(view.state)).toHaveLength(0);
+  });
+
   it('unrelated edits before the URL preserve the entry and shift its position', () => {
     const view = mountView();
     paste(view, 'https://example.com/article');
