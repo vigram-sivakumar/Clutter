@@ -171,6 +171,27 @@ describe('tableCreatePaste — TSV/plain text', () => {
     expect(cellText(view, 0, 1, 2)).toBe('');
   });
 
+  it('a single tab-separated line is still classified as tabular and creates a table', () => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, (d) => d.setData('text/plain', 'Name\tRole'));
+
+    expect(findAllTables(view.state)).toHaveLength(1);
+    expect(cellText(view, 0, 0, 0)).toBe('Name');
+    expect(cellText(view, 0, 0, 1)).toBe('Role');
+  });
+
+  it('multi-row tab-separated text is still classified as tabular and creates a table', () => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, (d) => d.setData('text/plain', 'Name\tRole\nVik\tDesigner'));
+
+    expect(findAllTables(view.state)).toHaveLength(1);
+    expect(cellText(view, 0, 0, 0)).toBe('Name');
+    expect(cellText(view, 0, 1, 0)).toBe('Vik');
+    expect(cellText(view, 0, 1, 1)).toBe('Designer');
+  });
+
   it('creates a table with multiple columns', () => {
     const view = mountRootView('', 0);
 
@@ -210,6 +231,33 @@ describe('tableCreatePaste — TSV/plain text', () => {
     // not something this module's own tests need to assert on).
     expect(findAllTables(view.state)).toHaveLength(0);
     expect(view.state.doc.toString()).toBe('Helloworld there');
+  });
+
+  it('a single line with a trailing newline (the common "copy whole line" clipboard shape) is not turned into a table', () => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, (d) => d.setData('text/plain', 'Hello world\n'));
+
+    expect(findAllTables(view.state)).toHaveLength(0);
+    expect(view.state.doc.toString()).toBe('Hello world\n');
+  });
+
+  it('ordinary multiline prose with no tabs is not turned into a table', () => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, (d) => d.setData('text/plain', 'Line one\nLine two'));
+
+    expect(findAllTables(view.state)).toHaveLength(0);
+    expect(view.state.doc.toString()).toBe('Line one\nLine two');
+  });
+
+  it('ordinary multiline prose with a trailing newline is not turned into a table', () => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, (d) => d.setData('text/plain', 'Line one\nLine two\n'));
+
+    expect(findAllTables(view.state)).toHaveLength(0);
+    expect(view.state.doc.toString()).toBe('Line one\nLine two\n');
   });
 });
 

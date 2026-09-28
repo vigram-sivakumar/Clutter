@@ -432,7 +432,25 @@ export class TableActiveCellController {
       return;
     }
     const { from: rawFrom, to: rawTo } = this.rawAnchor;
-    const content = update.state.doc.toString();
+    const rawContent = update.state.doc.toString();
+    // A cell's raw gap is always exactly one Markdown source line — the
+    // `Enter` key is already intercepted (`tableCellNavigation.ts`) to keep
+    // typed content single-line, but nothing guarded a *pasted* embedded
+    // newline (declined by table-paste interception as non-tabular, then
+    // inserted verbatim by CM6's own default paste) from reaching here and
+    // splitting this line in two. Collapsed the same way `normalizeGrid`
+    // already collapses an embedded newline inside a single tabular cell.
+    const content = rawContent.replace(/\r?\n/g, ' ');
+    if (content !== rawContent && this.nestedViewInstance) {
+      // Keep the nested editor's own display in sync with what's actually
+      // being written to root — otherwise the cell would keep showing the
+      // rejected multi-line text until the next activation. `cellContentReset`
+      // marks this as not itself a user edit, so it isn't forwarded again.
+      this.nestedViewInstance.dispatch({
+        changes: { from: 0, to: rawContent.length, insert: content },
+        annotations: [cellContentReset.of(true)],
+      });
+    }
     const replacement = padCellContent(content, rawTo - rawFrom);
     if (rootView.state.sliceDoc(rawFrom, rawTo) === replacement) {
       return;

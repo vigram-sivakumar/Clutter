@@ -444,6 +444,29 @@ describe('tablePaste — safety and structure', () => {
     expect(cellText(view, 1, 0)).toBe('NairobiVik');
   });
 
+  it('multiline plain text without tabs pasted into an active cell falls through to normal paste, not new table rows', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const rowCountBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
+    activateCell(view, controller, 1, 0);
+
+    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Line one\nLine two'));
+
+    // Declined interception — no grid-shaped mutation, no new rows created.
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowCountBefore);
+  });
+
+  it('trailing-newline plain text pasted into an active cell falls through to normal paste, not new table rows', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const rowCountBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
+    activateCell(view, controller, 1, 0);
+
+    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'Nairobi\n'));
+
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowCountBefore);
+  });
+
   it('declines when there is no active cell and no range selection', () => {
     const controller = new TableActiveCellController();
     const view = mountRootView(TABLE, controller);

@@ -107,11 +107,15 @@ export interface ClipboardTable {
 /**
  * Clipboard priority: the internal Clutter payload (exact Markdown,
  * survives even a 1x1 copy) first, then a real `<table>` in `text/html`,
- * then tab/newline-delimited `text/plain`. A single-line, tab-free
- * `text/plain` is deliberately never treated as tabular — normal paste
- * (of a single value into a single active cell) stays completely
- * unaffected by this feature; letting it fall through here means the
- * caller declines and ordinary CM6/browser paste proceeds.
+ * then tab-delimited `text/plain` (newline only ever splits rows *after*
+ * a real tab has already established the payload is tabular — a bare
+ * newline, including the trailing newline most apps attach when copying a
+ * whole line, is never on its own evidence of a table). A tab-free
+ * `text/plain` — single-line or genuinely multi-line prose alike — is
+ * deliberately never treated as tabular — normal paste (of a single value
+ * into a single active cell, or of ordinary text outside a table) stays
+ * completely unaffected by this feature; letting it fall through here
+ * means the caller declines and ordinary CM6/browser paste proceeds.
  *
  * Exported for `tableCreatePaste.ts` (Milestone 6, paste-creates-a-table
  * outside any existing table) to reuse this exact same parsing/priority
@@ -159,7 +163,7 @@ export function readClipboardTable(event: ClipboardEvent): ClipboardTable | null
   }
 
   const text = data.getData('text/plain');
-  if (text && /[\t\n]/.test(text)) {
+  if (text && text.includes('\t')) {
     const normalized = text.replace(/\r\n/g, '\n').replace(/\n$/, '');
     const grid = normalizeGrid(normalized.split('\n').map((line) => line.split('\t')));
     if (grid) {
