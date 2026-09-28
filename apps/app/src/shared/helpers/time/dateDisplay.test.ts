@@ -185,6 +185,51 @@ describe('formatDateDisplay', () => {
     });
   });
 
+  describe("mode: 'contextual' (Tasks sidebar due-date badge)", () => {
+    it('today', () => {
+      expect(formatDateDisplay('2026-08-20', 'contextual', REFERENCE)).toBe('Today');
+    });
+
+    it('tomorrow', () => {
+      expect(formatDateDisplay('2026-08-21', 'contextual', REFERENCE)).toBe('Tomorrow');
+    });
+
+    it('yesterday', () => {
+      expect(formatDateDisplay('2026-08-19', 'contextual', REFERENCE)).toBe('Yesterday');
+    });
+
+    it('another day within the current week shows only day + abbreviated month, no weekday', () => {
+      expect(formatDateDisplay('2026-08-22', 'contextual', REFERENCE)).toBe('22 Aug');
+    });
+
+    it('a date outside the current week, still in the current year, renders identically — no "current week" cutoff in this mode', () => {
+      expect(formatDateDisplay('2026-12-25', 'contextual', REFERENCE)).toBe('25 Dec');
+    });
+
+    it('a date in a different year abbreviates the year to two digits', () => {
+      expect(formatDateDisplay('2027-08-12', 'contextual', REFERENCE)).toBe('12 Aug 27');
+    });
+
+    it('every month abbreviates to its short form', () => {
+      expect(formatDateDisplay('2026-09-30', 'contextual', REFERENCE)).toBe('30 Sep');
+      expect(formatDateDisplay('2027-11-19', 'contextual', REFERENCE)).toBe('19 Nov 27');
+    });
+
+    it('year boundary: a date in the next year still gets the two-digit year suffix', () => {
+      const lateDecember = new Date(2026, 11, 20); // Sun, 2026-12-20
+      expect(formatDateDisplay('2027-01-03', 'contextual', lateDecember)).toBe('3 Jan 27');
+    });
+
+    it('month boundary: a date in the next month but the same year drops the year', () => {
+      const lateAugust = new Date(2026, 7, 25); // Tue, 2026-08-25
+      expect(formatDateDisplay('2026-09-01', 'contextual', lateAugust)).toBe('1 Sep');
+    });
+
+    it('never derives "today"/"tomorrow"/"yesterday" via UTC-shifted math — classification matches the reference date\'s local calendar day', () => {
+      expect(formatDateDisplay('2026-08-20', 'contextual', REFERENCE)).toBe('Today');
+    });
+  });
+
   describe('week-boundary edges shared by both modes', () => {
     it('the last day of the current week (Saturday) is still classified as within-week', () => {
       expect(formatDateDisplay('2026-08-22', 'full', REFERENCE)).toBe('Saturday, 22 August 2026');

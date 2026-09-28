@@ -1209,6 +1209,11 @@ export function PageHost({
               void application.pageOperations.open(task.sourcePageId)
             }
             displayConfig={tasksViewConfig}
+            onDateChange={(task, date) =>
+              void (date === null
+                ? application.taskOperations.clearDate(task)
+                : application.taskOperations.setDate(task, date))
+            }
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
             resolveEmbed={resolvePageEmbed}

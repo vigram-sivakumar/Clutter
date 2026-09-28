@@ -190,7 +190,7 @@ describe('renderTasksByDate', () => {
     });
 
     it('a weekday within the current week (Friday)', () => {
-      expect(renderDueDateLabelFor('2026-08-07')).toBe('Friday');
+      expect(renderDueDateLabelFor('2026-08-07')).toBe('7 Aug');
     });
 
     it('same year, outside the current week', () => {
@@ -198,7 +198,7 @@ describe('renderTasksByDate', () => {
     });
 
     it('a different year', () => {
-      expect(renderDueDateLabelFor('2027-08-21')).toBe('21 Aug 2027');
+      expect(renderDueDateLabelFor('2027-08-21')).toBe('21 Aug 27');
     });
   });
 
@@ -291,7 +291,7 @@ describe('renderTasksByDate', () => {
       // reformatted via the shared compact formatter — full month + year,
       // per dateDisplay.ts's 'compact' mode (rendered as its own <span>,
       // hence the combined-text-content assertion); the trailing badge
-      // (condensed mode) still shows its due date.
+      // ('contextual' mode) still shows its due date.
       expect(titleA).toHaveTextContent('Review and compare with @22 August 2026');
       const rowA = titleA.closest('.entry') as HTMLElement;
       expect(within(rowA).getByText('20 Aug')).not.toBeNull();

@@ -2,6 +2,7 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { TaskOccurrence } from '../../vault/models/occurrences';
 import { MutateBodyAbandonedError, type PageOperations } from '../page/PageOperations';
 import {
+  BARE_DATE_PATTERN,
   METADATA_TOKEN_PATTERN,
   TASK_LINE_PATTERN,
   type RecognizedMetadataKey,
@@ -58,6 +59,24 @@ export class TaskOperations {
   }
 
   /**
+   * Assigns/updates the task's date via the v1 bare `@YYYY-MM-DD` mention
+   * syntax (TaskExtractor.BARE_DATE_PATTERN) — the syntax new tasks use;
+   * `@due:` is legacy-only and never generated for new tasks (see
+   * TaskExtractor's own doc comment on that precedence). Replaces an
+   * existing bare-date mention in place, or a legacy `@due:` token in
+   * place when the line already carries one (never both), or appends a
+   * new bare mention at the end of the line when neither is present.
+   */
+  public async setDate(task: TaskOccurrence, date: string): Promise<void> {
+    await this.mutateDate(task, date);
+  }
+
+  /** Removes the task's date, whichever syntax (`@due:` or bare mention) currently carries it. */
+  public async clearDate(task: TaskOccurrence): Promise<void> {
+    await this.mutateDate(task, null);
+  }
+
+  /**
    * General-purpose metadata update for recognized keys — the entry point
    * toggleComplete()/setDueDate()/removeDueDate() themselves are built on.
    * Exists for callers that need to patch metadata without also changing
@@ -110,6 +129,39 @@ export class TaskOperations {
       // verbatim) and propagate unchanged. Only a Gate abandonment — the
       // one failure mode with task-specific historical phrasing this class
       // must preserve — is caught and rewrapped here.
+      if (error instanceof MutateBodyAbandonedError) {
+        throw new Error(`Failed to update task "${task.text}": ${error.reason}`);
+      }
+
+      throw error;
+    }
+  }
+
+  private async mutateDate(task: TaskOccurrence, date: string | null): Promise<void> {
+    if (task.rawText == null) {
+      throw new Error(
+        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
+      );
+    }
+
+    const rawText = task.rawText;
+
+    try {
+      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+        const lines = markdown.split('\n');
+        const lineIndex = lines.indexOf(rawText);
+
+        if (lineIndex === -1) {
+          throw new Error(
+            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
+          );
+        }
+
+        lines[lineIndex] = this.rewriteDate(rawText, date);
+
+        return lines.join('\n');
+      });
+    } catch (error) {
       if (error instanceof MutateBodyAbandonedError) {
         throw new Error(`Failed to update task "${task.text}": ${error.reason}`);
       }
@@ -174,5 +226,57 @@ export class TaskOperations {
     }
 
     return rewritten.trim().replace(/ {2,}/g, ' ');
+  }
+
+  private rewriteDate(rawLine: string, date: string | null): string {
+    const match = rawLine.match(TASK_LINE_PATTERN);
+
+    if (!match) {
+      throw new Error(
+        `Task source line no longer matches the expected format: "${rawLine}"`
+      );
+    }
+
+    const [, indent, marker, rest] = match;
+
+    return `${indent}- [${marker}] ${this.applyDatePatch(rest ?? '', date)}`;
+  }
+
+  /**
+   * A legacy `@due:` token already on the line wins (mirrors
+   * TaskExtractor's own dueDate precedence) and is updated/removed in
+   * place via the existing metadata patch, rather than left in place
+   * alongside a second, competing bare-date mention. Otherwise, replaces
+   * the first bare `@YYYY-MM-DD` mention in place, or appends a new one
+   * at the end of the line when it has no date yet.
+   */
+  private applyDatePatch(rest: string, date: string | null): string {
+    if (/@due:\S+/.test(rest)) {
+      return this.applyMetadataPatch(rest, { due: date });
+    }
+
+    const bareDateMatch = new RegExp(BARE_DATE_PATTERN.source).exec(rest);
+
+    if (bareDateMatch) {
+      const boundary = bareDateMatch[1] ?? '';
+      const matchStart = bareDateMatch.index;
+      const matchEnd = matchStart + bareDateMatch[0].length;
+
+      if (date == null) {
+        return (rest.slice(0, matchStart) + rest.slice(matchEnd))
+          .trim()
+          .replace(/ {2,}/g, ' ');
+      }
+
+      return `${rest.slice(0, matchStart)}${boundary}@${date}${rest.slice(matchEnd)}`
+        .trim()
+        .replace(/ {2,}/g, ' ');
+    }
+
+    if (date == null) {
+      return rest.trim().replace(/ {2,}/g, ' ');
+    }
+
+    return `${rest} @${date}`.trim().replace(/ {2,}/g, ' ');
   }
 }

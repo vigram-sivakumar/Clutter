@@ -21,6 +21,8 @@ import { isPast, isToday } from '@shared/helpers/time';
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
+  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
 }
 
 /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -37,7 +39,14 @@ interface TaskRowResolvers {
 // shown normally.
 export function renderTaskRow(
   task: TaskOccurrence,
-  { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed }: TaskRowCallbacks & TaskRowResolvers
+  {
+    onToggleComplete,
+    onOpenTask,
+    onDateChange,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  }: TaskRowCallbacks & TaskRowResolvers
 ) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
@@ -49,6 +58,8 @@ export function renderTaskRow(
       title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
+      date={dueDate}
+      onDateChange={onDateChange && ((next) => onDateChange(task, next))}
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
@@ -91,11 +102,12 @@ export function renderTodayContent({
   today,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderTodayContentProps) {
-  return renderTaskList(today, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed });
+  return renderTaskList(today, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
 }
 
 export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
@@ -111,11 +123,12 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderUpcomingContentProps) {
-  return renderTaskList(upcoming, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed });
+  return renderTaskList(upcoming, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
 }
 
 /** A section header's own settings-menu open state, owned by the caller (see TasksSectionSettingsMenu's own doc comment for why). */
@@ -151,6 +164,7 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   navigation,
   resolveWikiLink,
   resolveTag,
@@ -192,6 +206,7 @@ export function renderTasksByDate({
           today,
           onToggleComplete,
           onOpenTask,
+          onDateChange,
           resolveWikiLink,
           resolveTag,
           resolveEmbed,
@@ -222,6 +237,7 @@ export function renderTasksByDate({
             upcoming,
             onToggleComplete,
             onOpenTask,
+            onDateChange,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
