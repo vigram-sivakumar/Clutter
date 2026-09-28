@@ -28,6 +28,25 @@ import { inlineLivePreviewRegion } from './inlineLivePreviewRegion';
  * `docs/editor-architecture-decisions.md`'s "WikiLink wrapping" entry —
  * so it needs the exact same protection Link/Autolink/URL already had.
  *
+ * **2026-09-28 double-decoration fix**: `Tag`, `InlineCode`, `Date`,
+ * `StrongEmphasis`, `Emphasis`, and `Highlight` joined
+ * `STRIKETHROUGH_PROTECTED_NODE_NAMES` too, for the identical reason —
+ * each was confirmed to self-compose `tok-strike` onto its own element
+ * (`Tag`/`Date` via the widget-family's full `collectActiveInlineClasses`;
+ * `InlineCode`/`StrongEmphasis`/`Emphasis`/`Highlight` via
+ * `delimitedInlineRenderer`'s `collectActiveStrikeClass`), so leaving them
+ * unprotected produced the exact same ancestor + self-composed-descendant
+ * double `text-decoration-line` shape already fixed for Link/WikiLink here
+ * — visibly for `InlineCode`/`Tag`/`Date` (each has its own distinct
+ * color, so the two overlapping lines painted two different colors), and
+ * invisibly for `StrongEmphasis`/`Emphasis`/`Highlight` (no distinct color,
+ * so the duplicate lines happened to coincide). `SELF_COMPOSING_STRIKE_CLASSES`
+ * already listed all of these — they were already correctly composing
+ * `tok-strike` onto themselves before this fix; what changed is only
+ * whether `strikethroughRenderer`'s own ancestor gap mark is also allowed
+ * to wrap them (it no longer is), so `hasBareStrikeAncestor` below is the
+ * exact right check to extend to them.
+ *
  * These are DOM-structure tests only — jsdom has no real layout engine, so
  * "does a long link fragment across visual lines" (`getClientRects()`)
  * cannot be meaningfully asserted here; that's verified separately against
@@ -214,12 +233,85 @@ describe('Strikethrough + Link/URL/Autolink: link is always a sibling of any anc
     expect(hasBareStrikeAncestor(link)).toBe(false);
   });
 
-  it('regression: struck Tag/InlineCode are unaffected — still self-compose tok-strike onto their own root, exactly as before, and remain a descendant of the ancestor gap span (they are not protected)', () => {
+  it('regression: struck Tag/InlineCode still self-compose tok-strike onto their own root, and — since the 2026-09-28 fix — are also excluded from any ancestor bare-strike wrapper, exactly like Link/WikiLink', () => {
     const view = mountView('Lead. ~~x #tag `code`~~', noResolvers, true);
     const tag = view.dom.querySelector('.tok-tag');
     const code = view.dom.querySelector('.tok-code');
     expect(tag?.classList.contains('tok-strike')).toBe(true);
     expect(code?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(tag)).toBe(false);
+    expect(hasBareStrikeAncestor(code)).toBe(false);
+
+    // The plain-text gaps around them still get their own bare tok-strike spans.
+    const bareStrikeSpans = Array.from(view.dom.querySelectorAll('.tok-strike')).filter(
+      (s) => !SELF_COMPOSING_STRIKE_CLASSES.some((cls) => s.classList.contains(cls))
+    );
+    expect(bareStrikeSpans.map((s) => s.textContent)).toEqual(['x ', ' ']);
+  });
+
+  it('16. ~~`Code`~~ — the exact reported bug: InlineCode fills the whole strikethrough, exactly one tok-strike owner remains, no ancestor wrapper', () => {
+    const view = mountView('Lead. ~~`Code`~~');
+    const code = view.dom.querySelector('.tok-code');
+    expect(code?.textContent).toBe('Code');
+    expect(code?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(code)).toBe(false);
+
+    // Exactly one line-through owner for this content range — not two.
+    const strikeOwners = Array.from(view.dom.querySelectorAll('.tok-strike')).filter(
+      (s) => s.textContent === 'Code'
+    );
+    expect(strikeOwners).toHaveLength(1);
+  });
+
+  it('17. ~~word #urgent~~ — a validly-parsed Tag (preceded by whitespace) fills the tail; exactly one tok-strike owner over "urgent", no ancestor wrapper', () => {
+    const view = mountView('Lead. ~~word #urgent~~', noResolvers, true);
+    const tag = view.dom.querySelector('.tok-tag');
+    expect(tag?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(tag)).toBe(false);
+  });
+
+  it('18. ~~word @2026-09-28~~ — a validly-parsed Date fills the tail; self-composes tok-strike, no ancestor wrapper', () => {
+    const view = mountView('Lead. ~~word @2026-09-28~~');
+    const date = view.dom.querySelector('.tok-date');
+    expect(date?.classList.contains('tok-strike')).toBe(true);
+    expect(hasBareStrikeAncestor(date)).toBe(false);
+  });
+
+  it('19. ~~**bold**~~ / ~~*italic*~~ / ~~==highlight==~~ alone — each now has exactly ONE tok-strike owner (previously two, invisibly overlapping since none of these declare a distinct color)', () => {
+    for (const [doc, selector] of [
+      ['Lead. ~~**bold**~~', '.tok-strong'],
+      ['Lead. ~~*italic*~~', '.tok-emphasis'],
+      ['Lead. ~~==highlight==~~', '.tok-highlight'],
+    ] as const) {
+      const view = mountView(doc);
+      const el = view.dom.querySelector(selector);
+      expect(el?.classList.contains('tok-strike')).toBe(true);
+      expect(hasBareStrikeAncestor(el)).toBe(false);
+      // Exactly one .tok-strike element total for this doc's struck content
+      // (the marker-concealment widgets carry no class of their own).
+      expect(view.dom.querySelectorAll('.tok-strike')).toHaveLength(1);
+    }
+  });
+
+  it('20. ~~Lorem [Google](url) word #tag `Code` [[Page]] ipsum~~ — every construct is a sibling tok-strike span, none nested inside another', () => {
+    const view = mountView(
+      'Lead. ~~Lorem [Google](url) word #tag `Code` [[Page]] ipsum~~',
+      noResolvers,
+      true
+    );
+    const allStrikeEls = Array.from(view.dom.querySelectorAll('.tok-strike'));
+    expect(allStrikeEls.length).toBeGreaterThan(1);
+    for (const el of allStrikeEls) {
+      expect(el.querySelector('.tok-strike')).toBeNull();
+    }
+    const link = view.dom.querySelector('.tok-link');
+    const tag = view.dom.querySelector('.tok-tag');
+    const code = view.dom.querySelector('.tok-code');
+    const wikilink = view.dom.querySelector('.tok-wikilink');
+    expect(hasBareStrikeAncestor(link)).toBe(false);
+    expect(hasBareStrikeAncestor(tag)).toBe(false);
+    expect(hasBareStrikeAncestor(code)).toBe(false);
+    expect(hasBareStrikeAncestor(wikilink)).toBe(false);
   });
 
   it('14. ~~before [[Page]] after~~ — struck WikiLink composes tok-strike onto its own root (not an ancestor), exactly like Link — WikiLink joined STRIKETHROUGH_PROTECTED_NODE_NAMES once .tok-wikilink stopped being an atomic box', () => {

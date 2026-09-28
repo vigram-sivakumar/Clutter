@@ -31,6 +31,14 @@ This is not a guess or a style preference — it was proven twice, independently
 
 This does **not** mean CM6-managed lines can't be styled at all — `Decoration.line` classes carrying `background`/`border`/`border-radius`/`padding` are an established, safe Clutter pattern (blockquote, tables, horizontal rules, fenced code all do this). Only `margin` is banned.
 
+## Markdown editor strikethrough — rendering contract (permanent)
+
+**Read and comply with `apps/app/src/features/markdown/editor/codemirror/highlight/STRIKETHROUGH.md` before modifying strikethrough behavior in the CodeMirror editor, or before adding any new inline Markdown construct that might be struck.**
+
+The one rule that explains the whole contract: **a `tok-strike` element must never contain another `tok-strike` element.** CodeMirror decorations are range-based, not a real nested DOM tree, so a generic strikethrough range can silently overlap a semantic inline renderer (Tag, Date, Link, WikiLink, InlineCode, Emphasis, StrongEmphasis, Highlight) that independently composes `tok-strike` onto its own element — producing two independent `text-decoration-line` painters over the same characters, visible as a double strikethrough line, often in two different colors (each painter's line color follows whichever element declares it, never the content it happens to cross).
+
+This was found and fixed twice for the same underlying cause before the full rule was written down (Link/Autolink/URL/WikiLink, then InlineCode/Tag/Date/Emphasis/StrongEmphasis/Highlight) — treat a new report of "double strikethrough line" or "wrong strikethrough color" as this exact bug class, not a CSS problem: fix range ownership (`STRIKETHROUGH_PROTECTED_NODE_NAMES` in `inlineLivePreviewParticipants.ts`), never `text-decoration-color`, `z-index`, opacity, or a pseudo-element. The full contract document has the ownership model, the required regression cases, and a debugging checklist — read it rather than re-deriving any of this from scratch.
+
 ## Git commit workflow (permanent)
 
 Every logically complete implementation milestone must be verified and committed before moving to the next one:

@@ -8,22 +8,68 @@
  * No hover/click affordance here — token-level activation is out of scope
  * for v1 (see renderCompactMarkdown.tsx's own doc comment).
  */
+/* .compact-markdown * {
+  color: var(--foreground-secondary);
+  text-decoration-color: var(--link-underline) !important;
+} */
 
 .compact-markdown-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-label-small);
-  background: var(--surface-subtle);
+  /* Same surface token the editor's own .tok-code uses (MarkdownEditor.css)
+   * — was --surface-subtle, a coincidentally similar but different token. */
+  background: var(--md-inline-code-surface);
   color: var(--md-inline-code-foreground);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-default);
   padding: 0.2em 0.4em;
 }
 
+/*
+ * Markdown Link, Autolink, and bare URL all share this one class (see
+ * renderCompactMarkdown.tsx's renderLink) — same semantic tokens the
+ * editor's .tok-link/.tok-link-title use, never .tok-link itself. No
+ * cursor/hover affordance: this is a styled <span>, not an <a> — compact
+ * rendering has no click activation (see this file's own top doc comment).
+ *
+ * Owns color only, deliberately no text-decoration of its own — mirrors the
+ * editor's own `.tok-link`/`.tok-link-title` split (MarkdownEditor.css)
+ * exactly: `color` is inherited and reaches `.compact-markdown-link-title`
+ * for free, while this element's `text-decoration-line` is left unclaimed
+ * so a struck link's composed `line-through` (renderCompactMarkdown.tsx)
+ * applies at the default thickness/color, with no shorthand conflict and no
+ * shared `text-decoration-color`/`-thickness` with the underline below.
+ */
+.compact-markdown-link {
+  color: var(--md-link-foreground);
+}
+
+/* Owns the underline exclusively, on its own inner element — same shape
+ * (thickness, offset, token) as the editor's `.tok-link-title` — so
+ * `.compact-markdown-link`'s own composed strike never has to share a
+ * `text-decoration-line` with it. Splitting this off is the fix for a
+ * struck link's line-through inheriting the underline's intentionally
+ * subtle 50%-alpha color/thickness (both are per-element properties that
+ * apply uniformly to every decoration line declared on the same element). */
+.compact-markdown-link-title {
+  text-decoration: underline;
+  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-link-underline-offset);
+}
+
 .compact-markdown-wikilink {
+  color: var(--md-wiki-foreground);
+}
+
+/* Same split as `.compact-markdown-link`/`.compact-markdown-link-title`
+ * above, mirroring the editor's `.tok-wikilink`/`.tok-wikilink__title` —
+ * see that pair's doc comments for the full rationale. */
+.compact-markdown-wikilink-title {
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
   text-decoration-color: var(--link-underline);
-  text-underline-offset: 10%;
+  text-underline-offset: var(--md-link-underline-offset);
 }
 
 .compact-markdown-wikilink[data-wikilink-status='unresolved'] {
@@ -32,6 +78,9 @@
 
 .compact-markdown-tag {
   color: var(--md-tag-foreground);
+  background-color: var(--md-tag-surface);
+  border-radius: var(--md-badge-radius);
+  padding: var(--md-badge-padding);
 }
 
 .compact-markdown-tag[data-tag-status='unresolved'] {
@@ -45,7 +94,9 @@
 }
 
 .compact-markdown-date {
-  color: inherit;
+  /* Same token the editor's own .tok-date uses — was `inherit`, which
+   * incorrectly skipped this construct's own established foreground. */
+  color: var(--md-date-foreground);
 }
 
 .compact-markdown-date .compact-markdown-date-prefix {
