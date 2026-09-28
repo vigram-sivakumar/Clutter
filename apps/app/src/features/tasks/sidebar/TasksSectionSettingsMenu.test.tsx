@@ -145,11 +145,19 @@ describe('TasksSectionSettingsMenu — menu contents (open)', () => {
     expect(onConfigChange).toHaveBeenCalledWith({ showCompleted: false, autoSortCompleted: true });
   });
 
-  it('toggling a setting does not itself close the menu (independent toggles, not a mutually-exclusive choice)', () => {
+  it('selecting Show completed closes the menu', () => {
     const { getByText, onOpenChange } = renderOpenMenu();
 
     fireEvent.click(getByText('Show completed'));
 
-    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('selecting Auto-sort completed closes the menu', () => {
+    const { getByText, onOpenChange } = renderOpenMenu();
+
+    fireEvent.click(getByText('Auto-sort completed'));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
