@@ -2,9 +2,8 @@ import { Fragment } from 'react';
 
 // Components
 import { Task } from '../sidebar/Task';
+import { TasksSectionSettingsMenu } from '../sidebar/TasksSectionSettingsMenu';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { Entry } from '@components/entry/Entry';
-import { Caret } from '@components/caret/Caret';
 
 // Models
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
@@ -14,11 +13,10 @@ import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/Mark
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 // Helpers
-import { groupTasks } from './groupTasks';
+import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from './groupTasks';
 import { formatTaskDueDate } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
-import { CountBadge } from '@components/count-badge/CountBadge';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
@@ -33,9 +31,9 @@ interface TaskRowResolvers {
 }
 
 // A due date is never worth showing when it's today — whichever section a
-// row is in (the incomplete Today list, or a completed-today task) already
-// conveys "today" by construction, so the label would just repeat it. Any
-// other date (including a completed task's past or future due date) is
+// row is in already conveys "today" by construction, so the label would
+// just repeat it. Any other date (including a completed task's past or
+// future due date, when Show completed surfaces it in Everything else) is
 // shown normally.
 export function renderTaskRow(
   task: TaskOccurrence,
@@ -61,76 +59,43 @@ export function renderTaskRow(
   );
 }
 
+/** Renders a flat list of task rows — shared by Today and Upcoming, whose content is otherwise identical (just a different source array). */
+function renderTaskList(
+  tasks: readonly TaskOccurrence[],
+  callbacks: TaskRowCallbacks & TaskRowResolvers
+) {
+  return (
+    <Fragment>
+      {tasks.map((task) => renderTaskRow(task, callbacks))}
+    </Fragment>
+  );
+}
+
 export interface RenderTodayContentProps extends TaskRowCallbacks, TaskRowResolvers {
-  // Pre-grouped, not raw tasks — the outer Section (renderTasksByDate) and
-  // the Today collection page (TasksCollectionBody) both need these same
-  // counts to decide their own default-expansion/emptiness, so grouping
-  // happens once at whichever call site owns that decision, not again here.
+  // Pre-grouped, not raw tasks, and already filtered/ordered per the
+  // Tasks-view display config (groupTasks) — the outer Section
+  // (renderTasksByDate) and the Today collection page (TasksCollectionBody)
+  // both need this same array to decide their own default-expansion/
+  // emptiness, so grouping happens once at whichever call site owns that
+  // decision, not again here.
   readonly today: readonly TaskOccurrence[];
-  readonly todayCompleted: readonly TaskOccurrence[];
-  readonly workspace: Workspace;
-  readonly onOpenCompleted: () => void;
 }
 
 /**
- * The Today section's content only — incomplete tasks due today, plus the
- * nested completed-today accordion — with no outer Section wrapper, so
+ * The Today section's content only — with no outer Section wrapper, so
  * both the sidebar (which wraps this in its own collapsible Section) and
  * the Today collection page (embedded directly under the page's own
  * title) render identical rows from one implementation.
  */
 export function renderTodayContent({
   today,
-  todayCompleted,
-  workspace,
   onToggleComplete,
   onOpenTask,
-  onOpenCompleted,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderTodayContentProps) {
-  const toggleCompleted = () =>
-    workspace.toggleSectionExpanded('tasks-today-completed');
-
-  return (
-    <Fragment>
-      {today.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
-      )}
-
-      {todayCompleted.length > 0 && (
-        <Fragment>
-          <Entry
-            className="tertiary"
-            leading={
-              <>
-                <Caret
-                  variant="tree"
-                  isExpanded={workspace.isSectionExpanded(
-                    'tasks-today-completed'
-                  )}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    toggleCompleted();
-                  }}
-                />
-              </>
-            }
-            trailing={<CountBadge count={todayCompleted.length} />}
-            onClick={onOpenCompleted}
-          >
-            Completed
-          </Entry>
-
-          {workspace.isSectionExpanded('tasks-today-completed') &&
-            todayCompleted.map((task) =>
-              renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
-            )}
-        </Fragment>
-      )}
-    </Fragment>
-  );
+  return renderTaskList(today, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed });
 }
 
 export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
@@ -139,8 +104,7 @@ export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowRes
 }
 
 /**
- * The Upcoming section's content only — overdue/future/unscheduled
- * incomplete tasks, in that order — no outer Section wrapper, same reuse
+ * The Upcoming section's content only — no outer Section wrapper, same reuse
  * reasoning as renderTodayContent.
  */
 export function renderUpcomingContent({
@@ -151,19 +115,35 @@ export function renderUpcomingContent({
   resolveTag,
   resolveEmbed,
 }: RenderUpcomingContentProps) {
-  return (
-    <Fragment>
-      {upcoming.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
-      )}
-    </Fragment>
-  );
+  return renderTaskList(upcoming, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed });
 }
+
+/** A section header's own settings-menu open state, owned by the caller (see TasksSectionSettingsMenu's own doc comment for why). */
+export interface TasksSectionSettingsMenuState {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}
+
+const CLOSED_SETTINGS_MENU: TasksSectionSettingsMenuState = {
+  open: false,
+  onOpenChange: () => {},
+};
 
 interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly navigation: NavigationRouter;
+  /**
+   * The shared Tasks-view Show completed / Auto-sort completed preference
+   * — one value, read and written identically by both the Today and
+   * Everything else section's own settings menu (never one preference per
+   * section). Defaults to DEFAULT_TASK_DISPLAY_CONFIG/a no-op setter for
+   * callers (most existing tests) that don't exercise the settings menu.
+   */
+  readonly displayConfig?: TaskDisplayConfig;
+  readonly onDisplayConfigChange?: (next: TaskDisplayConfig) => void;
+  readonly todaySettingsMenu?: TasksSectionSettingsMenuState;
+  readonly upcomingSettingsMenu?: TasksSectionSettingsMenuState;
 }
 
 export function renderTasksByDate({
@@ -175,12 +155,16 @@ export function renderTasksByDate({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
+  onDisplayConfigChange = () => {},
+  todaySettingsMenu = CLOSED_SETTINGS_MENU,
+  upcomingSettingsMenu = CLOSED_SETTINGS_MENU,
 }: RenderTasksByDateProps) {
-  // Grouped once here — both Sections need these counts to know whether
-  // they're empty (for default expansion) as well as what to render, and
+  // Grouped once here — both Sections need this to know whether they're
+  // empty (for default expansion) as well as what to render, and
   // renderTodayContent/renderUpcomingContent take the groups directly so
   // groupTasks never runs a second time for the same tree.
-  const { today, todayCompleted, upcoming } = groupTasks(tasks);
+  const { today, upcoming } = groupTasks(tasks, displayConfig);
 
   return (
     <Fragment>
@@ -188,20 +172,26 @@ export function renderTasksByDate({
         hasHeader
         title="Today"
         isCollapsible
-        isEmpty={today.length === 0 && todayCompleted.length === 0}
+        isEmpty={today.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('tasks-today', expanded)
         }
         onClick={() => navigation.openTasksToday()}
+        forceHover={todaySettingsMenu.open}
+        actions={
+          <TasksSectionSettingsMenu
+            config={displayConfig}
+            onConfigChange={onDisplayConfigChange}
+            open={todaySettingsMenu.open}
+            onOpenChange={todaySettingsMenu.onOpenChange}
+          />
+        }
       >
         {renderTodayContent({
           today,
-          todayCompleted,
-          workspace,
           onToggleComplete,
           onOpenTask,
-          onOpenCompleted: () => navigation.openTasksCompleted(),
           resolveWikiLink,
           resolveTag,
           resolveEmbed,
@@ -218,6 +208,15 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-upcoming', expanded)
           }
           onClick={() => navigation.openTasksUpcoming()}
+          forceHover={upcomingSettingsMenu.open}
+          actions={
+            <TasksSectionSettingsMenu
+              config={displayConfig}
+              onConfigChange={onDisplayConfigChange}
+              open={upcomingSettingsMenu.open}
+              onOpenChange={upcomingSettingsMenu.onOpenChange}
+            />
+          }
         >
           {renderUpcomingContent({
             upcoming,

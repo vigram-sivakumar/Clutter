@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Vault } from '@core/vault/models';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
@@ -13,6 +14,7 @@ import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
+import type { TaskDisplayConfig } from '../helpers/groupTasks';
 
 interface TasksPanelProps {
   readonly vault: Vault;
@@ -22,6 +24,15 @@ interface TasksPanelProps {
   readonly pageOperations: PageOperations;
   readonly folderOperations: FolderOperations;
   readonly effectivePageState: EffectivePageState;
+  /**
+   * The shared Tasks-view Show completed / Auto-sort completed preference,
+   * lifted to AppLayout (the common ancestor of this sidebar panel and the
+   * Today/Everything else collection pages rendered by PageHost) and
+   * persisted through `application.tasksViewConfigStore` — see AppLayout's
+   * own wiring for why this can't just be local state here.
+   */
+  readonly tasksViewConfig: TaskDisplayConfig;
+  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
 }
 
 export function Tasks({
@@ -32,9 +43,18 @@ export function Tasks({
   pageOperations,
   folderOperations,
   effectivePageState,
+  tasksViewConfig,
+  onTasksViewConfigChange,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
+
+  // Each section header's own settings-menu open state — local to this
+  // panel (never persisted), and deliberately two independent booleans
+  // rather than one "which section's menu is open" value, matching
+  // TasksSectionSettingsMenu's own caller-owned `open` prop.
+  const [todaySettingsMenuOpen, setTodaySettingsMenuOpen] = useState(false);
+  const [upcomingSettingsMenuOpen, setUpcomingSettingsMenuOpen] = useState(false);
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx
   // use to inject the page editor's own WikiLink/Tag/embed resolution —
@@ -70,6 +90,16 @@ export function Tasks({
         resolveWikiLink,
         resolveTag,
         resolveEmbed,
+        displayConfig: tasksViewConfig,
+        onDisplayConfigChange: onTasksViewConfigChange,
+        todaySettingsMenu: {
+          open: todaySettingsMenuOpen,
+          onOpenChange: setTodaySettingsMenuOpen,
+        },
+        upcomingSettingsMenu: {
+          open: upcomingSettingsMenuOpen,
+          onOpenChange: setUpcomingSettingsMenuOpen,
+        },
       })}
     </View>
   );

@@ -1,5 +1,5 @@
 import { AppIcon } from '@shared/icon';
-import './checkbox.css';
+import './Checkbox.css';
 
 export interface CheckboxProps {
   isChecked?: boolean;

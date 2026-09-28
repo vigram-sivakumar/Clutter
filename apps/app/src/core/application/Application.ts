@@ -23,6 +23,7 @@ import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
 import { FoldStateStore } from './editor/FoldStateStore';
 import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
+import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -111,6 +112,16 @@ export class Application {
    * isn't (see `CollectionViewConfigStore`'s own doc comment).
    */
   public readonly collectionViewConfigStore: CollectionViewConfigStore;
+  /**
+   * Persisted, shared Tasks-sidebar display configuration (Show completed /
+   * Auto-sort completed), through a sibling top-level key of the same
+   * `.clutter/workspace.json` `foldStateStore`/`collectionViewConfigStore`
+   * above own (`tasksViewConfig`) — loaded once in `bootstrap()` below. Not
+   * Gate-backed and not owned by `Workspace`, for the same reasons
+   * `collectionViewConfigStore` isn't (see `TasksViewConfigStore`'s own doc
+   * comment).
+   */
+  public readonly tasksViewConfigStore: TasksViewConfigStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -204,6 +215,12 @@ export class Application {
       rootPath
     );
 
+    // Same "read a small .clutter/*.json config at boot, tolerate absence"
+    // shape as collectionViewConfigStore above — a sibling top-level key of
+    // the same reserved file, malformed content caught and discarded inside
+    // TasksViewConfigStore.load() itself, never thrown.
+    const tasksViewConfigStore = await TasksViewConfigStore.load(fileSystem, rootPath);
+
     // Tag presentation metadata (icon today, color later) is read directly
     // here, once — not through VaultScanner (this isn't Page/Folder
     // content) and not through a dedicated loader (one reader, one writer,
@@ -291,7 +308,8 @@ export class Application {
       selfWriteRegistry,
       runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver,
       foldStateStore,
-      collectionViewConfigStore
+      collectionViewConfigStore,
+      tasksViewConfigStore
     );
 
     application.rootPath = rootPath;
@@ -327,7 +345,11 @@ export class Application {
     collectionViewConfigStore: CollectionViewConfigStore = CollectionViewConfigStore.empty(
       fileSystem,
       ''
-    )
+    ),
+    // Same default-to-empty-store reasoning as collectionViewConfigStore
+    // above, for the many existing tests that construct Application
+    // directly without exercising Tasks-view persistence.
+    tasksViewConfigStore: TasksViewConfigStore = TasksViewConfigStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -339,6 +361,7 @@ export class Application {
     this.selfWriteRegistry = selfWriteRegistry;
     this.foldStateStore = foldStateStore;
     this.collectionViewConfigStore = collectionViewConfigStore;
+    this.tasksViewConfigStore = tasksViewConfigStore;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();

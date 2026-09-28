@@ -15,6 +15,24 @@ import { createResourceLocationActions } from '@app/layouts/resourceLocationActi
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
+import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
+import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
+
+/**
+ * Resolves the shared Tasks-view Show completed / Auto-sort completed
+ * preference from `TasksViewConfigStore`, falling back to
+ * DEFAULT_TASK_DISPLAY_CONFIG for any field never persisted — mirrors
+ * PageHost.tsx's own `resolveCollectionViewState` exactly, for the same
+ * reason: the store's persisted shape is optional-by-field, the caller
+ * resolves defaults, never the store itself.
+ */
+function resolveTasksViewConfig(store: TasksViewConfigStore): TaskDisplayConfig {
+  const persisted = store.get();
+  return {
+    showCompleted: persisted.showCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.showCompleted,
+    autoSortCompleted: persisted.autoSortCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.autoSortCompleted,
+  };
+}
 
 interface AppLayoutProps {
   application: Application;
@@ -36,6 +54,24 @@ export function AppLayout({ application }: AppLayoutProps) {
   // PageHost -> MarkdownEditor), replacing three independent owners with
   // one. See resourceOverlay.ts for the full shape/reasoning.
   const [resourceOverlay, setResourceOverlay] = useState<ResourceOverlayState>(null);
+
+  // The shared Tasks-view Show completed / Auto-sort completed preference
+  // — lifted here (rather than local state inside Sidebar's Tasks panel or
+  // PageHost's TasksCollectionBody individually) because AppLayout is the
+  // confirmed common ancestor of both consumers, the same reasoning
+  // resourceOverlay above already documents. Persisted through
+  // `application.tasksViewConfigStore`, read once at mount — updates go
+  // through `updateTasksViewConfig` below, which keeps this render-visible
+  // state and the store in sync, the same shape PageHost.tsx's own
+  // `collectionViewState`/`setCollectionViewMode` pairing uses.
+  const [tasksViewConfig, setTasksViewConfig] = useState<TaskDisplayConfig>(() =>
+    resolveTasksViewConfig(application.tasksViewConfigStore)
+  );
+
+  function updateTasksViewConfig(next: TaskDisplayConfig): void {
+    setTasksViewConfig(next);
+    application.tasksViewConfigStore.update(next);
+  }
 
   const { revealResourceInFinder, copyResourcePath, downloadResourceById } =
     createResourceLocationActions(application.vault);
@@ -99,7 +135,14 @@ export function AppLayout({ application }: AppLayoutProps) {
       <div className="app-layout__sidebar-slot">
         <aside className="app-layout__sidepanel">
           <TauriDragStrip />
-          {<Sidebar application={application} onOpenResource={openVaultResourceOverlay} />}
+          {
+            <Sidebar
+              application={application}
+              onOpenResource={openVaultResourceOverlay}
+              tasksViewConfig={tasksViewConfig}
+              onTasksViewConfigChange={updateTasksViewConfig}
+            />
+          }
         </aside>
       </div>
       <main className="app-layout__page">
@@ -108,6 +151,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           application={application}
           onOpenResource={openVaultResourceOverlay}
           onOpenImageOverlay={openImageOverlay}
+          tasksViewConfig={tasksViewConfig}
         />
       </main>
       <SidebarToggle

@@ -1,13 +1,46 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { useState } from 'react';
 import { cleanup, render, fireEvent, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderTasksByDate } from './renderTasksByDate';
+import { DEFAULT_TASK_DISPLAY_CONFIG } from './groupTasks';
 import { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
+
+/**
+ * renderTasksByDate is a plain function, not a component — it re-renders
+ * only when its *caller* (in real usage, Sidebar.Tasks.tsx's `Tasks`
+ * component) re-renders with new props. Tests that only care about a
+ * single render (checkbox click, date formatting, navigation) call it
+ * directly; a test that needs the settings menu's `open` state to
+ * actually flip in response to a click needs a real owning component in
+ * the loop, exactly like the real `Tasks` component provides — this is
+ * that minimal stand-in, owning just the Today section's open state.
+ */
+function TodaySettingsMenuHarness(
+  props: Omit<Parameters<typeof renderTasksByDate>[0], 'todaySettingsMenu'>
+) {
+  const [open, setOpen] = useState(false);
+  return <>{renderTasksByDate({ ...props, todaySettingsMenu: { open, onOpenChange: setOpen } })}</>;
+}
+
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 afterEach(() => {
   cleanup();
@@ -103,81 +136,6 @@ describe('renderTasksByDate', () => {
     );
 
     const row = getByText('Review designs').closest('.entry') as HTMLElement;
-    expect(within(row).queryByText(/Today|Tomorrow|Yesterday|\d/)).toBeNull();
-  });
-
-  it('shows the completed-today accordion header with a count', () => {
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
-    });
-
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation: fakeNavigation(),
-        })}
-      </>
-    );
-
-    // "Completed" (the accordion row's own label) and the count (a
-    // separate CountBadge in its trailing slot) are two distinct DOM
-    // nodes, not one "1 Completed" text node — assert both independently
-    // within the same row rather than a single combined-text query.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    expect(within(header).getByText('1')).not.toBeNull();
-  });
-
-  it('shows the due date for a completed-today task whose due date is not today', () => {
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
-      dueDate: '2026-08-01',
-    });
-
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation: fakeNavigation(),
-        })}
-      </>
-    );
-
-    const row = getByText('Submit expenses').closest('.entry') as HTMLElement;
-    expect(within(row).getByText('1 Aug')).not.toBeNull();
-  });
-
-  it('does not render a due-date label for a completed-today task whose due date is also today', () => {
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
-      dueDate: '2026-08-04',
-    });
-
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation: fakeNavigation(),
-        })}
-      </>
-    );
-
-    const row = getByText('Submit expenses').closest('.entry') as HTMLElement;
     expect(within(row).queryByText(/Today|Tomorrow|Yesterday|\d/)).toBeNull();
   });
 
@@ -414,63 +372,247 @@ describe('renderTasksByDate', () => {
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
-  it('navigates to Completed when the completed-today accordion row is clicked, without toggling it', () => {
-    const navigation = fakeNavigation();
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
+  describe('the settings action', () => {
+    it('is available from both the Today and Everything else section headers', () => {
+      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
+      const upcomingHeader = getByText('Everything else').closest('.section-header') as HTMLElement;
+
+      expect(within(todayHeader).getByLabelText('Task display settings')).toBeInTheDocument();
+      expect(within(upcomingHeader).getByLabelText('Task display settings')).toBeInTheDocument();
     });
-    const workspace = new Workspace();
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace,
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+    it('lives in the header\'s hover-revealed actions slot, and clicking it does not toggle the section or navigate', () => {
+      const navigation = fakeNavigation();
 
-    // See the "shows the completed-today accordion header with a count"
-    // test above — "Completed" and its count are separate DOM nodes.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    fireEvent.click(header);
+      const { getByText, getByLabelText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation,
+          })}
+        </>
+      );
 
-    expect(navigation.openTasksCompleted).toHaveBeenCalled();
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
+      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
+      expect(todayHeader.querySelector('.entry__actions')).toContainElement(
+        getByLabelText('Task display settings')
+      );
+
+      fireEvent.click(getByLabelText('Task display settings'));
+
+      expect(navigation.openTasksToday).not.toHaveBeenCalled();
+    });
+
+    it('clicking it opens the menu, which is closed by default', () => {
+      const { getByText, queryByText } = render(
+        <TodaySettingsMenuHarness
+          tasks={[]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          navigation={fakeNavigation()}
+        />
+      );
+
+      expect(queryByText('Show completed')).not.toBeInTheDocument();
+
+      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
+      fireEvent.click(within(todayHeader).getByLabelText('Task display settings'));
+
+      expect(getByText('Show completed')).toBeInTheDocument();
+      expect(getByText('Auto-sort completed')).toBeInTheDocument();
+    });
+
+    it('both section headers share the exact same config — toggling from Everything else\'s menu is reflected the next time Today\'s menu opens', () => {
+      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+      let config = DEFAULT_TASK_DISPLAY_CONFIG;
+      const onDisplayConfigChange = vi.fn((next) => {
+        config = next;
+      });
+
+      const { getByText, rerender } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: config,
+            onDisplayConfigChange,
+            upcomingSettingsMenu: { open: true, onOpenChange: () => {} },
+          })}
+        </>
+      );
+
+      fireEvent.click(getByText('Show completed'));
+      expect(config).toEqual({ showCompleted: false, autoSortCompleted: false });
+
+      rerender(
+        <>
+          {renderTasksByDate({
+            tasks: [dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: config,
+            onDisplayConfigChange,
+            todaySettingsMenu: { open: true, onOpenChange: () => {} },
+          })}
+        </>
+      );
+
+      // Overlay portals the menu to document.body, so it isn't scoped under
+      // either header's own DOM subtree — this is the same menu instance's
+      // content regardless of which section's trigger opened it, since both
+      // read the identical `config` object.
+      const showCompletedRow = getByText('Show completed').closest('.entry')!;
+      expect(showCompletedRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
+    });
   });
 
-  it('toggles the completed-today accordion when its caret is clicked, without navigating', () => {
-    const navigation = fakeNavigation();
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
+  describe('Show completed / Auto-sort completed', () => {
+    it('shows a completed task due today in the Today section when showCompleted is true', () => {
+      const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completedToday],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: true, autoSortCompleted: false },
+          })}
+        </>
+      );
+
+      expect(getByText('Submit expenses')).toBeInTheDocument();
     });
-    const workspace = new Workspace();
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace,
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+    it('hides a completed task from the Today section when showCompleted is false', () => {
+      const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
 
-    // See the "shows the completed-today accordion header with a count"
-    // test above — "Completed" and its count are separate DOM nodes.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    fireEvent.click(within(header).getByRole('button'));
+      const { queryByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completedToday],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: false, autoSortCompleted: false },
+          })}
+        </>
+      );
 
-    expect(navigation.openTasksCompleted).not.toHaveBeenCalled();
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
+      expect(queryByText('Submit expenses')).not.toBeInTheDocument();
+    });
+
+    it('shows a completed, non-today task in the Everything else section when showCompleted is true', () => {
+      const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completedOverdue],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: true, autoSortCompleted: false },
+          })}
+        </>
+      );
+
+      expect(getByText('Old report')).toBeInTheDocument();
+      expect(getByText('Everything else')).toBeInTheDocument();
+    });
+
+    it('auto-sort off preserves the normal/original ordering of a mixed complete+incomplete section', () => {
+      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
+      const active1 = task({ text: 'Active task 1', dueDate: '2026-08-04' });
+      const active2 = task({ text: 'Active task 2', dueDate: '2026-08-04' });
+
+      const { container } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completed, active1, active2],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: true, autoSortCompleted: false },
+          })}
+        </>
+      );
+
+      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
+      expect(titles).toEqual(['Completed task', 'Active task 1', 'Active task 2']);
+    });
+
+    it('auto-sort on moves the completed task to the bottom of the Today section', () => {
+      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
+      const active1 = task({ text: 'Active task 1', dueDate: '2026-08-04' });
+      const active2 = task({ text: 'Active task 2', dueDate: '2026-08-04' });
+
+      const { container } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completed, active1, active2],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: true, autoSortCompleted: true },
+          })}
+        </>
+      );
+
+      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
+      expect(titles).toEqual(['Active task 1', 'Active task 2', 'Completed task']);
+    });
+
+    it('turning Show completed off does not reset a previously-enabled Auto-sort completed — re-enabling Show completed keeps auto-sort applied', () => {
+      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
+      const active = task({ text: 'Active task', dueDate: '2026-08-04' });
+
+      // Simulates: both were on, the user turned Show completed off (auto-sort
+      // preference itself is untouched in the persisted config), then back on.
+      const { container } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [completed, active],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+            displayConfig: { showCompleted: true, autoSortCompleted: true },
+          })}
+        </>
+      );
+
+      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
+      expect(titles).toEqual(['Active task', 'Completed task']);
+    });
   });
 });
