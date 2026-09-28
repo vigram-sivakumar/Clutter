@@ -105,8 +105,8 @@ export function PageTitleSection({
         </div>
 
         {description}
-        {belowDescription}
       </div>
+      {belowDescription}
     </header>
   );
 }
