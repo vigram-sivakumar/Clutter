@@ -5,7 +5,6 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TasksCollectionBody } from './TasksCollectionBody';
-import { Workspace } from '@core/workspace/Workspace';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 
 afterEach(() => {
@@ -39,10 +38,8 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-today"
         tasks={[dueToday, dueTomorrow]}
-        workspace={new Workspace()}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
@@ -58,10 +55,8 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-upcoming"
         tasks={[dueTomorrow, dueToday]}
-        workspace={new Workspace()}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
@@ -86,10 +81,8 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-completed"
         tasks={[oldCompleted, recentCompleted, incomplete]}
-        workspace={new Workspace()}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
@@ -110,10 +103,8 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-all"
         tasks={[incomplete, completed]}
-        workspace={new Workspace()}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
@@ -121,7 +112,7 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
-  it('renders only incomplete tasks with no due date for the tasks-unscheduled view', () => {
+  it('renders only incomplete tasks with no due date for the tasks-unscheduled view, regardless of displayConfig', () => {
     const unscheduled = task({ text: 'No due date' });
     const scheduled = task({ text: 'Has due date', dueDate: '2026-08-10' });
     const completedUnscheduled = task({
@@ -134,16 +125,86 @@ describe('TasksCollectionBody', () => {
       <TasksCollectionBody
         view="tasks-unscheduled"
         tasks={[unscheduled, scheduled, completedUnscheduled]}
-        workspace={new Workspace()}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
-        onOpenCompleted={vi.fn()}
+        // Even with Show completed enabled, the Unscheduled view keeps its
+        // pre-existing, unaffected behavior — it isn't one of the two
+        // sections (Today/Everything else) the setting targets.
+        displayConfig={{ showCompleted: true, autoSortCompleted: false }}
       />
     );
 
     expect(getByText('No due date')).not.toBeNull();
     expect(queryByText('Has due date')).toBeNull();
     expect(queryByText('Completed, no due date')).toBeNull();
+  });
+
+  describe('displayConfig', () => {
+    it('hides completed tasks from tasks-today by default (DEFAULT_TASK_DISPLAY_CONFIG shows them, so this checks the explicit-off case)', () => {
+      const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
+
+      const { queryByText } = render(
+        <TasksCollectionBody
+          view="tasks-today"
+          tasks={[completedToday]}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          displayConfig={{ showCompleted: false, autoSortCompleted: false }}
+        />
+      );
+
+      expect(queryByText('Submit expenses')).toBeNull();
+    });
+
+    it('shows a completed task due today in tasks-today when showCompleted is true', () => {
+      const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
+
+      const { getByText } = render(
+        <TasksCollectionBody
+          view="tasks-today"
+          tasks={[completedToday]}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          displayConfig={{ showCompleted: true, autoSortCompleted: false }}
+        />
+      );
+
+      expect(getByText('Submit expenses')).not.toBeNull();
+    });
+
+    it('shows a completed, non-today task in tasks-upcoming when showCompleted is true', () => {
+      const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
+
+      const { getByText } = render(
+        <TasksCollectionBody
+          view="tasks-upcoming"
+          tasks={[completedOverdue]}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          displayConfig={{ showCompleted: true, autoSortCompleted: false }}
+        />
+      );
+
+      expect(getByText('Old report')).not.toBeNull();
+    });
+
+    it('auto-sort moves a completed task to the bottom of tasks-today', () => {
+      const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
+      const active = task({ text: 'Active task', dueDate: '2026-08-04' });
+
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-today"
+          tasks={[completed, active]}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          displayConfig={{ showCompleted: true, autoSortCompleted: true }}
+        />
+      );
+
+      const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
+      expect(titles).toEqual(['Active task', 'Completed task']);
+    });
   });
 
   describe('compact Markdown title rendering, with resolvers threaded to every view', () => {
@@ -164,10 +225,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-today"
           tasks={[dueToday]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
         />
@@ -192,10 +251,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-upcoming"
           tasks={[dueTomorrow]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
           resolveWikiLink={resolveWikiLink}
         />
       );
@@ -211,10 +268,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-completed"
           tasks={[completed]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
         />
       );
       expect(completedResult.container.querySelector('strong')).toHaveTextContent('Ship');
@@ -225,10 +280,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-unscheduled"
           tasks={[unscheduled]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
         />
       );
       expect(unscheduledResult.container.querySelector('em')).toHaveTextContent('urgent');
@@ -239,10 +292,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-all"
           tasks={[all]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
         />
       );
       expect(allResult.container.querySelector('s')).toHaveTextContent('old');
@@ -255,10 +306,8 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody
           view="tasks-today"
           tasks={[dueToday]}
-          workspace={new Workspace()}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
-          onOpenCompleted={vi.fn()}
         />
       );
 

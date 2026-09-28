@@ -2,6 +2,7 @@ import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import type { ReactNode } from 'react';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import './Sidebar.css';
@@ -27,9 +28,17 @@ interface SidebarProps {
    * — routes to `ImageOverlay` or `PdfOverlay` based on `resource.kind`.
    */
   readonly onOpenResource: (resource: VaultResource) => void;
+  /** See AppLayout's own doc comment on its `tasksViewConfig` state — lifted here since Sidebar's Tasks panel is one of its two consumers. */
+  readonly tasksViewConfig: TaskDisplayConfig;
+  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
 }
 
-export function Sidebar({ application, onOpenResource }: SidebarProps) {
+export function Sidebar({
+  application,
+  onOpenResource,
+  tasksViewConfig,
+  onTasksViewConfigChange,
+}: SidebarProps) {
   const {
     vault,
     query,
@@ -112,6 +121,8 @@ export function Sidebar({ application, onOpenResource }: SidebarProps) {
           pageOperations={pageOperations}
           folderOperations={folderOperations}
           effectivePageState={effectivePageState}
+          tasksViewConfig={tasksViewConfig}
+          onTasksViewConfigChange={onTasksViewConfigChange}
         />
       ),
     },

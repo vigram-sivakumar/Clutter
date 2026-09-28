@@ -1,6 +1,5 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-import type { Workspace } from '@core/workspace/Workspace';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import {
@@ -8,7 +7,7 @@ import {
   renderTodayContent,
   renderUpcomingContent,
 } from '../helpers/renderTasksByDate';
-import { groupTasks } from '../helpers/groupTasks';
+import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 import { getCompletedTasks } from '../helpers/getCompletedTasks';
 
 export type TasksCollectionView =
@@ -18,15 +17,32 @@ export type TasksCollectionView =
   | 'tasks-all'
   | 'tasks-unscheduled';
 
+// The Unscheduled collection view has never shown completed tasks (it
+// predates the Show completed/Auto-sort completed preference) and isn't
+// one of the two sections that preference targets (Today/Everything else)
+// — a fixed config, not the shared Tasks-view `displayConfig` below, keeps
+// its behavior exactly as it was.
+const UNSCHEDULED_VIEW_CONFIG: TaskDisplayConfig = {
+  showCompleted: false,
+  autoSortCompleted: false,
+};
+
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
   readonly tasks: readonly TaskOccurrence[];
-  readonly workspace: Workspace;
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /**
+   * The shared Tasks-view Show completed / Auto-sort completed preference
+   * (see groupTasks.ts's TaskDisplayConfig) — applied to the tasks-today/
+   * tasks-upcoming branches only, so the Today/Everything else collection
+   * pages always render identically to their sidebar counterparts (see
+   * this component's own doc comment). Defaults to
+   * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
+   */
+  readonly displayConfig?: TaskDisplayConfig;
   /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
   readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
-  readonly onOpenCompleted: () => void;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
@@ -46,11 +62,10 @@ export interface TasksCollectionBodyProps {
 export function TasksCollectionBody({
   view,
   tasks,
-  workspace,
   onToggleComplete,
   onOpenTask,
+  displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   onDateChange,
-  onOpenCompleted,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -58,17 +73,14 @@ export function TasksCollectionBody({
   const rowCallbacks = { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed };
 
   if (view === 'tasks-today') {
-    const { today, todayCompleted } = groupTasks(tasks);
+    const { today } = groupTasks(tasks, displayConfig);
     return (
       <PageBody>
         {renderTodayContent({
           today,
-          todayCompleted,
-          workspace,
           onToggleComplete,
           onOpenTask,
           onDateChange,
-          onOpenCompleted,
           resolveWikiLink,
           resolveTag,
           resolveEmbed,
@@ -78,7 +90,7 @@ export function TasksCollectionBody({
   }
 
   if (view === 'tasks-upcoming') {
-    const { upcoming } = groupTasks(tasks);
+    const { upcoming } = groupTasks(tasks, displayConfig);
     return (
       <PageBody>
         {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
@@ -97,7 +109,9 @@ export function TasksCollectionBody({
   if (view === 'tasks-unscheduled') {
     return (
       <PageBody>
-        {groupTasks(tasks).unscheduled.map((task) => renderTaskRow(task, rowCallbacks))}
+        {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
+          renderTaskRow(task, rowCallbacks)
+        )}
       </PageBody>
     );
   }

@@ -81,6 +81,7 @@ import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
+import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -110,6 +111,16 @@ interface PageHostProps {
     image: ImageOverlayImage,
     options?: { readonly onSetCoverImage?: () => void }
   ) => void;
+  /**
+   * The shared Tasks-view Show completed / Auto-sort completed preference
+   * (owned by `AppLayout`, the common ancestor of this and Sidebar's Tasks
+   * panel) — applied to the Today/Everything else collection pages'
+   * `TasksCollectionBody` below, so they always render identically to
+   * their sidebar counterparts. Read-only here: the settings menu that
+   * changes it lives only on the sidebar's own section headers (see
+   * TasksSectionSettingsMenu's doc comment).
+   */
+  readonly tasksViewConfig: TaskDisplayConfig;
 }
 
 const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
@@ -187,6 +198,7 @@ export function PageHost({
   application,
   onOpenResource,
   onOpenImageOverlay,
+  tasksViewConfig,
 }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
@@ -1190,19 +1202,18 @@ export function PageHost({
           <TasksCollectionBody
             view={view}
             tasks={[...vault.tasks()]}
-            workspace={workspace}
             onToggleComplete={(task) =>
               void application.taskOperations.toggleComplete(task)
             }
             onOpenTask={(task) =>
               void application.pageOperations.open(task.sourcePageId)
             }
+            displayConfig={tasksViewConfig}
             onDateChange={(task, date) =>
               void (date === null
                 ? application.taskOperations.clearDate(task)
                 : application.taskOperations.setDate(task, date))
             }
-            onOpenCompleted={() => application.navigation.openTasksCompleted()}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
             resolveEmbed={resolvePageEmbed}
