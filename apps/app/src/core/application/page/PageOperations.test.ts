@@ -2038,6 +2038,24 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
       pageOperations.updateMetadata('does-not-exist', { favorite: true })
     ).rejects.toThrow(/Page not found/);
   });
+
+  // The "Add a description" milestone's own draft-promotion case: a
+  // description commit is a genuine committed change, promoting the draft
+  // exactly like favorite/cover already do — the first persisted save
+  // includes the description.
+  it('a Note draft + description promotes to a persisted Note with the description in frontmatter, same id', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateMetadata(id, { description: 'A description' });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.id).toBe(id);
+    expect(persisted.metadata.description).toBe('A description');
+    expect(persisted.source.markdown).toBe('');
+    expect(fileSystem.hasFileSync(`${ROOT}/Untitled.md`)).toBe(true);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
 });
 
 // Regression coverage for the "Cover image" feature's draft-promotion

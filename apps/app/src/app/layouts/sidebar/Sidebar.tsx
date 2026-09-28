@@ -66,6 +66,7 @@ export function Sidebar({ application, onOpenResource }: SidebarProps) {
           navigation={navigation}
           pageOperations={pageOperations}
           folderOperations={folderOperations}
+          effectivePageState={effectivePageState}
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
@@ -110,6 +111,7 @@ export function Sidebar({ application, onOpenResource }: SidebarProps) {
           taskOperations={taskOperations}
           pageOperations={pageOperations}
           folderOperations={folderOperations}
+          effectivePageState={effectivePageState}
         />
       ),
     },

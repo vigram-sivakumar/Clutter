@@ -43,13 +43,15 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Global decoration */
   --link-underline: rgb(
-    from var(--foreground-tertiary) r g b / var(--opacity-medium)
+    from var(--foreground-tertiary) r g b / var(--opacity-strong)
   );
 
   /* Markdown */
   --md-marker-foreground: var(--foreground-placeholder);
 
   --md-highlight-surface: rgba(255, 210, 0, 0.26);
+  --md-compact-highlight-surface: var(--surface-subtle);
+
   --md-highlight-surface-2: #627800;
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
@@ -185,13 +187,14 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Global decoration */
   --link-underline: rgb(
-    from var(--foreground-tertiary) r g b / var(--opacity-medium)
+    from var(--foreground-tertiary) r g b / var(--opacity-strong)
   );
 
   /* Markdown */
   --md-marker-foreground: var(--foreground-tertiary);
 
   --md-highlight-surface: rgba(255, 230, 0, 0.42);
+  --md-compact-highlight-surface: var(--surface-subtle);
   --md-highlight-surface-2: #cdfe06;
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;

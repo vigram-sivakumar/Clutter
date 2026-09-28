@@ -462,3 +462,51 @@ describe('buildTopBarActions: location actions (Reveal in Finder / Copy path)', 
     );
   });
 });
+
+// Final UX decision: Description is a title-section/page-property control
+// (alongside Emoji and Cover image, in PageHeaderMoreActionsMenu) —
+// deliberately never a topbar action. These regression-guard the removal:
+// no 'add-a-description'/'Description'/'Edit description' item should ever
+// reach the topbar overflow menu for any resource type, regardless of
+// whether a description already exists.
+describe('buildTopBarActions: Description is not a topbar action', () => {
+  it("a note's topbar menu never offers a description item, with or without an existing description", () => {
+    const page = makePage('page-1', `${ROOT}/Note.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Add a description')).toBeNull();
+    expect(screen.queryByText('Description')).toBeNull();
+    expect(screen.queryByText('Edit description')).toBeNull();
+  });
+
+  it("a folder's topbar menu never offers a description item", () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { membershipSelector } = setup([folder]);
+
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Add a description')).toBeNull();
+    expect(screen.queryByText('Description')).toBeNull();
+  });
+
+  it("a Daily Note's topbar menu never offers a description item", () => {
+    const dailyNote = {
+      ...makePage('daily-1', `${ROOT}/Daily Notes/2026/September/2026-09-03.md`),
+      type: 'daily-note' as const,
+    };
+    const { membershipSelector } = setup([], [dailyNote]);
+
+    const { actions } = buildTopBarActions(dailyNote, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Add a description')).toBeNull();
+    expect(screen.queryByText('Description')).toBeNull();
+  });
+});

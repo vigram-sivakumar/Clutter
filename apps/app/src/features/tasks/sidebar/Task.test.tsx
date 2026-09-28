@@ -69,6 +69,25 @@ describe('Task — compact Markdown title rendering', () => {
     expect(title.querySelector('.compact-markdown-tag')).toHaveTextContent('#Resolved Tag');
   });
 
+  it('resolves an Embed title through the injected resolveEmbed, not the raw target path', () => {
+    const resolveEmbed = vi.fn().mockReturnValue({
+      status: 'resolved' as const,
+      pageId: 'page-1',
+      title: 'Project Alpha',
+      markdown: '',
+      icon: 'note' as const,
+      emoji: null,
+    });
+
+    const { container } = render(
+      <Task title="![[Projects/Alpha]]" isChecked={false} resolveEmbed={resolveEmbed} />
+    );
+
+    expect(resolveEmbed).toHaveBeenCalledWith('Projects/Alpha');
+    expect(container.querySelector('.task-title')).toHaveTextContent('Project Alpha');
+    expect(container).not.toHaveTextContent('![[');
+  });
+
   it('renders a shape-valid but calendar-invalid bare date as its own raw, unformatted text', () => {
     const { container } = render(<Task title="Follow up @2026-13-45" isChecked={false} />);
 

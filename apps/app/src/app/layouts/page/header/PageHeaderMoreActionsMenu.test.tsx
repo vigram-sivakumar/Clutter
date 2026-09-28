@@ -32,6 +32,7 @@ function renderMenu(overrides: Partial<PageHeaderMoreActionsMenuProps> = {}) {
   const onSetCoverImageFromUpload = vi.fn();
   const onRemoveCoverImage = vi.fn();
   const onShowCoverImage = vi.fn();
+  const onEditDescription = vi.fn();
   const utils = render(
     <PageHeaderMoreActionsMenu
       hasCoverImage={false}
@@ -41,6 +42,7 @@ function renderMenu(overrides: Partial<PageHeaderMoreActionsMenuProps> = {}) {
       onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       onRemoveCoverImage={onRemoveCoverImage}
       onShowCoverImage={onShowCoverImage}
+      onEditDescription={onEditDescription}
       {...overrides}
     />
   );
@@ -53,11 +55,12 @@ function renderMenu(overrides: Partial<PageHeaderMoreActionsMenuProps> = {}) {
     onSetCoverImageFromUpload,
     onRemoveCoverImage,
     onShowCoverImage,
+    onEditDescription,
   };
 }
 
 describe('PageHeaderMoreActionsMenu — root view', () => {
-  it('shows Emoji, Cover image, and Description when no emoji is set', () => {
+  it('shows Emoji, Cover image, and Description when no emoji/description is set', () => {
     renderMenu();
 
     expect(screen.getByText('Emoji')).toBeInTheDocument();
@@ -121,12 +124,27 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
     expect(screen.queryByText('Show cover image')).not.toBeInTheDocument();
   });
 
-  it('clicking Description closes the menu without throwing (no editor exists yet)', () => {
-    renderMenu();
+  it('clicking Description closes the menu and calls onEditDescription', () => {
+    const { onEditDescription } = renderMenu();
 
     fireEvent.click(screen.getByText('Description'));
 
+    expect(onEditDescription).toHaveBeenCalledTimes(1);
     expect(document.querySelector('.menu')).not.toBeInTheDocument();
+  });
+
+  it('omits Description when onEditDescription is not supplied, same convention as onSetCoverImage/onSelectEmoji above', () => {
+    renderMenu({ onEditDescription: undefined });
+
+    expect(screen.queryByText('Description')).not.toBeInTheDocument();
+  });
+
+  it('omits Description once a description already exists — the description text itself becomes the editing affordance', () => {
+    renderMenu({ hasDescription: true });
+
+    expect(screen.queryByText('Description')).not.toBeInTheDocument();
+    // Unaffected: Emoji/Cover image gating is independent of hasDescription.
+    expect(screen.getByText('Emoji')).toBeInTheDocument();
   });
 });
 

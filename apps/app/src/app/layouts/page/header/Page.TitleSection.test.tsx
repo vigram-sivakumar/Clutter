@@ -170,6 +170,7 @@ describe('PageTitleSection — the visible emoji is its own entry point', () => 
         emoji="🍄"
         onSelectEmoji={vi.fn()}
         onSetCoverImage={vi.fn()}
+        onEditDescription={vi.fn()}
       />
     );
 
@@ -214,6 +215,7 @@ describe('PageTitleSection — there is no cover-image control in the header its
         title="My Note"
         onSelectEmoji={vi.fn()}
         onSetCoverImage={vi.fn()}
+        onEditDescription={vi.fn()}
         hasCoverImage
       />
     );

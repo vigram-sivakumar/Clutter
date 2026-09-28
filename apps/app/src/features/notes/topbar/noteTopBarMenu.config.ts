@@ -36,6 +36,12 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
  * picks the `toggle-favorite` item's label/icon — the same id and
  * PageOperations.updateMetadata({ favorite }) call the standalone topbar
  * favorite button and every sidebar row's favorite item dispatch to.
+ *
+ * Description is deliberately NOT a topbar action (final UX decision) —
+ * it lives exclusively in the title-section controls' "More actions" menu
+ * (PageHeaderMoreActionsMenu), alongside Emoji and Cover image, since all
+ * three are page-appearance properties and that's the dedicated surface
+ * for them. There is no 'add-a-description'/'description' item here.
  */
 export function buildNoteTopBarMenu(
   state: TopBarPageState,
@@ -45,11 +51,6 @@ export function buildNoteTopBarMenu(
   const persisted = state !== 'draft';
 
   const items: TopBarMenuItemConfig[] = [
-    {
-      id: 'add-a-description',
-      label: 'Add a description',
-      icon: 'description',
-    },
     {
       id: 'duplicate',
       label: 'Duplicate',

@@ -17,6 +17,7 @@ import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesS
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import {
   FolderTree,
   type PendingNewFolder,
@@ -95,12 +96,14 @@ export function Notes({
     useState<PendingNewFolder | null>(null);
 
   // Same composition PageHost.tsx uses to inject the page editor's own
-  // WikiLink/Tag resolution — cheap, stateless glue, not worth memoizing
-  // (resolveTag.ts/resolveWikiLink.ts). Reused here so a row's compact
-  // Markdown rendering resolves WikiLinks/Tags identically to the open
-  // page, not via a second resolution implementation.
+  // WikiLink/Tag/embed resolution — cheap, stateless glue, not worth
+  // memoizing (resolveTag.ts/resolveWikiLink.ts/resolvePageEmbed.ts).
+  // Reused here so a row's compact Markdown rendering resolves
+  // WikiLinks/Tags/embeds identically to the open page, not via a second
+  // resolution implementation.
   const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations, effectivePageState);
   const resolveTag = createTagResolver(navigation, vault);
+  const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
 
   // Single owner of "which row's overflow menu/rename session is open" —
   // shared by every row FolderTree recurses through (SidebarRowActions),
@@ -366,6 +369,7 @@ export function Notes({
           workspace={workspace}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+          resolveEmbed={resolveEmbed}
           onOpenPage={(id) => {
             onOpen(id);
           }}
@@ -420,6 +424,7 @@ export function Notes({
           rowActions={rowActions}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+          resolveEmbed={resolveEmbed}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {

@@ -11,6 +11,7 @@ import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 import './Note.css';
 
@@ -22,13 +23,14 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
   emoji?: string | null;
 
   /**
-   * Injected exactly like the page editor's own WikiLink/Tag resolution
-   * (see MarkdownEditor's props of the same name) — omitted falls back to
-   * renderCompactMarkdown's own unresolved/raw-text fallback, never a
-   * second resolution implementation.
+   * Injected exactly like the page editor's own WikiLink/Tag/embed
+   * resolution (see MarkdownEditor's props of the same name) — omitted
+   * falls back to renderCompactMarkdown's own unresolved/raw-text
+   * fallback, never a second resolution implementation.
    */
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
@@ -85,6 +87,7 @@ export function Note({
   emoji,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
   isEditing = false,
   onTitleCommit,
   onTitleEdit,
@@ -164,7 +167,7 @@ export function Note({
                 : 'note__title'
             }
           >
-            {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag })}
+            {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}
           </span>
         )}
       </Entry>

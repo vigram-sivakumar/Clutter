@@ -1152,6 +1152,33 @@ describe('FolderOperations.updateMetadata() (favorite)', () => {
   });
 });
 
+describe('FolderOperations.updateMetadata() (description)', () => {
+  it('sets description in the vault and persists it to the .folder.md on disk', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { description: 'Project files' });
+
+    expect(vault.getFolder('folder-1')!.metadata.description).toBe('Project files');
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('description: Project files');
+  });
+
+  it('omits the description key entirely when null, rather than persisting a literal empty value', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { description: 'Project files' });
+    await folderOperations.updateMetadata('folder-1', { description: null });
+
+    expect(vault.getFolder('folder-1')!.metadata.description).toBeNull();
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).not.toContain('description:');
+  });
+});
+
 describe('FolderOperations.updateMetadata() (cover)', () => {
   it('sets cover in the vault and persists it to the .folder.md on disk', async () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);

@@ -55,6 +55,9 @@ export interface PageHeaderControlsProps {
   onRemoveCoverImage?: () => void;
   /** Reveals an existing hidden cover in place — see PageHeaderMoreActionsMenu's own doc comment. */
   onShowCoverImage?: () => void;
+  /** Forwarded to PageHeaderMoreActionsMenu's "Description" gate — see its own doc comment. */
+  hasDescription?: boolean;
+  onEditDescription?: () => void;
 }
 
 export function PageHeaderControls({
@@ -69,6 +72,8 @@ export function PageHeaderControls({
   onSetCoverImageFromUpload,
   onRemoveCoverImage,
   onShowCoverImage,
+  hasDescription,
+  onEditDescription,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -129,6 +134,8 @@ export function PageHeaderControls({
           onSetCoverImageFromUpload={onSetCoverImageFromUpload}
           onRemoveCoverImage={onRemoveCoverImage}
           onShowCoverImage={onShowCoverImage}
+          hasDescription={hasDescription}
+          onEditDescription={onEditDescription}
         />
       )}
     </div>

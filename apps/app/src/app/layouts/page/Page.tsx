@@ -13,6 +13,41 @@ type PageProps = {
   description?: string;
   titleEditable?: boolean;
   titlePlaceholder?: string;
+  /** Whether the description is editable at all — see PageTitle's titleEditable, same convention. Undefined/false for any page type with no "Add description" entry point wired (a reserved folder, a filtered view). */
+  descriptionEditable?: boolean;
+  descriptionPlaceholder?: string;
+  /**
+   * Transient "the user asked to see the description editor" flag —
+   * PageHost's own per-id UI state (never persisted; see
+   * PageOperations/FolderOperations, which own the persisted value).
+   * Renders an empty, editable description even while `description` is
+   * still empty — without this, an empty description never mounts at all
+   * (see the `showDescription` derivation below), so "Add a description"
+   * would have nothing to focus.
+   */
+  showDescriptionEditor?: boolean;
+  /** See PageDescription.onCommit — the discrete entry point for a still-unpersisted draft's description (no debounced channel exists before the draft is promoted). */
+  onDescriptionCommit?(description: string): void;
+  /** See PageDescription.onEdit — the continuous-commit entry point for a channel-backed description (persisted Note/Daily Note, folder). */
+  onDescriptionEdit?(description: string): void;
+  /** See PageDescription.onFlush — the non-escaped-blur-flush entry point for a channel-backed description. */
+  onDescriptionFlush?(): void;
+  /** See PageDescription.onCancel — the Escape entry point for a channel-backed description, reverting its pending value. */
+  onDescriptionCancel?(): void;
+  /**
+   * Fired by the title-section "More actions" menu's "Description" item —
+   * opens the description editor (PageHost's own transient per-id state,
+   * above). Description is deliberately a title-section/page-property
+   * control only, alongside Emoji and Cover image, never a topbar action
+   * (final UX decision — see buildTopBarActions.tsx, which has no
+   * description wiring at all). Same "omit once set" convention as
+   * Emoji/Cover image: only offered while `description` is empty (see
+   * `hasDescription` forwarded to PageTitleSection below) — once a
+   * description exists, it's directly editable in place and the item
+   * disappears, becoming available again the moment the description is
+   * cleared back to empty.
+   */
+  onEditDescription?(): void;
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
@@ -128,6 +163,13 @@ type PageProps = {
    * every navigation.
    */
   titleKey?: string;
+  /**
+   * React key for the description's EditableText, not for Page itself —
+   * same "remount so mount-once autoFocus re-fires" reasoning as titleKey,
+   * scoped separately so switching pages/opening the title editor never
+   * interacts with the description's own remount.
+   */
+  descriptionKey?: string;
 };
 
 export function Page({
@@ -135,6 +177,14 @@ export function Page({
   description,
   titleEditable,
   titlePlaceholder,
+  descriptionEditable,
+  descriptionPlaceholder,
+  showDescriptionEditor,
+  onDescriptionCommit,
+  onDescriptionEdit,
+  onDescriptionFlush,
+  onDescriptionCancel,
+  onEditDescription,
   breadcrumbs,
   menu,
   actions,
@@ -169,6 +219,7 @@ export function Page({
   onNavigateBack = () => {},
   onNavigateForward = () => {},
   titleKey,
+  descriptionKey,
 }: PageProps) {
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
@@ -177,6 +228,20 @@ export function Page({
   // getPageDisplayLabel/getFolderDisplayLabel each apply), not by any
   // page-type knowledge Page itself would otherwise need.
   const shouldAutoFocusTitle = Boolean(titleEditable) && title === '';
+
+  // A description mounts either because it already has content, or
+  // because the user just clicked "Add description"/"Description" while
+  // it was still empty (showDescriptionEditor, PageHost's own transient
+  // per-id state) — without the latter, an empty description would never
+  // render at all, and "Add a description" would have nothing to focus.
+  const showDescription = Boolean(showDescriptionEditor) || Boolean(description);
+  // Mirrors shouldAutoFocusTitle's "only autofocus while genuinely
+  // missing" rule: autofocus only the moment the editor is freshly opened
+  // on a still-empty description, never when clicking back into an
+  // already-populated one (which is already focusable via EditableText's
+  // always-on contentEditable, no autofocus needed).
+  const shouldAutoFocusDescription =
+    Boolean(showDescriptionEditor) && (description ?? '') === '';
 
   const cover = coverImage && (
     <PageCover
@@ -224,7 +289,22 @@ export function Page({
                   {title}
                 </PageTitle>
               }
-              description={description && <PageDescription>{description}</PageDescription>}
+              description={
+                showDescription ? (
+                  <PageDescription
+                    key={descriptionKey}
+                    editable={descriptionEditable}
+                    placeholder={descriptionPlaceholder}
+                    autoFocus={shouldAutoFocusDescription}
+                    onCommit={onDescriptionCommit}
+                    onEdit={onDescriptionEdit}
+                    onFlush={onDescriptionFlush}
+                    onCancel={onDescriptionCancel}
+                  >
+                    {description ?? ''}
+                  </PageDescription>
+                ) : undefined
+              }
               actions={titleActions}
               belowDescription={belowDescription}
               emoji={emoji}
@@ -232,6 +312,8 @@ export function Page({
               showMoreActions={showMoreActions}
               onSelectEmoji={onSelectEmoji}
               onRemoveEmoji={onRemoveEmoji}
+              hasDescription={Boolean(description)}
+              onEditDescription={onEditDescription}
               hasCoverImage={Boolean(coverImage)}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}

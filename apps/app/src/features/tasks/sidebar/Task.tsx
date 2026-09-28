@@ -3,6 +3,7 @@ import { Checkbox } from '@components/checkbox/Checkbox';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import './Task.css';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
@@ -15,14 +16,15 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
   onCheckedChange?: (checked: boolean) => void;
 
   /**
-   * Injected exactly like the page editor's own WikiLink/Tag resolution
-   * (see MarkdownEditor's props of the same name, and Note's identical
-   * prop doc comment) — omitted falls back to renderCompactMarkdown's own
-   * unresolved/raw-text fallback, never a second resolution
-   * implementation.
+   * Injected exactly like the page editor's own WikiLink/Tag/embed
+   * resolution (see MarkdownEditor's props of the same name, and Note's
+   * identical prop doc comment) — omitted falls back to
+   * renderCompactMarkdown's own unresolved/raw-text fallback, never a
+   * second resolution implementation.
    */
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 }
 
 export function Task({
@@ -33,6 +35,7 @@ export function Task({
   onCheckedChange,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
   ...entryProps
 }: TaskProps) {
   return (
@@ -63,7 +66,7 @@ export function Task({
       }
     >
       <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
-        {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag })}
+        {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}
       </span>
     </Entry>
   );

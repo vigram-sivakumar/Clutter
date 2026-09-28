@@ -91,8 +91,8 @@ export interface ResourceTopBarActionsProps {
    * points into it, never two implementations. Absent (undefined) omits
    * the standalone button entirely, for any resource type that doesn't
    * support favoriting (a Daily Note, a draft, a reserved folder — the
-   * latter never reaches this component at all,
-   * ReservedFolderTopBarActions is a separate renderer).
+   * latter never reaches this component at all, topBarRegistry dispatches
+   * it to its own no-op renderer instead).
    */
   onToggleFavorite?: () => void;
 }
@@ -181,6 +181,7 @@ export function ResourceTopBarActions({
         buttonSize="medium"
         buttonProps={{
           interaction: 'default',
+          'aria-label': 'More actions',
         }}
       />
 

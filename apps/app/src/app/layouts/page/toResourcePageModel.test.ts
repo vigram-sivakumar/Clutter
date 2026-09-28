@@ -41,7 +41,7 @@ describe('toResourcePageModel', () => {
     const page = buildPage({ description: 'A note', cover: '/vault/cover.png' });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe(page.name);
     expect(model.description).toBe('A note');
@@ -54,7 +54,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     session.commit(new DocumentTransaction('Edited body'));
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.markdown).toBe('Edited body');
   });
@@ -64,7 +64,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     const onUpdateMarkdown = vi.fn();
 
-    const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn());
     model.updateMarkdown('New content');
 
     expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
@@ -75,7 +75,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     const onRequestSave = vi.fn();
 
-    const model = toResourcePageModel(page, session, vi.fn(), onRequestSave, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), onRequestSave);
     model.requestSave();
 
     expect(onRequestSave).toHaveBeenCalledWith(page.id);
@@ -89,7 +89,7 @@ describe('toResourcePageModel', () => {
     });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe('');
   });
@@ -135,7 +135,7 @@ describe('toResourcePageModel', () => {
     };
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe('Untitled');
     expect(model.title).toBe(page.name);
@@ -175,21 +175,10 @@ describe('toResourcePageModel', () => {
     };
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full'));
     expect(model.title).not.toBe(page.name);
-  });
-
-  it('updateDescription delegates to the onUpdateDescription callback with the page id', () => {
-    const page = buildPage();
-    const session = new DocumentSession(page.id, page.source.markdown);
-    const onUpdateDescription = vi.fn();
-
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), onUpdateDescription);
-    model.updateDescription('New description');
-
-    expect(onUpdateDescription).toHaveBeenCalledWith(page.id, 'New description');
   });
 });
 

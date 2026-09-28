@@ -185,6 +185,23 @@ describe('Note — compact Markdown title rendering', () => {
     expect(container.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Label');
   });
 
+  it('resolves an Embed title through the injected resolveEmbed, not the raw target path', () => {
+    const resolveEmbed = vi.fn().mockReturnValue({
+      status: 'resolved' as const,
+      pageId: 'page-1',
+      title: 'Project Alpha',
+      markdown: '',
+      icon: 'note' as const,
+      emoji: null,
+    });
+
+    const { container } = render(<Note title="![[Projects/Alpha]]" resolveEmbed={resolveEmbed} />);
+
+    expect(resolveEmbed).toHaveBeenCalledWith('Projects/Alpha');
+    expect(container).toHaveTextContent('Project Alpha');
+    expect(container).not.toHaveTextContent('![[');
+  });
+
   it('row click still fires normally when the title contains Markdown', () => {
     const onClick = vi.fn();
     render(<Note title="**Ship** it" onClick={onClick} />);

@@ -1,5 +1,6 @@
 .page-description {
-  color: var(--foreground-tertiary);
-  font-size: var(--text-body);
-  line-height: var(--lh-body);
+  color: var(--foreground-secondary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  max-width: 720px;
 }

@@ -208,6 +208,26 @@ export function PageHost({
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
+  // Which page/folder ids currently have a user-requested-open description
+  // editor (see onOpenDescriptionEditor below and Page.tsx's
+  // showDescriptionEditor doc comment) — deliberately local UI state, never
+  // persisted: the description's own value remains the source of truth
+  // once it exists, this only covers the moment a still-empty description
+  // is first shown for editing. Set-based (not a single id) so a page and a
+  // folder can independently have this requested without competing for one
+  // slot, though only one resource is ever the active view at a time.
+  const [descriptionEditorRequestedIds, setDescriptionEditorRequestedIds] =
+    useState<ReadonlySet<string>>(new Set());
+
+  // The current in-progress (uncommitted-to-Vault) description text per id,
+  // populated on every keystroke (onEditPageDescription/onEditFolderDescription
+  // below) and consulted only at the moment an editing session ends (flush/
+  // cancel) to decide whether the empty-editor-hides-on-blur rule applies —
+  // see PageHost's onFlushPageDescription doc comment. A ref, not state:
+  // this is read-only-at-settlement bookkeeping, never itself a reason to
+  // re-render.
+  const descriptionDraftValues = useRef(new Map<string, string>());
+
   // Collection-view wiring: persisted per collection through
   // CollectionViewConfigStore, keyed by the current collection's identity
   // (workspace.activeView, via deriveCollectionViewKey) — shared across
@@ -437,8 +457,104 @@ export function PageHost({
     void application.pageOperations.requestSave(pageId);
   };
 
-  const onUpdateDescription = (pageId: string, description: string): void => {
-    void application.pageOperations.updateMetadata(pageId, { description });
+  // Description editing — mirrors the title channel's shape exactly (see
+  // onEditPageTitle/onFlushPageTitle/onCancelPageTitle below), targeting
+  // PageOperations.commitDescription()'s own debounced channel (which
+  // flushes through updateMetadata(), not rename()) instead of a single
+  // discrete call. A draft's description has no channel yet — it commits
+  // discretely via updateMetadata() directly, in the draft-render branch
+  // below, the same way updateDraftTitle() is title's own discrete-commit
+  // counterpart for drafts.
+  const onEditPageDescription = (pageId: string, description: string): void => {
+    descriptionDraftValues.current.set(pageId, description);
+    application.pageOperations.commitDescription(pageId, description);
+  };
+  // An empty, never-typed-into (or typed-then-cleared) editor is a
+  // transient UI affordance, not a committed value (Description UX spec
+  // §4/§7) — it must not survive a blur, and must not have written
+  // `description:` to frontmatter just because it was opened.
+  // requestDescriptionSave() itself already handles the "nothing was ever
+  // typed" case correctly (a silent no-op — commitDescription() above only
+  // arms a FieldEditState on a real keystroke) and the "typed then cleared"
+  // case (persists `null`, per the existing empty→null convention) — the
+  // only thing this adds is hiding the transient editor once its resulting
+  // value is empty, without waiting on (or racing) that async persist:
+  // descriptionDraftValues holds the live, synchronously-known typed value,
+  // so this never has to guess from the still-stale `description` prop.
+  const onFlushPageDescription = (pageId: string): void => {
+    void application.pageOperations.requestDescriptionSave(pageId);
+    const draftValue = descriptionDraftValues.current.get(pageId);
+    if (!draftValue) {
+      hideDescriptionEditor(pageId);
+    }
+    descriptionDraftValues.current.delete(pageId);
+  };
+  // Escape reverts to whatever was already persisted (cancelDescriptionEdit
+  // never writes) — so, unlike flush, the correct "should this hide" signal
+  // is simply whether a description already existed *before* this editing
+  // session, not what (if anything) was typed and then discarded.
+  const onCancelPageDescription = (
+    pageId: string,
+    hadPersistedDescription: boolean
+  ): void => {
+    application.pageOperations.cancelDescriptionEdit(pageId);
+    descriptionDraftValues.current.delete(pageId);
+    if (!hadPersistedDescription) {
+      hideDescriptionEditor(pageId);
+    }
+  };
+
+  // Folder-scoped counterpart to the three handlers above — same channel
+  // shape, backed by FolderOperations.commitDescription() instead.
+  const onEditFolderDescription = (folderId: string, description: string): void => {
+    descriptionDraftValues.current.set(folderId, description);
+    application.folderOperations.commitDescription(folderId, description);
+  };
+  const onFlushFolderDescription = (folderId: string): void => {
+    void application.folderOperations.requestDescriptionSave(folderId);
+    const draftValue = descriptionDraftValues.current.get(folderId);
+    if (!draftValue) {
+      hideDescriptionEditor(folderId);
+    }
+    descriptionDraftValues.current.delete(folderId);
+  };
+  const onCancelFolderDescription = (
+    folderId: string,
+    hadPersistedDescription: boolean
+  ): void => {
+    application.folderOperations.cancelDescriptionEdit(folderId);
+    descriptionDraftValues.current.delete(folderId);
+    if (!hadPersistedDescription) {
+      hideDescriptionEditor(folderId);
+    }
+  };
+
+  // Transient "the user asked to see the description editor" state
+  // (product decision: never persisted — see Page.tsx's showDescriptionEditor
+  // doc comment). Keyed by page/folder id so switching the active resource
+  // can never leak a requested-open editor onto a different one — a page's
+  // entry simply isn't consulted while a different id is active.
+  const onOpenDescriptionEditor = (id: string): void => {
+    setDescriptionEditorRequestedIds((previous) => {
+      if (previous.has(id)) {
+        return previous;
+      }
+
+      const next = new Set(previous);
+      next.add(id);
+      return next;
+    });
+  };
+  const hideDescriptionEditor = (id: string): void => {
+    setDescriptionEditorRequestedIds((previous) => {
+      if (!previous.has(id)) {
+        return previous;
+      }
+
+      const next = new Set(previous);
+      next.delete(id);
+      return next;
+    });
   };
 
   const onArchive = (): void => {
@@ -778,9 +894,9 @@ export function PageHost({
     });
     // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
-    // ReservedFolderTopBarActions (no delete button) via
-    // MembershipSelector.isSystemFolder, but title-editability has no
-    // equivalent automatic gate, so it's checked here explicitly.
+    // topBarRegistry's no-op reserved-folder renderer (no menu trigger at
+    // all) via MembershipSelector.isSystemFolder, but title-editability has
+    // no equivalent automatic gate, so it's checked here explicitly.
     const isRenameable = !application.membershipSelector.isSystemFolder(folder);
     // The Archive folder gets a resource-aware body (ArchiveCollectionBody)
     // instead of the plain folder/note-shaped CollectionBody — see that
@@ -878,6 +994,37 @@ export function PageHost({
           }
           onTitleCancel={
             isRenameable ? () => onCancelFolderName(folder.id) : undefined
+          }
+          descriptionKey={folder.id}
+          // Same reserved-vs-ordinary gate as showMoreActions/emoji/cover
+          // below — a reserved folder has no "Description" entry point at
+          // all (its menu is never rendered), so this stays unreachable
+          // for one regardless, but is gated explicitly for consistency.
+          descriptionEditable={!folderSystemLocationId}
+          showDescriptionEditor={descriptionEditorRequestedIds.has(folder.id)}
+          onDescriptionEdit={
+            !folderSystemLocationId
+              ? (description) => onEditFolderDescription(folder.id, description)
+              : undefined
+          }
+          onDescriptionFlush={
+            !folderSystemLocationId
+              ? () => onFlushFolderDescription(folder.id)
+              : undefined
+          }
+          onDescriptionCancel={
+            !folderSystemLocationId
+              ? () =>
+                  onCancelFolderDescription(
+                    folder.id,
+                    Boolean(folder.metadata.description)
+                  )
+              : undefined
+          }
+          onEditDescription={
+            !folderSystemLocationId
+              ? () => onOpenDescriptionEditor(folder.id)
+              : undefined
           }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
@@ -1053,6 +1200,7 @@ export function PageHost({
             onOpenCompleted={() => application.navigation.openTasksCompleted()}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
+            resolveEmbed={resolvePageEmbed}
           />
         }
       />
@@ -1217,18 +1365,61 @@ export function PageHost({
       onRequestSave
     );
     const draftTopBar = buildDraftTopBarActions(draft.type);
+    // A draft has no persisted metadata to read back from (ADR-017) — while
+    // typing, the only place the in-progress text exists is
+    // descriptionDraftValues (set by onDescriptionEdit below). Falling back
+    // to it here (rather than the model's always-'' description) is what
+    // keeps the field showing what was just typed during the brief async
+    // window between commit (blur) and the draft's actual promotion —
+    // without it, the next render (still on this draft branch, since
+    // vault.getPage() hasn't resolved the promotion yet) would re-sync the
+    // controlled EditableText back to the stale empty value.
+    const draftDescription =
+      descriptionDraftValues.current.get(activePageId) ?? model.description;
 
     return (
       <Page
         titleKey={activePageId}
+        descriptionKey={activePageId}
         canNavigateBack={workspace.canNavigateBack}
         canNavigateForward={workspace.canNavigateForward}
         onNavigateBack={() => application.navigation.back()}
         onNavigateForward={() => application.navigation.forward()}
         title={model.title}
-        description={model.description}
+        description={draftDescription}
         titleEditable
         titlePlaceholder={getPageTitlePlaceholder(draft.type)}
+        descriptionEditable
+        showDescriptionEditor={descriptionEditorRequestedIds.has(activePageId)}
+        // Tracking-only — a draft has no debounced channel of its own
+        // (updateDraftTitle()'s counterpart doesn't exist for description;
+        // updateMetadata()'s draft branch is discrete-commit-only), so this
+        // never calls PageOperations. It exists purely so onDescriptionFlush
+        // below can know synchronously whether anything was typed this
+        // session, the same draftValues mechanism the persisted branches use.
+        onDescriptionEdit={(description) =>
+          descriptionDraftValues.current.set(activePageId, description)
+        }
+        onDescriptionCommit={(description) => {
+          descriptionDraftValues.current.delete(activePageId);
+          void application.pageOperations.updateMetadata(activePageId, {
+            description,
+          });
+        }}
+        onDescriptionFlush={() => {
+          const draftValue = descriptionDraftValues.current.get(activePageId);
+          if (!draftValue) {
+            hideDescriptionEditor(activePageId);
+          }
+          descriptionDraftValues.current.delete(activePageId);
+        }}
+        onDescriptionCancel={() => {
+          descriptionDraftValues.current.delete(activePageId);
+          // A draft never has a persisted description to revert to — Escape
+          // always returns to the no-description state.
+          hideDescriptionEditor(activePageId);
+        }}
+        onEditDescription={() => onOpenDescriptionEditor(activePageId)}
         breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
@@ -1327,13 +1518,7 @@ export function PageHost({
     throw new Error(`Unsupported page type: ${page.type}`);
   }
 
-  const model = toResourcePageModel(
-    page,
-    session,
-    onUpdateMarkdown,
-    onRequestSave,
-    onUpdateDescription
-  );
+  const model = toResourcePageModel(page, session, onUpdateMarkdown, onRequestSave);
   // Move applies only to Notes and Folders (approved contract) — a Daily
   // Note's menu never includes a `move-to` item (dailyNoteTopBarMenu.config.ts),
   // so moveDestinations/onMove are only ever computed and passed for a
@@ -1373,6 +1558,7 @@ export function PageHost({
   return (
     <Page
       titleKey={activePageId}
+      descriptionKey={activePageId}
       canNavigateBack={workspace.canNavigateBack}
       canNavigateForward={workspace.canNavigateForward}
       onNavigateBack={() => application.navigation.back()}
@@ -1387,6 +1573,18 @@ export function PageHost({
       onTitleCancel={
         isRenameable ? () => onCancelPageTitle(page.id) : undefined
       }
+      // A Note and a Daily Note both offer "Add a description"/"Description"
+      // (dailyNoteTopBarMenu.config.ts includes the same item noteTopBarMenu
+      // does) — unlike title, description editability has no note-vs-daily-
+      // note distinction.
+      descriptionEditable
+      showDescriptionEditor={descriptionEditorRequestedIds.has(page.id)}
+      onDescriptionEdit={(description) => onEditPageDescription(page.id, description)}
+      onDescriptionFlush={() => onFlushPageDescription(page.id)}
+      onDescriptionCancel={() =>
+        onCancelPageDescription(page.id, Boolean(page.metadata.description))
+      }
+      onEditDescription={() => onOpenDescriptionEditor(page.id)}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
       // Page-header-controls configuration: a Note is user-owned (its

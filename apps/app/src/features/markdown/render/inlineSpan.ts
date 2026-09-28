@@ -1,5 +1,7 @@
 import type { SyntaxNode } from '@lezer/common';
 
+import { VaultPath } from '@core/vault/ingest/VaultPath';
+
 import { scanDate } from '../editor/codemirror/date/dateScanner';
 import { scanEmbed } from '../editor/codemirror/embed/embedScanner';
 import { scanTag } from '../editor/codemirror/tag/tagScanner';
@@ -13,10 +15,26 @@ import { scanWikiLink } from '../editor/codemirror/wikilink/wikiLinkScanner';
  * should one ever exist, shares this exact vocabulary instead of
  * independently deciding what counts as bold/italic/strikethrough/code/
  * highlight/WikiLink/Tag/Date/link/image.
+ *
+ * The four "styled container" kinds (`bold`/`italic`/`strikethrough`/
+ * `highlight`) carry `children: InlineSpan[]` rather than a flat `value`
+ * string — each composes with whatever semantic spans its own Markdown
+ * children produce (a nested `Link`, `WikiLink`, `InlineCode`, or another
+ * styled container), rather than flattening nested syntax to raw text.
+ * `code` (`InlineCode`) stays a plain leaf with a `value` string: per
+ * CommonMark, a code span's own content is never further parsed — no
+ * nested Link/WikiLink/emphasis can ever appear inside one, so there is
+ * nothing to recurse into by construction, unlike the other four.
  */
+export interface StyledSpan {
+  readonly kind: 'bold' | 'italic' | 'strikethrough' | 'highlight';
+  readonly children: readonly InlineSpan[];
+}
+
 export type InlineSpan =
   | { readonly kind: 'text'; readonly value: string }
-  | { readonly kind: 'bold' | 'italic' | 'strikethrough' | 'code' | 'highlight'; readonly value: string }
+  | StyledSpan
+  | { readonly kind: 'code'; readonly value: string }
   | { readonly kind: 'wikilink'; readonly path: string; readonly alias: string | null }
   | { readonly kind: 'tag'; readonly name: string }
   | { readonly kind: 'date'; readonly isoDate: string }
@@ -25,23 +43,18 @@ export type InlineSpan =
   | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null };
 
 /**
- * Emphasis-family node kinds that flatten to a single span: each always
- * parses with exactly two same-named mark children bracketing its content
- * (confirmed against the installed `@lezer/markdown` by
- * `emphasisMarkerDecoration.ts`/`strikethroughMarkerDecoration.ts`/
- * `inlineCodeMarkerDecoration.ts`, whose doc comments this reuses rather
- * than re-deriving). A nested construct between the marks (`***bold
- * italic***`, `**[[Note]]**`) is deliberately not recursed into — it
- * stays as literal raw text inside the outer span's `value`, one flat
- * style per span.
+ * The four styled-container node kinds — each always parses with exactly
+ * two same-named mark children bracketing its content (confirmed against
+ * the installed `@lezer/markdown` by `emphasisMarkerDecoration.ts`/
+ * `strikethroughMarkerDecoration.ts`, whose doc comments this reuses
+ * rather than re-deriving). `InlineCode` is deliberately not in this map —
+ * see `StyledSpan`'s own doc comment for why it stays a leaf, handled
+ * separately in `tokenizeChildren` below.
  */
-export const EMPHASIS_NODES: Readonly<
-  Record<string, { kind: 'bold' | 'italic' | 'strikethrough' | 'code' | 'highlight'; markName: string }>
-> = {
+export const STYLED_CONTAINER_NODES: Readonly<Record<string, { kind: StyledSpan['kind']; markName: string }>> = {
   Emphasis: { kind: 'italic', markName: 'EmphasisMark' },
   StrongEmphasis: { kind: 'bold', markName: 'EmphasisMark' },
   Strikethrough: { kind: 'strikethrough', markName: 'StrikethroughMark' },
-  InlineCode: { kind: 'code', markName: 'CodeMark' },
   Highlight: { kind: 'highlight', markName: 'HighlightMark' },
 };
 
@@ -115,14 +128,61 @@ export function bracketedLabelText(node: SyntaxNode, text: string): string | nul
   return text.slice(open.to, close.from);
 }
 
-export function readLink(node: SyntaxNode, text: string): InlineSpan {
-  const label = bracketedLabelText(node, text);
-  return label === null ? { kind: 'text', value: text.slice(node.from, node.to) } : { kind: 'link', label };
+/**
+ * The `URL` child of a `Link`/`Image` node (see `bracketedLabelText`'s own
+ * doc comment for the shared node shape) — `null` when the node has none
+ * (e.g. an empty destination, `[label]()`), never re-derived by manual
+ * `LinkMark` counting the way the bracketed label is, since `URL` already
+ * exists as its own named child.
+ */
+function linkUrlText(node: SyntaxNode, text: string): string | null {
+  const url = node.getChild('URL');
+  return url ? text.slice(url.from, url.to) : null;
 }
 
-export function readImage(node: SyntaxNode, text: string): InlineSpan {
+/**
+ * Compact-rendering fallback policy for a Link with an empty label
+ * (`[](url)`): the URL is still meaningfully addressable content — shown
+ * as plain text, the same treatment Autolink/bare-URL already get —
+ * rather than a blank span. `[label]()` (empty URL, real label) is
+ * unaffected: `bracketedLabelText` already returns the non-empty label,
+ * so this fallback is never reached for it. When both label and URL are
+ * empty/absent there's nothing addressable at all — `null` tells the
+ * caller to contribute nothing, never a raw `[]()`.
+ */
+export function readLink(node: SyntaxNode, text: string): InlineSpan | null {
+  const label = bracketedLabelText(node, text);
+  if (label === null) {
+    return { kind: 'text', value: text.slice(node.from, node.to) };
+  }
+  if (label.trim().length > 0) {
+    return { kind: 'link', label };
+  }
+  const url = linkUrlText(node, text);
+  return url ? { kind: 'link', label: url } : null;
+}
+
+/**
+ * Compact-rendering fallback policy for an Image with empty alt text
+ * (`![](url)`): the URL's own basename, extension stripped — reusing
+ * `VaultPath.stemName` (the one general path-string utility already
+ * trusted for WikiLink/Embed target-basename fallbacks, per
+ * `ARCHITECTURE_RULES.md` rule 9 — never a second path parser) — rather
+ * than the raw URL or a generic "Image" placeholder, since a filename is
+ * still real, recognizable information the user can act on. `null` (no
+ * usable alt or basename) tells the caller to contribute nothing.
+ */
+export function readImage(node: SyntaxNode, text: string): InlineSpan | null {
   const alt = bracketedLabelText(node, text);
-  return alt === null ? { kind: 'text', value: text.slice(node.from, node.to) } : { kind: 'image', alt };
+  if (alt === null) {
+    return { kind: 'text', value: text.slice(node.from, node.to) };
+  }
+  if (alt.trim().length > 0) {
+    return { kind: 'image', alt };
+  }
+  const url = linkUrlText(node, text);
+  const basename = url ? VaultPath.stemName(url) : '';
+  return basename ? { kind: 'image', alt: basename } : null;
 }
 
 /**
@@ -142,44 +202,101 @@ export function readEmbed(node: SyntaxNode, text: string): InlineSpan {
 }
 
 /**
- * Flattens `node`'s inline content to a marker-free sequence of
- * `InlineSpan`s. Shared by `tokenizeCompactMarkdown` (called with
- * `tree.topNode`, spanning an entire compact-rendered string) and the
- * block-aware renderer (called once per block node — a `Paragraph`,
- * a heading's content, etc. — so each block's inline formatting is
- * tokenized independently of its surrounding block structure).
- *
- * Any node of a recognized kind (emphasis family, WikiLink, Tag, Date,
- * Link, Image, Autolink, bare URL) is emitted as its own span and not
- * recursed into; everything else is recursed through so its recognized
- * descendants are still found, wherever nested. Text between/around
- * recognized nodes — including block-structural marks like a heading's
- * `HeaderMark` or a blockquote's `QuoteMark`, when `node` itself is one
- * of those container nodes — is captured verbatim as `'text'` spans:
- * stripping those is each caller's own responsibility (e.g. by passing
- * `from` past the mark), not this function's, so compact rendering's
- * existing, deliberate "leave block markers as literal text" behavior
- * is unaffected by callers that do need them stripped.
- *
- * `from` overrides where the first span's leading edge is measured from
- * (defaults to `node.from`) — used to skip a leading structural mark
- * without changing this function's own mark-handling behavior.
+ * Pure structural markup with no content of its own — a heading's `#`
+ * run, a blockquote's `>`, a list item's `-`/`*`/`+`/`1.`, a task item's
+ * `[ ]`/`[x]`, a task's `@completed:...` annotation (already concealed in
+ * the real editor, per `taskCompletionMetadataSyntax.ts`'s own doc
+ * comment), and — since nested-inline composition — the four styled
+ * containers' own opening/closing marks (`**`/`*`/`~~`/`==`). Consumed
+ * with no span of their own wherever they occur in a walked node's
+ * descendants, at any nesting depth: this is what lets `tokenizeChildren`
+ * below recurse into a `StrongEmphasis`'s own children and have its
+ * `EmphasisMark` pair disappear the same way a top-level `HeaderMark`
+ * already does, with no separate per-container marker-stripping step.
+ * `EmojiListMark` is deliberately excluded — it is real, user-chosen
+ * content (see `selectCompactBlock.ts`'s own doc comment) — and
+ * `CodeMark` is excluded too, since `InlineCode` is intercepted as a leaf
+ * before generic recursion ever reaches its own mark children (see
+ * `StyledSpan`'s own doc comment).
  */
-export function tokenizeInline(node: SyntaxNode, text: string, from?: number): InlineSpan[] {
+const STRUCTURAL_MARKER_NODE_NAMES: ReadonlySet<string> = new Set([
+  'HeaderMark',
+  'QuoteMark',
+  'ListMark',
+  'TaskMarker',
+  'TaskCompletionMetadata',
+  'EmphasisMark',
+  'StrikethroughMark',
+  'HighlightMark',
+]);
+
+/**
+ * Walks `node`'s direct children (not `node` itself) into a marker-free,
+ * semantically-typed sequence of `InlineSpan`s — the single recursive
+ * engine both `tokenizeInline` (called once per selected block) and each
+ * styled container's own recursive case below share, so a `Strikethrough`
+ * or `StrongEmphasis` node's children are walked by the exact same logic
+ * as a `Paragraph`'s, with no special-cased "strike+link"/"strong+
+ * WikiLink"/etc. combinations anywhere.
+ *
+ * Any node of a recognized *semantic* kind (`WikiLink`, `Tag`, `Date`,
+ * `Link`, `Image`, `Embed`, `Autolink`, bare `URL`, `InlineCode`) is
+ * emitted as its own leaf span and not recursed into — these are the
+ * constructs `StyledSpan`'s own doc comment lists as never losing their
+ * type, regardless of how deeply nested inside styled containers they
+ * are. Any node of a recognized *styled-container* kind (`Emphasis`/
+ * `StrongEmphasis`/`Strikethrough`/`Highlight`) recurses into its own
+ * children via this same function, producing a `StyledSpan` whose
+ * `children` compose with whatever that recursive call finds — this is
+ * what replaces the old "flatten to raw text" behavior: nesting composes
+ * by nesting spans, not by string-concatenating markers into a value.
+ * `STRUCTURAL_MARKER_NODE_NAMES` is consumed with no span at any depth.
+ * Everything else unrecognized is recursed through generically so its own
+ * recognized descendants are still found, wherever nested, captured as
+ * `'text'` spans in the gaps between them.
+ */
+function tokenizeChildren(node: SyntaxNode, text: string, from?: number): InlineSpan[] {
   const spans: InlineSpan[] = [];
   let cursor = from ?? node.from;
 
   function pushText(from: number, to: number): void {
     if (to > from) {
-      spans.push({ kind: 'text', value: text.slice(from, to) });
+      const value = text.slice(from, to);
+      const last = spans[spans.length - 1];
+      // Merge into an immediately-preceding text span rather than pushing
+      // a second adjacent one — two marker-skips in a row (e.g. a task
+      // item's `ListMark` then `TaskMarker`, each consuming their own
+      // gap) would otherwise leave the whitespace between them as its own
+      // orphan span instead of one contiguous run of text.
+      if (last && last.kind === 'text') {
+        spans[spans.length - 1] = { kind: 'text', value: last.value + value };
+      } else {
+        spans.push({ kind: 'text', value });
+      }
     }
   }
 
   function visit(n: SyntaxNode): void {
-    const emphasis = EMPHASIS_NODES[n.name];
-    if (emphasis) {
+    if (STRUCTURAL_MARKER_NODE_NAMES.has(n.name)) {
       pushText(cursor, n.from);
-      spans.push({ kind: emphasis.kind, value: markedInnerText(n, text, emphasis.markName) });
+      cursor = n.to;
+      return;
+    }
+
+    const container = STYLED_CONTAINER_NODES[n.name];
+    if (container) {
+      pushText(cursor, n.from);
+      // Recurse into this container's own children — a nested Link,
+      // WikiLink, InlineCode, or another styled container inside it is
+      // found and typed by this same walk, not flattened to raw text.
+      spans.push({ kind: container.kind, children: tokenizeChildren(n, text) });
+      cursor = n.to;
+      return;
+    }
+
+    if (n.name === 'InlineCode') {
+      pushText(cursor, n.from);
+      spans.push({ kind: 'code', value: markedInnerText(n, text, 'CodeMark') });
       cursor = n.to;
       return;
     }
@@ -193,7 +310,10 @@ export function tokenizeInline(node: SyntaxNode, text: string, from?: number): I
 
     if (n.name === 'Link' || n.name === 'Image') {
       pushText(cursor, n.from);
-      spans.push(n.name === 'Link' ? readLink(n, text) : readImage(n, text));
+      const span = n.name === 'Link' ? readLink(n, text) : readImage(n, text);
+      if (span) {
+        spans.push(span);
+      }
       cursor = n.to;
       return;
     }
@@ -224,8 +344,35 @@ export function tokenizeInline(node: SyntaxNode, text: string, from?: number): I
     }
   }
 
-  visit(node);
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    visit(child);
+  }
   pushText(cursor, node.to);
 
   return spans;
+}
+
+/**
+ * Flattens `node`'s inline content to a marker-free sequence of
+ * `InlineSpan`s. Called both by `tokenizeCompactMarkdown`'s legacy
+ * whole-document callers and, since the block-aware compact-rendering
+ * policy (`selectCompactBlock.ts`), once per *selected* block node — a
+ * `Paragraph`, a heading, a blockquote, a list item — never the whole
+ * document at once for those callers, since block selection has already
+ * decided which single block is being rendered.
+ *
+ * A thin entry point over `tokenizeChildren` (this module's own recursive
+ * engine, shared with every styled container's own nested recursion) —
+ * walks `node`'s children directly rather than dispatching on `node`
+ * itself, since every real caller passes a block-level node
+ * (`Paragraph`/heading/`Blockquote`/`ListItem`) that never itself matches
+ * a styled-container or semantic-leaf case.
+ *
+ * `from` overrides where the first span's leading edge is measured from
+ * (defaults to `node.from`) — a caller-controlled starting offset within
+ * `node`, independent of the marker-consuming behavior `tokenizeChildren`
+ * already applies at every depth.
+ */
+export function tokenizeInline(node: SyntaxNode, text: string, from?: number): InlineSpan[] {
+  return tokenizeChildren(node, text, from);
 }

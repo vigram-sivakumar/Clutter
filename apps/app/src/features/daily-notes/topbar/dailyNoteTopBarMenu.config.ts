@@ -19,6 +19,10 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
  * Delete is present only when `isDeletable` — same restriction and same
  * caller-computed boolean as noteTopBarMenu.config.ts's buildNoteTopBarMenu;
  * see its doc comment.
+ *
+ * Description is deliberately NOT a topbar action (final UX decision) —
+ * see noteTopBarMenu.config.ts's identical doc comment for the full
+ * rationale.
  */
 export function buildDailyNoteTopBarMenu(
   state: TopBarPageState,
@@ -27,11 +31,6 @@ export function buildDailyNoteTopBarMenu(
   const persisted = state !== 'draft';
 
   const items: TopBarMenuItemConfig[] = [
-    {
-      id: 'add-a-description',
-      label: 'Add a description',
-      icon: 'description',
-    },
     {
       id: 'version-history',
       label: 'Version history',

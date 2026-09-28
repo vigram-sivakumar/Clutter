@@ -44,6 +44,23 @@ describe('DailyNote — compact Markdown title rendering', () => {
     expect(container.querySelector('.compact-markdown-tag')).toHaveTextContent('#Resolved Tag');
   });
 
+  it('resolves an Embed title through the injected resolveEmbed, not the raw target path', () => {
+    const resolveEmbed = vi.fn().mockReturnValue({
+      status: 'resolved' as const,
+      pageId: 'page-1',
+      title: 'Project Alpha',
+      markdown: '',
+      icon: 'note' as const,
+      emoji: null,
+    });
+
+    const { container } = render(<DailyNote title="![[Projects/Alpha]]" resolveEmbed={resolveEmbed} />);
+
+    expect(resolveEmbed).toHaveBeenCalledWith('Projects/Alpha');
+    expect(container.querySelector('.daily-note__title')).toHaveTextContent('Project Alpha');
+    expect(container).not.toHaveTextContent('![[');
+  });
+
   it('row click still fires normally when the title contains Markdown', () => {
     const onClick = vi.fn();
     render(<DailyNote title="**Ship** it" onClick={onClick} />);

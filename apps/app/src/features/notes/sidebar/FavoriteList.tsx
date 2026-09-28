@@ -6,6 +6,7 @@ import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import type { SidebarRowActions } from './FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 interface FavoriteListProps {
   items: FavoriteItem[];
@@ -32,6 +33,7 @@ interface FavoriteListProps {
    */
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 }
 
 export function FavoriteList({
@@ -42,6 +44,7 @@ export function FavoriteList({
   rowActions,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
 }: FavoriteListProps) {
   return items.map((item) => {
     if (item.type === 'note') {
@@ -62,6 +65,7 @@ export function FavoriteList({
           emoji={item.emoji}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+          resolveEmbed={resolveEmbed}
           selected={workspace.activePageId === item.id}
           onClick={() => onOpenPage(item.id)}
           menuItems={menuItems}

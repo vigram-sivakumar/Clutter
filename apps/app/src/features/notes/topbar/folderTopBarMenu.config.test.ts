@@ -74,4 +74,14 @@ describe('buildFolderTopBarMenu', () => {
       'copy-path-full-path',
     ]);
   });
+
+  // Final UX decision: Description is a title-section/page-property
+  // control (PageHeaderMoreActionsMenu), never a topbar action.
+  it("never includes 'add-a-description' — Description is not a topbar action", () => {
+    const active = buildFolderTopBarMenu('active').map((i) => i.id);
+    const archived = buildFolderTopBarMenu('archived').map((i) => i.id);
+
+    expect(active).not.toContain('add-a-description');
+    expect(archived).not.toContain('add-a-description');
+  });
 });

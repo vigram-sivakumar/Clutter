@@ -119,9 +119,9 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it("a reserved folder renders ReservedFolderTopBarActions instead, with no Delete option", () => {
+  it('a reserved folder renders no topbar menu trigger — no meaningful actions exist for one yet', () => {
     render(<>{renderTopBarActions('reserved-folder')}</>);
 
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

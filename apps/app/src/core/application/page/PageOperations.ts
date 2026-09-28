@@ -162,6 +162,20 @@ export class PageOperations {
    */
   private readonly titleStates = new Map<string, FieldEditState<string>>();
 
+  /**
+   * Per-persisted-page description edit/save state — the description
+   * channel's counterpart to titleStates above, same FieldEditState<string>
+   * + SaveCoordinator channel shape, but flushing through updateMetadata()
+   * instead of rename(): a description edit is an ordinary metadata write,
+   * not a filesystem rename, so it uses SaveCoordinator's own default
+   * autosave cadence rather than title's deliberately longer one (see
+   * TITLE_AUTOSAVE_DEBOUNCE_MS's doc comment for why title differs). Never
+   * populated for a draft — a draft's description commits discretely
+   * through updateMetadata()'s own draft-promotion branch instead,
+   * mirroring updateDraftTitle().
+   */
+  private readonly descriptionStates = new Map<string, FieldEditState<string>>();
+
   constructor(
     private readonly vault: Vault,
     private readonly workspace: Workspace,
@@ -261,14 +275,20 @@ export class PageOperations {
       // any more than an unsaved body edit is. A no-op if this page has no
       // title-editing activity (requestTitleSave()'s own guard).
       const titleSave = this.requestTitleSave(activePageId);
+      // Same "nothing dirty may survive this moment" boundary, extended to
+      // the description channel now that it exists — a still-debouncing
+      // description edit must not be silently dropped on navigation-away
+      // any more than title's is. A no-op if this page has no
+      // description-editing activity (requestDescriptionSave()'s own guard).
+      const descriptionSave = this.requestDescriptionSave(activePageId);
 
-      // Once both channels have settled — after promotion would have
+      // Once every channel has settled — after promotion would have
       // happened, if this flush's content was enough to trigger one — an
       // unpersisted draft that's still sitting unpromoted has nothing left
       // to keep it alive. Chained, not awaited: flushActivePage() itself
       // stays fire-and-forget (doc comment above), this is just what runs
       // once the forgotten fire resolves.
-      void Promise.all([bodySave, titleSave]).then(() =>
+      void Promise.all([bodySave, titleSave, descriptionSave]).then(() =>
         this.discardAbandonedDraft(activePageId)
       );
     }
@@ -794,6 +814,7 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
     this.disposeTitleState(pageId);
+    this.disposeDescriptionState(pageId);
   }
 
   /**
@@ -812,6 +833,19 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
     titleState.markDisposed();
     this.titleStates.delete(pageId);
+  }
+
+  /** The description channel's counterpart to disposeTitleState() — same contract. */
+  private disposeDescriptionState(pageId: string): void {
+    const descriptionState = this.descriptionStates.get(pageId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    this.saveCoordinator.cancelTimers(this.descriptionChannelKey(pageId));
+    descriptionState.markDisposed();
+    this.descriptionStates.delete(pageId);
   }
 
   /**
@@ -835,6 +869,18 @@ export class PageOperations {
 
     titleState.commit(titleState.savedValue);
     this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
+  }
+
+  /** The description channel's counterpart to cancelTitleEdit() — same contract. */
+  public cancelDescriptionEdit(pageId: string): void {
+    const descriptionState = this.descriptionStates.get(pageId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    descriptionState.commit(descriptionState.savedValue);
+    this.saveCoordinator.cancelTimers(this.descriptionChannelKey(pageId));
   }
 
   public getSession(pageId: string): DocumentSession | undefined {
@@ -1159,6 +1205,113 @@ export class PageOperations {
     }
   }
 
+  /** The description channel's SaveCoordinator key — distinct from `pageId`/titleChannelKey() so it can never collide with either. */
+  private descriptionChannelKey(pageId: string): string {
+    return `${pageId}:description`;
+  }
+
+  /**
+   * Commits a persisted page's description in memory only — the
+   * description-channel counterpart to commitTitle(), same contract, but
+   * armed with SaveCoordinator's default autosave cadence (no
+   * debounceMs/ceilingMs override) rather than title's own longer one,
+   * since a description edit is an ordinary metadata write, not a
+   * filesystem rename.
+   *
+   * Only valid for a real, persisted page — a draft's description has no
+   * separate commit/persist split and goes through updateMetadata()'s own
+   * draft-promotion branch instead, unconditionally, mirroring
+   * updateDraftTitle()'s relationship to rename().
+   */
+  public commitDescription(pageId: string, description: string): void {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    const descriptionState =
+      this.descriptionStates.get(pageId) ??
+      new FieldEditState(page.metadata.description ?? '');
+
+    this.descriptionStates.set(pageId, descriptionState);
+    descriptionState.commit(description);
+
+    this.saveCoordinator.scheduleSave(this.descriptionChannelKey(pageId), () => {
+      void this.requestDescriptionSave(pageId);
+    });
+  }
+
+  /**
+   * The description channel's counterpart to requestTitleSave() — same
+   * single-entry-point, coalescing, never-throws contract, flushing
+   * through updateMetadata({ description }) instead of rename(). A silent
+   * no-op if this page has no description-editing activity.
+   */
+  public requestDescriptionSave(pageId: string): Promise<void> {
+    const key = this.descriptionChannelKey(pageId);
+    const existing = this.inFlightSaves.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    const promise = this.runRequestDescriptionSave(pageId).finally(() => {
+      if (this.inFlightSaves.get(key) === promise) {
+        this.inFlightSaves.delete(key);
+      }
+    });
+
+    this.inFlightSaves.set(key, promise);
+
+    return promise;
+  }
+
+  private async runRequestDescriptionSave(pageId: string): Promise<void> {
+    const descriptionState = this.descriptionStates.get(pageId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    const key = this.descriptionChannelKey(pageId);
+
+    for (;;) {
+      const decision = this.saveCoordinator.evaluate(
+        descriptionState.state,
+        descriptionState.isDirty
+      );
+
+      if (decision === 'suppress') {
+        return;
+      }
+
+      const value = descriptionState.currentValue;
+
+      descriptionState.beginSave();
+      this.saveCoordinator.beginChannelSave(key, value);
+
+      try {
+        // Empty commits as `null`, not `''` — the same domain-level
+        // null-means-no-value convention PageMetadata.description already
+        // uses (resolvePageMetadata's own `?? null` default), so clearing a
+        // description omits the frontmatter key on the next write instead
+        // of leaving a literal, meaningless `description: ` line.
+        await this.updateMetadata(pageId, { description: value || null });
+
+        if (this.saveCoordinator.completeChannelSave(key, value)) {
+          descriptionState.markSaved(value);
+        }
+      } catch {
+        // Mirrors runRequestTitleSave()'s T11a/T11b split.
+        if (this.saveCoordinator.failChannelSave(key, value)) {
+          descriptionState.markSaveFailed();
+        }
+        return;
+      }
+    }
+  }
+
   /**
    * Shutdown flush (autosave-execution-model.md §7): flushes every
    * session that either has unsaved content or is already mid-save,
@@ -1203,7 +1356,22 @@ export class PageOperations {
       )
       .map(([pageId]) => pageId);
 
-    if (dirtyOrSaving.length === 0 && dirtyOrSavingTitlePageIds.length === 0) {
+    // Same shutdown boundary, extended to the description channel.
+    const dirtyOrSavingDescriptionPageIds = [
+      ...this.descriptionStates.entries(),
+    ]
+      .filter(
+        ([, descriptionState]) =>
+          descriptionState.isDirty ||
+          descriptionState.state === DocumentState.Saving
+      )
+      .map(([pageId]) => pageId);
+
+    if (
+      dirtyOrSaving.length === 0 &&
+      dirtyOrSavingTitlePageIds.length === 0 &&
+      dirtyOrSavingDescriptionPageIds.length === 0
+    ) {
       return;
     }
 
@@ -1211,6 +1379,9 @@ export class PageOperations {
       ...dirtyOrSaving.map((session) => this.requestSave(session.id)),
       ...dirtyOrSavingTitlePageIds.map((pageId) =>
         this.requestTitleSave(pageId)
+      ),
+      ...dirtyOrSavingDescriptionPageIds.map((pageId) =>
+        this.requestDescriptionSave(pageId)
       ),
     ]);
 
@@ -1727,6 +1898,7 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
     this.disposeTitleState(pageId);
+    this.disposeDescriptionState(pageId);
 
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
 

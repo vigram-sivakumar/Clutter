@@ -69,4 +69,14 @@ describe('buildDailyNoteTopBarMenu', () => {
     expect(menu.find((i) => i.id === 'reveal-in-finder')?.disabled).toBe(true);
     expect(menu.find((i) => i.id === 'copy-path')?.disabled).toBe(true);
   });
+
+  // Final UX decision: Description is a title-section/page-property
+  // control (PageHeaderMoreActionsMenu), never a topbar action.
+  it("never includes 'add-a-description' — Description is not a topbar action", () => {
+    const active = buildDailyNoteTopBarMenu('active').map((i) => i.id);
+    const draft = buildDailyNoteTopBarMenu('draft').map((i) => i.id);
+
+    expect(active).not.toContain('add-a-description');
+    expect(draft).not.toContain('add-a-description');
+  });
 });

@@ -45,6 +45,22 @@ export interface PageHeaderMoreActionsMenuProps {
    * `cover` untouched.
    */
   onShowCoverImage?: () => void;
+  /**
+   * Whether the page/folder currently has a non-empty description — gates
+   * "Description" the same "omit once set" convention `emoji`/
+   * `hasCoverImage` above already use. Derived directly from the actual
+   * persisted/effective description value by the caller (Page.tsx's
+   * `Boolean(description)`) — never a separately stored/tracked flag, so
+   * it can never drift from the real state and is automatically correct
+   * across page switches (recomputed fresh every render from whatever
+   * page is currently active). Once a description exists, it is directly
+   * editable in place (click into it, same as the title) — there is
+   * deliberately no "Edit description" item to swap in instead, and no
+   * "Delete description"/"Hide description" item either.
+   */
+  hasDescription?: boolean;
+  /** Presence (alongside `!hasDescription`) gates "Description", same convention as onSelectEmoji above. */
+  onEditDescription?: () => void;
 }
 
 type MenuView = 'root' | 'emoji' | 'cover';
@@ -92,10 +108,13 @@ type MenuView = 'root' | 'emoji' | 'cover';
  * emoji view is via Escape/backdrop click (`Overlay`'s own `onClose`),
  * same as `ChangeIconPicker`'s existing standalone usage already works.
  *
- * Description has no existing edit UI anywhere in the app today (only an
- * inert top-bar menu item and an unused `updateDescription` data path) —
- * per the "do not invent new architecture" instruction, its item renders
- * but is not wired to anything yet.
+ * Description's own item (`onEditDescription`) opens the description
+ * editor — this is the ONLY surface it's offered from (final UX decision:
+ * Description is a title-section/page-property control, alongside Emoji
+ * and Cover image, not a topbar action; see buildTopBarActions.tsx, which
+ * deliberately has no description wiring at all). It hides once a
+ * description exists, same "omit once set" convention as Emoji/Cover
+ * image, gated by `hasDescription`.
  */
 export function PageHeaderMoreActionsMenu({
   emoji,
@@ -107,10 +126,23 @@ export function PageHeaderMoreActionsMenu({
   onSetCoverImageFromUpload,
   onRemoveCoverImage,
   onShowCoverImage,
+  hasDescription,
+  onEditDescription,
 }: PageHeaderMoreActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
+  // Suppresses Overlay's own "return focus to the trigger button on close"
+  // behavior for exactly one closing transition — the same escape hatch
+  // OverflowMenu already uses for its `opensInlineEdit` items (e.g. a
+  // sidebar row's "Rename"). Without this, closing the menu after
+  // "Description" (while empty) would race the freshly-autofocused,
+  // still-empty description field: Overlay's own focus-return effect runs
+  // immediately after and steals focus back to this button, blurring the
+  // field before the user can type — which this feature's own "empty +
+  // blur -> hide" rule then (correctly, by its own logic) treats as an
+  // abandoned edit.
+  const suppressReturnFocusRef = useRef(false);
 
   // Every fresh open must start on the root view — this component itself
   // never unmounts between opens (only its Overlay does), so `view` would
@@ -137,6 +169,8 @@ export function PageHeaderMoreActionsMenu({
   // image" slot with "Show cover image" — reveals the existing cover via
   // onShowCoverImage alone, never the picker.
   const showShowCoverImageItem = hasCoverImage && Boolean(coverHidden) && Boolean(onShowCoverImage);
+  // Same "omit once set" convention as Emoji/Cover image above.
+  const showDescriptionItem = Boolean(onEditDescription) && !hasDescription;
 
   return (
     <>
@@ -158,6 +192,7 @@ export function PageHeaderMoreActionsMenu({
         anchorRef={anchorRef}
         side="bottom"
         alignment="start"
+        suppressReturnFocusRef={suppressReturnFocusRef}
       >
         {view === 'root' && (
           <Menu size="medium">
@@ -195,15 +230,21 @@ export function PageHeaderMoreActionsMenu({
                 Show cover image
               </MenuItem>
             )}
-            <MenuItem
-              leading={<AppIcon icon="description" />}
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-              }}
-            >
-              Description
-            </MenuItem>
+            {showDescriptionItem && (
+              <MenuItem
+                leading={<AppIcon icon="description" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  // Must be set before setOpen(false) — see
+                  // suppressReturnFocusRef's own doc comment above.
+                  suppressReturnFocusRef.current = true;
+                  setOpen(false);
+                  onEditDescription?.();
+                }}
+              >
+                Description
+              </MenuItem>
+            )}
           </Menu>
         )}
 

@@ -23,25 +23,25 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
 // buildTopBarActions.tsx, same boolean/reasoning as
 // noteTopBarMenu.config.ts's buildNoteTopBarMenu; see its doc comment). An
 // ordinary workspace folder has no Delete entry point — Archive is its
-// removal action instead. Unlike a page, this menu is only ever rendered
-// for an ordinary folder (topBarRegistry dispatches a reserved folder to
-// ReservedFolderTopBarActions instead, per MembershipSelector.
-// isSystemFolder), so no reserved-folder guard is needed here beyond that.
+// removal action instead. Unlike a page, this menu is only ever built for
+// an ordinary folder (topBarRegistry dispatches a reserved folder to its
+// own no-op renderer instead — no meaningful actions exist for one yet —
+// per MembershipSelector.isSystemFolder), so no reserved-folder guard is
+// needed here beyond that.
 // Rename isn't a menu item — it reuses the folder title's inline edit
 // affordance directly, the same mechanism a page's title already has. No
 // 'duplicate' item: folders are never duplicable — Duplicate is a
 // Note-only capability.
+// Description is deliberately NOT a topbar action (final UX decision) —
+// see noteTopBarMenu.config.ts's identical doc comment for the full
+// rationale (it lives exclusively in the title-section controls' "More
+// actions" menu, alongside Emoji and Cover image).
 export function buildFolderTopBarMenu(
   status: FolderMetadata['status'],
   isFavorite: boolean = false,
   isDeletable: boolean = false
 ): TopBarMenuItemConfig[] {
   const items: TopBarMenuItemConfig[] = [
-    {
-      id: 'add-a-description',
-      label: 'Add a description',
-      icon: 'description',
-    },
     {
       id: 'move-to',
       label: 'Move to…',

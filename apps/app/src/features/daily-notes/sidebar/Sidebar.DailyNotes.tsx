@@ -8,8 +8,10 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import {
@@ -27,6 +29,7 @@ interface DailyNotesPanelProps {
   navigation: NavigationRouter;
   pageOperations: PageOperations;
   folderOperations: FolderOperations;
+  effectivePageState: EffectivePageState;
   activeDate: string | undefined;
   onOpen(pageId: string): void;
   onOpenDraft(pageId: string): void;
@@ -41,6 +44,7 @@ export function DailyNotes({
   navigation,
   pageOperations,
   folderOperations,
+  effectivePageState,
   activeDate,
   onOpen,
   onOpenDraft,
@@ -83,10 +87,11 @@ export function DailyNotes({
   };
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx use to inject the page
-  // editor's own WikiLink/Tag resolution — cheap, stateless glue, not worth
-  // memoizing (resolveTag.ts/resolveWikiLink.ts).
+  // editor's own WikiLink/Tag/embed resolution — cheap, stateless glue, not
+  // worth memoizing (resolveTag.ts/resolveWikiLink.ts/resolvePageEmbed.ts).
   const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations);
   const resolveTag = createTagResolver(navigation, vault);
+  const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
 
   return (
     <View
@@ -105,6 +110,7 @@ export function DailyNotes({
         rowActions={rowActions}
         resolveWikiLink={resolveWikiLink}
         resolveTag={resolveTag}
+        resolveEmbed={resolveEmbed}
       />
     </View>
   );

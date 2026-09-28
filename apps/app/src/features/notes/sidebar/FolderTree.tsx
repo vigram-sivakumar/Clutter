@@ -31,6 +31,7 @@ import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 export interface PendingNewFolder {
   // The parent under which a not-yet-persisted folder is being named.
@@ -268,6 +269,7 @@ interface FolderTreeProps {
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 }
 
 function PageEntry({
@@ -279,6 +281,7 @@ function PageEntry({
   rowActions,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
 }: {
   entry: EffectivePage;
   level: number;
@@ -288,6 +291,7 @@ function PageEntry({
   rowActions?: SidebarRowActions;
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 }) {
   const label = getPageDisplayLabel(entry);
   const isEditing = rowActions?.editingId === entry.id;
@@ -305,6 +309,7 @@ function PageEntry({
       emoji={entry.icon}
       resolveWikiLink={resolveWikiLink}
       resolveTag={resolveTag}
+      resolveEmbed={resolveEmbed}
       level={level}
       selected={workspace.activePageId === entry.id}
       // A row mid-rename must not also navigate on click — EditableText's
@@ -473,6 +478,7 @@ export function FolderTree({
   rowActions,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
 }: FolderTreeProps) {
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
@@ -656,6 +662,7 @@ export function FolderTree({
                     rowActions={rowActions}
                     resolveWikiLink={resolveWikiLink}
                     resolveTag={resolveTag}
+                    resolveEmbed={resolveEmbed}
                   />
                 ))}
                 {/* Render all resources (image/pdf) inside this folder,
@@ -690,6 +697,7 @@ export function FolderTree({
                   rowActions={rowActions}
                   resolveWikiLink={resolveWikiLink}
                   resolveTag={resolveTag}
+                  resolveEmbed={resolveEmbed}
                 />
               </>
             )}
@@ -709,6 +717,7 @@ export function FolderTree({
           rowActions={rowActions}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+          resolveEmbed={resolveEmbed}
         />
       ))}
       {/* Render root-level resources, after root pages — same

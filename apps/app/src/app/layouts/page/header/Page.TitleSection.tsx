@@ -33,6 +33,9 @@ interface PageTitleSectionProps extends Omit<
   onRemoveCoverImage?: () => void;
   /** Reveals an existing hidden cover in place — see PageHeaderControls' own doc comment. */
   onShowCoverImage?: () => void;
+  /** Forwarded to PageHeaderControls' More-actions "Description" gate — see Page.tsx's matching prop. */
+  hasDescription?: boolean;
+  onEditDescription?: () => void;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -63,6 +66,8 @@ export function PageTitleSection({
   onSetCoverImageFromUpload,
   onRemoveCoverImage,
   onShowCoverImage,
+  hasDescription,
+  onEditDescription,
   actions,
   belowDescription,
   className,
@@ -86,6 +91,8 @@ export function PageTitleSection({
         onSetCoverImageFromUpload={onSetCoverImageFromUpload}
         onRemoveCoverImage={onRemoveCoverImage}
         onShowCoverImage={onShowCoverImage}
+        hasDescription={hasDescription}
+        onEditDescription={onEditDescription}
       />
 
       <div className="page-title-section__content">
@@ -98,9 +105,8 @@ export function PageTitleSection({
         </div>
 
         {description}
+        {belowDescription}
       </div>
-      {/* This is should be outside the content div */}
-      {belowDescription}
     </header>
   );
 }

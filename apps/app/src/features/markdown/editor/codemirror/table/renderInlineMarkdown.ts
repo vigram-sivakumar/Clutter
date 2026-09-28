@@ -16,10 +16,24 @@ import { fallbackWikiLinkResolution } from '../wikilink/wikiLinkResolution';
  * No resolver is injected — WikiLinks render via `fallbackWikiLinkResolution`
  * (the raw path as text, unresolved). Real resolution/click-to-activate
  * belongs to cell activation, not yet wired in this milestone.
+ *
+ * `renderSpan`'s styled-container cases (`bold`/`italic`/`strikethrough`/
+ * `highlight`) recurse into `span.children` via `renderSpans` — a forced
+ * consequence of sharing `inlineSpan.ts`'s `InlineSpan` type with the
+ * compact renderer (those kinds carry `children`, not a flat `value`,
+ * since the compact-rendering nested-inline composition fix), not a
+ * deliberate redesign of this file's own rendering scope. The effect is
+ * the same "no nested Markdown syntax leaks" property the compact
+ * renderer now has, applied here for free rather than reintroducing a
+ * flattened value this type no longer has a way to produce.
  */
 export function renderInlineMarkdown(text: string): string {
   const tree = sharedMarkdownParser.parse(text);
   const spans = tokenizeInline(tree.topNode, text);
+  return renderSpans(spans);
+}
+
+function renderSpans(spans: readonly InlineSpan[]): string {
   return spans.map(renderSpan).join('');
 }
 
@@ -37,13 +51,13 @@ function renderSpan(span: InlineSpan): string {
     case 'text':
       return escapeHtml(span.value);
     case 'bold':
-      return `<strong>${escapeHtml(span.value)}</strong>`;
+      return `<strong>${renderSpans(span.children)}</strong>`;
     case 'italic':
-      return `<em>${escapeHtml(span.value)}</em>`;
+      return `<em>${renderSpans(span.children)}</em>`;
     case 'strikethrough':
-      return `<s>${escapeHtml(span.value)}</s>`;
+      return `<s>${renderSpans(span.children)}</s>`;
     case 'highlight':
-      return `<mark class="cm-table-cell-highlight">${escapeHtml(span.value)}</mark>`;
+      return `<mark class="cm-table-cell-highlight">${renderSpans(span.children)}</mark>`;
     case 'code':
       return `<code class="cm-table-cell-code">${escapeHtml(span.value)}</code>`;
     case 'wikilink': {

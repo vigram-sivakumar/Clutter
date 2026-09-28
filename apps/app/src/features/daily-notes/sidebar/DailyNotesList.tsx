@@ -22,6 +22,7 @@ import type {
   ResolveTag,
   ResolveWikiLink,
 } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 // The Workspace session-state id for the "All Daily Notes" collapsible
@@ -119,6 +120,7 @@ interface DailyNotesListProps {
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
 }
 
 function collectRealMonthSections(
@@ -230,6 +232,7 @@ export function DailyNotesList({
   rowActions,
   resolveWikiLink,
   resolveTag,
+  resolveEmbed,
 }: DailyNotesListProps) {
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
@@ -334,6 +337,7 @@ export function DailyNotesList({
           titleStyle={getPageDisplayLabelStyle(label)}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+          resolveEmbed={resolveEmbed}
           date={entry.name}
           isToday={isToday(entry.name)}
           selected={workspace.activePageId === entry.id}

@@ -19,6 +19,14 @@ function makeBodyFocusRef() {
   return { current: { focus, focusAtNewLineAtStart } };
 }
 
+function getDescription(): HTMLElement {
+  const description = document.querySelector('.page-description [role="textbox"]');
+  if (!description) {
+    throw new Error('No editable description rendered');
+  }
+  return description as HTMLElement;
+}
+
 describe('Page — title autofocus', () => {
   it('autofocuses the title when it is editable and empty (missing)', () => {
     render(<Page title="" titleEditable body={<div />} />);
@@ -278,5 +286,152 @@ describe('Page — title commit', () => {
     title.textContent = 'Test note';
     fireEvent.input(title);
     expect(() => fireEvent.blur(title)).not.toThrow();
+  });
+});
+
+describe('Page — description visibility and autoFocus ("Add a description")', () => {
+  it('renders no description at all when empty and the editor has not been requested', () => {
+    render(<Page title="Meeting Notes" body={<div />} />);
+
+    expect(document.querySelector('.page-description')).toBeNull();
+  });
+
+  it('renders an existing description even when the editor was never explicitly requested', () => {
+    render(<Page title="Meeting Notes" description="Weekly sync" body={<div />} />);
+
+    expect(document.querySelector('.page-description')).not.toBeNull();
+  });
+
+  it('renders an empty, editable description once showDescriptionEditor is set ("Add a description" was clicked)', () => {
+    render(
+      <Page
+        title="Meeting Notes"
+        descriptionEditable
+        showDescriptionEditor
+        body={<div />}
+      />
+    );
+
+    expect(getDescription().textContent).toBe('');
+  });
+
+  it('autofocuses the description when the editor was just opened on an empty description', () => {
+    render(
+      <Page
+        title="Meeting Notes"
+        descriptionEditable
+        showDescriptionEditor
+        body={<div />}
+      />
+    );
+
+    expect(document.activeElement).toBe(getDescription());
+  });
+
+  it('does not autofocus a description that already has content', () => {
+    render(
+      <Page
+        title="Meeting Notes"
+        description="Weekly sync"
+        descriptionEditable
+        showDescriptionEditor
+        body={<div />}
+      />
+    );
+
+    expect(document.activeElement).not.toBe(getDescription());
+  });
+
+  it('renders the description as static text when not editable', () => {
+    render(<Page title="Meeting Notes" description="Weekly sync" body={<div />} />);
+
+    expect(() => getDescription()).toThrow();
+    expect(document.querySelector('.page-description')?.textContent).toBe(
+      'Weekly sync'
+    );
+  });
+});
+
+describe('Page — description edit/flush/cancel (continuous channel)', () => {
+  it('calls onDescriptionEdit on every keystroke', () => {
+    const onDescriptionEdit = vi.fn();
+    render(
+      <Page
+        title="Meeting Notes"
+        descriptionEditable
+        showDescriptionEditor
+        onDescriptionEdit={onDescriptionEdit}
+        body={<div />}
+      />
+    );
+
+    const description = getDescription();
+    description.textContent = 'Weekly sync';
+    fireEvent.input(description);
+
+    expect(onDescriptionEdit).toHaveBeenCalledWith('Weekly sync');
+  });
+
+  it('calls onDescriptionFlush on a plain blur, regardless of debounce state', () => {
+    const onDescriptionFlush = vi.fn();
+    render(
+      <Page
+        title="Meeting Notes"
+        descriptionEditable
+        showDescriptionEditor
+        onDescriptionFlush={onDescriptionFlush}
+        body={<div />}
+      />
+    );
+
+    const description = getDescription();
+    description.textContent = 'Weekly sync';
+    fireEvent.input(description);
+    fireEvent.blur(description);
+
+    expect(onDescriptionFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onDescriptionCancel on Escape, not onDescriptionFlush', () => {
+    const onDescriptionFlush = vi.fn();
+    const onDescriptionCancel = vi.fn();
+    render(
+      <Page
+        title="Meeting Notes"
+        descriptionEditable
+        showDescriptionEditor
+        onDescriptionFlush={onDescriptionFlush}
+        onDescriptionCancel={onDescriptionCancel}
+        body={<div />}
+      />
+    );
+
+    const description = getDescription();
+    description.textContent = 'Weekly sync';
+    fireEvent.input(description);
+    fireEvent.keyDown(description, { key: 'Escape' });
+
+    expect(onDescriptionCancel).toHaveBeenCalledTimes(1);
+    expect(onDescriptionFlush).not.toHaveBeenCalled();
+  });
+
+  it('calls onDescriptionCommit (discrete, draft branch) on Enter, not onDescriptionEdit', () => {
+    const onDescriptionCommit = vi.fn();
+    render(
+      <Page
+        title="My Draft"
+        descriptionEditable
+        showDescriptionEditor
+        onDescriptionCommit={onDescriptionCommit}
+        body={<div />}
+      />
+    );
+
+    const description = getDescription();
+    description.textContent = 'Weekly sync';
+    fireEvent.input(description);
+    fireEvent.keyDown(description, { key: 'Enter' });
+
+    expect(onDescriptionCommit).toHaveBeenCalledWith('Weekly sync');
   });
 });

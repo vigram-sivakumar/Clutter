@@ -37,7 +37,7 @@ export class FolderBuilder {
       metadata: {
         icon: frontmatter?.icon ?? null,
         favorite: frontmatter?.favorite ?? false,
-        description: frontmatter?.description ?? '',
+        description: frontmatter?.description ?? null,
         cover: frontmatter?.cover ?? null,
         coverHidden: frontmatter?.coverHidden ?? false,
         coverLayout: frontmatter?.coverLayout ?? 'side',

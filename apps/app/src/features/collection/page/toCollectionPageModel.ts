@@ -233,7 +233,7 @@ function toFolderCollectionPageModel(
 
   return {
     title,
-    description: folder.metadata.description,
+    description: folder.metadata.description ?? '',
     coverImage: folder.metadata.cover,
     coverHidden: folder.metadata.coverHidden,
     coverLayout: folder.metadata.coverLayout,

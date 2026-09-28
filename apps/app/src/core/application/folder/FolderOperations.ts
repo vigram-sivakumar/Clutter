@@ -60,6 +60,20 @@ export class FolderOperations {
   /** In-flight requestNameSave() promises, keyed by nameChannelKey — mirrors PageOperations' inFlightSaves dedup. */
   private readonly inFlightNameSaves = new Map<string, Promise<void>>();
 
+  /**
+   * Per-folder description edit/save state — the description channel's
+   * counterpart to nameStates above (PageOperations.descriptionStates'
+   * exact folder-scoped mirror): same FieldEditState<string> + SaveCoordinator
+   * channel shape, but flushing through updateMetadata() instead of
+   * rename() — a description edit is an ordinary metadata write, not a
+   * directory rename, so it uses SaveCoordinator's own default autosave
+   * cadence rather than the name channel's deliberately longer one.
+   */
+  private readonly descriptionStates = new Map<string, FieldEditState<string>>();
+
+  /** In-flight requestDescriptionSave() promises, keyed by descriptionChannelKey — mirrors inFlightNameSaves. */
+  private readonly inFlightDescriptionSaves = new Map<string, Promise<void>>();
+
   constructor(
     private readonly vault: Vault,
     private readonly workspace: Workspace,
@@ -139,6 +153,10 @@ export class FolderOperations {
 
     if (activeFolderId) {
       void this.requestNameSave(activeFolderId);
+      // Same navigation-away boundary, extended to the description
+      // channel now that it exists — mirrors PageOperations.flushActivePage()'s
+      // identical extension for pages.
+      void this.requestDescriptionSave(activeFolderId);
     }
   }
 
@@ -264,6 +282,7 @@ export class FolderOperations {
     }
     this.workspace.closeFolder(folderId);
     this.disposeNameState(folderId);
+    this.disposeDescriptionState(folderId);
 
     if (!this.workspace.activeView) {
       this.openFallbackPage();
@@ -285,6 +304,19 @@ export class FolderOperations {
     this.saveCoordinator.cancelTimers(this.nameChannelKey(folderId));
     nameState.markDisposed();
     this.nameStates.delete(folderId);
+  }
+
+  /** The description channel's counterpart to disposeNameState() — same contract. */
+  private disposeDescriptionState(folderId: string): void {
+    const descriptionState = this.descriptionStates.get(folderId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    this.saveCoordinator.cancelTimers(this.descriptionChannelKey(folderId));
+    descriptionState.markDisposed();
+    this.descriptionStates.delete(folderId);
   }
 
   /**
@@ -484,12 +516,12 @@ export class FolderOperations {
    * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
    * kind — the folder-scoped counterpart to
    * PageOperations.updateMetadata(). Scoped to
-   * `favorite`/`cover`/`coverHidden`/`coverLayout`/`icon` (not
-   * PageOperations' full description/cover/favorite set): those are the
-   * only folder metadata fields with a shipped writer today (cover added
-   * for the folder "Cover image" topbar action, coverHidden for
-   * PageCover's "Hide" action, coverLayout for its "Layout" action —
-   * FolderMetadata/FolderFrontmatter already carried all three, only
+   * `favorite`/`cover`/`coverHidden`/`coverLayout`/`icon`/`description` —
+   * the only folder metadata fields with a shipped writer today (cover
+   * added for the folder "Cover image" topbar action, coverHidden for
+   * PageCover's "Hide" action, coverLayout for its "Layout" action,
+   * description for the folder-description-editing milestone —
+   * FolderMetadata/FolderFrontmatter already carried all of these, only
    * this facade's patch type was still narrower than what the Gate's
    * 'update-folder-metadata' operation already accepts,
    * `Partial<FolderMetadata>`); widen further when a real caller needs
@@ -501,7 +533,10 @@ export class FolderOperations {
   public async updateMetadata(
     folderId: string,
     patch: Partial<
-      Pick<FolderMetadata, 'favorite' | 'cover' | 'coverHidden' | 'coverLayout' | 'icon'>
+      Pick<
+        FolderMetadata,
+        'favorite' | 'cover' | 'coverHidden' | 'coverLayout' | 'icon' | 'description'
+      >
     >
   ): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
@@ -634,12 +669,122 @@ export class FolderOperations {
     this.saveCoordinator.cancelTimers(this.nameChannelKey(folderId));
   }
 
+  /** The description channel's SaveCoordinator key — distinct from `folderId`/nameChannelKey() so it can never collide with either. */
+  private descriptionChannelKey(folderId: string): string {
+    return `${folderId}:description`;
+  }
+
   /**
-   * Shutdown flush for every folder with a dirty or in-flight name
-   * channel — the folder-name counterpart to PageOperations.flushAll(),
-   * called alongside it from Application.close(). Folders have no
-   * DocumentSession/body to flush, so this only ever concerns the name
-   * channel.
+   * Commits a folder's description in memory only — the description-channel
+   * counterpart to commitName(), same contract, but armed with
+   * SaveCoordinator's default autosave cadence (no debounceMs/ceilingMs
+   * override) rather than the name channel's longer one, since a
+   * description edit is an ordinary metadata write, not a directory rename.
+   */
+  public commitDescription(folderId: string, description: string): void {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${folderId}`);
+    }
+
+    const descriptionState =
+      this.descriptionStates.get(folderId) ??
+      new FieldEditState(folder.metadata.description ?? '');
+
+    this.descriptionStates.set(folderId, descriptionState);
+    descriptionState.commit(description);
+
+    this.saveCoordinator.scheduleSave(this.descriptionChannelKey(folderId), () => {
+      void this.requestDescriptionSave(folderId);
+    });
+  }
+
+  /**
+   * The description channel's counterpart to requestNameSave() — same
+   * single-entry-point, coalescing, never-throws contract, flushing
+   * through updateMetadata({ description }) instead of rename(). A silent
+   * no-op if this folder has no description-editing activity.
+   */
+  public requestDescriptionSave(folderId: string): Promise<void> {
+    const key = this.descriptionChannelKey(folderId);
+    const existing = this.inFlightDescriptionSaves.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    const promise = this.runRequestDescriptionSave(folderId).finally(() => {
+      if (this.inFlightDescriptionSaves.get(key) === promise) {
+        this.inFlightDescriptionSaves.delete(key);
+      }
+    });
+
+    this.inFlightDescriptionSaves.set(key, promise);
+
+    return promise;
+  }
+
+  private async runRequestDescriptionSave(folderId: string): Promise<void> {
+    const descriptionState = this.descriptionStates.get(folderId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    const key = this.descriptionChannelKey(folderId);
+
+    for (;;) {
+      const decision = this.saveCoordinator.evaluate(
+        descriptionState.state,
+        descriptionState.isDirty
+      );
+
+      if (decision === 'suppress') {
+        return;
+      }
+
+      const value = descriptionState.currentValue;
+
+      descriptionState.beginSave();
+      this.saveCoordinator.beginChannelSave(key, value);
+
+      try {
+        await this.updateMetadata(folderId, { description: value || null });
+
+        if (this.saveCoordinator.completeChannelSave(key, value)) {
+          descriptionState.markSaved(value);
+        }
+      } catch {
+        if (this.saveCoordinator.failChannelSave(key, value)) {
+          descriptionState.markSaveFailed();
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Escape's channel-side counterpart (EditableText.onCancel) for the
+   * description channel — mirrors cancelNameEdit() exactly.
+   */
+  public cancelDescriptionEdit(folderId: string): void {
+    const descriptionState = this.descriptionStates.get(folderId);
+
+    if (!descriptionState) {
+      return;
+    }
+
+    descriptionState.commit(descriptionState.savedValue);
+    this.saveCoordinator.cancelTimers(this.descriptionChannelKey(folderId));
+  }
+
+  /**
+   * Shutdown flush for every folder with a dirty or in-flight name or
+   * description channel — the folder counterpart to
+   * PageOperations.flushAll(), called alongside it from Application.close().
+   * Folders have no DocumentSession/body to flush, so this only ever
+   * concerns these two channels.
    */
   public async flushAll(timeoutMs: number): Promise<void> {
     const dirtyOrSavingFolderIds = [...this.nameStates.entries()]
@@ -649,13 +794,29 @@ export class FolderOperations {
       )
       .map(([folderId]) => folderId);
 
-    if (dirtyOrSavingFolderIds.length === 0) {
+    const dirtyOrSavingDescriptionFolderIds = [
+      ...this.descriptionStates.entries(),
+    ]
+      .filter(
+        ([, descriptionState]) =>
+          descriptionState.isDirty ||
+          descriptionState.state === DocumentState.Saving
+      )
+      .map(([folderId]) => folderId);
+
+    if (
+      dirtyOrSavingFolderIds.length === 0 &&
+      dirtyOrSavingDescriptionFolderIds.length === 0
+    ) {
       return;
     }
 
-    const flushes = Promise.allSettled(
-      dirtyOrSavingFolderIds.map((folderId) => this.requestNameSave(folderId))
-    );
+    const flushes = Promise.allSettled([
+      ...dirtyOrSavingFolderIds.map((folderId) => this.requestNameSave(folderId)),
+      ...dirtyOrSavingDescriptionFolderIds.map((folderId) =>
+        this.requestDescriptionSave(folderId)
+      ),
+    ]);
 
     await Promise.race([
       flushes,

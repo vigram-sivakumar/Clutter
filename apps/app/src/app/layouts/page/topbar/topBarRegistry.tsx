@@ -6,7 +6,6 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
 import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
-import { ReservedFolderTopBarActions } from './ReservedFolderTopBarActions';
 
 export interface TopBarActionsOptions {
   menu?: readonly TopBarMenuItemConfig[];
@@ -118,12 +117,21 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
   />
 );
 
+// A reserved folder (Inbox, Assets, Archive, Templates, Daily Notes root,
+// etc.) currently has no meaningful topbar actions at all, so it renders no
+// trigger rather than an overflow button that opens onto nothing. This stays
+// its own registry entry (rather than collapsing into 'folder' or omitting
+// the key) precisely so a future system-folder action can be introduced by
+// giving this entry a real renderer, without touching the dispatch in
+// buildTopBarActions.tsx or the registry's shape.
+const renderReservedFolderActions: TopBarActionsRenderer = () => null;
+
 export const topBarActionsRegistry: Record<
   TopBarResourceType,
   TopBarActionsRenderer
 > = {
   folder: renderFolderActions,
-  'reserved-folder': () => <ReservedFolderTopBarActions />,
+  'reserved-folder': renderReservedFolderActions,
   note: renderPageActions,
   'daily-note': renderPageActions,
 };
