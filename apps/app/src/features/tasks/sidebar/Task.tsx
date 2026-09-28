@@ -44,7 +44,6 @@ export function Task({
       leading={
         <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
       }
-      hideTrailingOnHover={false}
 
       trailing={
         dueDate && (
