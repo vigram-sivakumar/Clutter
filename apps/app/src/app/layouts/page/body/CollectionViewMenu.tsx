@@ -86,7 +86,7 @@ type ConfigureMenuView = 'root' | 'properties';
  * `Menu`'s own default focus/keyboard handling already covers a plain
  * list of `MenuItem`s in both views unchanged.
  *
- * The trigger icon is `configure` (svg/configure.svg).
+ * The trigger icon is `settings` (svg/settings.svg).
  */
 export function CollectionViewMenu({
   viewMode,
@@ -125,7 +125,7 @@ export function CollectionViewMenu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <AppIcon icon="configure" />
+        <AppIcon icon="settings" />
       </Button>
       <Overlay
         open={open}
