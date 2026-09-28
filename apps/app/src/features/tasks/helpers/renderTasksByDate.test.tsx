@@ -154,7 +154,7 @@ describe('renderTasksByDate', () => {
     );
 
     const row = getByText('Submit expenses').closest('.entry') as HTMLElement;
-    expect(within(row).getByText('1 Aug')).not.toBeNull();
+    expect(within(row).getByText('Sat 1 Aug')).not.toBeNull();
   });
 
   it('does not render a due-date label for a completed-today task whose due date is also today', () => {
@@ -232,15 +232,15 @@ describe('renderTasksByDate', () => {
     });
 
     it('a weekday within the current week (Friday)', () => {
-      expect(renderDueDateLabelFor('2026-08-07')).toBe('Friday');
+      expect(renderDueDateLabelFor('2026-08-07')).toBe('Fri 7 Aug');
     });
 
     it('same year, outside the current week', () => {
-      expect(renderDueDateLabelFor('2026-08-21')).toBe('21 Aug');
+      expect(renderDueDateLabelFor('2026-08-21')).toBe('Fri 21 Aug');
     });
 
     it('a different year', () => {
-      expect(renderDueDateLabelFor('2027-08-21')).toBe('21 Aug 2027');
+      expect(renderDueDateLabelFor('2027-08-21')).toBe('21 Aug 27');
     });
   });
 
@@ -267,7 +267,7 @@ describe('renderTasksByDate', () => {
       expect(queryByText(/@2026-08-21/)).toBeNull();
 
       const row = getByText('Clean the Trash').closest('.entry') as HTMLElement;
-      expect(within(row).getByText('21 Aug')).not.toBeNull();
+      expect(within(row).getByText('Fri 21 Aug')).not.toBeNull();
     });
 
     it('only removes the bare date matching dueDate when the title has multiple dates, formatting the other one semantically', () => {
@@ -333,10 +333,10 @@ describe('renderTasksByDate', () => {
       // reformatted via the shared compact formatter — full month + year,
       // per dateDisplay.ts's 'compact' mode (rendered as its own <span>,
       // hence the combined-text-content assertion); the trailing badge
-      // (condensed mode) still shows its due date.
+      // ('contextual' mode) still shows its due date.
       expect(titleA).toHaveTextContent('Review and compare with @22 August 2026');
       const rowA = titleA.closest('.entry') as HTMLElement;
-      expect(within(rowA).getByText('20 Aug')).not.toBeNull();
+      expect(within(rowA).getByText('Thu 20 Aug')).not.toBeNull();
 
       // Task B: its own due date (@2026-08-05) is hidden from the title;
       // its other bare date (@2026-08-07, a weekday within the current
