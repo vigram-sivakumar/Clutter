@@ -29,6 +29,7 @@ import { urlPasteChoiceField } from './link/urlPaste/urlPasteChoiceState';
 import { urlPasteAnchorDecoration } from './link/urlPaste/urlPasteAnchorDecoration';
 import type { OnOpenUrlPasteMenu } from './link/urlPaste/UrlPasteAnchorWidget';
 import { listMarkerCaretAssoc, listMarkerDecoration } from './list/listMarkerDecoration';
+import { listLineDecoration } from './list/listLineDecoration';
 import { taskCheckboxDecoration } from './task/taskCheckboxDecoration';
 import { taskCheckboxMouseHandlers } from './task/taskCheckboxMouseHandlers';
 import { taskCompletedContentDecoration } from './task/taskCompletedContentDecoration';
@@ -284,6 +285,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     }),
     listMarkerDecoration(),
     listMarkerCaretAssoc(),
+    listLineDecoration(),
     taskCheckboxDecoration(),
     taskCompletedContentDecoration(),
     taskCompletionMetadataDecoration(),

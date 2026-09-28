@@ -61,3 +61,26 @@ export function getIndentSpacePx(): number {
 export function refreshMarkdownIndent(): void {
   cachedIndentLevelPx = null;
 }
+
+/**
+ * Total pixel width of a physical line's own leading whitespace run —
+ * the same per-character space/tab widths `leadingIndentDecoration.ts`'s
+ * `IndentTokenWidget`s render (one widget per character), summed here as
+ * a single number instead of emitted as individual decorations. Added
+ * for `list/listLineDecoration.ts`'s hanging-indent calculation, which
+ * needs the *total* reserved by a nested list item's own leading
+ * indentation, not a per-character widget list — reuses the exact same
+ * `getIndentLevelPx()`/`getIndentSpacePx()` values so the two can never
+ * disagree about what one space or one tab is worth.
+ */
+export function getLeadingWhitespaceWidthPx(lineText: string): number {
+  const leadingLength = lineText.length - lineText.trimStart().length;
+  const tabPx = getIndentLevelPx();
+  const spacePx = getIndentSpacePx();
+
+  let total = 0;
+  for (let i = 0; i < leadingLength; i++) {
+    total += lineText.charCodeAt(i) === 9 ? tabPx : spacePx;
+  }
+  return total;
+}

@@ -130,7 +130,13 @@ import type { SyntaxNode } from '@lezer/common';
  * (per-character, any line, no syntax-tree awareness) — this module must
  * not, and does not, re-decorate that range a second time.
  */
-function isListItemNode(nodeName: string): boolean {
+/**
+ * Exported for `listLineDecoration.ts`'s reuse (hanging-indent line
+ * ownership needs the identical "what counts as a list item" rule this
+ * file's own marker rendering uses) — same reuse rationale as
+ * `classifyMarkerText`'s own export comment below.
+ */
+export function isListItemNode(nodeName: string): boolean {
   return nodeName === 'ListItem';
 }
 
@@ -163,7 +169,16 @@ export function classifyMarkerText(raw: string): ListMarkerKind | null {
   return ORDERED_MARKER_PATTERN.test(raw) ? 'ordered' : null;
 }
 
-function hasTaskChild(listItem: SyntaxNode): boolean {
+/**
+ * Exported for `listLineDecoration.ts`'s reuse — the hanging-indent
+ * calculation needs to know a line's own item is a task *without*
+ * inheriting this file's own "don't decorate task markers" exclusion
+ * (`getListMarkRange` below returns `null` for task items on purpose;
+ * `listLineDecoration.ts` needs the opposite answer, since
+ * `taskCheckboxDecoration.ts`'s checkbox widget still reserves a real,
+ * fixed-width column that wrapped lines must hang under).
+ */
+export function hasTaskChild(listItem: SyntaxNode): boolean {
   for (let child = listItem.firstChild; child; child = child.nextSibling) {
     if (child.name === 'Task') {
       return true;
@@ -194,7 +209,15 @@ function hasTaskChild(listItem: SyntaxNode): boolean {
  * extend this same-line decoration across it. A separator span, by
  * definition, is CommonMark's own same-line marker-to-content gap only.
  */
-function separatorRangeAfter(
+/**
+ * Exported for `listLineDecoration.ts`'s reuse — the same real,
+ * CommonMark-correct (1-4 space, same-physical-line-bounded) separator-gap
+ * rule this file's own marker rendering already solved, needed again to
+ * gate the hanging-indent calculation on "does this item's marker
+ * actually have real separator+content yet" rather than re-deriving the
+ * gap logic a second time.
+ */
+export function separatorRangeAfter(
   state: EditorState,
   marker: SyntaxNode
 ): { from: number; to: number } | null {

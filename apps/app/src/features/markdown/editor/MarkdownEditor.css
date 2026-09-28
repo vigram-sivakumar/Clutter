@@ -428,6 +428,36 @@
   );
 }
 
+/*
+ * List hanging indent (`list/listLineDecoration.ts`, 2026-09-28) — the
+ * list-side equivalent of `.cm-quote-line` immediately above, same
+ * `padding-left` + negative `text-indent` pairing, for the identical
+ * reason: `text-indent` never applies to a browser-soft-wrapped
+ * continuation row (per spec), only to a line's own first visual row, so
+ * this reserves the gutter for every row and then pulls only the first
+ * row's own text back out of it — landing the marker in the gutter and
+ * every wrapped row at the same content column the first row's text
+ * starts at.
+ *
+ * Unlike `.cm-quote-line`'s `--quote-depth * var(--md-marker-width)`
+ * (a pure depth multiplier, safe only because a quote marker's box is
+ * CSS-forced to one constant width regardless of nesting), `--list-indent-px`
+ * is a real, per-line pixel value computed in JS
+ * (`listLineDecoration.ts`'s `ownListItemIndentPx`) from the owning list
+ * item's own leading-whitespace width plus its own marker's real
+ * footprint — necessary because an ordered marker's footprint is not a
+ * constant (`.cm-ordered-list-marker`'s `min-width` grows for 2+ digit
+ * numbers, by an amount that isn't predictable from digit count alone;
+ * see `list/listMarkerWidth.ts`'s own doc comment for the live
+ * measurement that ruled out a CSS-only formula). `var(..., 0px)`
+ * fallback: only lines carrying the class ever set the custom property,
+ * so this is defensive, not load-bearing.
+ */
+.cm-editor .cm-list-line {
+  padding-left: var(--list-indent-px, 0px);
+  text-indent: calc(-1 * var(--list-indent-px, 0px));
+}
+
 .cm-editor .cm-quote-line::before {
   content: '';
   position: absolute;
@@ -929,7 +959,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-inline-end: var(--space-4);
 }
 
 /*
@@ -971,6 +1000,7 @@
   text-indent: 0;
   transform: scale(1.2);
   padding-left: 6px;
+  margin-right: var(--md-marker-text-gap);
 }
 
 /*
@@ -1015,12 +1045,22 @@
  * overlaps content (this session's own explicit requirement), it simply
  * doesn't unify the column across differently-sized markers on separate
  * lines.
+ *
+ * `padding-left: var(--md-marker-text-gap)` (2026-09-28, hanging-indent
+ * work) — value-identical to the `4px` literal this rule carried before
+ * (`--md-marker-text-gap` resolves to `--space-4`, i.e. 4px), not a visual
+ * change. Promoted to the existing token so `list/listMarkerWidth.ts`'s
+ * own per-item pixel-width calculation (feeding `listLineDecoration.ts`'s
+ * wrapped-line hanging indent) can read the *same* custom property this
+ * rule uses, instead of duplicating the literal as a second, driftable
+ * magic number in JS.
  */
 .cm-editor .cm-ordered-list-marker {
   display: inline-block;
   min-width: var(--md-marker-width);
   text-indent: 0;
-  padding-left: 4px;
+  padding-left: var(--md-marker-text-gap);
+  margin-inline-end: var(--space-4);
 }
 
 /*
@@ -1201,7 +1241,6 @@
 .cm-editor .cm-bullet-list-marker--glyph {
   position: relative;
   color: transparent;
-  margin-right: var(--md-marker-text-gap);
 }
 
 /*
@@ -1582,6 +1621,7 @@
   cursor: pointer;
   text-indent: 0;
   padding-inline: var(--space-3);
+  text-indent: 0;
 }
 
 /* `.tok-wikilink` is a plain, fragmentable inline element — deliberately
