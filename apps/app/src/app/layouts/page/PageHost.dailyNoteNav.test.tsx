@@ -125,10 +125,12 @@ describe('PageHost: Daily Notes nav controls', () => {
     expect(controls!.querySelector('button[aria-label="Today"]')).not.toBeNull();
     expect(controls!.querySelector('button[aria-label="Next day"]')).not.toBeNull();
 
-    // Below the title/description, inside PageTitleSection's content area
-    // — not beside the title (PageHeaderControls' emoji/more-actions row).
+    // Below the title/description — a sibling of PageTitleSection's content
+    // area (Page.TitleSection.tsx's belowDescription slot), not inside it,
+    // and not beside the title (PageHeaderControls' emoji/more-actions row).
     const content = document.querySelector('.page-title-section__content')!;
-    expect(content.contains(controls)).toBe(true);
+    expect(content.contains(controls)).toBe(false);
+    expect(content.nextElementSibling).toBe(controls);
   });
 
   it('does not render the controls for a normal Note', async () => {

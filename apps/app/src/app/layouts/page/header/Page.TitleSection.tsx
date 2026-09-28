@@ -44,10 +44,11 @@ interface PageTitleSectionProps extends Omit<
    */
   actions?: ReactNode;
   /**
-   * Generic slot rendered below `description`, inside `.page-title-section__content`
-   * — same "PageTitleSection stays reusable, caller decides what fills it"
-   * pattern as `actions` above. Only Daily Notes (PageHost) currently pass
-   * anything through it (the [Calendar] [←] [Today] [→] row).
+   * Generic slot rendered after `.page-title-section__content` (a sibling,
+   * not nested inside it — its own row, not part of the title/description
+   * block) — same "PageTitleSection stays reusable, caller decides what
+   * fills it" pattern as `actions` above. Only Daily Notes (PageHost)
+   * currently pass anything through it (the [Calendar] [←] [Today] [→] row).
    */
   belowDescription?: ReactNode;
 }
