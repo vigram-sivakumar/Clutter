@@ -81,6 +81,14 @@ export interface RenderTodayContentProps extends TaskRowCallbacks, TaskRowResolv
   readonly todayCompleted: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly onOpenCompleted: () => void;
+  /**
+   * The nested completed-today accordion — omitted (default `true`) for
+   * the Today collection page, which still needs it; the sidebar (see
+   * `renderTasksByDate`) passes `false` so the Tasks sidepanel's Today
+   * section only ever shows incomplete tasks, matching the rest of the
+   * sidebar (Upcoming has no completed rows either).
+   */
+  readonly showCompletedAccordion?: boolean;
 }
 
 /**
@@ -98,6 +106,7 @@ export function renderTodayContent({
   onOpenTask,
   onDateChange,
   onOpenCompleted,
+  showCompletedAccordion = true,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -111,7 +120,7 @@ export function renderTodayContent({
         renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
       )}
 
-      {todayCompleted.length > 0 && (
+      {showCompletedAccordion && todayCompleted.length > 0 && (
         <Fragment>
           <Entry
             className="tertiary"
@@ -202,7 +211,11 @@ export function renderTasksByDate({
         hasHeader
         title="Today"
         isCollapsible
-        isEmpty={today.length === 0 && todayCompleted.length === 0}
+        // The completed-today accordion is hidden in the sidebar (see
+        // showCompletedAccordion below), so a Today section whose tasks are
+        // all completed has nothing left to show — its emptiness no longer
+        // depends on todayCompleted the way the Today collection page's does.
+        isEmpty={today.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('tasks-today', expanded)
@@ -217,6 +230,7 @@ export function renderTasksByDate({
           onOpenTask,
           onDateChange,
           onOpenCompleted: () => navigation.openTasksCompleted(),
+          showCompletedAccordion: false,
           resolveWikiLink,
           resolveTag,
           resolveEmbed,

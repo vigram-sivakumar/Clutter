@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, fireEvent, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { renderTasksByDate } from './renderTasksByDate';
+import { renderTasksByDate, renderTodayContent } from './renderTasksByDate';
 import { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
@@ -106,14 +106,14 @@ describe('renderTasksByDate', () => {
     expect(within(row).queryByText(/Today|Tomorrow|Yesterday|\d/)).toBeNull();
   });
 
-  it('shows the completed-today accordion header with a count', () => {
+  it('never shows a completed-today accordion in the sidebar, even when a task was completed today', () => {
     const completedToday = task({
       text: 'Submit expenses',
       completed: true,
       completedAt: '2026-08-04',
     });
 
-    const { getByText } = render(
+    const { queryByText } = render(
       <>
         {renderTasksByDate({
           tasks: [completedToday],
@@ -125,27 +125,25 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    // "Completed" (the accordion row's own label) and the count (a
-    // separate CountBadge in its trailing slot) are two distinct DOM
-    // nodes, not one "1 Completed" text node — assert both independently
-    // within the same row rather than a single combined-text query.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    expect(within(header).getByText('1')).not.toBeNull();
+    expect(queryByText('Completed')).toBeNull();
+    expect(queryByText('Submit expenses')).toBeNull();
   });
 
-  it('shows the due date for a completed-today task whose due date is not today', () => {
+  it('collapses the Today section by default when every task due today is already completed', () => {
+    // Nothing left to show once the completed-today accordion is hidden —
+    // the section defaults to collapsed rather than showing an empty header.
     const completedToday = task({
       text: 'Submit expenses',
       completed: true,
       completedAt: '2026-08-04',
-      dueDate: '2026-08-01',
     });
+    const workspace = new Workspace();
 
     const { getByText } = render(
       <>
         {renderTasksByDate({
           tasks: [completedToday],
-          workspace: new Workspace(),
+          workspace,
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
@@ -153,32 +151,8 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    const row = getByText('Submit expenses').closest('.entry') as HTMLElement;
-    expect(within(row).getByText('1 Aug')).not.toBeNull();
-  });
-
-  it('does not render a due-date label for a completed-today task whose due date is also today', () => {
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
-      dueDate: '2026-08-04',
-    });
-
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation: fakeNavigation(),
-        })}
-      </>
-    );
-
-    const row = getByText('Submit expenses').closest('.entry') as HTMLElement;
-    expect(within(row).queryByText(/Today|Tomorrow|Yesterday|\d/)).toBeNull();
+    const header = getByText('Today').closest('.section') as HTMLElement;
+    expect(header.className).not.toContain('section--expanded');
   });
 
   it('renders a due-date label in the Upcoming section', () => {
@@ -414,63 +388,95 @@ describe('renderTasksByDate', () => {
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
-  it('navigates to Completed when the completed-today accordion row is clicked, without toggling it', () => {
-    const navigation = fakeNavigation();
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
+  /**
+   * The completed-today accordion no longer renders in the sidebar (see
+   * the "never shows a completed-today accordion in the sidebar" test
+   * above), but renderTodayContent itself still needs it for the Today
+   * collection page (TasksCollectionBody, showCompletedAccordion defaults
+   * to true there) — covered here directly against renderTodayContent
+   * rather than through renderTasksByDate, which no longer exercises it.
+   */
+  describe('renderTodayContent — completed-today accordion (still used by the Today collection page)', () => {
+    it('shows the accordion header with a count when showCompletedAccordion is not set to false', () => {
+      const completedToday = task({
+        text: 'Submit expenses',
+        completed: true,
+        completedAt: '2026-08-04',
+      });
+
+      const { getByText } = render(
+        <>
+          {renderTodayContent({
+            today: [],
+            todayCompleted: [completedToday],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onOpenCompleted: vi.fn(),
+          })}
+        </>
+      );
+
+      const header = getByText('Completed').closest('.entry') as HTMLElement;
+      expect(within(header).getByText('1')).not.toBeNull();
     });
-    const workspace = new Workspace();
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace,
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+    it('navigates to Completed when the accordion row is clicked, without toggling it', () => {
+      const completedToday = task({
+        text: 'Submit expenses',
+        completed: true,
+        completedAt: '2026-08-04',
+      });
+      const workspace = new Workspace();
+      const onOpenCompleted = vi.fn();
 
-    // See the "shows the completed-today accordion header with a count"
-    // test above — "Completed" and its count are separate DOM nodes.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    fireEvent.click(header);
+      const { getByText } = render(
+        <>
+          {renderTodayContent({
+            today: [],
+            todayCompleted: [completedToday],
+            workspace,
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onOpenCompleted,
+          })}
+        </>
+      );
 
-    expect(navigation.openTasksCompleted).toHaveBeenCalled();
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
-  });
+      const header = getByText('Completed').closest('.entry') as HTMLElement;
+      fireEvent.click(header);
 
-  it('toggles the completed-today accordion when its caret is clicked, without navigating', () => {
-    const navigation = fakeNavigation();
-    const completedToday = task({
-      text: 'Submit expenses',
-      completed: true,
-      completedAt: '2026-08-04',
+      expect(onOpenCompleted).toHaveBeenCalled();
+      expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
     });
-    const workspace = new Workspace();
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [completedToday],
-          workspace,
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+    it('toggles the accordion when its caret is clicked, without navigating', () => {
+      const completedToday = task({
+        text: 'Submit expenses',
+        completed: true,
+        completedAt: '2026-08-04',
+      });
+      const workspace = new Workspace();
+      const onOpenCompleted = vi.fn();
 
-    // See the "shows the completed-today accordion header with a count"
-    // test above — "Completed" and its count are separate DOM nodes.
-    const header = getByText('Completed').closest('.entry') as HTMLElement;
-    fireEvent.click(within(header).getByRole('button'));
+      const { getByText } = render(
+        <>
+          {renderTodayContent({
+            today: [],
+            todayCompleted: [completedToday],
+            workspace,
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onOpenCompleted,
+          })}
+        </>
+      );
 
-    expect(navigation.openTasksCompleted).not.toHaveBeenCalled();
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
+      const header = getByText('Completed').closest('.entry') as HTMLElement;
+      fireEvent.click(within(header).getByRole('button'));
+
+      expect(onOpenCompleted).not.toHaveBeenCalled();
+      expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
+    });
   });
 });
