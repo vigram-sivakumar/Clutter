@@ -69,7 +69,6 @@ export function Task({
         leading={
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         }
-        hideTrailingOnHover={false}
         trailing={
           dueDate && (
             <span className={`task__due-date ${isOverdue ? 'is-overdue' : ''}`}>
