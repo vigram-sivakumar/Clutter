@@ -40,40 +40,42 @@ export function DailyNoteNavControls({
       <Button
         ref={calendar.anchorRef}
         isIconOnly
-        size="medium"
+        size="small"
         variant="ghost"
         aria-label="Open calendar"
         onClick={calendar.toggle}
       >
         <AppIcon icon="calendarDots" />
       </Button>
-      <Button
-        isIconOnly
-        size="medium"
-        variant="ghost"
-        aria-label="Previous day"
-        onClick={() => shiftDate(-1)}
-      >
-        <AppIcon icon="arrowLeft" />
-      </Button>
-      <Button
-        isIconOnly
-        size="medium"
-        variant="ghost"
-        aria-label="Today"
-        onClick={() => onNavigateToDate(toISODate(new Date()))}
-      >
-        <AppIcon icon="calendarDot" />
-      </Button>
-      <Button
-        isIconOnly
-        size="medium"
-        variant="ghost"
-        aria-label="Next day"
-        onClick={() => shiftDate(1)}
-      >
-        <AppIcon icon="arrowRight" />
-      </Button>
+      <div className="daily-note__date-nav">
+        <Button
+          isIconOnly
+          size="small"
+          variant="ghost"
+          aria-label="Previous day"
+          onClick={() => shiftDate(-1)}
+        >
+          <AppIcon icon="arrowLeft" />
+        </Button>
+        <Button
+          isIconOnly
+          size="small"
+          variant="ghost"
+          aria-label="Today"
+          onClick={() => onNavigateToDate(toISODate(new Date()))}
+        >
+          <AppIcon icon="calendarDot" />
+        </Button>
+        <Button
+          isIconOnly
+          size="small"
+          variant="ghost"
+          aria-label="Next day"
+          onClick={() => shiftDate(1)}
+        >
+          <AppIcon icon="arrowRight" />
+        </Button>
+      </div>
 
       <Overlay
         open={calendar.open}

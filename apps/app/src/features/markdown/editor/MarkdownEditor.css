@@ -1707,7 +1707,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  vertical-align: middle;
+  vertical-align: top;
   margin-inline-end: var(--md-marker-text-gap);
   width: var(--md-marker-width);
   height: var(--md-marker-height);
