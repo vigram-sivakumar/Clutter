@@ -8,10 +8,10 @@
  * No hover/click affordance here — token-level activation is out of scope
  * for v1 (see renderCompactMarkdown.tsx's own doc comment).
  */
-/* .compact-markdown * {
-  color: var(--foreground-secondary);
+.compact-markdown * {
+  color: var(--foreground-secondary) !important;
   text-decoration-color: var(--link-underline) !important;
-} */
+}
 
 .compact-markdown-code {
   font-family: ui-monospace, monospace;
@@ -53,9 +53,9 @@
  * apply uniformly to every decoration line declared on the same element). */
 .compact-markdown-link-title {
   text-decoration: underline;
-  text-decoration-thickness: 0.05em;
+  text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--md-link-underline);
-  text-underline-offset: var(--md-link-underline-offset);
+  text-underline-offset: var(--md-underline-offset);
 }
 
 .compact-markdown-wikilink {
@@ -67,9 +67,9 @@
  * see that pair's doc comments for the full rationale. */
 .compact-markdown-wikilink-title {
   text-decoration: underline;
-  text-decoration-thickness: 0.05em;
+  text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--link-underline);
-  text-underline-offset: var(--md-link-underline-offset);
+  text-underline-offset: var(--md-underline-offset);
 }
 
 .compact-markdown-wikilink[data-wikilink-status='unresolved'] {
@@ -88,7 +88,7 @@
 }
 
 .compact-markdown-highlight {
-  background: var(--md-highlight-surface);
+  background: var(--md-compact-highlight-surface);
   color: inherit;
   padding: 0 0.15em;
 }

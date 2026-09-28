@@ -74,7 +74,9 @@
   --md-marker-height: var(--md-base-space);
   --md-marker-width: var(--md-base-space);
   --md-marker-text-gap: var(--space-4);
-  --md-link-underline-offset: 20%;
+  --md-underline-offset: 20%;
+  --md-underline-thickness: 0.05em;
+
   --md-badge-radius: var(--radius-sm);
   --md-badge-padding: 0.15em 0.4em;
   --md-embed-radius: var(--radius-md);

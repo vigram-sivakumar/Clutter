@@ -1696,9 +1696,9 @@
 .tok-wikilink__title {
   min-width: 0;
   text-decoration: underline;
-  text-decoration-thickness: 0.05em;
+  text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--md-wiki-underline);
-  text-underline-offset: var(--md-link-underline-offset);
+  text-underline-offset: var(--md-underline-offset);
   padding-right: var(--space-4);
 }
 
@@ -1723,9 +1723,9 @@
  * (above) never has to share a `text-decoration-line` with it. */
 .cm-editor .tok-link-title {
   text-decoration: underline;
-  text-decoration-thickness: 0.05em;
+  text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--md-link-underline);
-  text-underline-offset: var(--md-link-underline-offset);
+  text-underline-offset: var(--md-underline-offset);
 }
 
 /* Underline is no longer declared here (removed 2026-09-27): before the
