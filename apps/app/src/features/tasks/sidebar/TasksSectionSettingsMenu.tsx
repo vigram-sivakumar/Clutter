@@ -55,14 +55,14 @@ export function TasksSectionSettingsMenu({
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
       >
-        <AppIcon icon="settings" />
+        <AppIcon icon="configure" />
       </Button>
       <Overlay
         open={open}
         onClose={() => onOpenChange(false)}
         anchorRef={anchorRef}
         side="bottom"
-        alignment="end"
+        alignment="start"
       >
         <Menu size="medium">
           <MenuItem
