@@ -290,8 +290,10 @@
 
 .cm-editor .cm-table-wrapper th,
 .cm-editor .cm-table-wrapper td {
-  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
-  border-right: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-bottom: var(--cm-table-border-thickness) solid
+    var(--cm-table-border-color);
+  border-right: var(--cm-table-border-thickness) solid
+    var(--cm-table-border-color);
   padding: var(--space-6) var(--space-12);
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
@@ -310,9 +312,10 @@
 
 .cm-editor .cm-table-wrapper thead th {
   font-weight: var(--fw-regular);
-  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-bottom: var(--cm-table-border-thickness) solid
+    var(--cm-table-border-color);
   color: var(--foreground-tertiary);
-  background: var(--surface-secondary);
+  background: var(--surface-subtle);
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper {
