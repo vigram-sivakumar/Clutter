@@ -1197,6 +1197,11 @@ export function PageHost({
             onOpenTask={(task) =>
               void application.pageOperations.open(task.sourcePageId)
             }
+            onDateChange={(task, date) =>
+              void (date === null
+                ? application.taskOperations.clearDate(task)
+                : application.taskOperations.setDate(task, date))
+            }
             onOpenCompleted={() => application.navigation.openTasksCompleted()}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}

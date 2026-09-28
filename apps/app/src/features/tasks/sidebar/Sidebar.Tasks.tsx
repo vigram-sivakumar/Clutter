@@ -59,6 +59,14 @@ export function Tasks({
     void pageOperations.open(task.sourcePageId);
   };
 
+  // Same fire-and-forget shape as onToggleComplete — the calendar picker
+  // dispatches straight to TaskOperations (the one owning facade for
+  // task-line mutation, per ADR-031), never touching Vault/PageOperations
+  // itself.
+  const onDateChange = (task: TaskOccurrence, date: string | null): void => {
+    void (date === null ? taskOperations.clearDate(task) : taskOperations.setDate(task, date));
+  };
+
   return (
     <View navigation={<TasksShortcuts onShortcut={onShortcut} />}>
       {renderTasksByDate({
@@ -66,6 +74,7 @@ export function Tasks({
         workspace,
         onToggleComplete,
         onOpenTask,
+        onDateChange,
         navigation,
         resolveWikiLink,
         resolveTag,

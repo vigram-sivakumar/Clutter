@@ -23,21 +23,18 @@ describe('formatTaskDueDate', () => {
     expect(formatTaskDueDate('2026-08-03')).toBe('Yesterday');
   });
 
-  it('renders day + abbreviated month, no year, for other dates in the current year — via the shared formatDateDisplay "condensed" mode', () => {
-    // System time is faked to 2026-08-04 — condensed mode drops the year
-    // when it matches the reference date's year (dateDisplay.ts), unlike
-    // 'compact'/'full' mode, since a sidebar row has less room and reads
-    // its due date against "now" far more often than an inline @date does.
+  it('renders day + abbreviated month, no weekday, no year, for other dates in the current year — via the shared formatDateDisplay "contextual" mode', () => {
+    // System time is faked to 2026-08-04 — 'contextual' mode drops the
+    // year when it matches the reference date's year (dateDisplay.ts),
+    // same as 'condensed' mode, but with no "within the current week"
+    // cutoff — every non-Today/Tomorrow/Yesterday date in the current
+    // year renders identically, whether it's this week or months away.
+    expect(formatTaskDueDate('2026-08-07')).toBe('7 Aug');
     expect(formatTaskDueDate('2026-08-15')).toBe('15 Aug');
     expect(formatTaskDueDate('2026-09-30')).toBe('30 Sep');
   });
 
-  it('renders day + abbreviated month + year for dates outside the current year', () => {
-    expect(formatTaskDueDate('2027-11-19')).toBe('19 Nov 2027');
-  });
-
-  it('renders the bare weekday name for another day within the current week', () => {
-    // System time is 2026-08-04 (Tuesday); 2026-08-07 (Friday) is later the same week.
-    expect(formatTaskDueDate('2026-08-07')).toBe('Friday');
+  it('renders day + abbreviated month + two-digit year for dates outside the current year', () => {
+    expect(formatTaskDueDate('2027-11-19')).toBe('19 Nov 27');
   });
 });

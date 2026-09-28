@@ -47,8 +47,16 @@ import type { ISODate } from './types';
  *   mode) is abbreviated — `"Sat, 22 August 2026"` rather than
  *   `"Saturday, 22 August 2026"`. For the Date-autocomplete popup
  *   (`dateCompletionRenderer.ts`), which has less room than a page title.
+ * - `'contextual'` — the Tasks sidebar's due-date badge. `Today`/
+ *   `Tomorrow`/`Yesterday` stay bare words, exactly like every other mode.
+ *   Every other date in `referenceDate`'s year — regardless of how far
+ *   from today, unlike `'compact'`/`'condensed'`'s "within the current
+ *   week" cutoff — is just an abbreviated date, `"2 Sep"`, no weekday and
+ *   no year. A date outside `referenceDate`'s year abbreviates the year
+ *   to its last two digits instead — `"2 Sep 27"` — the only mode that
+ *   ever shortens the year rather than showing it in full or omitting it.
  */
-export type DateDisplayMode = 'compact' | 'condensed' | 'full' | 'shortWeekday';
+export type DateDisplayMode = 'compact' | 'condensed' | 'full' | 'shortWeekday' | 'contextual';
 
 const MONTH_LABELS = [
   'January',
@@ -205,12 +213,24 @@ export function formatDateDisplay(
   referenceDate: Date = new Date()
 ): string {
   const relation = classify(isoDate, referenceDate);
-  const monthLabels = mode === 'condensed' ? MONTH_LABELS_SHORT : MONTH_LABELS;
+  const monthLabels = mode === 'condensed' || mode === 'contextual' ? MONTH_LABELS_SHORT : MONTH_LABELS;
   const monthLabel = monthLabels[relation.month - 1]!;
   const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
 
   if (mode === 'full' || mode === 'shortWeekday') {
     return `${dayIdentityLabel(relation, mode)}, ${fullDate}`;
+  }
+
+  if (mode === 'contextual') {
+    if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
+      return dayIdentityLabel(relation, mode);
+    }
+
+    if (relation.year === referenceDate.getFullYear()) {
+      return `${relation.day} ${monthLabel}`;
+    }
+
+    return `${relation.day} ${monthLabel} ${String(relation.year).slice(-2)}`;
   }
 
   if (relation.kind !== 'other') {

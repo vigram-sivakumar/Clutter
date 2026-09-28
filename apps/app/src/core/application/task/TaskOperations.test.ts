@@ -201,6 +201,95 @@ describe('TaskOperations', () => {
     expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
   });
 
+  describe('setDate/clearDate — the v1 bare @date mention syntax', () => {
+    it('appends a bare @date mention at the end when the task has no date yet', async () => {
+      const page = buildPage('p1', '- [ ] Finish table work');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-09-28');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Finish table work @2026-09-28'
+      );
+    });
+
+    it('replaces an existing bare @date mention in place rather than appending a second one', async () => {
+      const page = buildPage('p1', '- [ ] Finish table work @2026-09-28');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-09-30');
+
+      const markdown = vault.getPage('p1')!.source.markdown;
+      expect(markdown).toBe('- [ ] Finish table work @2026-09-30');
+      expect(markdown.match(/@\d{4}-\d{2}-\d{2}/g)).toHaveLength(1);
+    });
+
+    it('clearDate removes the bare @date mention cleanly, with no leftover marker or whitespace', async () => {
+      const page = buildPage('p1', '- [ ] Finish table work @2026-09-28');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.clearDate(firstTask(page));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Finish table work');
+    });
+
+    it('clearDate on a task with no date is a no-op', async () => {
+      const page = buildPage('p1', '- [ ] Finish table work');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.clearDate(firstTask(page));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Finish table work');
+    });
+
+    it('preserves every other bare date in the text, replacing only the one that is the recognized due date', async () => {
+      const page = buildPage(
+        'p1',
+        '- [ ] Moved from @2026-08-01 to @2026-09-28'
+      );
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-10-01');
+
+      // TaskExtractor's own rule: the FIRST bare date is the recognized
+      // due date when no @due: is present — that's the one replaced.
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Moved from @2026-10-01 to @2026-09-28'
+      );
+    });
+
+    it('a legacy @due: token already on the line is updated in place, never left alongside a second bare mention', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @due:2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-09-01');
+
+      const markdown = vault.getPage('p1')!.source.markdown;
+      expect(markdown).toBe('- [ ] Collect the bill @due:2026-09-01');
+      expect(markdown.match(/@due:/g)).toHaveLength(1);
+    });
+
+    it('clearDate removes a legacy @due: token entirely, mirroring removeDueDate', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @due:2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.clearDate(firstTask(page));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+
+    it('preserves unrecognized metadata and the rest of the task text exactly as written', async () => {
+      const page = buildPage('p1', '- [ ] Buy milk @energy:high');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-08-10');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Buy milk @energy:high @2026-08-10'
+      );
+    });
+  });
+
   it('preserves unrecognized metadata exactly as written across a mutation', async () => {
     const page = buildPage('p1', '- [ ] Buy milk @energy:high');
     const { vault, taskOperations } = setup(page);

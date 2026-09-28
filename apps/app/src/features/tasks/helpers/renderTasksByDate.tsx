@@ -23,6 +23,8 @@ import { CountBadge } from '@components/count-badge/CountBadge';
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
+  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
 }
 
 /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -39,7 +41,14 @@ interface TaskRowResolvers {
 // shown normally.
 export function renderTaskRow(
   task: TaskOccurrence,
-  { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed }: TaskRowCallbacks & TaskRowResolvers
+  {
+    onToggleComplete,
+    onOpenTask,
+    onDateChange,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  }: TaskRowCallbacks & TaskRowResolvers
 ) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
@@ -51,6 +60,8 @@ export function renderTaskRow(
       title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
+      date={dueDate}
+      onDateChange={onDateChange && ((next) => onDateChange(task, next))}
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
@@ -70,6 +81,14 @@ export interface RenderTodayContentProps extends TaskRowCallbacks, TaskRowResolv
   readonly todayCompleted: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly onOpenCompleted: () => void;
+  /**
+   * The nested completed-today accordion — omitted (default `true`) for
+   * the Today collection page, which still needs it; the sidebar (see
+   * `renderTasksByDate`) passes `false` so the Tasks sidepanel's Today
+   * section only ever shows incomplete tasks, matching the rest of the
+   * sidebar (Upcoming has no completed rows either).
+   */
+  readonly showCompletedAccordion?: boolean;
 }
 
 /**
@@ -85,7 +104,9 @@ export function renderTodayContent({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   onOpenCompleted,
+  showCompletedAccordion = true,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -96,10 +117,10 @@ export function renderTodayContent({
   return (
     <Fragment>
       {today.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
       )}
 
-      {todayCompleted.length > 0 && (
+      {showCompletedAccordion && todayCompleted.length > 0 && (
         <Fragment>
           <Entry
             className="tertiary"
@@ -125,7 +146,7 @@ export function renderTodayContent({
 
           {workspace.isSectionExpanded('tasks-today-completed') &&
             todayCompleted.map((task) =>
-              renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+              renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
             )}
         </Fragment>
       )}
@@ -147,6 +168,7 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -154,7 +176,7 @@ export function renderUpcomingContent({
   return (
     <Fragment>
       {upcoming.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
       )}
     </Fragment>
   );
@@ -171,6 +193,7 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   navigation,
   resolveWikiLink,
   resolveTag,
@@ -188,7 +211,11 @@ export function renderTasksByDate({
         hasHeader
         title="Today"
         isCollapsible
-        isEmpty={today.length === 0 && todayCompleted.length === 0}
+        // The completed-today accordion is hidden in the sidebar (see
+        // showCompletedAccordion below), so a Today section whose tasks are
+        // all completed has nothing left to show — its emptiness no longer
+        // depends on todayCompleted the way the Today collection page's does.
+        isEmpty={today.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('tasks-today', expanded)
@@ -201,7 +228,9 @@ export function renderTasksByDate({
           workspace,
           onToggleComplete,
           onOpenTask,
+          onDateChange,
           onOpenCompleted: () => navigation.openTasksCompleted(),
+          showCompletedAccordion: false,
           resolveWikiLink,
           resolveTag,
           resolveEmbed,
@@ -223,6 +252,7 @@ export function renderTasksByDate({
             upcoming,
             onToggleComplete,
             onOpenTask,
+            onDateChange,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
