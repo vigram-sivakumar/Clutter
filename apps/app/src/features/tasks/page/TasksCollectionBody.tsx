@@ -24,6 +24,8 @@ export interface TasksCollectionBodyProps {
   readonly workspace: Workspace;
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
+  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
   readonly onOpenCompleted: () => void;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   readonly resolveWikiLink?: ResolveWikiLink;
@@ -47,12 +49,13 @@ export function TasksCollectionBody({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   onOpenCompleted,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const rowCallbacks = { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed };
+  const rowCallbacks = { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed };
 
   if (view === 'tasks-today') {
     const { today, todayCompleted } = groupTasks(tasks);
@@ -64,6 +67,7 @@ export function TasksCollectionBody({
           workspace,
           onToggleComplete,
           onOpenTask,
+          onDateChange,
           onOpenCompleted,
           resolveWikiLink,
           resolveTag,
@@ -77,7 +81,7 @@ export function TasksCollectionBody({
     const { upcoming } = groupTasks(tasks);
     return (
       <PageBody>
-        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })}
+        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
       </PageBody>
     );
   }

@@ -2,9 +2,23 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Task } from './Task';
+
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 afterEach(() => {
   cleanup();
@@ -120,5 +134,117 @@ describe('Task — compact Markdown title rendering', () => {
     render(<Task title="**Ship** it" dueDate="20 Aug" isChecked={false} />);
 
     expect(screen.getByText('20 Aug')).toBeDefined();
+  });
+});
+
+describe('Task — calendar date action', () => {
+  it('omits the calendar action entirely when onDateChange is not provided', () => {
+    render(<Task title="Finish table work" isChecked={false} />);
+
+    expect(screen.queryByRole('button', { name: 'Set date' })).toBeNull();
+  });
+
+  it('renders the calendar action when onDateChange is provided', () => {
+    render(<Task title="Finish table work" isChecked={false} onDateChange={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Set date' })).toBeDefined();
+  });
+
+  it('clicking the calendar button does not trigger the row\'s own onClick', () => {
+    const onClick = vi.fn();
+    render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        onClick={onClick}
+        onDateChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('opens the existing Calendar overlay, pre-selected to the task\'s current date', () => {
+    render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onDateChange={vi.fn()}
+      />
+    );
+
+    expect(document.querySelector('.calendar')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+
+    const calendar = document.querySelector('.calendar');
+    expect(calendar).not.toBeNull();
+    expect(calendar!.querySelector('.calendar-cell--selected')).not.toBeNull();
+  });
+
+  it('opens with nothing pre-selected when the task has no date yet', () => {
+    render(<Task title="Finish table work" isChecked={false} onDateChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+
+    const calendar = document.querySelector('.calendar')!;
+    expect(calendar.querySelector('.calendar-cell--selected')).toBeNull();
+  });
+
+  it('selecting a date in the calendar calls onDateChange with the selected date and closes the overlay', () => {
+    const onDateChange = vi.fn();
+    render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onDateChange={onDateChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+    // '15' is unambiguous within September 2026's grid — the only
+    // outside-month padding days that month shows are Aug 30-31 (leading)
+    // and Oct 1-10 (trailing), so a mid-month digit can't collide with them.
+    const targetDay = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        '.calendar-cell:not(.calendar-cell--outside-month)'
+      )
+    ).find((button) => button.textContent?.trim() === '15');
+    expect(targetDay).toBeDefined();
+
+    fireEvent.click(targetDay!);
+
+    expect(onDateChange).toHaveBeenCalledWith('2026-09-15');
+    expect(document.querySelector('.calendar')).toBeNull();
+  });
+
+  it('"Clear date" calls onDateChange with null and closes the overlay', () => {
+    const onDateChange = vi.fn();
+    render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onDateChange={onDateChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear date' }));
+
+    expect(onDateChange).toHaveBeenCalledWith(null);
+    expect(document.querySelector('.calendar')).toBeNull();
+  });
+
+  it('disables "Clear date" when the task has no date yet', () => {
+    render(<Task title="Finish table work" isChecked={false} onDateChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set date' }));
+
+    expect(screen.getByRole('button', { name: 'Clear date' })).toBeDisabled();
   });
 });

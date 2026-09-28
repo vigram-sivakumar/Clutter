@@ -23,6 +23,8 @@ import { CountBadge } from '@components/count-badge/CountBadge';
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
+  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
 }
 
 /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -39,7 +41,14 @@ interface TaskRowResolvers {
 // shown normally.
 export function renderTaskRow(
   task: TaskOccurrence,
-  { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed }: TaskRowCallbacks & TaskRowResolvers
+  {
+    onToggleComplete,
+    onOpenTask,
+    onDateChange,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  }: TaskRowCallbacks & TaskRowResolvers
 ) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
@@ -51,6 +60,8 @@ export function renderTaskRow(
       title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
+      date={dueDate}
+      onDateChange={onDateChange && ((next) => onDateChange(task, next))}
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
@@ -85,6 +96,7 @@ export function renderTodayContent({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   onOpenCompleted,
   resolveWikiLink,
   resolveTag,
@@ -96,7 +108,7 @@ export function renderTodayContent({
   return (
     <Fragment>
       {today.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
       )}
 
       {todayCompleted.length > 0 && (
@@ -125,7 +137,7 @@ export function renderTodayContent({
 
           {workspace.isSectionExpanded('tasks-today-completed') &&
             todayCompleted.map((task) =>
-              renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+              renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
             )}
         </Fragment>
       )}
@@ -147,6 +159,7 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -154,7 +167,7 @@ export function renderUpcomingContent({
   return (
     <Fragment>
       {upcoming.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag, resolveEmbed })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })
       )}
     </Fragment>
   );
@@ -171,6 +184,7 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
+  onDateChange,
   navigation,
   resolveWikiLink,
   resolveTag,
@@ -201,6 +215,7 @@ export function renderTasksByDate({
           workspace,
           onToggleComplete,
           onOpenTask,
+          onDateChange,
           onOpenCompleted: () => navigation.openTasksCompleted(),
           resolveWikiLink,
           resolveTag,
@@ -223,6 +238,7 @@ export function renderTasksByDate({
             upcoming,
             onToggleComplete,
             onOpenTask,
+            onDateChange,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
