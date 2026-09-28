@@ -1,5 +1,6 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
+import { bareDomainSyntax } from './link/bareDomain/bareDomainSyntax';
 import { dateSyntax } from './date/dateSyntax';
 import { embedSyntax } from './embed/embedSyntax';
 import { emojiListSyntax } from './emoji-list/emojiListSyntax';
@@ -58,6 +59,15 @@ import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
  */
 export const markdownGrammarExtensions: MarkdownExtension = [
   Autolink,
+  // Extends Autolink's own family: recognizes a scheme-less, www.-less
+  // bare domain (example.com, example.co.uk/path) as the same URL node
+  // Autolink produces for https://www. text, gated on a curated-gTLD +
+  // real-two-letter-ccTLD rule (minus four named file-extension-colliding
+  // exceptions) — see bareDomainScanner.ts's own doc comment for the full
+  // rationale. Its own `after: 'Autolink'` field (resolved by name during
+  // MarkdownParser.configure(), not by array position) is what actually
+  // orders it after Autolink; placed here only for readability.
+  bareDomainSyntax,
   Strikethrough,
   TaskList,
   Table,
