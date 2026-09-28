@@ -1,4 +1,7 @@
 .task-date-picker {
+  display: flex;
+  flex-direction: column;
+
   background-color: var(--surface-secondary);
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
@@ -14,8 +17,6 @@
 }
 
 .task-date-picker__clear {
-  display: flex;
-  width: 100%;
-  justify-content: center;
+  align-self: flex-end;
   margin-top: var(--space-8);
 }
