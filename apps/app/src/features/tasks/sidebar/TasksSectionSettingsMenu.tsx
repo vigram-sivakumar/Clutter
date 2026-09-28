@@ -20,10 +20,12 @@ export interface TasksSectionSettingsMenuProps {
  * Note.tsx's overflow-menu trigger already use), and opens a small,
  * two-item tick-selection menu (Show completed / Auto-sort completed) —
  * the same `Button` + `Overlay` + `Menu`/`MenuItem` tick pattern
- * CollectionViewMenu.tsx's Properties submenu already establishes for the
- * Table View Sort/Properties menu: a leading tick icon (or an
- * empty, same-sized placeholder) marks each independently-toggleable
- * setting, never a checkbox/radio control.
+ * CollectionViewMenu.tsx's Properties submenu already establishes: a
+ * leading tick icon (or an empty, same-sized placeholder) marks each
+ * independently-toggleable setting, never a checkbox/radio control.
+ * Unlike that Properties submenu, selecting either item here closes the
+ * menu (`onOpenChange(false)`, alongside `onConfigChange`) — a deliberate
+ * product choice for this menu, not a shared convention with it.
  *
  * `config`/`onConfigChange` are the one shared Tasks-view preference —
  * this component is mounted once per section (Today, Everything else),
@@ -72,6 +74,7 @@ export function TasksSectionSettingsMenu({
             onClick={(event) => {
               event.stopPropagation();
               onConfigChange({ ...config, showCompleted: !config.showCompleted });
+              onOpenChange(false);
             }}
           >
             Show completed
@@ -83,6 +86,7 @@ export function TasksSectionSettingsMenu({
             onClick={(event) => {
               event.stopPropagation();
               onConfigChange({ ...config, autoSortCompleted: !config.autoSortCompleted });
+              onOpenChange(false);
             }}
           >
             Auto-sort completed
