@@ -1,5 +1,5 @@
 import { redo, undo } from '@codemirror/commands';
-import { Annotation, StateEffect, type Extension, type Transaction } from '@codemirror/state';
+import { Annotation, StateEffect, type EditorState, type Extension, type Transaction } from '@codemirror/state';
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
@@ -125,6 +125,17 @@ export class TableActiveCellController {
   private rawAnchor: CellRange | null = null;
   private forwarding = false;
   private nestedExtensions: readonly Extension[] = [];
+
+  /**
+   * `remapActiveAnchor`'s own re-entrancy guard state — see that method's
+   * doc comment for why this is needed at all. `lastRemapStartState`
+   * identifies which `tr.startState` `anchorBeforeLastRemap`/
+   * `rawAnchorBeforeLastRemap` were captured against; `null` until the
+   * first `remapActiveAnchor` call.
+   */
+  private lastRemapStartState: EditorState | null = null;
+  private anchorBeforeLastRemap: CellRange | null = null;
+  private rawAnchorBeforeLastRemap: CellRange | null = null;
 
   /**
    * Extra extensions installed on the nested `EditorView` the next time it
@@ -499,8 +510,41 @@ export class TableActiveCellController {
    * inside it) still resolves here — its row/table nodes are untouched,
    * only the interior text changed — so this never deactivates a merely-
    * emptied cell.
+   *
+   * **Re-entrancy against CM6's own speculative `tr.state` evaluation
+   * (found live via this table's own multi-keystroke test).** `tr.state`
+   * is a lazy getter (`EditorState.applyTransaction`, computed once per
+   * `Transaction` object and cached on it) — but a *later*-registered
+   * `EditorState.transactionFilter` (`tableRectangularNormalization.ts`)
+   * reads it to inspect the post-edit tree before deciding its own edits,
+   * which forces this `StateField`'s `update()` — and therefore this
+   * method — to run against an *intermediate* `Transaction` object that
+   * may never become the one actually dispatched (`resolveTransaction`
+   * can go on to merge further filter edits into a *different*, final
+   * `Transaction`, itself evaluated separately). Both objects share the
+   * same `tr.startState` but are otherwise independent transactions over
+   * that same starting point. Because this method *mutates* persistent
+   * controller state (`anchor`/`rawAnchor`), not just a pure decoration
+   * value, two such calls for the same `startState` must never compound —
+   * the second must remap from the *original* pre-remap anchor, exactly
+   * like the first did, not from whatever the first already produced
+   * (confirmed as a real, reproducible corruption: consecutive keystrokes
+   * forwarded into the wrong root-document range, eventually swallowing a
+   * neighboring cell's own delimiter). Snapshotting/restoring keyed on
+   * `tr.startState` identity — stable and unique per real edit, regardless
+   * of how many times CM6 speculatively re-evaluates it — is what makes
+   * every such call idempotent.
    */
   remapActiveAnchor(tr: Transaction): void {
+    if (tr.startState === this.lastRemapStartState) {
+      this.anchor = this.anchorBeforeLastRemap;
+      this.rawAnchor = this.rawAnchorBeforeLastRemap;
+    } else {
+      this.lastRemapStartState = tr.startState;
+      this.anchorBeforeLastRemap = this.anchor;
+      this.rawAnchorBeforeLastRemap = this.rawAnchor;
+    }
+
     if (!this.anchor || !tr.docChanged) {
       return;
     }

@@ -109,6 +109,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  transition: font-size 150ms ease;
 }
 
 /* .cm-note-embed--collapsed .cm-note-embed__title {
@@ -174,12 +175,12 @@
 }
 
 /* Base rule — applies to EVERY .cm-note-embed__content, top-level included */
-/* .cm-note-embed__content {
+.cm-note-embed__content {
   --content-padding: calc(var(--md-marker-width) + var(--md-marker-text-gap));
   padding-inline-start: var(--content-padding);
   padding-inline-end: var(--content-padding);
   padding-block-end: var(--content-padding);
-} */
+}
 
 /* Extra indent — nested note embeds only (a note embed rendered *inside*
  * another note embed's own nested read-only view), never a top-level

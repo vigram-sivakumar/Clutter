@@ -258,7 +258,11 @@ describe('table live wiring — editable top-level table', () => {
 
     expect(controller.nestedView).toBe(nested); // same instance throughout
     expect(nested.state.doc.toString()).toBe('Viktor');
-    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Viktor | Designer |');
+    // TABLE has no trailing newline, so it's a terminal table from the
+    // start — tableActivationNormalization()'s own "general terminal-table
+    // guarantee" (tableActivationNormalization.ts) appends one the moment
+    // any edit touches it, same as it would for a real keystroke.
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Viktor | Designer |\n');
   });
 
   it('Tab from the active cell activates the next cell live, moving the nested editor into its own wrapper', () => {
@@ -376,12 +380,18 @@ describe('table live wiring — empty-cell click/caret (rowCells() whitespace-on
     controller.nestedView!.dispatch({ changes: { from: 0, to: 0, insert: 'x' } });
 
     expect(controller.nestedView!.state.doc.toString()).toBe('x');
-    // The empty cell's own range collapses to its start (right after the
-    // opening delimiter, before any of its own padding) — inserting there
-    // lands immediately after "|", ahead of the original padding, not
-    // "wrapped" by a space on each side. Still correctly recovered as
-    // this cell's whole content once re-parsed (renderInlineMarkdown trims).
-    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik |x  |');
+    // forwardToRoot never incrementally patches around inside the cell's
+    // raw gap — it rebuilds the *whole* gap from the nested editor's
+    // current content via padCellContent (see that function's own doc
+    // comment), which always reconstructs at least one leading and one
+    // trailing space around real content, regardless of where the empty
+    // cell's own trimmed anchor had collapsed to. For minGapWidth 2
+    // ("  ", the empty cell's original 2-space gap) and content "x",
+    // padCellContent's targetWidth is max(2, 1+2) = 3 — " x " (1 leading +
+    // "x" + 1 trailing). EMPTY_CELL_TABLE has no trailing newline either —
+    // same terminal-table guarantee as the multi-keystroke test above
+    // appends one here too.
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik | x |\n');
   });
 
   it('does not create a second EditorView — the same reusable instance activates the empty cell', () => {
@@ -402,14 +412,25 @@ describe('table live wiring — empty-cell click/caret (rowCells() whitespace-on
     const controller = new TableActiveCellController();
     const view = mount(EMPTY_CELL_TABLE, false, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
-    view.dispatch({ selection: { anchor: 0 } });
+    // EMPTY_CELL_TABLE has no surrounding text — the whole document is the
+    // table, so `table.from` (position 0) is itself a position
+    // `tableRootSelectionSnap.ts` deliberately treats as "inside" the
+    // table (see that file's own doc comment) and immediately snaps away
+    // from; asserting the root selection stays at 0 would actually be
+    // asserting that filter's own snap target, not "untouched". The one
+    // genuinely valid non-table position this document has is its own
+    // end (`table.to === doc.length` is the filter's documented "left
+    // alone" case) — used here instead so this test verifies what it
+    // says: a cell click doesn't move root's own selection at all.
+    const untouchedPos = view.state.doc.length;
+    view.dispatch({ selection: { anchor: untouchedPos } });
 
     clickCell(emptyDataCell(view));
 
     // The click activates a cell (a root-level position tracked by the
     // controller), not the root EditorView's own text selection — that
     // stays wherever it was before the click.
-    expect(view.state.selection.main.from).toBe(0);
+    expect(view.state.selection.main.from).toBe(untouchedPos);
   });
 });
 

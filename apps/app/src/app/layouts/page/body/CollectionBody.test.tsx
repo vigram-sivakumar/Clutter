@@ -145,7 +145,7 @@ describe('CollectionBody — Table mode (the default)', () => {
 });
 
 describe('CollectionBody — Properties visibility', () => {
-  it('defaults to showing description ("No description..." fallback) and created/updated', () => {
+  it('defaults to showing description ("No description" fallback) and created/updated', () => {
     const { getByText } = render(
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
@@ -153,7 +153,7 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    expect(getByText('No description...')).toBeInTheDocument();
+    expect(getByText('No description')).toBeInTheDocument();
     expect(getByText('Today')).toBeInTheDocument();
     expect(getByText('Yesterday')).toBeInTheDocument();
   });
@@ -167,7 +167,7 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    expect(queryByText('No description...')).not.toBeInTheDocument();
+    expect(queryByText('No description')).not.toBeInTheDocument();
   });
 
   it('shows a real description when present and checked', () => {
@@ -179,7 +179,7 @@ describe('CollectionBody — Properties visibility', () => {
     );
 
     expect(getByText('A real description')).toBeInTheDocument();
-    expect(queryByText('No description...')).not.toBeInTheDocument();
+    expect(queryByText('No description')).not.toBeInTheDocument();
   });
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {

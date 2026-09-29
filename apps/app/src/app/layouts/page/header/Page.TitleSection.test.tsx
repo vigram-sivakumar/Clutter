@@ -89,7 +89,7 @@ describe('PageTitleSection — belowDescription slot', () => {
     expect(content.children).toHaveLength(2);
   });
 
-  it('renders belowDescription inside .page-title-section__content, after description', () => {
+  it('renders belowDescription as a sibling of .page-title-section__content, after it', () => {
     render(
       <PageTitleSection
         title="Untitled"
@@ -100,7 +100,7 @@ describe('PageTitleSection — belowDescription slot', () => {
 
     const content = document.querySelector('.page-title-section__content')!;
     expect(screen.getByTestId('nav-row')).toBeInTheDocument();
-    expect(content.lastElementChild).toBe(screen.getByTestId('nav-row'));
+    expect(content.nextElementSibling).toBe(screen.getByTestId('nav-row'));
   });
 });
 
