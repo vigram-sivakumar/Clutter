@@ -5,7 +5,7 @@ const STORAGE_KEY = 'clutter-sidebar-width';
 // Matches --app-sidebar-width's own default in tokens.css.
 export const DEFAULT_SIDEBAR_WIDTH = 280;
 export const MIN_SIDEBAR_WIDTH = 280;
-export const MAX_SIDEBAR_WIDTH = 420;
+export const MAX_SIDEBAR_WIDTH = 500;
 
 function clampWidth(width: number): number {
   return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));

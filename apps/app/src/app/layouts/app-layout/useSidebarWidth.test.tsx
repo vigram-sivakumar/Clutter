@@ -2,7 +2,7 @@
 
 import { cleanup, render, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { useSidebarWidth, DEFAULT_SIDEBAR_WIDTH } from './useSidebarWidth';
+import { useSidebarWidth, DEFAULT_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 
 const STORAGE_KEY = 'clutter-sidebar-width';
 
@@ -44,10 +44,10 @@ describe('useSidebarWidth', () => {
     expect(getByTestId('width').textContent).toBe(String(DEFAULT_SIDEBAR_WIDTH));
   });
 
-  it('clamps an out-of-range stored value into [280, 420]', () => {
+  it('clamps an out-of-range stored value to MAX_SIDEBAR_WIDTH', () => {
     localStorage.setItem(STORAGE_KEY, '9999');
     const { getByTestId } = render(<Harness />);
-    expect(getByTestId('width').textContent).toBe('420');
+    expect(getByTestId('width').textContent).toBe(String(MAX_SIDEBAR_WIDTH));
   });
 
   it('setWidth updates the live value without writing to localStorage', () => {

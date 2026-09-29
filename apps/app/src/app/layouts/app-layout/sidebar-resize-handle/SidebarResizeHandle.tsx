@@ -17,6 +17,8 @@ interface SidebarResizeHandleProps {
    * resizing (resize is always immediate, in both directions).
    */
   readonly onResizingChange?: (isResizing: boolean) => void;
+  /** Double-click on the handle resets the Sidebar to its default width. */
+  readonly onResetWidth?: () => void;
 }
 
 /**
@@ -32,6 +34,7 @@ export function SidebarResizeHandle({
   onResize,
   onResizeEnd,
   onResizingChange,
+  onResetWidth,
 }: SidebarResizeHandleProps) {
   const [isResizing, setIsResizing] = useState(false);
   const dragState = useRef<{ startX: number; startWidth: number; lastWidth: number } | null>(null);
@@ -80,6 +83,7 @@ export function SidebarResizeHandle({
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onDoubleClick={onResetWidth}
     >
       <div className="sidebar-resize-handle__bar" />
     </div>

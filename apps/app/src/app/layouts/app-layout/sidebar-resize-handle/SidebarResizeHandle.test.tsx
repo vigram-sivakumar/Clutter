@@ -23,6 +23,7 @@ function renderHandle(currentWidth: number) {
   const onResize = vi.fn();
   const onResizeEnd = vi.fn();
   const onResizingChange = vi.fn();
+  const onResetWidth = vi.fn();
   const { container } = render(
     <SidebarResizeHandle
       currentWidth={currentWidth}
@@ -31,10 +32,11 @@ function renderHandle(currentWidth: number) {
       onResize={onResize}
       onResizeEnd={onResizeEnd}
       onResizingChange={onResizingChange}
+      onResetWidth={onResetWidth}
     />
   );
   const handle = container.querySelector('.sidebar-resize-handle')!;
-  return { handle, onResize, onResizeEnd, onResizingChange };
+  return { handle, onResize, onResizeEnd, onResizingChange, onResetWidth };
 }
 
 describe('SidebarResizeHandle', () => {
@@ -117,5 +119,11 @@ describe('SidebarResizeHandle', () => {
     fireEvent.pointerDown(handle, { clientX: 100, button: 0 });
     fireEvent.pointerCancel(handle, { clientX: 140 });
     expect(onResizingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('calls onResetWidth on double-click', () => {
+    const { handle, onResetWidth } = renderHandle(300);
+    fireEvent.doubleClick(handle);
+    expect(onResetWidth).toHaveBeenCalledTimes(1);
   });
 });
