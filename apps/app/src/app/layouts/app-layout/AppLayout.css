@@ -107,3 +107,14 @@
   padding-left: 0;
   transition-timing-function: var(--sidebar-transition-easing);
 }
+
+/* The resize handle (sidebar-resize-handle/SidebarResizeHandle.tsx) is a
+   direct child of .app-layout, not of .app-layout__sidepanel — it needs
+   to straddle the Sidebar's right edge unclipped, which the sidepanel's
+   own `overflow: hidden` above would otherwise prevent. That also means
+   it no longer inherits the sidepanel's collapsed-and-clipped
+   non-interactivity for free, so it's hidden explicitly here while
+   collapsed — matching the sidepanel's own covered/non-interactive state. */
+.app-layout[data-sidebar-collapsed='true'] .sidebar-resize-handle {
+  display: none;
+}

@@ -175,16 +175,16 @@ export function AppLayout({ application }: AppLayoutProps) {
               onTasksViewConfigChange={updateTasksViewConfig}
             />
           }
-          <SidebarResizeHandle
-            currentWidth={sidebarWidth}
-            minWidth={MIN_SIDEBAR_WIDTH}
-            maxWidth={MAX_SIDEBAR_WIDTH}
-            onResize={handleSidebarResize}
-            onResizeEnd={commitSidebarWidth}
-            onResizingChange={handleSidebarResizingChange}
-          />
         </aside>
       </div>
+      <SidebarResizeHandle
+        currentWidth={sidebarWidth}
+        minWidth={MIN_SIDEBAR_WIDTH}
+        maxWidth={MAX_SIDEBAR_WIDTH}
+        onResize={handleSidebarResize}
+        onResizeEnd={commitSidebarWidth}
+        onResizingChange={handleSidebarResizingChange}
+      />
       <main className="app-layout__page">
         <TauriDragStrip />
         <PageHost

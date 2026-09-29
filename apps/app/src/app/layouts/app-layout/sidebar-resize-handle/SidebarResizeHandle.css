@@ -1,32 +1,52 @@
-/* Hit area sits inside .app-layout__sidepanel (overflow: hidden), flush
-   against its right edge — wider than the visible bar so it's easy to
-   grab without a permanent visible divider. Kept entirely within the
-   sidepanel's own box (no negative offset/translate past the edge) since
-   anything outside it would be clipped by the parent's overflow: hidden
-   and become unclickable. The bar itself is only painted on hover/active,
-   per the "no permanent divider" requirement. */
+/* Rendered as a direct child of .app-layout (AppLayout.tsx), not inside
+   .app-layout__sidepanel — that panel's overflow: hidden clips anything
+   positioned past its own right edge, which straddling the Sidebar
+   boundary requires. .app-layout has no overflow/clipping of its own and
+   is already position: relative (AppLayout.css), so `left` here is
+   relative to the whole layout, not the sidepanel. Positioned from the
+   Sidebar's own width (not a hardcoded offset) so it tracks --app-sidebar-
+   width live during a drag exactly like the sidepanel does. */
 .sidebar-resize-handle {
   position: absolute;
   top: 0;
-  right: 0;
+  left: calc(var(--app-sidebar-width) - 3.5px);
   width: 8px;
   height: 100%;
   cursor: col-resize;
-  z-index: 2;
+  /* Above .app-layout__page's z-index: 2 (AppLayout.css) — the handle
+     straddles the Sidebar boundary and physically overlaps the page's
+     left edge by a few px; since the page comes later in DOM order, equal
+     z-index would let it win that overlap and paint over the handle. */
+  z-index: 3;
   touch-action: none;
 }
 
+/* Same mask-image wavy-line technique as the Markdown HR divider's
+   `.cm-hr-line-wavy::after` (MarkdownEditor.css) — a repeating SVG mask
+   cut out of a solid fill, not a border/gradient — rotated 90° for a
+   vertical line: the horizontal tile's path `M0 3 C4 3, 4 1, 8 1 S12 3, 16
+   3` in a 16x6 box becomes `M3 0 C3 4, 1 4, 1 8 S3 12, 3 16` in a 6x16 box
+   (x/y swapped), `repeat-x` becomes `repeat-y`. Same stroke width, wave
+   period, and amplitude; same `--md-hr-line` color token. */
 .sidebar-resize-handle__bar {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 50%;
   transform: translateX(-50%);
-  width: 2px;
-  height: 100%;
-  border-radius: 1px;
-  background: var(--border-strong);
+  width: 3px;
+  height: 48px;
+  background: var(--foreground-secondary);
+  /* -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='16'%3E%3Cpath d='M3 0 C3 4, 1 4, 1 8 S3 12, 3 16' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='16'%3E%3Cpath d='M3 0 C3 4, 1 4, 1 8 S3 12, 3 16' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-y;
+  mask-repeat: repeat-y;
+  -webkit-mask-size: 6px 16px;
+  mask-size: 6px 16px;
+  -webkit-mask-position: center top;
+  mask-position: center top; */
   opacity: 0;
   transition: opacity 120ms ease;
+  border-radius: 6px;
 }
 
 .sidebar-resize-handle:hover .sidebar-resize-handle__bar,
