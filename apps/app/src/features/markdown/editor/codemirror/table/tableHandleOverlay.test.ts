@@ -818,6 +818,152 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
   });
 
+  /** Wraps every cell's own text in a `.cm-table-cell-wrapper`, matching `TableWidget.toDOM()`'s own real structure — needed only by the tests below that assert on ghost content and source-hiding, since `buildTable()` itself (used everywhere else in this file) leaves cells empty. */
+  function addCellWrappers(table: HTMLTableElement): void {
+    for (const row of Array.from(table.rows)) {
+      for (const cell of Array.from(row.children)) {
+        const w = document.createElement('div');
+        w.className = 'cm-table-cell-wrapper';
+        w.textContent = cell.textContent ?? '';
+        cell.appendChild(w);
+      }
+    }
+  }
+
+  it('a column drag materializes a ghost carrying the selection-overlay border and a relocated column handle, and hides the source column\'s content', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 200, height: 160 });
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    pointer('pointerdown', columnHit, 50, 10);
+
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).toBeNull(); // not yet — threshold not crossed
+
+    pointer('pointermove', document, 60, 10); // 10px of travel, past DRAG_THRESHOLD_PX (4)
+    const ghost = wrapper.querySelector('.cm-table-drag-ghost')!;
+    expect(ghost).not.toBeNull();
+    expect(ghost.classList.contains('cm-table-drag-ghost--column')).toBe(true);
+    expect(ghost.classList.contains('cm-table-selection-overlay')).toBe(true);
+    expect(ghost.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+    expect(ghost.querySelectorAll(':scope > .cm-table-column-handle')).toHaveLength(1);
+
+    // The source column's own cell-wrapper content is hidden throughout.
+    for (const row of Array.from(table.rows)) {
+      const wrapperEl = row.children[0]!.querySelector('.cm-table-cell-wrapper')!;
+      expect(wrapperEl.classList.contains('cm-table-drag-source-hidden')).toBe(true);
+    }
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 60, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).toBeNull();
+  });
+
+  it('a row drag materializes a ghost carrying the selection-overlay border and a relocated row handle, and hides the source row\'s content', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140);
+
+    const ghost = wrapper.querySelector('.cm-table-drag-ghost')!;
+    expect(ghost.classList.contains('cm-table-drag-ghost--row')).toBe(true);
+    expect(ghost.classList.contains('cm-table-selection-overlay')).toBe(true);
+    expect(ghost.querySelectorAll(':scope > .cm-table-row-handle')).toHaveLength(1);
+
+    for (const cell of Array.from(row.children)) {
+      const wrapperEl = cell.querySelector('.cm-table-cell-wrapper')!;
+      expect(wrapperEl.classList.contains('cm-table-drag-source-hidden')).toBe(true);
+    }
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).toBeNull();
+    for (const cell of Array.from(row.children)) {
+      const wrapperEl = cell.querySelector('.cm-table-cell-wrapper')!;
+      expect(wrapperEl.classList.contains('cm-table-drag-source-hidden')).toBe(false);
+    }
+  });
+
+  it('while a drag is active, hovering a different column/row never shows its own handle — only the ghost\'s relocated handle is visible', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
+    const draggedRow = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = draggedRow.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140); // crosses threshold, drag active
+
+    // Hover a completely different cell/row while the drag is in progress.
+    hoverBodyCell(wrapper, table, 1, 1);
+
+    // No real row handle anywhere is visible — only the ghost's own clone.
+    expect(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible')).toHaveLength(1);
+    expect(wrapper.querySelector('.cm-table-drag-ghost .cm-table-row-handle.cm-table-handle-visible')).not.toBeNull();
+    expect(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible')).toHaveLength(0);
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+  });
+
+  it('pointercancel restores the source column, removes the ghost, and never touches the document', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 200, height: 160 });
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    const docBefore = view.state.doc.toString();
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    pointer('pointerdown', columnHit, 50, 10);
+    pointer('pointermove', document, 70, 10);
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).not.toBeNull();
+
+    document.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, cancelable: true }));
+
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).toBeNull();
+    for (const row of Array.from(table.rows)) {
+      const wrapperEl = row.children[0]!.querySelector('.cm-table-cell-wrapper')!;
+      expect(wrapperEl.classList.contains('cm-table-drag-source-hidden')).toBe(false);
+    }
+    expect(view.state.doc.toString()).toBe(docBefore);
+  });
+
+  it('after pointercancel, ordinary hover behavior works again', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', document, 10, 140);
+    document.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, cancelable: true }));
+
+    hoverBodyCell(wrapper, table, 1, 1);
+
+    expect(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible')).toHaveLength(1);
+    expect(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible')).toHaveLength(1);
+  });
+
   it('a drag beginning while a cell is active deactivates it (no lingering nested editor)', () => {
     const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
     const { wrapper, table } = buildTable(3, 2);

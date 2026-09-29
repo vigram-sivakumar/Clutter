@@ -1,0 +1,89 @@
+/*
+ * Drag-to-reorder ghost (`tableDragGhost.ts`) and the source-hiding class it
+ * pairs with. The ghost's own *border* is never declared here at all — it
+ * carries `tableSelectionOverlay.css`'s own `.cm-table-selection-overlay`/
+ * `-visible` classes verbatim (`tableDragGhost.ts`'s own doc comment),
+ * which already supplies `position: absolute`, `box-sizing: border-box`,
+ * `border-radius`, `pointer-events: none`, and the `border: 2px solid
+ * var(--border-focus)` look — reused, not duplicated. Everything below is
+ * only what's genuinely unique to being a *ghost* specifically: elevated
+ * (shadow + slight transparency, so it still reads as "a thing floating
+ * above the table" even though it now shares its border with an ordinary
+ * selection), and its own internal cell layout. Never confusable with the
+ * drop indicator (a thin line, `tableHandleOverlay.css`) — two different
+ * jobs, two different looks, even though the ghost and the selection
+ * overlay now deliberately share one.
+ */
+
+.cm-table-drag-source-hidden {
+  visibility: hidden;
+}
+
+/*
+ * **Clipping fix (why the outer element itself must stay `overflow:
+ * visible`).** The relocated handle (`.cm-table-column-handle`/
+ * `.cm-table-row-handle`, appended by `tableDragGhost.ts` as a direct
+ * child of `.cm-table-drag-ghost` itself) intentionally paints *outside*
+ * this box, by the same few pixels the real, structural handle already
+ * pokes outside its own owning `<th>`/first-`<td>` (`top: -3px` /
+ * `inset-inline-start: -3px`, `tableHandleOverlay.css`). An `overflow:
+ * hidden` on this element — its own previous state — clips exactly that
+ * poke, the same class of bug `tableWidget.css`'s own `position: relative`
+ * doc comment on `th`/`td` already had to solve for the real handle
+ * (a positioning context must not also be a clipping box for content that
+ * deliberately escapes it). Cell content still needs to clip at this
+ * shape's own edges (long text, rounded corners) — that's
+ * `.cm-table-drag-ghost-content`'s own job below, a dedicated inner layer
+ * so the outer box (the handle's actual positioning container) never has
+ * to choose between "clip my cell content" and "let my own handle child
+ * escape."
+ *
+ * No `z-index` trick needed for "handle above the border" either: the
+ * handle is a plain later DOM child of this element, and a box's own
+ * border already paints before its children in ordinary (non-stacking-
+ * context-reordering) paint order — once the clip is gone, the handle
+ * already draws on top of this element's own border for free.
+ */
+.cm-table-drag-ghost {
+  z-index: 2;
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-lg);
+  opacity: 0.92;
+}
+
+.cm-table-drag-ghost-content {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--cm-table-border-radius);
+}
+.cm-table-drag-ghost--column .cm-table-drag-ghost-content {
+  flex-direction: column;
+}
+.cm-table-drag-ghost--row .cm-table-drag-ghost-content {
+  flex-direction: row;
+}
+
+.cm-table-drag-ghost-cell {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+  border-bottom: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  border-right: var(--cm-table-border-thickness) solid var(--cm-table-border-color);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cm-table-drag-ghost--column .cm-table-drag-ghost-cell {
+  width: 100%;
+}
+.cm-table-drag-ghost--row .cm-table-drag-ghost-cell {
+  height: 100%;
+}
+.cm-table-drag-ghost-cell--header {
+  background: var(--surface-subtle);
+  color: var(--foreground-tertiary);
+}

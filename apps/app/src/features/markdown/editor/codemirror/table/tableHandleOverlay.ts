@@ -2,6 +2,7 @@ import type { EditorView } from '@codemirror/view';
 
 import './tableHandleOverlay.css';
 import { getRootSelectionCollapse, tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
+import { createColumnDragGhost, createRowDragGhost, hideColumnSourceContent, hideRowSourceContent, type DragGhost } from './tableDragGhost';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
 import { tableSelectionChanged } from './tableSelection';
@@ -50,6 +51,20 @@ import { tableSelectionChanged } from './tableSelection';
  * comes from: previously a hover-tracked `currentColumnIndex`/
  * `currentRowIndex` variable, now resolved directly from which handle's
  * own hit element was pressed (`resolveHoveredCell`, reused for this too).
+ *
+ * **Drag ghost** (`tableDragGhost.ts`) — a separate, additional visual
+ * layer around this same drag session, not a parallel drag system. Neither
+ * the ghost nor the source-hiding it pairs with is created at `pointerdown`
+ * time (a plain click must leave the table completely untouched, the same
+ * discipline `tableColumnResizeHandle.ts`'s own `materializeDrag` already
+ * establishes for column resize) — both materialize only once
+ * `session.dragging` actually flips `true`, i.e. the drag threshold has
+ * genuinely been crossed (`materializeDragVisuals`). The ghost's own
+ * `update()` is called from the same `handlePointerMove` that already
+ * re-measures `resolveColumnTargetIndex`/`resolveRowTargetIndex` and
+ * repositions the drop indicator — one pointer-move handler, three
+ * independent visual updates, never conflated (see `tableDragGhost.ts`'s
+ * own top doc comment for why they stay three separate DOM concerns).
  */
 
 const VISIBLE_CLASS = 'cm-table-handle-visible';
@@ -230,7 +245,22 @@ export function attachTableHandleOverlay(
     return selectedRowIndex !== null ? rowHandlePair(selectedRowIndex) : null;
   }
 
+  /**
+   * While an actual drag is in progress (`session.dragging`, not merely a
+   * pointer down that hasn't crossed the threshold yet), ordinary hover
+   * must show nothing at all — no other column's/row's handle may appear
+   * under the pointer while it's dragging a *different* one across the
+   * table, and the dragged column's/row's own handle isn't at its normal
+   * structural location anymore anyway (it's been relocated onto the ghost
+   * itself, `tableDragGhost.ts`). Set the instant `materializeDragVisuals`
+   * runs, cleared the instant `cleanupDragVisuals` does — both below.
+   */
+  let dragHoverSuppressed = false;
+
   wrapper.addEventListener('pointermove', (event) => {
+    if (dragHoverSuppressed) {
+      return;
+    }
     const hovered = resolveHoveredCell(wrapper, event.target);
     if (!hovered) {
       setVisibleColumn(selectedColumnFallback());
@@ -242,6 +272,9 @@ export function attachTableHandleOverlay(
   });
 
   wrapper.addEventListener('pointerleave', () => {
+    if (dragHoverSuppressed) {
+      return;
+    }
     setVisibleColumn(selectedColumnFallback());
     setVisibleRow(selectedRowFallback());
   });
@@ -257,6 +290,10 @@ export function attachTableHandleOverlay(
     readonly startClientX: number;
     readonly startClientY: number;
     dragging: boolean;
+    /** `null` until `session.dragging` first flips `true` — see `materializeDragVisuals`'s own doc comment for why this can't be created at `pointerdown` time. */
+    ghost: DragGhost | null;
+    /** Undoes `hideColumnSourceContent`/`hideRowSourceContent` for exactly the cells this session hid — `null` until materialized, same lifecycle as `ghost`. */
+    restoreSource: (() => void) | null;
   }
 
   let dragSession: DragSession | null = null;
@@ -335,6 +372,70 @@ export function attachTableHandleOverlay(
     document.removeEventListener('pointercancel', handlePointerCancel);
   }
 
+  /**
+   * Creates the ghost and hides the source column's/row's content —
+   * called exactly once per session, the instant `session.dragging` first
+   * flips `true` in `handlePointerMove` below, never at `pointerdown`
+   * time. `event` is the `pointermove` that actually crossed the
+   * threshold, used only for the ghost's *initial* placement
+   * (`createColumnDragGhost`/`createRowDragGhost`'s own doc comment) — the
+   * grab offset itself is computed from `session.startClientX`/
+   * `startClientY` (the original press), never this later position, so
+   * the offset stays exactly what "preserve the original grab offset"
+   * requires regardless of how far the pointer already drifted before
+   * crossing the threshold.
+   */
+  function materializeDragVisuals(session: DragSession, event: PointerEvent): void {
+    const tableEl = resolveTableElement();
+    if (!tableEl) {
+      return;
+    }
+    if (session.axis === 'column') {
+      session.restoreSource = hideColumnSourceContent(tableEl, session.startIndex);
+      session.ghost = createColumnDragGhost(wrapper, tableEl, session.startIndex, session.startClientX, event.clientX);
+    } else {
+      const row = tableEl.rows[session.startIndex];
+      if (!row) {
+        return;
+      }
+      session.restoreSource = hideRowSourceContent(row);
+      session.ghost = createRowDragGhost(wrapper, tableEl, session.startIndex, session.startClientY, event.clientY);
+    }
+    // Suppress ordinary hover for the rest of this drag, and hide whichever
+    // real handle happens to be showing right now — including the dragged
+    // column's/row's own, which just had its handle visually relocated
+    // onto the ghost above and must not also still show at its normal
+    // (now content-hidden) structural location.
+    dragHoverSuppressed = true;
+    setVisibleColumn(null);
+    setVisibleRow(null);
+  }
+
+  /**
+   * Undoes exactly what `materializeDragVisuals` did — a no-op if it never
+   * ran (an ordinary click, `session.dragging` still `false`). Safe
+   * against a table rebuild mid-drag: both `ghost.destroy()` and the
+   * closures `restoreSource` captures tolerate already-detached elements
+   * (`tableDragGhost.ts`'s own doc comment on `DragGhost.destroy`).
+   *
+   * Also restores ordinary hover — necessary even after a *successful*
+   * commit: `commitDrag`'s own same-position branch can dispatch a
+   * `tableSelectionChanged` whose value is byte-for-byte identical to what
+   * was already selected, which `TableWidget.eq()` then reports as no
+   * change at all, so this exact closure/DOM survives rather than being
+   * replaced by a fresh `attachTableHandleOverlay` call — nothing else
+   * would ever clear `dragHoverSuppressed` in that specific case.
+   */
+  function cleanupDragVisuals(session: DragSession): void {
+    session.ghost?.destroy();
+    session.ghost = null;
+    session.restoreSource?.();
+    session.restoreSource = null;
+    dragHoverSuppressed = false;
+    setVisibleColumn(selectedColumnFallback());
+    setVisibleRow(selectedRowFallback());
+  }
+
   /** Commits a completed drag — one transaction, reusing `moveSelectedRowToIndex`/`moveSelectedColumnToIndex` for an actual move, or a plain selection-only dispatch for a same-position drag (never entering undo history — no `changes`). Unchanged in substance from the previous design. */
   function commitDrag(axis: 'row' | 'column', startIndex: number, targetIndex: number): void {
     controller.deactivate();
@@ -363,12 +464,16 @@ export function attachTableHandleOverlay(
       }
       session.dragging = true;
       controller.deactivate();
+      materializeDragVisuals(session, event);
     }
     session.targetIndex = session.axis === 'row' ? resolveRowTargetIndex(event.clientY) : resolveColumnTargetIndex(event.clientX);
+    const wrapperRect = wrapper.getBoundingClientRect();
     if (session.axis === 'row') {
       updateRowDropIndicator(session.startIndex, session.targetIndex);
+      session.ghost?.update(event.clientY, wrapperRect);
     } else {
       updateColumnDropIndicator(session.startIndex, session.targetIndex);
+      session.ghost?.update(event.clientX, wrapperRect);
     }
   }
 
@@ -384,16 +489,27 @@ export function attachTableHandleOverlay(
       // Never crossed the threshold — an ordinary press/release. The
       // native `click` event this same gesture is about to fire handles
       // select-and-open-menu exactly as before; nothing to do here.
+      // Neither the ghost nor the source-hiding was ever created, so
+      // there's nothing to clean up either.
       return;
     }
     suppressNextClick = true;
+    // Commit first, then restore/remove the visuals — matches the
+    // milestone's own stated order, and means a failed/no-op move (the
+    // "moved" check inside `commitDrag`, mirroring the pre-ghost behavior)
+    // still always cleans up regardless of outcome.
     commitDrag(session.axis, session.startIndex, session.targetIndex);
+    cleanupDragVisuals(session);
   }
 
   function handlePointerCancel(): void {
+    const session = dragSession;
     dragSession = null;
     stopTrackingPointer();
     hideDropIndicators();
+    if (session?.dragging) {
+      cleanupDragVisuals(session);
+    }
   }
 
   /** Starts tracking a possible drag from a hit element's own resolved cell identity — ignores anything but a primary-button press, and declines (defensively) if the hit element somehow doesn't resolve to a real cell. */
@@ -407,7 +523,7 @@ export function attachTableHandleOverlay(
     }
     const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
     suppressNextClick = false;
-    dragSession = { axis, startIndex, targetIndex: startIndex, startClientX: event.clientX, startClientY: event.clientY, dragging: false };
+    dragSession = { axis, startIndex, targetIndex: startIndex, startClientX: event.clientX, startClientY: event.clientY, dragging: false, ghost: null, restoreSource: null };
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
     document.addEventListener('pointercancel', handlePointerCancel);
