@@ -3,7 +3,7 @@ import './AppLayout.css';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
-import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
+import { SidebarResizeHandle, type SidebarResizeDirection } from './sidebar-resize-handle/SidebarResizeHandle';
 import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -51,12 +51,27 @@ export function AppLayout({ application }: AppLayoutProps) {
   const workspace = useWorkspace(application.workspace);
   const { width: sidebarWidth, setWidth: setSidebarWidth, commitWidth: commitSidebarWidth } =
     useSidebarWidth();
-  // Mirrors SidebarResizeHandle's own isResizing (true for the duration of
-  // an active drag, pointerdown to pointerup/cancel) so the sidebar slot's
-  // existing collapse/expand transition (AppLayout.css) can be suppressed
-  // only while a resize is in progress — the collapse/expand interaction
-  // itself, and its 340ms animation, are untouched.
-  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  // Tracks the Sidebar resize handle's current drag direction (updated on
+  // every pointermove — see SidebarResizeHandle's own instantaneous-step
+  // calculation) so AppLayout.css can suppress its collapse/expand
+  // transition only while actively resizing WIDER, per product decision:
+  // shrinking keeps the transition (the desired page-expansion feel);
+  // growing must track the pointer with zero lag. null whenever no drag is
+  // in progress — cleared on pointerup/cancel via handleSidebarResizingChange
+  // so a finished drag can never leave a stale direction bleeding into a
+  // later, unrelated collapse/expand toggle.
+  const [sidebarResizeDirection, setSidebarResizeDirection] = useState<SidebarResizeDirection | null>(
+    null
+  );
+
+  function handleSidebarResize(width: number, direction: SidebarResizeDirection): void {
+    setSidebarWidth(width);
+    setSidebarResizeDirection(direction);
+  }
+
+  function handleSidebarResizingChange(isResizing: boolean): void {
+    if (!isResizing) setSidebarResizeDirection(null);
+  }
 
   // The single "which resource overlay is open" state for the whole app —
   // AppLayout is the confirmed common ancestor of every overlay entry point
@@ -146,7 +161,10 @@ export function AppLayout({ application }: AppLayoutProps) {
       data-sidebar-collapsed={!workspace.isSidebarVisible}
       style={{ '--app-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
-      <div className="app-layout__sidebar-slot" data-resizing={isResizingSidebar || undefined}>
+      <div
+        className="app-layout__sidebar-slot"
+        data-resize-direction={sidebarResizeDirection ?? undefined}
+      >
         <aside className="app-layout__sidepanel">
           <TauriDragStrip />
           {
@@ -161,9 +179,9 @@ export function AppLayout({ application }: AppLayoutProps) {
             currentWidth={sidebarWidth}
             minWidth={MIN_SIDEBAR_WIDTH}
             maxWidth={MAX_SIDEBAR_WIDTH}
-            onResize={setSidebarWidth}
+            onResize={handleSidebarResize}
             onResizeEnd={commitSidebarWidth}
-            onResizingChange={setIsResizingSidebar}
+            onResizingChange={handleSidebarResizingChange}
           />
         </aside>
       </div>
