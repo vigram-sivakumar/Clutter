@@ -13,7 +13,7 @@
 .sidebar-resize-handle {
   position: absolute;
   top: 0;
-  left: calc(var(--app-sidebar-width) - 5.5px);
+  left: calc(var(--app-sidebar-width) - -2px);
   width: 12px;
   height: 100%;
   cursor: col-resize;
