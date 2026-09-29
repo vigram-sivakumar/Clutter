@@ -9,6 +9,8 @@
 
   border-radius: var(--border-radius);
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .page__document {
