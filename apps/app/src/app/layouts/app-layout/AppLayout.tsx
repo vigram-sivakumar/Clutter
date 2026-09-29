@@ -4,12 +4,7 @@ import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
-import {
-  useSidebarWidth,
-  DEFAULT_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-  MAX_SIDEBAR_WIDTH,
-} from './useSidebarWidth';
+import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
@@ -173,7 +168,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         onResize={setSidebarWidth}
         onResizeEnd={commitSidebarWidth}
         onResizingChange={setIsResizingSidebar}
-        onResetWidth={() => commitSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+        onToggleCollapse={() => workspace.toggleSidebarVisible()}
       />
       <main className="app-layout__page">
         <TauriDragStrip />
