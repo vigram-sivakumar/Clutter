@@ -8,7 +8,6 @@ import {
   type PluginValue,
   type ViewUpdate,
 } from '@codemirror/view';
-import { isTauri } from '@tauri-apps/api/core';
 import type { SyntaxNode } from '@lezer/common';
 
 import { getLeadingWhitespaceWidthPx } from '../../../../../design-system/markdownIndent';
@@ -90,38 +89,6 @@ import {
  * `state.doc`, yet must still align to the *item's* content column, not
  * to whatever whitespace happens to precede it on its own line.
  */
-/**
- * Extra wrapped-line-only indent for bullet/ordered items (not task items —
- * `ownListItemIndentPx()`'s task branch returns before this is used),
- * applied only inside the Tauri desktop shell (`isTauri()`, the same
- * runtime-detection helper already used by `Application.ts` and
- * `openExternalUrl.ts`), never in the plain-web build.
- *
- * **Why Tauri-only**: Tauri renders the editor in its own WKWebView, whose
- * line-wrapping metrics for a bullet/ordered `.cm-list-line` land the
- * wrapped row's text 4px short of the first line's real content column —
- * a WKWebView-specific offset the plain browser build does not have. This
- * constant exists purely to correct that; it is not a general design
- * choice about list indentation.
- *
- * **Why it's still safe to fold into the shared `--list-indent-px`
- * value** (rather than a separate CSS property): `padding-left`/
- * `text-indent` on `.cm-list-line` cancel exactly regardless of the
- * value — the first line's effective offset is always
- * `--list-indent-px + (-1 * --list-indent-px)` = `0` — so bumping the
- * shared value only pushes the wrapped rows, never the first line.
- */
-const BULLET_ORDERED_WRAP_EXTRA_INDENT_PX = 4;
-
-/**
- * Not cached — `isTauri()` itself is a cheap synchronous check (see its
- * other call sites in this codebase), and this runs once per visible list
- * line per rebuild, not in a hot per-keystroke loop.
- */
-function bulletOrderedWrapExtraIndentPx(): number {
-  return isTauri() ? BULLET_ORDERED_WRAP_EXTRA_INDENT_PX : 0;
-}
-
 function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
@@ -241,7 +208,7 @@ function ownListItemIndentPx(
       ? getOrderedMarkerFootprintPx(view, state.sliceDoc(marker.from, separator.to))
       : getBulletMarkerFootprintPx(view);
 
-  return leadingPx + markerFootprintPx + bulletOrderedWrapExtraIndentPx();
+  return leadingPx + markerFootprintPx;
 }
 
 function listLineMark(indentPx: number): Decoration {
