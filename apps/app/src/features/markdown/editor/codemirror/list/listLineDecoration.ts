@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
+import { RangeSetBuilder, type EditorState, type Extension, type Line } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -101,6 +101,67 @@ function nearestListItem(state: EditorState, probePos: number): SyntaxNode | nul
     }
   }
   return null;
+}
+
+/**
+ * **Structural membership vs. visual list-line ownership — the distinction
+ * this function exists to draw.** `nearestListItem()` answers "does this
+ * position resolve somewhere inside a `ListItem`'s subtree" — true for
+ * *every* physical line CommonMark's own lazy-continuation and loose-list
+ * rules let a single `ListItem`/`Paragraph` node span, including plain,
+ * zero-indentation lines that were never actually typed as list content
+ * (confirmed live: three consecutive non-blank lines — a list item's own
+ * long sentence, then two ordinary unindented sentences, zero blank lines
+ * anywhere — parse as one `Paragraph` node covering all three physical
+ * lines, entirely inside one `ListItem`). That membership check alone is
+ * not sufficient to decide whether *this specific* physical line should
+ * ever have received `cm-list-line`'s hanging indent — confirmed against
+ * Obsidian's own real DOM for the identical source text: only the
+ * physical line that itself contains the list marker gets
+ * `HyperMD-list-line`; the other two, despite being part of the same
+ * lazily-continued node, get a bare `cm-line`.
+ *
+ * This function is the missing second check: given the `item` a probe
+ * position resolved into, is the *current* physical `line` actually one
+ * this item's own hanging indent should apply to?
+ *
+ * - **The item's own marker line** (`line.from === markerLine.from`) —
+ *   always yes. This is CM6's own document-line unit, not a visual one:
+ *   a long marker line that soft-*wraps* to several on-screen rows is
+ *   still exactly one document line and one `.cm-line` element, so this
+ *   check (and the hanging-indent CSS it enables) already covers every
+ *   wrapped visual row of the marker's own line for free — nothing about
+ *   soft-wrap ever reaches this function as a *separate* line to
+ *   evaluate.
+ * - **A later document line** genuinely indented to (or past) the
+ *   marker's own content-start column — yes: this is real, intentional
+ *   list-item continuation (a second loose-list paragraph, or lazy
+ *   continuation the author actually indented), indistinguishable in
+ *   spirit from typing more text directly onto the marker line itself.
+ * - **A later document line with less indentation than that** — no, even
+ *   though `nearestListItem()` still found an enclosing `ListItem` for
+ *   it: this is exactly the case CommonMark's own leniency produces
+ *   (zero-indent text merged into the same node purely because no blank
+ *   line interrupted it), which is what real editors do not decorate.
+ */
+function lineOwnsListIndent(state: EditorState, item: SyntaxNode, line: Line): boolean {
+  const marker = item.firstChild;
+  if (!marker || marker.name !== 'ListMark') {
+    return false;
+  }
+
+  const markerLine = state.doc.lineAt(marker.from);
+  if (line.from === markerLine.from) {
+    return true;
+  }
+
+  const separator = separatorRangeAfter(state, marker);
+  if (!separator) {
+    return false;
+  }
+
+  const requiredColumn = separator.to - markerLine.from;
+  return firstNonWhitespaceOffset(line.text) >= requiredColumn;
 }
 
 /**
@@ -230,7 +291,7 @@ function buildListLineDecorations(view: EditorView): DecorationSet {
 
         const probePos = line.from + firstNonWhitespaceOffset(line.text);
         const item = nearestListItem(view.state, probePos);
-        if (item) {
+        if (item && lineOwnsListIndent(view.state, item, line)) {
           const indentPx = ownListItemIndentPx(view, item, view.state);
           if (indentPx > 0) {
             builder.add(line.from, line.from, listLineMark(indentPx));

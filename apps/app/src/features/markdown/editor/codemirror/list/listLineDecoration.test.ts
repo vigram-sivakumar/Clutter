@@ -207,19 +207,50 @@ describe('listLineDecoration', () => {
     expect(lines(view).map(hasListLine)).toEqual([true, true, true]);
   });
 
-  it('lazy continuation (no marker on the second physical line) still gets the class, at the same indent as the item\'s own marker line', () => {
+  /**
+   * Deliberately reversed (2026-09-29): this used to assert the second,
+   * zero-indentation physical line also got `cm-list-line` — CommonMark
+   * lazily folds it into the same `Paragraph`/`ListItem` (no blank line
+   * interrupts them), so `nearestListItem()` finds the same item for
+   * both, but that is structural *membership*, not visual list-line
+   * *ownership*. Confirmed directly against Obsidian's own real DOM for
+   * the identical shape (list item + unindented plain text, zero blank
+   * lines): only the physical line that itself carries the marker gets
+   * hanging-indent styling; a later, unindented source line does not,
+   * even though it is technically part of the same lazily-continued
+   * node. See `lineOwnsListIndent()`'s own doc comment in
+   * `listLineDecoration.ts`.
+   */
+  it('lazy continuation with NO indentation of its own (a later, plain source line) does NOT get the class — only the marker\'s own document line does', () => {
     const view = mountView('- one\nlazy continuation');
+    const rows = lines(view);
+
+    expect(rows.map(hasListLine)).toEqual([true, false]);
+  });
+
+  it('a genuinely indented continuation line (its own leading whitespace reaches the marker\'s content column) still gets the class', () => {
+    const view = mountView('- one\n  indented continuation, same item');
     const rows = lines(view);
 
     expect(rows.map(hasListLine)).toEqual([true, true]);
     expect(indentPx(rows[1]!)).toBe(indentPx(rows[0]!));
   });
 
-  it('a blank paragraph-separator line inside the item still gets the class', () => {
+  /**
+   * The blank separator line's own indentation is 0 (nothing to
+   * measure), so it no longer qualifies under `lineOwnsListIndent()`
+   * either — deliberately reversed alongside the case above, for the
+   * identical reason. Invisible either way (a blank line has no text for
+   * `--list-indent-px` to indent), so this is a pure bookkeeping change,
+   * not a visible regression. The genuinely indented second paragraph
+   * that follows it is unaffected — its own leading whitespace still
+   * reaches the marker's content column.
+   */
+  it('a blank paragraph-separator line inside the item no longer gets the class; the indented paragraph after it still does', () => {
     const view = mountView('- one\n\n  second paragraph, same item');
     const rows = lines(view);
 
-    expect(rows.map(hasListLine)).toEqual([true, true, true]);
+    expect(rows.map(hasListLine)).toEqual([true, false, true]);
   });
 
   it('stops at a genuine blank line that ends the list — the following unrelated paragraph gets nothing', () => {
@@ -332,6 +363,100 @@ describe('listLineDecoration', () => {
       expect(view.state.doc.toString()).toBe(text);
       view.dispatch({ selection: { anchor: 3 } });
       expect(view.state.doc.toString()).toBe(text);
+    });
+  });
+
+  /**
+   * Regression suite for `lineOwnsListIndent()` — the structural-membership
+   * (`nearestListItem()`) vs. visual-list-line-ownership distinction. Every
+   * case here was verified against Obsidian's own real DOM for the
+   * equivalent source text before this fix was written; see
+   * `lineOwnsListIndent()`'s own doc comment in `listLineDecoration.ts`.
+   */
+  describe('structural membership vs. visual list-line ownership (2026-09-29)', () => {
+    it('A. a long list item that visually soft-wraps is still ONE document line — the hanging indent applies to it, unaffected by this fix', () => {
+      const longText =
+        'This is a very long list item that wraps onto another visual line because the editor column is narrow.';
+      const view = mountView(`- ${longText}`);
+      const row = lines(view)[0]!;
+
+      // One `.cm-line` DOM element regardless of how many visual rows the
+      // browser soft-wraps it into — this fix operates on document lines
+      // (`line.from`), never visual rows, so a wrapped marker line is
+      // never even a candidate for the "later source line" branch below.
+      expect(lines(view)).toHaveLength(1);
+      expect(hasListLine(row)).toBe(true);
+      expect(indentPx(row)).toBeGreaterThan(0);
+    });
+
+    it('B. "- one\\nlazy continuation": a later, zero-indentation source line does NOT get list-line decoration', () => {
+      const view = mountView('- one\nlazy continuation');
+      const rows = lines(view);
+
+      expect(rows.map(hasListLine)).toEqual([true, false]);
+    });
+
+    it('C. "- one\\n  continuation": a later, explicitly indented source line DOES get list-line decoration, at the item\'s own indent', () => {
+      const view = mountView('- one\n  continuation');
+      const rows = lines(view);
+
+      expect(rows.map(hasListLine)).toEqual([true, true]);
+      expect(indentPx(rows[1]!)).toBe(indentPx(rows[0]!));
+    });
+
+    it('D. list item + two unindented paragraphs, zero blank lines anywhere: only the actual list source line is decorated', () => {
+      const doc =
+        '- The momement I type something in the list item above the paragraph it automatically adds indent to the paragraph below. There is no paste normalization issue.\n' +
+        'This is a pagraph that goes over two lines because the intent is applied to the lines expect the first line so we need minimum two lines to test this.\n' +
+        'This is another paragraph not directly below the loist item but still it indents the lines since it is below already indedented line.';
+      const view = mountView(doc);
+      const rows = lines(view);
+
+      expect(rows).toHaveLength(3);
+      expect(rows.map(hasListLine)).toEqual([true, false, false]);
+      expect(indentPx(rows[1]!)).toBe(0);
+      expect(indentPx(rows[2]!)).toBe(0);
+    });
+
+    it('E. nested list: each item\'s own marker line is still correctly decorated', () => {
+      const view = mountView('- Outer\n  - Inner one\n  - Inner two');
+      const rows = lines(view);
+
+      expect(rows.map(hasListLine)).toEqual([true, true, true]);
+      // The nested items reserve more indent than the outer one (their
+      // own, independent marker footprint plus their own leading
+      // whitespace) — unaffected by this fix, still exactly what the
+      // "nesting" describe block above already covers.
+      expect(indentPx(rows[1]!)).toBeGreaterThan(indentPx(rows[0]!));
+      expect(indentPx(rows[2]!)).toBe(indentPx(rows[1]!));
+    });
+
+    it('E2. nested list: a genuinely indented continuation of a NESTED item is still decorated, at the nested item\'s own indent', () => {
+      const view = mountView('- Outer\n  - Inner\n    continuation of the inner item');
+      const rows = lines(view);
+
+      expect(rows.map(hasListLine)).toEqual([true, true, true]);
+      expect(indentPx(rows[2]!)).toBe(indentPx(rows[1]!));
+    });
+
+    it('F. task list: the same behavior as an unordered list — only the actual task source line is decorated, zero blank lines', () => {
+      const doc =
+        '- [ ] The momement I type something in the task item above the paragraph it automatically adds indent to the paragraph below.\n' +
+        'This is a normal paragraph, not task content.\n' +
+        'This is another normal paragraph.';
+      const view = mountView(doc);
+      const rows = lines(view);
+
+      expect(rows).toHaveLength(3);
+      expect(rows.map(hasListLine)).toEqual([true, false, false]);
+    });
+
+    it('F2. task list: a genuinely indented continuation line still gets decorated', () => {
+      const view = mountView('- [ ] Task one\n  indented continuation of the task');
+      const rows = lines(view);
+
+      expect(rows.map(hasListLine)).toEqual([true, true]);
+      expect(indentPx(rows[1]!)).toBe(indentPx(rows[0]!));
     });
   });
 });
