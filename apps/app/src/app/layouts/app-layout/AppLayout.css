@@ -38,17 +38,16 @@
     var(--sidebar-transition-easing);
 }
 
-/* Three distinct interactions share this element's flex-basis:
+/* This element's flex-basis is driven by two distinct interactions:
    collapse/expand (below, kept — its 340ms animation is intentional and
-   unchanged), resize-narrower (also kept — the existing smooth page
-   expansion is the desired feel while shrinking), and resize-wider, which
-   must track the pointer with zero lag instead. `data-resize-direction`
-   (AppLayout.tsx's `sidebarResizeDirection`, from the resize handle's own
-   per-move pointer direction) exists only for the duration of an active
-   drag and is cleared the instant it ends, so `='increase'` can only ever
-   match while actively dragging wider — never collapse/expand, and never
-   a decrease-drag. */
-.app-layout__sidebar-slot[data-resize-direction='increase'] {
+   unchanged) and manual resize (immediate in both directions, no
+   animation). `data-resizing` (AppLayout.tsx's `isResizingSidebar`,
+   mirroring the resize handle's own isResizing — set on .app-layout
+   itself, the common ancestor of both this slot and
+   .sidebar-resize-handle below, so both can react to it) exists only for
+   the duration of an active drag and is cleared the instant it ends, so
+   it can never bleed into a later, unrelated collapse/expand toggle. */
+.app-layout[data-resizing] .app-layout__sidebar-slot {
   transition: none;
 }
 

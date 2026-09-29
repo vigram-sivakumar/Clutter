@@ -38,43 +38,32 @@ function renderHandle(currentWidth: number) {
 }
 
 describe('SidebarResizeHandle', () => {
-  it('increases width live while dragging right, reporting "increase"', () => {
+  it('increases width live while dragging right', () => {
     const { handle, onResize } = renderHandle(300);
     fireEvent.pointerDown(handle, { clientX: 100, button: 0 });
     fireEvent.pointerMove(handle, { clientX: 150 });
-    expect(onResize).toHaveBeenCalledWith(350, 'increase');
+    expect(onResize).toHaveBeenCalledWith(350);
   });
 
-  it('decreases width live while dragging left, reporting "decrease"', () => {
+  it('decreases width live while dragging left', () => {
     const { handle, onResize } = renderHandle(350);
     fireEvent.pointerDown(handle, { clientX: 200, button: 0 });
     fireEvent.pointerMove(handle, { clientX: 170 });
-    expect(onResize).toHaveBeenCalledWith(320, 'decrease');
-  });
-
-  it('flips direction live within a single drag when the pointer reverses (not just at release)', () => {
-    const { handle, onResize } = renderHandle(300);
-    fireEvent.pointerDown(handle, { clientX: 100, button: 0 });
-    fireEvent.pointerMove(handle, { clientX: 160 }); // step +60 -> increase
-    expect(onResize).toHaveBeenLastCalledWith(360, 'increase');
-    fireEvent.pointerMove(handle, { clientX: 130 }); // step -30 vs previous -> decrease
-    expect(onResize).toHaveBeenLastCalledWith(330, 'decrease');
-    fireEvent.pointerMove(handle, { clientX: 150 }); // step +20 vs previous -> increase again
-    expect(onResize).toHaveBeenLastCalledWith(350, 'increase');
+    expect(onResize).toHaveBeenCalledWith(320);
   });
 
   it('clamps to maxWidth regardless of where the drag started', () => {
     const { handle, onResize } = renderHandle(400);
     fireEvent.pointerDown(handle, { clientX: 0, button: 0 });
     fireEvent.pointerMove(handle, { clientX: 1000 });
-    expect(onResize).toHaveBeenCalledWith(MAX_WIDTH, 'increase');
+    expect(onResize).toHaveBeenCalledWith(MAX_WIDTH);
   });
 
   it('clamps to minWidth regardless of where the drag started (fixed global floor, not the drag-start width)', () => {
     const { handle, onResize } = renderHandle(300);
     fireEvent.pointerDown(handle, { clientX: 500, button: 0 });
     fireEvent.pointerMove(handle, { clientX: 0 });
-    expect(onResize).toHaveBeenCalledWith(MIN_WIDTH, 'decrease');
+    expect(onResize).toHaveBeenCalledWith(MIN_WIDTH);
   });
 
   it('calls onResizeEnd once with the final width on pointer up, and stops responding to further moves', () => {

@@ -5,12 +5,16 @@
    is already position: relative (AppLayout.css), so `left` here is
    relative to the whole layout, not the sidepanel. Positioned from the
    Sidebar's own width (not a hardcoded offset) so it tracks --app-sidebar-
-   width live during a drag exactly like the sidepanel does. */
+   width live during a drag exactly like the sidepanel does. No transition
+   on `left`: this only ever changes during a manual resize (never via
+   collapse/expand, which toggles this element's `display` instead — see
+   AppLayout.css), and manual resize is always immediate in both
+   directions per product decision. */
 .sidebar-resize-handle {
   position: absolute;
   top: 0;
-  left: calc(var(--app-sidebar-width) - 3.5px);
-  width: 8px;
+  left: calc(var(--app-sidebar-width) - 5.5px);
+  width: 12px;
   height: 100%;
   cursor: col-resize;
   /* Above .app-layout__page's z-index: 2 (AppLayout.css) — the handle
@@ -33,9 +37,9 @@
   top: 50%;
   left: 50%;
   transform: translateX(-50%);
-  width: 3px;
+  width: 6px;
   height: 48px;
-  background: var(--foreground-secondary);
+  background: var(--foreground-placeholder);
   /* -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='16'%3E%3Cpath d='M3 0 C3 4, 1 4, 1 8 S3 12, 3 16' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='16'%3E%3Cpath d='M3 0 C3 4, 1 4, 1 8 S3 12, 3 16' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat-y;
