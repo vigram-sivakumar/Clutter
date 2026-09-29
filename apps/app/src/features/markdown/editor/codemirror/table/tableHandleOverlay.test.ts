@@ -693,7 +693,10 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const row = table.querySelectorAll('tbody tr')[0]!;
     const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60); // row 1's own midpoint (top 40 + 20)
-    pointer('pointermove', document, 10, 140); // row 3's own midpoint (top 120 + 20) — well past the threshold
+    // Target = whichever row's own *body* the pointer is inside (never a
+    // coordinate/midpoint search) — dispatched from row "C"'s own cell so
+    // `event.target` resolves there, landing the drag immediately after it.
+    pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140);
 
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
 
@@ -710,7 +713,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const headerCell = table.querySelector('thead th')!;
     const rowHit = headerCell.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 20); // row 0's own midpoint
-    pointer('pointermove', document, 10, 100); // row 2's own midpoint
+    // Target row "B"'s own body -> lands immediately after it.
+    pointer('pointermove', table.querySelectorAll('tbody tr')[1]!.children[0]!, 10, 100);
 
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 100, button: 0, bubbles: true, cancelable: true }));
 
@@ -774,8 +778,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const row = table.querySelectorAll('tbody tr')[1]!;
     const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 100); // row 2's own midpoint
-    pointer('pointermove', document, 10, 140); // drag away, past the threshold...
-    pointer('pointermove', document, 10, 100); // ...then back to the exact same row
+    pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140); // drag away, into row "C"'s own body...
+    pointer('pointermove', row.children[0]!, 10, 100); // ...then back into the dragged row's own body (a genuine no-op target, not just an unresolved one)
 
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 100, button: 0, bubbles: true, cancelable: true }));
 
@@ -794,7 +798,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const row = table.querySelectorAll('tbody tr')[0]!;
     const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60);
-    pointer('pointermove', document, 10, 140);
+    pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140);
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
 
     expect(undoDepth(view.state)).toBe(depthBefore + 1);
@@ -810,12 +814,191 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     hoverBodyCell(wrapper, table, 0, 0); // "a" cell -> columnIndex 0
     const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
     pointer('pointerdown', columnHit, 50, 10); // column 0's own midpoint
-    pointer('pointermove', document, 250, 10); // column 2's own midpoint
+    // Target = whichever column's own *body* the pointer is inside —
+    // dispatched from column "C"'s own body cell so `event.target`
+    // resolves there, landing the drag immediately after it.
+    pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[2]!, 250, 10);
 
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 250, clientY: 10, button: 0, bubbles: true, cancelable: true }));
 
     expect(view.state.doc.toString()).toBe('| B | C | A |\n| --- | --- | --- |\n| b | c | a |');
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
+  });
+
+  /** Mocks a real header-cell rect per column, `width` wide each, starting at `left` — needed by the tests below that verify the drop indicator's own real-geometry positioning (never a `columnCount`-based percentage) under uneven/persisted column widths. */
+  function mockHeaderCellRects(table: HTMLTableElement, widths: number[], left = 0): void {
+    const headerRow = table.rows[0]!;
+    let x = left;
+    for (let i = 0; i < headerRow.children.length; i++) {
+      const cellLeft = x;
+      const width = widths[i]!;
+      const cell = headerRow.children[i] as HTMLElement;
+      cell.getBoundingClientRect = () =>
+        ({ top: 0, height: 30, bottom: 30, left: cellLeft, right: cellLeft + width, width, x: cellLeft, y: 0, toJSON: () => ({}) }) as DOMRect;
+      x += width;
+    }
+  }
+
+  /** A stand-in for one of `tableColumnResizeHandle.ts`'s own `.cm-table-column-resize-hit` elements — real per-column-boundary hit-strips this milestone reuses as the divider's own neutral zone, rather than inventing a separate pixel threshold. Appended into `wrapper` (its real mount point is `.cm-table-scroll`, but these tests only need it to exist somewhere reachable via `closest()`, not to be laid out correctly). */
+  function buildResizeHitStrip(wrapper: HTMLElement): HTMLElement {
+    const hit = document.createElement('div');
+    hit.className = 'cm-table-column-resize-hit';
+    wrapper.appendChild(hit);
+    return hit;
+  }
+
+  describe('column drag — target = the column body the pointer is inside, divider is a neutral zone', () => {
+    const doc = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |';
+
+    function setUp(): { view: EditorView; controller: TableActiveCellController; wrapper: HTMLElement; table: HTMLTableElement } {
+      const { view, controller } = mountRootViewWithTable(doc);
+      const { wrapper, table } = buildTable(1, 3);
+      mockWrapperRect(wrapper, { top: 0, left: 0, width: 300, height: 100 });
+      mockHeaderCellRects(table, [100, 100, 100]);
+      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      return { view, controller, wrapper, table };
+    }
+
+    function beginColumnDrag(wrapper: HTMLElement, table: HTMLTableElement, startColumnIndex: number): void {
+      hoverBodyCell(wrapper, table, 0, startColumnIndex);
+      const columnHit = table.querySelectorAll('thead th')[startColumnIndex]!.querySelector('.cm-table-column-handle-hit')!;
+      pointer('pointerdown', columnHit, 50, 10);
+    }
+
+    it('acceptance 1: dragging column 1 into column 2\'s body shows the indicator immediately after column 2', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0); // dragging "A"
+
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // inside "B"'s own body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      // Column B's own real right edge — 100 (left) + 100 (width) = 200.
+      expect((indicator as HTMLElement).style.left).toBe('200px');
+    });
+
+    it('acceptance 2: continuing to move within column 2\'s own body keeps the indicator after column 2', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0);
+      const columnBCell = table.querySelectorAll('tbody tr')[0]!.children[1]!;
+
+      pointer('pointermove', columnBCell, 110, 10); // left edge of B's own body
+      const leftLeft = (wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement).style.left;
+      pointer('pointermove', columnBCell, 190, 10); // right edge of B's own body — same cell, same target
+
+      expect((wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement).style.left).toBe(leftLeft);
+      expect(leftLeft).toBe('200px');
+    });
+
+    it('acceptance 3: moving onto the divider between column 2 and column 3 hides the indicator', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // inside B, indicator visible
+      expect(wrapper.querySelector('.cm-table-column-drop-indicator')!.classList.contains('cm-table-handle-visible')).toBe(true);
+
+      const divider = buildResizeHitStrip(wrapper);
+      pointer('pointermove', divider, 200, 10);
+
+      expect(wrapper.querySelector('.cm-table-column-drop-indicator')!.classList.contains('cm-table-handle-visible')).toBe(false);
+    });
+
+    it('acceptance 4: entering column 3\'s own body after the divider shows the indicator after column 3', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0);
+      pointer('pointermove', buildResizeHitStrip(wrapper), 200, 10); // cross the divider first
+
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[2]!, 250, 10); // into C's own body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect((indicator as HTMLElement).style.left).toBe('300px'); // column C's own right edge: 200 + 100
+    });
+
+    it('acceptance 5: dragging column 2 into column 1\'s body shows the indicator after column 1', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 1); // dragging "B" — pointerdown is always at clientX 50
+
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[0]!, 10, 10); // into A's own body (clientX must differ from the press position to cross DRAG_THRESHOLD_PX)
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect((indicator as HTMLElement).style.left).toBe('100px'); // column A's own right edge
+    });
+
+    it('acceptance 6: dragging column 3 into column 2\'s body shows the indicator after column 2', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 2); // dragging "C"
+
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // into B's own body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect((indicator as HTMLElement).style.left).toBe('200px'); // column B's own right edge
+    });
+
+    it('acceptance 7: moving back and forth between column bodies updates the target immediately, each move independent', () => {
+      const { wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0);
+      const cells = table.querySelectorAll('tbody tr')[0]!.children;
+
+      pointer('pointermove', cells[1]!, 150, 10); // B
+      expect((wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement).style.left).toBe('200px');
+
+      pointer('pointermove', cells[2]!, 250, 10); // C
+      expect((wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement).style.left).toBe('300px');
+
+      pointer('pointermove', cells[1]!, 150, 10); // back to B
+      expect((wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement).style.left).toBe('200px');
+    });
+
+    it('acceptance 8: crossing only a divider never selects either adjacent column — the target stays whatever it already was', () => {
+      const { view, wrapper, table } = setUp();
+      beginColumnDrag(wrapper, table, 0); // dragging "A"
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 150, 10); // real target: B
+
+      pointer('pointermove', buildResizeHitStrip(wrapper), 200, 10); // divider only — no body entered
+      document.dispatchEvent(new MouseEvent('pointerup', { clientX: 200, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+
+      // Committed using the *last real target* (B), never a value implied by the divider itself.
+      expect(view.state.doc.toString()).toBe('| B | A | C |\n| --- | --- | --- |\n| b | a | c |');
+    });
+
+    it('acceptance 9: uneven/persisted column widths — the indicator still lands on the target column\'s own real right edge', () => {
+      const { view, controller } = mountRootViewWithTable(doc);
+      const { wrapper, table } = buildTable(1, 3);
+      mockWrapperRect(wrapper, { top: 0, left: 0, width: 900, height: 100 }); // wrapper far wider than the table itself
+      mockHeaderCellRects(table, [50, 300, 20]); // deliberately uneven, table only 370px wide total
+      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+      hoverBodyCell(wrapper, table, 0, 0);
+      const columnHit = table.querySelectorAll('thead th')[0]!.querySelector('.cm-table-column-handle-hit')!;
+      pointer('pointerdown', columnHit, 25, 10);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 200, 10); // into column B's own (300px-wide) body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      // Column B's own real right edge — 50 (A's width) + 300 (B's width) =
+      // 350 — never something derived from the wrapper's own 900px width.
+      expect((indicator as HTMLElement).style.left).toBe('350px');
+    });
+
+    it('acceptance 10: horizontally scrolled table — the indicator still lands on the target column\'s own real right edge, wrapper-relative', () => {
+      const { wrapper, table } = setUp();
+      // Simulate a horizontally-scrolled `.cm-table-scroll`: every column's
+      // own rect shifts left by the scroll offset, exactly as real
+      // `getBoundingClientRect()` would report under a real scroll.
+      mockHeaderCellRects(table, [100, 100, 100], -150);
+      beginColumnDrag(wrapper, table, 0);
+
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 0, 10); // column B's own (scrolled) body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      // Column B's own real right edge, scrolled: -150 + 100 + 100 = 50,
+      // minus wrapper's own left (0) = 50px — still derived from real
+      // geometry, never a stale/unscrolled percentage.
+      expect((indicator as HTMLElement).style.left).toBe('50px');
+    });
   });
 
   /** Wraps every cell's own text in a `.cm-table-cell-wrapper`, matching `TableWidget.toDOM()`'s own real structure — needed only by the tests below that assert on ghost content and source-hiding, since `buildTable()` itself (used everywhere else in this file) leaves cells empty. */
