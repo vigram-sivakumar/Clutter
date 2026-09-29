@@ -134,6 +134,44 @@ describe('blockSeparatorDecoration — lists', () => {
   });
 });
 
+describe('blockSeparatorDecoration — task vs. unordered-list separator spacing', () => {
+  it('gives 12px between an unordered list item and a following task item, same BulletList', () => {
+    const view = mountView('- Item 1\n- [ ] Task 1');
+    expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+
+  it('gives 12px between a task item and a following unordered list item, same BulletList', () => {
+    const view = mountView('- [ ] Task 1\n- Item 1');
+    expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+
+  it('gives 12px between an ordered list item and a following task item — unaffected, already a cross-construct boundary', () => {
+    const view = mountView('1. Item 1\n- [ ] Task 1');
+    expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+
+  it('gives 12px between a task item and a following ordered list item — unaffected, already a cross-construct boundary', () => {
+    const view = mountView('- [ ] Task 1\n1. Item 1');
+    expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+
+  it('gives 6px between two unordered list items — unaffected', () => {
+    const view = mountView('- Item 1\n- Item 2');
+    expect(separatorHeights(view)).toEqual([6]);
+    view.destroy();
+  });
+
+  it('gives 6px between two task items — unaffected', () => {
+    const view = mountView('- [ ] Task 1\n- [ ] Task 2');
+    expect(separatorHeights(view)).toEqual([6]);
+    view.destroy();
+  });
+});
+
 describe('blockSeparatorDecoration — unordered-list marker family', () => {
   it('1. gives 6px between adjacent BulletList instances that use different markers, with no blank lines', () => {
     const view = mountView('- A\n+ B\n* C');
@@ -528,6 +566,65 @@ describe('blockSeparatorDecoration — list item body content before a genuine n
   it('mixed families: a bullet item with embed body content directly followed (no blank line) by an ordered-list item gets normal 12px, same as the existing bullet->ordered rule', () => {
     const view = mountView('- Item\n  ![[Note]]\n1. Item 2');
     expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+});
+
+describe('blockSeparatorDecoration — hidden table column-width metadata', () => {
+  // `{table-col-widths="..."}` lives on the document line immediately
+  // after a table (`tableColumnWidthMetadata.ts`) and is permanently
+  // concealed from rendering (`tableColumnWidthsConcealment.ts`) — it must
+  // never anchor its own separator, and the boundary spanning it must
+  // resolve exactly as if the metadata line weren't in the document.
+
+  it('table -> metadata -> paragraph: exactly one visual separator', () => {
+    const withMeta = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\nBelow');
+    const withoutMeta = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\nBelow');
+    expect(separatorHeights(withMeta)).toEqual(separatorHeights(withoutMeta));
+    expect(separatorHeights(withMeta)).toEqual([12, 12]);
+    withMeta.destroy();
+    withoutMeta.destroy();
+  });
+
+  it('table -> metadata -> heading: exactly one visual separator, sized by the heading level', () => {
+    const view = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\n# Heading');
+    expect(separatorHeights(view)).toEqual([12, 36]);
+    view.destroy();
+  });
+
+  it('table -> metadata -> another table: exactly one visual separator', () => {
+    const view = mountView(
+      '| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\n| c | d |\n| - | - |\n| 3 | 4 |'
+    );
+    // Two separators total, both pre-existing behavior unrelated to this
+    // fix: the leading synthetic separator for a table starting at the
+    // document's very first line (`leadingTableClickTag`), and the single
+    // cross-table boundary (12, the same default two adjacent-but-distinct
+    // tables get with no metadata between them). Every other boundary is 0
+    // (still inside one table's own atomic range) — critically, only one
+    // separator for the metadata-spanning boundary, not two.
+    expect(separatorHeights(view)).toEqual([12, 12]);
+    view.destroy();
+  });
+
+  it('table -> metadata at document end: the metadata does not create an additional visible separator', () => {
+    const view = mountView('Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}');
+    // Only the leading "Above" -> table boundary; nothing anchored on the
+    // trailing, document-final metadata line.
+    expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+
+  it('does not conceal or otherwise alter an ordinary paragraph that merely looks like the attribute syntax but has no preceding table', () => {
+    const view = mountView('Above\n{table-col-widths="120,80"}\nBelow');
+    expect(separatorHeights(view)).toEqual([12, 12]);
+    view.destroy();
+  });
+
+  it('leaves the table rendering and metadata serialization in the document text untouched', () => {
+    const text = 'Above\n| a | b |\n| - | - |\n| 1 | 2 |\n{table-col-widths="120,80"}\nBelow';
+    const view = mountView(text);
+    expect(view.state.doc.toString()).toBe(text);
     view.destroy();
   });
 });

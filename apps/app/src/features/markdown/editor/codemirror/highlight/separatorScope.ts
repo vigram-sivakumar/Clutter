@@ -3,6 +3,7 @@ import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { firstNonWhitespaceOffset, isIndentedPastColumn, resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { taskMarkerOfListItem } from '../task/taskEngagement';
 
 /**
  * Node names that group their own content tightly (6px) rather than at
@@ -84,6 +85,27 @@ function scopeChain(state: EditorState, pos: number): SyntaxNode[] {
 
 function sameNode(a: SyntaxNode, b: SyntaxNode): boolean {
   return a.name === b.name && a.from === b.from && a.to === b.to;
+}
+
+/**
+ * Whether `pos`'s own nearest `ListItem` ancestor is a task item — reusing
+ * `taskMarkerOfListItem` (the existing, shared owner of "is this ListItem a
+ * task" facts, per its own doc comment) rather than re-deriving that
+ * distinction from the raw `ListMark`/marker text here. A Task's `-` marker
+ * still parses as an ordinary `BulletList`/`ListItem` exactly like any other
+ * unordered item — this is what lets a genuinely-grouped (6px) boundary
+ * between two `ListItem`s of the *same* `BulletList` distinguish a task
+ * from a plain item for separator spacing, even though the shared-ancestor
+ * check above them can't see that distinction on its own.
+ */
+function enclosingListItemIsTask(state: EditorState, pos: number): boolean {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
+  for (; node; node = node.parent) {
+    if (node.name === 'ListItem') {
+      return taskMarkerOfListItem(node) !== null;
+    }
+  }
+  return false;
 }
 
 /**
@@ -428,8 +450,15 @@ function headingEntryHeight(state: EditorState, pos: number): SeparatorHeight | 
  * **Precedence (checked in this exact order, each one short-circuiting
  * the rest):**
  *
- * 1. A shared List/Blockquote/Table/FencedCode ancestor → 6 or 0 (the
- *    pre-existing rule, above, entirely unchanged).
+ * 1. A shared List/Blockquote/Table/FencedCode ancestor → 6 or 0 — except
+ *    a shared `BulletList` ancestor where one side's own nearest `ListItem`
+ *    is a task item ({@link enclosingListItemIsTask}) and the other's
+ *    isn't: a Task's `-` marker still parses as an ordinary `ListItem`, but
+ *    Clutter treats Task as its own block type, distinct from a plain
+ *    unordered item, for separator spacing specifically — so that
+ *    unordered/task boundary gets 12 instead of 6, the same as any other
+ *    entering/exiting-a-different-construct boundary. Two task items, or
+ *    two plain items, are unaffected (still 6).
  * 2. Otherwise, {@link unorderedListFamilyHeight}: are both sides
  *    members of the unordered-list visual family (a `BulletList`
  *    ancestor, or a blank line bridging two of them) even though they're
@@ -491,6 +520,12 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
       if (isGenuinelyGrouped(state, prevPos, pos, node)) {
         if (node.name === 'Blockquote' && isContiguousBlockquoteParagraph(state, prevPos, pos)) {
           return 0;
+        }
+        if (
+          node.name === 'BulletList' &&
+          enclosingListItemIsTask(state, prevPos) !== enclosingListItemIsTask(state, pos)
+        ) {
+          return 12;
         }
         return 6;
       }
