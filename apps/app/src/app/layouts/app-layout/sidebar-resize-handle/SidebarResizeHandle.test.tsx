@@ -22,6 +22,7 @@ afterEach(() => {
 function renderHandle(currentWidth: number) {
   const onResize = vi.fn();
   const onResizeEnd = vi.fn();
+  const onResizingChange = vi.fn();
   const { container } = render(
     <SidebarResizeHandle
       currentWidth={currentWidth}
@@ -29,10 +30,11 @@ function renderHandle(currentWidth: number) {
       maxWidth={MAX_WIDTH}
       onResize={onResize}
       onResizeEnd={onResizeEnd}
+      onResizingChange={onResizingChange}
     />
   );
   const handle = container.querySelector('.sidebar-resize-handle')!;
-  return { handle, onResize, onResizeEnd };
+  return { handle, onResize, onResizeEnd, onResizingChange };
 }
 
 describe('SidebarResizeHandle', () => {
@@ -93,5 +95,27 @@ describe('SidebarResizeHandle', () => {
     fireEvent.pointerUp(handle, { clientX: 100 });
     expect(document.body.style.cursor).toBe('');
     expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('reports isResizing true for the duration of the drag and false again on release, via onResizingChange', () => {
+    const { handle, onResizingChange } = renderHandle(300);
+    expect(onResizingChange).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(handle, { clientX: 100, button: 0 });
+    expect(onResizingChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.pointerMove(handle, { clientX: 140 });
+    expect(onResizingChange).toHaveBeenCalledTimes(1); // still just the pointerdown call
+
+    fireEvent.pointerUp(handle, { clientX: 140 });
+    expect(onResizingChange).toHaveBeenLastCalledWith(false);
+    expect(onResizingChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports isResizing false on pointercancel too', () => {
+    const { handle, onResizingChange } = renderHandle(300);
+    fireEvent.pointerDown(handle, { clientX: 100, button: 0 });
+    fireEvent.pointerCancel(handle, { clientX: 140 });
+    expect(onResizingChange).toHaveBeenLastCalledWith(false);
   });
 });

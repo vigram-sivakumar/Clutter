@@ -38,6 +38,18 @@
     var(--sidebar-transition-easing);
 }
 
+/* Two separate interactions share this element's flex-basis: the
+   collapse/expand toggle (above, kept — its 340ms animation is
+   intentional and unchanged) and the resize handle's live drag (which
+   must track the pointer with zero lag, per the resize handle's own
+   `isResizing` — mirrored here as AppLayout.tsx's `isResizingSidebar` —
+   set only for the duration of an active drag). `[data-resizing]` exists
+   exclusively during that drag, so this can never suppress the
+   collapse/expand transition. */
+.app-layout__sidebar-slot[data-resizing] {
+  transition: none;
+}
+
 .app-layout__sidepanel {
   width: var(--app-sidebar-width);
   height: 100%;

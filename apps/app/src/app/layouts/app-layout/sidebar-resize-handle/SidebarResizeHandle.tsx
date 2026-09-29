@@ -10,6 +10,14 @@ interface SidebarResizeHandleProps {
   readonly onResize: (width: number) => void;
   /** Called once on pointerup/cancel with the final width — persists. */
   readonly onResizeEnd: (width: number) => void;
+  /**
+   * Mirrors this handle's own `isResizing` state outward — true from
+   * pointerdown to pointerup/cancel — so the layout (AppLayout.tsx) can
+   * suppress its collapse/expand transition for exactly the duration of an
+   * active drag, without the layout needing its own separate notion of
+   * "is resizing."
+   */
+  readonly onResizingChange?: (isResizing: boolean) => void;
 }
 
 /**
@@ -25,6 +33,7 @@ export function SidebarResizeHandle({
   maxWidth,
   onResize,
   onResizeEnd,
+  onResizingChange,
 }: SidebarResizeHandleProps) {
   const [isResizing, setIsResizing] = useState(false);
   const dragState = useRef<{ startX: number; startWidth: number; lastWidth: number } | null>(null);
@@ -34,6 +43,7 @@ export function SidebarResizeHandle({
     e.currentTarget.setPointerCapture(e.pointerId);
     dragState.current = { startX: e.clientX, startWidth: currentWidth, lastWidth: currentWidth };
     setIsResizing(true);
+    onResizingChange?.(true);
     // Pointer capture doesn't affect which element's CSS `cursor` the OS
     // shows while the pointer moves over the rest of the app, and the
     // handle's own hit area is only a few px wide — without this, the
@@ -58,6 +68,7 @@ export function SidebarResizeHandle({
     e.currentTarget.releasePointerCapture(e.pointerId);
     dragState.current = null;
     setIsResizing(false);
+    onResizingChange?.(false);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     onResizeEnd(drag.lastWidth);
