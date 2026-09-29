@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { toCollectionPageModel } from './toCollectionPageModel';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { PageOperations } from '@core/application/page/PageOperations';
@@ -411,7 +412,7 @@ describe('toCollectionPageModel — a reserved folder viewed directly uses its c
 });
 
 describe('toCollectionPageModel — filtered views (ADR-022), reusing the same membership the sidebar uses', () => {
-  it("'workspace' shows exactly the root folders and root notes, titled from systemPresentation", () => {
+  it("'workspace' shows exactly the root folders and root notes, titled from the vault's own folder name (ADR-022 Amendment 2)", () => {
     const root = makeFolder({ id: 'folder-1', name: 'Root', parentId: null });
     const nested = makeFolder({
       id: 'folder-2',
@@ -441,7 +442,7 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
       { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
     );
 
-    expect(model.title).toBe(getSystemLocationPresentation('workspace').label);
+    expect(model.title).toBe(getVaultDisplayName(ROOT));
     expect(model.folders).toEqual([
       expect.objectContaining({ id: 'folder-1' }),
     ]);

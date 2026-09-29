@@ -384,8 +384,10 @@ export function Notes({
         // The root-folders section header shows the vault's own physical
         // folder name (getVaultDisplayName), not the generic 'workspace'
         // system-location label — this section literally represents the
-        // vault root's own folder, unlike every other system-location use
-        // of that label (tabs, breadcrumbs, etc.), which stay untouched.
+        // vault root's own folder. The Workspace Collection page title
+        // makes the same exception for the same reason (ADR-022 Amendment
+        // 2, toCollectionPageModel.ts); every other system-location use of
+        // that label (tabs, breadcrumbs, Favorites, etc.) stays untouched.
         title={getVaultDisplayName(vault.root)}
         isCollapsible
         // isTitleToggle
