@@ -8,7 +8,6 @@ import { emptyLeadingLineDeletion } from './emptyLeadingLineDeletion';
 import { markdownEnterKeymap } from './enter/markdownEnterKeymap';
 import { markdownIndentKeymap } from './indent/markdownIndentKeymap';
 import { orderedListStructuralNormalization } from './list/orderedListStructuralNormalization';
-import { pasteListExitBoundary } from './list/pasteListExitBoundary';
 import { formatShortcutsKeymap } from './format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecoration';
@@ -396,15 +395,6 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownEnterKeymap(),
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
-    // Registered right after `orderedListStructuralNormalization()` so it
-    // runs *before* that filter (same reverse-registration-order rule
-    // this array already relies on — see `tableRootSelectionSnap()`'s own
-    // doc comment above): a paste that would otherwise lazily continue a
-    // preceding list item gets its real paragraph boundary inserted
-    // first, so any ordered-list renumbering sees the corrected document.
-    // See `pasteListExitBoundary.ts`'s own doc comment for the bug this
-    // fixes and why it belongs here, not in `listLineDecoration.ts`.
-    pasteListExitBoundary(),
     tableActivationNormalization(),
     // The rectangular-table invariant's own ongoing (not just at-birth)
     // half — see that module's own top doc comment for why this is
