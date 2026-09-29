@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import './AppLayout.css';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
+import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
+import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
@@ -47,6 +49,8 @@ export function AppLayout({ application }: AppLayoutProps) {
   // consumer today; PageHost doesn't read this projection.
   useEffectivePageState(application.effectivePageState);
   const workspace = useWorkspace(application.workspace);
+  const { width: sidebarWidth, setWidth: setSidebarWidth, commitWidth: commitSidebarWidth } =
+    useSidebarWidth();
 
   // The single "which resource overlay is open" state for the whole app —
   // AppLayout is the confirmed common ancestor of every overlay entry point
@@ -131,7 +135,11 @@ export function AppLayout({ application }: AppLayoutProps) {
   }
 
   return (
-    <div className="app-layout" data-sidebar-collapsed={!workspace.isSidebarVisible}>
+    <div
+      className="app-layout"
+      data-sidebar-collapsed={!workspace.isSidebarVisible}
+      style={{ '--app-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
+    >
       <div className="app-layout__sidebar-slot">
         <aside className="app-layout__sidepanel">
           <TauriDragStrip />
@@ -143,6 +151,13 @@ export function AppLayout({ application }: AppLayoutProps) {
               onTasksViewConfigChange={updateTasksViewConfig}
             />
           }
+          <SidebarResizeHandle
+            currentWidth={sidebarWidth}
+            minWidth={MIN_SIDEBAR_WIDTH}
+            maxWidth={MAX_SIDEBAR_WIDTH}
+            onResize={setSidebarWidth}
+            onResizeEnd={commitSidebarWidth}
+          />
         </aside>
       </div>
       <main className="app-layout__page">

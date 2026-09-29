@@ -1,0 +1,35 @@
+/* Hit area sits inside .app-layout__sidepanel (overflow: hidden), flush
+   against its right edge — wider than the visible bar so it's easy to
+   grab without a permanent visible divider. Kept entirely within the
+   sidepanel's own box (no negative offset/translate past the edge) since
+   anything outside it would be clipped by the parent's overflow: hidden
+   and become unclickable. The bar itself is only painted on hover/active,
+   per the "no permanent divider" requirement. */
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.sidebar-resize-handle__bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--border-strong);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sidebar-resize-handle:hover .sidebar-resize-handle__bar,
+.sidebar-resize-handle[data-resizing] .sidebar-resize-handle__bar {
+  opacity: 1;
+}
