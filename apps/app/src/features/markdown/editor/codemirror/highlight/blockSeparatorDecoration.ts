@@ -3,7 +3,8 @@ import { StateField, type EditorState, type Extension, type Range } from '@codem
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
-import { findTableStartingAt } from '../table/tableGeometry';
+import { resolveExistingAttributeLineRange } from '../table/tableColumnWidthMetadata';
+import { findAllTables, findTableStartingAt } from '../table/tableGeometry';
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
 import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
 
@@ -172,8 +173,32 @@ function leadingTableClickTag(state: EditorState): number | null {
   return findTableStartingAt(state, state.doc.line(1).from)?.from ?? null;
 }
 
+/**
+ * Line numbers of every table's own `{table-col-widths="..."}` attribute
+ * line in the document — the same lines `tableColumnWidthsConcealment.ts`
+ * hides from rendering (reusing its own `resolveExistingAttributeLineRange`
+ * lookup, the lax positional check, not the strict validating one — an
+ * invalid/stale-count attribute line is still concealed, so it must still
+ * be excluded from separator boundaries here for the same reason).
+ * `buildLineBoundarySeparators` uses this to skip these lines entirely when
+ * walking adjacent line pairs, so a hidden metadata line can never anchor
+ * its own separator and never splits what should be one visual boundary
+ * (table → next visible block) into two.
+ */
+function hiddenTableColumnWidthsLineNumbers(state: EditorState): ReadonlySet<number> {
+  const numbers = new Set<number>();
+  for (const table of findAllTables(state)) {
+    const range = resolveExistingAttributeLineRange(state, table);
+    if (range) {
+      numbers.add(state.doc.lineAt(range.from).number);
+    }
+  }
+  return numbers;
+}
+
 function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
+  const hiddenLineNumbers = hiddenTableColumnWidthsLineNumbers(state);
 
   // A table at the very start of the document has no preceding line for
   // the loop below to ever compare against (it starts at n=2) — normally
@@ -198,8 +223,20 @@ function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
     }
   }
 
+  // `prevVisibleLine` tracks the nearest earlier line that isn't itself
+  // hidden metadata, so a boundary that would otherwise land on/after a
+  // hidden line instead compares the two surrounding *visible* lines
+  // directly — exactly as if the hidden line weren't in the document at
+  // all. This both skips emitting any separator anchored on the hidden
+  // line itself, and makes the boundary immediately after it resolve using
+  // real content on both sides (e.g. the table's own last line), rather
+  // than the metadata line's own paragraph-like context.
+  let prevVisibleLine = 1;
   for (let n = 2; n <= state.doc.lines; n++) {
-    const prevProbe = lineProbePos(state, n - 1);
+    if (hiddenLineNumbers.has(n)) {
+      continue;
+    }
+    const prevProbe = lineProbePos(state, prevVisibleLine);
     const probe = lineProbePos(state, n);
     const height = resolveBoundaryHeight(state, prevProbe, probe);
     const line = state.doc.line(n);
@@ -211,6 +248,7 @@ function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
     if (separator) {
       ranges.push(separator);
     }
+    prevVisibleLine = n;
   }
 
   return ranges;
