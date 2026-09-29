@@ -8,20 +8,21 @@ import type { EditorView } from '@codemirror/view';
  * reproduces, as numbers, the footprint that rendering already produces.
  *
  * **A marker's real footprint is its own box width *plus* its own
- * trailing margin** — not the box alone. Every marker kind reserves a
- * gap after itself via a real CSS margin, not shared spacing owned by
- * this file or by `.cm-list-line`: bullets via `.cm-bullet-list-marker--glyph`'s
- * `margin-right: var(--md-marker-text-gap)` (+4px), ordered markers via
- * `.cm-list-marker`'s `margin-inline-end: var(--space-4)` (+4px, a
- * *different* 4px than the `padding-left` already counted inside the
- * marker's own box), and the task checkbox via `.cm-task-checkbox`'s
- * `margin-right: calc(var(--md-marker-text-gap) - 5px)` (**-1px** — the
- * one kind whose gap is *negative*). Missing this the first time around
- * produced a confirmed, live, reproducible bug: every wrapped row landed
- * exactly `4px` (bullet/ordered) or `1px` (task) off from its own item's
- * first-line text — a real per-kind constant, not noise — traced by
- * comparing the marker's own measured `getBoundingClientRect()` against
- * where the following real text actually started.
+ * trailing margin** — not the box alone. This used to be true uniformly
+ * for every marker kind (bullet/ordered/task all carried a real trailing
+ * CSS margin), but bullet and ordered markers' trailing margin was later
+ * removed in favor of a wider base box instead (`--md-list-marker-width`,
+ * 28px, vs. the task checkbox's/blockquote marker's own unchanged
+ * `--md-marker-width`, 24px) — see `getFixedListMarkerWidthPx()`'s own
+ * doc comment. The task checkbox is the one kind that still carries a
+ * real trailing margin: `.cm-task-checkbox`'s
+ * `margin-right: calc(var(--md-marker-text-gap) - 5px)` (**-1px**).
+ * Missing either of these — the bullet/ordered box width or the task
+ * margin — produced a confirmed, live, reproducible bug: a wrapped row
+ * landing off from its own item's first-line text by exactly the missed
+ * amount, traced by comparing the marker's own measured
+ * `getBoundingClientRect()` against where the following real text
+ * actually started.
  *
  * Rather than hand-copy these three different margin *formulas* into
  * this file (a second, driftable place they could disagree with the CSS
@@ -48,18 +49,35 @@ function readPxCustomProperty(propertyName: string, fallback: number): number {
 }
 
 /**
- * The fixed marker *box* footprint shared by bullets and task checkboxes
- * — `var(--md-marker-width)`, read once and cached. Callers wanting the
- * real, complete footprint (box + trailing margin) should use
- * `getBulletMarkerFootprintPx()`/`getTaskMarkerFootprintPx()` below
- * instead — this is exported for cases that specifically need the box
- * alone (e.g. as the ordered marker's own floor).
+ * The fixed marker *box* width used by the task checkbox — `var(--md-marker-width)`,
+ * read once and cached. **Not** used by bullet/ordered markers anymore —
+ * see `getFixedListMarkerWidthPx()` below for their own, independent
+ * token. Callers wanting the real, complete task footprint (box + trailing
+ * margin) should use `getTaskMarkerFootprintPx()` instead — this is
+ * exported for cases that specifically need the box alone.
  */
 export function getFixedMarkerWidthPx(): number {
   if (cachedFixedMarkerWidthPx === null) {
     cachedFixedMarkerWidthPx = readPxCustomProperty('--md-marker-width', 24);
   }
   return cachedFixedMarkerWidthPx;
+}
+
+let cachedFixedListMarkerWidthPx: number | null = null;
+
+/**
+ * The fixed marker *box* width shared by bullet and ordered markers —
+ * `var(--md-list-marker-width)`, read once and cached. Deliberately its
+ * own token/getter, not `getFixedMarkerWidthPx()`'s `--md-marker-width`:
+ * bullet/ordered markers' base width was raised from 24px to 28px without
+ * changing the task checkbox's or blockquote marker's own 24px box, so
+ * this can move independently of theirs.
+ */
+export function getFixedListMarkerWidthPx(): number {
+  if (cachedFixedListMarkerWidthPx === null) {
+    cachedFixedListMarkerWidthPx = readPxCustomProperty('--md-list-marker-width', 28);
+  }
+  return cachedFixedListMarkerWidthPx;
 }
 
 let cachedOrderedMarkerPaddingPx: number | null = null;
@@ -177,7 +195,7 @@ function getTaskMarkerTrailingGapPx(view: EditorView): number {
  * own trailing margin.
  */
 export function getBulletMarkerFootprintPx(view: EditorView): number {
-  return getFixedMarkerWidthPx() + getBulletMarkerTrailingGapPx(view);
+  return getFixedListMarkerWidthPx() + getBulletMarkerTrailingGapPx(view);
 }
 
 /**
@@ -245,7 +263,7 @@ function getMeasureContext(): CanvasRenderingContext2D | null {
  * `canvas` npm package), it falls back to the fixed floor width.
  */
 function getOrderedMarkerBoxWidthPx(view: EditorView, markerText: string): number {
-  const floor = getFixedMarkerWidthPx();
+  const floor = getFixedListMarkerWidthPx();
   const ctx = getMeasureContext();
   if (!ctx) {
     return floor;
@@ -313,6 +331,7 @@ export function getTaskSeparatorWidthPx(view: EditorView, separatorText: string)
  */
 export function refreshListMarkerWidthCache(): void {
   cachedFixedMarkerWidthPx = null;
+  cachedFixedListMarkerWidthPx = null;
   cachedOrderedMarkerPaddingPx = null;
   cachedMarkerFont = null;
   cachedMeasureContext = undefined;

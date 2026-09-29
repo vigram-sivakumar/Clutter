@@ -8,7 +8,11 @@ import { blockquoteLineDecoration } from '../highlight/blockquoteLineDecoration'
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { listLineDecoration } from './listLineDecoration';
 import { listMarkerDecoration } from './listMarkerDecoration';
-import { getFixedMarkerWidthPx, refreshListMarkerWidthCache } from './listMarkerWidth';
+import {
+  getFixedListMarkerWidthPx,
+  getFixedMarkerWidthPx,
+  refreshListMarkerWidthCache,
+} from './listMarkerWidth';
 
 function mountView(doc: string, extraExtensions: Extension[] = []): EditorView {
   const parent = document.createElement('div');
@@ -166,7 +170,11 @@ describe('listLineDecoration', () => {
       refreshListMarkerWidthCache();
 
       const view = mountView('- [ ]');
-      expect(indentPx(nthLine(view, 0))).toBe(getFixedMarkerWidthPx());
+      // With nothing after "]" yet, the parser doesn't form a real `Task`
+      // node here (confirmed directly), so this falls through to the
+      // ordinary bullet branch — its own fixed list-marker floor, not the
+      // task/blockquote one.
+      expect(indentPx(nthLine(view, 0))).toBe(getFixedListMarkerWidthPx());
     });
 
     it('measures every real separator character when more than one space follows "]" (valid, non-canonical Markdown)', () => {

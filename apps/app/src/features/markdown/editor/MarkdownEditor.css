@@ -996,11 +996,10 @@
  */
 .cm-editor .cm-bullet-list-marker {
   display: inline-block;
-  width: var(--md-marker-width);
+  width: var(--md-list-marker-width);
   text-indent: 0;
   transform: scale(1.2);
   padding-left: 6px;
-  margin-right: var(--md-marker-text-gap);
 }
 
 /*
@@ -1057,10 +1056,9 @@
  */
 .cm-editor .cm-ordered-list-marker {
   display: inline-block;
-  min-width: var(--md-marker-width);
+  min-width: var(--md-list-marker-width);
   text-indent: 0;
   padding-left: var(--md-marker-text-gap);
-  margin-inline-end: var(--space-4);
 }
 
 /*

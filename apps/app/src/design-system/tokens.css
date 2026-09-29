@@ -73,6 +73,10 @@
   --md-indent: 28px; /* calc(var(--md-base-space) + var(--md-marker-text-gap)); */
   --md-marker-height: var(--md-base-space);
   --md-marker-width: var(--md-base-space);
+  /* Bullet/ordered marker box width only — deliberately its own token,
+     not reused by the task checkbox or blockquote marker (both still
+     `--md-marker-width`, 24px), so this can move independently. */
+  --md-list-marker-width: 28px;
   --md-marker-text-gap: var(--space-4);
   --md-underline-offset: 20%;
   --md-underline-thickness: 0.05em;

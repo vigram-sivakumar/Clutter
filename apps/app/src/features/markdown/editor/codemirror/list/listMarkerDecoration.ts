@@ -388,12 +388,12 @@ const MARKER_MARK_DOT = Decoration.mark({
  * placement) resolves a `Decoration.mark`'s own trailing boundary via a
  * DOM `Range` over the *real* wrapped characters — here, the marker's
  * own `color: transparent` text — never the mark's CSS `width`
- * (`--md-marker-width`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker`
+ * (`--md-list-marker-width`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker`
  * in `MarkdownEditor.css`). For a *non-empty* item, content-start's own
  * `coordsAtPos` is already correct because it resolves via the
  * *following* real text node's own layout start instead — an ordinary
  * inline-block boundary, which genuinely does sit at the marker box's
- * full `--md-marker-width`. An empty item has no such following text to
+ * full `--md-list-marker-width`. An empty item has no such following text to
  * resolve via, so `coordsAtPos` falls back to the marker's own short
  * *natural* (invisible) glyph width instead of the box's full reserved
  * width — visibly too close to the marker.

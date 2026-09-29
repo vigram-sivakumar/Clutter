@@ -5,6 +5,7 @@ import { EditorView } from '@codemirror/view';
 
 import {
   getBulletMarkerFootprintPx,
+  getFixedListMarkerWidthPx,
   getFixedMarkerWidthPx,
   getOrderedMarkerFootprintPx,
   getTaskMarkerFootprintPx,
@@ -47,7 +48,7 @@ describe('listMarkerWidth', () => {
     vi.restoreAllMocks();
   });
 
-  describe('getFixedMarkerWidthPx (bullets, task checkboxes)', () => {
+  describe('getFixedMarkerWidthPx (task checkboxes, blockquote marker)', () => {
     it('falls back to 24px when --md-marker-width is unset (jsdom has no stylesheet)', () => {
       expect(getFixedMarkerWidthPx()).toBe(24);
     });
@@ -65,9 +66,19 @@ describe('listMarkerWidth', () => {
     });
   });
 
+  describe('getFixedListMarkerWidthPx (bullet/ordered markers only)', () => {
+    it('falls back to 28px when --md-list-marker-width is unset (jsdom has no stylesheet)', () => {
+      expect(getFixedListMarkerWidthPx()).toBe(28);
+    });
+
+    it('is independent of getFixedMarkerWidthPx (task/blockquote stay at 24px)', () => {
+      expect(getFixedListMarkerWidthPx()).not.toBe(getFixedMarkerWidthPx());
+    });
+  });
+
   describe('getBulletMarkerFootprintPx', () => {
-    it('is just the fixed box width when no trailing-margin rule is present (jsdom default)', () => {
-      expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedMarkerWidthPx());
+    it('is just the fixed list-marker box width when no trailing-margin rule is present (jsdom default)', () => {
+      expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedListMarkerWidthPx());
     });
 
     /**
@@ -78,7 +89,7 @@ describe('listMarkerWidth', () => {
     it('adds the real .cm-bullet-list-marker--glyph margin-right on top of the fixed box width', () => {
       withMarginRule('.cm-bullet-list-marker--glyph', 'margin-right: 4px;', () => {
         refreshListMarkerWidthCache();
-        expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedMarkerWidthPx() + 4);
+        expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedListMarkerWidthPx() + 4);
       });
     });
 
@@ -94,7 +105,7 @@ describe('listMarkerWidth', () => {
     it('resolves a .cm-editor-scoped margin rule because the probe mounts inside view.dom', () => {
       withMarginRule('.cm-editor .cm-bullet-list-marker--glyph', 'margin-right: 4px;', () => {
         refreshListMarkerWidthCache();
-        expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedMarkerWidthPx() + 4);
+        expect(getBulletMarkerFootprintPx(mountView())).toBe(getFixedListMarkerWidthPx() + 4);
       });
     });
 
@@ -153,15 +164,15 @@ describe('listMarkerWidth', () => {
       const view = mountView();
 
       withMarginRule('.cm-bullet-list-marker--glyph', 'margin-right: 4px;', () => {
-        expect(getBulletMarkerFootprintPx(view)).toBe(getFixedMarkerWidthPx() + 4);
+        expect(getBulletMarkerFootprintPx(view)).toBe(getFixedListMarkerWidthPx() + 4);
       });
       // The 4px rule's <style> tag has been removed now (withMarginRule's
       // own cleanup) — deliberately no refreshListMarkerWidthCache() call
       // here, since the whole point is that none should be needed.
-      expect(getBulletMarkerFootprintPx(view)).toBe(getFixedMarkerWidthPx());
+      expect(getBulletMarkerFootprintPx(view)).toBe(getFixedListMarkerWidthPx());
 
       withMarginRule('.cm-bullet-list-marker--glyph', 'margin-right: 9px;', () => {
-        expect(getBulletMarkerFootprintPx(view)).toBe(getFixedMarkerWidthPx() + 9);
+        expect(getBulletMarkerFootprintPx(view)).toBe(getFixedListMarkerWidthPx() + 9);
       });
     });
   });
@@ -192,8 +203,8 @@ describe('listMarkerWidth', () => {
       refreshListMarkerWidthCache();
 
       const view = mountView();
-      expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedMarkerWidthPx());
-      expect(getOrderedMarkerFootprintPx(view, '100. ')).toBe(getFixedMarkerWidthPx());
+      expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedListMarkerWidthPx());
+      expect(getOrderedMarkerFootprintPx(view, '100. ')).toBe(getFixedListMarkerWidthPx());
     });
 
     /**
@@ -208,9 +219,13 @@ describe('listMarkerWidth', () => {
     it('with the real canvas context, a wider marker never measures narrower than a narrower one', () => {
       const view = mountView();
 
+      // Digit counts chosen so all three real-measured widths clear the
+      // 28px floor (this repo's jsdom canvas font measures '1. '/'10. '/
+      // '100. ' at well under 28px, which would otherwise all floor to
+      // the same value and make this invariant untestable here).
       const one = getOrderedMarkerFootprintPx(view, '1. ');
-      const ten = getOrderedMarkerFootprintPx(view, '10. ');
-      const hundred = getOrderedMarkerFootprintPx(view, '100. ');
+      const ten = getOrderedMarkerFootprintPx(view, '10000. ');
+      const hundred = getOrderedMarkerFootprintPx(view, '1000000. ');
 
       expect(ten).toBeGreaterThanOrEqual(one);
       expect(hundred).toBeGreaterThan(ten);
@@ -253,7 +268,7 @@ describe('listMarkerWidth', () => {
 
       const view = mountView();
 
-      expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedMarkerWidthPx());
+      expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedListMarkerWidthPx());
     });
 
     it('a wider marker (more digits) never computes a smaller footprint than a narrower one', () => {
@@ -280,7 +295,7 @@ describe('listMarkerWidth', () => {
       withMarginRule('.cm-list-marker', 'margin-inline-end: 4px;', () => {
         refreshListMarkerWidthCache();
         const view = mountView();
-        expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedMarkerWidthPx() + 4);
+        expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedListMarkerWidthPx() + 4);
       });
     });
 
@@ -290,7 +305,7 @@ describe('listMarkerWidth', () => {
       withMarginRule('.cm-editor .cm-list-marker', 'margin-inline-end: 4px;', () => {
         refreshListMarkerWidthCache();
         const view = mountView();
-        expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedMarkerWidthPx() + 4);
+        expect(getOrderedMarkerFootprintPx(view, '1. ')).toBe(getFixedListMarkerWidthPx() + 4);
       });
     });
   });
