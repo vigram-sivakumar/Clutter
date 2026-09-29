@@ -40,7 +40,7 @@ function mountRootView(): { view: EditorView; controller: TableActiveCellControl
 
 const TEST_TABLE_FROM = 0;
 
-/** Hover-only tests don't care about the view/controller `attachTableHandleOverlay` now also requires for its click-dispatch wiring — this wraps a throwaway pair so each hover test doesn't have to. */
+/** Hover-only tests don't care about the view/controller `attachTableHandleOverlay` also requires for its click-dispatch wiring — this wraps a throwaway pair so each hover test doesn't have to. */
 function attach(wrapper: HTMLElement, columnCount: number): void {
   const { view, controller } = mountRootView();
   attachTableHandleOverlay(wrapper, columnCount, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
@@ -108,13 +108,14 @@ describe('resolveHoveredCell', () => {
     expect(result!.isHeaderRow).toBe(false);
   });
 
-  it('resolves the target from a descendant of the cell (e.g. .cm-table-cell-wrapper content), not just the cell itself', () => {
+  it('resolves the target from a descendant of the cell (e.g. a handle it hosts), not just the cell itself', () => {
     const { wrapper, table } = buildTable(1, 2);
     const cell = table.querySelector('tbody td')!;
-    const innerText = document.createElement('span');
-    cell.appendChild(innerText);
+    const innerHandle = document.createElement('div');
+    innerHandle.className = 'cm-table-row-handle-hit';
+    cell.appendChild(innerHandle);
 
-    const result = resolveHoveredCell(wrapper, innerText);
+    const result = resolveHoveredCell(wrapper, innerHandle);
 
     expect(result).not.toBeNull();
     expect(result!.columnIndex).toBe(0);
@@ -144,33 +145,81 @@ describe('resolveHoveredCell', () => {
   });
 });
 
-describe('attachTableHandleOverlay — hover show/hide wiring', () => {
-  it('creates exactly one reusable element pair per axis, initially hidden', () => {
+describe('attachTableHandleOverlay — DOM ownership: one handle per column, one per row', () => {
+  it('creates exactly one column-handle pair per header cell — never in a body cell', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    expect(wrapper.querySelectorAll('.cm-table-column-handle')).toHaveLength(3);
+    table.querySelectorAll('thead th').forEach((th) => {
+      expect(th.querySelectorAll(':scope > .cm-table-column-handle-hit')).toHaveLength(1);
+      expect(th.querySelectorAll(':scope > .cm-table-column-handle')).toHaveLength(1);
+    });
+    table.querySelectorAll('tbody td').forEach((td) => {
+      expect(td.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(0);
+    });
+  });
+
+  it('creates exactly one row-handle pair per row, hosted in that row\'s own first cell (header included)', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    expect(wrapper.querySelectorAll('.cm-table-row-handle')).toHaveLength(3); // header + 2 body rows
+    table.querySelectorAll('tr').forEach((row) => {
+      const firstCell = row.children[0]!;
+      expect(firstCell.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(1);
+      Array.from(row.children)
+        .slice(1)
+        .forEach((cell) => {
+          expect(cell.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(0);
+        });
+    });
+  });
+
+  it('the top-left header cell owns both its own column handle (column 0) and its own row handle (row 0)', () => {
+    const { wrapper, table } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    const topLeft = table.querySelector('thead th')!;
+    expect(topLeft.querySelectorAll(':scope > .cm-table-column-handle-hit')).toHaveLength(1);
+    expect(topLeft.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(1);
+  });
+
+  it('every handle starts hidden', () => {
     const { wrapper } = buildTable(2, 2);
     attach(wrapper, 2);
 
-    expect(wrapper.querySelectorAll('.cm-table-column-handle')).toHaveLength(1);
-    expect(wrapper.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(1);
-    expect(wrapper.querySelectorAll('.cm-table-row-handle')).toHaveLength(1);
-    expect(wrapper.querySelectorAll('.cm-table-row-handle-hit')).toHaveLength(1);
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
-    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
+    wrapper.querySelectorAll('.cm-table-column-handle, .cm-table-row-handle').forEach((el) => {
+      expect(el.classList.contains('cm-table-handle-visible')).toBe(false);
+    });
   });
 
-  it('hovering a body cell shows both the column and row handle', () => {
+  it('does not duplicate the drop indicators — exactly one column and one row drop indicator, at the wrapper level', () => {
+    const { wrapper } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    expect(wrapper.querySelectorAll(':scope > .cm-table-column-drop-indicator')).toHaveLength(1);
+    expect(wrapper.querySelectorAll(':scope > .cm-table-row-drop-indicator')).toHaveLength(1);
+  });
+});
+
+describe('attachTableHandleOverlay — hover show/hide wiring', () => {
+  it('hovering a body cell shows that column\'s own handle (in the header) and that row\'s own handle (in its first cell)', () => {
     const { wrapper, table } = buildTable(2, 2);
     attach(wrapper, 2);
 
-    const bodyCell = table.querySelectorAll('tbody td')[1]!;
+    const bodyCell = table.querySelectorAll('tbody td')[1]!; // row 2 (first body row), column 1
     const event = new Event('pointermove', { bubbles: true });
     Object.defineProperty(event, 'target', { value: bodyCell });
     wrapper.dispatchEvent(event);
 
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
-    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
+    const headerCellForColumn1 = table.querySelector('thead th:nth-child(2)')!;
+    expect(headerCellForColumn1.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    const firstCellOfRow = table.querySelectorAll('tbody tr')[0]!.children[0]!;
+    expect(firstCellOfRow.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
-  it('hovering a header cell shows both the column handle and the row handle — the header is a selectable row like any other', () => {
+  it('hovering a header cell shows both the column handle (its own) and the row handle (row 0) — the header is a selectable row like any other', () => {
     const { wrapper, table } = buildTable(2, 2);
     attach(wrapper, 2);
 
@@ -179,8 +228,8 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     Object.defineProperty(event, 'target', { value: headerCell });
     wrapper.dispatchEvent(event);
 
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
-    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(headerCell.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it('moving outside the table (pointerleave) hides both handles', () => {
@@ -191,39 +240,30 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     const moveEvent = new Event('pointermove', { bubbles: true });
     Object.defineProperty(moveEvent, 'target', { value: bodyCell });
     wrapper.dispatchEvent(moveEvent);
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible')).toHaveLength(1);
 
     wrapper.dispatchEvent(new Event('pointerleave', { bubbles: true }));
 
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
-    expect(wrapper.querySelector('.cm-table-row-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
+    expect(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible')).toHaveLength(0);
+    expect(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible')).toHaveLength(0);
   });
 
-  it('regression: a pointermove that lands on the handle\'s own hit-area (moving toward it to interact with it) keeps it visible, rather than hiding-then-reshowing on every tick', () => {
+  it('regression: a pointermove that lands on a handle\'s own hit-area (a descendant of its owning cell) keeps it visible, no flicker', () => {
     const { wrapper, table } = buildTable(2, 2);
     attach(wrapper, 2);
 
-    const bodyCell = table.querySelectorAll('tbody td')[0]!;
+    const headerCell = table.querySelector('thead th')!;
     const onCell = new Event('pointermove', { bubbles: true });
-    Object.defineProperty(onCell, 'target', { value: bodyCell });
+    Object.defineProperty(onCell, 'target', { value: headerCell });
     wrapper.dispatchEvent(onCell);
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
 
-    // The pointer has now moved onto the hit-area itself — a real browser
-    // makes it the event target the instant the cursor reaches it, since
-    // it's the topmost element at that point once `pointer-events: auto`
-    // applies (`tableHandleOverlay.css`). Confirmed via direct interactive
-    // testing to otherwise flicker: without the guard this test exercises,
-    // this pointermove reports "not over any td/th" and hides the handle,
-    // which drops `pointer-events` back to `none`, so the *next* tick's
-    // hit-test falls through to the cell underneath again and re-shows it
-    // — an infinite show/hide loop.
     const onHitArea = new Event('pointermove', { bubbles: true });
-    const hitArea = wrapper.querySelector('.cm-table-column-handle-hit')!;
+    const hitArea = headerCell.querySelector('.cm-table-column-handle-hit')!;
     Object.defineProperty(onHitArea, 'target', { value: hitArea });
     wrapper.dispatchEvent(onHitArea);
 
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it("a pointermove landing outside any cell (e.g. the wrapper's own border) hides both handles without erroring", () => {
@@ -239,24 +279,19 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     Object.defineProperty(offCell, 'target', { value: wrapper });
     wrapper.dispatchEvent(offCell);
 
-    expect(wrapper.querySelector('.cm-table-column-handle')?.classList.contains('cm-table-handle-visible')).toBe(false);
+    expect(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible')).toHaveLength(0);
   });
 
-  it("a mousedown on the handle's hit area is prevented and stopped (never reaches an ancestor listener)", () => {
+  it("a mousedown on a handle's hit area is prevented and stopped (never reaches an ancestor listener)", () => {
     const { wrapper, table } = buildTable(1, 2);
     attach(wrapper, 2);
-
-    const bodyCell = table.querySelector('tbody td')!;
-    const moveEvent = new Event('pointermove', { bubbles: true });
-    Object.defineProperty(moveEvent, 'target', { value: bodyCell });
-    wrapper.dispatchEvent(moveEvent);
 
     let reachedAncestor = false;
     document.addEventListener('mousedown', () => {
       reachedAncestor = true;
     });
 
-    const hitArea = wrapper.querySelector('.cm-table-column-handle-hit')!;
+    const hitArea = table.querySelector('thead th .cm-table-column-handle-hit')!;
     const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     hitArea.dispatchEvent(mousedown);
 
@@ -272,160 +307,96 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
     wrapper.dispatchEvent(event);
   }
 
-  function columnVisible(wrapper: HTMLElement): boolean {
-    return wrapper.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible');
+  function visibleColumnHandles(wrapper: HTMLElement): Element[] {
+    return Array.from(wrapper.querySelectorAll('.cm-table-column-handle.cm-table-handle-visible'));
   }
 
-  function rowVisible(wrapper: HTMLElement): boolean {
-    return wrapper.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible');
+  function visibleRowHandles(wrapper: HTMLElement): Element[] {
+    return Array.from(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible'));
   }
 
-  it('a selected column shows its handle even with no hover at all (fresh attach, never hovered)', () => {
+  it('a selected column shows its handle (in the header) even with no hover at all', () => {
     const { view, controller } = mountRootView();
-    const { wrapper } = buildTable(2, 3);
+    const { wrapper, table } = buildTable(2, 3);
 
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, 1, null, () => undefined);
 
-    expect(columnVisible(wrapper)).toBe(true);
-    expect(rowVisible(wrapper)).toBe(false);
+    const visible = visibleColumnHandles(wrapper);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(2)'));
+    expect(visibleRowHandles(wrapper)).toHaveLength(0);
   });
 
-  it('a selected row shows its handle even with no hover at all (fresh attach, never hovered)', async () => {
+  it('a selected row shows its handle (in that row\'s own first cell) even with no hover at all', () => {
     const { view, controller } = mountRootView();
-    const { wrapper } = buildTable(2, 3);
+    const { wrapper, table } = buildTable(2, 3);
 
     // Native `rowIndex` convention (header = 0) — row 1 is the first body row.
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1, () => undefined);
-    // The row axis's own initial-state measurement is deferred to a
-    // microtask (`attachTableHandleOverlay`'s own doc comment) — real
-    // `getBoundingClientRect()`-based positioning can't run correctly
-    // against a still-detached subtree, exactly like
-    // `tableSelectionOverlay.ts`'s own deferred positioning.
-    await Promise.resolve();
 
-    expect(rowVisible(wrapper)).toBe(true);
-    expect(columnVisible(wrapper)).toBe(false);
+    const visible = visibleRowHandles(wrapper);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]!.parentElement).toBe(table.querySelectorAll('tbody tr')[0]!.children[0]);
+    expect(visibleColumnHandles(wrapper)).toHaveLength(0);
   });
 
-  /**
-   * Regression test for the exact bug this deferral fixes: a `column` →
-   * `row` `TableSelection` change rebuilds `TableWidget` (a fresh
-   * `attachTableHandleOverlay` call, `selectedRowIndex` now set), and
-   * before the fix, that fresh call's own initial `hideRow()` measured
-   * `getBoundingClientRect()` synchronously — meaningless (zero) on a
-   * still-detached subtree in the real app, which pinned the row handle to
-   * `top: 0` (the wrapper's own top edge) instead of the selected row.
-   * jsdom returns an all-zero rect for *every* element by default, which
-   * would silently pass a same-zero-either-way assertion — real, distinct
-   * rects are mocked here specifically so a `top: 0px` regression is
-   * actually distinguishable from the correct, non-zero position.
-   */
-  function mockRect(el: Element, rect: { top: number; height: number }): void {
-    el.getBoundingClientRect = () => ({ top: rect.top, height: rect.height, bottom: rect.top + rect.height, left: 0, right: 0, width: 0, x: 0, y: rect.top, toJSON: () => ({}) });
-  }
-
-  it('regression: switching selection to a row positions its handle at the row, never pinned to the wrapper\'s top edge', async () => {
+  it('a selected header row (rowIndex 0) shows its handle even with no hover at all — the header is a selectable row like any other', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
-    mockRect(wrapper, { top: 100, height: 200 });
-    const selectedRow = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
-    mockRect(selectedRow, { top: 150, height: 40 }); // row 1 (first body row) — well below the wrapper's own top
-
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1, () => undefined);
-    await Promise.resolve();
-
-    expect(rowVisible(wrapper)).toBe(true);
-    // (150 - 100) + 40/2 = 70 — the row's own actual midpoint, not 0.
-    expect((wrapper.querySelector('.cm-table-row-handle') as HTMLElement).style.top).toBe('70px');
-  });
-
-  it('a selected header row (rowIndex 0) shows its handle even with no hover at all — the header is a selectable row like any other', async () => {
-    const { view, controller } = mountRootView();
-    const { wrapper } = buildTable(2, 3);
 
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 0, () => undefined);
-    await Promise.resolve();
 
-    expect(rowVisible(wrapper)).toBe(true);
-    expect(columnVisible(wrapper)).toBe(false);
+    const visible = visibleRowHandles(wrapper);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]!.parentElement).toBe(table.querySelector('thead th'));
+    expect(visibleColumnHandles(wrapper)).toHaveLength(0);
   });
 
-  it('switching selection from a column to the header row shows the row handle at the header and hides the column handle (simulates the TableWidget rebuild a kind change triggers)', async () => {
+  it('switching selection from a column to the header row shows the row handle at the header and hides the column handle (simulates the TableWidget rebuild a kind change triggers)', () => {
     const before = mountRootView();
     const beforeTable = buildTable(2, 3);
     attachTableHandleOverlay(beforeTable.wrapper, 3, before.view, before.controller, TEST_TABLE_FROM, 1, null, () => undefined);
-    expect(columnVisible(beforeTable.wrapper)).toBe(true);
+    expect(visibleColumnHandles(beforeTable.wrapper)).toHaveLength(1);
 
     // A fresh `attachTableHandleOverlay` call against a fresh wrapper is
     // exactly what a `TableSelection` kind change produces in the real
-    // app — a new `TableWidget.toDOM()` call, per that file's own doc
-    // comment — `selectedColumnIndex` now `null`, `selectedRowIndex` now
-    // `0` (the header).
+    // app — a new `TableWidget.toDOM()` call — `selectedColumnIndex` now
+    // `null`, `selectedRowIndex` now `0` (the header).
     const after = mountRootView();
     const afterTable = buildTable(2, 3);
     attachTableHandleOverlay(afterTable.wrapper, 3, after.view, after.controller, TEST_TABLE_FROM, null, 0, () => undefined);
-    await Promise.resolve();
 
-    expect(rowVisible(afterTable.wrapper)).toBe(true);
-    expect(columnVisible(afterTable.wrapper)).toBe(false);
+    expect(visibleRowHandles(afterTable.wrapper)).toHaveLength(1);
+    expect(visibleColumnHandles(afterTable.wrapper)).toHaveLength(0);
   });
 
-  it('switching selection from the header row to a body row shows the row handle at the new row (simulates the TableWidget rebuild a kind change triggers)', async () => {
-    const before = mountRootView();
-    const beforeTable = buildTable(2, 3);
-    attachTableHandleOverlay(beforeTable.wrapper, 3, before.view, before.controller, TEST_TABLE_FROM, null, 0, () => undefined);
-    await Promise.resolve();
-    expect(rowVisible(beforeTable.wrapper)).toBe(true);
-
-    const after = mountRootView();
-    const afterTable = buildTable(2, 3);
-    attachTableHandleOverlay(afterTable.wrapper, 3, after.view, after.controller, TEST_TABLE_FROM, null, 1, () => undefined);
-    await Promise.resolve();
-
-    expect(rowVisible(afterTable.wrapper)).toBe(true);
-    expect(columnVisible(afterTable.wrapper)).toBe(false);
-  });
-
-  it('hovering a different column still shows it (hover takes over the shared element); leaving hover falls back to the selected column', () => {
+  it('hovering a different column shows it; leaving hover falls back to the selected column\'s own header handle', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, 0, null, () => undefined);
 
     const otherCell = table.querySelectorAll('tbody td')[2]!; // column 2
     hoverCell(wrapper, otherCell);
-    expect(columnVisible(wrapper)).toBe(true);
-    expect((wrapper.querySelector('.cm-table-column-handle') as HTMLElement).style.left).toBe('83.33333333333334%'); // (2 + 0.5) / 3
+    expect(visibleColumnHandles(wrapper)[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(3)'));
 
     wrapper.dispatchEvent(new Event('pointerleave'));
 
-    expect(columnVisible(wrapper)).toBe(true);
-    expect((wrapper.querySelector('.cm-table-column-handle') as HTMLElement).style.left).toBe('16.666666666666664%'); // back to selected column 0: (0 + 0.5) / 3
+    expect(visibleColumnHandles(wrapper)[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(1)'));
   });
 
-  it('moving the pointer away from the table entirely still leaves the selected row/column handle visible', () => {
+  it('moving the pointer away from the table entirely still leaves the selected row handle visible on its own first cell', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1, () => undefined);
 
     const bodyCell = table.querySelectorAll('tbody td')[1]!;
     hoverCell(wrapper, bodyCell);
-    expect(rowVisible(wrapper)).toBe(true);
+    expect(visibleRowHandles(wrapper)).toHaveLength(1);
 
     wrapper.dispatchEvent(new Event('pointerleave'));
 
-    expect(rowVisible(wrapper)).toBe(true); // still visible — row 1 is selected, not just hovered
-  });
-
-  it('hovering the header row falls back to the selected row handle instead of hiding it (header never gets a row handle of its own)', () => {
-    const { view, controller } = mountRootView();
-    const { wrapper, table } = buildTable(2, 3);
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1, () => undefined);
-
-    const headerCell = table.querySelector('thead th')!;
-    hoverCell(wrapper, headerCell);
-
-    expect(rowVisible(wrapper)).toBe(true); // falls back to the selected row, never truly hidden
-    expect(columnVisible(wrapper)).toBe(true); // header hover still shows its own column handle as usual
+    expect(visibleRowHandles(wrapper)).toHaveLength(1); // still visible — row 1 is selected, not just hovered
+    expect(visibleRowHandles(wrapper)[0]!.parentElement).toBe(table.querySelectorAll('tbody tr')[0]!.children[0]);
   });
 
   it('with no selection at all, leaving hover hides the handle exactly as before this fix', () => {
@@ -434,13 +405,13 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
 
     const bodyCell = table.querySelectorAll('tbody td')[1]!;
     hoverCell(wrapper, bodyCell);
-    expect(columnVisible(wrapper)).toBe(true);
-    expect(rowVisible(wrapper)).toBe(true);
+    expect(visibleColumnHandles(wrapper)).toHaveLength(1);
+    expect(visibleRowHandles(wrapper)).toHaveLength(1);
 
     wrapper.dispatchEvent(new Event('pointerleave'));
 
-    expect(columnVisible(wrapper)).toBe(false);
-    expect(rowVisible(wrapper)).toBe(false);
+    expect(visibleColumnHandles(wrapper)).toHaveLength(0);
+    expect(visibleRowHandles(wrapper)).toHaveLength(0);
   });
 });
 
@@ -466,7 +437,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 2);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
   });
@@ -476,8 +447,8 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const { view, controller } = mountRootView();
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
-    const row = hoverBodyCell(wrapper, table, 1, 0); // second body row -> rowIndex 2 (header=0, first body=1)
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
+    const row = hoverBodyCell(wrapper, table, 1, 0); // second body row -> rowIndex 2
+    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(row.rowIndex).toBe(2);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
@@ -492,27 +463,13 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const selectionBefore = view.state.selection.main;
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
 
     expect(view.state.doc.toString()).toBe(docBefore);
     expect(view.state.selection.main.from).toBe(selectionBefore.from);
     expect(view.state.selection.main.to).toBe(selectionBefore.to);
   });
 
-  /**
-   * Regression coverage for the 2026-09-27 table-selection state
-   * reconciliation milestone: a non-empty root selection left over from
-   * before the handle click — e.g. text selected elsewhere in the
-   * document — must not keep rendering underneath the new blue/purple
-   * `TableSelection` overlay. `getRootSelectionCollapse`
-   * (`tableActiveCellController.ts`) is folded into this same click's own
-   * dispatch precisely because a handle click never calls `activate()` at
-   * all (it calls `deactivate()` instead — see this describe block's own
-   * "cleanly deactivates it" test below), so `activate()`'s own equivalent
-   * collapse can never reach this path: a user can select text elsewhere
-   * and click a column/row handle directly, without ever having activated
-   * a cell in between.
-   */
   it('a click on the column/row handle collapses a stale non-empty root selection, in the same transaction as the TableSelection dispatch', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
@@ -522,13 +479,10 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const dispatchSpy = vi.spyOn(view, 'dispatch');
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
-    // Exactly one dispatch carries the collapse — the same one that also
-    // sets `tableSelectionChanged` — never a second, separate transaction
-    // for the same click.
     const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
       const spec = args[0];
       return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
@@ -543,28 +497,11 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
     view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
 
-    hoverBodyCell(wrapper, table, 0, 0);
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
+    const row = hoverBodyCell(wrapper, table, 0, 0);
+    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)?.kind).toBe('row');
-  });
-
-  it('does not dispatch a selection field at all when the root selection is already empty (no redundant no-op collapse)', () => {
-    const { wrapper, table } = buildTable(2, 3);
-    const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
-    expect(view.state.selection.main.empty).toBe(true);
-    const dispatchSpy = vi.spyOn(view, 'dispatch');
-
-    hoverBodyCell(wrapper, table, 0, 1);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
-
-    const dispatchesWithSelection = dispatchSpy.mock.calls.filter((args) => {
-      const spec = args[0];
-      return !Array.isArray(spec) && !!spec && typeof spec === 'object' && 'selection' in spec;
-    });
-    expect(dispatchesWithSelection).toHaveLength(0);
   });
 
   it('clicking a handle while a cell is active cleanly deactivates it', () => {
@@ -578,37 +515,21 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(controller.nestedView!.dom.parentElement).toBe(container);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th .cm-table-column-handle-hit')!);
 
     expect(controller.activeAnchor).toBeNull();
     expect(controller.nestedView!.dom.parentElement).toBeNull();
   });
 
-  it('clicking the header row\'s own row handle selects it — rowIndex 0, a valid TableSelection.row like any other', () => {
+  it("clicking the header row's own row handle selects it — rowIndex 0, a valid TableSelection.row like any other", () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     const headerCell = table.querySelector('thead th')!;
-    const event = new Event('pointermove', { bubbles: true });
-    Object.defineProperty(event, 'target', { value: headerCell });
-    wrapper.dispatchEvent(event);
+    click(headerCell.querySelector('.cm-table-row-handle-hit')!);
 
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
-    expect(rowHit.classList.contains('cm-table-handle-visible')).toBe(true);
-    click(rowHit);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
-  });
-
-  it('a click on the handle before any hover (no column/row tracked yet) does nothing', () => {
-    const { wrapper } = buildTable(2, 3);
-    const { view, controller } = mountRootView();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
-
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
-
-    expect(view.state.field(tableSelectionField)).toBeNull();
   });
 });
 
@@ -627,15 +548,9 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
 
   /**
    * Re-parents `wrapper` under a `.cm-table-widget[data-table-from]`
-   * appended into `view.dom` — the real `TableWidget.toDOM()` shape
-   * (`tableWidget.ts`'s own doc comment) `resolveCurrentHandleElement`
-   * (`tableHandleOverlay.ts`) queries against, required for these tests
-   * specifically: unlike every other describe block in this file (which
-   * only exercises hover/click wiring against a standalone `wrapper`, per
-   * `buildTable`'s own doc comment), these tests exercise the *menu-open*
-   * path, which re-resolves its own anchor from `view.dom` after
-   * dispatching — a `wrapper` left parented under `document.body` alone
-   * (as `buildTable` itself leaves it) would never be found by that query.
+   * appended into `view.dom` — the real `TableWidget.toDOM()` shape, needed
+   * because the menu-open path re-resolves its own anchor from `view.dom`
+   * after dispatching.
    */
   function embedInViewDom(view: EditorView, wrapper: HTMLElement, tableFromValue: number): void {
     const widget = document.createElement('div');
@@ -645,7 +560,7 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     view.dom.appendChild(widget);
   }
 
-  it('clicking a column handle calls the menu-change callback with the current visible handle as anchor and the same column selection just dispatched', () => {
+  it('clicking a column handle calls the menu-change callback with that column\'s own fresh header handle as anchor', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
@@ -653,15 +568,15 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 2);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: wrapper.querySelector('.cm-table-column-handle'),
+      anchor: table.querySelector('thead th:nth-child(3) .cm-table-column-handle'),
       selection: { kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 },
     });
   });
 
-  it('clicking a row handle calls the menu-change callback with the current visible handle as anchor and the same row selection just dispatched (deferred to a microtask)', async () => {
+  it('clicking a row handle calls the menu-change callback synchronously (no deferral needed — position is pure CSS now)', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
@@ -669,17 +584,16 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 1, 0);
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
-    expect(onMenuChange).not.toHaveBeenCalled(); // deferred — see attachTableHandleOverlay's own doc comment on the row click handler
-    await Promise.resolve();
+    const row = table.querySelectorAll('tbody tr')[1]!;
+    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: wrapper.querySelector('.cm-table-row-handle'),
+      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 },
     });
   });
 
-  it('switching from a column handle to a row handle calls the menu-change callback again with the new row selection (no explicit close in between)', async () => {
+  it('switching from a column handle to a row handle calls the menu-change callback again with the new row selection (no explicit close in between)', () => {
     const { view, controller } = mountRootView();
     const { wrapper, table } = buildTable(2, 3);
     embedInViewDom(view, wrapper, TEST_TABLE_FROM);
@@ -687,31 +601,17 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
+    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
     onMenuChange.mockClear();
 
     hoverBodyCell(wrapper, table, 0, 0);
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
-    await Promise.resolve();
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: wrapper.querySelector('.cm-table-row-handle'),
+      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 },
     });
-  });
-
-  it('does not call the menu-change callback when a handle is clicked with nothing hovered/tracked yet', async () => {
-    const { view, controller } = mountRootView();
-    const { wrapper } = buildTable(2, 3);
-    embedInViewDom(view, wrapper, TEST_TABLE_FROM);
-    const onMenuChange = vi.fn();
-    attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
-
-    click(wrapper.querySelector('.cm-table-column-handle-hit')!);
-    click(wrapper.querySelector('.cm-table-row-handle-hit')!);
-    await Promise.resolve();
-
-    expect(onMenuChange).not.toHaveBeenCalled();
   });
 
   it('never calls the menu-change callback from hover alone — only an actual click opens/updates the menu', () => {
@@ -765,7 +665,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     wrapper.dispatchEvent(event);
   }
 
-  /** `pointerdown`/`pointermove`/`pointerup` dispatched as plain `MouseEvent`s carrying `clientX`/`clientY`/`button` — jsdom event dispatch matches listeners by the event's own `type` string, not its constructor, and `handlePointerDown`/`handlePointerMove` (`tableHandleOverlay.ts`) only ever read those three properties, all present on `MouseEvent` too, so this is a faithful stand-in for a real `PointerEvent` without depending on this jsdom version's own support for that constructor. */
+  /** `pointerdown`/`pointermove`/`pointerup` dispatched as plain `MouseEvent`s carrying `clientX`/`clientY`/`button` — jsdom event dispatch matches listeners by the event's own `type` string, not its constructor, and the handlers here only ever read those three properties, all present on `MouseEvent` too, so this is a faithful stand-in for a real `PointerEvent` without depending on this jsdom version's own support for that constructor. */
   function pointer(type: string, el: EventTarget, x: number, y: number): void {
     el.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true }));
   }
@@ -790,7 +690,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // "A" row -> rowIndex 1
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60); // row 1's own midpoint (top 40 + 20)
     pointer('pointermove', document, 10, 140); // row 3's own midpoint (top 120 + 20) — well past the threshold
 
@@ -807,11 +708,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     const headerCell = table.querySelector('thead th')!;
-    const hoverEvent = new Event('pointermove', { bubbles: true });
-    Object.defineProperty(hoverEvent, 'target', { value: headerCell });
-    wrapper.dispatchEvent(hoverEvent); // rowIndex 0
-
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const rowHit = headerCell.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 20); // row 0's own midpoint
     pointer('pointermove', document, 10, 100); // row 2's own midpoint
 
@@ -821,7 +718,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
   });
 
-  it('a drag that never crosses the threshold does not move anything, and the ordinary click that follows still opens the menu', async () => {
+  it('a drag that never crosses the threshold does not move anything, and the ordinary click that follows still opens the menu', () => {
     const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
     const { wrapper, table } = buildTable(3, 2);
     mockRowRects(table);
@@ -830,7 +727,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 11, 61); // 1px jitter, under DRAG_THRESHOLD_PX
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 11, clientY: 61, button: 0, bubbles: true, cancelable: true }));
@@ -838,10 +736,6 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(view.state.doc.toString()).toBe(FOUR_ROWS); // untouched — no drag ever started
 
     click(rowHit);
-    // The row click handler's own menu-open call is deferred to a
-    // microtask (see `attachTableHandleOverlay`'s own row-click doc
-    // comment) — awaiting one lets it run before asserting.
-    await Promise.resolve();
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 });
     expect(onMenuChange).toHaveBeenCalledOnce(); // the ordinary click still opens the menu, exactly as before
@@ -856,7 +750,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140);
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
@@ -876,7 +771,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 1, 0); // "B" row -> rowIndex 2
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[1]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 100); // row 2's own midpoint
     pointer('pointermove', document, 10, 140); // drag away, past the threshold...
     pointer('pointermove', document, 10, 100); // ...then back to the exact same row
@@ -895,7 +791,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const depthBefore = undoDepth(view.state);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140);
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
@@ -911,7 +808,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // "a" cell -> columnIndex 0
-    const columnHit = wrapper.querySelector('.cm-table-column-handle-hit')!;
+    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
     pointer('pointerdown', columnHit, 50, 10); // column 0's own midpoint
     pointer('pointermove', document, 250, 10); // column 2's own midpoint
 
@@ -932,7 +829,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(controller.activeAnchor).not.toBeNull();
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const rowHit = wrapper.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140); // crosses the threshold
 

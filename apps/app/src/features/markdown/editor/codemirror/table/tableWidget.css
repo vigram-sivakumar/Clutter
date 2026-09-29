@@ -74,6 +74,39 @@
   /* Explicit, not relied on as a block-default — see this file's own top
    * doc comment for why this element must never become a clipping layer. */
   overflow: visible;
+  /* Reserves exactly the column handle's own protrusion above the header
+   * cell (`top: -3px` on `.cm-table-column-handle`/`-hit`,
+   * `tableHandleOverlay.css` — must stay in sync with that value) so the
+   * handle never needs to paint outside this widget's own box.
+   *
+   * Every layer this widget itself owns is already `overflow: visible`
+   * (this rule, `.cm-table-wrapper`, `.cm-table-scroll`, all below) or
+   * forced to `visible` regardless of any CSS (`<thead>`/`<tr>`, per the
+   * CSS Overflow spec's explicit carve-out for internal table box types)
+   * — none of that clips the handle. The real clip is one level up:
+   * `.page__content` (`Page.css`) is the app's own scroll container
+   * (`overflow-y: auto; overflow-x: hidden;`, both deliberate — see that
+   * rule's own doc comment for why `overflow-x` must stay `hidden`, not
+   * something to touch here) — a table with nothing above it in the
+   * document (the very first block, or scrolled flush to the top) has no
+   * slack left for the handle's negative offset to land in before hitting
+   * that boundary. `padding-top` (not `margin` — this codebase's own
+   * permanent CM6 rule) on this widget's own box is the narrowest fix:
+   * it reserves the room *inside* the one box CM6 already lets this
+   * feature control, touching neither the shared scroll container's own
+   * clipping (which stays exactly as deliberately configured) nor the
+   * `<table>` element's own rendered width/height — only this widget's
+   * own vertical footprint grows by the same few pixels.
+   *
+   * `padding-top` only, not `padding-left` — unlike the vertical axis,
+   * reserving room on the left would shrink the table's own visible width
+   * by that same amount (`.cm-table-wrapper table` is `width: 100%` of
+   * this widget's own content box), a real dimension change this fix is
+   * explicitly scoped to avoid. The row handle's own analogous left-edge
+   * exposure (`inset-inline-start: -3px`) needs a live check against real
+   * layout before deciding on its own fix — not addressed here.
+   */
+  padding-top: 3px;
 }
 .cm-editor .cm-table-wrapper {
   /* No border here — see `.cm-table-wrapper table`'s own rule below for
@@ -290,6 +323,19 @@
 
 .cm-editor .cm-table-wrapper th,
 .cm-editor .cm-table-wrapper td {
+  /* Positioning context for a column's or row's own selection handle
+   * (`tableHandleOverlay.css`) — a column handle lives in its own header
+   * cell, a row handle in that row's own first cell (one handle per
+   * column/row, `tableHandleOverlay.ts`'s own doc comment), so any cell
+   * that might host one needs to be an absolute-positioning ancestor.
+   * Applied to every `th`/`td` uniformly rather than carving out a
+   * `thead th, tr > :first-child` selector — a cell that never hosts a
+   * handle simply has no absolutely-positioned child, a complete no-op. No
+   * `overflow` change needed alongside this: cells already default to
+   * `visible`, which is required here too (a handle's own slight
+   * negative-offset poke past the cell's own border must not clip).
+   */
+  position: relative;
   border-bottom: var(--cm-table-border-thickness) solid
     var(--cm-table-border-color);
   border-right: var(--cm-table-border-thickness) solid

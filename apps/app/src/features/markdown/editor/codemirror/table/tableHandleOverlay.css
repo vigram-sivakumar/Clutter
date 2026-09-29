@@ -1,21 +1,24 @@
 /*
- * Column/row hover-handle overlay (visual + hover only — see
- * tableHandleOverlay.ts's own doc comment; click/drag/reorder/selection is
- * a later milestone, not implemented here). Both handles are centered on
- * their own border's centerline via `--cm-table-border-width` (declared on
- * `.cm-table-wrapper`, tableWidget.css) — not a hardcoded pixel offset —
- * combined with `transform: translate(-50%, -50%)`, which centers whatever
- * box is positioned there regardless of that box's own width/height.
+ * Column/row selection-handle overlay — one physical handle per column, one
+ * per row (see `tableHandleOverlay.ts`'s own doc comment for the full
+ * ownership model). A column's handle is mounted as a direct child of that
+ * column's own header cell (`position: relative` on `th`/`td`,
+ * `tableWidget.css`); a row's handle is mounted in that row's own first
+ * cell. Each handle positions itself relative to its own owning cell —
+ * never relative to `.cm-table-wrapper` or any shared coordinate space —
+ * so the column handle is automatically correct wherever its header cell
+ * renders (including under an explicit, resized column width), and both
+ * automatically scroll together with the table's own horizontal overflow,
+ * being ordinary descendants of the scrolled content rather than a sibling
+ * overlay of it.
  *
- * This is why there is no separate "handle thickness" term anywhere in
- * this offset math: changing `.cm-table-column-handle`'s own
- * `width`/`height` (or its `-hit` sibling's, independently) needs zero
- * corresponding change to the position rules below — each element
- * re-centers itself on the same border-centerline point purely from its
- * own box size, which `translate(-50%, -50%)` already accounts for. Only
- * the border width genuinely needs to flow through a formula, and it does
- * (`calc(-1 * var(--cm-table-border-thickness) / 2)`), so the two stay
- * correct together if that token ever changes.
+ * The column handle centers on its own header cell's *top* edge; the row
+ * handle centers on its own first cell's *left* edge. `-3px` is a
+ * deliberate, small negative offset — enough for the visible bar to read
+ * as sitting *on* the cell boundary rather than inside the cell's own
+ * padding, not tied to `--cm-table-border-thickness` (that token governs
+ * the *border's* own paint width, a separate, much thinner value with no
+ * bearing on how far outside the border a handle should sit).
  */
 
 .cm-table-column-handle-hit,
@@ -23,18 +26,21 @@
 .cm-table-column-handle,
 .cm-table-row-handle {
   position: absolute;
-  transform: translate(-50%, -50%);
   cursor: pointer;
 }
 
 .cm-table-column-handle-hit,
 .cm-table-column-handle {
-  top: calc(-1 * var(--cm-table-border-thickness) / 2);
+  top: -3px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
 }
 
 .cm-table-row-handle-hit,
 .cm-table-row-handle {
-  left: calc(-1 * var(--cm-table-border-thickness) / 2);
+  inset-inline-start: -3px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Larger, invisible pointer targets — sized beyond the visible 24x4/4x24

@@ -1,81 +1,55 @@
 import type { EditorView } from '@codemirror/view';
 
 import './tableHandleOverlay.css';
-import type { TableActiveCellController } from './tableActiveCellController';
-import { getRootSelectionCollapse, tableActiveCellChanged } from './tableActiveCellController';
+import { getRootSelectionCollapse, tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
 import { tableSelectionChanged } from './tableSelection';
 
 /**
- * Column/row hover-handle overlay: shows on hover (one reusable element
- * pair per axis, repositioned rather than recreated per column/row — the
- * same shape `TableActiveCellController` already establishes for the
- * nested cell editor), a press/release click on a handle selects that
- * whole column/row via `TableSelection` (`tableSelection.ts`) and opens its
- * menu, and a press-move-release past a small threshold instead drags that
- * row/column to a new position (§ "Drag-to-reorder" below).
- * Rectangular/multi-cell selection remains a later milestone.
+ * Column/row selection-handle wiring — **one physical DOM handle per
+ * column, one per row**, each with a permanent structural identity, not a
+ * single shared/repositioned pair and not one instance duplicated into
+ * every cell.
  *
- * **Drag-to-reorder.** `pointerdown` on a handle's hit area starts tracking
- * (only when a row/column is already hovered/tracked — the same guard the
- * click handlers themselves use); `pointermove` past `DRAG_THRESHOLD_PX` on
- * the gesture's own axis promotes it to a real drag — `controller
- * .deactivate()` runs immediately (a *local* DOM-only operation, no
- * `view.dispatch` — see below for why that distinction matters), and a
- * thin drop indicator appears showing where the row/column would land.
- * Releasing commits the move in exactly one transaction, reusing
- * `tableRowColumnMove.ts`'s own `moveSelectedRowToIndex`/
- * `moveSelectedColumnToIndex` — the identical engine `TableHandleMenu.tsx`'s
- * "Move up"/"Move down"/"Move left"/"Move right" items already use for a
- * ±1 step, generalized to any distance (that module's own top doc
- * comment). No second reorder implementation exists anywhere in this
- * feature.
+ * - A column's handle lives in that column's own header cell
+ *   (`<thead> > tr > th`) — `columnIndex` is simply "which `<th>` this is,"
+ *   never separately tracked or persisted.
+ * - A row's handle lives in that row's own first cell (`row.children[0]`,
+ *   a `<th>` for the header row, a `<td>` for every body row) — `rowIndex`
+ *   is simply "which row this cell's own row is" (native `<tr>.rowIndex`,
+ *   header + body combined), same convention every other row-indexed
+ *   concept in this feature already uses.
+ * - The top-left cell therefore owns both: it is column 0's own header
+ *   cell *and* row 0's own first cell.
+ * - The header row participates in row selection like any other row
+ *   (`TableSelection`'s own `row` kind doc comment already establishes
+ *   this; nothing here special-cases it away).
  *
- * **Why nothing is `view.dispatch`ed until the drag actually commits.**
- * `TableWidget.eq()` (`tableWidget.ts`) — and therefore whether CM6 tears
- * down and rebuilds this exact table's whole DOM subtree via a fresh
- * `toDOM()` call — compares `TableSelection`'s own selected row/column
- * index and the active cell's own anchor on *every* dispatched transaction
- * that touches either. `attachTableHandleOverlay` itself is called fresh
- * on every such rebuild (this doc comment's own next paragraph). A
- * mid-drag dispatch (e.g. selecting the dragged row the instant the
- * threshold is crossed) would therefore destroy `wrapper` — and every
- * element this drag session is manipulating (`column`/`row`, the drop
- * indicators) — out from under the very gesture in progress, the instant
- * it fired. So the whole drag lives as transient, local closure state
- * (`dragSession`, below) with zero CM6 involvement until `pointerup`
- * dispatches the one commit transaction — deliberately, not an oversight
- * ("Keep the drag state transient; do not put pointer-position state into
- * the document/state field unless there is a concrete reason" — there is
- * no such reason here).
+ * Because each handle's identity is a pure function of *where it lives* in
+ * the table, nothing needs to persist across a rebuild to keep a selected
+ * handle correctly anchored: after `TableWidget.toDOM()` rebuilds, the
+ * fresh header cell for column N simply creates column N's handle again,
+ * in the same structural place it always lives. There is no "which cell
+ * was this column selected from" question to answer, and therefore no
+ * extra state needed beyond `TableSelection` itself.
  *
- * **Distinguishing a drag from an ordinary click.** A real `click` event
- * still fires after a `pointerdown`+`pointermove`+`pointerup` sequence as
- * long as `pointerup` lands back on (or near) the same hit element — which
- * it usually does here, since the drop indicator/target computation never
- * moves the *handle* itself. Suppressing that trailing `click` is therefore
- * not optional: `suppressNextClick` is set the instant a real drag (one
- * that crossed the threshold) commits, and every `click` handler below
- * checks and clears it first, before doing anything else. A press/release
- * that never crosses the threshold never sets it, so an ordinary click's
- * existing select-and-open-menu behavior (§ "Click-to-select" below) is
- * completely unaffected — this is additive, not a rewrite of that path.
+ * **Multiple hover locations, one physical handle.** Hovering *any* cell in
+ * column 2 (not just the header) still shows column 2's own single handle
+ * — the one living in the header — exactly like hovering any cell in row 3
+ * shows row 3's own single handle living in its first cell. This is a
+ * lookup by index into a fixed, already-existing element, not a
+ * repositioning of a shared element and not a hover-time creation.
  *
- * Lives outside `<table>`'s own cell DOM entirely — appended as a sibling
- * of `.cm-table-scroll` inside `.cm-table-wrapper` (`tableWidget.ts`'s own
- * `toDOM()`) — so it can never be mistaken for cell content by the
- * per-cell `mousedown` → `controller.activate()` path, and can visually
- * extend past `.cm-table-wrapper`'s own border (the whole point of this
- * overlay) without needing any change to the table's own layout.
- *
- * Attached fresh on every `TableWidget.toDOM()` call, with no persisted
- * instance and no explicit `destroy()` — the same lifecycle every other
- * per-render listener in this file's sibling module already uses (e.g.
- * `tableWidget.ts`'s own per-cell `mousedown` listeners, recreated on
- * every rebuild): CM6 discards the whole previous widget's DOM subtree
- * (listeners included) whenever `eq()` says rebuild, so there is nothing
- * here to leak or manually tear down.
+ * **Drag-to-reorder** (`resolveColumnTargetIndex`/`resolveRowTargetIndex`,
+ * `commitDrag`, the drop-indicator positioning) is unchanged from the
+ * previous shared-overlay design — still transient, local closure state
+ * (`dragSession`) with zero CM6 involvement until `pointerup`, for the same
+ * "a mid-drag dispatch would tear down the very DOM this gesture is
+ * manipulating" reason. The only change is where a drag's own `startIndex`
+ * comes from: previously a hover-tracked `currentColumnIndex`/
+ * `currentRowIndex` variable, now resolved directly from which handle's
+ * own hit element was pressed (`resolveHoveredCell`, reused for this too).
  */
 
 const VISIBLE_CLASS = 'cm-table-handle-visible';
@@ -94,6 +68,12 @@ export interface HoveredCellInfo {
  * `null` whenever `target` isn't inside a real `<td>`/`<th>` belonging to
  * `wrapper`'s own table (a click on the wrapper's own border/padding, a
  * different table's cell entirely, or a non-element target).
+ *
+ * Reused for identity resolution too, not just hover: a handle's own hit
+ * element is a descendant of the cell it structurally belongs to (the
+ * header cell for a column handle, the row's own first cell for a row
+ * handle), so `target.closest('td, th')` resolves a pressed/clicked handle
+ * to its owning cell exactly the same way it resolves an ordinary hover.
  *
  * Deliberately does not live in `tableGeometry.ts` — that module resolves
  * *Markdown source positions*, by design (see its own doc comment: "never
@@ -124,77 +104,50 @@ interface HandlePair {
   readonly visible: HTMLElement;
 }
 
-function createHandlePair(axis: 'column' | 'row'): HandlePair {
+function createColumnHandlePair(cell: HTMLElement): void {
   const hit = document.createElement('div');
-  hit.className = `cm-table-${axis}-handle-hit`;
+  hit.className = 'cm-table-column-handle-hit';
   const visible = document.createElement('div');
-  visible.className = `cm-table-${axis}-handle`;
-  return { hit, visible };
+  visible.className = 'cm-table-column-handle';
+  cell.append(hit, visible);
 }
 
-function hide(pair: HandlePair): void {
+function createRowHandlePair(cell: HTMLElement): void {
+  const hit = document.createElement('div');
+  hit.className = 'cm-table-row-handle-hit';
+  const visible = document.createElement('div');
+  visible.className = 'cm-table-row-handle';
+  cell.append(hit, visible);
+}
+
+function findColumnHandlePair(cell: HTMLElement): HandlePair | null {
+  const hit = cell.querySelector<HTMLElement>(':scope > .cm-table-column-handle-hit');
+  const visible = cell.querySelector<HTMLElement>(':scope > .cm-table-column-handle');
+  return hit && visible ? { hit, visible } : null;
+}
+
+function findRowHandlePair(cell: HTMLElement): HandlePair | null {
+  const hit = cell.querySelector<HTMLElement>(':scope > .cm-table-row-handle-hit');
+  const visible = cell.querySelector<HTMLElement>(':scope > .cm-table-row-handle');
+  return hit && visible ? { hit, visible } : null;
+}
+
+function hidePair(pair: HandlePair): void {
   pair.hit.classList.remove(VISIBLE_CLASS);
   pair.visible.classList.remove(VISIBLE_CLASS);
 }
 
-/**
- * Isolates the handle from both the nested cell editor and root CM6's own
- * cursor placement — no selection/drag behavior yet (a later milestone);
- * this only guarantees hovering/pressing a handle can never activate a
- * cell or move the root caret. Mirrors the exact `preventDefault` +
- * `stopPropagation` pairing `tableWidget.ts`'s own per-cell `mousedown`
- * handler and its widget-level non-cell suppression already use, for the
- * identical reason: stop root CM6's own `contentDOM` mousedown handling,
- * further up this same DOM tree, from also running.
- */
-function preventActivation(event: MouseEvent): void {
-  event.preventDefault();
-  event.stopPropagation();
+function showPair(pair: HandlePair): void {
+  pair.hit.classList.add(VISIBLE_CLASS);
+  pair.visible.classList.add(VISIBLE_CLASS);
 }
 
 /**
- * Attaches the hover-driven column/row handle overlay to `wrapper`
- * (`.cm-table-wrapper`). `columnCount` is the table's own header column
- * count (`TableWidget.headerCells.length`) — column position is computed
- * from it directly (`table-layout: fixed` with no explicit widths divides
- * columns evenly, per `tableWidget.css`'s own doc comment), needing no
- * `getBoundingClientRect()` call at all. Row position, by contrast, is
- * measured fresh against the hovered row every time — row height is
- * content-driven (see the active/inactive cell height-matching comments
- * already in `tableWidget.css`), not statically computable the way column
- * width is.
- *
- * `view`/`controller`/`tableFrom` are only needed for the click-to-select
- * gesture (§ below) — hover alone (everything above this milestone) never
- * touched the root view at all.
- *
- * `selectedColumnIndex`/`selectedRowIndex` — this exact table's own
- * currently-`TableSelection`-selected column/row (`TableWidget`'s own
- * constructor fields, already scoped per-table), or `null`. Visibility for
- * each axis is `hovered || selected`: whichever column/row the pointer is
- * over always shows via the hover logic below exactly as before, and
- * `hideColumn`/`hideRow` — called whenever hover ends, on this table, for
- * any reason (`pointerleave`, hovering a target this axis has no handle
- * for, or simply never having hovered yet) — fall back to showing the
- * *selected* one instead of truly hiding, so a selected handle stays
- * visible independent of hover. A single reused element pair per axis
- * (unchanged) still means only one handle per axis is ever on screen at
- * once — hover, while active, visually takes over the same element the
- * selected state would otherwise occupy, then hands it back the moment
- * hover ends.
- *
- * `getOnTableHandleMenuChange` — a click on either handle, right after the
- * existing selection dispatch, also opens/updates that handle's own
- * floating menu (`TableHandleMenu.tsx`) by calling this with the clicked
- * handle's own visible element as `anchor` plus the same selection just
- * dispatched. Reads the getter fresh at click time rather than closing
- * over one value — the same "read fresh per click" freshness contract
- * `buildEditorExtensions.ts`'s own doc comment establishes for every
- * `onOpenXMenu`-shaped prop, letting the actual React callback change
- * across renders with no need to rebuild this whole extension. *Closing*
- * the menu (a cell click, an outside click) is not this function's own
- * concern at all — see `tableHandleMenuSync.ts`'s own `tableHandleMenuSync`
- * doc comment for why that's a separate, state-driven mechanism instead.
+ * Attaches one column handle per header cell and one row handle per row's
+ * own first cell to `wrapper` (`.cm-table-wrapper`) — this file's own top
+ * doc comment has the full ownership model. `columnCount` is used only by
+ * the drag-to-reorder gesture's own column-target math
+ * (`resolveColumnTargetIndex`), unchanged from before.
  */
 export function attachTableHandleOverlay(
   wrapper: HTMLElement,
@@ -206,56 +159,92 @@ export function attachTableHandleOverlay(
   selectedRowIndex: number | null,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
 ): void {
-  const column = createHandlePair('column');
-  const row = createHandlePair('row');
+  function resolveTableElement(): HTMLTableElement | null {
+    return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
+  }
+
+  const tableEl = resolveTableElement();
+  if (tableEl) {
+    const headerRow = tableEl.rows[0];
+    if (headerRow) {
+      for (let c = 0; c < headerRow.children.length; c++) {
+        createColumnHandlePair(headerRow.children[c] as HTMLElement);
+      }
+    }
+    for (let r = 0; r < tableEl.rows.length; r++) {
+      const firstCell = tableEl.rows[r]!.children[0] as HTMLElement | undefined;
+      if (firstCell) {
+        createRowHandlePair(firstCell);
+      }
+    }
+  }
+
   const columnDropIndicator = document.createElement('div');
   columnDropIndicator.className = 'cm-table-column-drop-indicator';
   const rowDropIndicator = document.createElement('div');
   rowDropIndicator.className = 'cm-table-row-drop-indicator';
-  wrapper.append(column.hit, column.visible, row.hit, row.visible, columnDropIndicator, rowDropIndicator);
+  wrapper.append(columnDropIndicator, rowDropIndicator);
 
-  column.hit.addEventListener('mousedown', preventActivation);
-  row.hit.addEventListener('mousedown', preventActivation);
-
-  // Tracks which column/row each handle is *currently* showing — a click
-  // event carries no hover information of its own, so the click handlers
-  // below (§ "Click-to-select") need this to know what to select. Only
-  // ever read while the corresponding handle's own `VISIBLE_CLASS` is
-  // set — see each click handler's own guard.
-  let currentColumnIndex: number | null = null;
-  let currentRowIndex: number | null = null;
-
-  function showColumn(columnIndex: number): void {
-    const leftPercent = ((columnIndex + 0.5) / columnCount) * 100;
-    column.hit.style.left = `${leftPercent}%`;
-    column.visible.style.left = `${leftPercent}%`;
-    column.hit.classList.add(VISIBLE_CLASS);
-    column.visible.classList.add(VISIBLE_CLASS);
-    currentColumnIndex = columnIndex;
+  /** Column N's own permanent handle — always the header cell at index N, never anything else. */
+  function columnHandlePair(columnIndex: number): HandlePair | null {
+    const headerRow = resolveTableElement()?.rows[0];
+    const cell = headerRow?.children[columnIndex] as HTMLElement | undefined;
+    return cell ? findColumnHandlePair(cell) : null;
   }
 
-  function showRow(rowElement: HTMLTableRowElement): void {
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const rowRect = rowElement.getBoundingClientRect();
-    const borderWidth = parseFloat(getComputedStyle(wrapper).borderTopWidth) || 0;
-    const topPx = rowRect.top - wrapperRect.top - borderWidth + rowRect.height / 2;
-    row.hit.style.top = `${topPx}px`;
-    row.visible.style.top = `${topPx}px`;
-    row.hit.classList.add(VISIBLE_CLASS);
-    row.visible.classList.add(VISIBLE_CLASS);
-    // Native `rowIndex` — 0-based across the *whole* `<table>` (thead +
-    // tbody combined, in DOM order), which already matches
-    // `getNavigableRows(table)`'s own convention (header first, at index
-    // 0) exactly, since `TableWidget.buildRow` renders every body row in
-    // the same order `tableWidgetField.ts` built `bodyRows` from
-    // (`navigableRows.slice(1)`). No separate index computation needed.
-    currentRowIndex = rowElement.rowIndex;
+  /** Row N's own permanent handle — always that row's own first cell, never anything else. */
+  function rowHandlePair(rowIndex: number): HandlePair | null {
+    const row = resolveTableElement()?.rows[rowIndex];
+    const cell = row?.children[0] as HTMLElement | undefined;
+    return cell ? findRowHandlePair(cell) : null;
   }
 
-  /** This table's own `<table>` element — resolved fresh, never cached, for the identical staleness reason `tableCellRangeSelection.ts`'s own `resolveCurrentTableWrapper` doc comment gives for `tableWrapper`: a `tableSelectionChanged`-triggered rebuild replaces it with a brand-new element. */
-  function resolveTableElement(): HTMLTableElement | null {
-    return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
+  let visibleColumn: HandlePair | null = null;
+  let visibleRow: HandlePair | null = null;
+
+  function setVisibleColumn(pair: HandlePair | null): void {
+    if (visibleColumn && visibleColumn !== pair) {
+      hidePair(visibleColumn);
+    }
+    if (pair) {
+      showPair(pair);
+    }
+    visibleColumn = pair;
   }
+
+  function setVisibleRow(pair: HandlePair | null): void {
+    if (visibleRow && visibleRow !== pair) {
+      hidePair(visibleRow);
+    }
+    if (pair) {
+      showPair(pair);
+    }
+    visibleRow = pair;
+  }
+
+  function selectedColumnFallback(): HandlePair | null {
+    return selectedColumnIndex !== null ? columnHandlePair(selectedColumnIndex) : null;
+  }
+
+  function selectedRowFallback(): HandlePair | null {
+    return selectedRowIndex !== null ? rowHandlePair(selectedRowIndex) : null;
+  }
+
+  wrapper.addEventListener('pointermove', (event) => {
+    const hovered = resolveHoveredCell(wrapper, event.target);
+    if (!hovered) {
+      setVisibleColumn(selectedColumnFallback());
+      setVisibleRow(selectedRowFallback());
+      return;
+    }
+    setVisibleColumn(columnHandlePair(hovered.columnIndex));
+    setVisibleRow(rowHandlePair(hovered.row.rowIndex));
+  });
+
+  wrapper.addEventListener('pointerleave', () => {
+    setVisibleColumn(selectedColumnFallback());
+    setVisibleRow(selectedRowFallback());
+  });
 
   // ---------------------------------------------------------------------
   // Drag-to-reorder (this file's own top doc comment, § "Drag-to-reorder")
@@ -273,11 +262,9 @@ export function attachTableHandleOverlay(
   let dragSession: DragSession | null = null;
   // Set the instant a real drag (one that crossed `DRAG_THRESHOLD_PX`)
   // commits — every `click` handler below checks and clears this first.
-  // See this file's own top doc comment, § "Distinguishing a drag from an
-  // ordinary click."
   let suppressNextClick = false;
 
-  /** Column target purely from `clientX` against `wrapper`'s own bounds and `columnCount` — no per-cell measurement needed, mirroring `showColumn`'s own "even division, `table-layout: fixed`" reasoning (this function's own top doc comment). Clamped to a real column index even if the pointer strays outside the table entirely (a drag is free to leave the wrapper's own bounds mid-gesture). */
+  /** Column target purely from `clientX` against `wrapper`'s own bounds and `columnCount` — no per-cell measurement needed. Clamped to a real column index even if the pointer strays outside the table entirely (a drag is free to leave the wrapper's own bounds mid-gesture). */
   function resolveColumnTargetIndex(clientX: number): number {
     const wrapperRect = wrapper.getBoundingClientRect();
     if (wrapperRect.width <= 0) {
@@ -287,16 +274,16 @@ export function attachTableHandleOverlay(
     return Math.min(columnCount - 1, Math.max(0, raw));
   }
 
-  /** Row target as "whichever row's own vertical midpoint `clientY` is nearest to" — the same native, thead+tbody-combined `rows` indexing `showRow`'s own doc comment already establishes as matching `getNavigableRows`'s convention exactly. Nearest-midpoint (not a containment test) so a pointer above the first row or below the last still resolves to a real, in-range index rather than `null`. */
+  /** Row target as "whichever row's own vertical midpoint `clientY` is nearest to." Nearest-midpoint (not a containment test) so a pointer above the first row or below the last still resolves to a real, in-range index rather than `null`. */
   function resolveRowTargetIndex(clientY: number): number {
-    const tableEl = resolveTableElement();
-    if (!tableEl || tableEl.rows.length === 0) {
+    const tableElNow = resolveTableElement();
+    if (!tableElNow || tableElNow.rows.length === 0) {
       return dragSession?.targetIndex ?? 0;
     }
     let nearestIndex = 0;
     let nearestDistance = Infinity;
-    for (let i = 0; i < tableEl.rows.length; i++) {
-      const rect = tableEl.rows[i]!.getBoundingClientRect();
+    for (let i = 0; i < tableElNow.rows.length; i++) {
+      const rect = tableElNow.rows[i]!.getBoundingClientRect();
       const distance = Math.abs(clientY - (rect.top + rect.height / 2));
       if (distance < nearestDistance) {
         nearestDistance = distance;
@@ -311,7 +298,7 @@ export function attachTableHandleOverlay(
     rowDropIndicator.classList.remove(VISIBLE_CLASS);
   }
 
-  /** Positions/shows the column drop indicator at the boundary the dragged column would land on — its *left* edge if `targetIndex` is left of `startIndex` (moving left), its *right* edge otherwise — or hides it entirely once `targetIndex === startIndex` (this drag would be a no-op right now, per the milestone's own "dragging within the same position is a no-op" requirement: nothing to indicate). Pure percentage math, symmetric to `resolveColumnTargetIndex`/`showColumn` — no measurement needed. */
+  /** Positions/shows the column drop indicator at the boundary the dragged column would land on, or hides it entirely once `targetIndex === startIndex` (a no-op right now). Pure percentage math against `wrapper`, symmetric to `resolveColumnTargetIndex`. */
   function updateColumnDropIndicator(startIndex: number, targetIndex: number): void {
     if (targetIndex === startIndex) {
       columnDropIndicator.classList.remove(VISIBLE_CLASS);
@@ -322,14 +309,14 @@ export function attachTableHandleOverlay(
     columnDropIndicator.classList.add(VISIBLE_CLASS);
   }
 
-  /** Symmetric to `updateColumnDropIndicator`, for the row axis — top/bottom edge of `targetIndex`'s own row rather than a percentage, since row height is content-driven (`showRow`'s own doc comment gives the identical reasoning for why rows, unlike columns, need a real measurement). */
+  /** Symmetric to `updateColumnDropIndicator`, for the row axis — top/bottom edge of `targetIndex`'s own row rather than a percentage, since row height is content-driven. */
   function updateRowDropIndicator(startIndex: number, targetIndex: number): void {
     if (targetIndex === startIndex) {
       rowDropIndicator.classList.remove(VISIBLE_CLASS);
       return;
     }
-    const tableEl = resolveTableElement();
-    const targetRow = tableEl?.rows[targetIndex];
+    const tableElNow = resolveTableElement();
+    const targetRow = tableElNow?.rows[targetIndex];
     if (!targetRow) {
       rowDropIndicator.classList.remove(VISIBLE_CLASS);
       return;
@@ -348,28 +335,11 @@ export function attachTableHandleOverlay(
     document.removeEventListener('pointercancel', handlePointerCancel);
   }
 
-  /**
-   * Commits a completed drag — one transaction, reusing
-   * `tableRowColumnMove.ts`'s own `moveSelectedRowToIndex`/
-   * `moveSelectedColumnToIndex` for an actual move. A same-position drag
-   * (the pointer wandered past the threshold and back) is still a genuine
-   * gesture the user completed, so it still selects the row/column — the
-   * milestone's own "the moved row/column remains selected after the
-   * move" — just via a plain selection-only dispatch (no `changes`, never
-   * entering undo history), mirroring the click handlers' own
-   * `controller.deactivate()` + `tableActiveCellChanged`+`tableSelectionChanged`
-   * shape exactly. Never opens the handle menu either way — that stays
-   * exclusively the `click` handlers' own concern (§ "Click-to-select").
-   */
+  /** Commits a completed drag — one transaction, reusing `moveSelectedRowToIndex`/`moveSelectedColumnToIndex` for an actual move, or a plain selection-only dispatch for a same-position drag (never entering undo history — no `changes`). Unchanged in substance from the previous design. */
   function commitDrag(axis: 'row' | 'column', startIndex: number, targetIndex: number): void {
     controller.deactivate();
     if (targetIndex === startIndex) {
       const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
-      // Same shape as the click handlers below (§ "Click-to-select") —
-      // same reasoning for folding in `getRootSelectionCollapse` here too,
-      // not just there: this is still a row/column handle interaction
-      // taking ownership and setting `tableSelectionChanged`, just via a
-      // same-position drag-and-release instead of a plain click.
       view.dispatch({ effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)], ...getRootSelectionCollapse(view) });
       view.focus();
       return;
@@ -392,9 +362,6 @@ export function attachTableHandleOverlay(
         return;
       }
       session.dragging = true;
-      // Local DOM-only cleanup — deliberately *not* paired with a
-      // `view.dispatch` here; see this file's own top doc comment, §
-      // "Why nothing is view.dispatch'ed until the drag actually commits."
       controller.deactivate();
     }
     session.targetIndex = session.axis === 'row' ? resolveRowTargetIndex(event.clientY) : resolveColumnTargetIndex(event.clientX);
@@ -429,15 +396,16 @@ export function attachTableHandleOverlay(
     hideDropIndicators();
   }
 
-  /** Starts tracking a possible drag from `axis`'s own hit area — declines (mirrors every click handler's own identical guard) when nothing is currently hovered/tracked on that axis, and ignores anything but a primary-button press. Actual drag-vs-click disambiguation happens in `handlePointerMove`/`handlePointerUp` above. */
-  function handlePointerDown(axis: 'row' | 'column', event: PointerEvent): void {
+  /** Starts tracking a possible drag from a hit element's own resolved cell identity — ignores anything but a primary-button press, and declines (defensively) if the hit element somehow doesn't resolve to a real cell. */
+  function beginDrag(axis: 'row' | 'column', hitEl: HTMLElement, event: PointerEvent): void {
     if (event.button > 0) {
       return;
     }
-    const startIndex = axis === 'row' ? currentRowIndex : currentColumnIndex;
-    if (startIndex === null) {
+    const info = resolveHoveredCell(wrapper, hitEl);
+    if (!info) {
       return;
     }
+    const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
     suppressNextClick = false;
     dragSession = { axis, startIndex, targetIndex: startIndex, startClientX: event.clientX, startClientY: event.clientY, dragging: false };
     document.addEventListener('pointermove', handlePointerMove);
@@ -445,261 +413,152 @@ export function attachTableHandleOverlay(
     document.addEventListener('pointercancel', handlePointerCancel);
   }
 
-  column.hit.addEventListener('pointerdown', (event) => handlePointerDown('column', event as PointerEvent));
-  row.hit.addEventListener('pointerdown', (event) => handlePointerDown('row', event as PointerEvent));
+  // ---------------------------------------------------------------------
+  // Delegated interaction wiring — one listener per gesture type on
+  // `wrapper`, regardless of column/row count, mirroring the previous
+  // design's own delegation shape.
+  // ---------------------------------------------------------------------
 
-  /**
-   * This exact table's own *current* visible column/row handle element —
-   * queried fresh from `view.dom` (never `wrapper`, and never `column`/`row`
-   * from this call's own closure), for the same staleness reason
-   * `resolveTableElement`'s own doc comment gives, taken one step further:
-   * a click handler's own `view.dispatch(tableSelectionChanged...)` call
-   * *synchronously* rebuilds this exact table's widget (`tableWidgetField.ts`'s
-   * own `update()`), which discards `wrapper` itself — and therefore this
-   * call's own `column`/`row` elements, both children of it — before the
-   * handler's own next line runs. Confirmed as a real, reproducible bug,
-   * not a theoretical one: handing the menu one of *this* call's own
-   * (by-then-detached) elements as `anchor` measured a zero rect, opening
-   * the menu pinned to the viewport's own top-left corner instead of next
-   * to the clicked handle. `view.dom` itself, unlike `wrapper`, is the root
-   * editor's own DOM root — never replaced by any table rebuild — so
-   * `data-table-from` (`TableWidget.toDOM()`'s own dataset, the same
-   * lookup key `tableBoundaryNavigation.ts` already uses to find a table's
-   * current DOM by position) reliably resolves to whichever wrapper is
-   * live *right now*, freshly rebuilt selection included.
-   */
-  function resolveCurrentHandleElement(axis: 'column' | 'row'): HTMLElement | null {
-    return view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-${axis}-handle`);
-  }
-
-  /** Hover ending on the column axis (`pointerleave`, or a hovered target with no column handle) falls back to the selected column, if any, instead of truly hiding — the `visible = hovered || selected` contract this whole file's own top doc comment states. */
-  function hideColumn(): void {
-    if (selectedColumnIndex !== null) {
-      showColumn(selectedColumnIndex);
-      return;
+  function closestHit(target: EventTarget | null, className: string): HTMLElement | null {
+    if (!(target instanceof Element)) {
+      return null;
     }
-    hide(column);
-    currentColumnIndex = null;
+    const hit = target.closest(`.${className}`);
+    return hit && wrapper.contains(hit) ? (hit as HTMLElement) : null;
   }
 
-  /** Symmetric to `hideColumn`, for the row axis — `getNavigableRows`'s own header-is-0 convention already matches `<table>.rows`' native (thead+tbody combined) indexing, per `showRow`'s own doc comment, so `selectedRowIndex` indexes directly into it with no separate lookup. */
-  function hideRow(): void {
-    if (selectedRowIndex !== null) {
-      const rowElement = resolveTableElement()?.rows[selectedRowIndex];
-      if (rowElement) {
-        showRow(rowElement);
-        return;
+  // Suppresses root CM6's own mousedown handling the same way every other
+  // non-cell hit-target in this widget already does — a handle press must
+  // never place the root caret, activate a cell, or start
+  // `beginCellDragTracking`'s own cross-cell range-selection gesture.
+  //
+  // **Capture phase, not bubble — load-bearing.** A column handle now
+  // lives *inside* its own header `<th>`, and `tableWidget.ts`'s
+  // `buildRow()` already attaches its own `mousedown` listener directly on
+  // every `<th>`/`<td>` (cell activation / `beginCellDragTracking`). In
+  // the bubble phase, that cell-level listener — closer to the actual
+  // target — fires *before* any bubble-phase listener on `wrapper` ever
+  // would, so `stopPropagation()` here would arrive too late to stop it.
+  // A capture-phase listener on `wrapper` runs top-down, before any
+  // bubble-phase listener on a descendant cell, so it reliably intercepts
+  // first. The previous shared-overlay design never needed this: its
+  // handle hit-elements were siblings of the table, never inside any real
+  // cell, so no cell-level mousedown listener could ever see that
+  // mousedown at all.
+  wrapper.addEventListener(
+    'mousedown',
+    (event) => {
+      if (closestHit(event.target, 'cm-table-column-handle-hit') || closestHit(event.target, 'cm-table-row-handle-hit')) {
+        event.preventDefault();
+        event.stopPropagation();
       }
+    },
+    { capture: true }
+  );
+
+  wrapper.addEventListener('pointerdown', (event) => {
+    const columnHit = closestHit(event.target, 'cm-table-column-handle-hit');
+    if (columnHit) {
+      beginDrag('column', columnHit, event as PointerEvent);
+      return;
     }
-    hide(row);
-    currentRowIndex = null;
+    const rowHit = closestHit(event.target, 'cm-table-row-handle-hit');
+    if (rowHit) {
+      beginDrag('row', rowHit, event as PointerEvent);
+    }
+  });
+
+  /** This exact table's own fresh `<table>` element — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. */
+  function resolveFreshTable(): HTMLTableElement | null {
+    return view.dom.querySelector<HTMLTableElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll > table`);
   }
 
-  wrapper.addEventListener('pointermove', (event) => {
-    const target = event.target;
-    // The handle's own hit-area is a sibling of the table, not a cell —
-    // once shown, it visually sits on top of (or just outside) the cell
-    // that triggered it, so the pointer reaching it to actually interact
-    // with it makes *it* the event target, not any `<td>`/`<th>`.
-    // Without this guard, `resolveHoveredCell` below would report "not
-    // hovering any cell" the instant the pointer reached the handle it was
-    // moving toward, hiding it — which drops `pointer-events` back to
-    // `none`, so the *next* `pointermove` tick falls through to the cell
-    // underneath again, re-showing it, immediately re-triggering the same
-    // hide — an infinite show/hide flicker confirmed via direct
-    // interactive testing. Reaching either hit-area is simply "still
-    // hovering whatever this handle is already showing" — leave both
-    // handles exactly as they are.
-    if ((target instanceof Node && column.hit.contains(target)) || (target instanceof Node && row.hit.contains(target))) {
-      return;
-    }
-    const hovered = resolveHoveredCell(wrapper, target);
-    if (!hovered) {
-      hideColumn();
-      hideRow();
-      return;
-    }
-    showColumn(hovered.columnIndex);
-    // The header row gets a row handle exactly like any other row — the
-    // header is a valid `TableSelection.row` target (see `tableSelection.ts`'s
-    // own `row` kind doc comment: a table always needing a header is a
-    // future structural-operations concern, not a selection one). The
-    // delimiter/alignment row is still never reachable here at all — it
-    // never renders as its own `<tr>` in this widget (`TableWidget`'s own
-    // doc comment), so `resolveHoveredCell` can never resolve to it in the
-    // first place.
-    showRow(hovered.row);
-  });
+  function resolveFreshColumnHandle(columnIndex: number): HTMLElement | null {
+    const cell = resolveFreshTable()?.rows[0]?.children[columnIndex] as HTMLElement | undefined;
+    return cell ? findColumnHandlePair(cell)?.visible ?? null : null;
+  }
 
-  wrapper.addEventListener('pointerleave', () => {
-    hideColumn();
-    hideRow();
-  });
+  function resolveFreshRowHandle(rowIndex: number): HTMLElement | null {
+    const cell = resolveFreshTable()?.rows[rowIndex]?.children[0] as HTMLElement | undefined;
+    return cell ? findRowHandlePair(cell)?.visible ?? null : null;
+  }
 
   // Click-to-select. `click` fires whenever mousedown+mouseup land on (or
   // near) the same element — true for an ordinary press/release *and* for
   // a completed drag that happened to release back over its own handle, so
-  // each handler below checks `suppressNextClick` first (set by
-  // `handlePointerUp` the instant a real drag commits — see this file's
-  // own top doc comment, § "Distinguishing a drag from an ordinary
-  // click") before doing anything else. `preventActivation`'s own
-  // mousedown listener above still guarantees neither a click nor a drag
-  // can ever reach root CM6 or the nested cell editor.
+  // each branch below checks `suppressNextClick` first (set by
+  // `handlePointerUp` the instant a real drag commits) before doing
+  // anything else. The `mousedown` listener above still guarantees neither
+  // a click nor a drag can ever reach root CM6 or the nested cell editor.
   //
-  // Both dispatches below share the same shape: `controller.deactivate()`
-  // first (never a no-op to skip even when nothing is active — safe
-  // either way), then one transaction with *only* `effects` — no
-  // `changes`, so this can never modify the Markdown document, and no
-  // document change means CM6's `history()` never records it (undoable
-  // transactions are exactly those with real `changes`), satisfying this
-  // milestone's own "must not enter undo history" requirement structurally
-  // rather than by a separate opt-out annotation. No `selection` field
-  // either, so the root document selection is left exactly where it was —
-  // selecting a column/row is not the same thing as moving the caret,
-  // mirroring `TableActiveCellController.activate()`'s own "never touches
-  // root selection" contract.
-  //
-  // `tableActiveCellChanged` is dispatched alongside `tableSelectionChanged`
-  // in the very same transaction — reusing the existing signaling effect
-  // for mutual exclusivity (this milestone's own instruction) rather than
-  // introducing a second one, and matching `tableSelectionField.update()`'s
-  // own documented ordering guarantee that an explicit `tableSelectionChanged`
-  // in a transaction always wins over a same-transaction
-  // `tableActiveCellChanged`, so this dispatch's own deactivation-effect
-  // can never immediately null out the selection it just set.
-  //
-  // `view.focus()`, right after `controller.deactivate()` — a real,
-  // reproducible focus-routing bug otherwise (found live: click a cell,
-  // click a column/row handle, then immediately press Delete/Backspace —
-  // the keystroke went nowhere and the column/row was never cleared).
-  // `deactivate()` only unmounts the active cell's nested editor's own DOM
-  // (`.dom.remove()`); it never itself moves *browser* keyboard focus
-  // anywhere — confirmed directly (Chromium): removing the focused nested
-  // editor's DOM node left `document.activeElement` on `document.body`,
-  // not root, so the very next keydown reached no CM6 keymap at all,
-  // silently doing nothing. This is the exact same
-  // `deactivate()`-then-`focus()` pairing `tableCellNavigation.ts`'s own
-  // `exitAbove`/`exitBelow` already establish for the identical class of
-  // concern ("we just deactivated the cell — hand focus back to root
-  // deterministically") — applied here rather than invented fresh. With
-  // focus reliably on root, `tableSelectionClearKeymap()`
-  // (`tableSelectionClear.ts`) — already installed on root, already
-  // correct — handles the very next Backspace/Delete as intended.
-  // `tableCellNavigation.ts`'s own nested-editor Backspace/Delete binding
-  // (added for this same bug) stays as defense-in-depth for an engine/
-  // timing where focus genuinely lingers on the nested editor instead
-  // (confirmed separately in a WKWebView report) rather than landing on
-  // `document.body`.
-  column.hit.addEventListener('click', (event) => {
+  // Both dispatches share the same shape: `controller.deactivate()` first,
+  // then one transaction with *only* `effects` — no `changes`, so this can
+  // never modify the Markdown document, and no document change means CM6's
+  // `history()` never records it. No `selection` field either, so the root
+  // document selection is left exactly where it was.
+  wrapper.addEventListener('click', (event) => {
+    const columnHit = closestHit(event.target, 'cm-table-column-handle-hit');
+    const rowHit = columnHit ? null : closestHit(event.target, 'cm-table-row-handle-hit');
+    if (!columnHit && !rowHit) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     if (suppressNextClick) {
       suppressNextClick = false;
       return;
     }
-    if (currentColumnIndex === null) {
-      return;
-    }
-    const selection = { kind: 'column' as const, tableFrom, columnIndex: currentColumnIndex };
-    controller.deactivate();
-    // `getRootSelectionCollapse` folded into this same dispatch — never a
-    // second one — collapses a stale non-empty root selection at the exact
-    // moment this handle click takes ownership (`tableActiveCellController.ts`'s
-    // own doc comment on that function has the full reasoning). Needed
-    // here independently of `activate()`'s own equivalent call: a handle
-    // click never calls `activate()` at all (it calls `deactivate()`
-    // instead), so a user can reach this path — e.g. selecting text
-    // elsewhere, then clicking a column handle directly — without ever
-    // having activated a cell first.
-    view.dispatch({
-      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
-      ...getRootSelectionCollapse(view),
-    });
-    view.focus();
-    // Opens/updates this column's own menu — anchored to the *current*
-    // visible handle graphic, re-resolved fresh via `resolveCurrentHandleElement`
-    // (never this call's own `column.visible`, which the dispatch just
-    // above has already made stale — see that function's own doc comment).
-    // Declines (no call at all) on the near-impossible chance the freshly-
-    // rebuilt table's own handle can't be found, rather than opening a menu
-    // with no valid anchor.
-    const freshAnchor = resolveCurrentHandleElement('column');
-    if (freshAnchor) {
-      getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
-    }
-  });
-
-  row.hit.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (suppressNextClick) {
-      suppressNextClick = false;
-      return;
-    }
-    if (currentRowIndex === null) {
-      return;
-    }
-    const selection = { kind: 'row' as const, tableFrom, rowIndex: currentRowIndex };
-    controller.deactivate();
-    // Same reasoning as the column handler's own click handler above —
-    // see that one's comment on `getRootSelectionCollapse`.
-    view.dispatch({
-      effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
-      ...getRootSelectionCollapse(view),
-    });
-    view.focus();
-    // Opens/updates this row's own menu — same "re-resolve fresh, never
-    // this call's own (now-stale) `row.visible`" reasoning as the column
-    // handler above, plus one more wrinkle specific to the row axis: the
-    // freshly-rebuilt widget's own row handle is positioned via its own
-    // *deferred* `queueMicrotask` call (`attachTableHandleOverlay`'s own
-    // "Initial state" doc comment — real `getBoundingClientRect()`-based
-    // measurement can't run correctly against a still-detached subtree),
-    // so querying for it synchronously, right here, would find the right
-    // element but possibly still positioned at its own pre-selection
-    // location (or nowhere yet, on a truly fresh mount). Deferring this
-    // call to a microtask of its own runs it strictly after that one —
-    // `view.dispatch(...)` above already queued the widget's own
-    // positioning microtask first (synchronously, before this line even
-    // runs), and microtasks resolve in the order they were queued, so this
-    // one is guaranteed to see the *final*, correctly-positioned handle.
-    queueMicrotask(() => {
-      const freshAnchor = resolveCurrentHandleElement('row');
+    if (columnHit) {
+      const info = resolveHoveredCell(wrapper, columnHit);
+      if (!info) {
+        return;
+      }
+      const selection = { kind: 'column' as const, tableFrom, columnIndex: info.columnIndex };
+      controller.deactivate();
+      // `getRootSelectionCollapse` folded into this same dispatch — never a
+      // second one — collapses a stale non-empty root selection at the
+      // exact moment this handle click takes ownership.
+      view.dispatch({
+        effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
+        ...getRootSelectionCollapse(view),
+      });
+      // `view.focus()`, right after `controller.deactivate()` — see
+      // `tableCellNavigation.ts`'s own `exitAbove`/`exitBelow` for the
+      // identical "we just deactivated the cell — hand focus back to root
+      // deterministically" pairing.
+      view.focus();
+      const freshAnchor = resolveFreshColumnHandle(info.columnIndex);
       if (freshAnchor) {
         getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
       }
-    });
+      return;
+    }
+    if (rowHit) {
+      const info = resolveHoveredCell(wrapper, rowHit);
+      if (!info) {
+        return;
+      }
+      const rowIndex = info.row.rowIndex;
+      const selection = { kind: 'row' as const, tableFrom, rowIndex };
+      controller.deactivate();
+      view.dispatch({
+        effects: [tableActiveCellChanged.of(null), tableSelectionChanged.of(selection)],
+        ...getRootSelectionCollapse(view),
+      });
+      view.focus();
+      const freshAnchor = resolveFreshRowHandle(rowIndex);
+      if (freshAnchor) {
+        getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
+      }
+    }
   });
 
   // Initial state — this widget may be freshly (re)built with a
-  // `TableSelection` already set (any selection change rebuilds
-  // `tableWidgetField`, which rebuilds this widget from scratch, per this
-  // file's own top doc comment) and no hover having occurred yet on this
-  // exact DOM instance. Reuses `hideColumn`/`hideRow` rather than a third
-  // code path — both already fall back to showing the selected handle when
-  // one exists, which is exactly "start in the selected state" here.
-  //
-  // `hideColumn()` runs synchronously — `showColumn`'s own position is a
-  // plain percentage (`(columnIndex + 0.5) / columnCount`), needing no
-  // layout at all, so it's correct whether or not `wrapper` is actually
-  // attached yet. `hideRow()`'s own selected-fallback is not: it calls
-  // `showRow`, which measures `getBoundingClientRect()` on `wrapper` and
-  // the selected row — meaningless (zero) rects on the still-detached
-  // subtree `attachTableHandleOverlay` is called against from inside
-  // `TableWidget.toDOM()` (this function's own caller), the exact same
-  // "not yet attached to the live document" constraint `tableWidget.ts`'s
-  // own selection-overlay setup already documents and works around via
-  // `queueMicrotask()` — confirmed as the actual cause of a real
-  // regression here (a `column` → `row` selection change left the row
-  // handle visible but pinned to the wrapper's own top edge instead of the
-  // newly-selected row, live-verified). Deferred the identical way, with
-  // the identical `isConnected` re-check at fire time for the identical
-  // reason: a second, unrelated rebuild landing before this microtask
-  // fires would have already discarded this exact `wrapper` instance.
-  hideColumn();
-  queueMicrotask(() => {
-    if (wrapper.isConnected) {
-      hideRow();
-    }
-  });
+  // `TableSelection` already set and no hover having occurred yet on this
+  // exact DOM instance. Runs synchronously: neither handle's position is
+  // ever `getBoundingClientRect()`-measured (pure CSS relative to the
+  // owning cell), so — unlike the previous shared-overlay design — there is
+  // no detached-subtree measurement concern left to defer for.
+  setVisibleColumn(selectedColumnFallback());
+  setVisibleRow(selectedRowFallback());
 }
