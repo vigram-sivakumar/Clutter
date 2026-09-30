@@ -431,13 +431,29 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     return event;
   }
 
+  /**
+   * A real click is `pointerdown` → `pointerup` → `click`, in that order —
+   * selection itself is now dispatched from `pointerdown` (this file's own
+   * top doc comment, "Selection model"), not from `click`, so every test
+   * below needs the full sequence, not just the trailing `click`. `pointerup`
+   * matters here too, not only `pointerdown`: without it, `startDragSession`'s
+   * own `document`-level `pointermove`/`pointerup`/`pointercancel` listeners
+   * would leak past this one gesture (`handlePointerUp` is what removes
+   * them, and it only ever runs in response to a real `pointerup`).
+   */
+  function pressAndClick(el: Element): void {
+    el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+    click(el);
+  }
+
   it('clicking the column handle sets a column TableSelection for the hovered column', () => {
     const { wrapper, table } = buildTable(2, 3);
     const { view, controller } = mountRootView();
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 2);
-    click(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
+    pressAndClick(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
   });
@@ -448,7 +464,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     const row = hoverBodyCell(wrapper, table, 1, 0); // second body row -> rowIndex 2
-    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(row.rowIndex).toBe(2);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
@@ -463,7 +479,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const selectionBefore = view.state.selection.main;
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
+    pressAndClick(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
 
     expect(view.state.doc.toString()).toBe(docBefore);
     expect(view.state.selection.main.from).toBe(selectionBefore.from);
@@ -479,7 +495,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const dispatchSpy = vi.spyOn(view, 'dispatch');
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
+    pressAndClick(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
@@ -498,7 +514,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
 
     const row = hoverBodyCell(wrapper, table, 0, 0);
-    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)?.kind).toBe('row');
@@ -515,7 +531,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(controller.nestedView!.dom.parentElement).toBe(container);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    click(table.querySelector('thead th .cm-table-column-handle-hit')!);
+    pressAndClick(table.querySelector('thead th .cm-table-column-handle-hit')!);
 
     expect(controller.activeAnchor).toBeNull();
     expect(controller.nestedView!.dom.parentElement).toBeNull();
@@ -527,7 +543,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     const headerCell = table.querySelector('thead th')!;
-    click(headerCell.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(headerCell.querySelector('.cm-table-row-handle-hit')!);
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
   });
@@ -1147,6 +1163,60 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       expect(wrapperEl.classList.contains('cm-table-drag-source-hidden')).toBe(false);
     }
     expect(view.state.doc.toString()).toBe(docBefore);
+  });
+
+  /** A stand-in for the real, structural column/row-selection border (`tableSelectionOverlay.ts`) — a sibling of `<table>` inside `.cm-table-scroll`, entirely independent of any cell content. `buildTable()` never creates one (these tests' synthetic DOM has no real `TableWidget` rendering behind it), so tests that care about it build this exact minimal stand-in themselves. */
+  function addStructuralSelectionOverlay(wrapper: HTMLElement): HTMLElement {
+    const overlay = document.createElement('div');
+    overlay.className = 'cm-table-selection-overlay cm-table-selection-overlay-visible';
+    wrapper.querySelector('.cm-table-scroll')!.appendChild(overlay);
+    return overlay;
+  }
+
+  it('there is only one selection visual during a drag — the structural border hides the instant the ghost appears, and returns once the drag ends without a move', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 200, height: 160 });
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    const overlay = addStructuralSelectionOverlay(wrapper);
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    pointer('pointerdown', columnHit, 50, 10);
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true); // still there before the threshold crosses
+
+    pointer('pointermove', document, 70, 10); // crosses the threshold — ghost materializes
+    expect(wrapper.querySelector('.cm-table-drag-ghost')).not.toBeNull();
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+
+    // Dropped back at the same column — a no-op move, so this exact
+    // `wrapper`/overlay survive (no rebuild) and must show the ordinary
+    // selection border again.
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 50, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
+  });
+
+  it('pointercancel also returns the structural selection border, not just the ghost/source-content cleanup', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    addCellWrappers(table);
+    mockRowRects(table);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 200, height: 160 });
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+    const overlay = addStructuralSelectionOverlay(wrapper);
+
+    hoverBodyCell(wrapper, table, 0, 0);
+    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    pointer('pointerdown', columnHit, 50, 10);
+    pointer('pointermove', document, 70, 10);
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
+
+    document.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, cancelable: true }));
+
+    expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true);
   });
 
   it('after pointercancel, ordinary hover behavior works again', () => {

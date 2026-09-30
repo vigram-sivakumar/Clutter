@@ -1,7 +1,8 @@
 import './tableSelectionOverlay.css';
 
-const OVERLAY_CLASS = 'cm-table-selection-overlay';
-const VISIBLE_CLASS = 'cm-table-selection-overlay-visible';
+/** Exported for `tableHandleOverlay.ts`'s own drag-to-reorder gesture — the *only* other module with a legitimate reason to touch this overlay, to suppress the structural selection border for exactly a drag's own duration (the ghost, not the source, carries the selection visual while dragging; see that file's own top doc comment, "Selection model"). */
+export const OVERLAY_CLASS = 'cm-table-selection-overlay';
+export const VISIBLE_CLASS = 'cm-table-selection-overlay-visible';
 
 /**
  * Creates the (as yet unpositioned, invisible) column-selection outline

@@ -87,6 +87,21 @@ function click(el: Element): void {
   el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 }
 
+/**
+ * A real handle click is `pointerdown` → `pointerup` → `click`, in that
+ * order — `tableHandleOverlay.ts`'s own pointerdown handler is what
+ * dispatches the `TableSelection` change now (its own top doc comment,
+ * "Selection model"), not `click`, so a bare `click(hit)` no longer
+ * exercises that dispatch at all. `pointerup` matters here too: without
+ * it, `startDragSession`'s own `document`-level listeners would leak past
+ * this one gesture.
+ */
+function pressHandleAndClick(hit: Element): void {
+  hit.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+  document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+  click(hit);
+}
+
 /** A plain element outside `view.dom` entirely — stands in for "another note/editor area, sidebar, etc." */
 function outsideElement(): HTMLElement {
   const el = document.createElement('div');
@@ -202,8 +217,7 @@ describe('attachTableOutsideClickHandling', () => {
     wrapper.dispatchEvent(moveEvent);
 
     const hit = wrapper.querySelector('.cm-table-column-handle-hit')!;
-    mousedown(hit);
-    click(hit);
+    pressHandleAndClick(hit);
 
     expect(view.state.field(tableSelectionField)).not.toBeNull();
     expect(view.state.field(tableSelectionField)!.kind).toBe('column');
@@ -643,8 +657,7 @@ describe('attachTableOutsideClickHandling — root-selection-collapse fallback',
     wrapper.dispatchEvent(moveEvent);
 
     const hit = wrapper.querySelector('.cm-table-column-handle-hit')!;
-    mousedown(hit);
-    click(hit);
+    pressHandleAndClick(hit);
 
     expect(view.state.field(tableSelectionField)).not.toBeNull();
     expect(view.state.field(tableSelectionField)!.kind).toBe('column');

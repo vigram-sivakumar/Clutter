@@ -114,6 +114,12 @@ function clickHandle(view: EditorView, axis: 'column' | 'row'): void {
   if (!hitArea) {
     throw new Error(`no .cm-table-${axis}-handle-hit in rendered widget`);
   }
+  // A real handle click is `pointerdown` → `pointerup` → `click` —
+  // `tableHandleOverlay.ts`'s own pointerdown handler is what dispatches
+  // the `TableSelection` change now (its own top doc comment, "Selection
+  // model"), not `click`.
+  hitArea.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+  document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
   hitArea.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 }
 

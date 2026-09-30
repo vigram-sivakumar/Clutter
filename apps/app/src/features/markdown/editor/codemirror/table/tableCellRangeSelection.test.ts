@@ -408,6 +408,12 @@ describe('beginCellDragTracking — row/column handles remain independent', () =
     wrapper.dispatchEvent(hoverEvent);
     const columnHit = wrapper.querySelector<HTMLElement>('.cm-table-column-handle-hit')!;
 
+    // A real handle click is `pointerdown` → `pointerup` → `click` —
+    // `tableHandleOverlay.ts`'s own pointerdown handler is what dispatches
+    // the `TableSelection` change now (its own top doc comment, "Selection
+    // model"), not `click`.
+    columnHit.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: 0 }));
     columnHit.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
     expect(selection(view)).toEqual({ kind: 'column', tableFrom: tableFrom(view), columnIndex: 0 });
