@@ -112,6 +112,14 @@ type PageCoverProps = {
 type MenuView = 'menu' | 'picker';
 
 /**
+ * Scales down raw (geometry-correct) drag movement for finer control —
+ * picked from user-tested feedback that even an accurate 1:1 pointer-to-
+ * position mapping still felt too sensitive for precise placement. See
+ * handleImagePointerMove's own comment for where this is applied.
+ */
+const DRAG_SENSITIVITY = 0.45;
+
+/**
  * Adding, changing, and removing a cover all go through the normal render
  * flow — no loading/mount/unmount choreography of any kind. Only Hide/Show
  * (the `hidden` prop) animates, via Page.Cover.css's `[data-hidden]`
@@ -167,12 +175,18 @@ export function PageCover({
   // a no-op on persisted metadata for free, with no separate revert step.
   const [repositioning, setRepositioning] = useState(false);
   const [dragPreview, setDragPreview] = useState<number | null>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  // Gates pointermove while a real drag (pointerdown -> pointerup) is in
-  // progress — plain hover already fires pointermove on the image with no
-  // button held, which must never move the preview. A ref, not state: it
-  // never needs to trigger a render on its own, only dragPreview does.
-  const isDraggingRef = useRef(false);
+  // Snapshot taken on pointerdown, read on every subsequent pointermove
+  // until pointerup — the pointer's own coordinate at drag-start, the
+  // preview position at drag-start, and the travel range the drag is
+  // measured against (frozen for the gesture's duration so a mid-drag
+  // resize can't skew the delta math). null whenever no drag is in
+  // progress; this doubles as the pointermove gate, replacing a separate
+  // isDragging ref.
+  const dragStartRef = useRef<{
+    pointerCoordinate: number;
+    startPosition: number;
+    travelRange: number;
+  } | null>(null);
 
   // Switching `coverLayout` (the Right/Top menu items) mid-reposition would
   // otherwise leave a stale single-axis `dragPreview` computed against the
@@ -224,22 +238,28 @@ export function PageCover({
   // can never drift apart.
   const effectivePosition = dragPreview ?? savedPosition;
 
-  function computePositionFromPointer(event: { clientX: number; clientY: number }): number {
-    const rect = imageRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return effectivePosition;
+  // How far the rendered image can actually travel behind the box on the
+  // given axis under object-fit: cover — i.e. renderedSize - boxSize, not
+  // the box's own dimension. cover scales the image up by
+  // max(boxWidth/naturalWidth, boxHeight/naturalHeight), so whichever axis
+  // isn't the binding one typically overflows the box by a lot (a wide,
+  // short cover box cropping a squarer photo overflows vertically by far
+  // more than the box's own height) — dividing pixel movement by the box
+  // dimension instead of this actual overflow is what made the drag feel
+  // wildly oversensitive. Falls back to the box dimension only if the
+  // image hasn't decoded yet (naturalWidth/Height still 0), which
+  // shouldn't happen once it's visibly rendered in Reposition mode.
+  function computeTravelRange(image: HTMLImageElement, rect: DOMRect): number {
+    const { naturalWidth, naturalHeight } = image;
+    if (naturalWidth === 0 || naturalHeight === 0) {
+      return layout === 'above' ? rect.height : rect.width;
     }
-    // Above moves vertically only, Side moves horizontally only — the
-    // unused axis is never read, let alone written (spec §4/§5: "Movement
-    // on the unsupported axis has no effect").
-    const raw =
-      layout === 'above'
-        ? ((event.clientY - rect.top) / rect.height) * 100
-        : ((event.clientX - rect.left) / rect.width) * 100;
-    // Values outside 0-100 must not be persisted (spec §9) — clamped here,
-    // at the one place a position value originates, rather than validated
-    // later at the write call.
-    return Math.min(100, Math.max(0, raw));
+    const scale = Math.max(rect.width / naturalWidth, rect.height / naturalHeight);
+    const renderedWidth = naturalWidth * scale;
+    const renderedHeight = naturalHeight * scale;
+    return layout === 'above'
+      ? Math.max(0, renderedHeight - rect.height)
+      : Math.max(0, renderedWidth - rect.width);
   }
 
   function handleImagePointerDown(event: ReactPointerEvent<HTMLImageElement>): void {
@@ -248,19 +268,54 @@ export function PageCover({
     // which is what lets a drag continue correctly even if the cursor
     // leaves the image's bounds mid-gesture.
     event.currentTarget.setPointerCapture(event.pointerId);
-    isDraggingRef.current = true;
-    setDragPreview(computePositionFromPointer(event));
+    const rect = event.currentTarget.getBoundingClientRect();
+    // Only ever records a drag-start snapshot — never derives or sets a
+    // position from where the pointer landed. Pressing down (with no
+    // subsequent move) must leave the image exactly where it was; the
+    // click location itself is irrelevant, only the *delta* from here
+    // forward matters (see handleImagePointerMove).
+    dragStartRef.current = {
+      pointerCoordinate: layout === 'above' ? event.clientY : event.clientX,
+      startPosition: effectivePosition,
+      travelRange: computeTravelRange(event.currentTarget, rect),
+    };
   }
 
   function handleImagePointerMove(event: ReactPointerEvent<HTMLImageElement>): void {
-    if (!isDraggingRef.current) {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.travelRange === 0) {
       return;
     }
-    setDragPreview(computePositionFromPointer(event));
+    const pointerCoordinate = layout === 'above' ? event.clientY : event.clientX;
+    const pixelDelta = pointerCoordinate - dragStart.pointerCoordinate;
+    // Percent of the image's own actual travel range the pointer has moved
+    // — see computeTravelRange's doc comment for why that's the image's
+    // rendered overflow, not the box dimension.
+    const rawDeltaPercent = (pixelDelta / dragStart.travelRange) * 100;
+    // A deliberate <1 multiplier on top of the geometry-correct value above,
+    // for finer control — even the geometrically accurate 1:1 mapping still
+    // felt too twitchy for precise positioning (direct feedback), so drag
+    // distance is intentionally stretched relative to position change. Not
+    // a fix for wrong geometry (that's computeTravelRange's job) — this is
+    // a UX tuning constant on top of already-correct geometry.
+    const deltaPercent = rawDeltaPercent * DRAG_SENSITIVITY;
+    // object-position's percentage is the inverse of how the image visually
+    // moves: increasing object-position-y reveals more of the image's
+    // *bottom*, which reads as the image sliding *up* (the same relationship
+    // as scroll-position vs. visual content movement). Subtracting the
+    // pointer's own delta — rather than adding it — is what makes the image
+    // track the pointer's direction instead of the opposite one.
+    // Values outside 0-100 must not be persisted (spec §9) — clamped here,
+    // at the one place a position value originates.
+    const nextPosition = Math.min(
+      100,
+      Math.max(0, dragStart.startPosition - deltaPercent)
+    );
+    setDragPreview(nextPosition);
   }
 
   function handleImagePointerUp(): void {
-    isDraggingRef.current = false;
+    dragStartRef.current = null;
   }
 
   function handleEnterRepositioning(event: { stopPropagation(): void }): void {
@@ -435,7 +490,6 @@ export function PageCover({
         )}
       </Overlay>
       <img
-        ref={imageRef}
         src={src}
         className="page-cover__image"
         alt=""
@@ -445,6 +499,12 @@ export function PageCover({
             layout === 'above'
               ? `50% ${effectivePosition}%`
               : `${effectivePosition}% 50%`,
+          // Communicates the one axis this layout can actually move on —
+          // standard resize-cursor keywords, no custom cursor asset needed.
+          // Only set while repositioning is active; outside that mode the
+          // image has no pointer handlers at all and keeps the browser's
+          // ordinary default cursor.
+          cursor: repositioning ? (layout === 'above' ? 'ns-resize' : 'ew-resize') : undefined,
         }}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
         onPointerMove={repositioning ? handleImagePointerMove : undefined}

@@ -39,6 +39,11 @@ beforeEach(() => {
       return img;
     } as unknown as typeof Image
   );
+  // jsdom doesn't implement Pointer Capture; PageCover calls it defensively
+  // for the drag gesture, so stub it as a no-op for the drag to run — same
+  // convention as SidebarResizeHandle.test.tsx's identical stub.
+  HTMLElement.prototype.setPointerCapture = vi.fn();
+  HTMLElement.prototype.releasePointerCapture = vi.fn();
 });
 
 afterEach(() => {
@@ -245,5 +250,220 @@ describe('PageCover — hidden/show only', () => {
     render(<PageCover src="cover.png" hidden />);
 
     expect(document.querySelector('.page__cover')).toHaveAttribute('data-hidden');
+  });
+});
+
+describe('PageCover — Reposition drag', () => {
+  /**
+   * The "Reposition" menu item only renders once onSavePosition is
+   * supplied (rule 12 — never a dead control), so every test in this block
+   * needs one even when it doesn't care about the call itself.
+   */
+  function renderRepositionableCover(
+    overrides: Partial<Parameters<typeof PageCover>[0]> = {}
+  ) {
+    return renderCover({ onSavePosition: vi.fn(), ...overrides });
+  }
+
+  /** Image rect matching the coordinates used throughout this block: 200 wide, 100 tall, at the viewport origin. */
+  function mockImageRect(img: Element): void {
+    vi.spyOn(img, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      left: 0,
+      width: 200,
+      height: 100,
+      bottom: 100,
+      right: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+  }
+
+  function enterRepositioning(): HTMLImageElement {
+    fireEvent.click(screen.getByText('Reposition'));
+    const img = document.querySelector<HTMLImageElement>('.page-cover__image')!;
+    mockImageRect(img);
+    return img;
+  }
+
+  function objectPosition(img: HTMLImageElement): string {
+    return img.style.objectPosition;
+  }
+
+  /** jsdom never decodes a real image, so naturalWidth/Height default to 0 — override them to exercise the object-fit: cover geometry path. */
+  function mockNaturalSize(img: HTMLImageElement, width: number, height: number): void {
+    Object.defineProperty(img, 'naturalWidth', { value: width, configurable: true });
+    Object.defineProperty(img, 'naturalHeight', { value: height, configurable: true });
+  }
+
+  it('pointer-down alone does not change the position — no click-to-jump, regardless of where inside the image it lands', () => {
+    const onSavePosition = vi.fn();
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
+    const img = enterRepositioning();
+
+    // Clicked near the bottom-right corner — under the old absolute-position
+    // bug this alone would have jumped the preview to roughly that location.
+    fireEvent.pointerDown(img, { clientX: 190, clientY: 95 });
+
+    expect(objectPosition(img)).toBe('50% 50%');
+    expect(onSavePosition).not.toHaveBeenCalled();
+  });
+
+  it('clicking near an edge without dragging does not jump the image there', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'side', coverPositionSide: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 5, clientY: 5 }); // near the top-left corner
+
+    expect(objectPosition(img)).toBe('50% 50%');
+  });
+
+  it('Above: dragging the pointer up moves the image up (position increases)', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    const img = enterRepositioning();
+
+    // 30px up on a 100px-tall fallback travel range = 30% raw, scaled by
+    // DRAG_SENSITIVITY (0.45) to 13.5%.
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
+
+    expect(objectPosition(img)).toBe('50% 63.5%');
+  });
+
+  it('Above: dragging the pointer down moves the image down (position decreases)', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 80 }); // 30px down
+
+    expect(objectPosition(img)).toBe('50% 36.5%');
+  });
+
+  it('Above: horizontal pointer movement has no effect on the position', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 50, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 190, clientY: 50 }); // large horizontal move, no vertical move
+
+    expect(objectPosition(img)).toBe('50% 50%');
+  });
+
+  it('Side: dragging the pointer right moves the image right (position decreases)', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'side', coverPositionSide: 50 });
+    const img = enterRepositioning();
+
+    // 30px right on a 200px-wide fallback travel range = 15% raw, scaled by
+    // DRAG_SENSITIVITY (0.45) to 6.75%.
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 130, clientY: 50 });
+
+    expect(objectPosition(img)).toBe('43.25% 50%');
+  });
+
+  it('Side: dragging the pointer left moves the image left (position increases)', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'side', coverPositionSide: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 70, clientY: 50 }); // 30px left
+
+    expect(objectPosition(img)).toBe('56.75% 50%');
+  });
+
+  it('Side: vertical pointer movement has no effect on the position', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'side', coverPositionSide: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 10 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 90 }); // large vertical move, no horizontal move
+
+    expect(objectPosition(img)).toBe('50% 50%');
+  });
+
+  it('converts pixel movement using the image’s actual rendered overflow (object-fit: cover geometry), not the box’s own dimension', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    const img = enterRepositioning();
+    // Box is 200x100 (mockImageRect). A 100x200 (portrait) source image
+    // scaled to cover that box lands at scale=2 (renderedWidth 200 exactly
+    // fills the box width, renderedHeight 400 overflows by 300px) — a
+    // travel range far larger than the box's own 100px height, which is
+    // exactly the gap that made the old box-dimension-based conversion
+    // wildly oversensitive for this kind of image.
+    mockNaturalSize(img, 100, 200);
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 }); // 30px up on a 300px travel range = 10% raw, *0.45 = 4.5%
+
+    expect(objectPosition(img)).toBe('50% 54.5%');
+  });
+
+  it('clamps to 0/100 rather than overshooting past either extreme', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: -500 }); // far more than 100% of travel, upward
+
+    expect(objectPosition(img)).toBe('50% 100%');
+
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 5000 }); // far more than 100% of travel, downward
+
+    expect(objectPosition(img)).toBe('50% 0%');
+  });
+
+  it('releasing without clicking Save Position leaves the preview only — onSavePosition is never called', () => {
+    const onSavePosition = vi.fn();
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
+    fireEvent.pointerUp(img, { clientX: 100, clientY: 20 });
+
+    expect(objectPosition(img)).toBe('50% 63.5%');
+    expect(onSavePosition).not.toHaveBeenCalled();
+  });
+
+  it('Escape ends repositioning and reverts the preview to the saved position, without saving', () => {
+    const onSavePosition = vi.fn();
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
+    expect(objectPosition(img)).toBe('50% 63.5%');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(objectPosition(img)).toBe('50% 50%');
+    expect(onSavePosition).not.toHaveBeenCalled();
+    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+  });
+
+  it('clicking Save Position persists the final dragged value for the active layout only', () => {
+    const onSavePosition = vi.fn();
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
+    fireEvent.click(screen.getByText('Save Position'));
+
+    expect(onSavePosition).toHaveBeenCalledWith('above', 63.5);
+    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+  });
+
+  it('re-entering Reposition starts from the currently saved position, with no initial jump', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 30 });
+    const img = enterRepositioning();
+
+    expect(objectPosition(img)).toBe('50% 30%');
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+
+    expect(objectPosition(img)).toBe('50% 30%');
   });
 });

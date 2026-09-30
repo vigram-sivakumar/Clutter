@@ -149,21 +149,10 @@
   border-radius: inherit;
 }
 
-/* Cursor affordance only while repositioning mode is active (Page.Cover.tsx's
-   `repositioning` state) — outside that mode the image has no pointer
-   handlers attached at all, so dragging it does nothing (spec: "Dragging
-   the cover outside repositioning mode must have no repositioning effect").
-   :active (not a JS "is dragging" flag) drives the grabbing cursor: the
-   pointer stays physically held down for the whole gesture even though
-   setPointerCapture reroutes move/up events to this element regardless of
-   where the cursor travels, so the native pressed state already tracks
-   "is a drag in progress" for free. */
-.page__cover[data-repositioning] .page-cover__image {
-  cursor: grab;
-}
-.page__cover[data-repositioning] .page-cover__image:active {
-  cursor: grabbing;
-}
+/* The axis-aware cursor (ns-resize/ew-resize) itself is set inline in
+   Page.Cover.tsx, since it depends on `layout` — kept there rather than
+   split across a data-attribute selector here, so the one condition
+   ("repositioning && which axis") has one implementation, not two. */
 
 /* Groups the kebab trigger with the "Save Position" button that appears
    beside it in repositioning mode (Page.Cover.tsx) — one positioned,
