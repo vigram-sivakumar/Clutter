@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { history, undoDepth } from '@codemirror/commands';
+import { history, redo, undo, undoDepth } from '@codemirror/commands';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -952,7 +952,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       expect((indicator as HTMLElement).style.left).toBe('300px'); // column C's own right edge: 200 + 100
     });
 
-    it('acceptance 5: dragging column 2 into column 1\'s body shows the indicator after column 1', () => {
+    it('acceptance 5: dragging column 2 into column 1\'s body shows the indicator before column 1 (column 1\'s own left edge) — the dragged column lands at column 1\'s own index, index 0 included', () => {
       const { wrapper, table } = setUp();
       beginColumnDrag(wrapper, table, 1); // dragging "B" — pointerdown is always at clientX 50
 
@@ -960,10 +960,10 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
 
       const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
       expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
-      expect((indicator as HTMLElement).style.left).toBe('100px'); // column A's own right edge
+      expect((indicator as HTMLElement).style.left).toBe('0px'); // column A's own left edge — the boundary before it, not after
     });
 
-    it('acceptance 6: dragging column 3 into column 2\'s body shows the indicator after column 2', () => {
+    it('acceptance 6: dragging column 3 into column 2\'s body shows the indicator before column 2 (column 2\'s own left edge)', () => {
       const { wrapper, table } = setUp();
       beginColumnDrag(wrapper, table, 2); // dragging "C"
 
@@ -971,7 +971,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
 
       const indicator = wrapper.querySelector('.cm-table-column-drop-indicator')!;
       expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
-      expect((indicator as HTMLElement).style.left).toBe('200px'); // column B's own right edge
+      expect((indicator as HTMLElement).style.left).toBe('100px'); // column B's own left edge
     });
 
     it('acceptance 7: moving back and forth between column bodies updates the target immediately, each move independent', () => {
@@ -1036,6 +1036,254 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       // minus wrapper's own left (0) = 50px — still derived from real
       // geometry, never a stale/unscrolled percentage.
       expect((indicator as HTMLElement).style.left).toBe('50px');
+    });
+  });
+
+  /**
+   * Regression coverage for a real, shipped bug: `resolveColumnTargetIndex`/
+   * `resolveRowTargetIndex` used to add a directional `+1` to the *committed*
+   * `targetIndex` whenever the hovered column/row sat before the dragged
+   * one — meaning index `0` (and any immediate-left-neighbor drop) was
+   * either unreachable or silently collapsed into a no-op. These tests
+   * check the actual committed `view.state.doc`, not just indicator
+   * position (the acceptance tests above never exercised this — they only
+   * ever drag *rightward*, or check the indicator without ever releasing).
+   */
+  describe('drag-to-reorder — index 0 (and any leftward/upward drop) is a valid target (regression)', () => {
+    const THREE_COLUMNS = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |';
+    const FOUR_COLUMNS = '| A | B | C | D |\n| --- | --- | --- | --- |\n| a | b | c | d |';
+
+    function setUpColumns(doc: string, columnCount: number): { view: EditorView; wrapper: HTMLElement; table: HTMLTableElement } {
+      const { view, controller } = mountRootViewWithTable(doc);
+      const { wrapper, table } = buildTable(1, columnCount);
+      mockWrapperRect(wrapper, { top: 0, left: 0, width: columnCount * 100, height: 100 });
+      attachTableHandleOverlay(wrapper, columnCount, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      return { view, wrapper, table };
+    }
+
+    function dragColumn(wrapper: HTMLElement, table: HTMLTableElement, fromIndex: number, intoIndex: number): void {
+      hoverBodyCell(wrapper, table, 0, fromIndex);
+      const columnHit = table.querySelectorAll('thead th')[fromIndex]!.querySelector('.cm-table-column-handle-hit')!;
+      pointer('pointerdown', columnHit, fromIndex * 100 + 50, 10);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[intoIndex]!, intoIndex * 100 + 50, 10);
+      document.dispatchEvent(new MouseEvent('pointerup', { clientX: intoIndex * 100 + 50, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+    }
+
+    it('column 2 into column 1\'s body lands column 2 at index 0, immediately before column 1', () => {
+      const { view, wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      dragColumn(wrapper, table, 1, 0); // "B" into "A"'s body
+
+      expect(view.state.doc.toString()).toBe('| B | A | C |\n| --- | --- | --- |\n| b | a | c |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 0 });
+    });
+
+    it('column 3 into column 1\'s body lands column 3 at index 0, immediately before column 1', () => {
+      const { view, wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      dragColumn(wrapper, table, 2, 0); // "C" into "A"'s body
+
+      expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 0 });
+    });
+
+    it('column 1 dragged into its own body (index 0 into index 0) is a genuine no-op — document unchanged, column 1 stays selected', () => {
+      const { view, wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      dragColumn(wrapper, table, 0, 0); // "A" into its own body
+
+      expect(view.state.doc.toString()).toBe(THREE_COLUMNS);
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 0 });
+    });
+
+    it('column C into column B\'s body (leftward, interior — not index 0) still lands immediately before it', () => {
+      const { view, wrapper, table } = setUpColumns(FOUR_COLUMNS, 4);
+      dragColumn(wrapper, table, 2, 1); // "C" into "B"'s body
+
+      expect(view.state.doc.toString()).toBe('| A | C | B | D |\n| --- | --- | --- | --- |\n| a | c | b | d |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
+    });
+
+    it('column D into column B\'s body (leftward, skipping an interior column) still lands immediately before it', () => {
+      const { view, wrapper, table } = setUpColumns(FOUR_COLUMNS, 4);
+      dragColumn(wrapper, table, 3, 1); // "D" into "B"'s body
+
+      expect(view.state.doc.toString()).toBe('| A | D | B | C |\n| --- | --- | --- | --- |\n| a | d | b | c |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
+    });
+
+    const ROW_TEXT = FOUR_ROWS;
+
+    function dragRow(wrapper: HTMLElement, table: HTMLTableElement, fromRowIndex: number, intoRowIndex: number): void {
+      const fromCell = table.rows[fromRowIndex]!.children[0]!;
+      hoverBodyCell(wrapper, table, Math.max(fromRowIndex - 1, 0), 0);
+      const rowHit = fromCell.querySelector('.cm-table-row-handle-hit')!;
+      pointer('pointerdown', rowHit, 10, fromRowIndex * 40 + 20);
+      pointer('pointermove', table.rows[intoRowIndex]!.children[0]!, 10, intoRowIndex * 40 + 20);
+      document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: intoRowIndex * 40 + 20, button: 0, bubbles: true, cancelable: true }));
+    }
+
+    it('row 2 into row 1\'s body lands row 2 immediately before row 1', () => {
+      const { view, controller } = mountRootViewWithTable(ROW_TEXT);
+      const { wrapper, table } = buildTable(3, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 2, 1); // "B" (rowIndex 2) into "A" (rowIndex 1)'s body
+
+      expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| B | 2 |\n| A | 1 |\n| C | 3 |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 });
+    });
+
+    it('row 3 into row 1\'s body lands row 3 immediately before row 1', () => {
+      const { view, controller } = mountRootViewWithTable(ROW_TEXT);
+      const { wrapper, table } = buildTable(3, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 3, 1); // "C" (rowIndex 3) into "A" (rowIndex 1)'s body
+
+      expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| C | 3 |\n| A | 1 |\n| B | 2 |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 });
+    });
+
+    it('row 1 dragged into its own body is a genuine no-op — document unchanged, row 1 stays selected', () => {
+      const { view, controller } = mountRootViewWithTable(ROW_TEXT);
+      const { wrapper, table } = buildTable(3, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 1, 1); // "A" into its own body
+
+      expect(view.state.doc.toString()).toBe(ROW_TEXT);
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 });
+    });
+
+    it('a body row dragged onto the header\'s own body promotes it to rowIndex 0, demoting the old header — the literal index-0 slot is reachable, not just the first body row', () => {
+      const { view, controller } = mountRootViewWithTable(ROW_TEXT);
+      const { wrapper, table } = buildTable(3, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 2, 0); // "B" (rowIndex 2) into the header's own body (rowIndex 0)
+
+      expect(view.state.doc.toString()).toBe('| B | 2 |\n| --- | --- |\n| Name | Role |\n| A | 1 |\n| C | 3 |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
+    });
+
+    const FIVE_ROWS = '| Name | Role |\n| --- | --- |\n| A | 1 |\n| B | 2 |\n| C | 3 |\n| D | 4 |';
+
+    it('row C into row B\'s body (leftward, interior — not index 0) still lands immediately before it', () => {
+      const { view, controller } = mountRootViewWithTable(FIVE_ROWS);
+      const { wrapper, table } = buildTable(4, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 3, 2); // "C" (rowIndex 3) into "B" (rowIndex 2)'s body
+
+      expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| A | 1 |\n| C | 3 |\n| B | 2 |\n| D | 4 |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
+    });
+
+    it('row D into row B\'s body (leftward, skipping an interior row) still lands immediately before it', () => {
+      const { view, controller } = mountRootViewWithTable(FIVE_ROWS);
+      const { wrapper, table } = buildTable(4, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 4, 2); // "D" (rowIndex 4) into "B" (rowIndex 2)'s body
+
+      expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| A | 1 |\n| D | 4 |\n| B | 2 |\n| C | 3 |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
+    });
+
+    it('leftward column indicator boundary: dragging column C toward column A shows the indicator at A\'s own left edge, not its right edge', () => {
+      const { wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      hoverBodyCell(wrapper, table, 0, 2);
+      const columnHit = table.querySelectorAll('thead th')[2]!.querySelector('.cm-table-column-handle-hit')!;
+      mockHeaderCellRects(table, [100, 100, 100]);
+      pointer('pointerdown', columnHit, 250, 10);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[0]!, 10, 10); // into A's body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect(indicator.style.left).toBe('0px'); // A's own left edge
+    });
+
+    it('upward row indicator boundary: dragging row C toward row A shows the indicator at A\'s own top edge, not its bottom edge', () => {
+      const { view, controller } = mountRootViewWithTable(ROW_TEXT);
+      const { wrapper, table } = buildTable(3, 2);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      hoverBodyCell(wrapper, table, 1, 0);
+      const rowHit = table.rows[3]!.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+      pointer('pointerdown', rowHit, 10, 140);
+      pointer('pointermove', table.rows[1]!.children[0]!, 10, 20); // into A's body (rowIndex 1)
+
+      const indicator = wrapper.querySelector('.cm-table-row-drop-indicator') as HTMLElement;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect(indicator.style.top).toBe('40px'); // A's own (rowIndex 1) top edge, per mockRowRects: top = 1 * 40
+    });
+
+    it('uneven/persisted column widths: dragging column C into column A\'s body still lands the indicator on A\'s own real left edge, and commits to index 0', () => {
+      const { view, controller } = mountRootViewWithTable(THREE_COLUMNS);
+      const { wrapper, table } = buildTable(1, 3);
+      mockWrapperRect(wrapper, { top: 0, left: 0, width: 900, height: 100 });
+      mockHeaderCellRects(table, [50, 300, 20]); // deliberately uneven
+      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+      hoverBodyCell(wrapper, table, 0, 2);
+      const columnHit = table.querySelectorAll('thead th')[2]!.querySelector('.cm-table-column-handle-hit')!;
+      pointer('pointerdown', columnHit, 360, 10);
+      pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[0]!, 10, 10); // into A's own (50px-wide) body
+
+      const indicator = wrapper.querySelector('.cm-table-column-drop-indicator') as HTMLElement;
+      expect(indicator.classList.contains('cm-table-handle-visible')).toBe(true);
+      expect(indicator.style.left).toBe('0px'); // A's own real left edge, never derived from the wrapper's 900px width
+
+      document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 10, button: 0, bubbles: true, cancelable: true }));
+      expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
+    });
+
+    it('horizontally scrolled table: dragging column C into column A\'s (scrolled) body still commits to index 0', () => {
+      const { view, wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      mockHeaderCellRects(table, [100, 100, 100], -150); // scrolled left by 150px
+      dragColumn(wrapper, table, 2, 0);
+
+      expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 0 });
+    });
+
+    it('ragged rows: dragging a full body row into another\'s body (including the header slot) still commits to the intended index', () => {
+      const doc = '| Name | Role | City |\n| --- | --- | --- |\n| A | 1 | X |\n| B | 2 |\n| C | 3 | Z |';
+      const { view, controller } = mountRootViewWithTable(doc);
+      const { wrapper, table } = buildTable(3, 3);
+      mockRowRects(table);
+      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragRow(wrapper, table, 2, 0); // "B" (the ragged row, rowIndex 2) onto the header
+
+      expect(view.state.doc.toString()).toBe('| B | 2 |\n| --- | --- | --- |\n| Name | Role | City |\n| A | 1 | X |\n| C | 3 | Z |');
+      expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
+    });
+
+    it('undo restores the pre-move document and redo re-applies it, for a move landing at index 0', () => {
+      const { view, wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
+      const depthBefore = undoDepth(view.state);
+      dragColumn(wrapper, table, 2, 0);
+      expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
+      expect(undoDepth(view.state)).toBe(depthBefore + 1);
+
+      undo(view);
+      expect(view.state.doc.toString()).toBe(THREE_COLUMNS);
+
+      redo(view);
+      expect(view.state.doc.toString()).toBe('| C | A | B |\n| --- | --- | --- |\n| c | a | b |');
+    });
+
+    it('column-width metadata is reordered consistently with the columns themselves when a column moves to index 0', () => {
+      const docWithWidths = '| A | B | C |\n| --- | --- | --- |\n| a | b | c |\n{table-col-widths="80,120,160"}';
+      const { view, controller } = mountRootViewWithTable(docWithWidths);
+      const { wrapper, table } = buildTable(1, 3);
+      mockWrapperRect(wrapper, { top: 0, left: 0, width: 360, height: 100 });
+      attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+      dragColumn(wrapper, table, 2, 0); // "C" (its own 160px width) into "A"'s body
+
+      // C's own width (160) now leads, followed by A's (80) and B's (120) —
+      // the metadata line stays in lockstep with the columns it describes.
+      expect(view.state.doc.toString()).toBe(
+        '| C | A | B |\n| --- | --- | --- |\n| c | a | b |\n{table-col-widths="160,80,120"}'
+      );
     });
   });
 

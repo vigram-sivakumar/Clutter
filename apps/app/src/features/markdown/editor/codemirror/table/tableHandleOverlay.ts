@@ -359,9 +359,7 @@ export function attachTableHandleOverlay(
   /**
    * The outcome of resolving a drag's target from the pointer's current
    * position — three genuinely different situations, not one nullable
-   * number, because two of them can produce the *same* `targetIndex` value
-   * while needing opposite indicator visibility (see `resolveColumnTargetIndex`'s
-   * own doc comment for the concrete case this exists to disambiguate).
+   * number.
    *
    * - `'none'` — no real target under the pointer (a divider, or off any
    *   real cell entirely). `session.targetIndex` is left completely
@@ -373,31 +371,39 @@ export function attachTableHandleOverlay(
    *   hides.
    * - `'target'` — the pointer is over a *different* item's body.
    *   `session.targetIndex` (the *final*, post-move array position —
-   *   `commitDrag`'s own concern) updates to `targetIndex`, while the
-   *   indicator itself is positioned from `hoveredIndex` — the column/row
-   *   literally under the pointer right now, a *different* number
-   *   whenever the dragged item sits before the hovered one (removing it
-   *   shifts every later index down by one, so "the cell now sitting at
-   *   the final index" and "the cell the pointer is actually over" are two
-   *   different physical cells in that case). The indicator must always
-   *   track the latter — positioning from `targetIndex` instead would
-   *   visibly point at the wrong cell whenever the two diverge. This also
-   *   means the indicator always shows here even on the one occasion
-   *   `targetIndex` numerically coincides with `startIndex` (hovering the
-   *   item immediately adjacent to the dragged one, on the side that makes
-   *   "insert right after it" a true no-op array-wise) — that coincidence
-   *   must never be mistaken for the `'self'` case above.
+   *   `commitDrag`'s own concern) updates to `targetIndex`, which is
+   *   always the same number as `hoveredIndex` (`resolveColumnTargetIndex`'s
+   *   own doc comment has the full reasoning for why that raw value, never
+   *   a directionally-adjusted one, is what belongs here) — the two
+   *   fields exist separately only because the indicator's own boundary
+   *   math (`updateColumnDropIndicator`/`updateRowDropIndicator`) reads
+   *   `hoveredIndex` under that name, not because the values themselves
+   *   ever diverge.
    */
   type DragTargetResolution = { readonly kind: 'none' } | { readonly kind: 'self' } | { readonly kind: 'target'; readonly targetIndex: number; readonly hoveredIndex: number };
 
   /**
    * Column target = **the column whose own body the pointer is currently
-   * inside** — never a midpoint/boundary search. The dragged column always
-   * lands *immediately after* whichever column the pointer is over,
-   * regardless of drag direction (this is what every one of the
-   * milestone's own worked examples asks for: "pointer enters column 2 →
-   * indicator after column 2," whether column 2 is to the left or right of
-   * the dragged column).
+   * inside** — never a midpoint/boundary search. `targetIndex` is always
+   * the raw hovered column index, exactly as `moveSelectedColumnToIndex`
+   * (`tableRowColumnMove.ts`) expects it: the dragged column's own *final*
+   * array position after being removed and reinserted. This is
+   * deliberately never adjusted by direction here — a column hovered to
+   * the *right* of the dragged one naturally lands immediately after it
+   * (removing the dragged column ahead of it already shifted it left by
+   * one), and a column hovered to the *left* naturally lands immediately
+   * before it, purely as a consequence of array-splice arithmetic, not a
+   * special case. Index `0` is therefore always reachable — hovering the
+   * first column simply reports `targetIndex: 0`. (An adjustment like
+   * that used to live here, to always draw the drop indicator *after* the
+   * hovered column regardless of direction — that was a real, shipped
+   * regression: it made the committed move land one column further right
+   * than intended, `targetIndex === startIndex` false-no-op whenever
+   * hovering the dragged column's immediate left neighbor, and index `0`
+   * literally unreachable whenever `startIndex > 0`. That adjustment
+   * belongs only in `updateColumnDropIndicator`'s own boundary math below,
+   * as a purely visual "which edge to draw the line on" decision — it must
+   * never again leak into this function's own `targetIndex`.)
    *
    * **`'none'` — the divider between two columns is a neutral zone.**
    * Column resize's own hit-strip (`tableColumnResizeHandle.ts`'s
@@ -412,20 +418,10 @@ export function attachTableHandleOverlay(
    * `event.target` already reports. The pointer being over no real cell at
    * all (e.g. off the table's own edges) produces the identical `'none'`.
    *
-   * **Why the numerically-coincidental case needs `'target'`, not
-   * `'self'`, even though its own `index` equals `startIndex`.** Dragging
-   * column 2, hovering column 1 (its immediate left neighbor): removing
-   * column 2 and reinserting it "immediately after column 1" lands it
-   * exactly where it already was — the *move* is genuinely a no-op, but
-   * the *pointer* is over column 1's own real body, a real, different
-   * column, not the dragged one — the milestone's own worked example
-   * ("drag column 2 → enter column 1 → indicator appears after column 1")
-   * is explicit that the indicator must still show there. Returning
-   * `'self'` here (just because the resulting index happens to match
-   * `startIndex`) would incorrectly hide it — `'self'` is reserved
-   * strictly for "the pointer is inside the *dragged* column's own body,"
-   * checked directly against `hovered.columnIndex`, never inferred after
-   * the fact from the computed target number.
+   * `hoveredIndex` and `targetIndex` are the same number here — kept as
+   * two separate fields (rather than collapsing `'target'` to one) purely
+   * to match `DragTargetResolution`'s own shape and because
+   * `updateColumnDropIndicator` reads it under the `hoveredIndex` name.
    */
   function resolveColumnTargetIndex(event: PointerEvent, startIndex: number): DragTargetResolution {
     const target = event.target;
@@ -439,25 +435,19 @@ export function attachTableHandleOverlay(
     if (hovered.columnIndex === startIndex) {
       return { kind: 'self' };
     }
-    // Direct hovered-column -> final-index mapping (never a boundary
-    // inversion): a column to the *left* of the dragged one keeps its own
-    // index and gains one (the dragged item now sits between it and its
-    // old right neighbor); a column to the *right* keeps its own index
-    // exactly (removing the dragged item ahead of it already shifted it
-    // left by one, and inserting immediately after it lands the dragged
-    // item back at that same number).
-    const targetIndex = hovered.columnIndex < startIndex ? hovered.columnIndex + 1 : hovered.columnIndex;
-    return { kind: 'target', targetIndex, hoveredIndex: hovered.columnIndex };
+    return { kind: 'target', targetIndex: hovered.columnIndex, hoveredIndex: hovered.columnIndex };
   }
 
   /**
    * Symmetric to `resolveColumnTargetIndex`, for the row axis — target =
    * the row whose own body (any cell in it) the pointer is inside,
-   * landing immediately after it. No divider/neutral-zone concept here:
-   * unlike columns, there is no row-resize feature anywhere in this
-   * codebase, so there is no existing real hit-strip to reuse for one —
-   * inventing a boundary zone with no real DOM behind it would be exactly
-   * the "arbitrary pixel offset" this whole approach is meant to avoid.
+   * `targetIndex` always the raw hovered row index (see that function's
+   * own doc comment for why no directional adjustment belongs here). No
+   * divider/neutral-zone concept here: unlike columns, there is no
+   * row-resize feature anywhere in this codebase, so there is no existing
+   * real hit-strip to reuse for one — inventing a boundary zone with no
+   * real DOM behind it would be exactly the "arbitrary pixel offset" this
+   * whole approach is meant to avoid.
    */
   function resolveRowTargetIndex(event: PointerEvent, startIndex: number): DragTargetResolution {
     const hovered = resolveHoveredCell(wrapper, event.target);
@@ -468,8 +458,7 @@ export function attachTableHandleOverlay(
     if (hoveredRowIndex === startIndex) {
       return { kind: 'self' };
     }
-    const targetIndex = hoveredRowIndex < startIndex ? hoveredRowIndex + 1 : hoveredRowIndex;
-    return { kind: 'target', targetIndex, hoveredIndex: hoveredRowIndex };
+    return { kind: 'target', targetIndex: hoveredRowIndex, hoveredIndex: hoveredRowIndex };
   }
 
   function hideDropIndicators(): void {
@@ -479,20 +468,22 @@ export function attachTableHandleOverlay(
 
   /**
    * Positions/shows the column drop indicator at the *hovered* column's
-   * own actual rendered right edge — always "after," per this milestone's
-   * own rule, never "before" and never derived from `session.targetIndex`
-   * (`commitDrag`'s own final-array-position number, a *different* cell
-   * whenever the dragged column sits before the hovered one — see
-   * `DragTargetResolution`'s own doc comment for why positioning must use
-   * `hoveredIndex`, not `targetIndex`). Real `getBoundingClientRect()`
-   * geometry on the hovered column's own header cell — never
-   * `(boundaryIndex / columnCount) * 100%` (this function's own previous
-   * implementation, which additionally assumed `wrapper`'s own width
-   * always equals the table's own rendered width, false the moment a
-   * table has explicit/persisted column widths — `tableColumnWidthMetadata.ts`
-   * — and can render narrower than `wrapper` by any amount).
+   * own actual rendered edge — its **left** edge when the hovered column
+   * sits before the dragged one (`hoveredIndex < startIndex` — the dragged
+   * column is about to land *before* it), its **right** edge otherwise
+   * (landing *after* it). This direction is purely visual boundary
+   * placement — it is never fed back into `targetIndex`/`commitDrag`'s own
+   * move (`resolveColumnTargetIndex`'s own doc comment has the full
+   * reasoning for why the two must stay separate). Real
+   * `getBoundingClientRect()` geometry on the hovered column's own header
+   * cell — never `(boundaryIndex / columnCount) * 100%` (this function's
+   * own previous implementation, which additionally assumed `wrapper`'s
+   * own width always equals the table's own rendered width, false the
+   * moment a table has explicit/persisted column widths —
+   * `tableColumnWidthMetadata.ts` — and can render narrower than `wrapper`
+   * by any amount).
    */
-  function updateColumnDropIndicator(hoveredIndex: number): void {
+  function updateColumnDropIndicator(startIndex: number, hoveredIndex: number): void {
     const tableElNow = resolveTableElement();
     const hoveredCell = tableElNow?.rows[0]?.children[hoveredIndex] as HTMLElement | undefined;
     if (!hoveredCell) {
@@ -502,24 +493,27 @@ export function attachTableHandleOverlay(
     const wrapperRect = wrapper.getBoundingClientRect();
     const cellRect = hoveredCell.getBoundingClientRect();
     const borderWidth = parseFloat(getComputedStyle(wrapper).borderLeftWidth) || 0;
-    columnDropIndicator.style.left = `${cellRect.right - wrapperRect.left - borderWidth}px`;
+    const edgeX = hoveredIndex < startIndex ? cellRect.left : cellRect.right;
+    columnDropIndicator.style.left = `${edgeX - wrapperRect.left - borderWidth}px`;
     columnDropIndicator.classList.add(VISIBLE_CLASS);
   }
 
   /**
-   * Symmetric to `updateColumnDropIndicator`, for the row axis — the hovered
-   * row's own actual rendered bottom edge, always "after," real geometry
-   * throughout. Unlike the column indicator (whose CSS `top: 0; bottom: 0`
-   * is always correct — a table's rendered *height* never diverges from
-   * `wrapper`'s own, there being no per-row equivalent of
-   * `tableColumnWidthMetadata.ts`'s persisted explicit widths), this
-   * indicator's *span* also has to be set here, not left to CSS: `wrapper`
-   * is always the editor's full width, but the `<table>` itself can render
-   * narrower (an explicit, narrower persisted table width) — a plain
-   * `left: 0; right: 0` would draw this line all the way across `wrapper`,
-   * visibly wider than the table it's marking a boundary inside of.
+   * Symmetric to `updateColumnDropIndicator`, for the row axis — the
+   * hovered row's own actual rendered **top** edge when it sits before the
+   * dragged row (`hoveredIndex < startIndex`), its **bottom** edge
+   * otherwise, real geometry throughout. Unlike the column indicator
+   * (whose CSS `top: 0; bottom: 0` is always correct — a table's rendered
+   * *height* never diverges from `wrapper`'s own, there being no per-row
+   * equivalent of `tableColumnWidthMetadata.ts`'s persisted explicit
+   * widths), this indicator's *span* also has to be set here, not left to
+   * CSS: `wrapper` is always the editor's full width, but the `<table>`
+   * itself can render narrower (an explicit, narrower persisted table
+   * width) — a plain `left: 0; right: 0` would draw this line all the way
+   * across `wrapper`, visibly wider than the table it's marking a boundary
+   * inside of.
    */
-  function updateRowDropIndicator(hoveredIndex: number): void {
+  function updateRowDropIndicator(startIndex: number, hoveredIndex: number): void {
     const tableElNow = resolveTableElement();
     const hoveredRow = tableElNow?.rows[hoveredIndex];
     if (!tableElNow || !hoveredRow) {
@@ -531,7 +525,8 @@ export function attachTableHandleOverlay(
     const rowRect = hoveredRow.getBoundingClientRect();
     const borderTopWidth = parseFloat(getComputedStyle(wrapper).borderTopWidth) || 0;
     const borderLeftWidth = parseFloat(getComputedStyle(wrapper).borderLeftWidth) || 0;
-    rowDropIndicator.style.top = `${rowRect.bottom - wrapperRect.top - borderTopWidth}px`;
+    const edgeY = hoveredIndex < startIndex ? rowRect.top : rowRect.bottom;
+    rowDropIndicator.style.top = `${edgeY - wrapperRect.top - borderTopWidth}px`;
     rowDropIndicator.style.left = `${tableRect.left - wrapperRect.left - borderLeftWidth}px`;
     rowDropIndicator.style.width = `${tableRect.width}px`;
     rowDropIndicator.classList.add(VISIBLE_CLASS);
@@ -682,9 +677,9 @@ export function attachTableHandleOverlay(
     } else {
       session.targetIndex = resolved.targetIndex;
       if (session.axis === 'row') {
-        updateRowDropIndicator(resolved.hoveredIndex);
+        updateRowDropIndicator(session.startIndex, resolved.hoveredIndex);
       } else {
-        updateColumnDropIndicator(resolved.hoveredIndex);
+        updateColumnDropIndicator(session.startIndex, resolved.hoveredIndex);
       }
     }
     const wrapperRect = wrapper.getBoundingClientRect();
