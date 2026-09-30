@@ -200,4 +200,65 @@ describe('TaskExtractor', () => {
       expect(tasks[0]!.dueDate).toBeUndefined();
     });
   });
+
+  describe('fenced code blocks are never scanned for tasks', () => {
+    it('detects a task outside a fence', () => {
+      const tasks = extractor.extract('- [ ] Real task');
+
+      expect(tasks.map((t) => t.text)).toEqual(['Real task']);
+    });
+
+    it('ignores a task marker inside a ``` fence', () => {
+      const tasks = extractor.extract('```text\n- [ ] Not a task\n```');
+
+      expect(tasks).toEqual([]);
+    });
+
+    it('ignores a task marker inside a ~~~ fence', () => {
+      const tasks = extractor.extract('~~~text\n- [ ] Not a task\n~~~');
+
+      expect(tasks).toEqual([]);
+    });
+
+    it('ignores a checked task marker inside a fence', () => {
+      const tasks = extractor.extract('```text\n- [x] Not a task either\n```');
+
+      expect(tasks).toEqual([]);
+    });
+
+    it('detects only the tasks outside the fence when real tasks surround it', () => {
+      const content = [
+        '- [ ] Real task',
+        '',
+        '```text',
+        '- [ ] This is not a task',
+        '- [x] Neither is this',
+        '```',
+        '',
+        '- [ ] Another real task',
+      ].join('\n');
+
+      const tasks = extractor.extract(content);
+
+      expect(tasks.map((t) => t.text)).toEqual(['Real task', 'Another real task']);
+    });
+
+    it('ignores tasks inside multiple fenced blocks in the same document', () => {
+      const content = [
+        '- [ ] Before',
+        '```text',
+        '- [ ] Inside first fence',
+        '```',
+        '- [ ] Between',
+        '~~~text',
+        '- [ ] Inside second fence',
+        '~~~',
+        '- [ ] After',
+      ].join('\n');
+
+      const tasks = extractor.extract(content);
+
+      expect(tasks.map((t) => t.text)).toEqual(['Before', 'Between', 'After']);
+    });
+  });
 });
