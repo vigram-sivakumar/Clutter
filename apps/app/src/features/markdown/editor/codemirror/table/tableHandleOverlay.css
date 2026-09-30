@@ -96,14 +96,18 @@
  * Positioned via `top`/`left` in JS (never centered via `translate`, unlike
  * the handles above — these mark a boundary *between* rows/columns, not a
  * row/column's own centerline), hidden via the same `cm-table-handle-visible`
- * toggle every other handle-overlay element already uses. */
+ * toggle every other handle-overlay element already uses. Above the drag
+ * ghost (`z-index: 2`, `tableDragGhost.css`) — both are direct children of
+ * the same `.cm-table-wrapper` stacking context, and the indicator marks the
+ * live drop target, which must stay legible even where the ghost visually
+ * overlaps it. */
 .cm-table-row-drop-indicator,
 .cm-table-column-drop-indicator {
   position: absolute;
   background: var(--border-active);
   pointer-events: none;
   visibility: hidden;
-  z-index: 1;
+  z-index: 3;
 }
 .cm-table-row-drop-indicator.cm-table-handle-visible,
 .cm-table-column-drop-indicator.cm-table-handle-visible {
