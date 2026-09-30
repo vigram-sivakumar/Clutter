@@ -6,6 +6,7 @@ import { createColumnDragGhost, createRowDragGhost, hideColumnSourceContent, hid
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { moveSelectedColumnToIndex, moveSelectedRowToIndex } from './tableRowColumnMove';
 import { tableSelectionChanged } from './tableSelection';
+import { setPendingTableScrollRestore } from './tableWidget';
 import { OVERLAY_CLASS as SELECTION_OVERLAY_CLASS, VISIBLE_CLASS as SELECTION_OVERLAY_VISIBLE_CLASS } from './tableSelectionOverlay';
 
 /**
@@ -878,6 +879,23 @@ export function attachTableHandleOverlay(
     suppressNextClick = false;
     const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
     controller.deactivate();
+    // A genuine selection change (this handle's row/column wasn't already
+    // the sole selection) makes `TableWidget.eq()` rebuild the whole widget
+    // below — this file's own top doc comment, "Selection model" — and that
+    // rebuild replaces `.cm-table-scroll` with a fresh element that starts
+    // at `scrollLeft` 0, exactly the same underlying cause `tableWidget.ts`'s
+    // own `pendingScrollRestoreByTableFrom` doc comment already documents
+    // for a cell click. Captured here, before dispatch, for the same reason
+    // that comment gives; handed off the same way (`tableWidget.ts`'s own
+    // `toDOM()` picks it up and passes it on to
+    // `attachTableColumnResizeHandles()`, which restores it only once its
+    // own `positionBoundaries()` microtask has actually run).
+    const currentScroll = view.dom.querySelector<HTMLElement>(
+      `.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll`
+    );
+    if (currentScroll) {
+      setPendingTableScrollRestore(tableFrom, currentScroll.scrollLeft);
+    }
     // Set *before* dispatching — a rebuild this dispatch triggers runs
     // synchronously, inside `dispatch()`, and its own fresh
     // `attachTableHandleOverlay` call may already consume this entry before

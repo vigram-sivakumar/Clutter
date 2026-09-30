@@ -70,10 +70,24 @@ function columnWidthsEq(a: readonly number[] | null, b: readonly number[] | null
  * clamp correctly on their own, the same way any ordinary assignment does.
  *
  * Set by `buildRow()`'s own mousedown handler below, immediately before
- * calling `controller.activate()`; read and deleted by `toDOM()` when it
- * calls `attachTableColumnResizeHandles()` for the resulting rebuild.
+ * calling `controller.activate()` — and, via `setPendingTableScrollRestore()`
+ * below, by `tableHandleOverlay.ts`'s own pointerdown handler immediately
+ * before its selection dispatch, the same "genuine selection change rebuilds
+ * the whole widget" case documented on that file's own top doc comment
+ * ("Selection model") — read and deleted by `toDOM()` when it calls
+ * `attachTableColumnResizeHandles()` for the resulting rebuild.
  */
 const pendingScrollRestoreByTableFrom = new Map<number, number>();
+
+/**
+ * Lets a caller outside this file (`tableHandleOverlay.ts`'s pointerdown
+ * handler) register a pre-rebuild `scrollLeft` the same way `buildRow()`'s
+ * own mousedown handler does below — see `pendingScrollRestoreByTableFrom`'s
+ * own doc comment just above for the full timing reasoning this shares.
+ */
+export function setPendingTableScrollRestore(tableFrom: number, scrollLeft: number): void {
+  pendingScrollRestoreByTableFrom.set(tableFrom, scrollLeft);
+}
 
 /**
  * One cell's raw text plus its trimmed source range (`from`/`to` —
