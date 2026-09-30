@@ -401,8 +401,10 @@ describe('table selection halo — geometry targets the actual <table>, not the 
 
     // Exactly what `.cm-editor .cm-table-wrapper-selected table` (the CSS
     // rule) selects: a `<table>` descendant, reached through the scroll
-    // container, not a sibling/cousin element the selector would miss.
-    const matchedByRule = haloedWrapper!.querySelector(':scope > .cm-table-scroll > table');
+    // container and its own `.cm-table-inner` child
+    // (`tableWidget.css`'s own doc comment on why that layer exists), not a
+    // sibling/cousin element the selector would miss.
+    const matchedByRule = haloedWrapper!.querySelector(':scope > .cm-table-scroll table');
     expect(matchedByRule).not.toBeNull();
 
     // Exactly one — if the widget ever rendered more than one <table>
@@ -413,8 +415,8 @@ describe('table selection halo — geometry targets the actual <table>, not the 
 
   it('the halo\'s target <table> is real scrolled content of .cm-table-scroll, not a sibling overlay needing its own scroll-position conversion', () => {
     // A small table (no explicit widths) still renders its own single
-    // <table>, a direct child of .cm-table-scroll — the same parent/child
-    // relationship an explicit-width table has
+    // <table>, nested inside .cm-table-scroll's own .cm-table-inner child —
+    // the same relationship an explicit-width table has
     // (`tableWidgetWidthArchitecture.test.ts`'s own DOM tests) —
     // confirming this fix's geometry source is identical regardless of
     // whether the table has explicit widths or not: there is no separate
@@ -426,7 +428,7 @@ describe('table selection halo — geometry targets the actual <table>, not the 
 
     const scroll = view.dom.querySelector('.cm-table-wrapper-selected > .cm-table-scroll');
     expect(scroll).not.toBeNull();
-    expect(scroll!.querySelector(':scope > table')).not.toBeNull();
+    expect(scroll!.querySelector(':scope > .cm-table-inner > table')).not.toBeNull();
     // Not `.cm-table-wrapper--explicit-widths` — this table has no
     // `{table-col-widths=...}` metadata, yet the halo's own target
     // element (`<table>`) is structured identically either way.

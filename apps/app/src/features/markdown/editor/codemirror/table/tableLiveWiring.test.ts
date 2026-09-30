@@ -108,7 +108,7 @@ function findCell(view: EditorView, text: string): Element {
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
 describe('table live wiring — DOM structure', () => {
-  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping the real <table>', () => {
+  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping a div.cm-table-scroll wrapping a div.cm-table-inner wrapping the real <table>', () => {
     const view = mount(TABLE, true);
 
     const widget = view.dom.querySelector(':scope .cm-table-widget');
@@ -128,7 +128,17 @@ describe('table live wiring — DOM structure', () => {
     const scroll = wrapper?.querySelector(':scope > .cm-table-scroll');
     expect(scroll?.tagName).toBe('DIV');
 
-    const table = scroll?.querySelector(':scope > table');
+    // .cm-table-inner exists purely to host the table-widget breakout's own
+    // canceling negative margins somewhere other than .cm-table-scroll
+    // itself — see tableWidget.css's own doc comment on
+    // .cm-table-wrapper--explicit-widths .cm-table-inner for the two
+    // independent reasons (margin-collapse escaping to .cm-table-widget's
+    // own page-level reserve, and interference with .cm-table-scroll's own
+    // centering transform).
+    const inner = scroll?.querySelector(':scope > .cm-table-inner');
+    expect(inner?.tagName).toBe('DIV');
+
+    const table = inner?.querySelector(':scope > table');
     expect(table).not.toBeNull();
     expect(table?.className).toBe(''); // the <table> itself carries no class — cm-table-widget is the outer div now
   });
@@ -180,10 +190,14 @@ describe('table live wiring — editable top-level table', () => {
     // The nested editor's .cm-editor is a direct child of .cm-table-cell-wrapper
     // (never of <td> directly), and the full ancestor chain matches the
     // widget's own documented structure: widget > .cm-table-wrapper >
-    // .cm-table-scroll > table > td > .cm-table-cell-wrapper > .cm-editor.
+    // .cm-table-scroll > .cm-table-inner > table > td > .cm-table-cell-wrapper
+    // > .cm-editor. A descendant combinator for the final `table` hop, not
+    // `>` — see tableHandleOverlay.ts's own resolveTableElement doc comment
+    // for why .cm-table-inner sitting in between doesn't need its own
+    // explicit segment here.
     expect(controller.nestedView!.dom.parentElement).toBe(activeWrapper);
     expect(activeWrapper!.parentElement?.tagName).toBe('TD');
-    expect(activeWrapper!.closest('.cm-table-widget > .cm-table-wrapper > .cm-table-scroll > table')).not.toBeNull();
+    expect(activeWrapper!.closest('.cm-table-widget > .cm-table-wrapper > .cm-table-scroll table')).not.toBeNull();
   });
 
   it('clicking a cell focuses the nested editor, and the root editor does not retain focus', async () => {

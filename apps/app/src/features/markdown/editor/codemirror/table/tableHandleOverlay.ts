@@ -288,7 +288,14 @@ export function attachTableHandleOverlay(
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
 ): void {
   function resolveTableElement(): HTMLTableElement | null {
-    return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
+    // A descendant combinator for the final hop, not `>` — `<table>` now
+    // always sits one layer deeper (`.cm-table-scroll > .cm-table-inner >
+    // table`, `tableWidget.ts`'s own DOM construction, `tableWidget.css`'s
+    // own top doc comment for why `.cm-table-inner` exists at all), never a
+    // direct child of `.cm-table-scroll` itself. Never risks matching a
+    // deeper, unrelated table, since Markdown table cells never render
+    // block-level (only inline) content of their own (`renderInlineMarkdown`).
+    return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll table');
   }
 
   const tableEl = resolveTableElement();
@@ -913,9 +920,9 @@ export function attachTableHandleOverlay(
     resumePendingDragIfMine();
   });
 
-  /** This exact table's own fresh `<table>` element — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. */
+  /** This exact table's own fresh `<table>` element — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. A descendant combinator for the final hop — see `resolveTableElement`'s own doc comment above for why. */
   function resolveFreshTable(): HTMLTableElement | null {
-    return view.dom.querySelector<HTMLTableElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll > table`);
+    return view.dom.querySelector<HTMLTableElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll table`);
   }
 
   function resolveFreshColumnHandle(columnIndex: number): HTMLElement | null {

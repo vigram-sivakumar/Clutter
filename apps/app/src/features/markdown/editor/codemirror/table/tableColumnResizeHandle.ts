@@ -157,8 +157,14 @@ export function attachTableColumnResizeHandles(
     return;
   }
 
+  // A descendant combinator, not `>` — `<table>` sits one layer deeper now
+  // (`.cm-table-scroll > .cm-table-inner > table`, `tableWidget.ts`'s own
+  // DOM construction, `tableWidget.css`'s own top doc comment for why
+  // `.cm-table-inner` exists at all). Never risks matching a deeper,
+  // unrelated table — Markdown table cells never render block-level content
+  // of their own.
   function resolveTableElement(): HTMLTableElement | null {
-    return tableScroll!.querySelector<HTMLTableElement>(':scope > table');
+    return tableScroll!.querySelector<HTMLTableElement>('table');
   }
 
   function resolveCols(): HTMLTableColElement[] {
@@ -495,7 +501,9 @@ export function attachTableColumnResizeHandles(
   function restoreScrollPositionAfterCommit(finalScrollLeft: number): void {
     const freshWidget = document.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${tableFrom}"]`);
     const freshScroll = freshWidget?.querySelector<HTMLElement>(':scope > .cm-table-wrapper > .cm-table-scroll');
-    const freshTable = freshScroll?.querySelector<HTMLTableElement>(':scope > table');
+    // Descendant combinator, not `>` — see `resolveTableElement`'s own doc
+    // comment above for why.
+    const freshTable = freshScroll?.querySelector<HTMLTableElement>('table');
     if (!freshScroll || !freshTable) {
       return;
     }
@@ -608,89 +616,21 @@ export function attachTableColumnResizeHandles(
   // column's own resize-hit overhang that `positionBoundaries()` just
   // applied, so a plain assignment clamps correctly on its own, the same
   // as any ordinary `scrollLeft` write against settled layout.
+  //
+  // When nothing has an explicit position to restore, `scrollLeft` is left
+  // at the browser's own native default of `0` — an oversized table starts
+  // scrolled flush to its own left edge, growing further to the right as
+  // its columns are resized wider, rather than starting pre-scrolled to a
+  // computed center. Deliberate, not an oversight: centering the resting
+  // scroll position made a column resize *feel* like the whole table shifts
+  // left as much as it grows right, rather than the table simply extending
+  // rightward the way dragging a column wider should read.
   queueMicrotask(() => {
     if (wrapper.isConnected) {
       positionBoundaries();
       if (restoreScrollLeftAfterPositioning !== undefined) {
         tableScroll.scrollLeft = restoreScrollLeftAfterPositioning;
-      } else {
-        const tableEl = resolveTableElement();
-        if (tableEl) {
-          centerScrollIfTableOverflowsWidget(tableScroll, tableEl);
-        }
       }
     }
   });
-}
-
-/**
- * The table-widget breakout's own "an oversized table starts centered, not
- * flush at its own left edge" behavior (`tableWidgetBreakoutWidth.ts`'s own
- * top doc comment has the width half of this feature) — reachable only
- * here, never called directly: this function's own caller above already
- * gates it on `restoreScrollLeftAfterPositioning === undefined`, i.e.
- * exactly the cases that would otherwise fall through to the browser's
- * native default `scrollLeft` of `0` (a cell click, a handle click, and
- * every other pending-restore path all supply their own explicit value and
- * take priority over this).
- *
- * **Why this is a `scrollLeft` choice, not a CSS `margin`/`justify-content:
- * center` on the table itself.** A table wider than `tableScroll` cannot be
- * *statically* centered by any CSS box-alignment property and still stay
- * fully reachable in both directions: `margin: auto` collapses to `0` the
- * moment content overflows (there is no free space left to auto-distribute,
- * so it is a silent no-op, indistinguishable from left-aligned); `display:
- * flex; justify-content: center` on `tableScroll` does visually center an
- * overflowing child, but by overflowing it symmetrically on *both* sides of
- * the flex line — since `scrollLeft` can never go negative, the portion
- * that overflows to the *left* becomes permanently unreachable, a strictly
- * worse regression than not centering at all. Setting the *initial*
- * `scrollLeft` to the midpoint instead moves nothing about the table's own
- * box (still plain block flow, `margin: 0`, flush at the scroll content's
- * own position `0`) — it only chooses where the viewport *starts looking*.
- * The full `[0, maxScrollLeft]` range stays reachable exactly as it always
- * was; only the resting position moves, which is what "starts with equal
- * visual space on both sides, and can still scroll to either true edge"
- * actually requires.
- *
- * `table.getBoundingClientRect().width`, not `tableScroll.scrollWidth` —
- * the identical, load-bearing reason `reconcileScrollPosition`'s own doc
- * comment above already gives, confirmed live in the real app: an
- * `overflow: auto` container's own `scrollWidth` sits on a lazier
- * invalidation path than ordinary box-layout properties and can read
- * stale, while `table`'s own outer width (`tableScroll`'s only child,
- * `tableWidget.ts`'s own DOM construction) is always current. Every reader
- * of `maxScrollLeft` in this file uses this same real-layout formula for
- * this same reason — never `scrollWidth`, not even here where nothing is
- * actively resizing.
- *
- * A no-op whenever the table actually fits `tableScroll`'s own width
- * (`maxScrollLeft <= 0`) — this also means the breakout's own "does this
- * table still overflow *even the widened widget*" question (this file's
- * own `tableWidgetBreakoutWidth.ts` sibling module never has to answer it
- * itself) is answered for free from geometry that's already live and
- * correct by the time this microtask runs.
- *
- * `/ 2`, not a fixed offset or a repeat of `reconcileScrollPosition`'s own
- * min-width clamp math — "centered" here means exactly what it says:
- * however much of the table doesn't fit is split evenly between the
- * portion hidden to the left and the portion hidden to the right of the
- * initial view, each reachable by scrolling in that direction.
- *
- * Exported for `tableWidgetBreakoutWidth.ts`'s own `ResizeObserver`
- * callback to reuse verbatim — a window resize can flip a table from
- * fitting to overflowing (or back) without any `TableWidget` rebuild ever
- * happening (the observer only ever changes a CSS custom property, never
- * dispatches), so that module's own callback needs this exact same
- * centering decision, not a second copy of it. That caller guards its own
- * call the same way this file's own caller above does — only while
- * `tableScroll.scrollLeft` still reads as the untouched resting position —
- * so an already-scrolled table is never yanked back to center by a plain
- * window resize.
- */
-export function centerScrollIfTableOverflowsWidget(tableScroll: HTMLElement, table: HTMLElement): void {
-  const maxScrollLeft = table.getBoundingClientRect().width - tableScroll.clientWidth;
-  if (maxScrollLeft > 0) {
-    tableScroll.scrollLeft = maxScrollLeft / 2;
-  }
 }

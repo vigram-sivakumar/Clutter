@@ -448,8 +448,31 @@ export class TableWidget extends WidgetType {
     tableScroll.className = 'cm-table-scroll';
     tableWrapper.appendChild(tableScroll);
 
+    // Separates two concerns that would otherwise collide on `.cm-table-scroll`
+    // itself when that element has explicit widths: centering this whole
+    // viewport on the reading column's own center (`left: 50%; transform:
+    // translateX(-50%)`, `tableWidget.css`) versus reserving a small gutter
+    // inside it for the column/row handles' own border-straddling protrusion
+    // (`padding-block-start`/`padding-inline-start`, same file). Both need a
+    // *canceling* negative margin somewhere to stay visually neutral — doing
+    // that on `.cm-table-scroll` itself would (a) throw off the centering
+    // math, which assumes zero margin on the element doing the `left: 50%`
+    // shift, and (b) let a negative `margin-block-start` collapse straight
+    // through `.cm-table-wrapper` (no padding/border of its own) and cancel
+    // `.cm-table-widget`'s own separate `padding-top: 8px` reserve against
+    // `.page__content`'s outer clip. Putting the canceling margins on this
+    // element instead — `.cm-table-scroll`'s own child, with `.cm-table-scroll`'s
+    // own non-zero padding sitting directly between them — sidesteps both:
+    // non-zero padding on the *parent* is one of the standard conditions
+    // that blocks parent/child margin collapsing outright, and the
+    // centering math on `.cm-table-scroll` never has to account for a
+    // margin it doesn't have.
+    const tableInner = document.createElement('div');
+    tableInner.className = 'cm-table-inner';
+    tableScroll.appendChild(tableInner);
+
     const table = document.createElement('table');
-    tableScroll.appendChild(table);
+    tableInner.appendChild(table);
 
     // One `<col>` per column — the standard native mechanism for real
     // per-column widths under `table-layout: fixed`, not a second layout

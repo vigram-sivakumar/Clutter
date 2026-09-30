@@ -21,7 +21,7 @@
  * to every block boundary generically) — this file doesn't duplicate
  * that with its own margin.
  *
- * Width/clipping architecture — four layers, each with exactly one job
+ * Width/clipping architecture — five layers, each with exactly one job
  * (confirmed against the real, live DOM/computed-style chain, not assumed):
  *
  *   .cm-table-widget   — CM6's own block-widget positioning boundary.
@@ -44,22 +44,30 @@
  *   .cm-table-scroll    — `width`/`max-width: 100%`, `overflow: visible` by
  *                         default; `overflow-x: auto` **only** when this
  *                         table has explicit column widths
- *                         (`.cm-table-wrapper--explicit-widths`, below).
- *                         This is the one, single horizontal-clipping
- *                         layer in the whole chain — the only element
- *                         between `<table>` and the app shell's own page
- *                         scroll container that ever captures a wide
- *                         table's overflow. Without it, an explicit-width
- *                         table's overflow bubbles all the way up past
- *                         every one of these layers (all `visible`) until
- *                         it reaches `.page__content` (the app shell's own
- *                         `overflow: auto` page-scroll container,
- *                         unrelated to tables) — confirmed live: that is
- *                         exactly what an earlier, over-corrected removal
- *                         of this rule did, which read as "the table
- *                         widget is clipping" even though `.cm-table-widget`
- *                         itself measured `overflow: visible` the whole
- *                         time.
+ *                         (`.cm-table-wrapper--explicit-widths`, below), at
+ *                         which point it also grows past the reading
+ *                         column, centered, up to the real page width
+ *                         (`tableWidgetBreakoutWidth.ts`). This is the one,
+ *                         single horizontal-clipping layer in the whole
+ *                         chain — the only element between `<table>` and
+ *                         the app shell's own page scroll container that
+ *                         ever captures a wide table's overflow. Without
+ *                         it, an explicit-width table's overflow bubbles
+ *                         all the way up past every one of these layers
+ *                         (all `visible`) until it reaches `.page__content`
+ *                         (the app shell's own `overflow: auto` page-scroll
+ *                         container, unrelated to tables) — confirmed live:
+ *                         that is exactly what an earlier, over-corrected
+ *                         removal of this rule did, which read as "the
+ *                         table widget is clipping" even though
+ *                         `.cm-table-widget` itself measured `overflow:
+ *                         visible` the whole time.
+ *   .cm-table-inner     — a transparent pass-through between the scroll
+ *                         viewport and `<table>`; adds no clipping of its
+ *                         own. Exists so `<table>`'s own intrinsic width can
+ *                         be measured/read independent of `.cm-table-scroll`'s
+ *                         own (possibly `max-width`-capped) size — see that
+ *                         rule's own `.cm-table-inner` doc comment below.
  *   table (intrinsic)   — `table-layout: fixed`; `width: 100%` by default,
  *                         `width: max-content` once this table has
  *                         explicit widths — its own `<colgroup>`-derived
@@ -127,8 +135,8 @@
   position: relative;
   overflow: visible;
   /* Explicit, not relied on as a block-default: this is the outer layer of
-   * the four-layer width architecture above (widget → wrapper → scroll
-   * viewport → table) — it must *never* grow past the editor's own content
+   * the five-layer width architecture above (widget → wrapper → scroll
+   * viewport → inner → table) — it must *never* grow past the editor's own content
    * column no matter how wide an explicit-width table inside it gets.
    * Stated explicitly rather than left to an ordinary block box's implicit
    * fill-available-width behavior, so this invariant is visible here, not
@@ -310,7 +318,7 @@
  * reason (a table with no explicit widths never needs to clip anything,
  * and clipping unconditionally would also clip the selection-overlay
  * halo). This is the one and only horizontal-clipping layer in the whole
- * chain — see this file's own top doc comment for the full four-layer
+ * chain — see this file's own top doc comment for the full five-layer
  * picture and the real, live-confirmed failure mode of getting this
  * wrong (the overflow silently escaping to the app shell's own page
  * scroll container instead, which reads as "the table widget itself is
@@ -318,80 +326,120 @@
 .cm-editor .cm-table-wrapper--explicit-widths table {
   width: max-content;
 }
+/*
+ * The table-widget breakout, and the handle-clipping fix, in one rule —
+ * see this file's own top doc comment for the five-layer picture and why
+ * `.cm-table-inner` (immediately below) exists at all.
+ *
+ * **Centering: `left: 50%; transform: translateX(-50%)`, not a measured
+ * `width` + `margin-left` pair.** This is the classic CSS centering
+ * technique, and it centers regardless of this element's own width for a
+ * simple algebraic reason: `left: 50%` (on a `position: relative` element)
+ * shifts the element's own normal-flow position right by 50% of its
+ * *containing block's* width (`.cm-table-wrapper`, still pinned to the
+ * ~720px reading column) — a fixed amount — and `transform: translateX(-50%)`
+ * then shifts it back left by 50% of *this element's own* rendered width —
+ * a variable amount. Those two terms always cancel to leave the element's
+ * own center exactly on the containing block's own center, whatever this
+ * element's own width happens to resolve to. This math only holds when
+ * this element carries zero *margin* of its own (any margin shifts its
+ * normal-flow position *before* the transform ever runs) — which is
+ * exactly why the vertical gutter fix below reaches for `margin-block`
+ * specifically (never affects horizontal centering, an orthogonal axis)
+ * and the horizontal gutter fix reaches for symmetric `padding-inline`
+ * instead of margin (padding does not move the normal-flow position the
+ * transform computes from — only its own rendered border-box size, which
+ * the transform's own `-50%` already tracks exactly, so equal padding on
+ * both sides is centering-neutral by construction).
+ *
+ * **Growing:** `width: max-content` hugs the table's own intrinsic width;
+ * `min-width: 100%` floors it at the normal reading column for a table
+ * that fits (left-aligned via ordinary block flow inside a box centered
+ * exactly where the column already was — indistinguishable from "not
+ * broken out at all"); `max-width` caps it at the real available width
+ * (the live-measured custom property) minus a fixed on-screen inset so a
+ * very wide table never renders flush against the true page edges.
+ * `box-sizing: content-box` so that cap applies to the table's own content
+ * width alone — the handle gutters (`padding-inline`/`padding-block-start`,
+ * below) are deliberately layered *outside* it, not carved out of it.
+ *
+ * **Clipping fix.** `overflow-x: auto` is what actually makes an over-wide
+ * table reachable (the one and only horizontal-clipping layer in the whole
+ * chain — this file's own top doc comment has the full reasoning and the
+ * live-confirmed failure mode of removing it entirely). Per the CSS
+ * Overflow spec's "visible paired with non-visible becomes auto" rule
+ * (invoked for `.cm-table-wrapper` above), that same declaration forces
+ * this element's own `overflow-y` to compute as `auto` too — a real
+ * vertical-clipping box the instant a table has explicit widths, which
+ * would otherwise crop the column handle's own three-dot icon
+ * (`tableHandleOverlay.css`'s `.cm-table-column-handle-icon`, which
+ * deliberately pokes ~6-8px above its header cell's own top edge to
+ * straddle the border) and, independently, the row handle's own `-1px`
+ * left-edge protrusion whenever scrolled fully to the left.
+ *
+ * An earlier version of this fix reserved that room via
+ * `padding-block-start`/`padding-inline-start` on this element, canceled by
+ * an equal-and-opposite negative `margin` on `.cm-table-inner` (below) so
+ * the visible shift this padding alone would cause was invisible. That
+ * design was proven wrong by direct measurement: for `overflow: auto`, the
+ * *scrollport* — the actual clipping boundary — coincides with this
+ * element's own **padding box**, not its border/content box (the CSS
+ * Overflow spec defines it that way explicitly). Canceling the padding's
+ * shift with a margin on a *child* only moves the table back down within
+ * an unchanged scrollport; it never moves the scrollport's own boundary,
+ * so the extra padding room is never actually reachable — confirmed live
+ * (`icon.top: 241.5` still under `scroll.top: 248`, zero improvement).
+ *
+ * The fix that actually works: put the padding **and** its canceling
+ * margin on `.cm-table-scroll` itself — the margin shifts this element's
+ * *own* border/padding box (and therefore its own scrollport) up by the
+ * gutter amount, while the padding pushes the table back down inside that
+ * now-higher box by the same amount, netting to zero visible movement for
+ * the table while the scrollport's own top edge ends up genuinely above
+ * it. (The vertical gutter is one-sided — `margin-block-start` only, no
+ * matching `margin-block-end` — since only the *top* edge is ever a clip
+ * risk here; column handles only protrude upward, and nothing needs
+ * reserving below the table.) The horizontal gutter for the row handle
+ * doesn't need this same margin trick at all: `padding-inline` alone,
+ * applied symmetrically, already extends the scrollport's own reachable
+ * area on both sides (padding is inside the padding-box/scrollport by
+ * definition) with nothing to cancel, since a table that fits is already
+ * left-aligned flush with the reading column regardless of how much
+ * padding surrounds it on both sides equally.
+ */
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll {
-  /* Scoped to this modifier only, not applied to every `.cm-table-scroll`
-   * unconditionally — a table with no explicit widths never needs to
-   * clip anything, and the base rule above already gives it
-   * `width`/`max-width: 100%` with `overflow: visible`. */
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: content-box;
+  width: max-content;
+  min-width: 100%;
+  max-width: calc(
+    var(--table-breakout-max-width, 100%) - var(--table-breakout-edge-gap, 24px) * 2 -
+      var(--cm-table-handle-gutter, 8px) * 2
+  );
+  padding-inline: var(--cm-table-handle-gutter, 8px);
+  padding-block-start: var(--cm-table-handle-gutter, 8px);
+  margin-block-start: calc(-1 * var(--cm-table-handle-gutter, 8px));
   overflow-x: auto;
-  /* `overflow-x: auto` immediately above forces this element's own
-   * `overflow-y` to compute as `auto` too — the CSS Overflow spec's
-   * "visible paired with non-visible becomes auto" rule, the same one this
-   * file's own top doc comment invokes for `.cm-table-wrapper`. That makes
-   * this element a real vertical-clipping box the moment a table has
-   * explicit widths, silently cropping the column handle's own three-dot
-   * icon (`tableHandleOverlay.css`'s `.cm-table-column-handle-icon`), which
-   * deliberately pokes ~6-8px above its header cell's own top edge to
-   * straddle the border — confirmed live, reproducible on any resized
-   * table. `padding-top` reserves that room *inside* this box, ahead of
-   * where its own clip now starts, the same technique this codebase's own
-   * `.cm-table-widget` rule already uses one layer further out (against
-   * `.page__content`'s own clip) — `padding`, never `margin`, per this
-   * codebase's permanent CM6 rule, though moot here regardless: this
-   * element is this widget's own private DOM, not a `.cm-line` or
-   * `blockWrappers` wrapper.
-   *
-   * `padding-left` is the identical fix for the *row* handle's own
-   * symmetric case: its bar sits at `inset-inline-start: -1px`
-   * (`tableHandleOverlay.css`), a small horizontal protrusion past the
-   * first column's own left edge — invisible at any other scroll position,
-   * but clipped by this same box whenever scrolled fully to the left
-   * (`scrollLeft: 0`), where that protrusion coincides with this element's
-   * own left clip edge. A few px of slack is enough; `3px` comfortably
-   * covers the `1px` protrusion with room to spare.
-   */
-  padding-top: 8px;
-  padding-left: 3px;
 }
 /*
- * The table-widget breakout — see `tableWidgetBreakoutWidth.ts`'s own top
- * doc comment for the full mechanism. `--table-breakout-width`/
- * `--table-breakout-shift` are published by that module only once the
- * table's own actual rendered width exceeds the normal reading column's
- * own width; the `100%`/`0px` fallbacks are what every explicit-widths
- * table already renders as without this rule (before that module's own
- * deferred first measurement, and permanently for a table that fits) — a
- * table narrower than the reading column produces no visible difference at
- * all, since it's `width: max-content` and left-aligns via ordinary block
- * flow regardless of how wide this wrapper is declared.
- *
- * **`margin-left`, not `left`/`transform` — deliberately, and safe here
- * unlike almost anywhere else in this codebase.** This codebase's own
- * permanent CM6 rule (`CLAUDE.md`) bans `margin` on a `.cm-line` or a
- * `blockWrappers`-created wrapper specifically because it corrupts CM6's
- * own cursor/navigation bookkeeping for those elements. `.cm-table-wrapper`
- * is neither — this file's own top doc comment already establishes it as
- * this widget's own private DOM, nested *inside* `.cm-table-widget` (the
- * one element CM6 actually manages the block-position of) — so a
- * `margin-left` here changes nothing CM6 itself ever measures; the widget's
- * own outer box (still an ordinary, unmodified block with no `margin`/
- * `transform` of its own) is the only thing CM6's line-position math ever
- * looks at, and it stays exactly where it always was. `.cm-table-widget`'s
- * own `overflow: visible` (this file's own top rule) is what lets this
- * shifted-and-widened wrapper paint on *both* sides of that unmoved outer
- * box with no clipping — the identical principle already relied on for the
- * *right*-side overflow, just extended to the left as well.
+ * Third and innermost layer, sitting between `.cm-table-scroll` and
+ * `<table>` — see this file's own top doc comment for why it exists at
+ * all (nowhere left for the breakout's own gutter padding/margin to live
+ * once that moved onto `.cm-table-scroll` itself, per that rule's own
+ * doc comment). `width: max-content; min-width: 100%` here matches the
+ * `<table>` rule immediately above it for the same reason: without an
+ * explicit width of its own, this element would otherwise report its
+ * parent's own (possibly narrower, `max-width`-capped) size rather than
+ * the table's true intrinsic width — harmless for scrolling (`scrollLeft`/
+ * `scrollWidth` are still computed from the actual child, `<table>`,
+ * regardless), but wrong for any future code that measures `.cm-table-inner`
+ * itself expecting it to track the table's own real size.
  */
-.cm-editor .cm-table-wrapper--explicit-widths {
-  /* `max-width: none` — without it, the base `.cm-table-wrapper` rule's own
-   * `max-width: 100%` (of `.cm-table-widget`, the unmoved ~720px-column
-   * box) would clamp this rule's own wider `width` straight back down to
-   * exactly what this whole mechanism exists to exceed, since a `width`
-   * larger than a competing `max-width` always loses to it regardless of
-   * which one is more specific or declared later. */
-  max-width: none;
-  width: var(--table-breakout-width, 100%);
-  margin-left: var(--table-breakout-shift, 0px);
+.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner {
+  width: max-content;
+  min-width: 100%;
 }
 
 .cm-editor .cm-table-wrapper th,

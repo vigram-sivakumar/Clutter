@@ -165,20 +165,52 @@ describe('tableWidget.css — width architecture source', () => {
     expect(scrollTargetIndex).toBe(-1);
   });
 
-  it('the explicit-widths .cm-table-scroll override only adds overflow-x: auto — no breakout/centering geometry (cqw, calc, clamp, margin-left, padding-left, fit-content, margin-inline)', () => {
+  it('the explicit-widths .cm-table-scroll override adds the table-widget breakout (centered via left/transform, capped via a live-measured max-width, overflow-x: auto) and the handle-clipping fix (a padding gutter on both axes, with a canceling margin on the vertical axis only, on this same element)', () => {
     const overrideScrollIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll');
+    expect(overrideScrollIndex).toBeGreaterThan(-1);
     const overrideScrollRule = css.slice(overrideScrollIndex, css.indexOf('}', overrideScrollIndex));
 
     expect(overrideScrollRule).toContain('overflow-x: auto');
+    // Centers on the reading column's own center regardless of this
+    // element's own width — see `tableWidget.css`'s own doc comment on this
+    // exact rule for the algebra.
+    expect(overrideScrollRule).toContain('left: 50%');
+    expect(overrideScrollRule).toContain('transform: translateX(-50%)');
+    expect(overrideScrollRule).toContain('box-sizing: content-box');
+    expect(overrideScrollRule).toContain('width: max-content');
+    expect(overrideScrollRule).toContain('min-width: 100%');
+    expect(overrideScrollRule).toContain('max-width: calc(');
+    expect(overrideScrollRule).toContain('var(--table-breakout-max-width');
+    // The handle-clipping fix: since `overflow: auto`'s own scrollport
+    // coincides with this element's *padding box* (the CSS Overflow spec),
+    // padding alone genuinely extends the reachable/visible area — no
+    // canceling margin needed for the row handle's symmetric horizontal
+    // gutter (equal padding on both sides never shifts the centered
+    // element's own visual position). The column handle's vertical gutter
+    // is one-sided and *does* pair with a canceling margin, but the margin
+    // lives on this same element (not a child) — only a margin on the
+    // element whose own box *is* the scrollport can move the scrollport's
+    // own clip boundary; a child's margin only repositions content inside
+    // an unchanged boundary, which an earlier, live-measured attempt proved
+    // does not fix the crop at all. See `tableWidget.css`'s own doc comment
+    // on this rule for the full reasoning and the measurement that
+    // disproved the child-margin version.
+    expect(overrideScrollRule).toContain('padding-inline: var(--cm-table-handle-gutter');
+    expect(overrideScrollRule).toContain('padding-block-start: var(--cm-table-handle-gutter');
+    expect(overrideScrollRule).toContain('margin-block-start: calc(-1 * var(--cm-table-handle-gutter');
+    expect(overrideScrollRule).not.toContain('margin-inline');
+  });
 
-    expect(overrideScrollRule).not.toContain('width:');
-    expect(overrideScrollRule).not.toContain('max-width');
-    expect(overrideScrollRule).not.toContain('margin');
-    expect(overrideScrollRule).not.toContain('cqw');
-    expect(overrideScrollRule).not.toContain('calc(');
-    expect(overrideScrollRule).not.toContain('clamp(');
-    expect(overrideScrollRule).not.toContain('fit-content');
-    expect(overrideScrollRule).not.toContain('overscroll-behavior');
+  it('.cm-table-inner is a transparent pass-through — only its own intrinsic width, never any margin or overflow of its own (the handle-clipping gutter\'s margin lives on .cm-table-scroll itself, not here)', () => {
+    const innerIndex = ruleIndex(css, '.cm-editor .cm-table-wrapper--explicit-widths .cm-table-inner');
+    expect(innerIndex).toBeGreaterThan(-1);
+    const innerRule = css.slice(innerIndex, css.indexOf('}', innerIndex));
+
+    expect(innerRule).toContain('width: max-content');
+    expect(innerRule).toContain('min-width: 100%');
+    expect(innerRule).not.toContain('margin');
+    expect(innerRule).not.toContain('overflow');
+    expect(innerRule).not.toContain('max-width');
   });
 });
 
