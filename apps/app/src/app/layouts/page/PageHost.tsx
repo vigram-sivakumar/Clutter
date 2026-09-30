@@ -923,26 +923,16 @@ export function PageHost({
     const isArchiveView = folderSystemLocationId === 'archive';
     // Page-header-controls configuration (final UX rules): a reserved
     // folder (Archive, Inbox, Templates, Daily Notes) is system-reserved —
-    // its fixed icon always shows, never an editable emoji, never More
-    // actions. An ordinary folder is user-owned — its own metadata.icon
-    // (if set) always shows, and More actions is hover-revealed. Daily
-    // Notes' `collectionIcon` (not `icon`) applies here specifically
-    // because this page represents the whole collection of daily notes,
-    // not one specific day — see SystemLocationPresentation's own doc
-    // comment on that field.
-    //
-    // FEATURE FLAG — reserved-folder header icon is implemented but not
-    // yet ready to expose; flip to `true` to enable it. While `false`, a
-    // reserved folder's header shows no icon, matching UI from before this
-    // feature existed. Remove this flag (and just keep the `? ... : undefined`
-    // logic below unconditional) once ready to ship.
-    const SHOW_RESERVED_FOLDER_ICON = false;
-    const folderSystemIcon =
-      folderSystemLocationId && SHOW_RESERVED_FOLDER_ICON
-        ? (getSystemLocationPresentation(folderSystemLocationId)
-            .collectionIcon ??
-          getSystemLocationPresentation(folderSystemLocationId).icon)
-        : undefined;
+    // its fixed icon always shows (once the header is allowed to show one
+    // at all — see getSystemLocationPresentation's 'page-header' surface,
+    // the single place that decision and the collectionIcon-vs-icon
+    // preference are made), never an editable emoji, never More actions.
+    // An ordinary folder is user-owned — its own metadata.icon (if set)
+    // always shows, and More actions is hover-revealed.
+    const folderSystemIcon = folderSystemLocationId
+      ? getSystemLocationPresentation(folderSystemLocationId, 'page-header')
+          .icon
+      : undefined;
     // Primary "New note" action handler — wired to the exact same
     // PageOperations.openDraft({ folderId }) call Sidebar.Notes.tsx's own
     // "+" row action already uses for "new note in this folder" (ADR-017
@@ -1144,7 +1134,7 @@ export function PageHost({
         title={getSystemLocationPresentation('assets').label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        icon={getSystemLocationPresentation('assets').icon}
+        icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
         body={
           <AssetsCollectionBody
@@ -1197,7 +1187,7 @@ export function PageHost({
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        icon={getSystemLocationPresentation(view).icon}
+        icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         body={
           <TasksCollectionBody
@@ -1329,7 +1319,10 @@ export function PageHost({
             {newNoteAction}
           </>
         }
-        icon={getSystemLocationPresentation(filteredViewSystemLocationId).icon}
+        icon={
+          getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')
+            .icon
+        }
         showMoreActions={false}
         body={
           <CollectionBody

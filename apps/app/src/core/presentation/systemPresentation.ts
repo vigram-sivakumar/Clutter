@@ -117,10 +117,75 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   assets: { id: 'assets', label: 'Assets', icon: 'layers' },
 };
 
+/**
+ * FEATURE FLAG — the reserved/system-location icon in the Page/collection
+ * header is implemented but not yet ready to expose; flip to `true` to
+ * enable it. This is the single place the flag is read: every caller asks
+ * `getSystemLocationPresentation(id, 'page-header')` and gets the correct
+ * answer for whichever location it has, folder-backed or not, rather than
+ * each call site re-deciding whether to honor the flag. Remove this flag
+ * (and the `SHOW_RESERVED_FOLDER_ICON ? ... : undefined` branch below)
+ * once ready to ship.
+ */
+const SHOW_RESERVED_FOLDER_ICON = false;
+
+/**
+ * The subset of a system location's presentation appropriate for the
+ * Page/collection header surface — label always, icon only when the
+ * header is allowed to show one. Kept separate from
+ * `SystemLocationPresentation` (rather than reusing it with an optional
+ * `icon`) so every other caller of `getSystemLocationPresentation` keeps
+ * its existing, always-present `icon` untouched.
+ */
+export interface PageHeaderLocationPresentation {
+  readonly label: string;
+  readonly icon?: SystemIcon;
+}
+
+export type SystemLocationSurface = 'page-header';
+
+/**
+ * What a location fundamentally is (id/label/icon/collectionIcon) is a
+ * separate question from whether a given UI surface is allowed to expose
+ * that icon right now — this function answers the first question by
+ * default, called with no `surface` argument, exactly as every existing
+ * caller (sidebar tabs, shortcuts, breadcrumb ancestors, the Archive
+ * footer button) already does and keeps doing.
+ *
+ * Passing `surface: 'page-header'` answers the second question instead:
+ * it returns the label plus whichever icon (a folder-backed location's
+ * `collectionIcon`, falling back to `icon`, exactly like a breadcrumb
+ * ancestor already prefers) the Page/collection header may show for this
+ * location — or no icon at all while `SHOW_RESERVED_FOLDER_ICON` is
+ * `false`. This is the one place that decision is made; a `PageHost`
+ * branch never re-derives it or checks the flag itself, so no branch can
+ * accidentally bypass it, and it applies identically to a folder-backed
+ * reserved location (Archive, Inbox, Templates, Daily Notes) and a
+ * non-folder one (Today, Tags, Workspace, ...) alike.
+ */
 export function getSystemLocationPresentation(
   id: SystemLocationId
-): SystemLocationPresentation {
-  return SYSTEM_LOCATION_PRESENTATION[id];
+): SystemLocationPresentation;
+export function getSystemLocationPresentation(
+  id: SystemLocationId,
+  surface: SystemLocationSurface
+): PageHeaderLocationPresentation;
+export function getSystemLocationPresentation(
+  id: SystemLocationId,
+  surface?: SystemLocationSurface
+): SystemLocationPresentation | PageHeaderLocationPresentation {
+  const presentation = SYSTEM_LOCATION_PRESENTATION[id];
+
+  if (surface !== 'page-header') {
+    return presentation;
+  }
+
+  return {
+    label: presentation.label,
+    icon: SHOW_RESERVED_FOLDER_ICON
+      ? (presentation.collectionIcon ?? presentation.icon)
+      : undefined,
+  };
 }
 
 /**
