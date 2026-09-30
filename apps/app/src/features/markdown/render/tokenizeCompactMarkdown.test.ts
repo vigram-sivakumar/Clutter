@@ -217,6 +217,36 @@ describe('tokenizeCompactMarkdown', () => {
         { kind: 'text', value: 'Useful text.' },
       ]);
     });
+
+    describe('the table\'s own {table-col-widths="..."} attribute line (tableColumnWidthMetadata.ts) — never exposed as sidebar text', () => {
+      it('skips the attribute line along with its table when nothing follows it', () => {
+        expect(tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}')).toEqual([]);
+      });
+
+      it('skips the attribute line and selects the real content that follows it after a blank line', () => {
+        expect(
+          tokenizeCompactMarkdown(
+            '| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}\n\nActual content after the metadata'
+          )
+        ).toEqual([{ kind: 'text', value: 'Actual content after the metadata' }]);
+      });
+
+      it('skips just the attribute line when it is glued (no blank line) to real content on the same paragraph', () => {
+        expect(
+          tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="360,159"}\nActual content immediately after')
+        ).toEqual([{ kind: 'text', value: 'Actual content immediately after' }]);
+      });
+
+      it('does not swallow a malformed/unrelated attribute-shaped paragraph that merely resembles the syntax', () => {
+        expect(
+          tokenizeCompactMarkdown('| Name | Age |\n| ---- | --- |\n| Vik  | 31  |\n{table-col-widths="bad..."}')
+        ).toEqual([{ kind: 'text', value: '{table-col-widths="bad..."}' }]);
+      });
+
+      it('leaves an ordinary paragraph containing braces completely unaffected, with no table present', () => {
+        expect(tokenizeCompactMarkdown('Some {curly} text')).toEqual([{ kind: 'text', value: 'Some {curly} text' }]);
+      });
+    });
   });
 
   describe('block-aware selection — first meaningful block wins, structural blocks are skipped', () => {
@@ -348,6 +378,37 @@ describe('tokenizeCompactMarkdown', () => {
       expect(tokenizeCompactMarkdown('![Architecture diagram](architecture.png)')).toEqual([
         { kind: 'image', alt: 'Architecture diagram' },
       ]);
+    });
+  });
+
+  describe('Image presentation metadata (mediaPresentationModel.ts\'s |width,height,alignment,mode suffix) — never exposed as sidebar alt text', () => {
+    it('strips a width-only presentation suffix, keeping only the real alt text', () => {
+      expect(tokenizeCompactMarkdown('![Pinterest image|720,238](image.png)')).toEqual([
+        { kind: 'image', alt: 'Pinterest image' },
+      ]);
+    });
+
+    it('strips a width+alignment presentation suffix, keeping only the real alt text', () => {
+      expect(tokenizeCompactMarkdown('![Pinterest image|720,238,center](image.png)')).toEqual([
+        { kind: 'image', alt: 'Pinterest image' },
+      ]);
+    });
+
+    it('leaves an image with no presentation suffix at all unaffected', () => {
+      expect(tokenizeCompactMarkdown('![Pinterest image](image.png)')).toEqual([
+        { kind: 'image', alt: 'Pinterest image' },
+      ]);
+    });
+
+    it('splits alt text at the first "|" even for ordinary punctuation — scanImage\'s own documented syntax contract, matching the real editor\'s identical behavior for this input, not a new tradeoff introduced here', () => {
+      // scanImage takes everything before the first "|" verbatim, including
+      // the trailing space before it — it does not trim, matching the real
+      // editor's own live-preview `alt` handling for this identical input.
+      expect(tokenizeCompactMarkdown('![A | B](image.png)')).toEqual([{ kind: 'image', alt: 'A ' }]);
+    });
+
+    it('falls back to the URL basename when alt is empty and only a presentation suffix follows the pipe', () => {
+      expect(tokenizeCompactMarkdown('![|720,238](image.png)')).toEqual([{ kind: 'image', alt: 'image' }]);
     });
   });
 

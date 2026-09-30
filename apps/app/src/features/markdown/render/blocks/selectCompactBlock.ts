@@ -1,6 +1,7 @@
 import type { SyntaxNode } from '@lezer/common';
 
 import { matchStraightLabeledDivider, matchWrappedDivider } from '../../editor/codemirror/hr/dividerLabelMatch';
+import { parseTableColumnWidthsAttribute } from '../../editor/codemirror/table/tableColumnWidthMetadata';
 import { sharedMarkdownParser } from '../sharedMarkdownParser';
 import { tokenizeInline, type InlineSpan } from '../inlineSpan';
 
@@ -41,7 +42,10 @@ import { tokenizeInline, type InlineSpan } from '../inlineSpan';
  * - `FencedCode`, `Table`, and anything else unrecognized at the top
  *   level are structural/unsupported for this policy's v1 scope —
  *   skipped, never partially exposed (no first-cell, no first-code-line,
- *   no fence/language leak).
+ *   no fence/language leak). A `Table`'s own `{table-col-widths="..."}`
+ *   attribute line (see `tableColumnWidthMetadata.ts`) is skipped right
+ *   along with it, whether the attribute line stands alone or is merged
+ *   (no blank line) with real content that follows it.
  *
  * `EmojiListMark` is deliberately never treated as a marker to strip —
  * see `inlineSpan.ts`'s own doc comment: the chosen emoji is real,
@@ -94,9 +98,9 @@ const STRUCTURAL_MARKER_NODE_NAMES: ReadonlySet<string> = new Set([
   'TaskCompletionMetadata',
 ]);
 
-function stripStructuralMarkers(node: SyntaxNode, text: string): string {
+function stripStructuralMarkers(node: SyntaxNode, text: string, from?: number): string {
   let result = '';
-  let cursor = node.from;
+  let cursor = from ?? node.from;
 
   function visit(n: SyntaxNode): void {
     if (STRUCTURAL_MARKER_NODE_NAMES.has(n.name)) {
@@ -145,6 +149,16 @@ export interface CompactBlockSelection {
   readonly node: SyntaxNode;
   /** Non-null only for a divider-with-label match — its node has no inline content to tokenize, only this precomputed label. */
   readonly dividerLabel: string | null;
+  /**
+   * Where `node`'s own meaningful content starts, in `text`'s coordinates —
+   * `node.from` for every ordinary selection. Only ever different for a
+   * table's `{table-col-widths="..."}` attribute line glued (no blank line
+   * between them) to real content that follows it on the same `Paragraph`
+   * node: `node` is that merged paragraph, and `contentFrom` points past the
+   * attribute line's own text so only the real content after it is
+   * extracted. See `findMeaningfulTopLevelBlock`'s `Table` case.
+   */
+  readonly contentFrom: number;
 }
 
 function firstMeaningfulListItem(list: SyntaxNode, text: string): SyntaxNode | null {
@@ -168,7 +182,7 @@ function findMeaningfulTopLevelBlock(topNode: SyntaxNode, text: string): Compact
   for (let node = topNode.firstChild; node; node = node.nextSibling) {
     if (LEAF_BLOCK_NODE_NAMES.has(node.name)) {
       if (isMeaningfulLeafBlock(node, text)) {
-        return { node, dividerLabel: null };
+        return { node, dividerLabel: null, contentFrom: node.from };
       }
       continue;
     }
@@ -176,7 +190,7 @@ function findMeaningfulTopLevelBlock(topNode: SyntaxNode, text: string): Compact
     if (LIST_LIKE_NODE_NAMES.has(node.name)) {
       const item = firstMeaningfulListItem(node, text);
       if (item) {
-        return { node: item, dividerLabel: null };
+        return { node: item, dividerLabel: null, contentFrom: item.from };
       }
       continue;
     }
@@ -184,14 +198,48 @@ function findMeaningfulTopLevelBlock(topNode: SyntaxNode, text: string): Compact
     if (node.name in WRAPPED_DIVIDER_CHAR || node.name === 'LabeledHorizontalRule') {
       const label = dividerLabelText(node, text);
       if (label !== null) {
-        return { node, dividerLabel: label };
+        return { node, dividerLabel: label, contentFrom: node.from };
       }
       continue;
     }
 
-    // FencedCode, Table, the native (always-bare) HorizontalRule, and any
-    // other unrecognized top-level construct: structural/unsupported for
-    // this policy — skip and keep looking, never partially exposed.
+    if (node.name === 'Table') {
+      const next = node.nextSibling;
+      if (next) {
+        const nextText = text.slice(next.from, next.to);
+        const newlineIndex = nextText.indexOf('\n');
+        const firstLine = newlineIndex === -1 ? nextText : nextText.slice(0, newlineIndex);
+        if (parseTableColumnWidthsAttribute(firstLine) !== null) {
+          // The table's own column-width metadata line — persisted as a
+          // plain sibling paragraph immediately after the table by design
+          // (see `tableColumnWidthMetadata.ts`'s own doc comment), never a
+          // distinct grammar node.
+          if (newlineIndex === -1) {
+            // The attribute line is the sibling's entire text (isolated by
+            // a blank line, or the document's last line) — skip it along
+            // with the table it belongs to, rather than exposing it as if
+            // it were the next real block.
+            node = next;
+            continue;
+          }
+          // No blank line separates the attribute line from real content
+          // that follows it — GFM's own paragraph-continuation rule merges
+          // both into this single `Paragraph` node. Skip only the attribute
+          // line's own text; the remainder, if any, is this block's content.
+          const contentFrom = next.from + newlineIndex + 1;
+          if (text.slice(contentFrom, next.to).trim().length > 0) {
+            return { node: next, dividerLabel: null, contentFrom };
+          }
+          node = next;
+          continue;
+        }
+      }
+      continue;
+    }
+
+    // FencedCode, the native (always-bare) HorizontalRule, and any other
+    // unrecognized top-level construct: structural/unsupported for this
+    // policy — skip and keep looking, never partially exposed.
   }
   return null;
 }
@@ -246,7 +294,7 @@ export function compactBlockSpans(selection: CompactBlockSelection, text: string
   if (selection.dividerLabel !== null) {
     return [{ kind: 'text', value: selection.dividerLabel }];
   }
-  return trimEdgeWhitespace(tokenizeInline(selection.node, text));
+  return trimEdgeWhitespace(tokenizeInline(selection.node, text, selection.contentFrom));
 }
 
 /**
@@ -261,6 +309,6 @@ export function compactBlockSpans(selection: CompactBlockSelection, text: string
  * exercised by a single-line block, which is simply returned whole).
  */
 export function compactBlockText(selection: CompactBlockSelection, text: string): string {
-  const full = selection.dividerLabel ?? stripStructuralMarkers(selection.node, text).trim();
+  const full = selection.dividerLabel ?? stripStructuralMarkers(selection.node, text, selection.contentFrom).trim();
   return full.split('\n')[0]!.trim();
 }

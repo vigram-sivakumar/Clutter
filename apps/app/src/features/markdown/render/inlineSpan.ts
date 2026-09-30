@@ -4,6 +4,7 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 
 import { scanDate } from '../editor/codemirror/date/dateScanner';
 import { scanEmbed } from '../editor/codemirror/embed/embedScanner';
+import { scanImage } from '../editor/codemirror/image/imageScanner';
 import { scanTag } from '../editor/codemirror/tag/tagScanner';
 import { scanWikiLink } from '../editor/codemirror/wikilink/wikiLinkScanner';
 
@@ -171,17 +172,28 @@ export function readLink(node: SyntaxNode, text: string): InlineSpan | null {
  * than the raw URL or a generic "Image" placeholder, since a filename is
  * still real, recognizable information the user can act on. `null` (no
  * usable alt or basename) tells the caller to contribute nothing.
+ *
+ * Alt text is read through `scanImage` (`imageScanner.ts`) rather than
+ * `bracketedLabelText`'s raw bracket slice — the same pure scanner the real
+ * editor's own live preview already parses an Image node's raw text with —
+ * so an Obsidian-style `|width,height,alignment,mode` presentation suffix
+ * (`mediaPresentationModel.ts`) is already split off before `alt` is ever
+ * read here, never exposed as sidebar text. `scanImage` splits on the
+ * *first* `|` unconditionally, with no recognized-token check, so
+ * `![A | B](url)` yields alt `"A"` here too — a pre-existing, documented
+ * tradeoff of this syntax (see `imageScanner.ts`'s own doc comment),
+ * already true of the real editor's rendering; this function does not
+ * introduce it, only stops diverging from it.
  */
 export function readImage(node: SyntaxNode, text: string): InlineSpan | null {
-  const alt = bracketedLabelText(node, text);
-  if (alt === null) {
+  const match = scanImage(text.slice(node.from, node.to));
+  if (!match) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
   }
-  if (alt.trim().length > 0) {
-    return { kind: 'image', alt };
+  if (match.alt.trim().length > 0) {
+    return { kind: 'image', alt: match.alt };
   }
-  const url = linkUrlText(node, text);
-  const basename = url ? VaultPath.stemName(url) : '';
+  const basename = VaultPath.stemName(match.url);
   return basename ? { kind: 'image', alt: basename } : null;
 }
 
