@@ -324,27 +324,6 @@
    * clip anything, and the base rule above already gives it
    * `width`/`max-width: 100%` with `overflow: visible`. */
   overflow-x: auto;
-  /* `overflow-x: auto` immediately above forces this element's own
-   * `overflow-y` to compute as `auto` too, per the same CSS Overflow spec
-   * rule `.cm-table-wrapper`'s own top-of-file comment already invokes
-   * ("visible paired with non-visible becomes auto") — this element
-   * becomes a *second*, independent vertical-clipping boundary the moment
-   * a table gets explicit widths, one `.cm-table-widget`'s own
-   * `padding-top: 8px` (this file's own top rule) cannot reach: that
-   * padding reserves room against the *page's* own scroll clip
-   * (`.page__content`), sitting outside this element entirely, and does
-   * nothing against a clip that starts here, one layer further in.
-   * Confirmed live: resizing any column (the only way this modifier is
-   * ever applied) silently crops the column handle's own three-dot icon
-   * (`.cm-table-column-handle-icon`, `tableHandleOverlay.css`) — the exact
-   * same ~8px top-edge protrusion `.cm-table-widget`'s own comment already
-   * documents, just clipped one layer sooner. Mirrors that rule's own fix
-   * verbatim, at this newly-introduced clipping boundary instead: `padding`
-   * (never `margin`, this codebase's own permanent CM6 rule, though moot
-   * here — this element is this widget's own private DOM, not a `.cm-line`
-   * or `blockWrappers` wrapper) reserves the room *inside* this box, ahead
-   * of where its own clip now starts. */
-  padding-top: 8px;
 }
 
 .cm-editor .cm-table-wrapper th,
