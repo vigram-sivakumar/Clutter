@@ -114,8 +114,11 @@
   visibility: visible;
 }
 .cm-table-row-drop-indicator {
-  left: 0;
-  right: 0;
+  /* `left`/`width` set in JS (`updateRowDropIndicator`, `tableHandleOverlay.ts`)
+   * from the table's own actual rendered rect, never `left: 0; right: 0` —
+   * `wrapper` is always the editor's full width, but the table itself can
+   * render narrower (an explicit, narrower persisted table width), and a
+   * full-`wrapper`-width line would visibly overshoot it. */
   height: 2px;
   transform: translateY(-50%);
 }

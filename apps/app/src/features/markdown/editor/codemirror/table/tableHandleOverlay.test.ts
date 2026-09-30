@@ -704,6 +704,28 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 3 });
   });
 
+  it('the row drop indicator spans the table\'s own actual rendered width, never the wrapper\'s full width — a table narrower than its wrapper (an explicit, persisted table width) must not draw the indicator past its own right edge', () => {
+    const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
+    const { wrapper, table } = buildTable(3, 2);
+    mockRowRects(table);
+    mockWrapperRect(wrapper, { top: 0, left: 0, width: 600, height: 160 });
+    table.getBoundingClientRect = () =>
+      ({ top: 0, left: 40, width: 300, height: 160, right: 340, bottom: 160, x: 40, y: 0, toJSON: () => ({}) }) as DOMRect;
+    attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
+
+    hoverBodyCell(wrapper, table, 0, 0); // "A" row -> rowIndex 1
+    const row = table.querySelectorAll('tbody tr')[0]!;
+    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    pointer('pointerdown', rowHit, 10, 60);
+    pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140);
+
+    const indicator = wrapper.querySelector('.cm-table-row-drop-indicator') as HTMLElement;
+    expect(indicator.style.left).toBe('40px');
+    expect(indicator.style.width).toBe('300px');
+
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
+  });
+
   it('dragging the header row down promotes the row it lands on top of, and the header remains selected at its new (demoted) index', () => {
     const { view, controller } = mountRootViewWithTable(FOUR_ROWS);
     const { wrapper, table } = buildTable(3, 2);

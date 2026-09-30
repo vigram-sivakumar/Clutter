@@ -460,18 +460,34 @@ export function attachTableHandleOverlay(
     columnDropIndicator.classList.add(VISIBLE_CLASS);
   }
 
-  /** Symmetric to `updateColumnDropIndicator`, for the row axis — the hovered row's own actual rendered bottom edge, always "after," real geometry throughout. */
+  /**
+   * Symmetric to `updateColumnDropIndicator`, for the row axis — the hovered
+   * row's own actual rendered bottom edge, always "after," real geometry
+   * throughout. Unlike the column indicator (whose CSS `top: 0; bottom: 0`
+   * is always correct — a table's rendered *height* never diverges from
+   * `wrapper`'s own, there being no per-row equivalent of
+   * `tableColumnWidthMetadata.ts`'s persisted explicit widths), this
+   * indicator's *span* also has to be set here, not left to CSS: `wrapper`
+   * is always the editor's full width, but the `<table>` itself can render
+   * narrower (an explicit, narrower persisted table width) — a plain
+   * `left: 0; right: 0` would draw this line all the way across `wrapper`,
+   * visibly wider than the table it's marking a boundary inside of.
+   */
   function updateRowDropIndicator(hoveredIndex: number): void {
     const tableElNow = resolveTableElement();
     const hoveredRow = tableElNow?.rows[hoveredIndex];
-    if (!hoveredRow) {
+    if (!tableElNow || !hoveredRow) {
       rowDropIndicator.classList.remove(VISIBLE_CLASS);
       return;
     }
     const wrapperRect = wrapper.getBoundingClientRect();
+    const tableRect = tableElNow.getBoundingClientRect();
     const rowRect = hoveredRow.getBoundingClientRect();
-    const borderWidth = parseFloat(getComputedStyle(wrapper).borderTopWidth) || 0;
-    rowDropIndicator.style.top = `${rowRect.bottom - wrapperRect.top - borderWidth}px`;
+    const borderTopWidth = parseFloat(getComputedStyle(wrapper).borderTopWidth) || 0;
+    const borderLeftWidth = parseFloat(getComputedStyle(wrapper).borderLeftWidth) || 0;
+    rowDropIndicator.style.top = `${rowRect.bottom - wrapperRect.top - borderTopWidth}px`;
+    rowDropIndicator.style.left = `${tableRect.left - wrapperRect.left - borderLeftWidth}px`;
+    rowDropIndicator.style.width = `${tableRect.width}px`;
     rowDropIndicator.classList.add(VISIBLE_CLASS);
   }
 
