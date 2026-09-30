@@ -77,6 +77,24 @@ function sameCell(a: CellCoordinate, b: CellCoordinate): boolean {
 }
 
 /**
+ * `body`-scoped while a cross-cell range drag is in progress —
+ * `tableColumnResizeHandle.css`'s own hit-strips (`.cm-table-column-resize-hit`)
+ * are always-live, unconditional pointer targets (they own the column resize
+ * gesture, which has no other way to start), and this drag's own
+ * `document`-level `mousemove` tracking genuinely passes over their z-index-3
+ * hit area whenever the pointer crosses a column boundary. Left unguarded,
+ * that produces two visible symptoms at once: the `col-resize` cursor
+ * flashing on during an unrelated cell-selection drag, and (since the strip
+ * lives outside any `<td>`/`<th>` — a sibling of the table, not a descendant —
+ * `resolveHoveredCell`'s own `closest('td, th')` finds nothing there) the
+ * range's own `head` freezing for as long as the pointer stays over the
+ * strip. `pointer-events: none` on the strip for this class's duration
+ * (`tableColumnResizeHandle.css`) removes both at once: hit-testing (and so
+ * the cursor) falls through to whatever the strip sits on top of.
+ */
+const CELL_RANGE_DRAG_ACTIVE_CLASS = 'cm-table-cell-range-drag-active';
+
+/**
  * The *current* `.cm-table-wrapper` for the table at `tableFrom` — looked
  * up fresh, by `data-table-from` (`TableWidget.toDOM()`'s own
  * `widget.dataset.tableFrom`), on every call rather than trusted from a
@@ -146,6 +164,7 @@ export function beginCellDragTracking(view: EditorView, controller: TableActiveC
         return;
       }
       dragStarted = true;
+      document.body.classList.add(CELL_RANGE_DRAG_ACTIVE_CLASS);
       // The anchor cell is active (this function is only ever called
       // right after a mousedown that either just activated it or found
       // it already active) — promoting to a range selection must
@@ -189,6 +208,7 @@ export function beginCellDragTracking(view: EditorView, controller: TableActiveC
   }
 
   function handleMouseUp(): void {
+    document.body.classList.remove(CELL_RANGE_DRAG_ACTIVE_CLASS);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   }

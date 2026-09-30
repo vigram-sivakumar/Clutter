@@ -38,6 +38,20 @@
   opacity: 1;
 }
 
+/* Suppressed while a cross-cell range-selection drag is in progress
+ * (`tableCellRangeSelection.ts`'s own `body.cm-table-cell-range-drag-active`,
+ * added/removed alongside that drag's own `document`-level mousemove
+ * tracking). That gesture's tracking genuinely passes over these strips
+ * whenever the pointer crosses a column boundary, but it is never a resize
+ * gesture — `pointer-events: none` here removes both the `col-resize`
+ * cursor and the strip's own dead zone for hit-testing, so the drag
+ * underneath resolves to whichever cell the divider sits on top of instead
+ * of freezing there. Only this hit-strip is affected; ordinary resize
+ * gestures elsewhere on the table are untouched. */
+body.cm-table-cell-range-drag-active .cm-table-column-resize-hit {
+  pointer-events: none;
+}
+
 /* Global resize cursor while a column resize is in progress — the same
  * `<body>`-scoped, `!important` pattern `tableHandleOverlay.css`'s own
  * `body.cm-table-dragging-active` rule already establishes for reorder

@@ -17,6 +17,7 @@ const mountedViews: EditorView[] = [];
 
 afterEach(() => {
   vi.restoreAllMocks();
+  document.body.classList.remove('cm-table-cell-range-drag-active');
   for (const view of mountedViews.splice(0)) {
     view.destroy();
   }
@@ -204,6 +205,29 @@ describe('beginCellDragTracking — click vs. drag', () => {
     moveOver(setTarget, findCell(view, 'Oslo')); // row 3, col 2 — live update
     expect(selection(view)).toEqual({ kind: 'range', tableFrom: tableFrom(view), anchor: { row: 1, col: 0 }, head: { row: 3, col: 2 }, anchorCaretOffset: 0 });
     mouseup();
+  });
+
+  it('marks body.cm-table-cell-range-drag-active only once the drag actually crosses into a different cell, and removes it on mouseup — suppressing the column-resize hit-strip\'s cursor for exactly the gesture\'s own duration', () => {
+    const { view } = mountViewWithController(TABLE);
+    const setTarget = mockElementFromPoint();
+
+    mousedown(findCell(view, 'Vik'));
+    expect(document.body.classList.contains('cm-table-cell-range-drag-active')).toBe(false);
+
+    moveOver(setTarget, findCell(view, 'Delhi'));
+    expect(document.body.classList.contains('cm-table-cell-range-drag-active')).toBe(true);
+
+    mouseup();
+    expect(document.body.classList.contains('cm-table-cell-range-drag-active')).toBe(false);
+  });
+
+  it('a plain click (no cross-cell movement) never marks body.cm-table-cell-range-drag-active', () => {
+    const { view } = mountViewWithController(TABLE);
+
+    mousedown(findCell(view, 'Vik'));
+    mouseup();
+
+    expect(document.body.classList.contains('cm-table-cell-range-drag-active')).toBe(false);
   });
 
   it('reverse-direction drag (starting at a later cell, dragging to an earlier one) records anchor/head exactly as dragged, unswapped', () => {
