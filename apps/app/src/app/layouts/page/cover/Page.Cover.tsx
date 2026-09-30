@@ -224,6 +224,12 @@ export function PageCover({
                 >
                   Top
                 </MenuItem>
+                {/* Not yet implemented (no drag-to-reposition or persisted
+                    focal point exists) — disabled rather than wired to a
+                    stub, per implementation-rules.md rule 12. */}
+                <MenuItem leading={<AppIcon icon="moveRight" />} disabled>
+                  Reposition
+                </MenuItem>
                 <div className="menu__divider" role="separator" />
               </>
             )}
