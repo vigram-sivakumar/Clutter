@@ -19,6 +19,8 @@ const defaultFolderMetadata: Folder['metadata'] = {
   cover: null,
   coverHidden: false,
   coverLayout: 'side' as const,
+  coverPositionAbove: 50,
+  coverPositionSide: 50,
   status: 'active',
   archivedAt: null,
   originalPath: null,

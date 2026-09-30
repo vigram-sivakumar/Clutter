@@ -22,6 +22,20 @@ export interface PageMetadata {
   readonly coverHidden: boolean;
   /** See CoverLayout's own doc comment. Defaults to 'side' when absent. */
   readonly coverLayout: CoverLayout;
+  /**
+   * Normalized 0–100 focal position used when `coverLayout` is 'above'
+   * (vertical axis only — horizontal stays centered at 50%). Defaults to 50
+   * (centered) when absent. Independent of `coverPositionSide`: switching
+   * `coverLayout` never reads or writes the other layout's saved position.
+   * Set only via the cover's explicit "Save Position" action — never by
+   * dragging alone, which is local preview state, not persisted metadata.
+   */
+  readonly coverPositionAbove: number;
+  /**
+   * Same contract as `coverPositionAbove`, for when `coverLayout` is 'side'
+   * (horizontal axis only — vertical stays centered at 50%).
+   */
+  readonly coverPositionSide: number;
   readonly description: string | null;
   readonly favorite: boolean;
 

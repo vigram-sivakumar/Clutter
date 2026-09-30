@@ -9,6 +9,8 @@ export interface FolderFrontmatter {
   cover?: string;
   coverHidden?: boolean;
   coverLayout?: CoverLayout;
+  coverPositionAbove?: number;
+  coverPositionSide?: number;
   status?: 'active' | 'archived';
   archivedAt?: string | null;
   originalPath?: string | null;

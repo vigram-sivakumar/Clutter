@@ -11,6 +11,8 @@ const defaultMetadata: Page['metadata'] = {
   cover: null,
   coverHidden: false,
   coverLayout: 'side' as const,
+  coverPositionAbove: 50,
+  coverPositionSide: 50,
   description: null,
   favorite: false,
   status: 'active',

@@ -17,6 +17,10 @@ export interface FolderMetadata {
   readonly coverHidden: boolean;
   /** See PageMetadata.coverLayout — same semantics, folder-scoped. */
   readonly coverLayout: CoverLayout;
+  /** See PageMetadata.coverPositionAbove — same semantics, folder-scoped. */
+  readonly coverPositionAbove: number;
+  /** See PageMetadata.coverPositionSide — same semantics, folder-scoped. */
+  readonly coverPositionSide: number;
 
   readonly status: 'active' | 'archived';
   readonly archivedAt: string | null;

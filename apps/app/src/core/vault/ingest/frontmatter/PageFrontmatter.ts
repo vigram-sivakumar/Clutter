@@ -13,6 +13,8 @@ export interface PageFrontmatter {
   cover?: string;
   coverHidden?: boolean;
   coverLayout?: CoverLayout;
+  coverPositionAbove?: number;
+  coverPositionSide?: number;
   description?: string;
   favorite?: boolean;
   status?: PageStatus;

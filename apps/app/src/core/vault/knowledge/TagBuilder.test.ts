@@ -18,6 +18,8 @@ function makePage(
       cover: null,
       coverHidden: false,
       coverLayout: 'side' as const,
+      coverPositionAbove: 50,
+      coverPositionSide: 50,
       description: '',
       favorite: false,
       status: 'active',

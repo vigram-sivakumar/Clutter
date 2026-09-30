@@ -120,6 +120,20 @@ export class FrontmatterParser {
             frontmatter.coverLayout = scalar;
           }
           break;
+        case 'coverPositionAbove': {
+          const position = this.parseNormalizedPosition(value);
+          if (position !== undefined) {
+            frontmatter.coverPositionAbove = position;
+          }
+          break;
+        }
+        case 'coverPositionSide': {
+          const position = this.parseNormalizedPosition(value);
+          if (position !== undefined) {
+            frontmatter.coverPositionSide = position;
+          }
+          break;
+        }
         case 'description':
           if (typeof scalar === 'string') {
             frontmatter.description = scalar;
@@ -173,6 +187,24 @@ export class FrontmatterParser {
 
     return frontmatter;
   }
+  // Out-of-range or non-numeric values are ignored (field stays unset, so
+  // resolvePageMetadata/FolderBuilder default it to 50) rather than clamped
+  // or rejecting the whole file — mirrors coverLayout's own
+  // ignore-if-not-a-recognized-value handling above, and matches the
+  // "Values outside 0-100 must not be persisted" requirement without this
+  // hand-written parser needing a throw/error-reporting path it has
+  // nowhere else.
+  private parseNormalizedPosition(value: string): number | undefined {
+    if (value === '') {
+      return undefined;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      return undefined;
+    }
+    return parsed;
+  }
+
   private parseScalar(value: string): string | boolean | null {
     switch (value) {
       case 'true':

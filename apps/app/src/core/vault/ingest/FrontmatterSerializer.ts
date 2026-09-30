@@ -75,6 +75,16 @@ export class FrontmatterSerializer {
         'coverLayout',
         page.metadata.coverLayout === 'side' ? undefined : page.metadata.coverLayout,
       ],
+      // Same omit-on-default convention as coverHidden/coverLayout above,
+      // keyed to the centered default (50) instead of `false`/`'side'`.
+      [
+        'coverPositionAbove',
+        page.metadata.coverPositionAbove === 50 ? undefined : page.metadata.coverPositionAbove,
+      ],
+      [
+        'coverPositionSide',
+        page.metadata.coverPositionSide === 50 ? undefined : page.metadata.coverPositionSide,
+      ],
       ['description', page.metadata.description],
       ['status', page.metadata.status],
       ['archivedAt', page.metadata.archivedAt],
@@ -129,6 +139,15 @@ export class FrontmatterSerializer {
       [
         'coverLayout',
         folder.metadata.coverLayout === 'side' ? undefined : folder.metadata.coverLayout,
+      ],
+      // See serializePage's identical omit-on-default for the position pair.
+      [
+        'coverPositionAbove',
+        folder.metadata.coverPositionAbove === 50 ? undefined : folder.metadata.coverPositionAbove,
+      ],
+      [
+        'coverPositionSide',
+        folder.metadata.coverPositionSide === 50 ? undefined : folder.metadata.coverPositionSide,
       ],
       ['status', folder.metadata.status],
       ['archivedAt', folder.metadata.archivedAt],
