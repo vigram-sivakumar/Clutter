@@ -81,7 +81,7 @@ export function TasksCollectionBody({
   if (view === 'tasks-today') {
     const { today } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody>
+      <PageBody className="collection__content">
         {renderTodayContent({
           today,
           onToggleComplete,
@@ -98,7 +98,7 @@ export function TasksCollectionBody({
   if (view === 'tasks-overdue') {
     const { overdue } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody>
+      <PageBody className="collection__content">
         {renderOverdueContent({ overdue, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
       </PageBody>
     );
@@ -107,7 +107,7 @@ export function TasksCollectionBody({
   if (view === 'tasks-upcoming') {
     const { upcoming } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody>
+      <PageBody className="collection__content">
         {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
       </PageBody>
     );
@@ -115,7 +115,7 @@ export function TasksCollectionBody({
 
   if (view === 'tasks-completed') {
     return (
-      <PageBody>
+      <PageBody className="collection__content">
         {getCompletedTasks(tasks).map((task) => renderTaskRow(task, rowCallbacks))}
       </PageBody>
     );
@@ -123,7 +123,7 @@ export function TasksCollectionBody({
 
   if (view === 'tasks-unscheduled') {
     return (
-      <PageBody>
+      <PageBody className="collection__content">
         {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
           renderTaskRow(task, rowCallbacks)
         )}
@@ -137,7 +137,7 @@ export function TasksCollectionBody({
   const incomplete = tasks.filter((task) => !task.completed);
 
   return (
-    <PageBody>
+    <PageBody className="collection__content">
       {[...incomplete, ...getCompletedTasks(tasks)].map((task) =>
         renderTaskRow(task, rowCallbacks)
       )}

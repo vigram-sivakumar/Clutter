@@ -85,7 +85,7 @@ export function AssetsCollectionBody({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <PageBody className="assets__content">
+    <PageBody className="collection__content">
       {resources.map((resource) => {
         const isEditing = editingId === resource.id;
 
