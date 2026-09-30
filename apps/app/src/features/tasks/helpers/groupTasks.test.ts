@@ -35,22 +35,26 @@ describe('groupTasks', () => {
     expect(groups.upcoming).toEqual([dueTomorrow]);
   });
 
-  it('orders upcoming as overdue (chronological), then future (chronological), then unscheduled', () => {
-    const future2 = task({ text: 'future far', dueDate: '2026-09-01' });
-    const future1 = task({ text: 'future near', dueDate: '2026-08-10' });
-    const overdue2 = task({ text: 'overdue recent', dueDate: '2026-08-03' });
-    const overdue1 = task({ text: 'overdue old', dueDate: '2026-07-20' });
+  it('puts an incomplete, past-due task into `overdue`, sorted oldest-first, never into `upcoming`', () => {
+    const future = task({ text: 'future', dueDate: '2026-09-01' });
+    const overdueRecent = task({ text: 'overdue recent', dueDate: '2026-08-03' });
+    const overdueOld = task({ text: 'overdue old', dueDate: '2026-07-20' });
     const unscheduled = task({ text: 'unscheduled' });
 
-    const groups = groupTasks([future2, unscheduled, future1, overdue2, overdue1], HIDDEN);
+    const groups = groupTasks([future, unscheduled, overdueRecent, overdueOld], HIDDEN);
 
-    expect(groups.upcoming).toEqual([
-      overdue1,
-      overdue2,
-      future1,
-      future2,
-      unscheduled,
-    ]);
+    expect(groups.overdue).toEqual([overdueOld, overdueRecent]);
+    expect(groups.upcoming).toEqual([future, unscheduled]);
+  });
+
+  it('orders upcoming as scheduled (chronological), then unscheduled last', () => {
+    const future2 = task({ text: 'future far', dueDate: '2026-09-01' });
+    const future1 = task({ text: 'future near', dueDate: '2026-08-10' });
+    const unscheduled = task({ text: 'unscheduled' });
+
+    const groups = groupTasks([future2, unscheduled, future1], HIDDEN);
+
+    expect(groups.upcoming).toEqual([future1, future2, unscheduled]);
   });
 
   it('exposes the unscheduled subset of upcoming separately', () => {
@@ -61,7 +65,8 @@ describe('groupTasks', () => {
     const groups = groupTasks([future, overdue, unscheduled], HIDDEN);
 
     expect(groups.unscheduled).toEqual([unscheduled]);
-    expect(groups.upcoming).toEqual([overdue, future, unscheduled]);
+    expect(groups.overdue).toEqual([overdue]);
+    expect(groups.upcoming).toEqual([future, unscheduled]);
   });
 
   it('treats an unparseable due date as unscheduled rather than dropping the task', () => {
@@ -69,6 +74,7 @@ describe('groupTasks', () => {
 
     const groups = groupTasks([malformed], HIDDEN);
 
+    expect(groups.overdue).toEqual([]);
     expect(groups.upcoming).toEqual([malformed]);
   });
 
@@ -77,16 +83,75 @@ describe('groupTasks', () => {
     // BARE_DATE_PATTERN accepts without calendar validation. toDate()'s
     // local-component construction silently rolls this over to a real but
     // fabricated date (2027-02-14) rather than throwing — without the
-    // isValidCalendarDate guard in isOverdue/isDueInFuture/isDueToday, this
-    // task would have sorted into `future` under that fabricated date
-    // instead of `unscheduled`.
+    // isValidCalendarDate guard in isOverdue/isDueToday/hasScheduledDueDate,
+    // this task would have sorted into `overdue`/`today` under that
+    // fabricated date instead of `unscheduled`.
     const invalidCalendarDate = task({ text: 'invalid calendar date', dueDate: '2026-13-45' });
 
     const groups = groupTasks([invalidCalendarDate], HIDDEN);
 
     expect(groups.today).toEqual([]);
+    expect(groups.overdue).toEqual([]);
     expect(groups.unscheduled).toEqual([invalidCalendarDate]);
     expect(groups.upcoming).toEqual([invalidCalendarDate]);
+  });
+
+  describe('the Today/Overdue/Upcoming boundary', () => {
+    it('a task due exactly today is in `today`, never `overdue` or `upcoming`', () => {
+      const dueToday = task({ text: 'due today', dueDate: '2026-08-04' });
+
+      const groups = groupTasks([dueToday], HIDDEN);
+
+      expect(groups.today).toEqual([dueToday]);
+      expect(groups.overdue).toEqual([]);
+      expect(groups.upcoming).toEqual([]);
+    });
+
+    it('a task due yesterday (one day before today) is `overdue`, never `today` or `upcoming`', () => {
+      const dueYesterday = task({ text: 'due yesterday', dueDate: '2026-08-03' });
+
+      const groups = groupTasks([dueYesterday], HIDDEN);
+
+      expect(groups.today).toEqual([]);
+      expect(groups.overdue).toEqual([dueYesterday]);
+      expect(groups.upcoming).toEqual([]);
+    });
+
+    it('a task due tomorrow (one day after today) is `upcoming`, never `today` or `overdue`', () => {
+      const dueTomorrow = task({ text: 'due tomorrow', dueDate: '2026-08-05' });
+
+      const groups = groupTasks([dueTomorrow], HIDDEN);
+
+      expect(groups.today).toEqual([]);
+      expect(groups.overdue).toEqual([]);
+      expect(groups.upcoming).toEqual([dueTomorrow]);
+    });
+
+    it('a task with no due date is `upcoming` (and its `unscheduled` subset), never `today` or `overdue`', () => {
+      const unscheduled = task({ text: 'unscheduled' });
+
+      const groups = groupTasks([unscheduled], HIDDEN);
+
+      expect(groups.today).toEqual([]);
+      expect(groups.overdue).toEqual([]);
+      expect(groups.upcoming).toEqual([unscheduled]);
+      expect(groups.unscheduled).toEqual([unscheduled]);
+    });
+
+    it('every eligible task lands in exactly one of today/overdue/upcoming', () => {
+      const dueToday = task({ text: 'today', dueDate: '2026-08-04' });
+      const dueYesterday = task({ text: 'yesterday', dueDate: '2026-08-03' });
+      const dueTomorrow = task({ text: 'tomorrow', dueDate: '2026-08-05' });
+      const unscheduled = task({ text: 'unscheduled' });
+
+      const groups = groupTasks([dueToday, dueYesterday, dueTomorrow, unscheduled], SHOWN);
+
+      const totalMembership = groups.today.length + groups.overdue.length + groups.upcoming.length;
+      expect(totalMembership).toBe(4);
+      expect(groups.today).toEqual([dueToday]);
+      expect(groups.overdue).toEqual([dueYesterday]);
+      expect(groups.upcoming).toEqual([dueTomorrow, unscheduled]);
+    });
   });
 
   describe('showCompleted: false', () => {
@@ -98,6 +163,7 @@ describe('groupTasks', () => {
       const groups = groupTasks([completedToday, completedOverdue, completedUnscheduled], HIDDEN);
 
       expect(groups.today).toEqual([]);
+      expect(groups.overdue).toEqual([]);
       expect(groups.upcoming).toEqual([]);
       expect(groups.unscheduled).toEqual([]);
     });
@@ -115,7 +181,17 @@ describe('groupTasks', () => {
       expect(groups.today).toEqual([completedToday, activeToday]);
     });
 
-    it('buckets a completed task with no due date, or a past/future one, into upcoming/unscheduled the same way an incomplete task would', () => {
+    it('never puts a completed, past-due task into `overdue` — it falls into `upcoming` instead, same as before this section existed', () => {
+      const completedOverdue = task({ text: 'completed overdue', completed: true, dueDate: '2026-07-20' });
+      const incompleteOverdue = task({ text: 'incomplete overdue', dueDate: '2026-07-25' });
+
+      const groups = groupTasks([completedOverdue, incompleteOverdue], SHOWN);
+
+      expect(groups.overdue).toEqual([incompleteOverdue]);
+      expect(groups.upcoming).toEqual([completedOverdue]);
+    });
+
+    it('buckets a completed task with no due date, or a past/future one, into upcoming/unscheduled the same way an incomplete task would (except overdue, which stays incomplete-only)', () => {
       const completedOverdue = task({ text: 'completed overdue', completed: true, dueDate: '2026-07-20' });
       const completedFuture = task({ text: 'completed future', completed: true, dueDate: '2026-09-01' });
       const completedUnscheduled = task({ text: 'completed unscheduled', completed: true });
@@ -125,6 +201,7 @@ describe('groupTasks', () => {
         SHOWN
       );
 
+      expect(groups.overdue).toEqual([]);
       expect(groups.upcoming).toEqual([completedOverdue, completedFuture, completedUnscheduled]);
       expect(groups.unscheduled).toEqual([completedUnscheduled]);
     });
@@ -151,17 +228,18 @@ describe('groupTasks', () => {
       expect(groups.today).toEqual([active1, active2, completed]);
     });
 
-    it('on: moves every completed task in Everything else to the bottom, preserving incomplete task ordering above it', () => {
-      const completedOverdue = task({ text: 'completed overdue', completed: true, dueDate: '2026-07-01' });
-      const overdue = task({ text: 'overdue', dueDate: '2026-07-20' });
+    it('on: moves every completed task in Upcoming to the bottom, preserving incomplete task ordering above it (Overdue is unaffected — it never holds a completed task)', () => {
+      const completedPastDue = task({ text: 'completed past due', completed: true, dueDate: '2026-07-01' });
+      const incompleteOverdue = task({ text: 'overdue', dueDate: '2026-07-20' });
       const future = task({ text: 'future', dueDate: '2026-09-01' });
 
-      const groups = groupTasks([future, completedOverdue, overdue], SHOWN_SORTED);
+      const groups = groupTasks([future, completedPastDue, incompleteOverdue], SHOWN_SORTED);
 
-      expect(groups.upcoming).toEqual([overdue, future, completedOverdue]);
+      expect(groups.overdue).toEqual([incompleteOverdue]);
+      expect(groups.upcoming).toEqual([future, completedPastDue]);
     });
 
-    it('on, showCompleted off: no completed tasks are present to sort, upcoming ordering is unaffected', () => {
+    it('on, showCompleted off: no completed tasks are present to sort, overdue/upcoming ordering is unaffected', () => {
       const completed = task({ text: 'completed', completed: true, dueDate: '2026-07-01' });
       const overdue = task({ text: 'overdue', dueDate: '2026-07-20' });
 
@@ -170,7 +248,8 @@ describe('groupTasks', () => {
         autoSortCompleted: true,
       });
 
-      expect(groups.upcoming).toEqual([overdue]);
+      expect(groups.overdue).toEqual([overdue]);
+      expect(groups.upcoming).toEqual([]);
     });
   });
 

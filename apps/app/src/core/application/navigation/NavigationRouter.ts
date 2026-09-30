@@ -197,8 +197,18 @@ export class NavigationRouter {
   }
 
   /**
-   * Shows the Upcoming tasks collection view (Phase 2E) — overdue, future,
-   * and unscheduled incomplete tasks, in that order.
+   * Shows the Overdue tasks collection view — incomplete tasks whose due
+   * date is before today, oldest first. Never includes a completed task
+   * (see groupTasks.ts's `overdue` doc comment for why).
+   */
+  public openTasksOverdue(): void {
+    this.workspace.openFilteredView({ kind: 'tasks-overdue' });
+  }
+
+  /**
+   * Shows the Upcoming tasks collection view (Phase 2E) — future-dated and
+   * unscheduled tasks, in that order (overdue tasks have their own
+   * dedicated view as of the Overdue section split — see openTasksOverdue).
    */
   public openTasksUpcoming(): void {
     this.workspace.openFilteredView({ kind: 'tasks-upcoming' });

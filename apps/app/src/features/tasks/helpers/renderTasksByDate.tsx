@@ -110,6 +110,29 @@ export function renderTodayContent({
   return renderTaskList(today, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
 }
 
+export interface RenderOverdueContentProps extends TaskRowCallbacks, TaskRowResolvers {
+  // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
+  readonly overdue: readonly TaskOccurrence[];
+}
+
+/**
+ * The Overdue section's content only — no outer Section wrapper, same reuse
+ * reasoning as renderTodayContent. Overdue is never affected by Show
+ * completed/Auto-sort completed (groupTasks.ts never puts a completed task
+ * in this group), so there is nothing for those preferences to do here.
+ */
+export function renderOverdueContent({
+  overdue,
+  onToggleComplete,
+  onOpenTask,
+  onDateChange,
+  resolveWikiLink,
+  resolveTag,
+  resolveEmbed,
+}: RenderOverdueContentProps) {
+  return renderTaskList(overdue, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
+}
+
 export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
   readonly upcoming: readonly TaskOccurrence[];
@@ -174,11 +197,11 @@ export function renderTasksByDate({
   todaySettingsMenu = CLOSED_SETTINGS_MENU,
   upcomingSettingsMenu = CLOSED_SETTINGS_MENU,
 }: RenderTasksByDateProps) {
-  // Grouped once here — both Sections need this to know whether they're
+  // Grouped once here — every Section needs this to know whether it's
   // empty (for default expansion) as well as what to render, and
-  // renderTodayContent/renderUpcomingContent take the groups directly so
-  // groupTasks never runs a second time for the same tree.
-  const { today, upcoming } = groupTasks(tasks, displayConfig);
+  // renderTodayContent/renderOverdueContent/renderUpcomingContent take the
+  // groups directly so groupTasks never runs a second time for the same tree.
+  const { today, overdue, upcoming } = groupTasks(tasks, displayConfig);
 
   return (
     <Fragment>
@@ -212,10 +235,33 @@ export function renderTasksByDate({
           resolveEmbed,
         })}
       </Section>
+      {overdue.length > 0 && (
+        <Section
+          hasHeader
+          title="Overdue"
+          isCollapsible
+          isEmpty={overdue.length === 0}
+          isExpanded={workspace.isSectionExpanded('tasks-overdue')}
+          onExpandedChange={(expanded) =>
+            workspace.setSectionExpanded('tasks-overdue', expanded)
+          }
+          onClick={() => navigation.openTasksOverdue()}
+        >
+          {renderOverdueContent({
+            overdue,
+            onToggleComplete,
+            onOpenTask,
+            onDateChange,
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })}
+        </Section>
+      )}
       {upcoming.length > 0 && (
         <Section
           hasHeader
-          title="Everything else"
+          title="Upcoming"
           isCollapsible
           isEmpty={upcoming.length === 0}
           isExpanded={workspace.isSectionExpanded('tasks-upcoming')}

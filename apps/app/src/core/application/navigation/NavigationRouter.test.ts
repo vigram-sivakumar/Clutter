@@ -208,6 +208,20 @@ describe('NavigationRouter', () => {
     expect(openFolder).not.toHaveBeenCalled();
   });
 
+  it('openTasksOverdue shows the tasks-overdue filtered view directly, without touching FolderOperations', () => {
+    const openFilteredView = vi.fn();
+    const openFolder = vi.fn();
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      workspace: { openFilteredView },
+    });
+
+    navigation.openTasksOverdue();
+
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tasks-overdue' });
+    expect(openFolder).not.toHaveBeenCalled();
+  });
+
   it('openAssets shows the assets filtered view directly, without touching FolderOperations', () => {
     const openFilteredView = vi.fn();
     const openFolder = vi.fn();

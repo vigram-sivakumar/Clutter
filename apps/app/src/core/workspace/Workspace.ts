@@ -4,8 +4,8 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  * A non-folder, non-page main-content view — a filtered aggregate defined
  * by a query rather than a location in the folder tree (ADR-022). Grows
  * only when a real consumer ships; 'workspace'/'favorites' (root
- * folders+notes, favorited items), the five task collection views
- * (Today/Upcoming/Completed/All Tasks/Unscheduled), 'tag' (notes
+ * folders+notes, favorited items), the six task collection views
+ * (Today/Overdue/Upcoming/Completed/All Tasks/Unscheduled), 'tag' (notes
  * referencing one tag), and 'assets' (every supported VaultResource
  * anywhere in the vault, not just inside the physical Assets/ folder) are
  * the ones that exist today.
@@ -20,6 +20,7 @@ export type FilteredView =
   | { readonly kind: 'workspace' }
   | { readonly kind: 'favorites' }
   | { readonly kind: 'tasks-today' }
+  | { readonly kind: 'tasks-overdue' }
   | { readonly kind: 'tasks-upcoming' }
   | { readonly kind: 'tasks-completed' }
   | { readonly kind: 'tasks-all' }

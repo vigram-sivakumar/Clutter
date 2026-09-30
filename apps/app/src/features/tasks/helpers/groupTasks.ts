@@ -1,9 +1,15 @@
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-import { isFuture, isPast, isToday } from '@shared/helpers/time';
+import { isPast, isToday } from '@shared/helpers/time';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 export type TaskGroups = {
   today: readonly TaskOccurrence[];
+  // Due before today and still incomplete — a completed task past its due
+  // date is not "still overdue" in the actionable sense the sidebar's
+  // Overdue section exists to surface, so it falls through to `upcoming`
+  // instead (see the doc comment on `groupTasks` below for why that
+  // preserves this change's "don't alter completion semantics" constraint).
+  overdue: readonly TaskOccurrence[];
   upcoming: readonly TaskOccurrence[];
   // The unscheduled subset of `upcoming`, exposed separately for the
   // dedicated Unscheduled collection view — computed once here rather
@@ -51,8 +57,22 @@ function isOverdue(task: TaskOccurrence): boolean {
   return task.dueDate != null && isValidCalendarDate(task.dueDate) && isPast(task.dueDate);
 }
 
-function isDueInFuture(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isFuture(task.dueDate);
+// The Overdue section's exact membership rule — due before today, and
+// still incomplete — factored out once so both the section itself and
+// Upcoming's "not already claimed by Overdue" filter read from the same
+// definition rather than restating it.
+function isOverdueAndIncomplete(task: TaskOccurrence): boolean {
+  return !task.completed && isOverdue(task);
+}
+
+// A task belongs in Upcoming's "scheduled" ordering group — sorted
+// chronologically ahead of the unscheduled ones — whenever it carries a
+// real, calendar-valid due date. That covers both a future-dated task and
+// a completed task whose due date is in the past (the one case a valid
+// past date reaches `upcoming` at all: see the `overdue` doc comment on
+// `TaskGroups`), sorted together by date rather than as two separate runs.
+function hasScheduledDueDate(task: TaskOccurrence): boolean {
+  return task.dueDate != null && isValidCalendarDate(task.dueDate);
 }
 
 function byDueDateAscending(a: TaskOccurrence, b: TaskOccurrence): number {
@@ -72,25 +92,28 @@ function sortCompletedLast(tasks: readonly TaskOccurrence[]): readonly TaskOccur
 }
 
 /**
- * Groups tasks into the Tasks sidebar's Today/Everything else sections
- * (plus Everything else's Unscheduled subset), honoring `config`'s Show
- * completed / Auto-sort completed preference.
+ * Groups tasks into the Tasks sidebar's Today/Overdue/Upcoming sections
+ * (plus Upcoming's Unscheduled subset), honoring `config`'s Show completed /
+ * Auto-sort completed preference. Every eligible task lands in exactly one
+ * of the three top-level groups.
  *
- * `config.showCompleted` decides membership: false excludes every
- * completed task from every group (their pre-existing, unaffected
- * behavior); true includes them, bucketed by `dueDate` exactly like an
- * incomplete task — a completed task due today lands in `today`, otherwise
- * it lands in `upcoming` (overdue/future/unscheduled, by the same due-date
- * rule incomplete tasks already use), never in some separate
- * completed-only bucket. This is what "Auto-sort completed off — completed
- * tasks remain in their normal/current ordering" means: a shown completed
- * task sits in its ordinary section, in its ordinary due-date position,
- * exactly the way an incomplete task would.
+ * `config.showCompleted` decides membership the same way it always has:
+ * false excludes every completed task from every group (their pre-existing,
+ * unaffected behavior); true includes them, bucketed by `dueDate` exactly
+ * like an incomplete task would be — with one deliberate exception. Overdue
+ * is defined as "due before today AND still incomplete" (a completed task
+ * isn't "still overdue" in the actionable sense that section exists to
+ * surface), so a completed task with a past due date is never pulled into
+ * `overdue` — it falls into `upcoming` instead, exactly where it already
+ * lived before this section existed, which is what keeps this change from
+ * altering completion display semantics. A completed task due today still
+ * lands in `today`, unchanged.
  *
- * `config.autoSortCompleted` then decides ordering within each section:
- * false leaves the above ordering untouched; true moves every completed
- * task in that section to the bottom, below every incomplete one (see
- * `sortCompletedLast`).
+ * `config.autoSortCompleted` then decides ordering within Today/Upcoming:
+ * false leaves ordering untouched; true moves every completed task in that
+ * section to the bottom, below every incomplete one (see
+ * `sortCompletedLast`). Overdue never contains a completed task by
+ * definition, so auto-sort has nothing to do there.
  */
 export function groupTasks(
   tasks: readonly TaskOccurrence[],
@@ -100,23 +123,30 @@ export function groupTasks(
 
   const today = eligible.filter(isDueToday);
 
-  // "Upcoming" is every eligible task not already shown in Today — overdue
-  // first (chronological), then future-dated (chronological), then
-  // unscheduled last. A dueDate that isn't null but also isn't placeable in
-  // the past/present/future (e.g. a malformed @due value) is treated as
-  // unscheduled rather than silently dropped.
   const remaining = eligible.filter((task) => !isDueToday(task));
 
-  const overdue = remaining.filter(isOverdue).sort(byDueDateAscending);
-  const future = remaining.filter(isDueInFuture).sort(byDueDateAscending);
-  const unscheduled = remaining.filter(
-    (task) => !isOverdue(task) && !isDueInFuture(task)
-  );
+  // Overdue: due before today, and still incomplete — sorted chronologically,
+  // oldest overdue first. `!task.completed` here (rather than relying on
+  // `config.showCompleted` alone) is what keeps a completed overdue task out
+  // of this section even when Show completed is on.
+  const overdue = remaining.filter(isOverdueAndIncomplete).sort(byDueDateAscending);
 
-  const upcoming = [...overdue, ...future, ...unscheduled];
+  // Upcoming: everything eligible that's neither Today nor Overdue — a
+  // future-dated task, a completed task whose due date has already passed
+  // (see the doc comment above), or an unscheduled one. Scheduled tasks
+  // (any calendar-valid due date) sort chronologically first; unscheduled
+  // ones (missing, or shape-valid-but-calendar-invalid, e.g. a malformed
+  // @due value) come last, keeping their existing relative order rather
+  // than being silently dropped.
+  const upcomingSource = remaining.filter((task) => !isOverdueAndIncomplete(task));
+  const scheduled = upcomingSource.filter(hasScheduledDueDate).sort(byDueDateAscending);
+  const unscheduled = upcomingSource.filter((task) => !hasScheduledDueDate(task));
+
+  const upcoming = [...scheduled, ...unscheduled];
 
   return {
     today: config.autoSortCompleted ? sortCompletedLast(today) : today,
+    overdue,
     upcoming: config.autoSortCompleted ? sortCompletedLast(upcoming) : upcoming,
     unscheduled: config.autoSortCompleted ? sortCompletedLast(unscheduled) : unscheduled,
   };

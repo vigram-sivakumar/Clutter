@@ -18,6 +18,7 @@ export type SystemLocationId =
   | 'daily-notes'
   | 'tasks'
   | 'tasks-today'
+  | 'tasks-overdue'
   | 'tasks-upcoming'
   | 'tasks-completed'
   | 'tasks-all'
@@ -79,6 +80,11 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   'tasks-today': {
     id: 'tasks-today',
     label: 'Today',
+    icon: 'squareCheckOutline',
+  },
+  'tasks-overdue': {
+    id: 'tasks-overdue',
+    label: 'Overdue',
     icon: 'squareCheckOutline',
   },
   'tasks-upcoming': {

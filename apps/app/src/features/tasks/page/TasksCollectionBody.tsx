@@ -5,6 +5,7 @@ import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbe
 import {
   renderTaskRow,
   renderTodayContent,
+  renderOverdueContent,
   renderUpcomingContent,
 } from '../helpers/renderTasksByDate';
 import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
@@ -12,6 +13,7 @@ import { getCompletedTasks } from '../helpers/getCompletedTasks';
 
 export type TasksCollectionView =
   | 'tasks-today'
+  | 'tasks-overdue'
   | 'tasks-upcoming'
   | 'tasks-completed'
   | 'tasks-all'
@@ -35,9 +37,13 @@ export interface TasksCollectionBodyProps {
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
    * (see groupTasks.ts's TaskDisplayConfig) — applied to the tasks-today/
-   * tasks-upcoming branches only, so the Today/Everything else collection
-   * pages always render identically to their sidebar counterparts (see
-   * this component's own doc comment). Defaults to
+   * tasks-upcoming branches only, so the Today/Upcoming collection pages
+   * always render identically to their sidebar counterparts (see this
+   * component's own doc comment). The tasks-overdue branch reads `overdue`
+   * from the same `groupTasks` call, but that group is never affected by
+   * either preference (see groupTasks.ts's `overdue` doc comment) — passing
+   * `displayConfig` through is just for a single consistent call shape, not
+   * because it changes Overdue's membership or ordering. Defaults to
    * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
    */
   readonly displayConfig?: TaskDisplayConfig;
@@ -85,6 +91,15 @@ export function TasksCollectionBody({
           resolveTag,
           resolveEmbed,
         })}
+      </PageBody>
+    );
+  }
+
+  if (view === 'tasks-overdue') {
+    const { overdue } = groupTasks(tasks, displayConfig);
+    return (
+      <PageBody>
+        {renderOverdueContent({ overdue, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
       </PageBody>
     );
   }

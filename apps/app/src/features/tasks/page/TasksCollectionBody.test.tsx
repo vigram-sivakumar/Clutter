@@ -47,14 +47,15 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Book flights')).toBeNull();
   });
 
-  it('renders overdue/future/unscheduled tasks for the tasks-upcoming view', () => {
+  it('renders future/unscheduled tasks for the tasks-upcoming view, excluding overdue and today', () => {
     const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
     const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
+    const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
 
     const { getByText, queryByText } = render(
       <TasksCollectionBody
         view="tasks-upcoming"
-        tasks={[dueTomorrow, dueToday]}
+        tasks={[dueTomorrow, dueToday, overdue]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
       />
@@ -62,6 +63,32 @@ describe('TasksCollectionBody', () => {
 
     expect(getByText('Book flights')).not.toBeNull();
     expect(queryByText('Review designs')).toBeNull();
+    expect(queryByText('Fix navigation')).toBeNull();
+  });
+
+  it('renders only incomplete, past-due tasks for the tasks-overdue view', () => {
+    const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+    const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
+    const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
+    const completedOverdue = task({
+      text: 'Old report',
+      completed: true,
+      dueDate: '2026-07-01',
+    });
+
+    const { getByText, queryByText } = render(
+      <TasksCollectionBody
+        view="tasks-overdue"
+        tasks={[overdue, dueToday, dueTomorrow, completedOverdue]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+      />
+    );
+
+    expect(getByText('Fix navigation')).not.toBeNull();
+    expect(queryByText('Review designs')).toBeNull();
+    expect(queryByText('Book flights')).toBeNull();
+    expect(queryByText('Old report')).toBeNull();
   });
 
   it('renders every completed task, newest-completed-first, for the tasks-completed view', () => {

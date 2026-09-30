@@ -58,6 +58,7 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 function fakeNavigation(): NavigationRouter {
   return {
     openTasksToday: vi.fn(),
+    openTasksOverdue: vi.fn(),
     openTasksUpcoming: vi.fn(),
     openTasksCompleted: vi.fn(),
   } as unknown as NavigationRouter;
@@ -352,7 +353,7 @@ describe('renderTasksByDate', () => {
     const navigation = fakeNavigation();
     // The Upcoming section (renderTasksByDate's `upcoming.length > 0` guard)
     // only renders at all once there's an upcoming task — an empty tasks
-    // list never produces an "Everything else" header to click.
+    // list never produces an "Upcoming" header to click.
     const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
 
     const { getByText } = render(
@@ -367,13 +368,13 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    fireEvent.click(getByText('Everything else'));
+    fireEvent.click(getByText('Upcoming'));
 
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
   describe('the settings action', () => {
-    it('is available from both the Today and Everything else section headers', () => {
+    it('is available from both the Today and Upcoming section headers', () => {
       const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
 
       const { getByText } = render(
@@ -389,7 +390,7 @@ describe('renderTasksByDate', () => {
       );
 
       const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
-      const upcomingHeader = getByText('Everything else').closest('.section-header') as HTMLElement;
+      const upcomingHeader = getByText('Upcoming').closest('.section-header') as HTMLElement;
 
       expect(within(todayHeader).getByLabelText('Task display settings')).toBeInTheDocument();
       expect(within(upcomingHeader).getByLabelText('Task display settings')).toBeInTheDocument();
@@ -440,7 +441,7 @@ describe('renderTasksByDate', () => {
       expect(getByText('Auto-sort completed')).toBeInTheDocument();
     });
 
-    it('both section headers share the exact same config — toggling from Everything else\'s menu is reflected the next time Today\'s menu opens', () => {
+    it('both section headers share the exact same config — toggling from Upcoming\'s menu is reflected the next time Today\'s menu opens', () => {
       const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
       let config = DEFAULT_TASK_DISPLAY_CONFIG;
       const onDisplayConfigChange = vi.fn((next) => {
@@ -489,6 +490,89 @@ describe('renderTasksByDate', () => {
     });
   });
 
+  describe('the Overdue section', () => {
+    it('renders an incomplete, past-due task under Overdue, not Upcoming', () => {
+      const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [overdue],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      expect(getByText('Fix navigation')).toBeInTheDocument();
+      expect(getByText('Overdue')).toBeInTheDocument();
+    });
+
+    it('does not render the Overdue section at all when there are no overdue tasks', () => {
+      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+
+      const { queryByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      expect(queryByText('Overdue')).not.toBeInTheDocument();
+    });
+
+    it('navigates to Overdue when the Overdue section header is clicked', () => {
+      const navigation = fakeNavigation();
+      const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [overdue],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation,
+          })}
+        </>
+      );
+
+      fireEvent.click(getByText('Overdue'));
+
+      expect(navigation.openTasksOverdue).toHaveBeenCalled();
+    });
+
+    it('places Overdue between Today and Upcoming', () => {
+      const dueToday = task({ text: 'Submit proposal', dueDate: '2026-08-04' });
+      const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+
+      render(
+        <>
+          {renderTasksByDate({
+            tasks: [dueToday, overdue, dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      const titles = Array.from(document.querySelectorAll('.section-header__title')).map(
+        (el) => el.textContent
+      );
+      expect(titles).toEqual(['Today', 'Overdue', 'Upcoming']);
+    });
+  });
+
   describe('Show completed / Auto-sort completed', () => {
     it('shows a completed task due today in the Today section when showCompleted is true', () => {
       const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });
@@ -528,10 +612,10 @@ describe('renderTasksByDate', () => {
       expect(queryByText('Submit expenses')).not.toBeInTheDocument();
     });
 
-    it('shows a completed, non-today task in the Everything else section when showCompleted is true', () => {
+    it('shows a completed, past-due task in the Upcoming section (not Overdue) when showCompleted is true', () => {
       const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
 
-      const { getByText } = render(
+      const { getByText, queryByText } = render(
         <>
           {renderTasksByDate({
             tasks: [completedOverdue],
@@ -545,7 +629,8 @@ describe('renderTasksByDate', () => {
       );
 
       expect(getByText('Old report')).toBeInTheDocument();
-      expect(getByText('Everything else')).toBeInTheDocument();
+      expect(getByText('Upcoming')).toBeInTheDocument();
+      expect(queryByText('Overdue')).not.toBeInTheDocument();
     });
 
     it('auto-sort off preserves the normal/original ordering of a mixed complete+incomplete section', () => {

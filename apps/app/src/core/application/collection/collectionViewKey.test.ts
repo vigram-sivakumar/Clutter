@@ -48,6 +48,7 @@ describe('deriveCollectionViewKey', () => {
   it('out-of-scope filtered views (tasks-*, assets) — undefined, since they render TasksCollectionBody/AssetsCollectionBody, never CollectionViewMenu', () => {
     const kinds: ActiveView[] = [
       { type: 'filtered-view', view: { kind: 'tasks-today' } },
+      { type: 'filtered-view', view: { kind: 'tasks-overdue' } },
       { type: 'filtered-view', view: { kind: 'tasks-upcoming' } },
       { type: 'filtered-view', view: { kind: 'tasks-completed' } },
       { type: 'filtered-view', view: { kind: 'tasks-all' } },

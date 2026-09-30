@@ -126,6 +126,7 @@ interface PageHostProps {
 const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
   [
     'tasks-today',
+    'tasks-overdue',
     'tasks-upcoming',
     'tasks-completed',
     'tasks-all',
