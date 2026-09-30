@@ -200,29 +200,16 @@ export function createColumnDragGhost(wrapper: HTMLElement, table: HTMLTableElem
   // reasoning). Absolutely positioned (`.cm-table-column-handle`'s own
   // CSS, `tableHandleOverlay.css`) against this root element itself.
   //
-  // Cloned from `wrapper`'s own real, currently-rendered handle for this
-  // column (`tableHandleOverlay.ts`'s own `createColumnHandlePair`,
-  // three-dot icon included) rather than rebuilt from scratch, so the
-  // ghost's handle can never drift out of sync with what the real handle
-  // actually looks like. `wrapper`'s own direct child now, not the header
-  // cell's — see that function's own doc comment for why the column handle
-  // no longer lives inside its `<th>` at all. Falls back to a bare div when
-  // no real handle exists yet to clone from (this module's own unit tests
-  // build a table without ever attaching the real overlay).
-  const realHandle = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-column-handle[data-column-index="${columnIndex}"]`);
+  // Cloned from the header cell's own real, currently-rendered handle
+  // (`tableHandleOverlay.ts`'s own `createColumnHandlePair`, three-dot icon
+  // included) rather than rebuilt from scratch, so the ghost's handle can
+  // never drift out of sync with what the real handle actually looks like.
+  // Falls back to a bare div when no real handle exists yet to clone from
+  // (this module's own unit tests build a table without ever attaching the
+  // real overlay).
+  const realHandle = headerCell?.querySelector<HTMLElement>(':scope > .cm-table-column-handle');
   const handle = realHandle ? (realHandle.cloneNode(true) as HTMLElement) : document.createElement('div');
   handle.className = 'cm-table-column-handle cm-table-handle-visible';
-  // The real handle's own `left`/`top` are absolute pixel values computed
-  // against `.cm-table-wrapper`'s own coordinate space
-  // (`tableHandleOverlay.ts`'s own `positionColumnHandle`) — meaningless
-  // (and wrong) once cloned onto this element's own, entirely different
-  // absolutely-positioned box. Reset to the same "centered on top edge"
-  // placement `tableHandleOverlay.css`'s own (now cell-relative-only)
-  // column-handle rule used to give for free before the handle moved out of
-  // its `<th>` — `transform: translateX(-50%)` (that file's own static
-  // rule, untouched) still does the final half-width centering.
-  handle.style.left = '50%';
-  handle.style.top = '-1px';
   element.appendChild(handle);
 
   wrapper.appendChild(element);
@@ -265,21 +252,10 @@ export function createRowDragGhost(wrapper: HTMLElement, table: HTMLTableElement
   // The dragged row's own handle, visually relocated onto the ghost — see
   // `createColumnDragGhost`'s own identical comment on why it's a sibling
   // of `content`, appended last onto the root, and on why it's cloned from
-  // the real one (icon included) rather than rebuilt from scratch. `wrapper`'s
-  // own direct child now, not the first cell's — `tableHandleOverlay.ts`'s
-  // own `createRowHandlePair` doc comment has the full reasoning.
-  const realRowHandle = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-row-handle[data-row-index="${rowIndex}"]`);
+  // the real one (icon included) rather than rebuilt from scratch.
+  const realRowHandle = (row?.children[0] as HTMLElement | undefined)?.querySelector<HTMLElement>(':scope > .cm-table-row-handle');
   const handle = realRowHandle ? (realRowHandle.cloneNode(true) as HTMLElement) : document.createElement('div');
   handle.className = 'cm-table-row-handle cm-table-handle-visible';
-  // Reset to the cell-relative placement this handle used to get for free
-  // — see `createColumnDragGhost`'s own identical reset just above for the
-  // full reasoning (`left`/`top` cloned from the real handle are absolute
-  // pixels against `.cm-table-wrapper`'s own coordinate space, meaningless
-  // once cloned onto this element's own, different absolutely-positioned
-  // box). `transform: translateY(-50%)` (`tableHandleOverlay.css`'s own
-  // static rule, untouched) still does the final half-height centering.
-  handle.style.left = '-1px';
-  handle.style.top = '50%';
   element.appendChild(handle);
 
   wrapper.appendChild(element);

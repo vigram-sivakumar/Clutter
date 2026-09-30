@@ -324,6 +324,34 @@
    * clip anything, and the base rule above already gives it
    * `width`/`max-width: 100%` with `overflow: visible`. */
   overflow-x: auto;
+  /* `overflow-x: auto` immediately above forces this element's own
+   * `overflow-y` to compute as `auto` too — the CSS Overflow spec's
+   * "visible paired with non-visible becomes auto" rule, the same one this
+   * file's own top doc comment invokes for `.cm-table-wrapper`. That makes
+   * this element a real vertical-clipping box the moment a table has
+   * explicit widths, silently cropping the column handle's own three-dot
+   * icon (`tableHandleOverlay.css`'s `.cm-table-column-handle-icon`), which
+   * deliberately pokes ~6-8px above its header cell's own top edge to
+   * straddle the border — confirmed live, reproducible on any resized
+   * table. `padding-top` reserves that room *inside* this box, ahead of
+   * where its own clip now starts, the same technique this codebase's own
+   * `.cm-table-widget` rule already uses one layer further out (against
+   * `.page__content`'s own clip) — `padding`, never `margin`, per this
+   * codebase's permanent CM6 rule, though moot here regardless: this
+   * element is this widget's own private DOM, not a `.cm-line` or
+   * `blockWrappers` wrapper.
+   *
+   * `padding-left` is the identical fix for the *row* handle's own
+   * symmetric case: its bar sits at `inset-inline-start: -1px`
+   * (`tableHandleOverlay.css`), a small horizontal protrusion past the
+   * first column's own left edge — invisible at any other scroll position,
+   * but clipped by this same box whenever scrolled fully to the left
+   * (`scrollLeft: 0`), where that protrusion coincides with this element's
+   * own left clip edge. A few px of slack is enough; `3px` comfortably
+   * covers the `1px` protrusion with room to spare.
+   */
+  padding-top: 8px;
+  padding-left: 3px;
 }
 /*
  * The table-widget breakout — see `tableWidgetBreakoutWidth.ts`'s own top

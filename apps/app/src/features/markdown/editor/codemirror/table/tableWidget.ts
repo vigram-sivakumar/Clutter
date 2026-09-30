@@ -7,7 +7,7 @@ import { findCellWrapper } from './tableBoundaryNavigation';
 import { beginCellDragTracking } from './tableCellRangeSelection';
 import { endOfCellContent, findAllTables, startOfCellContent } from './tableGeometry';
 import { attachTableColumnResizeHandles } from './tableColumnResizeHandle';
-import { attachTableHandleOverlay, type HandlePositionTrackingHandle } from './tableHandleOverlay';
+import { attachTableHandleOverlay } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
@@ -291,18 +291,6 @@ export class TableWidget extends WidgetType {
    */
   private breakoutWidthHandle: BreakoutWidthHandle | null = null;
 
-  /**
-   * The column/row handle overlay's own position-tracking handle
-   * (`tableHandleOverlay.ts`'s own `attachHandlePositionTracking`), when
-   * this instance has `this.controller` at all (i.e. isn't a permanently
-   * read-only render) — `null` otherwise, and `null` again once `destroy()`
-   * has torn it down. Same one-per-instance lifecycle and the same "why an
-   * explicit `destroy()`" reasoning as `resizeObserver`/`breakoutWidthHandle`
-   * above, kept separate for the identical reason those two are kept
-   * separate from each other.
-   */
-  private handlePositionTrackingHandle: HandlePositionTrackingHandle | null = null;
-
   override eq(other: TableWidget): boolean {
     return (
       this.rawText === other.rawText &&
@@ -512,10 +500,8 @@ export class TableWidget extends WidgetType {
     // note embed's table renders the same `<table>` but never gets this
     // overlay, matching `buildEditorExtensions.ts`'s `!readOnly` gate for
     // everything else that has no meaning in a permanently read-only view.
-    this.handlePositionTrackingHandle?.disconnect();
-    this.handlePositionTrackingHandle = null;
     if (this.controller) {
-      this.handlePositionTrackingHandle = attachTableHandleOverlay(
+      attachTableHandleOverlay(
         tableWrapper,
         this.headerCells.length,
         view,
@@ -885,7 +871,5 @@ export class TableWidget extends WidgetType {
     this.resizeObserver = null;
     this.breakoutWidthHandle?.disconnect();
     this.breakoutWidthHandle = null;
-    this.handlePositionTrackingHandle?.disconnect();
-    this.handlePositionTrackingHandle = null;
   }
 }
