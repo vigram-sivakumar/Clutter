@@ -1,4 +1,5 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
+import { CollectionRowList } from '@app/layouts/page/body/CollectionRowList';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
@@ -82,15 +83,17 @@ export function TasksCollectionBody({
     const { today } = groupTasks(tasks, displayConfig);
     return (
       <PageBody className="collection__content">
-        {renderTodayContent({
-          today,
-          onToggleComplete,
-          onOpenTask,
-          onDateChange,
-          resolveWikiLink,
-          resolveTag,
-          resolveEmbed,
-        })}
+        <CollectionRowList>
+          {renderTodayContent({
+            today,
+            onToggleComplete,
+            onOpenTask,
+            onDateChange,
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })}
+        </CollectionRowList>
       </PageBody>
     );
   }
@@ -99,7 +102,9 @@ export function TasksCollectionBody({
     const { overdue } = groupTasks(tasks, displayConfig);
     return (
       <PageBody className="collection__content">
-        {renderOverdueContent({ overdue, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+        <CollectionRowList>
+          {renderOverdueContent({ overdue, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+        </CollectionRowList>
       </PageBody>
     );
   }
@@ -108,7 +113,9 @@ export function TasksCollectionBody({
     const { upcoming } = groupTasks(tasks, displayConfig);
     return (
       <PageBody className="collection__content">
-        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+        <CollectionRowList>
+          {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+        </CollectionRowList>
       </PageBody>
     );
   }
@@ -116,7 +123,9 @@ export function TasksCollectionBody({
   if (view === 'tasks-completed') {
     return (
       <PageBody className="collection__content">
-        {getCompletedTasks(tasks).map((task) => renderTaskRow(task, rowCallbacks))}
+        <CollectionRowList>
+          {getCompletedTasks(tasks).map((task) => renderTaskRow(task, rowCallbacks))}
+        </CollectionRowList>
       </PageBody>
     );
   }
@@ -124,9 +133,11 @@ export function TasksCollectionBody({
   if (view === 'tasks-unscheduled') {
     return (
       <PageBody className="collection__content">
-        {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
-          renderTaskRow(task, rowCallbacks)
-        )}
+        <CollectionRowList>
+          {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
+            renderTaskRow(task, rowCallbacks)
+          )}
+        </CollectionRowList>
       </PageBody>
     );
   }
@@ -138,9 +149,11 @@ export function TasksCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {[...incomplete, ...getCompletedTasks(tasks)].map((task) =>
-        renderTaskRow(task, rowCallbacks)
-      )}
+      <CollectionRowList>
+        {[...incomplete, ...getCompletedTasks(tasks)].map((task) =>
+          renderTaskRow(task, rowCallbacks)
+        )}
+      </CollectionRowList>
     </PageBody>
   );
 }

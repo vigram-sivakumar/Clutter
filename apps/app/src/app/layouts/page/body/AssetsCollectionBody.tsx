@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { PageBody } from './Page.Body';
+import { CollectionRowList } from './CollectionRowList';
 import { Resource } from '@features/notes/sidebar/Resource';
 import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -86,36 +87,38 @@ export function AssetsCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {resources.map((resource) => {
-        const isEditing = editingId === resource.id;
+      <CollectionRowList>
+        {resources.map((resource) => {
+          const isEditing = editingId === resource.id;
 
-        return (
-          <Resource
-            key={resource.id}
-            resource={resource}
-            onClick={isEditing ? undefined : onOpenResource}
-            isEditing={isEditing}
-            onTitleCommit={(value) => onRenameResource(resource.id, value)}
-            onTitleEditingEnd={() => setEditingId(null)}
-            menuItems={buildResourceSidebarMenu(resource.kind)}
-            menuOpen={openMenuId === resource.id}
-            onMenuOpenChange={(open) => setOpenMenuId(open ? resource.id : null)}
-            onMenuSelect={(id) => {
-              if (id === 'rename') {
-                setOpenMenuId(null);
-                setEditingId(resource.id);
-              } else if (id === 'archive') {
-                onArchiveResource(resource.id);
-              } else if (id === 'download') {
-                onDownloadResource(resource.id);
-              }
-            }}
-            moveDestinations={resourceMoveDestinations}
-            onMove={(destinationFolderId) => onMoveResource(resource.id, destinationFolderId)}
-            onCreateFolder={onCreateFolder}
-          />
-        );
-      })}
+          return (
+            <Resource
+              key={resource.id}
+              resource={resource}
+              onClick={isEditing ? undefined : onOpenResource}
+              isEditing={isEditing}
+              onTitleCommit={(value) => onRenameResource(resource.id, value)}
+              onTitleEditingEnd={() => setEditingId(null)}
+              menuItems={buildResourceSidebarMenu(resource.kind)}
+              menuOpen={openMenuId === resource.id}
+              onMenuOpenChange={(open) => setOpenMenuId(open ? resource.id : null)}
+              onMenuSelect={(id) => {
+                if (id === 'rename') {
+                  setOpenMenuId(null);
+                  setEditingId(resource.id);
+                } else if (id === 'archive') {
+                  onArchiveResource(resource.id);
+                } else if (id === 'download') {
+                  onDownloadResource(resource.id);
+                }
+              }}
+              moveDestinations={resourceMoveDestinations}
+              onMove={(destinationFolderId) => onMoveResource(resource.id, destinationFolderId)}
+              onCreateFolder={onCreateFolder}
+            />
+          );
+        })}
+      </CollectionRowList>
     </PageBody>
   );
 }
