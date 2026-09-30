@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { RefObject } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
+import { isTauri } from '@tauri-apps/api/core';
 
 import {
   createEditorView,
@@ -161,6 +162,42 @@ function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
  * (§7, this step: mouse handlers, keyboard hop/activation, selection
  * snapping) are in place.
  */
+/**
+ * Dev-only, Tauri-only escape hatch for a real lifecycle gap: this
+ * component's `EditorView` is constructed once per mount
+ * (`useEffect(..., [])` below) and, in the Tauri/WKWebView dev runtime,
+ * Vite's HMR client does not force a full page reload when a CM6
+ * extension/widget module changes — the running `EditorView` survives,
+ * so already-rendered widgets (tables, embeds, etc.) keep the DOM built
+ * by the *old* module code until something else causes a rebuild
+ * (switching notes, which remounts this component and re-runs `create()`
+ * fresh, or an ordinary document edit). Investigated directly against
+ * this repo's own module graph and Vite/`@codemirror` source before
+ * writing this: `WidgetType.eq()` and `StateField.update()` are working
+ * exactly as documented — this is a dev-runtime lifecycle gap, not a CM6
+ * bug, and is deliberately *not* solved by a render-version `eq()` field
+ * or a general decoration-invalidation effect (see the "table rendering
+ * lifecycle" investigation — no code artifact, but this is the
+ * conclusion it reached).
+ *
+ * Plain browser dev (`npm run dev`/`dev:web`) is reported to already
+ * behave correctly today and must be left untouched — this switch is
+ * therefore scoped to fire in Tauri dev only, never in plain browser
+ * dev, so it can't interact with (or mask a regression in) whatever
+ * already makes the browser path work.
+ *
+ * `isTauri()` is this codebase's own existing runtime-detection helper
+ * (already used in `Application.ts`, `AppShell.tsx`, `main.tsx`, etc.) —
+ * reused here rather than inventing a second one. Combined with
+ * `import.meta.hot` (only ever defined by Vite's dev server, never in a
+ * production build — Vite's own guidance is to guard HMR code with
+ * `if (import.meta.hot)` specifically so it tree-shakes out of
+ * production entirely), the combined condition below is true in exactly
+ * one runtime: Tauri **dev**. Never plain browser dev, never any
+ * production build (Tauri or web).
+ */
+const ENABLE_TAURI_DEV_EDITOR_HMR = true;
+
 export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
@@ -201,6 +238,18 @@ export const MarkdownEditor = forwardRef<
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  /**
+   * The mount effect's own cleanup, stored so the Tauri-dev-only HMR
+   * handler below (`ENABLE_TAURI_DEV_EDITOR_HMR`) can tear down and
+   * rebuild the `EditorView` outside of React's normal
+   * mount/unmount cycle, without a stale closure: the effect below
+   * returns `() => activeEditorCleanupRef.current?.()` (an indirection
+   * through this ref), not the specific cleanup closure captured at
+   * initial mount time — so a real component unmount always runs
+   * whichever cleanup is *currently* live, even after an HMR-triggered
+   * rebuild replaced it.
+   */
+  const activeEditorCleanupRef = useRef<(() => void) | null>(null);
   /**
    * The table active-cell controller (Architecture E, ADR-034 —
    * docs/table-implementation-plan.md, M5) — one instance per root
@@ -1163,11 +1212,23 @@ export const MarkdownEditor = forwardRef<
     },
   }));
 
-  useEffect(() => {
+  /**
+   * The mount effect's body, extracted to a plain callable so the
+   * Tauri-dev-only HMR handler below can re-run *exactly* this same
+   * construction path (not a second, parallel implementation) when a
+   * CM6 rendering module changes underneath an already-mounted editor.
+   * Defined fresh per render like any other function in this component
+   * body, but only ever invoked from the mount effect (initial render's
+   * closure) and from that effect's own HMR registration (same
+   * closure) — never across a re-render, so this carries no more
+   * staleness risk than the rest of this component's existing
+   * mount-is-once-per-pageId design already has.
+   */
+  function mountEditor(): (() => void) | undefined {
     const container = containerRef.current;
 
     if (!container) {
-      return;
+      return undefined;
     }
 
     const cachedSession = getCachedEditorSession(pageId);
@@ -1398,6 +1459,34 @@ export const MarkdownEditor = forwardRef<
       view.destroy();
       viewRef.current = null;
     };
+  }
+
+  useEffect(() => {
+    activeEditorCleanupRef.current = mountEditor() ?? null;
+
+    // Tauri-dev-only EditorView HMR remount — see `ENABLE_TAURI_DEV_EDITOR_HMR`'s
+    // own doc comment above for the full rationale. `import.meta.hot` is
+    // `undefined` outside a Vite dev server (never true in any production
+    // build), and `isTauri()` is this codebase's existing runtime check
+    // (`Application.ts`, `AppShell.tsx`, `main.tsx`) — the combination is
+    // true only in the one runtime this is meant for. `accept()` is
+    // registered once here, at real-mount time, matching this effect's own
+    // existing "mounted once per pageId" contract; it re-runs `mountEditor()`
+    // through the exact same construction path (including the
+    // `getCachedEditorSession`/`restoreHistoryJSON`/`restoreScrollEffect`
+    // read and the cleanup's own `setCachedEditorSession` write), so
+    // document, undo/redo history, and scroll position survive the rebuild
+    // exactly as they already do for an ordinary page-switch remount.
+    // Active table-cell/nested-editor state is not preserved across this
+    // rebuild — unchanged from today's existing behavior for any other
+    // remount of this component.
+    if (import.meta.hot && ENABLE_TAURI_DEV_EDITOR_HMR && isTauri()) {
+      import.meta.hot.accept(() => {
+        activeEditorCleanupRef.current?.();
+        activeEditorCleanupRef.current = mountEditor() ?? null;
+      });
+    }
+
     // Mounted once per pageId (React's key={activePageId} on this
     // component, in PageHost.tsx, already forces a full remount on every
     // page switch — this effect doesn't need pageId in its own deps to
@@ -1407,6 +1496,7 @@ export const MarkdownEditor = forwardRef<
     // previous implementation, where the DOM node was likewise created
     // once by JSX and only ever updated via a separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => activeEditorCleanupRef.current?.();
   }, []);
 
   useEffect(() => {
