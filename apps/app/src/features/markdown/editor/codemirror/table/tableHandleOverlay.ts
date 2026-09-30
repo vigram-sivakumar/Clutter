@@ -104,6 +104,24 @@ import { OVERLAY_CLASS as SELECTION_OVERLAY_CLASS, VISIBLE_CLASS as SELECTION_OV
 
 const VISIBLE_CLASS = 'cm-table-handle-visible';
 
+/**
+ * Set on `wrapper` for exactly the duration of a materialized drag (the
+ * threshold has been crossed — `materializeDragVisuals`/`cleanupDragVisuals`),
+ * cleared the instant it ends. `setVisibleColumn(null)`/`setVisibleRow(null)`
+ * already hide the real handle's own bar for this same duration by removing
+ * `VISIBLE_CLASS`, but a column's three-dot icon has its own *separate*
+ * "show while this column is selected" rule (`tableHandleOverlay.css`) keyed
+ * off `.cm-table-column-selected` — a class the header cell keeps wearing
+ * throughout the drag (`tableWidget.ts`'s `buildRow()` only ever sets it at
+ * render time, no dispatch happens until drop) — and CSS `visibility` lets a
+ * descendant's own explicit value win over an ancestor's inherited `hidden`.
+ * Without this class, that would keep the icon painting at the dragged
+ * column's *source* location even though its bar is hidden, floating there
+ * in addition to the one already relocated onto the ghost. This class is
+ * what the CSS rule suppressing that keys off instead.
+ */
+const DRAGGING_ACTIVE_CLASS = 'cm-table-dragging-active';
+
 /** Minimum pointer travel, in CSS pixels along the gesture's own axis (vertical for a row handle, horizontal for a column handle), before a press is treated as a drag rather than an eventual click. Small enough to feel immediate, large enough that an ordinary imprecise click never accidentally starts a drag. */
 const DRAG_THRESHOLD_PX = 4;
 
@@ -178,24 +196,45 @@ interface HandlePair {
 const COLUMN_HANDLE_ICON_SVG =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-column-handle-icon"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
 
+/**
+ * Same geometry/markup as `COLUMN_HANDLE_ICON_SVG` (the pill background and
+ * the three dots are baked into this one SVG, not layered separately) —
+ * never redrawn with new circle coordinates for the row axis. The row
+ * handle is oriented vertically, so this one is visually rotated 90deg in
+ * CSS (`.cm-table-row-handle-icon`, `tableHandleOverlay.css`) instead,
+ * turning the same landscape pill/dots into a portrait one.
+ */
+const ROW_HANDLE_ICON_SVG =
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-row-handle-icon"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
+
 function createColumnHandlePair(cell: HTMLElement): void {
   const hit = document.createElement('div');
   hit.className = 'cm-table-column-handle-hit';
   const visible = document.createElement('div');
   visible.className = 'cm-table-column-handle';
-  // Purely decorative — no new visibility state: `visibility` is
-  // CSS-inherited, so the icon just follows this bar's own existing
-  // `cm-table-handle-visible` toggle (hovered or selected), never a second
-  // one (this file's own "only one selection model" doc comment).
-  visible.innerHTML = COLUMN_HANDLE_ICON_SVG;
+  // The icon sits in its own small wrapper, absolutely positioned/centered
+  // on the bar (`.cm-table-column-handle-button`, `tableHandleOverlay.css`)
+  // rather than flex-centered by the bar itself. No new visibility state of
+  // its own: the icon's own hover-gated visibility rule (that file, same
+  // rule) targets `.cm-table-column-handle-icon` directly regardless of
+  // this wrapper nesting.
+  const button = document.createElement('div');
+  button.className = 'cm-table-column-handle-button';
+  button.innerHTML = COLUMN_HANDLE_ICON_SVG;
+  visible.appendChild(button);
   cell.append(hit, visible);
 }
 
+/** Symmetric to `createColumnHandlePair` — same button-wrapper/icon structure, mirrored onto the row axis (`cm-table-row-handle-button`/`-icon`, `tableHandleOverlay.css`). */
 function createRowHandlePair(cell: HTMLElement): void {
   const hit = document.createElement('div');
   hit.className = 'cm-table-row-handle-hit';
   const visible = document.createElement('div');
   visible.className = 'cm-table-row-handle';
+  const button = document.createElement('div');
+  button.className = 'cm-table-row-handle-button';
+  button.innerHTML = ROW_HANDLE_ICON_SVG;
+  visible.appendChild(button);
   cell.append(hit, visible);
 }
 
@@ -596,6 +635,7 @@ export function attachTableHandleOverlay(
     // onto the ghost above and must not also still show at its normal
     // (now content-hidden) structural location.
     dragHoverSuppressed = true;
+    wrapper.classList.add(DRAGGING_ACTIVE_CLASS);
     setVisibleColumn(null);
     setVisibleRow(null);
     // There is only one selection (this file's own top doc comment,
@@ -626,6 +666,7 @@ export function attachTableHandleOverlay(
     session.restoreSource?.();
     session.restoreSource = null;
     dragHoverSuppressed = false;
+    wrapper.classList.remove(DRAGGING_ACTIVE_CLASS);
     setVisibleColumn(selectedColumnFallback());
     setVisibleRow(selectedRowFallback());
     // Restores what `materializeDragVisuals` suppressed. A no-op (querying

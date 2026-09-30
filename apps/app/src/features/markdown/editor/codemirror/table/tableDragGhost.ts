@@ -251,8 +251,10 @@ export function createRowDragGhost(wrapper: HTMLElement, table: HTMLTableElement
 
   // The dragged row's own handle, visually relocated onto the ghost — see
   // `createColumnDragGhost`'s own identical comment on why it's a sibling
-  // of `content`, appended last onto the root.
-  const handle = document.createElement('div');
+  // of `content`, appended last onto the root, and on why it's cloned from
+  // the real one (icon included) rather than rebuilt from scratch.
+  const realRowHandle = (row?.children[0] as HTMLElement | undefined)?.querySelector<HTMLElement>(':scope > .cm-table-row-handle');
+  const handle = realRowHandle ? (realRowHandle.cloneNode(true) as HTMLElement) : document.createElement('div');
   handle.className = 'cm-table-row-handle cm-table-handle-visible';
   element.appendChild(handle);
 

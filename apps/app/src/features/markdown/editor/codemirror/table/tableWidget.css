@@ -74,10 +74,15 @@
   /* Explicit, not relied on as a block-default — see this file's own top
    * doc comment for why this element must never become a clipping layer. */
   overflow: visible;
-  /* Reserves exactly the column handle's own protrusion above the header
-   * cell (`top: -3px` on `.cm-table-column-handle`/`-hit`,
-   * `tableHandleOverlay.css` — must stay in sync with that value) so the
-   * handle never needs to paint outside this widget's own box.
+  /* Reserves the column handle's own protrusion above the header cell —
+   * driven by the *icon* now, not the bar underneath it: the bar itself
+   * (`top: -3px`, height 4px + 2px border, `.cm-table-column-handle`/`-hit`
+   * in `tableHandleOverlay.css`) roughly centers on the header cell's own
+   * top edge, but the three-dot icon layered on top of it
+   * (`.cm-table-column-handle-icon`, same file, absolutely centered on the
+   * bar's own box regardless of the bar's own size) is taller — 14px — and
+   * pokes up to ~8px above the cell, more than the bar alone ever did. Must
+   * stay in sync with both those values if either changes.
    *
    * Every layer this widget itself owns is already `overflow: visible`
    * (this rule, `.cm-table-wrapper`, `.cm-table-scroll`, all below) or
@@ -106,7 +111,7 @@
    * exposure (`inset-inline-start: -3px`) needs a live check against real
    * layout before deciding on its own fix — not addressed here.
    */
-  padding-top: 3px;
+  padding-top: 8px;
 }
 .cm-editor .cm-table-wrapper {
   /* No border here — see `.cm-table-wrapper table`'s own rule below for

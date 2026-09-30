@@ -13,7 +13,7 @@
  * overlay of it.
  *
  * The column handle centers on its own header cell's *top* edge; the row
- * handle centers on its own first cell's *left* edge. `-3px` is a
+ * handle centers on its own first cell's *left* edge. `-1px` is a
  * deliberate, small negative offset — enough for the visible bar to read
  * as sitting *on* the cell boundary rather than inside the cell's own
  * padding, not tied to `--cm-table-border-thickness` (that token governs
@@ -27,23 +27,33 @@
 .cm-table-row-handle {
   position: absolute;
   cursor: pointer;
+  /* Without an explicit value here, these sit at the same "auto" paint
+   * level as the selection overlay (`tableSelectionOverlay.css`, no
+   * z-index of its own) and *below* the column-resize hit-strip and the
+   * drop indicators (`tableColumnResizeHandle.css`/this file, both
+   * `z-index: 3`) — a positive z-index always wins over "auto" regardless
+   * of DOM order, so both of those were able to paint over part of the
+   * handle/icon wherever they happened to overlap it. Higher than both
+   * (and than the drag ghost's own `z-index: 2`, `tableDragGhost.css`) so
+   * the handle is never sliced by anything else this feature draws. */
+  z-index: 4;
 }
 
 .cm-table-column-handle-hit,
 .cm-table-column-handle {
-  top: -3px;
+  top: -1px;
   inset-inline-start: 50%;
   transform: translateX(-50%);
 }
 
 .cm-table-row-handle-hit,
 .cm-table-row-handle {
-  inset-inline-start: -3px;
+  inset-inline-start: -1px;
   top: 50%;
   transform: translateY(-50%);
 }
 
-/* Larger, invisible pointer targets — sized beyond the visible 24x4/4x24
+/* Larger, invisible pointer targets — sized beyond the visible 16x2/2x16
  * bar so the handle is practical to point at with a real mouse (this
  * milestone's own explicit "Hit area" requirement). `pointer-events` stays
  * `none` until this is the currently-hovered column/row's own handle
@@ -81,30 +91,146 @@
 .cm-table-row-handle.cm-table-handle-visible {
   visibility: visible;
 }
-/*
- * `top: -3px` (above) is measured from the cell's own top edge to this
- * element's own top edge — unaffected by `height` — so growing the column
- * bar downward, here, to fit the icon below, doesn't change how far it
- * pokes *above* the cell at all; `tableWidget.css`'s own `padding-top`
- * clipping reservation (sized for that 3px poke) needs no change.
- */
 .cm-table-column-handle {
-  width: 24px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--surface-primary);
-  border-radius: 4px;
+  width: 16px;
+  height: 2px;
+  /* Lets the icon's `fill="currentColor"` resolve to something visible
+   * against this bar's own `background: var(--foreground-tertiary)`
+   * (shared rule, above) — doesn't touch the bar's own fill. */
+  color: var(--border-strong);
+  /* A `box-shadow` ring, not a `border` — keeps the bar's own box-model
+   * dimensions exact (no extra width/height a `border` would add) while
+   * still separating it visually from the cell's own background. */
+  box-shadow: 0 0 0 3px var(--surface-primary);
 }
 .cm-table-row-handle {
-  width: 4px;
-  height: 24px;
+  width: 2px;
+  height: 16px;
+  /* Mirrors `.cm-table-column-handle`'s own two rules above, verbatim. */
+  color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--surface-primary);
 }
 
+/* Centers on the bar's own box via `position: absolute` + `translate`,
+ * not flex on the bar itself — the bar already qualifies as this wrapper's
+ * containing block (any `position` other than `static` does, and the bar
+ * is `position: absolute` from the shared rule above). */
+.cm-table-column-handle-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/*
+ * Hidden by default, overriding the `visibility: visible` it would
+ * otherwise just inherit from its own parent bar (`.cm-table-handle-visible`,
+ * above) — the icon needs a *narrower* trigger than the bar: showing only
+ * while the pointer is actually over the handle's own hit-box, or while
+ * this column is the current selection — never merely because some other
+ * cell in the column is hovered without being selected. Two rules below,
+ * one per condition, both purely CSS:
+ *
+ * - Hover: `.cm-table-column-handle-hit:hover` (a preceding sibling, not an
+ *   ancestor — hence the sibling combinator, not a descendant one). No JS
+ *   state needed: the hit-box only ever has `pointer-events: auto` (and so
+ *   can only ever match `:hover`) while the bar is already visible, which
+ *   is exactly the same gating this needs.
+ * - Selected: `.cm-table-column-selected` — `tableWidget.ts`'s own
+ *   `buildRow()` already adds this class to every cell (header included)
+ *   in the selected column; the handle lives in that same header cell, so
+ *   this is a plain ancestor match, no new state of any kind.
+ */
 .cm-table-column-handle-icon {
-  width: 14px;
-  height: 14px;
+  width: 32px;
+  height: 12px;
+  visibility: hidden;
+  border-radius: var(--space-4);
+  color: white;
+  background: var(--border-active);
+  box-shadow: 0 0 0 3px var(--surface-primary);
+}
+.cm-table-column-handle-hit:hover
+  ~ .cm-table-column-handle
+  .cm-table-column-handle-icon,
+.cm-table-column-selected .cm-table-column-handle-icon {
+  visibility: visible;
+}
+/* The drag ghost clones only the bar (`tableDragGhost.ts`), never its own
+ * `-hit` sibling — there is nothing there for the rule above to ever match
+ * against, so without this the icon would stay hidden for a ghost's entire
+ * lifetime. The ghost is a decorative, transient clone with no live hover
+ * state of its own to gate on; it should simply always show the icon it
+ * was cloned with. */
+.cm-table-drag-ghost .cm-table-column-handle-icon {
+  visibility: visible;
+}
+
+/*
+ * While a drag is materialized (`tableHandleOverlay.ts`'s own
+ * `cm-table-dragging-active`, set on `wrapper` for exactly that duration),
+ * the source header's own icon must not keep painting just because this
+ * column happens to be selected — `.cm-table-column-selected` stays on the
+ * header cell the whole time (nothing re-renders until drop), and the
+ * selected-column rule above gives the icon its own explicit `visibility`,
+ * which would otherwise win over the bar's own inherited `hidden`. Scoped
+ * to `th` specifically — the only place a *real* column handle ever lives
+ * (`createColumnHandlePair`, that file) — so this never matches inside the
+ * ghost (a plain sibling `<div>` of `.cm-table-scroll`, never inside any
+ * real `<th>`/`<td>`) and so never needs `!important` to coexist with the
+ * ghost's own always-visible rule above.
+ */
+.cm-table-wrapper.cm-table-dragging-active th .cm-table-column-handle-icon {
+  visibility: hidden;
+}
+
+/* Mirrors `.cm-table-column-handle-button` verbatim, for the row axis. */
+.cm-table-row-handle-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/*
+ * Same SVG glyph markup as `.cm-table-column-handle-icon` — byte-for-byte
+ * identical `<circle>` geometry (`ROW_HANDLE_ICON_SVG`/`COLUMN_HANDLE_ICON_SVG`,
+ * `tableHandleOverlay.ts`) — visually rotated 90deg here so the landscape
+ * three-dot glyph reads as a portrait one, matching the row handle's own
+ * vertical orientation. This element's own box/colors are styled
+ * independently below, not kept in lockstep with the column icon's own.
+ * Rotation is purely visual (`transform`, not a layout property): the
+ * element's own box keeps its own width/height for centering purposes, so
+ * `.cm-table-row-handle-button`'s `translate(-50%, -50%)` still centers it
+ * correctly on the bar.
+ */
+.cm-table-row-handle-icon {
+  width: 24px;
+  height: 12px;
+  visibility: hidden;
+  border-radius: var(--space-6);
+  color: white;
+  background: var(--border-active);
+  transform: rotate(90deg);
+}
+.cm-table-row-handle-hit:hover ~ .cm-table-row-handle .cm-table-row-handle-icon,
+.cm-table-row-selected .cm-table-row-handle-icon {
+  visibility: visible;
+}
+/* Mirrors the column ghost's own always-visible override, verbatim. */
+.cm-table-drag-ghost .cm-table-row-handle-icon {
+  visibility: visible;
+}
+
+/*
+ * Mirrors the column axis's own drag-time suppression rule — `tr` is this
+ * axis's equivalent of `th`: the only place a *real* row handle ever lives
+ * (`createRowHandlePair`, every row's own first cell, itself always inside
+ * a `<tr>`) and, like `th`, never an ancestor of the ghost (a plain sibling
+ * `<div>` of `.cm-table-scroll`).
+ */
+.cm-table-wrapper.cm-table-dragging-active tr .cm-table-row-handle-icon {
+  visibility: hidden;
 }
 
 /* Drop indicators for the row/column handles' own drag-to-reorder gesture
