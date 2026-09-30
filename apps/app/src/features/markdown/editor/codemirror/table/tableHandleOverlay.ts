@@ -194,7 +194,7 @@ interface HandlePair {
  * glyph would).
  */
 const COLUMN_HANDLE_ICON_SVG =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-column-handle-icon"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-column-handle-icon"><circle cx="2.5" cy="8" r="1.75" fill="currentColor"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/><circle cx="13.5" cy="8" r="1.75" fill="currentColor"/></svg>';
 
 /**
  * Same geometry/markup as `COLUMN_HANDLE_ICON_SVG` (the pill background and
@@ -205,7 +205,7 @@ const COLUMN_HANDLE_ICON_SVG =
  * turning the same landscape pill/dots into a portrait one.
  */
 const ROW_HANDLE_ICON_SVG =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-row-handle-icon"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-row-handle-icon"><circle cx="2.5" cy="8" r="1.75" fill="currentColor"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/><circle cx="13.5" cy="8" r="1.75" fill="currentColor"/></svg>';
 
 function createColumnHandlePair(cell: HTMLElement): void {
   const hit = document.createElement('div');

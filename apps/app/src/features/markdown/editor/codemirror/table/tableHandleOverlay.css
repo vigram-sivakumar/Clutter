@@ -53,9 +53,12 @@
   transform: translateY(-50%);
 }
 
-/* Larger, invisible pointer targets — sized beyond the visible 16x2/2x16
+/* Invisible pointer targets, sized independently of the visible 16x2/2x16
  * bar so the handle is practical to point at with a real mouse (this
- * milestone's own explicit "Hit area" requirement). `pointer-events` stays
+ * milestone's own explicit "Hit area" requirement) — column 30x12, row
+ * 16x12; not necessarily larger than the bar in every dimension (the row
+ * hit's own 12px height is shorter than the row bar's own 16px), just
+ * whatever's been tuned to feel right to point at. `pointer-events` stays
  * `none` until this is the currently-hovered column/row's own handle
  * (`.cm-table-handle-visible`), so a handle that isn't currently shown can
  * never become an accidental dead zone over ordinary cells. */
@@ -69,12 +72,12 @@
   pointer-events: auto;
 }
 .cm-table-column-handle-hit {
-  width: 40px;
-  height: 16px;
+  width: 30px;
+  height: 12px;
 }
 .cm-table-row-handle-hit {
   width: 16px;
-  height: 40px;
+  height: 12px;
 }
 
 /* The visible bar — purely decorative, never itself a pointer-event target
@@ -141,29 +144,47 @@
  *   in the selected column; the handle lives in that same header cell, so
  *   this is a plain ancestor match, no new state of any kind.
  */
+/*
+ * Scale in/out, not a plain visibility snap — `visibility` still gates
+ * hit-testing/hover exactly as before (an invisible icon must never be
+ * clickable), but `transition-behavior: allow-discrete` lets it join the
+ * `transform` transition instead of flipping instantly: going *to* hidden,
+ * the browser holds `visibility: visible` for the transition's full
+ * duration (so the scale-down actually plays) and only flips at the very
+ * end; going *to* visible, it flips at the very start. Declared once, here
+ * — none of the states below need their own `transition`, only their own
+ * end-state `transform`/`visibility`.
+ */
 .cm-table-column-handle-icon {
-  width: 32px;
+  width: 30px;
   height: 12px;
   visibility: hidden;
   border-radius: var(--space-4);
   color: white;
   background: var(--border-active);
   box-shadow: 0 0 0 3px var(--surface-primary);
+  transform: scale(0);
+  transition:
+    transform 120ms ease,
+    visibility 120ms allow-discrete;
 }
 .cm-table-column-handle-hit:hover
   ~ .cm-table-column-handle
   .cm-table-column-handle-icon,
 .cm-table-column-selected .cm-table-column-handle-icon {
   visibility: visible;
+  transform: scale(1);
 }
 /* The drag ghost clones only the bar (`tableDragGhost.ts`), never its own
  * `-hit` sibling — there is nothing there for the rule above to ever match
  * against, so without this the icon would stay hidden for a ghost's entire
  * lifetime. The ghost is a decorative, transient clone with no live hover
  * state of its own to gate on; it should simply always show the icon it
- * was cloned with. */
+ * was cloned with — `scale(1)` too, or it would render at the base rule's
+ * own `scale(0)` (this rule doesn't otherwise touch `transform` at all). */
 .cm-table-drag-ghost .cm-table-column-handle-icon {
   visibility: visible;
+  transform: scale(1);
 }
 
 /*
@@ -182,6 +203,7 @@
  */
 .cm-table-wrapper.cm-table-dragging-active th .cm-table-column-handle-icon {
   visibility: hidden;
+  transform: scale(0);
 }
 
 /* Mirrors `.cm-table-column-handle-button` verbatim, for the row axis. */
@@ -208,18 +230,28 @@
   width: 24px;
   height: 12px;
   visibility: hidden;
-  border-radius: var(--space-6);
+  border-radius: var(--space-4);
   color: white;
   background: var(--border-active);
-  transform: rotate(90deg);
+  box-shadow: 0 0 0 3px var(--surface-primary);
+  /* `rotate()` for orientation, `scale()` for the show/hide transition —
+   * combined in one `transform`, since setting it again anywhere below
+   * would replace, not add to, this value. Mirrors the column icon's own
+   * transition declaration verbatim otherwise. */
+  transform: rotate(90deg) scale(0);
+  transition:
+    transform 120ms ease,
+    visibility 120ms allow-discrete;
 }
 .cm-table-row-handle-hit:hover ~ .cm-table-row-handle .cm-table-row-handle-icon,
 .cm-table-row-selected .cm-table-row-handle-icon {
   visibility: visible;
+  transform: rotate(90deg) scale(1);
 }
 /* Mirrors the column ghost's own always-visible override, verbatim. */
 .cm-table-drag-ghost .cm-table-row-handle-icon {
   visibility: visible;
+  transform: rotate(90deg) scale(1);
 }
 
 /*
@@ -231,6 +263,7 @@
  */
 .cm-table-wrapper.cm-table-dragging-active tr .cm-table-row-handle-icon {
   visibility: hidden;
+  transform: rotate(90deg) scale(0);
 }
 
 /* Drop indicators for the row/column handles' own drag-to-reorder gesture
