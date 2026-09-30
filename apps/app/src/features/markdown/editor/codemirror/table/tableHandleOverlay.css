@@ -81,13 +81,30 @@
 .cm-table-row-handle.cm-table-handle-visible {
   visibility: visible;
 }
+/*
+ * `top: -3px` (above) is measured from the cell's own top edge to this
+ * element's own top edge — unaffected by `height` — so growing the column
+ * bar downward, here, to fit the icon below, doesn't change how far it
+ * pokes *above* the cell at all; `tableWidget.css`'s own `padding-top`
+ * clipping reservation (sized for that 3px poke) needs no change.
+ */
 .cm-table-column-handle {
   width: 24px;
-  height: 4px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--surface-primary);
+  border-radius: 4px;
 }
 .cm-table-row-handle {
   width: 4px;
   height: 24px;
+}
+
+.cm-table-column-handle-icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* Drop indicators for the row/column handles' own drag-to-reorder gesture

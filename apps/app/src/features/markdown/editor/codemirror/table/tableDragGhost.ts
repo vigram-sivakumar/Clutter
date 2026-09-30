@@ -199,7 +199,16 @@ export function createColumnDragGhost(wrapper: HTMLElement, table: HTMLTableElem
   // (`tableDragGhost.css`'s own doc comment has the full paint-order
   // reasoning). Absolutely positioned (`.cm-table-column-handle`'s own
   // CSS, `tableHandleOverlay.css`) against this root element itself.
-  const handle = document.createElement('div');
+  //
+  // Cloned from the header cell's own real, currently-rendered handle
+  // (`tableHandleOverlay.ts`'s own `createColumnHandlePair`, three-dot icon
+  // included) rather than rebuilt from scratch, so the ghost's handle can
+  // never drift out of sync with what the real handle actually looks like.
+  // Falls back to a bare div when no real handle exists yet to clone from
+  // (this module's own unit tests build a table without ever attaching the
+  // real overlay).
+  const realHandle = headerCell?.querySelector<HTMLElement>(':scope > .cm-table-column-handle');
+  const handle = realHandle ? (realHandle.cloneNode(true) as HTMLElement) : document.createElement('div');
   handle.className = 'cm-table-column-handle cm-table-handle-visible';
   element.appendChild(handle);
 

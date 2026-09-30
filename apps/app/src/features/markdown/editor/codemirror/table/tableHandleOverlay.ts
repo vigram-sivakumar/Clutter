@@ -165,11 +165,29 @@ interface HandlePair {
   readonly visible: HTMLElement;
 }
 
+/**
+ * Hand-copied inline SVG, not `AppIcon` — this handle is raw CM6 widget DOM
+ * (`WidgetType.toDOM()`, `document.createElement` throughout this file),
+ * with no React tree available to mount the app's own icon component into,
+ * the identical constraint `embedControlIcons.ts` already documents for the
+ * same reason. Same three-dot geometry the icon registry ships as
+ * `moreHorizontal` (`apps/app/src/shared/icon/svg/more-horizontal.svg`) —
+ * reused as-is, already horizontal, no rotation needed (unlike a vertical
+ * glyph would).
+ */
+const COLUMN_HANDLE_ICON_SVG =
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-column-handle-icon"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
+
 function createColumnHandlePair(cell: HTMLElement): void {
   const hit = document.createElement('div');
   hit.className = 'cm-table-column-handle-hit';
   const visible = document.createElement('div');
   visible.className = 'cm-table-column-handle';
+  // Purely decorative — no new visibility state: `visibility` is
+  // CSS-inherited, so the icon just follows this bar's own existing
+  // `cm-table-handle-visible` toggle (hovered or selected), never a second
+  // one (this file's own "only one selection model" doc comment).
+  visible.innerHTML = COLUMN_HANDLE_ICON_SVG;
   cell.append(hit, visible);
 }
 
