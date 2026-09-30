@@ -535,7 +535,14 @@ export class FolderOperations {
     patch: Partial<
       Pick<
         FolderMetadata,
-        'favorite' | 'cover' | 'coverHidden' | 'coverLayout' | 'icon' | 'description'
+        | 'favorite'
+        | 'cover'
+        | 'coverHidden'
+        | 'coverLayout'
+        | 'coverPositionAbove'
+        | 'coverPositionSide'
+        | 'icon'
+        | 'description'
       >
     >
   ): Promise<void> {

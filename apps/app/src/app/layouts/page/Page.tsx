@@ -107,6 +107,21 @@ type PageProps = {
   /** Forwarded to PageCover's "Layout" menu action. */
   onSetCoverLayout?(layout: CoverLayout): void;
   /**
+   * The saved (not preview) focal position for each `coverLayout` value —
+   * see PageMetadata.coverPositionAbove/coverPositionSide. Forwarded to
+   * PageCover so re-entering repositioning mode starts from the currently
+   * saved position for whichever layout is active, never a hardcoded 50.
+   */
+  coverPositionAbove?: number;
+  coverPositionSide?: number;
+  /**
+   * Forwarded to PageCover's "Save Position" action — the one point a drag
+   * preview becomes persisted metadata. Presence gates the "Reposition"
+   * menu item the same way onSetCoverLayout gates "Position", so it's never
+   * a dead control (rule 12) before a real handler exists.
+   */
+  onSaveCoverPosition?(layout: CoverLayout, position: number): void;
+  /**
    * React key for `<PageCover>` (not for `Page` itself — same convention
    * as `titleKey` above), keyed by the active resource's own id (a page's
    * `activePageId`, a folder's `id`). This is what keeps the Hide/Show
@@ -205,6 +220,9 @@ export function Page({
   onShowCoverImage,
   coverLayout = 'side',
   onSetCoverLayout,
+  coverPositionAbove,
+  coverPositionSide,
+  onSaveCoverPosition,
   coverKey,
   bodyFocusRef,
   onTitleCommit,
@@ -254,6 +272,9 @@ export function Page({
       onSetCoverImageFromUpload={onSetCoverImageFromUpload}
       layout={coverLayout}
       onSetLayout={onSetCoverLayout}
+      coverPositionAbove={coverPositionAbove}
+      coverPositionSide={coverPositionSide}
+      onSavePosition={onSaveCoverPosition}
       hasEmoji={Boolean(emoji)}
     />
   );

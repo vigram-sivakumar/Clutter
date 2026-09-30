@@ -637,8 +637,14 @@ export function PageHost({
       return;
     }
 
+    // Both saved positions reset to centered alongside a new image, same
+    // reasoning as onRemoveCoverImage's coverHidden reset below — a
+    // position belongs to the image it was framed against, never carries
+    // over to a replacement the user hasn't positioned yet.
     void application.pageOperations.updateMetadata(activePageId, {
       cover: url,
+      coverPositionAbove: 50,
+      coverPositionSide: 50,
     });
   };
 
@@ -651,6 +657,8 @@ export function PageHost({
       const relativePath = await application.importCoverAsset(sourcePath);
       await application.pageOperations.updateMetadata(activePageId, {
         cover: relativePath,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
       });
     })();
   };
@@ -664,11 +672,33 @@ export function PageHost({
     // this, hiding a cover and then removing it would leave a stale
     // coverHidden: true in frontmatter that silently carries over to
     // whatever cover image gets set next, mounting it already-hidden
-    // for no reason visible in the UI that set it.
+    // for no reason visible in the UI that set it. Both saved positions
+    // reset for the same reason: a future cover must not inherit an old
+    // image's framing.
     void application.pageOperations.updateMetadata(activePageId, {
       cover: null,
       coverHidden: false,
+      coverPositionAbove: 50,
+      coverPositionSide: 50,
     });
+  };
+
+  // PageCover's "Save Position" action, reached only while repositioning
+  // mode is active (Page.Cover.tsx's own local drag-preview state) — the
+  // one point where a drag preview actually becomes persisted metadata.
+  // Only the layout currently being repositioned is patched; the other
+  // layout's saved position is never read or touched here.
+  const onSaveCoverPosition = (layout: 'side' | 'above', position: number): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(
+      activePageId,
+      layout === 'above'
+        ? { coverPositionAbove: position }
+        : { coverPositionSide: position }
+    );
   };
 
   // Same shared-across-draft-and-persisted reasoning as onSetCoverImage
@@ -822,6 +852,8 @@ export function PageHost({
       void application.folderOperations.updateMetadata(folder.id, {
         cover: null,
         coverHidden: false,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
       });
     // Folder-scoped counterpart to the Note/DailyNote branch's
     // onHideCoverImage above — same coverHidden-only patch, leaving
@@ -850,15 +882,30 @@ export function PageHost({
     const onSetFolderCoverImage = (url: string): void =>
       void application.folderOperations.updateMetadata(folder.id, {
         cover: url,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
       });
     const onSetFolderCoverImageFromUpload = (sourcePath: string): void => {
       void (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
         await application.folderOperations.updateMetadata(folder.id, {
           cover: relativePath,
+          coverPositionAbove: 50,
+          coverPositionSide: 50,
         });
       })();
     };
+    // Folder-scoped counterpart to onSaveCoverPosition above.
+    const onSaveFolderCoverPosition = (
+      layout: 'side' | 'above',
+      position: number
+    ): void =>
+      void application.folderOperations.updateMetadata(
+        folder.id,
+        layout === 'above'
+          ? { coverPositionAbove: position }
+          : { coverPositionSide: position }
+      );
     // The More-actions "Emoji" entry point's persistence — same
     // FolderOperations.updateMetadata write path sidebar Folder.tsx's own
     // ChangeIconPicker already uses (icon: null clears it, same as
@@ -1066,6 +1113,9 @@ export function PageHost({
           onShowCoverImage={onShowFolderCoverImage}
           coverLayout={model.coverLayout}
           onSetCoverLayout={onSetFolderCoverLayout}
+          coverPositionAbove={model.coverPositionAbove}
+          coverPositionSide={model.coverPositionSide}
+          onSaveCoverPosition={onSaveFolderCoverPosition}
           coverKey={folder.id}
           body={
             isArchiveView ? (
@@ -1627,6 +1677,9 @@ export function PageHost({
       onShowCoverImage={onShowCoverImage}
       coverLayout={model.coverLayout}
       onSetCoverLayout={onSetCoverLayout}
+      coverPositionAbove={model.coverPositionAbove}
+      coverPositionSide={model.coverPositionSide}
+      onSaveCoverPosition={onSaveCoverPosition}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
       body={

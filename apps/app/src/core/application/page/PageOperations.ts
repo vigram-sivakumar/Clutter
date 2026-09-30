@@ -85,7 +85,14 @@ export interface CreatePageOptions {
  */
 export type EditablePageMetadata = Pick<
   PageMetadata,
-  'description' | 'icon' | 'cover' | 'coverHidden' | 'coverLayout' | 'favorite'
+  | 'description'
+  | 'icon'
+  | 'cover'
+  | 'coverHidden'
+  | 'coverLayout'
+  | 'coverPositionAbove'
+  | 'coverPositionSide'
+  | 'favorite'
 >;
 
 /** The public shape UI reads for a draft it can't find in the Vault yet — see PageOperations.getDraft(). */
