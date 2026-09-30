@@ -325,6 +325,46 @@
    * `width`/`max-width: 100%` with `overflow: visible`. */
   overflow-x: auto;
 }
+/*
+ * The table-widget breakout — see `tableWidgetBreakoutWidth.ts`'s own top
+ * doc comment for the full mechanism. `--table-breakout-width`/
+ * `--table-breakout-shift` are published by that module only once the
+ * table's own actual rendered width exceeds the normal reading column's
+ * own width; the `100%`/`0px` fallbacks are what every explicit-widths
+ * table already renders as without this rule (before that module's own
+ * deferred first measurement, and permanently for a table that fits) — a
+ * table narrower than the reading column produces no visible difference at
+ * all, since it's `width: max-content` and left-aligns via ordinary block
+ * flow regardless of how wide this wrapper is declared.
+ *
+ * **`margin-left`, not `left`/`transform` — deliberately, and safe here
+ * unlike almost anywhere else in this codebase.** This codebase's own
+ * permanent CM6 rule (`CLAUDE.md`) bans `margin` on a `.cm-line` or a
+ * `blockWrappers`-created wrapper specifically because it corrupts CM6's
+ * own cursor/navigation bookkeeping for those elements. `.cm-table-wrapper`
+ * is neither — this file's own top doc comment already establishes it as
+ * this widget's own private DOM, nested *inside* `.cm-table-widget` (the
+ * one element CM6 actually manages the block-position of) — so a
+ * `margin-left` here changes nothing CM6 itself ever measures; the widget's
+ * own outer box (still an ordinary, unmodified block with no `margin`/
+ * `transform` of its own) is the only thing CM6's line-position math ever
+ * looks at, and it stays exactly where it always was. `.cm-table-widget`'s
+ * own `overflow: visible` (this file's own top rule) is what lets this
+ * shifted-and-widened wrapper paint on *both* sides of that unmoved outer
+ * box with no clipping — the identical principle already relied on for the
+ * *right*-side overflow, just extended to the left as well.
+ */
+.cm-editor .cm-table-wrapper--explicit-widths {
+  /* `max-width: none` — without it, the base `.cm-table-wrapper` rule's own
+   * `max-width: 100%` (of `.cm-table-widget`, the unmoved ~720px-column
+   * box) would clamp this rule's own wider `width` straight back down to
+   * exactly what this whole mechanism exists to exceed, since a `width`
+   * larger than a competing `max-width` always loses to it regardless of
+   * which one is more specific or declared later. */
+  max-width: none;
+  width: var(--table-breakout-width, 100%);
+  margin-left: var(--table-breakout-shift, 0px);
+}
 
 .cm-editor .cm-table-wrapper th,
 .cm-editor .cm-table-wrapper td {

@@ -208,46 +208,148 @@ const COLUMN_HANDLE_ICON_SVG =
 const ROW_HANDLE_ICON_SVG =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="cm-table-row-handle-icon"><circle cx="2.5" cy="8" r="1.75" fill="currentColor"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/><circle cx="13.5" cy="8" r="1.75" fill="currentColor"/></svg>';
 
-function createColumnHandlePair(cell: HTMLElement): void {
+/**
+ * Mounted as a direct child of `wrapper` (`.cm-table-wrapper`), *not* inside
+ * `columnIndex`'s own header cell the way every other handle-overlay
+ * element still is — the one deliberate exception, and the reason is
+ * clipping, not ownership: `.cm-table-scroll` (an ancestor of every `<th>`)
+ * gets `overflow-x: auto` the moment a table has explicit widths
+ * (`tableWidget.css`), which per the CSS Overflow spec forces its computed
+ * `overflow-y` to `auto` too — a real vertical-clipping box neither
+ * `.cm-table-widget` nor `.cm-table-wrapper` ever becomes (both stay
+ * `overflow: visible` unconditionally). The three-dot icon layered on this
+ * bar pokes ~6-8px above the header cell's own top edge by design (this
+ * exact visual position is a hard requirement, not something this move is
+ * allowed to change) — inside a `<th>`, that protrusion is silently cropped
+ * by `.cm-table-scroll`'s own forced clip the instant a table breaks the
+ * ~720px column (confirmed live, twice: reproducible on any resized table
+ * whose columns make `.cm-table-scroll` an explicit-width scroll
+ * container). Mounting here instead, inside `.cm-table-wrapper` (never a
+ * clipping box, regardless of column widths), removes the clip entirely
+ * without moving the handle's own visual position by one pixel — position
+ * is now computed explicitly (`positionColumnHandle`, below) from the
+ * owning header cell's own live `getBoundingClientRect()`, reproducing the
+ * exact same centered-on-the-border placement the old `position:
+ * relative`-on-`<th>` CSS used to give for free.
+ *
+ * `columnIndex` is stamped onto both elements as `data-column-index` — the
+ * only way to recover "which column does this hit-element belong to" now
+ * that `target.closest('td, th')` (`resolveHoveredCell`'s own mechanism,
+ * still exactly correct for ordinary cell hover) can no longer reach an
+ * owning cell from here; every call site that used to resolve a handle's
+ * column via cell ancestry now reads this attribute directly instead.
+ *
+ * `selected` drives a *second*, independent reason: the icon's own
+ * "visible while hovered *or* selected" CSS rule used to be a `~` general
+ * sibling selector (`.cm-table-column-handle-hit:hover ~
+ * .cm-table-column-handle .cm-table-column-handle-icon`) plus an ancestor
+ * selector for the selected case (`.cm-table-column-selected
+ * .cm-table-column-handle-icon`) — both relied on each hit/bar pair being
+ * isolated inside its own unique header cell, where a sibling/ancestor
+ * match could only ever reach *that one column's own* bar. Now that every
+ * pair is a flat sibling of every other one directly under `wrapper` (this
+ * function's own top doc comment), a general sibling selector on one hit's
+ * `:hover` matches *every* bar after it in DOM order, not just its own —
+ * confirmed live: hovering one column's handle lit up every later column's
+ * handle too. Fixed by dropping CSS `:hover` matching entirely for this
+ * element and driving both states from JS instead, each scoped by closure
+ * to exactly this one pair: `cm-table-column-handle--engaged` toggled
+ * directly on `visible` by `hit`'s own `pointerenter`/`pointerleave`
+ * (neither bubbles, so attaching straight to `hit` needs no index lookup at
+ * all), and `cm-table-column-handle--selected` applied once here at
+ * creation time — selection changes always rebuild this whole overlay via a
+ * fresh `attachTableHandleOverlay` call, so "once at creation" is already
+ * exactly as live as `buildRow()`'s own identical one-time
+ * `cm-table-column-selected` tagging (that cell-level class still drives
+ * the column background highlight, `tableWidget.css`, entirely unrelated to
+ * this file).
+ */
+function createColumnHandlePair(wrapper: HTMLElement, columnIndex: number, selected: boolean): void {
   const hit = document.createElement('div');
   hit.className = 'cm-table-column-handle-hit';
+  hit.dataset.columnIndex = String(columnIndex);
   const visible = document.createElement('div');
-  visible.className = 'cm-table-column-handle';
+  visible.className = selected ? 'cm-table-column-handle cm-table-column-handle--selected' : 'cm-table-column-handle';
+  visible.dataset.columnIndex = String(columnIndex);
   // The icon sits in its own small wrapper, absolutely positioned/centered
   // on the bar (`.cm-table-column-handle-button`, `tableHandleOverlay.css`)
   // rather than flex-centered by the bar itself. No new visibility state of
-  // its own: the icon's own hover-gated visibility rule (that file, same
-  // rule) targets `.cm-table-column-handle-icon` directly regardless of
-  // this wrapper nesting.
+  // its own: the icon's own engaged/selected-gated visibility rule (that
+  // file, same rule) targets `.cm-table-column-handle-icon` directly
+  // regardless of this wrapper nesting.
   const button = document.createElement('div');
   button.className = 'cm-table-column-handle-button';
   button.innerHTML = COLUMN_HANDLE_ICON_SVG;
   visible.appendChild(button);
-  cell.append(hit, visible);
+  // Scoped to exactly this pair by closure — see this function's own doc
+  // comment above for why a CSS sibling selector can no longer do this job.
+  hit.addEventListener('pointerenter', () => {
+    visible.classList.add('cm-table-column-handle--engaged');
+  });
+  hit.addEventListener('pointerleave', () => {
+    visible.classList.remove('cm-table-column-handle--engaged');
+  });
+  wrapper.append(hit, visible);
 }
 
-/** Symmetric to `createColumnHandlePair` — same button-wrapper/icon structure, mirrored onto the row axis (`cm-table-row-handle-button`/`-icon`, `tableHandleOverlay.css`). */
-function createRowHandlePair(cell: HTMLElement): void {
+/**
+ * Symmetric to `createColumnHandlePair` — same button-wrapper/icon
+ * structure and the identical reason for living in `wrapper` rather than
+ * inside its own owning cell: `.cm-table-scroll` becomes a real vertical-
+ * clipping box the moment a table has explicit widths, and this handle's
+ * own left-edge protrusion (`inset-inline-start: -1px`,
+ * `tableHandleOverlay.css`) is clipped there exactly like the column
+ * handle's own top-edge protrusion was — the row axis has no equivalent
+ * *horizontal*-clip concern (`.cm-table-scroll`'s own forced clip is
+ * vertical only), but the row handle still needs to be reachable/visible at
+ * *every* horizontal scroll position, which only holds if it isn't
+ * confined to `.cm-table-scroll`'s own clipped box in the first place.
+ * `rowIndex` is stamped as `data-row-index`, mirroring
+ * `data-column-index` — the same "recover identity without cell ancestry"
+ * need `findRowHandlePair`/the hover-tracking pointermove handler both have.
+ *
+ * `selected` mirrors `createColumnHandlePair`'s own identical parameter —
+ * see that function's own doc comment for why the icon's "visible while
+ * selected" CSS rule needs a class on the bar itself now
+ * (`cm-table-row-handle--selected`), rather than the ancestor-based
+ * `.cm-table-row-selected .cm-table-row-handle-icon` this used to be able
+ * to rely on before the row handle also moved out of its owning cell. The
+ * same function's own doc comment also covers why the *hover* state
+ * (`cm-table-row-handle--engaged`, below) is now JS-driven per pair rather
+ * than a CSS `~` sibling selector — the identical cross-talk bug (hovering
+ * one row's handle lighting up every later row's) applies here verbatim.
+ */
+function createRowHandlePair(wrapper: HTMLElement, rowIndex: number, selected: boolean): void {
   const hit = document.createElement('div');
   hit.className = 'cm-table-row-handle-hit';
+  hit.dataset.rowIndex = String(rowIndex);
   const visible = document.createElement('div');
-  visible.className = 'cm-table-row-handle';
+  visible.className = selected ? 'cm-table-row-handle cm-table-row-handle--selected' : 'cm-table-row-handle';
+  visible.dataset.rowIndex = String(rowIndex);
   const button = document.createElement('div');
   button.className = 'cm-table-row-handle-button';
   button.innerHTML = ROW_HANDLE_ICON_SVG;
   visible.appendChild(button);
-  cell.append(hit, visible);
+  hit.addEventListener('pointerenter', () => {
+    visible.classList.add('cm-table-row-handle--engaged');
+  });
+  hit.addEventListener('pointerleave', () => {
+    visible.classList.remove('cm-table-row-handle--engaged');
+  });
+  wrapper.append(hit, visible);
 }
 
-function findColumnHandlePair(cell: HTMLElement): HandlePair | null {
-  const hit = cell.querySelector<HTMLElement>(':scope > .cm-table-column-handle-hit');
-  const visible = cell.querySelector<HTMLElement>(':scope > .cm-table-column-handle');
+/** Looks up column `columnIndex`'s own handle pair by `data-column-index` (`createColumnHandlePair`'s own doc comment) — `wrapper`'s own direct children now, never a cell's. */
+function findColumnHandlePair(wrapper: HTMLElement, columnIndex: number): HandlePair | null {
+  const hit = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-column-handle-hit[data-column-index="${columnIndex}"]`);
+  const visible = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-column-handle[data-column-index="${columnIndex}"]`);
   return hit && visible ? { hit, visible } : null;
 }
 
-function findRowHandlePair(cell: HTMLElement): HandlePair | null {
-  const hit = cell.querySelector<HTMLElement>(':scope > .cm-table-row-handle-hit');
-  const visible = cell.querySelector<HTMLElement>(':scope > .cm-table-row-handle');
+/** Looks up row `rowIndex`'s own handle pair by `data-row-index` (`createRowHandlePair`'s own doc comment) — `wrapper`'s own direct children now, never a cell's. */
+function findRowHandlePair(wrapper: HTMLElement, rowIndex: number): HandlePair | null {
+  const hit = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-row-handle-hit[data-row-index="${rowIndex}"]`);
+  const visible = wrapper.querySelector<HTMLElement>(`:scope > .cm-table-row-handle[data-row-index="${rowIndex}"]`);
   return hit && visible ? { hit, visible } : null;
 }
 
@@ -286,7 +388,7 @@ export function attachTableHandleOverlay(
   selectedColumnIndex: number | null,
   selectedRowIndex: number | null,
   getOnTableHandleMenuChange: () => OnTableHandleMenuChange | undefined
-): void {
+): HandlePositionTrackingHandle {
   function resolveTableElement(): HTMLTableElement | null {
     return wrapper.querySelector<HTMLTableElement>(':scope > .cm-table-scroll > table');
   }
@@ -296,13 +398,13 @@ export function attachTableHandleOverlay(
     const headerRow = tableEl.rows[0];
     if (headerRow) {
       for (let c = 0; c < headerRow.children.length; c++) {
-        createColumnHandlePair(headerRow.children[c] as HTMLElement);
+        createColumnHandlePair(wrapper, c, c === selectedColumnIndex);
       }
     }
     for (let r = 0; r < tableEl.rows.length; r++) {
       const firstCell = tableEl.rows[r]!.children[0] as HTMLElement | undefined;
       if (firstCell) {
-        createRowHandlePair(firstCell);
+        createRowHandlePair(wrapper, r, r === selectedRowIndex);
       }
     }
   }
@@ -313,18 +415,90 @@ export function attachTableHandleOverlay(
   rowDropIndicator.className = 'cm-table-row-drop-indicator';
   wrapper.append(columnDropIndicator, rowDropIndicator);
 
-  /** Column N's own permanent handle — always the header cell at index N, never anything else. */
+  /** Column N's own permanent handle — looked up by `data-column-index` now (`createColumnHandlePair`'s own doc comment), never by cell ancestry. */
   function columnHandlePair(columnIndex: number): HandlePair | null {
-    const headerRow = resolveTableElement()?.rows[0];
-    const cell = headerRow?.children[columnIndex] as HTMLElement | undefined;
-    return cell ? findColumnHandlePair(cell) : null;
+    return findColumnHandlePair(wrapper, columnIndex);
   }
 
-  /** Row N's own permanent handle — always that row's own first cell, never anything else. */
+  /**
+   * Positions column `columnIndex`'s own handle pair against its header
+   * cell's own *live* geometry — the direct replacement for the plain CSS
+   * `position: relative`-on-`<th>` this handle relied on before moving out
+   * of it (`createColumnHandlePair`'s own doc comment). `left` reproduces
+   * the old `inset-inline-start: 50%` (centered on the cell), `top` the old
+   * `top: -1px` (straddling the cell's own top border) — both now computed
+   * in `wrapper`'s own coordinate space (`tableHandleOverlay.css`'s
+   * `transform: translateX(-50%)` still does the final half-width
+   * centering, unchanged, against whatever `left` is set to here). A no-op
+   * when either the cell or the pair can't be resolved (a column that no
+   * longer exists after a structural edit, or a render this table has no
+   * handle for at all — `attachTableHandleOverlay`'s own `this.controller`
+   * gate).
+   */
+  function positionColumnHandle(columnIndex: number): void {
+    const headerRow = resolveTableElement()?.rows[0];
+    const cell = headerRow?.children[columnIndex] as HTMLElement | undefined;
+    const pair = findColumnHandlePair(wrapper, columnIndex);
+    if (!cell || !pair) {
+      return;
+    }
+    const cellRect = cell.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const left = `${cellRect.left - wrapperRect.left + cellRect.width / 2}px`;
+    const top = `${cellRect.top - wrapperRect.top - 1}px`;
+    pair.hit.style.left = left;
+    pair.hit.style.top = top;
+    pair.visible.style.left = left;
+    pair.visible.style.top = top;
+  }
+
+  /** Repositions every column's own handle pair — called whenever the table's own rendered geometry could have changed: initial mount, horizontal scroll, and any resize (`attachTableHandleOverlay`'s own call sites below have the specifics). */
+  function positionAllColumnHandles(): void {
+    const columnCount = resolveTableElement()?.rows[0]?.children.length ?? 0;
+    for (let c = 0; c < columnCount; c++) {
+      positionColumnHandle(c);
+    }
+  }
+
+  /** Row N's own permanent handle — looked up by `data-row-index` now (`createRowHandlePair`'s own doc comment), never by cell ancestry. */
   function rowHandlePair(rowIndex: number): HandlePair | null {
+    return findRowHandlePair(wrapper, rowIndex);
+  }
+
+  /**
+   * Positions row `rowIndex`'s own handle pair against its own first
+   * cell's *live* geometry — symmetric to `positionColumnHandle`, for the
+   * identical "moved out of a clipping ancestor" reason
+   * (`createRowHandlePair`'s own doc comment). `left` reproduces the old
+   * `inset-inline-start: -1px` (straddling the cell's own left border),
+   * `top` the old `top: 50%` (vertically centered on the cell) —
+   * `tableHandleOverlay.css`'s own `transform: translateY(-50%)` still does
+   * the final half-height centering, unchanged, against whatever `top` is
+   * set to here.
+   */
+  function positionRowHandle(rowIndex: number): void {
     const row = resolveTableElement()?.rows[rowIndex];
     const cell = row?.children[0] as HTMLElement | undefined;
-    return cell ? findRowHandlePair(cell) : null;
+    const pair = findRowHandlePair(wrapper, rowIndex);
+    if (!cell || !pair) {
+      return;
+    }
+    const cellRect = cell.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const left = `${cellRect.left - wrapperRect.left - 1}px`;
+    const top = `${cellRect.top - wrapperRect.top + cellRect.height / 2}px`;
+    pair.hit.style.left = left;
+    pair.hit.style.top = top;
+    pair.visible.style.left = left;
+    pair.visible.style.top = top;
+  }
+
+  /** Repositions every row's own handle pair — same call sites as `positionAllColumnHandles`. */
+  function positionAllRowHandles(): void {
+    const rowCount = resolveTableElement()?.rows.length ?? 0;
+    for (let r = 0; r < rowCount; r++) {
+      positionRowHandle(r);
+    }
   }
 
   let visibleColumn: HandlePair | null = null;
@@ -373,6 +547,42 @@ export function attachTableHandleOverlay(
   wrapper.addEventListener('pointermove', (event) => {
     if (dragHoverSuppressed) {
       return;
+    }
+    // A pointer over the column/row handle's own hit-box must read as
+    // "still hovering whatever column/row this handle already represents"
+    // — resolved directly from its own `data-column-index`/`data-row-index`
+    // — never falls through to `resolveHoveredCell` below. Confirmed live
+    // to be load-bearing, not defensive: both handles are direct children
+    // of `wrapper` now (`createColumnHandlePair`/`createRowHandlePair`'s
+    // own doc comments — moved out of their owning `<td>`/`<th>` to escape
+    // `.cm-table-scroll`'s own forced clip), so `resolveHoveredCell`'s
+    // `target.closest('td, th')` genuinely fails for them; without this
+    // branch, entering the handle's own hit-box reads as "left every cell,"
+    // hiding the handle, which immediately re-exposes the cell underneath
+    // it, re-triggering this same handler and showing the handle again — an
+    // endless show/hide loop for as long as the pointer sits still over it.
+    // The icon/bar layered on top of the hit-box never steals `event.target`
+    // from it (both inherit `pointer-events: none` from `.cm-table-column-
+    // handle`/`.cm-table-row-handle`, `tableHandleOverlay.css`), so this one
+    // check already covers hovering the visible three-dot button too, not
+    // just the invisible hit-area around it.
+    const columnHandleHit = closestHit(event.target, 'cm-table-column-handle-hit');
+    if (columnHandleHit) {
+      const columnIndex = Number(columnHandleHit.dataset.columnIndex);
+      if (Number.isInteger(columnIndex)) {
+        setVisibleColumn(columnHandlePair(columnIndex));
+        setVisibleRow(selectedRowFallback());
+        return;
+      }
+    }
+    const rowHandleHit = closestHit(event.target, 'cm-table-row-handle-hit');
+    if (rowHandleHit) {
+      const rowIndex = Number(rowHandleHit.dataset.rowIndex);
+      if (Number.isInteger(rowIndex)) {
+        setVisibleRow(rowHandlePair(rowIndex));
+        setVisibleColumn(selectedColumnFallback());
+        return;
+      }
     }
     const hovered = resolveHoveredCell(wrapper, event.target);
     if (!hovered) {
@@ -831,15 +1041,17 @@ export function attachTableHandleOverlay(
   // never place the root caret, activate a cell, or start
   // `beginCellDragTracking`'s own cross-cell range-selection gesture.
   //
-  // **Capture phase, not bubble — load-bearing.** A column handle now
-  // lives *inside* its own header `<th>`, and `tableWidget.ts`'s
-  // `buildRow()` already attaches its own `mousedown` listener directly on
-  // every `<th>`/`<td>` (cell activation / `beginCellDragTracking`). In
-  // the bubble phase, that cell-level listener — closer to the actual
-  // target — fires *before* any bubble-phase listener on `wrapper` ever
-  // would, so `stopPropagation()` here would arrive too late to stop it.
-  // A capture-phase listener on `wrapper` runs top-down, before any
-  // bubble-phase listener on a descendant cell, so it reliably intercepts
+  // **Capture phase, not bubble — load-bearing.** A row handle lives
+  // *inside* its own first cell (`createColumnHandlePair`'s own doc
+  // comment explains why the *column* handle no longer does), and
+  // `tableWidget.ts`'s own `buildRow()` already attaches its own
+  // `mousedown` listener directly on every `<th>`/`<td>` (cell activation /
+  // `beginCellDragTracking`). In the bubble phase, that cell-level
+  // listener — closer to the actual target — fires *before* any
+  // bubble-phase listener on `wrapper` ever would, so `stopPropagation()`
+  // here would arrive too late to stop it. A capture-phase listener on
+  // `wrapper` runs top-down, before any bubble-phase listener on a
+  // descendant cell, so it reliably intercepts
   // first. The previous shared-overlay design never needed this: its
   // handle hit-elements were siblings of the table, never inside any real
   // cell, so no cell-level mousedown listener could ever see that
@@ -871,11 +1083,25 @@ export function attachTableHandleOverlay(
       return;
     }
     const axis: 'row' | 'column' = columnHit ? 'column' : 'row';
-    const info = resolveHoveredCell(wrapper, columnHit ?? rowHit!);
-    if (!info) {
-      return;
+    // Both handles are direct children of `wrapper` now
+    // (`createColumnHandlePair`/`createRowHandlePair`'s own doc comments) —
+    // `resolveHoveredCell`'s `target.closest('td, th')` can't reach an
+    // owning cell from either, so each one's own `data-column-index`/
+    // `data-row-index` resolves it directly instead.
+    let startIndex: number;
+    if (columnHit) {
+      const columnIndex = Number(columnHit.dataset.columnIndex);
+      if (!Number.isInteger(columnIndex)) {
+        return;
+      }
+      startIndex = columnIndex;
+    } else {
+      const rowIndex = Number(rowHit!.dataset.rowIndex);
+      if (!Number.isInteger(rowIndex)) {
+        return;
+      }
+      startIndex = rowIndex;
     }
-    const startIndex = axis === 'row' ? info.row.rowIndex : info.columnIndex;
     suppressNextClick = false;
     const selection = axis === 'row' ? ({ kind: 'row' as const, tableFrom, rowIndex: startIndex }) : ({ kind: 'column' as const, tableFrom, columnIndex: startIndex });
     controller.deactivate();
@@ -913,19 +1139,19 @@ export function attachTableHandleOverlay(
     resumePendingDragIfMine();
   });
 
-  /** This exact table's own fresh `<table>` element — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. */
-  function resolveFreshTable(): HTMLTableElement | null {
-    return view.dom.querySelector<HTMLTableElement>(`.cm-table-widget[data-table-from="${tableFrom}"] .cm-table-wrapper > .cm-table-scroll > table`);
+  /** This exact table's own fresh `.cm-table-wrapper` — both handles' own actual parent now (`createColumnHandlePair`/`createRowHandlePair`'s own doc comments) — resolved from `view.dom` by `tableFrom`, never a closure-captured reference, since a click's own dispatch synchronously rebuilds this widget. */
+  function resolveFreshWrapper(): HTMLElement | null {
+    return view.dom.querySelector<HTMLElement>(`.cm-table-widget[data-table-from="${tableFrom}"] > .cm-table-wrapper`);
   }
 
   function resolveFreshColumnHandle(columnIndex: number): HTMLElement | null {
-    const cell = resolveFreshTable()?.rows[0]?.children[columnIndex] as HTMLElement | undefined;
-    return cell ? findColumnHandlePair(cell)?.visible ?? null : null;
+    const freshWrapper = resolveFreshWrapper();
+    return freshWrapper ? findColumnHandlePair(freshWrapper, columnIndex)?.visible ?? null : null;
   }
 
   function resolveFreshRowHandle(rowIndex: number): HTMLElement | null {
-    const cell = resolveFreshTable()?.rows[rowIndex]?.children[0] as HTMLElement | undefined;
-    return cell ? findRowHandlePair(cell)?.visible ?? null : null;
+    const freshWrapper = resolveFreshWrapper();
+    return freshWrapper ? findRowHandlePair(freshWrapper, rowIndex)?.visible ?? null : null;
   }
 
   // Click-to-open-menu. `click` fires whenever mousedown+mouseup land on
@@ -954,23 +1180,31 @@ export function attachTableHandleOverlay(
       return;
     }
     if (columnHit) {
-      const info = resolveHoveredCell(wrapper, columnHit);
-      if (!info) {
+      // `resolveHoveredCell`'s own `target.closest('td, th')` can no longer
+      // reach an owning cell from here — `columnHit` is a direct child of
+      // `wrapper` now (`createColumnHandlePair`'s own doc comment) — so the
+      // column index comes straight off the `data-column-index` this exact
+      // element was stamped with at creation instead.
+      const columnIndex = Number(columnHit.dataset.columnIndex);
+      if (!Number.isInteger(columnIndex)) {
         return;
       }
-      const selection = { kind: 'column' as const, tableFrom, columnIndex: info.columnIndex };
-      const freshAnchor = resolveFreshColumnHandle(info.columnIndex);
+      const selection = { kind: 'column' as const, tableFrom, columnIndex };
+      const freshAnchor = resolveFreshColumnHandle(columnIndex);
       if (freshAnchor) {
         getOnTableHandleMenuChange()?.({ anchor: freshAnchor, selection });
       }
       return;
     }
     if (rowHit) {
-      const info = resolveHoveredCell(wrapper, rowHit);
-      if (!info) {
+      // `rowHit` is a direct child of `wrapper` now (`createRowHandlePair`'s
+      // own doc comment) — its own `data-row-index` resolves it directly,
+      // the same reason the column branch just above reads
+      // `data-column-index` instead of `resolveHoveredCell`.
+      const rowIndex = Number(rowHit.dataset.rowIndex);
+      if (!Number.isInteger(rowIndex)) {
         return;
       }
-      const rowIndex = info.row.rowIndex;
       const selection = { kind: 'row' as const, tableFrom, rowIndex };
       const freshAnchor = resolveFreshRowHandle(rowIndex);
       if (freshAnchor) {
@@ -981,10 +1215,12 @@ export function attachTableHandleOverlay(
 
   // Initial state — this widget may be freshly (re)built with a
   // `TableSelection` already set and no hover having occurred yet on this
-  // exact DOM instance. Runs synchronously: neither handle's position is
-  // ever `getBoundingClientRect()`-measured (pure CSS relative to the
-  // owning cell), so — unlike the previous shared-overlay design — there is
-  // no detached-subtree measurement concern left to defer for.
+  // exact DOM instance. Visibility itself is safe to set synchronously
+  // (pure class toggling), but *position* now needs real measurement
+  // (`positionColumnHandle`/`positionRowHandle` — both handles moved out of
+  // their owning cells, `createColumnHandlePair`/`createRowHandlePair`'s own
+  // doc comments), deferred below the same way every other geometry read in
+  // this feature already is.
   setVisibleColumn(selectedColumnFallback());
   setVisibleRow(selectedRowFallback());
 
@@ -994,4 +1230,85 @@ export function attachTableHandleOverlay(
   // live one, so pick the drag session back up here (this file's own top
   // doc comment, "Selection model," has the full reasoning).
   resumePendingDragIfMine();
+
+  return attachHandlePositionTracking(wrapper, resolveTableElement, positionAllColumnHandles, positionAllRowHandles);
+}
+
+/**
+ * Keeps every column/row handle's own JS-computed position current — the
+ * direct consequence of `createColumnHandlePair`/`createRowHandlePair`
+ * moving both out of their owning cells (their own doc comments have the
+ * full "why"): nothing about a handle's position is free from ordinary
+ * block flow anymore, so this module now owns keeping it in sync with
+ * whatever can change it.
+ *
+ * - **Initial mount** — deferred one microtask, mirroring every other
+ *   geometry read in this feature (`tableColumnResizeHandle.ts`'s own
+ *   `positionBoundaries()`, `tableWidgetBreakoutWidth.ts`'s own first
+ *   measurement): `wrapper` is not yet attached to the live document at the
+ *   point `TableWidget.toDOM()` calls this, so `getBoundingClientRect()`
+ *   against any header/first cell would be meaningless. `wrapper.isConnected`
+ *   re-checked at fire time for the same reason those call sites already
+ *   re-check it.
+ * - **Horizontal scroll** — a plain `scroll` listener on `.cm-table-scroll`.
+ *   Neither handle is a descendant of it anymore (that's the entire point —
+ *   `.cm-table-scroll` is exactly the box that used to clip them), so
+ *   neither tracks the table's own horizontal pan for free the way an
+ *   ordinary scrolled descendant would; this listener is what replaces that.
+ * - **Resize** — a `ResizeObserver` on `table` itself, the same "observe the
+ *   real geometry source" idiom `tableSelectionOverlay.ts`'s own
+ *   `attachTableSelectionOverlayResize` already uses. Catches a live
+ *   column-resize drag (which shifts every header cell to the right of the
+ *   dragged one, live, well before any commit/rebuild), a completed resize,
+ *   a row growing/shrinking, and a window resize's own downstream effect on
+ *   the table-widget breakout width — all through one mechanism, none of
+ *   them requiring their own separate listener.
+ *
+ * Returns a disposable handle so `TableWidget` can disconnect the
+ * `ResizeObserver` in its own `destroy()`, exactly like its existing
+ * selection-overlay and breakout-width observers — a plain `scroll`
+ * listener needs no equivalent teardown (it's bound to `.cm-table-scroll`,
+ * itself discarded along with `wrapper` on every rebuild, the same "per-
+ * render listener, no `destroy()` needed" category every other listener in
+ * this file already falls into).
+ */
+export interface HandlePositionTrackingHandle {
+  disconnect(): void;
+}
+
+function attachHandlePositionTracking(
+  wrapper: HTMLElement,
+  resolveTableElement: () => HTMLTableElement | null,
+  positionAllColumnHandles: () => void,
+  positionAllRowHandles: () => void
+): HandlePositionTrackingHandle {
+  const positionAll = (): void => {
+    positionAllColumnHandles();
+    positionAllRowHandles();
+  };
+
+  let observer: ResizeObserver | null = null;
+  let disconnected = false;
+
+  queueMicrotask(() => {
+    if (disconnected || !wrapper.isConnected) {
+      return;
+    }
+    positionAll();
+    const tableScroll = wrapper.querySelector<HTMLElement>(':scope > .cm-table-scroll');
+    tableScroll?.addEventListener('scroll', positionAll);
+    const tableEl = resolveTableElement();
+    if (tableEl && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(positionAll);
+      observer.observe(tableEl);
+    }
+  });
+
+  return {
+    disconnect(): void {
+      disconnected = true;
+      observer?.disconnect();
+      observer = null;
+    },
+  };
 }

@@ -7,10 +7,11 @@ import { findCellWrapper } from './tableBoundaryNavigation';
 import { beginCellDragTracking } from './tableCellRangeSelection';
 import { endOfCellContent, findAllTables, startOfCellContent } from './tableGeometry';
 import { attachTableColumnResizeHandles } from './tableColumnResizeHandle';
-import { attachTableHandleOverlay } from './tableHandleOverlay';
+import { attachTableHandleOverlay, type HandlePositionTrackingHandle } from './tableHandleOverlay';
 import type { OnTableHandleMenuChange } from './tableHandleMenuSync';
 import { ensureRectangularCellBounds } from './tableRectangularNormalization';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
+import { attachTableWidgetBreakoutWidth, type BreakoutWidthHandle } from './tableWidgetBreakoutWidth';
 import {
   attachTableSelectionOverlayResize,
   createTableSelectionOverlay,
@@ -277,6 +278,31 @@ export class TableWidget extends WidgetType {
    */
   private resizeObserver: ResizeObserver | null = null;
 
+  /**
+   * The breakout-width `ResizeObserver` handle (`tableWidgetBreakoutWidth.ts`),
+   * when this instance has explicit column widths at all — `null`
+   * otherwise, and `null` again once `destroy()` has torn it down. Same
+   * one-per-instance lifecycle and the same "why an explicit `destroy()`"
+   * reasoning as `resizeObserver` just above, kept as a genuinely separate
+   * field rather than folded into it: the two observe different ancestors
+   * for different reasons (this table's own selection overlay vs. the page
+   * shell's own available width) and are gated on different conditions (a
+   * selection existing vs. explicit column widths existing).
+   */
+  private breakoutWidthHandle: BreakoutWidthHandle | null = null;
+
+  /**
+   * The column/row handle overlay's own position-tracking handle
+   * (`tableHandleOverlay.ts`'s own `attachHandlePositionTracking`), when
+   * this instance has `this.controller` at all (i.e. isn't a permanently
+   * read-only render) — `null` otherwise, and `null` again once `destroy()`
+   * has torn it down. Same one-per-instance lifecycle and the same "why an
+   * explicit `destroy()`" reasoning as `resizeObserver`/`breakoutWidthHandle`
+   * above, kept separate for the identical reason those two are kept
+   * separate from each other.
+   */
+  private handlePositionTrackingHandle: HandlePositionTrackingHandle | null = null;
+
   override eq(other: TableWidget): boolean {
     return (
       this.rawText === other.rawText &&
@@ -318,6 +344,15 @@ export class TableWidget extends WidgetType {
 
     const widget = document.createElement('div');
     widget.className = 'cm-table-widget';
+    // Defensive disconnect-before-create, matching `this.resizeObserver`'s
+    // own identical guard further below — in practice a given instance's
+    // `toDOM()` only ever runs once (CM6 builds a fresh instance per
+    // rebuild), but this avoids ever leaking a previous call's observer if
+    // that ever changes. The actual `attachTableWidgetBreakoutWidth` call
+    // is below, once `tableWrapper` exists — see that function's own doc
+    // comment for why it needs both elements.
+    this.breakoutWidthHandle?.disconnect();
+    this.breakoutWidthHandle = null;
     widget.contentEditable = 'false';
     // The one lookup handle `tableBoundaryNavigation.ts` needs: keyboard-
     // driven entry (ArrowUp/ArrowDown from a root line adjacent to the
@@ -407,6 +442,11 @@ export class TableWidget extends WidgetType {
     // untouched table keeps today's exact rendering.
     if (this.columnWidths !== null) {
       tableWrapper.classList.add('cm-table-wrapper--explicit-widths');
+      // `tableWidgetBreakoutWidth.ts`'s own top doc comment has the full
+      // mechanism — deferred internally, so it's safe to call before
+      // `<table>` itself exists below; measurement happens once this whole
+      // subtree is actually attached.
+      this.breakoutWidthHandle = attachTableWidgetBreakoutWidth(widget, tableWrapper);
     }
     widget.appendChild(tableWrapper);
 
@@ -472,8 +512,10 @@ export class TableWidget extends WidgetType {
     // note embed's table renders the same `<table>` but never gets this
     // overlay, matching `buildEditorExtensions.ts`'s `!readOnly` gate for
     // everything else that has no meaning in a permanently read-only view.
+    this.handlePositionTrackingHandle?.disconnect();
+    this.handlePositionTrackingHandle = null;
     if (this.controller) {
-      attachTableHandleOverlay(
+      this.handlePositionTrackingHandle = attachTableHandleOverlay(
         tableWrapper,
         this.headerCells.length,
         view,
@@ -841,5 +883,9 @@ export class TableWidget extends WidgetType {
   override destroy(): void {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.breakoutWidthHandle?.disconnect();
+    this.breakoutWidthHandle = null;
+    this.handlePositionTrackingHandle?.disconnect();
+    this.handlePositionTrackingHandle = null;
   }
 }

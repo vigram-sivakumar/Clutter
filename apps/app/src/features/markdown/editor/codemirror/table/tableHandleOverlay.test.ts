@@ -84,6 +84,29 @@ function buildTable(rows: number, columns: number): { wrapper: HTMLElement; tabl
   return { wrapper, table };
 }
 
+/**
+ * Both handles are `wrapper`'s own direct children now, not their owning
+ * cell's (`tableHandleOverlay.ts`'s own `createColumnHandlePair`/
+ * `createRowHandlePair` doc comments — moved out to escape `.cm-table-
+ * scroll`'s own forced clip), identified by `data-column-index`/
+ * `data-row-index` instead of DOM position. These four helpers are every
+ * test below's own single point of doing that lookup, replacing what used
+ * to be a plain `cell.querySelector('.cm-table-column-handle-hit')`-style
+ * query against the owning `<th>`/`<td>`.
+ */
+function columnHandleHit(wrapper: HTMLElement, columnIndex: number): HTMLElement | null {
+  return wrapper.querySelector<HTMLElement>(`:scope > .cm-table-column-handle-hit[data-column-index="${columnIndex}"]`);
+}
+function columnHandleBar(wrapper: HTMLElement, columnIndex: number): HTMLElement | null {
+  return wrapper.querySelector<HTMLElement>(`:scope > .cm-table-column-handle[data-column-index="${columnIndex}"]`);
+}
+function rowHandleHit(wrapper: HTMLElement, rowIndex: number): HTMLElement | null {
+  return wrapper.querySelector<HTMLElement>(`:scope > .cm-table-row-handle-hit[data-row-index="${rowIndex}"]`);
+}
+function rowHandleBar(wrapper: HTMLElement, rowIndex: number): HTMLElement | null {
+  return wrapper.querySelector<HTMLElement>(`:scope > .cm-table-row-handle[data-row-index="${rowIndex}"]`);
+}
+
 describe('resolveHoveredCell', () => {
   it('resolves a header cell: correct columnIndex, isHeaderRow true', () => {
     const { wrapper, table } = buildTable(2, 3);
@@ -146,43 +169,40 @@ describe('resolveHoveredCell', () => {
 });
 
 describe('attachTableHandleOverlay — DOM ownership: one handle per column, one per row', () => {
-  it('creates exactly one column-handle pair per header cell — never in a body cell', () => {
+  it('creates exactly one column-handle pair per column, as wrapper-level elements keyed by data-column-index — never inside any cell', () => {
     const { wrapper, table } = buildTable(2, 3);
     attach(wrapper, 3);
 
-    expect(wrapper.querySelectorAll('.cm-table-column-handle')).toHaveLength(3);
-    table.querySelectorAll('thead th').forEach((th) => {
-      expect(th.querySelectorAll(':scope > .cm-table-column-handle-hit')).toHaveLength(1);
-      expect(th.querySelectorAll(':scope > .cm-table-column-handle')).toHaveLength(1);
-    });
-    table.querySelectorAll('tbody td').forEach((td) => {
-      expect(td.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(0);
-    });
-  });
-
-  it('creates exactly one row-handle pair per row, hosted in that row\'s own first cell (header included)', () => {
-    const { wrapper, table } = buildTable(2, 3);
-    attach(wrapper, 3);
-
-    expect(wrapper.querySelectorAll('.cm-table-row-handle')).toHaveLength(3); // header + 2 body rows
-    table.querySelectorAll('tr').forEach((row) => {
-      const firstCell = row.children[0]!;
-      expect(firstCell.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(1);
-      Array.from(row.children)
-        .slice(1)
-        .forEach((cell) => {
-          expect(cell.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(0);
-        });
+    expect(wrapper.querySelectorAll(':scope > .cm-table-column-handle')).toHaveLength(3);
+    for (let c = 0; c < 3; c++) {
+      expect(columnHandleHit(wrapper, c)).not.toBeNull();
+      expect(columnHandleBar(wrapper, c)).not.toBeNull();
+    }
+    table.querySelectorAll('th, td').forEach((cell) => {
+      expect(cell.querySelectorAll('.cm-table-column-handle-hit')).toHaveLength(0);
     });
   });
 
-  it('the top-left header cell owns both its own column handle (column 0) and its own row handle (row 0)', () => {
+  it('creates exactly one row-handle pair per row, as wrapper-level elements keyed by data-row-index — never inside any cell', () => {
     const { wrapper, table } = buildTable(2, 3);
     attach(wrapper, 3);
 
-    const topLeft = table.querySelector('thead th')!;
-    expect(topLeft.querySelectorAll(':scope > .cm-table-column-handle-hit')).toHaveLength(1);
-    expect(topLeft.querySelectorAll(':scope > .cm-table-row-handle-hit')).toHaveLength(1);
+    expect(wrapper.querySelectorAll(':scope > .cm-table-row-handle')).toHaveLength(3); // header + 2 body rows
+    for (let r = 0; r < 3; r++) {
+      expect(rowHandleHit(wrapper, r)).not.toBeNull();
+      expect(rowHandleBar(wrapper, r)).not.toBeNull();
+    }
+    table.querySelectorAll('th, td').forEach((cell) => {
+      expect(cell.querySelectorAll('.cm-table-row-handle-hit')).toHaveLength(0);
+    });
+  });
+
+  it('the top-left header cell\'s own column (0) and row (0) each still get exactly one handle', () => {
+    const { wrapper } = buildTable(2, 3);
+    attach(wrapper, 3);
+
+    expect(columnHandleHit(wrapper, 0)).not.toBeNull();
+    expect(rowHandleHit(wrapper, 0)).not.toBeNull();
   });
 
   it('every handle starts hidden', () => {
@@ -213,10 +233,8 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     Object.defineProperty(event, 'target', { value: bodyCell });
     wrapper.dispatchEvent(event);
 
-    const headerCellForColumn1 = table.querySelector('thead th:nth-child(2)')!;
-    expect(headerCellForColumn1.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
-    const firstCellOfRow = table.querySelectorAll('tbody tr')[0]!.children[0]!;
-    expect(firstCellOfRow.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(columnHandleBar(wrapper, 1)!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(rowHandleBar(wrapper, 1)!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it('hovering a header cell shows both the column handle (its own) and the row handle (row 0) — the header is a selectable row like any other', () => {
@@ -228,8 +246,8 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     Object.defineProperty(event, 'target', { value: headerCell });
     wrapper.dispatchEvent(event);
 
-    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
-    expect(headerCell.querySelector('.cm-table-row-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(columnHandleBar(wrapper, 0)!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(rowHandleBar(wrapper, 0)!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it('moving outside the table (pointerleave) hides both handles', () => {
@@ -248,7 +266,7 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     expect(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible')).toHaveLength(0);
   });
 
-  it('regression: a pointermove that lands on a handle\'s own hit-area (a descendant of its owning cell) keeps it visible, no flicker', () => {
+  it('regression: a pointermove that lands on a handle\'s own hit-area (a wrapper-level sibling of every cell, not a descendant of any) keeps it visible, no flicker', () => {
     const { wrapper, table } = buildTable(2, 2);
     attach(wrapper, 2);
 
@@ -256,14 +274,30 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
     const onCell = new Event('pointermove', { bubbles: true });
     Object.defineProperty(onCell, 'target', { value: headerCell });
     wrapper.dispatchEvent(onCell);
-    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(columnHandleBar(wrapper, 0)!.classList.contains('cm-table-handle-visible')).toBe(true);
 
     const onHitArea = new Event('pointermove', { bubbles: true });
-    const hitArea = headerCell.querySelector('.cm-table-column-handle-hit')!;
-    Object.defineProperty(onHitArea, 'target', { value: hitArea });
+    Object.defineProperty(onHitArea, 'target', { value: columnHandleHit(wrapper, 0) });
     wrapper.dispatchEvent(onHitArea);
 
-    expect(headerCell.querySelector('.cm-table-column-handle')!.classList.contains('cm-table-handle-visible')).toBe(true);
+    expect(columnHandleBar(wrapper, 0)!.classList.contains('cm-table-handle-visible')).toBe(true);
+  });
+
+  it('regression: a pointermove landing on the row handle\'s own hit-area keeps it visible too, no flicker', () => {
+    const { wrapper, table } = buildTable(2, 2);
+    attach(wrapper, 2);
+
+    const firstBodyCell = table.querySelectorAll('tbody td')[0]!;
+    const onCell = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(onCell, 'target', { value: firstBodyCell });
+    wrapper.dispatchEvent(onCell);
+    expect(rowHandleBar(wrapper, 1)!.classList.contains('cm-table-handle-visible')).toBe(true);
+
+    const onHitArea = new Event('pointermove', { bubbles: true });
+    Object.defineProperty(onHitArea, 'target', { value: rowHandleHit(wrapper, 1) });
+    wrapper.dispatchEvent(onHitArea);
+
+    expect(rowHandleBar(wrapper, 1)!.classList.contains('cm-table-handle-visible')).toBe(true);
   });
 
   it("a pointermove landing outside any cell (e.g. the wrapper's own border) hides both handles without erroring", () => {
@@ -283,7 +317,7 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
   });
 
   it("a mousedown on a handle's hit area is prevented and stopped (never reaches an ancestor listener)", () => {
-    const { wrapper, table } = buildTable(1, 2);
+    const { wrapper } = buildTable(1, 2);
     attach(wrapper, 2);
 
     let reachedAncestor = false;
@@ -291,7 +325,7 @@ describe('attachTableHandleOverlay — hover show/hide wiring', () => {
       reachedAncestor = true;
     });
 
-    const hitArea = table.querySelector('thead th .cm-table-column-handle-hit')!;
+    const hitArea = columnHandleHit(wrapper, 0)!;
     const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     hitArea.dispatchEvent(mousedown);
 
@@ -315,40 +349,40 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
     return Array.from(wrapper.querySelectorAll('.cm-table-row-handle.cm-table-handle-visible'));
   }
 
-  it('a selected column shows its handle (in the header) even with no hover at all', () => {
+  it('a selected column shows its handle (column 1\'s own) even with no hover at all', () => {
     const { view, controller } = mountRootView();
-    const { wrapper, table } = buildTable(2, 3);
+    const { wrapper } = buildTable(2, 3);
 
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, 1, null, () => undefined);
 
     const visible = visibleColumnHandles(wrapper);
     expect(visible).toHaveLength(1);
-    expect(visible[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(2)'));
+    expect(visible[0]).toBe(columnHandleBar(wrapper, 1));
     expect(visibleRowHandles(wrapper)).toHaveLength(0);
   });
 
-  it('a selected row shows its handle (in that row\'s own first cell) even with no hover at all', () => {
+  it('a selected row shows its handle (that row\'s own) even with no hover at all', () => {
     const { view, controller } = mountRootView();
-    const { wrapper, table } = buildTable(2, 3);
+    const { wrapper } = buildTable(2, 3);
 
     // Native `rowIndex` convention (header = 0) — row 1 is the first body row.
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 1, () => undefined);
 
     const visible = visibleRowHandles(wrapper);
     expect(visible).toHaveLength(1);
-    expect(visible[0]!.parentElement).toBe(table.querySelectorAll('tbody tr')[0]!.children[0]);
+    expect(visible[0]).toBe(rowHandleBar(wrapper, 1));
     expect(visibleColumnHandles(wrapper)).toHaveLength(0);
   });
 
   it('a selected header row (rowIndex 0) shows its handle even with no hover at all — the header is a selectable row like any other', () => {
     const { view, controller } = mountRootView();
-    const { wrapper, table } = buildTable(2, 3);
+    const { wrapper } = buildTable(2, 3);
 
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, 0, () => undefined);
 
     const visible = visibleRowHandles(wrapper);
     expect(visible).toHaveLength(1);
-    expect(visible[0]!.parentElement).toBe(table.querySelector('thead th'));
+    expect(visible[0]).toBe(rowHandleBar(wrapper, 0));
     expect(visibleColumnHandles(wrapper)).toHaveLength(0);
   });
 
@@ -377,11 +411,11 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
 
     const otherCell = table.querySelectorAll('tbody td')[2]!; // column 2
     hoverCell(wrapper, otherCell);
-    expect(visibleColumnHandles(wrapper)[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(3)'));
+    expect(visibleColumnHandles(wrapper)[0]).toBe(columnHandleBar(wrapper, 2));
 
     wrapper.dispatchEvent(new Event('pointerleave'));
 
-    expect(visibleColumnHandles(wrapper)[0]!.parentElement).toBe(table.querySelector('thead th:nth-child(1)'));
+    expect(visibleColumnHandles(wrapper)[0]).toBe(columnHandleBar(wrapper, 0));
   });
 
   it('moving the pointer away from the table entirely still leaves the selected row handle visible on its own first cell', () => {
@@ -396,7 +430,7 @@ describe('attachTableHandleOverlay — selected handle stays visible (visible = 
     wrapper.dispatchEvent(new Event('pointerleave'));
 
     expect(visibleRowHandles(wrapper)).toHaveLength(1); // still visible — row 1 is selected, not just hovered
-    expect(visibleRowHandles(wrapper)[0]!.parentElement).toBe(table.querySelectorAll('tbody tr')[0]!.children[0]);
+    expect(visibleRowHandles(wrapper)[0]).toBe(rowHandleBar(wrapper, 1));
   });
 
   it('with no selection at all, leaving hover hides the handle exactly as before this fix', () => {
@@ -453,7 +487,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 2);
-    pressAndClick(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
+    pressAndClick(columnHandleHit(wrapper, 2)!);
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 });
   });
@@ -464,7 +498,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     const row = hoverBodyCell(wrapper, table, 1, 0); // second body row -> rowIndex 2
-    pressAndClick(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(rowHandleHit(wrapper, row.rowIndex)!);
 
     expect(row.rowIndex).toBe(2);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 });
@@ -479,7 +513,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const selectionBefore = view.state.selection.main;
 
     hoverBodyCell(wrapper, table, 0, 1);
-    pressAndClick(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
+    pressAndClick(columnHandleHit(wrapper, 1)!);
 
     expect(view.state.doc.toString()).toBe(docBefore);
     expect(view.state.selection.main.from).toBe(selectionBefore.from);
@@ -495,7 +529,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     const dispatchSpy = vi.spyOn(view, 'dispatch');
 
     hoverBodyCell(wrapper, table, 0, 1);
-    pressAndClick(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
+    pressAndClick(columnHandleHit(wrapper, 1)!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 1 });
@@ -514,7 +548,7 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
 
     const row = hoverBodyCell(wrapper, table, 0, 0);
-    pressAndClick(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(rowHandleHit(wrapper, row.rowIndex)!);
 
     expect(view.state.selection.main.empty).toBe(true);
     expect(view.state.field(tableSelectionField)?.kind).toBe('row');
@@ -531,19 +565,18 @@ describe('attachTableHandleOverlay — click-to-select', () => {
     expect(controller.nestedView!.dom.parentElement).toBe(container);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    pressAndClick(table.querySelector('thead th .cm-table-column-handle-hit')!);
+    pressAndClick(columnHandleHit(wrapper, 0)!);
 
     expect(controller.activeAnchor).toBeNull();
     expect(controller.nestedView!.dom.parentElement).toBeNull();
   });
 
   it("clicking the header row's own row handle selects it — rowIndex 0, a valid TableSelection.row like any other", () => {
-    const { wrapper, table } = buildTable(2, 3);
+    const { wrapper } = buildTable(2, 3);
     const { view, controller } = mountRootView();
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
-    const headerCell = table.querySelector('thead th')!;
-    pressAndClick(headerCell.querySelector('.cm-table-row-handle-hit')!);
+    pressAndClick(rowHandleHit(wrapper, 0)!);
 
     expect(view.state.field(tableSelectionField)).toEqual({ kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 0 });
   });
@@ -584,10 +617,10 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 2);
-    click(table.querySelector('thead th:nth-child(3) .cm-table-column-handle-hit')!);
+    click(columnHandleHit(wrapper, 2)!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: table.querySelector('thead th:nth-child(3) .cm-table-column-handle'),
+      anchor: columnHandleBar(wrapper, 2),
       selection: { kind: 'column', tableFrom: TEST_TABLE_FROM, columnIndex: 2 },
     });
   });
@@ -600,11 +633,11 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 1, 0);
-    const row = table.querySelectorAll('tbody tr')[1]!;
-    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    const row = table.querySelectorAll('tbody tr')[1]! as HTMLTableRowElement;
+    click(rowHandleHit(wrapper, row.rowIndex)!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
+      anchor: rowHandleBar(wrapper, row.rowIndex),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 2 },
     });
   });
@@ -617,15 +650,15 @@ describe('attachTableHandleOverlay — opening the handle menu', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 1);
-    click(table.querySelector('thead th:nth-child(2) .cm-table-column-handle-hit')!);
+    click(columnHandleHit(wrapper, 1)!);
     onMenuChange.mockClear();
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    click(row.children[0]!.querySelector('.cm-table-row-handle-hit')!);
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    click(rowHandleHit(wrapper, row.rowIndex)!);
 
     expect(onMenuChange).toHaveBeenCalledExactlyOnceWith({
-      anchor: row.children[0]!.querySelector('.cm-table-row-handle'),
+      anchor: rowHandleBar(wrapper, row.rowIndex),
       selection: { kind: 'row', tableFrom: TEST_TABLE_FROM, rowIndex: 1 },
     });
   });
@@ -674,7 +707,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
   }
 
   function hoverBodyCell(wrapper: HTMLElement, table: HTMLTableElement, rowIndexInBody: number, columnIndex: number): void {
-    const row = table.querySelectorAll('tbody tr')[rowIndexInBody]!;
+    const row = table.querySelectorAll('tbody tr')[rowIndexInBody]! as HTMLTableRowElement;
     const cell = row.children[columnIndex]!;
     const event = new Event('pointermove', { bubbles: true });
     Object.defineProperty(event, 'target', { value: cell });
@@ -706,8 +739,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // "A" row -> rowIndex 1
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60); // row 1's own midpoint (top 40 + 20)
     // Target = whichever row's own *body* the pointer is inside (never a
     // coordinate/midpoint search) — dispatched from row "C"'s own cell so
@@ -730,8 +763,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // "A" row -> rowIndex 1
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140);
 
@@ -748,8 +781,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     mockRowRects(table);
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
-    const headerCell = table.querySelector('thead th')!;
-    const rowHit = headerCell.querySelector('.cm-table-row-handle-hit')!;
+    const rowHit = rowHandleHit(wrapper, 0)!;
     pointer('pointerdown', rowHit, 10, 20); // row 0's own midpoint
     // Target row "B"'s own body -> lands immediately after it.
     pointer('pointermove', table.querySelectorAll('tbody tr')[1]!.children[0]!, 10, 100);
@@ -769,8 +801,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 11, 61); // 1px jitter, under DRAG_THRESHOLD_PX
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 11, clientY: 61, button: 0, bubbles: true, cancelable: true }));
@@ -792,8 +824,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => onMenuChange);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140);
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
@@ -813,8 +845,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 1, 0); // "B" row -> rowIndex 2
-    const row = table.querySelectorAll('tbody tr')[1]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[1]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 100); // row 2's own midpoint
     pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140); // drag away, into row "C"'s own body...
     pointer('pointermove', row.children[0]!, 10, 100); // ...then back into the dragged row's own body (a genuine no-op target, not just an unresolved one)
@@ -833,8 +865,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const depthBefore = undoDepth(view.state);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', table.querySelectorAll('tbody tr')[2]!.children[0]!, 10, 140);
     document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 140, button: 0, bubbles: true, cancelable: true }));
@@ -850,7 +882,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // "a" cell -> columnIndex 0
-    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    const columnHit = columnHandleHit(wrapper, 0)!;
     pointer('pointerdown', columnHit, 50, 10); // column 0's own midpoint
     // Target = whichever column's own *body* the pointer is inside —
     // dispatched from column "C"'s own body cell so `event.target`
@@ -899,7 +931,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
 
     function beginColumnDrag(wrapper: HTMLElement, table: HTMLTableElement, startColumnIndex: number): void {
       hoverBodyCell(wrapper, table, 0, startColumnIndex);
-      const columnHit = table.querySelectorAll('thead th')[startColumnIndex]!.querySelector('.cm-table-column-handle-hit')!;
+      const columnHit = columnHandleHit(wrapper, startColumnIndex)!;
       pointer('pointerdown', columnHit, 50, 10);
     }
 
@@ -1009,7 +1041,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
       hoverBodyCell(wrapper, table, 0, 0);
-      const columnHit = table.querySelectorAll('thead th')[0]!.querySelector('.cm-table-column-handle-hit')!;
+      const columnHit = columnHandleHit(wrapper, 0)!;
       pointer('pointerdown', columnHit, 25, 10);
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[1]!, 200, 10); // into column B's own (300px-wide) body
 
@@ -1063,7 +1095,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
 
     function dragColumn(wrapper: HTMLElement, table: HTMLTableElement, fromIndex: number, intoIndex: number): void {
       hoverBodyCell(wrapper, table, 0, fromIndex);
-      const columnHit = table.querySelectorAll('thead th')[fromIndex]!.querySelector('.cm-table-column-handle-hit')!;
+      const columnHit = columnHandleHit(wrapper, fromIndex)!;
       pointer('pointerdown', columnHit, fromIndex * 100 + 50, 10);
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[intoIndex]!, intoIndex * 100 + 50, 10);
       document.dispatchEvent(new MouseEvent('pointerup', { clientX: intoIndex * 100 + 50, clientY: 10, button: 0, bubbles: true, cancelable: true }));
@@ -1112,9 +1144,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const ROW_TEXT = FOUR_ROWS;
 
     function dragRow(wrapper: HTMLElement, table: HTMLTableElement, fromRowIndex: number, intoRowIndex: number): void {
-      const fromCell = table.rows[fromRowIndex]!.children[0]!;
       hoverBodyCell(wrapper, table, Math.max(fromRowIndex - 1, 0), 0);
-      const rowHit = fromCell.querySelector('.cm-table-row-handle-hit')!;
+      const rowHit = rowHandleHit(wrapper, fromRowIndex)!;
       pointer('pointerdown', rowHit, 10, fromRowIndex * 40 + 20);
       pointer('pointermove', table.rows[intoRowIndex]!.children[0]!, 10, intoRowIndex * 40 + 20);
       document.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: intoRowIndex * 40 + 20, button: 0, bubbles: true, cancelable: true }));
@@ -1191,7 +1222,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     it('leftward column indicator boundary: dragging column C toward column A shows the indicator at A\'s own left edge, not its right edge', () => {
       const { wrapper, table } = setUpColumns(THREE_COLUMNS, 3);
       hoverBodyCell(wrapper, table, 0, 2);
-      const columnHit = table.querySelectorAll('thead th')[2]!.querySelector('.cm-table-column-handle-hit')!;
+      const columnHit = columnHandleHit(wrapper, 2)!;
       mockHeaderCellRects(table, [100, 100, 100]);
       pointer('pointerdown', columnHit, 250, 10);
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[0]!, 10, 10); // into A's body
@@ -1207,7 +1238,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       mockRowRects(table);
       attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
       hoverBodyCell(wrapper, table, 1, 0);
-      const rowHit = table.rows[3]!.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+      const rowHit = rowHandleHit(wrapper, 3)!;
       pointer('pointerdown', rowHit, 10, 140);
       pointer('pointermove', table.rows[1]!.children[0]!, 10, 20); // into A's body (rowIndex 1)
 
@@ -1224,7 +1255,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
       attachTableHandleOverlay(wrapper, 3, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
       hoverBodyCell(wrapper, table, 0, 2);
-      const columnHit = table.querySelectorAll('thead th')[2]!.querySelector('.cm-table-column-handle-hit')!;
+      const columnHit = columnHandleHit(wrapper, 2)!;
       pointer('pointerdown', columnHit, 360, 10);
       pointer('pointermove', table.querySelectorAll('tbody tr')[0]!.children[0]!, 10, 10); // into A's own (50px-wide) body
 
@@ -1308,7 +1339,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    const columnHit = columnHandleHit(wrapper, 0)!;
     pointer('pointerdown', columnHit, 50, 10);
 
     expect(wrapper.querySelector('.cm-table-drag-ghost')).toBeNull(); // not yet — threshold not crossed
@@ -1340,8 +1371,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140);
 
@@ -1372,8 +1403,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0); // rowIndex 1
-    const draggedRow = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = draggedRow.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const rowHit = rowHandleHit(wrapper, 1)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140); // crosses threshold, drag active
 
@@ -1398,7 +1428,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const docBefore = view.state.doc.toString();
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    const columnHit = columnHandleHit(wrapper, 0)!;
     pointer('pointerdown', columnHit, 50, 10);
     pointer('pointermove', document, 70, 10);
     expect(wrapper.querySelector('.cm-table-drag-ghost')).not.toBeNull();
@@ -1431,7 +1461,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const overlay = addStructuralSelectionOverlay(wrapper);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    const columnHit = columnHandleHit(wrapper, 0)!;
     pointer('pointerdown', columnHit, 50, 10);
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(true); // still there before the threshold crosses
 
@@ -1457,7 +1487,7 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     const overlay = addStructuralSelectionOverlay(wrapper);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const columnHit = table.querySelector('thead th:nth-child(1) .cm-table-column-handle-hit')!;
+    const columnHit = columnHandleHit(wrapper, 0)!;
     pointer('pointerdown', columnHit, 50, 10);
     pointer('pointermove', document, 70, 10);
     expect(overlay.classList.contains('cm-table-selection-overlay-visible')).toBe(false);
@@ -1475,8 +1505,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     attachTableHandleOverlay(wrapper, 2, view, controller, TEST_TABLE_FROM, null, null, () => undefined);
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140);
     document.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, cancelable: true }));
@@ -1498,8 +1528,8 @@ describe('attachTableHandleOverlay — drag-to-reorder gesture', () => {
     expect(controller.activeAnchor).not.toBeNull();
 
     hoverBodyCell(wrapper, table, 0, 0);
-    const row = table.querySelectorAll('tbody tr')[0]!;
-    const rowHit = row.children[0]!.querySelector('.cm-table-row-handle-hit')!;
+    const row = table.querySelectorAll('tbody tr')[0]! as HTMLTableRowElement;
+    const rowHit = rowHandleHit(wrapper, row.rowIndex)!;
     pointer('pointerdown', rowHit, 10, 60);
     pointer('pointermove', document, 10, 140); // crosses the threshold
 
