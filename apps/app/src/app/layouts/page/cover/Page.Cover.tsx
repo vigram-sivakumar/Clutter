@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
@@ -75,6 +76,26 @@ type PageCoverProps = {
    */
   onSetLayout?: (layout: CoverLayout) => void;
   /**
+   * The saved (not preview) focal position for the *current* `layout` —
+   * PageHost passes both PageMetadata.coverPositionAbove and
+   * coverPositionSide down through Page.tsx, but this component only ever
+   * reads whichever one `layout` selects (see `savedPosition` below); it
+   * never combines them or reads the other layout's value. Each defaults
+   * to 50 (centered) — undefined is treated identically to 50, matching
+   * "missing values render as centered" (no migration needed).
+   */
+  coverPositionAbove?: number;
+  coverPositionSide?: number;
+  /**
+   * Persists the currently-previewed drag position for the active layout
+   * only (PageHost's onSaveCoverPosition/onSaveFolderCoverPosition) — the
+   * one point a local drag preview becomes durable metadata. Presence
+   * gates the "Reposition" menu item and the "Save Position" button the
+   * same way onSetLayout gates "Position", so reposition is never a dead
+   * control before a real handler exists (rule 12).
+   */
+  onSavePosition?: (layout: CoverLayout, position: number) => void;
+  /**
    * Whether the title has a user-picked emoji (PageTitleSection/Page's own
    * `emoji` prop) — never a system icon (Daily Notes' fixed calendar
    * glyph, Page's separate `icon` prop): a fact about the resource, read
@@ -107,6 +128,9 @@ export function PageCover({
   onSetCoverImageFromUpload,
   layout = 'side',
   onSetLayout,
+  coverPositionAbove,
+  coverPositionSide,
+  onSavePosition,
   hasEmoji,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
@@ -134,8 +158,127 @@ export function PageCover({
     }
   }
 
+  // Repositioning is local, unsaved UI state — see this component's own
+  // module doc comment and the `onSavePosition` prop's doc comment above.
+  // `dragPreview` is null whenever there is no live, unsaved drag in
+  // progress (initial mount, after Save Position, after Escape-cancel) —
+  // `effectivePosition` below falls back to the durable saved value
+  // whenever it's null, which is what makes "ends without Save Position"
+  // a no-op on persisted metadata for free, with no separate revert step.
+  const [repositioning, setRepositioning] = useState(false);
+  const [dragPreview, setDragPreview] = useState<number | null>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  // Gates pointermove while a real drag (pointerdown -> pointerup) is in
+  // progress — plain hover already fires pointermove on the image with no
+  // button held, which must never move the preview. A ref, not state: it
+  // never needs to trigger a render on its own, only dragPreview does.
+  const isDraggingRef = useRef(false);
+
+  // Switching `coverLayout` (the Right/Top menu items) mid-reposition would
+  // otherwise leave a stale single-axis `dragPreview` computed against the
+  // *previous* layout's axis silently reinterpreted against the new one.
+  // Render-phase reset on the one dependency that matters, same idiom as
+  // the `view` reset above — not a `useEffect`, for the same
+  // no-stale-frame reason.
+  const [previousLayout, setPreviousLayout] = useState(layout);
+  if (layout !== previousLayout) {
+    setPreviousLayout(layout);
+    setRepositioning(false);
+    setDragPreview(null);
+  }
+
+  // Escape is the one way to end repositioning without saving (spec: "If
+  // repositioning mode ends without Save Position, the unsaved preview
+  // must not become the persisted cover position"). Scoped to document,
+  // not the image, since focus may be anywhere once a drag ends.
+  useEffect(() => {
+    if (!repositioning) {
+      return;
+    }
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        setRepositioning(false);
+        setDragPreview(null);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [repositioning]);
+
   if (!src) {
     return null;
+  }
+
+  // The saved (durable) position for whichever axis `layout` currently
+  // selects — Above and Side never combine into one 2D position (spec
+  // §10), so only one of the two props is ever read here. Undefined
+  // (frontmatter omitted the field) and the explicit default both mean
+  // centered — same "missing means 50" contract resolvePageMetadata/
+  // FolderBuilder already apply when persisting.
+  const savedPosition =
+    layout === 'above' ? (coverPositionAbove ?? 50) : (coverPositionSide ?? 50);
+  // The value actually rendered: the live drag preview while one exists,
+  // otherwise the durable saved position. This is the single source both
+  // the `<img>`'s object-position and the eventual Save Position call
+  // read from, so "what you see while dragging" and "what gets persisted"
+  // can never drift apart.
+  const effectivePosition = dragPreview ?? savedPosition;
+
+  function computePositionFromPointer(event: { clientX: number; clientY: number }): number {
+    const rect = imageRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return effectivePosition;
+    }
+    // Above moves vertically only, Side moves horizontally only — the
+    // unused axis is never read, let alone written (spec §4/§5: "Movement
+    // on the unsupported axis has no effect").
+    const raw =
+      layout === 'above'
+        ? ((event.clientY - rect.top) / rect.height) * 100
+        : ((event.clientX - rect.left) / rect.width) * 100;
+    // Values outside 0-100 must not be persisted (spec §9) — clamped here,
+    // at the one place a position value originates, rather than validated
+    // later at the write call.
+    return Math.min(100, Math.max(0, raw));
+  }
+
+  function handleImagePointerDown(event: ReactPointerEvent<HTMLImageElement>): void {
+    // setPointerCapture routes every subsequent event for this pointerId to
+    // this element regardless of where the pointer physically moves to,
+    // which is what lets a drag continue correctly even if the cursor
+    // leaves the image's bounds mid-gesture.
+    event.currentTarget.setPointerCapture(event.pointerId);
+    isDraggingRef.current = true;
+    setDragPreview(computePositionFromPointer(event));
+  }
+
+  function handleImagePointerMove(event: ReactPointerEvent<HTMLImageElement>): void {
+    if (!isDraggingRef.current) {
+      return;
+    }
+    setDragPreview(computePositionFromPointer(event));
+  }
+
+  function handleImagePointerUp(): void {
+    isDraggingRef.current = false;
+  }
+
+  function handleEnterRepositioning(event: { stopPropagation(): void }): void {
+    event.stopPropagation();
+    setOpen(false);
+    // Re-entering always starts from the currently saved position (spec
+    // §14) — dragPreview stays null until the first actual drag, so
+    // `effectivePosition` above already resolves to `savedPosition` the
+    // instant repositioning mode turns on, with nothing further to set here.
+    setDragPreview(null);
+    setRepositioning(true);
+  }
+
+  function handleSavePosition(event: { stopPropagation(): void }): void {
+    event.stopPropagation();
+    onSavePosition?.(layout, effectivePosition);
+    setRepositioning(false);
+    setDragPreview(null);
   }
 
   function handleHide(): void {
@@ -161,22 +304,30 @@ export function PageCover({
       className="page__cover"
       data-hidden={hidden || undefined}
       data-emoji-overlap={hasEmoji || undefined}
+      data-repositioning={repositioning || undefined}
     >
-      <Button
-        className="page__cover__change"
-        ref={triggerRef}
-        size="small"
-        isIconOnly
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="More actions"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen(!open);
-        }}
-      >
-        <AppIcon icon="moreVertical" />
-      </Button>
+      <div className="page__cover__actions">
+        {repositioning && (
+          <Button size="small" variant="filled" onClick={handleSavePosition}>
+            Save Position
+          </Button>
+        )}
+        <Button
+          className="page__cover__change"
+          ref={triggerRef}
+          size="small"
+          isIconOnly
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="More actions"
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen(!open);
+          }}
+        >
+          <AppIcon icon="moreVertical" />
+        </Button>
+      </div>
       <Overlay
         open={open}
         onClose={() => setOpen(false)}
@@ -224,12 +375,14 @@ export function PageCover({
                 >
                   Top
                 </MenuItem>
-                {/* Not yet implemented (no drag-to-reposition or persisted
-                    focal point exists) — disabled rather than wired to a
-                    stub, per implementation-rules.md rule 12. */}
-                <MenuItem leading={<AppIcon icon="moveRight" />} disabled>
-                  Reposition
-                </MenuItem>
+                {onSavePosition && (
+                  <MenuItem
+                    leading={<AppIcon icon="moveRight" />}
+                    onClick={handleEnterRepositioning}
+                  >
+                    Reposition
+                  </MenuItem>
+                )}
                 <div className="menu__divider" role="separator" />
               </>
             )}
@@ -281,7 +434,22 @@ export function PageCover({
           </div>
         )}
       </Overlay>
-      <img src={src} className="page-cover__image" alt="" draggable={false} />
+      <img
+        ref={imageRef}
+        src={src}
+        className="page-cover__image"
+        alt=""
+        draggable={false}
+        style={{
+          objectPosition:
+            layout === 'above'
+              ? `50% ${effectivePosition}%`
+              : `${effectivePosition}% 50%`,
+        }}
+        onPointerDown={repositioning ? handleImagePointerDown : undefined}
+        onPointerMove={repositioning ? handleImagePointerMove : undefined}
+        onPointerUp={repositioning ? handleImagePointerUp : undefined}
+      />
     </aside>
   );
 }

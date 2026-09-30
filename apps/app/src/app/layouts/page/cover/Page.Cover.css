@@ -98,7 +98,7 @@
   margin-bottom: -52px;
   border-radius: var(--border-radius);
 }
-.page__content > .page__cover .page__cover__change {
+.page__content > .page__cover .page__cover__actions {
   top: 12px;
   right: 20px;
 }
@@ -148,30 +148,64 @@
 
   border-radius: inherit;
 }
+
+/* Cursor affordance only while repositioning mode is active (Page.Cover.tsx's
+   `repositioning` state) — outside that mode the image has no pointer
+   handlers attached at all, so dragging it does nothing (spec: "Dragging
+   the cover outside repositioning mode must have no repositioning effect").
+   :active (not a JS "is dragging" flag) drives the grabbing cursor: the
+   pointer stays physically held down for the whole gesture even though
+   setPointerCapture reroutes move/up events to this element regardless of
+   where the cursor travels, so the native pressed state already tracks
+   "is a drag in progress" for free. */
+.page__cover[data-repositioning] .page-cover__image {
+  cursor: grab;
+}
+.page__cover[data-repositioning] .page-cover__image:active {
+  cursor: grabbing;
+}
+
+/* Groups the kebab trigger with the "Save Position" button that appears
+   beside it in repositioning mode (Page.Cover.tsx) — one positioned,
+   hover-revealed unit, same top/right placement and opacity behavior the
+   kebab button owned on its own before Save Position existed. */
+.page__cover__actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.page__cover:hover .page__cover__actions,
+/* Keeps the actions visible while the kebab's own menu is open — without
+   this, moving the pointer off the cover onto the menu itself (a separate,
+   portaled Overlay, so it doesn't count as :hover on .page__cover) fades
+   the actions back out from under an open, still-interactive menu.
+   aria-expanded is already set on the kebab button for a11y; :has() reads
+   it here rather than introducing a second, redundant "is the menu open"
+   flag just for this. */
+.page__cover__actions:has(.page__cover__change[aria-expanded='true']),
+/* Save Position must stay visible for the whole repositioning session,
+   independent of hover — the user may pause moving the pointer entirely
+   while deciding on a position. */
+.page__cover[data-repositioning] .page__cover__actions {
+  opacity: 1;
+}
+
 .page__cover__change {
   --cover-change-bg: rgb(255 255 255 / 90%);
   --state-hover-medium: var(--cover-change-bg);
 
-  position: absolute;
-  top: 12px;
-  right: 12px;
   background: var(--cover-change-bg);
   color: black;
   border-radius: 50%;
-  opacity: 0;
   box-shadow: var(--shadow-xs);
-
-  transition: opacity 160ms ease;
-}
-.page__cover:hover .page__cover__change,
-/* Keeps the trigger visible while its own menu is open — without this,
-   moving the pointer off the cover onto the menu itself (a separate,
-   portaled Overlay, so it doesn't count as :hover on .page__cover) fades
-   the trigger back out from under an open, still-interactive menu.
-   aria-expanded is already set for a11y below; reusing it here avoids a
-   second, redundant "is the menu open" flag just for this. */
-.page__cover__change[aria-expanded='true'] {
-  opacity: 1;
 }
 
 .page-cover__image {
