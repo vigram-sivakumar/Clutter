@@ -5,10 +5,25 @@
  * select/reorder handle in `tableHandleOverlay.css`) so a strip scrolls
  * together with the table's own horizontal overflow, matching what a
  * boundary marker conceptually belongs to.
+ *
+ * `top: var(--cm-table-handle-gutter, 0px)`, not a plain `0` — `top`/`bottom`
+ * on an absolutely positioned element resolve against its containing
+ * block's own *padding* box, and an explicit-widths table's
+ * `.cm-table-scroll` (this element's positioned ancestor,
+ * `tableWidget.css`) now carries a `padding-block-start` reserved for the
+ * column handle's own icon overhang. A plain `top: 0` would start this
+ * strip flush with that padding box's own top — `--cm-table-handle-gutter`
+ * worth of pixels *above* the table's real top edge, well past where a
+ * resize divider visually belongs — rather than the table's own top, where
+ * `bottom: 0` (unaffected — no matching `padding-block-end` exists) already
+ * ends it. Reading the same custom property that rule declares means this
+ * strip tracks it automatically if that gutter's size ever changes, and
+ * correctly falls back to `0` for a plain (not yet resized) table, whose
+ * `.cm-table-scroll` never declares this property at all.
  */
 .cm-table-column-resize-hit {
   position: absolute;
-  top: 0;
+  top: var(--cm-table-handle-gutter, 0px);
   bottom: 0;
   width: 8px;
   transform: translateX(-50%);

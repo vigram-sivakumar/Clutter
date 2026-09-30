@@ -408,6 +408,12 @@
  * padding surrounds it on both sides equally.
  */
 .cm-editor .cm-table-wrapper--explicit-widths .cm-table-scroll {
+  /* A real, inherited custom property (not just a `var(..., 8px)` fallback
+   * used only here) — `tableColumnResizeHandle.css`'s own
+   * `.cm-table-column-resize-hit` rule reads this same property to anchor
+   * its `top` to the table's own top edge rather than this element's own
+   * (now gutter-padded) padding-box top; see that rule's own doc comment. */
+  --cm-table-handle-gutter: 8px;
   position: relative;
   left: 50%;
   transform: translateX(-50%);
@@ -416,11 +422,11 @@
   min-width: 100%;
   max-width: calc(
     var(--table-breakout-max-width, 100%) - var(--table-breakout-edge-gap, 24px) * 2 -
-      var(--cm-table-handle-gutter, 8px) * 2
+      var(--cm-table-handle-gutter) * 2
   );
-  padding-inline: var(--cm-table-handle-gutter, 8px);
-  padding-block-start: var(--cm-table-handle-gutter, 8px);
-  margin-block-start: calc(-1 * var(--cm-table-handle-gutter, 8px));
+  padding-inline: var(--cm-table-handle-gutter);
+  padding-block-start: var(--cm-table-handle-gutter);
+  margin-block-start: calc(-1 * var(--cm-table-handle-gutter));
   overflow-x: auto;
 }
 /*
