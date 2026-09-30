@@ -20,6 +20,8 @@ export interface CollectionPageModel {
   readonly coverImage: string | null;
   readonly coverHidden: boolean;
   readonly coverLayout: CoverLayout;
+  readonly coverPositionAbove: number;
+  readonly coverPositionSide: number;
   readonly folders: readonly CollectionEntryModel[];
   readonly notes: readonly CollectionEntryModel[];
 }

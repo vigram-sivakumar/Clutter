@@ -151,6 +151,8 @@ function toFilteredCollectionPageModel(
       coverImage: null,
       coverHidden: false,
       coverLayout: 'side',
+      coverPositionAbove: 50,
+      coverPositionSide: 50,
       folders: [],
       notes,
     };
@@ -190,6 +192,8 @@ function toFilteredCollectionPageModel(
     coverImage: null,
     coverHidden: false,
     coverLayout: 'side',
+    coverPositionAbove: 50,
+    coverPositionSide: 50,
     folders: rawFolders.map((child) =>
       toCollectionEntry(child, actions, workspace.activeFolderId === child.id, membershipSelector)
     ),
@@ -251,6 +255,8 @@ function toFolderCollectionPageModel(
     coverImage: folder.metadata.cover,
     coverHidden: folder.metadata.coverHidden,
     coverLayout: folder.metadata.coverLayout,
+    coverPositionAbove: folder.metadata.coverPositionAbove,
+    coverPositionSide: folder.metadata.coverPositionSide,
     folders,
     notes,
   };

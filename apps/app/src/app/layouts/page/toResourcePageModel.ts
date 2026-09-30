@@ -65,6 +65,8 @@ export function toResourcePageModel(
     coverImage: page.metadata.cover,
     coverHidden: page.metadata.coverHidden,
     coverLayout: page.metadata.coverLayout,
+    coverPositionAbove: page.metadata.coverPositionAbove,
+    coverPositionSide: page.metadata.coverPositionSide,
 
     updateMarkdown(markdown: string): void {
       onUpdateMarkdown(page.id, markdown);
@@ -105,6 +107,8 @@ export function toDraftPageModel(
     coverImage: null,
     coverHidden: false,
     coverLayout: 'side',
+    coverPositionAbove: 50,
+    coverPositionSide: 50,
 
     updateMarkdown(markdown: string): void {
       onUpdateMarkdown(draftId, markdown);
@@ -123,6 +127,8 @@ export interface ResourcePageModel {
   coverImage: string | null;
   coverHidden: boolean;
   coverLayout: CoverLayout;
+  coverPositionAbove: number;
+  coverPositionSide: number;
 
   updateMarkdown(markdown: string): void;
   requestSave(): void;
