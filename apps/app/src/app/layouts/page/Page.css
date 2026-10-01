@@ -68,10 +68,18 @@
 }
 
 .page__header,
+.page__properties,
 .page__body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.page__properties > * {
+  /* Same column as the title section and editor (.page-content). */
+  width: var(--content-width);
+  max-width: var(--editor-width-max);
+  min-width: 0;
 }
 
 .page__body {

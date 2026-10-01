@@ -350,7 +350,7 @@ export function Page({
               onShowCoverImage={onShowCoverImage}
             />
           </header>
-          {properties}
+          {properties && <div className="page__properties">{properties}</div>}
           <main className="page__body">{body}</main>
         </div>
       </div>
