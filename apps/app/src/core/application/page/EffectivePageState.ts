@@ -161,6 +161,18 @@ export class EffectivePageState {
   }
 
   /**
+   * Note-level membership counterpart to getPagesByTag above — see
+   * VaultQuery.getPagesByFrontmatterTag's own doc comment. Same
+   * resolve()-through-EffectivePage shape, for the same reason.
+   */
+  public getPagesByFrontmatterTag(name: string): EffectivePage[] {
+    return this.query
+      .getPagesByFrontmatterTag(name)
+      .map((page) => this.resolve(page.id))
+      .filter((entry): entry is EffectivePage => entry !== undefined);
+  }
+
+  /**
    * The number of DocumentSessions currently subscribed to — exposed
    * read-only for tests to assert against directly, mirroring
    * DocumentRegistry.size's precedent, not a value any production

@@ -52,14 +52,18 @@ export interface PageMetadata {
    * Note-level tags declared in frontmatter — independent of, and never
    * synchronized with, inline `#tag` occurrences in the body (see
    * `PageAnalysis.tags` for those; `TagOccurrence`s are content-level
-   * facts, this is note-level metadata). When a note's frontmatter has
-   * never had this field, `PageBuilder` populates it once from the
-   * tags present in the body at that time (deduplicated, first-typed
-   * casing preserved — the same identity rule `TagBuilder` uses
-   * vault-wide, applied per page); after that it is frozen and never
-   * recomputed from the body again, even as inline tags are added or
-   * removed (`PageRebuilder` always preserves the existing value when
-   * frontmatter still omits the key, rather than re-deriving it).
+   * facts, this is note-level metadata). Starts empty for a note whose
+   * frontmatter has never had this field — deliberately NOT derived
+   * from the body's own inline tags: doing so would make an
+   * auto-populated value indistinguishable from one a user actually
+   * wrote, which is exactly the "context entry vs. note entry"
+   * distinction the Tags sidebar's expanded-tag children rely on
+   * (renderTags.tsx) — every note with any inline tag would otherwise
+   * silently also gain frontmatter membership for it. Set explicitly,
+   * either by editing frontmatter directly or via the Tags sidebar's
+   * "+" (PageOperations.updateMetadata); once set, `PageRebuilder`
+   * always preserves the existing value when a later reparse's
+   * frontmatter omits the key, rather than re-deriving or clearing it.
    *
    * Optional — unlike every other field here — so the many existing
    * test fixtures that construct a `PageMetadata` literal without this
@@ -67,8 +71,6 @@ export interface PageMetadata {
    * `PageBuilder`/`PageRebuilder` always resolves it to a concrete
    * (possibly empty) array; treat it defensively (`?? []`) only when
    * handling a hand-constructed fixture, never a real `Page`.
-   *
-   * No UI reads or writes this yet — this is the data model only.
    */
   readonly tags?: readonly string[];
 }

@@ -244,10 +244,10 @@ describe('PageBuilder: type is derived from canonical path, never frontmatter', 
   });
 });
 
-describe('PageBuilder — metadata.tags initial population', () => {
+describe('PageBuilder — metadata.tags (never derived from the body)', () => {
   const builder = new PageBuilder();
 
-  it('derives tags from inline #tag occurrences when frontmatter has never had a tags key', () => {
+  it('starts empty when frontmatter has never had a tags key, regardless of inline #tag occurrences', () => {
     const scanned = makeScannedPage({
       analysis: {
         headings: [],
@@ -264,44 +264,11 @@ describe('PageBuilder — metadata.tags initial population', () => {
 
     const page = builder.build({ parentId: null, page: scanned });
 
-    expect(page.metadata.tags).toEqual(['Project', 'Design']);
-  });
-
-  it('deduplicates by normalized identity, keeping the first-typed casing', () => {
-    const scanned = makeScannedPage({
-      analysis: {
-        headings: [],
-        blockReferences: [],
-        tasks: [],
-        tags: [
-          { name: 'Project', startOffset: 0, endOffset: 8 },
-          { name: 'project', startOffset: 20, endOffset: 28 },
-        ],
-        links: [],
-        embeds: [],
-      },
-    });
-
-    const page = builder.build({ parentId: null, page: scanned });
-
-    expect(page.metadata.tags).toEqual(['Project']);
-  });
-
-  it('never derives from the body when frontmatter already declares tags — even an empty array', () => {
-    const scanned = makeScannedPage({
-      frontmatter: { tags: [] },
-      analysis: {
-        headings: [],
-        blockReferences: [],
-        tasks: [],
-        tags: [{ name: 'Project', startOffset: 0, endOffset: 8 }],
-        links: [],
-        embeds: [],
-      },
-    });
-
-    const page = builder.build({ parentId: null, page: scanned });
-
+    // Deliberately NOT ['Project', 'Design'] — auto-deriving from inline
+    // tags would make an auto-populated value indistinguishable from a
+    // user-written one, defeating the Tags sidebar's own context-entry
+    // vs. note-entry distinction (every inline tag would silently also
+    // grant frontmatter membership the first time its note was scanned).
     expect(page.metadata.tags).toEqual([]);
   });
 
@@ -323,7 +290,25 @@ describe('PageBuilder — metadata.tags initial population', () => {
     expect(page.metadata.tags).toEqual(['Archived Topic']);
   });
 
-  it('derives an empty array for a note with no inline tags and no frontmatter tags', () => {
+  it('respects an explicit empty tags array in frontmatter', () => {
+    const scanned = makeScannedPage({
+      frontmatter: { tags: [] },
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [{ name: 'Project', startOffset: 0, endOffset: 8 }],
+        links: [],
+        embeds: [],
+      },
+    });
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual([]);
+  });
+
+  it('is empty for a note with no inline tags and no frontmatter tags', () => {
     const scanned = makeScannedPage();
 
     const page = builder.build({ parentId: null, page: scanned });

@@ -10,14 +10,16 @@ import type { EffectivePageState } from '@core/application/page/EffectivePageSta
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { NoteRowActions } from '@features/notes/sidebar/FolderTree';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
+import type { Vault } from '@core/vault/models';
+import type { Page } from '@core/vault/models/Page';
 
 const noop = () => {};
 
 // Minimal fakes — only the members renderTags actually calls. Every
 // fixture below uses usageCount: 0 (or doesn't interact with
 // expand/collapse), so isExpanded/toggleExpanded/activePageId and
-// getPagesByTag are never exercised by these tests; they exist only to
-// satisfy renderTags' required props.
+// getPagesByTag/getPagesByFrontmatterTag are never exercised by these
+// tests; they exist only to satisfy renderTags' required props.
 const fakeWorkspace = {
   activePageId: null,
 } as unknown as Workspace;
@@ -29,15 +31,84 @@ const fakeTagExpansionStore = {
 
 const fakeEffectivePageState = {
   getPagesByTag: () => [],
+  getPagesByFrontmatterTag: () => [],
 } as unknown as EffectivePageState;
+
+const fakeVault = {
+  getPage: () => undefined,
+} as unknown as Vault;
 
 const renderOptions = {
   onOpenTag: noop,
-  onOpenNote: noop,
+  onOpenNoteEntry: noop,
+  onOpenContextEntry: noop,
+  vault: fakeVault,
   tagExpansionStore: fakeTagExpansionStore,
   workspace: fakeWorkspace,
   effectivePageState: fakeEffectivePageState,
 };
+
+/** A minimal raw Page — only the fields getTagLineContexts actually reads (source.markdown, analysis.tags). */
+function fakePage(overrides: {
+  id?: string;
+  markdown: string;
+  tagOccurrences: readonly { name: string; startOffset: number; endOffset: number }[];
+}): Page {
+  return {
+    id: overrides.id ?? 'p1',
+    type: 'note',
+    name: 'My Note',
+    path: '/vault/My Note.md',
+    parentId: null,
+    metadata: {
+      icon: null,
+      cover: null,
+      coverHidden: false,
+      coverLayout: 'side',
+      coverPositionAbove: 50,
+      coverPositionSide: 50,
+      description: null,
+      favorite: false,
+      status: 'active',
+      archivedAt: null,
+      originalParentId: null,
+      originalPath: null,
+      createdAt: null,
+      updatedAt: null,
+    },
+    source: { markdown: overrides.markdown },
+    analysis: {
+      headings: [],
+      aliases: [],
+      blockReferences: [],
+      tasks: [],
+      tags: overrides.tagOccurrences.map((occ) => ({ ...occ, sourcePageId: overrides.id ?? 'p1' })),
+      links: [],
+      embeds: [],
+    },
+  };
+}
+
+/**
+ * A context entry's line renders through renderCompactMarkdown, which
+ * splits special syntax (e.g. the tag itself) into nested spans — so the
+ * full line text is never one single text node once it contains a
+ * `#tag`, and `screen.getByText(fullLine)` can't match it. These query
+ * by the wrapping `.tag-context-entry__text` span's own textContent
+ * instead, which concatenates all of its descendants' text regardless
+ * of how renderCompactMarkdown split them.
+ */
+function getContextEntryTexts(container: HTMLElement): HTMLElement[] {
+  return [...container.querySelectorAll<HTMLElement>('.tag-context-entry__text')];
+}
+
+function getContextEntryByLine(container: HTMLElement, line: string): HTMLElement {
+  const match = getContextEntryTexts(container).find((el) => el.textContent === line);
+  if (!match) {
+    throw new Error(`No context entry found for line: ${line}`);
+  }
+  return match;
+}
 
 function fakeNote(overrides: Partial<EffectivePage> = {}): EffectivePage {
   return {
@@ -387,10 +458,11 @@ describe('renderTags', () => {
     });
   });
 
-  describe('expanded tag note list — full note-row parity', () => {
-    it('a collapsed tag renders no note rows even when it has notes', () => {
+  describe('expanded tag children — frontmatter note entry', () => {
+    it('a collapsed tag renders no children even when it has notes', () => {
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
       render(
         <>
@@ -404,48 +476,52 @@ describe('renderTags', () => {
       expect(screen.queryByText('My Note')).toBeNull();
     });
 
-    it('an expanded tag renders a note row for every note the tag->notes index returns', () => {
+    it('a note whose only membership is frontmatter renders as a full note row, not a context entry', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote({ id: 'p1', name: 'First' }), fakeNote({ id: 'p2', name: 'Second' })],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 2 }],
+            [{ name: 'design', favorite: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState }
           )}
         </>
       );
 
-      expect(screen.getByText('First')).toBeInTheDocument();
-      expect(screen.getByText('Second')).toBeInTheDocument();
+      expect(screen.getByText('My Note')).toBeInTheDocument();
     });
 
-    it('clicking an expanded note row calls onOpenNote with the note id and the tag name', () => {
+    it('clicking it calls onOpenNoteEntry with the note id — no editor reveal, there is no body occurrence', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
-      const onOpenNote = vi.fn();
+      const onOpenNoteEntry = vi.fn();
+      const onOpenContextEntry = vi.fn();
       render(
         <>
           {renderTags(
             [{ name: 'design', favorite: false, usageCount: 1 }],
-            { ...renderOptions, tagExpansionStore, effectivePageState, onOpenNote }
+            { ...renderOptions, tagExpansionStore, effectivePageState, onOpenNoteEntry, onOpenContextEntry }
           )}
         </>
       );
 
       fireEvent.click(screen.getByText('My Note'));
 
-      expect(onOpenNote).toHaveBeenCalledWith('p1', 'design');
+      expect(onOpenNoteEntry).toHaveBeenCalledWith('p1');
+      expect(onOpenContextEntry).not.toHaveBeenCalled();
     });
 
-    it('an expanded note row offers the full note overflow menu (Rename, Archive) — not a reduced action set', () => {
+    it('offers the full note overflow menu (Rename, Archive) — the existing note-row behavior is preserved', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
       // openMenuId set directly, rather than simulating the click-to-open
       // interaction: rowActions is a static fixture here, not React
@@ -466,10 +542,11 @@ describe('renderTags', () => {
       expect(screen.getByText('Archive')).toBeInTheDocument();
     });
 
-    it("selecting Archive from an expanded note row's menu calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
+    it("selecting Archive calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
       const onArchiveNote = vi.fn();
       const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1', onArchiveNote });
@@ -487,25 +564,26 @@ describe('renderTags', () => {
       expect(onArchiveNote).toHaveBeenCalledWith('p1');
     });
 
-    it('a note row mid-rename does not also navigate (same edit-mode suppression as the Notes sidebar)', () => {
+    it('mid-rename does not also navigate (same edit-mode suppression as the Notes sidebar)', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
       } as unknown as EffectivePageState;
-      const onOpenNote = vi.fn();
+      const onOpenNoteEntry = vi.fn();
       const noteRowActions = fakeNoteRowActions({ editingId: 'p1' });
       render(
         <>
           {renderTags(
             [{ name: 'design', favorite: false, usageCount: 1 }],
-            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions, onOpenNote }
+            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions, onOpenNoteEntry }
           )}
         </>
       );
 
       fireEvent.click(screen.getByRole('textbox'));
 
-      expect(onOpenNote).not.toHaveBeenCalled();
+      expect(onOpenNoteEntry).not.toHaveBeenCalled();
     });
 
     it('a tag with zero occurrences renders its caret disabled — same as an empty folder — since there is nothing to expand', () => {
@@ -523,24 +601,24 @@ describe('renderTags', () => {
     });
   });
 
-  describe('expanded tag note list — "Reveal in Clutter"', () => {
+  describe('expanded tag children — "Reveal in Clutter" (frontmatter note entry only)', () => {
+    function withFrontmatterNote() {
+      return {
+        tagExpansionStore: { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore,
+        effectivePageState: {
+          getPagesByTag: () => [],
+          getPagesByFrontmatterTag: () => [fakeNote()],
+        } as unknown as EffectivePageState,
+      };
+    }
+
     it('adds exactly one extra menu item, "Reveal in Clutter," when onRevealInNotesSidebar is provided', () => {
-      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
-      const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
-      } as unknown as EffectivePageState;
       const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
       render(
         <>
           {renderTags(
             [{ name: 'design', favorite: false, usageCount: 1 }],
-            {
-              ...renderOptions,
-              tagExpansionStore,
-              effectivePageState,
-              noteRowActions,
-              onRevealInNotesSidebar: noop,
-            }
+            { ...renderOptions, ...withFrontmatterNote(), noteRowActions, onRevealInNotesSidebar: noop }
           )}
         </>
       );
@@ -548,86 +626,14 @@ describe('renderTags', () => {
       expect(screen.getAllByText('Reveal in Clutter')).toHaveLength(1);
     });
 
-    it('is positioned immediately above "Reveal in Finder," not appended after Archive', () => {
-      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
-      const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
-      } as unknown as EffectivePageState;
-      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
-      render(
-        <>
-          {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
-            {
-              ...renderOptions,
-              tagExpansionStore,
-              effectivePageState,
-              noteRowActions,
-              onRevealInNotesSidebar: noop,
-            }
-          )}
-        </>
-      );
-
-      const menuLabels = screen
-        .getAllByRole('menuitem')
-        .map((item) => item.textContent)
-        .filter((text): text is string => text !== null);
-      const revealInClutterIndex = menuLabels.findIndex((text) => text.includes('Reveal in Clutter'));
-      const revealInFinderIndex = menuLabels.findIndex((text) => text.includes('Reveal in Finder'));
-      const archiveIndex = menuLabels.findIndex((text) => text.includes('Archive'));
-
-      expect(revealInClutterIndex).toBeGreaterThanOrEqual(0);
-      expect(revealInClutterIndex).toBeLessThan(revealInFinderIndex);
-      expect(revealInFinderIndex).toBeLessThan(archiveIndex);
-    });
-
-    it('carries the location group\'s divider itself, so no divider sits between it and "Reveal in Finder"', () => {
-      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
-      const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
-      } as unknown as EffectivePageState;
-      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
-      render(
-        <>
-          {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
-            {
-              ...renderOptions,
-              tagExpansionStore,
-              effectivePageState,
-              noteRowActions,
-              onRevealInNotesSidebar: noop,
-            }
-          )}
-        </>
-      );
-
-      const revealInClutter = screen.getByText('Reveal in Clutter').closest('[role="menuitem"]');
-      const revealInFinder = screen.getByText('Reveal in Finder').closest('[role="menuitem"]');
-
-      expect(revealInClutter?.previousElementSibling?.getAttribute('role')).toBe('separator');
-      expect(revealInFinder?.previousElementSibling).toBe(revealInClutter);
-    });
-
     it('selecting it calls onRevealInNotesSidebar with the note id, and nothing else in the standard menu', () => {
-      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
-      const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
-      } as unknown as EffectivePageState;
       const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
       const onRevealInNotesSidebar = vi.fn();
       render(
         <>
           {renderTags(
             [{ name: 'design', favorite: false, usageCount: 1 }],
-            {
-              ...renderOptions,
-              tagExpansionStore,
-              effectivePageState,
-              noteRowActions,
-              onRevealInNotesSidebar,
-            }
+            { ...renderOptions, ...withFrontmatterNote(), noteRowActions, onRevealInNotesSidebar }
           )}
         </>
       );
@@ -638,21 +644,307 @@ describe('renderTags', () => {
     });
 
     it('is absent when onRevealInNotesSidebar is not provided — the Notes sidebar\'s own menu is unaffected', () => {
-      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
-      const effectivePageState = {
-        getPagesByTag: () => [fakeNote()],
-      } as unknown as EffectivePageState;
       const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
       render(
         <>
           {renderTags(
             [{ name: 'design', favorite: false, usageCount: 1 }],
-            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
+            { ...renderOptions, ...withFrontmatterNote(), noteRowActions }
           )}
         </>
       );
 
       expect(screen.queryByText('Reveal in Clutter')).toBeNull();
+    });
+  });
+
+  describe('expanded tag children — inline tag-context entries', () => {
+    it('one inline occurrence renders as a single context entry showing the containing line', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(getContextEntryByLine(container, markdown)).toBeInTheDocument();
+      // No note row — this note has no frontmatter membership.
+      expect(screen.queryByText('My Note')).toBeNull();
+    });
+
+    it('two occurrences on two different lines render as two separate context entries', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const line1 = 'First discussion about #design.';
+      const line2 = 'Later we revisited the #design direction.';
+      const markdown = `${line1}\n${line2}`;
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [
+          { name: 'design', startOffset: line1.indexOf('#design'), endOffset: line1.indexOf('#design') + 7 },
+          {
+            name: 'design',
+            startOffset: markdown.indexOf(line2) + line2.indexOf('#design'),
+            endOffset: markdown.indexOf(line2) + line2.indexOf('#design') + 7,
+          },
+        ],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(getContextEntryByLine(container, line1)).toBeInTheDocument();
+      expect(getContextEntryByLine(container, line2)).toBeInTheDocument();
+    });
+
+    it('two occurrences of the same tag on the same line collapse into one context entry, not two', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = '#design discussions reference #design again.';
+      const firstHash = markdown.indexOf('#design');
+      const secondHash = markdown.indexOf('#design', firstHash + 1);
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [
+          { name: 'design', startOffset: firstHash, endOffset: firstHash + 7 },
+          { name: 'design', startOffset: secondHash, endOffset: secondHash + 7 },
+        ],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(getContextEntryTexts(container).filter((el) => el.textContent === markdown)).toHaveLength(1);
+    });
+
+    it('clicking a context entry calls onOpenContextEntry with the note id and that line\'s exact ranges', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const onOpenContextEntry = vi.fn();
+      const onOpenNoteEntry = vi.fn();
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault, onOpenContextEntry, onOpenNoteEntry }
+          )}
+        </>
+      );
+
+      fireEvent.click(getContextEntryByLine(container, markdown));
+
+      expect(onOpenContextEntry).toHaveBeenCalledWith('p1', [{ from: 24, to: 31 }]);
+      expect(onOpenNoteEntry).not.toHaveBeenCalled();
+    });
+
+    it('two identical lines at different offsets each reveal their own distinct occurrence, not the first text match', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const line = 'Check the #design spec.';
+      const markdown = `${line}\nSomething else.\n${line}`;
+      const firstHash = markdown.indexOf('#design');
+      const secondLineStart = markdown.lastIndexOf(line);
+      const secondHash = secondLineStart + line.indexOf('#design');
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [
+          { name: 'design', startOffset: firstHash, endOffset: firstHash + 7 },
+          { name: 'design', startOffset: secondHash, endOffset: secondHash + 7 },
+        ],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const onOpenContextEntry = vi.fn();
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault, onOpenContextEntry }
+          )}
+        </>
+      );
+
+      const entries = getContextEntryTexts(container).filter((el) => el.textContent === line);
+      expect(entries).toHaveLength(2);
+
+      fireEvent.click(entries[0]!);
+      expect(onOpenContextEntry).toHaveBeenLastCalledWith('p1', [{ from: firstHash, to: firstHash + 7 }]);
+
+      fireEvent.click(entries[1]!);
+      expect(onOpenContextEntry).toHaveBeenLastCalledWith('p1', [{ from: secondHash, to: secondHash + 7 }]);
+    });
+
+    it('never mutates the page object/Markdown source while rendering or clicking', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const snapshot = JSON.parse(JSON.stringify(page));
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+      fireEvent.click(getContextEntryByLine(container, markdown));
+
+      expect(page).toEqual(snapshot);
+    });
+
+    it('a context entry offers no note-action menu — navigation/reveal only', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
+      expect(screen.queryByRole('menuitem')).toBeNull();
+    });
+  });
+
+  describe('expanded tag children — frontmatter + inline combined', () => {
+    it('a note with both frontmatter membership and inline occurrences shows both the note entry and the context entry, not deduplicated', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(screen.getByText('My Note')).toBeInTheDocument();
+      expect(getContextEntryByLine(container, markdown)).toBeInTheDocument();
+    });
+
+    it('renders the frontmatter note entry before its inline context entries', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const markdown = 'We need to improve the #design system before release.';
+      const page = fakePage({
+        markdown,
+        tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+      });
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+        getPagesByFrontmatterTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      const { container } = render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      const rows = [...container.querySelectorAll('.entry')].map((el) => el.textContent ?? '');
+      const noteIndex = rows.findIndex((text) => text.includes('My Note'));
+      const contextIndex = rows.findIndex((text) => text.includes(markdown));
+
+      expect(noteIndex).toBeGreaterThanOrEqual(0);
+      expect(contextIndex).toBeGreaterThan(noteIndex);
+    });
+  });
+
+  describe('expanded tag children — a frontmatter-only tag (no inline occurrence for this note)', () => {
+    it('shows only the note entry, no context entries, for a note whose tag membership is frontmatter-only', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      // No inline occurrence anywhere in this note's body for "design".
+      const page = fakePage({ markdown: 'Nothing inline here.', tagOccurrences: [] });
+      const effectivePageState = {
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const vault = { getPage: () => page } as unknown as Vault;
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, vault }
+          )}
+        </>
+      );
+
+      expect(screen.getByText('My Note')).toBeInTheDocument();
+      expect(screen.queryByText(/Nothing inline here/)).toBeNull();
     });
   });
 });

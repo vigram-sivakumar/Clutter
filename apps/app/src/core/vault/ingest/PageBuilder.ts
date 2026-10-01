@@ -3,7 +3,6 @@ import type { ScannedPage } from './VaultScanResult';
 import { IdentityResolver } from './identity/IdentityResolver';
 import { VaultPath } from './VaultPath';
 import { resolvePageMetadata } from './resolvePageMetadata';
-import { deriveInitialPageTags } from './deriveInitialPageTags';
 import { isDailyNotePath } from '../initialize/ReservedResources';
 
 import { PageAnalysisMapper } from './PageAnalysisMapper';
@@ -42,16 +41,17 @@ export class PageBuilder {
     // before a Vault exists yet to enforce it (the initial scan).
     const type = isDailyNotePath(this.vaultRoot, page.path) ? 'daily-note' : 'note';
 
-    const baseMetadata = resolvePageMetadata(page.frontmatter);
-    // Frontmatter has never had a `tags` key for this page — the
-    // one-time migration: seed it from whatever tags its body currently
-    // has (see deriveInitialPageTags's own doc comment). A page whose
-    // frontmatter already has `tags` (even `[]`) skips this entirely —
-    // that value is independent metadata from here on, not re-derived.
-    const metadata =
-      page.frontmatter.tags === undefined
-        ? { ...baseMetadata, tags: deriveInitialPageTags(page.analysis.tags) }
-        : baseMetadata;
+    // No derivation from inline tags here — a page whose frontmatter has
+    // never had a `tags` key simply starts with an empty one
+    // (resolvePageMetadata's own plain default), same as every other
+    // metadata field. Deliberately NOT seeded from page.analysis.tags:
+    // doing so would make an auto-derived value indistinguishable from
+    // one a user actually wrote, which defeats the Tags sidebar's own
+    // "context entry vs. note entry" distinction (PageMetadata.tags's
+    // own doc comment) — every note with any inline tag would silently
+    // acquire frontmatter membership for it too, the first time it was
+    // ever scanned.
+    const metadata = resolvePageMetadata(page.frontmatter);
 
     return {
       id: identity.id,

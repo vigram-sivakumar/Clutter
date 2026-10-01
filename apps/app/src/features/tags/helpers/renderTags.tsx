@@ -2,13 +2,18 @@ import { Fragment } from 'react/jsx-runtime';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
 import { Tag } from '../sidebar/Tag';
+import { TagContextEntry } from '../sidebar/TagContextEntry';
 import { buildTagSidebarMenu } from '../sidebar/tagSidebarMenu.config';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
 import { formatTagDisplayLabel, type Tag as TagModel } from '@core/vault/models/Tag';
 import { PageEntry, type NoteRowActions } from '@features/notes/sidebar/FolderTree';
+import type { Vault } from '@core/vault/models';
+import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
+import { getTagLineContexts, type TagLineContext } from '@core/presentation/getTagLineContexts';
+import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
@@ -34,12 +39,26 @@ export interface TagRowActions {
 interface RenderTagsOptions {
   onOpenTag(name: string): void;
   /**
-   * Opens a note clicked from a tag's expanded inline list, then requests
-   * an editor reveal for every occurrence of that tag in it — mirrors Tag
-   * collection's own "Open note" entry point (PageHost's
-   * openNoteFromCollection), just triggered from the sidebar instead.
+   * Opens a note that belongs to this tag only through frontmatter
+   * (note-level membership) — no editor reveal, since there is no body
+   * occurrence to point at. See onOpenContextEntry below for the inline-
+   * occurrence counterpart.
    */
-  onOpenNote(pageId: string, tagName: string): void;
+  onOpenNoteEntry(pageId: string): void;
+  /**
+   * Opens the note an inline tag-context entry belongs to, then requests
+   * an editor reveal for that exact occurrence's line (ranges already
+   * resolved by getTagLineContexts — never recomputed by text search).
+   * Mirrors Tag collection's own "Open note" entry point (PageHost's
+   * openNoteFromCollection), just per-line rather than whole-note.
+   */
+  onOpenContextEntry(pageId: string, ranges: readonly SourceRange[]): void;
+  /**
+   * Raw Vault read access — needed to resolve a page's current
+   * `analysis.tags`/`source.markdown` for getTagLineContexts (EffectivePage
+   * carries neither). Read-only; no write path touches this.
+   */
+  vault: Vault;
   /**
    * Single owner of "is this tag expanded in the sidebar," persisted
    * across reloads (see `TagExpansionStore`'s own doc comment for why
@@ -54,14 +73,23 @@ interface RenderTagsOptions {
    * no longer lives on it, see `tagExpansionStore` above.
    */
   workspace: Workspace;
-  /** The existing tag->notes index the Tag Collection view already reads. */
+  /**
+   * The existing tag->notes indexes the Tag Collection view already
+   * reads — inline-occurrence membership (getPagesByTag) and note-level
+   * frontmatter membership (getPagesByFrontmatterTag), each a genuinely
+   * different reason a note belongs to this tag (PageMetadata.tags's own
+   * doc comment: independent, never synchronized) — both are shown,
+   * never merged into one.
+   */
   effectivePageState: EffectivePageState;
   /**
    * The exact same Note-row action handlers (menu, rename, archive,
    * favorite, move, reveal/copy-path) the Notes sidebar's own notes
-   * dispatch through — see `PageEntry`'s own doc comment for why a note
-   * rendered here must behave identically rather than through a reduced,
-   * parallel implementation.
+   * dispatch through — see `PageEntry`'s own doc comment for why a
+   * frontmatter note entry rendered here must behave identically rather
+   * than through a reduced, parallel implementation. Never applied to a
+   * TagContextEntry — a content occurrence, not a note, has no note
+   * actions of its own.
    */
   noteRowActions?: NoteRowActions;
   /**
@@ -70,7 +98,8 @@ interface RenderTagsOptions {
    * (expand ancestors, scroll, flash-highlight), without opening it.
    * This is the only action added beyond the standard note menu — see
    * `PageEntry`'s `extraMenuItems`/`onExtraMenuSelect` for how it's
-   * appended without touching the Notes sidebar's own menu.
+   * appended without touching the Notes sidebar's own menu. Only ever
+   * offered on a frontmatter note entry, never a context entry.
    */
   onRevealInNotesSidebar?(pageId: string): void;
   /**
@@ -89,10 +118,61 @@ interface RenderTagsOptions {
 
 const REVEAL_IN_NOTES_SIDEBAR_ITEM_ID = 'reveal-in-notes-sidebar';
 
+/**
+ * One note that belongs to a tag, plus everything about *why* it does —
+ * the two reasons (PageMetadata.tags's own doc comment) are independent
+ * and both rendered when both apply, never collapsed into one row. See
+ * the module's own "TagContextEntry vs. NoteEntry" distinction.
+ */
+interface TagChild {
+  readonly note: EffectivePage;
+  readonly hasFrontmatterMembership: boolean;
+  readonly lineContexts: readonly TagLineContext[];
+}
+
+/**
+ * Resolves everything an expanded tag needs to render its children:
+ * every note that belongs to it (via either inline occurrence or
+ * frontmatter membership, union'd and deduplicated by id — the same note
+ * can have both, and still gets exactly one TagChild carrying both
+ * facts, per the module's own "do not deduplicate into one item" rule
+ * *between* a note entry and its context entries, while still only
+ * resolving the note itself once), each annotated with its frontmatter
+ * membership flag and its inline occurrences grouped by line
+ * (getTagLineContexts). Ordering: getPagesByTag's own order first (the
+ * existing tag->notes ordering convention), then any additional
+ * frontmatter-only notes it didn't already include — no new sort
+ * introduced for either list.
+ */
+function getTagChildren(
+  tagName: string,
+  vault: Vault,
+  effectivePageState: EffectivePageState
+): TagChild[] {
+  const inlineNotes = effectivePageState.getPagesByTag(tagName);
+  const frontmatterNotes = effectivePageState.getPagesByFrontmatterTag(tagName);
+  const frontmatterIds = new Set(frontmatterNotes.map((note) => note.id));
+
+  const orderedNotes = [...inlineNotes];
+  for (const note of frontmatterNotes) {
+    if (!inlineNotes.some((existing) => existing.id === note.id)) {
+      orderedNotes.push(note);
+    }
+  }
+
+  return orderedNotes.map((note) => ({
+    note,
+    hasFrontmatterMembership: frontmatterIds.has(note.id),
+    lineContexts: getTagLineContexts(vault.getPage(note.id), tagName),
+  }));
+}
+
 function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
   const {
     onOpenTag,
-    onOpenNote,
+    onOpenNoteEntry,
+    onOpenContextEntry,
+    vault,
     tagExpansionStore,
     workspace,
     effectivePageState,
@@ -111,11 +191,11 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
   // and avoids ever querying getPagesByTag for a tag that can't have any.
   const isEmpty = tag.usageCount === 0;
   const isExpanded = isEmpty ? false : tagExpansionStore.isExpanded(tag.name);
-  // Only fetched while actually expanded — satisfies "don't parse/query
+  // Only resolved while actually expanded — satisfies "don't parse/query
   // every note repeatedly every time a tag is expanded" by not querying
-  // at all for a collapsed or empty tag; the query itself is the existing
-  // EffectivePageState.getPagesByTag index, not a new scan.
-  const notes = isExpanded ? effectivePageState.getPagesByTag(tag.name) : [];
+  // at all for a collapsed or empty tag; every read here is an existing
+  // index/already-computed analysis, never a fresh Markdown parse.
+  const children = isExpanded ? getTagChildren(tag.name, vault, effectivePageState) : [];
 
   return (
     <Fragment key={tag.name}>
@@ -161,37 +241,67 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         }
       />
       {isExpanded &&
-        notes.map((note) => (
-          <PageEntry
-            key={note.id}
-            entry={note}
-            level={1}
-            workspace={workspace}
-            onPageClick={(pageId) => onOpenNote(pageId, tag.name)}
-            // getPagesByTag is durable-only (see its own doc comment) — a
-            // note reached from here is never a draft, so this branch is
-            // provably unreachable, same as PageEntry's own callers that
-            // guard entry.isDraft before choosing which handler to call.
-            onDraftPageClick={() => {}}
-            rowActions={noteRowActions}
-            resolveWikiLink={resolveWikiLink}
-            resolveTag={resolveTag}
-            resolveEmbed={resolveEmbed}
-            extraMenuItems={
-              onRevealInNotesSidebar
-                ? [{ id: REVEAL_IN_NOTES_SIDEBAR_ITEM_ID, label: 'Reveal in Clutter', icon: 'folder' }]
-                : undefined
-            }
-            onExtraMenuSelect={
-              onRevealInNotesSidebar
-                ? (id) => {
-                    if (id === REVEAL_IN_NOTES_SIDEBAR_ITEM_ID) {
-                      onRevealInNotesSidebar(note.id);
-                    }
-                  }
-                : undefined
-            }
-          />
+        children.map(({ note, hasFrontmatterMembership, lineContexts }) => (
+          <Fragment key={note.id}>
+            {/* Ordering within one note: frontmatter note-level entry
+                first, then its inline occurrences in document order —
+                per the module's own stated ordering rule. */}
+            {hasFrontmatterMembership && (
+              <PageEntry
+                entry={note}
+                level={1}
+                workspace={workspace}
+                onPageClick={onOpenNoteEntry}
+                // getPagesByFrontmatterTag/getPagesByTag are both
+                // durable-only (see their own doc comments) — a note
+                // reached from here is never a draft, so this branch is
+                // provably unreachable, same as PageEntry's own callers
+                // that guard entry.isDraft before choosing which handler
+                // to call.
+                onDraftPageClick={() => {}}
+                rowActions={noteRowActions}
+                resolveWikiLink={resolveWikiLink}
+                resolveTag={resolveTag}
+                resolveEmbed={resolveEmbed}
+                extraMenuItems={
+                  onRevealInNotesSidebar
+                    ? [
+                        {
+                          id: REVEAL_IN_NOTES_SIDEBAR_ITEM_ID,
+                          label: 'Reveal in Clutter',
+                          icon: 'folder',
+                        },
+                      ]
+                    : undefined
+                }
+                onExtraMenuSelect={
+                  onRevealInNotesSidebar
+                    ? (id) => {
+                        if (id === REVEAL_IN_NOTES_SIDEBAR_ITEM_ID) {
+                          onRevealInNotesSidebar(note.id);
+                        }
+                      }
+                    : undefined
+                }
+              />
+            )}
+            {lineContexts.map((context, index) => (
+              <TagContextEntry
+                // Index-keyed, not offset-keyed: stable enough for one
+                // render pass, and offsets can legitimately shift between
+                // renders as the note is edited elsewhere — this list is
+                // only ever (re)computed fresh per render, never diffed
+                // against a previous one.
+                key={`${note.id}-context-${index}`}
+                level={1}
+                lineText={context.lineText}
+                onClick={() => onOpenContextEntry(note.id, context.ranges)}
+                resolveWikiLink={resolveWikiLink}
+                resolveTag={resolveTag}
+                resolveEmbed={resolveEmbed}
+              />
+            ))}
+          </Fragment>
         ))}
     </Fragment>
   );

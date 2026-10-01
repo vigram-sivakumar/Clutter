@@ -155,6 +155,21 @@ export class VaultQuery {
   }
 
   /**
+   * Pages whose frontmatter `tags` field declares `name` — note-level
+   * membership, deliberately separate from getPagesByTag's inline-
+   * occurrence membership above (PageMetadata.tags's own doc comment:
+   * independent, never synchronized). Same exact-string-match convention
+   * as getPagesByTag (no normalizeTagName folding here either), so a
+   * caller combining both lists for one tag name gets consistent
+   * matching semantics across both sources.
+   */
+  public getPagesByFrontmatterTag(name: string): Page[] {
+    return Array.from(this.vault.pages()).filter((page) =>
+      (page.metadata.tags ?? []).includes(name)
+    );
+  }
+
+  /**
    * `folderId` itself followed by every ancestor up to (but not including)
    * the vault root — the same parent-chain walk
    * `buildBreadcrumbs.ts`'s private `ancestorBreadcrumbs` already performs

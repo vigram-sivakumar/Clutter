@@ -483,12 +483,11 @@ describe('TagOperations.rename', () => {
     const persisted = await fileSystem.readFile(page.path);
     const body = persisted.slice(persisted.lastIndexOf('---') + 3).trim();
     expect(body).toBe('#UX-design');
-    // The old name may still legitimately linger in frontmatter's
-    // independent `tags` field (PageBuilder's one-time inline-tag
-    // migration populated it from the original body before this
-    // rename ever ran) — renaming the inline occurrence is a body-only
-    // rewrite and must not touch that separate metadata, by design
-    // (frontmatter tags are independent of inline #tags once set).
+    // Scoped to the body specifically — frontmatter's own `tags` field
+    // (PageMetadata.tags) is independent metadata and could in
+    // principle still carry the old name if a caller had separately set
+    // it; renaming the inline occurrence is a body-only rewrite and must
+    // never touch that separate field either way.
     expect(body).not.toContain('product-design');
   });
 });

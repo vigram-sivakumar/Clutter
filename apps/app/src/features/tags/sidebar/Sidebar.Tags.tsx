@@ -9,7 +9,7 @@ import type { EffectivePageState } from '@core/application/page/EffectivePageSta
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
-import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
+import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
@@ -109,14 +109,19 @@ export function Tags({
     onRenameEnd: () => setNoteEditingId(null),
   });
 
-  // Mirrors PageHost's openNoteFromCollection exactly (same
-  // pageOperations.open + getTagOccurrenceRanges + onRequestReveal
-  // sequence) — the Tags sidebar's own entry point into the same, generic
-  // reveal pipeline.
-  const onOpenNote = (pageId: string, tagName: string): void => {
+  // Frontmatter note-level membership has no body occurrence to reveal —
+  // opening it is exactly PageOperations.open(), nothing more.
+  const onOpenNoteEntry = (pageId: string): void => {
     pageOperations.open(pageId);
+  };
 
-    const ranges = getTagOccurrenceRanges(vault.getPage(pageId), tagName);
+  // Mirrors PageHost's openNoteFromCollection's own open+reveal sequence
+  // — the Tags sidebar's own entry point into the same, generic reveal
+  // pipeline — but per-line: `ranges` already comes from
+  // getTagLineContexts (one context entry's own exact occurrence
+  // offsets), never recomputed by a second filter over analysis.tags.
+  const onOpenContextEntry = (pageId: string, ranges: readonly SourceRange[]): void => {
+    pageOperations.open(pageId);
 
     if (ranges.length > 0) {
       onRequestReveal({ pageId, ranges });
@@ -140,7 +145,9 @@ export function Tags({
     <View navigation={<TagsShortcuts onShortcut={onShortcut} />}>
       {renderTags(tags, {
         onOpenTag: (name) => navigation.openTag(name),
-        onOpenNote,
+        onOpenNoteEntry,
+        onOpenContextEntry,
+        vault,
         tagExpansionStore,
         workspace,
         effectivePageState,
