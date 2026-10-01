@@ -201,8 +201,17 @@ export function PageCover({
     setDragPreview(null);
   }
 
-  // Escape is the one way to end repositioning without saving (spec: "If
-  // repositioning mode ends without Save Position, the unsaved preview
+  // The one shared way to end repositioning without saving — Escape and
+  // the cancel (dismiss) button below both call this and nothing else, so
+  // "ends without Save Position never persists the preview" has exactly
+  // one implementation regardless of which affordance triggered it.
+  function cancelRepositioning(): void {
+    setRepositioning(false);
+    setDragPreview(null);
+  }
+
+  // Escape is the keyboard way to end repositioning without saving (spec:
+  // "If repositioning mode ends without Save Position, the unsaved preview
   // must not become the persisted cover position"). Scoped to document,
   // not the image, since focus may be anywhere once a drag ends.
   useEffect(() => {
@@ -211,8 +220,7 @@ export function PageCover({
     }
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
-        setRepositioning(false);
-        setDragPreview(null);
+        cancelRepositioning();
       }
     }
     document.addEventListener('keydown', handleKeyDown);
@@ -254,7 +262,10 @@ export function PageCover({
     if (naturalWidth === 0 || naturalHeight === 0) {
       return layout === 'above' ? rect.height : rect.width;
     }
-    const scale = Math.max(rect.width / naturalWidth, rect.height / naturalHeight);
+    const scale = Math.max(
+      rect.width / naturalWidth,
+      rect.height / naturalHeight
+    );
     const renderedWidth = naturalWidth * scale;
     const renderedHeight = naturalHeight * scale;
     return layout === 'above'
@@ -262,7 +273,9 @@ export function PageCover({
       : Math.max(0, renderedWidth - rect.width);
   }
 
-  function handleImagePointerDown(event: ReactPointerEvent<HTMLImageElement>): void {
+  function handleImagePointerDown(
+    event: ReactPointerEvent<HTMLImageElement>
+  ): void {
     // setPointerCapture routes every subsequent event for this pointerId to
     // this element regardless of where the pointer physically moves to,
     // which is what lets a drag continue correctly even if the cursor
@@ -281,12 +294,15 @@ export function PageCover({
     };
   }
 
-  function handleImagePointerMove(event: ReactPointerEvent<HTMLImageElement>): void {
+  function handleImagePointerMove(
+    event: ReactPointerEvent<HTMLImageElement>
+  ): void {
     const dragStart = dragStartRef.current;
     if (!dragStart || dragStart.travelRange === 0) {
       return;
     }
-    const pointerCoordinate = layout === 'above' ? event.clientY : event.clientX;
+    const pointerCoordinate =
+      layout === 'above' ? event.clientY : event.clientX;
     const pixelDelta = pointerCoordinate - dragStart.pointerCoordinate;
     // Percent of the image's own actual travel range the pointer has moved
     // — see computeTravelRange's doc comment for why that's the image's
@@ -362,26 +378,51 @@ export function PageCover({
       data-repositioning={repositioning || undefined}
     >
       <div className="page__cover__actions">
-        {repositioning && (
-          <Button size="small" variant="filled" onClick={handleSavePosition}>
-            Save Position
+        {repositioning ? (
+          <>
+            <Button
+              className="page__cover__reposition"
+              size="small"
+              onClick={handleSavePosition}
+            >
+              Save Position
+            </Button>
+            {/* Replaces the "More actions" kebab for the duration of
+                repositioning — the kebab's own menu (Change cover image,
+                Position, Hide, Remove) has no meaning mid-drag, and this
+                is the one explicit way to cancel without saving by mouse
+                (Escape is the keyboard equivalent — both call the same
+                cancelRepositioning). */}
+            <Button
+              className="page__cover__cancel-reposition"
+              size="small"
+              isIconOnly
+              aria-label="Cancel repositioning"
+              onClick={(event) => {
+                event.stopPropagation();
+                cancelRepositioning();
+              }}
+            >
+              <AppIcon icon="dismiss" />
+            </Button>
+          </>
+        ) : (
+          <Button
+            className="page__cover__menu"
+            size="small"
+            ref={triggerRef}
+            isIconOnly
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label="More actions"
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpen(!open);
+            }}
+          >
+            <AppIcon icon="moreVertical" />
           </Button>
         )}
-        <Button
-          className="page__cover__change"
-          ref={triggerRef}
-          size="small"
-          isIconOnly
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-label="More actions"
-          onClick={(event) => {
-            event.stopPropagation();
-            setOpen(!open);
-          }}
-        >
-          <AppIcon icon="moreVertical" />
-        </Button>
       </div>
       <Overlay
         open={open}
@@ -504,7 +545,11 @@ export function PageCover({
           // Only set while repositioning is active; outside that mode the
           // image has no pointer handlers at all and keeps the browser's
           // ordinary default cursor.
-          cursor: repositioning ? (layout === 'above' ? 'ns-resize' : 'ew-resize') : undefined,
+          cursor: repositioning
+            ? layout === 'above'
+              ? 'ns-resize'
+              : 'ew-resize'
+            : undefined,
         }}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
         onPointerMove={repositioning ? handleImagePointerMove : undefined}

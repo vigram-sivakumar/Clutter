@@ -1,6 +1,6 @@
 .page__cover {
   flex: 1 5 240px;
-  min-width: 64px;
+  min-width: 164px;
   max-width: var(--app-sidebar-width);
 
   position: relative;
@@ -99,8 +99,8 @@
   border-radius: var(--border-radius);
 }
 .page__content > .page__cover .page__cover__actions {
-  top: 12px;
-  right: 20px;
+  top: 8px;
+  right: 16px;
 }
 
 /* Above layout + a user emoji only (never a system icon — PageCover's own
@@ -160,16 +160,21 @@
    kebab button owned on its own before Save Position existed. */
 .page__cover__actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 8px;
+  right: 8px;
   z-index: 1;
 
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-md);
 
   opacity: 0;
   transition: opacity 160ms ease;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-stronger);
+  box-shadow: var(--shadow-lg);
 }
 .page__cover:hover .page__cover__actions,
 /* Keeps the actions visible while the kebab's own menu is open — without
@@ -179,7 +184,7 @@
    aria-expanded is already set on the kebab button for a11y; :has() reads
    it here rather than introducing a second, redundant "is the menu open"
    flag just for this. */
-.page__cover__actions:has(.page__cover__change[aria-expanded='true']),
+.page__cover__actions:has(.page__cover__menu[aria-expanded='true']),
 /* Save Position must stay visible for the whole repositioning session,
    independent of hover — the user may pause moving the pointer entirely
    while deciding on a position. */
@@ -187,14 +192,10 @@
   opacity: 1;
 }
 
-.page__cover__change {
-  --cover-change-bg: rgb(255 255 255 / 90%);
-  --state-hover-medium: var(--cover-change-bg);
-
-  background: var(--cover-change-bg);
-  color: black;
-  border-radius: 50%;
-  box-shadow: var(--shadow-xs);
+.page__cover__menu,
+.page__cover__reposition,
+.page__cover__cancel-reposition {
+  border-radius: var(--radius-sm);
 }
 
 .page-cover__image {

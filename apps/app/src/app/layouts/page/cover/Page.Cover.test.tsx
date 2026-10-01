@@ -443,6 +443,34 @@ describe('PageCover — Reposition drag', () => {
     expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
   });
 
+  it('replaces the "More actions" trigger with a Cancel repositioning button while repositioning is active', () => {
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50 });
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+
+    enterRepositioning();
+
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel repositioning' })).toBeInTheDocument();
+  });
+
+  it('clicking Cancel repositioning ends repositioning and reverts the preview, without saving — same as Escape', () => {
+    const onSavePosition = vi.fn();
+    renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
+    const img = enterRepositioning();
+
+    fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
+    expect(objectPosition(img)).toBe('50% 63.5%');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel repositioning' }));
+
+    expect(objectPosition(img)).toBe('50% 50%');
+    expect(onSavePosition).not.toHaveBeenCalled();
+    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel repositioning' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+  });
+
   it('clicking Save Position persists the final dragged value for the active layout only', () => {
     const onSavePosition = vi.fn();
     renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
