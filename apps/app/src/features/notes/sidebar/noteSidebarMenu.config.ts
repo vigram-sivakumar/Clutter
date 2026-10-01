@@ -56,6 +56,8 @@ export function buildNoteSidebarMenu(
     // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
     // Note; see getLocationPathRepresentations.ts's LocationEntityKind.
     ...buildLocationActionMenuItems('page'),
-    { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
+    // separatorBefore visually sets Archive apart as the row's one
+    // destructive-adjacent action, below everything else.
+    { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive', separatorBefore: true },
   ];
 }

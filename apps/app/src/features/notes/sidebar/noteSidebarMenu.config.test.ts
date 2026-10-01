@@ -55,4 +55,14 @@ describe('buildNoteSidebarMenu', () => {
     expect(ids).not.toContain('reveal-in-finder');
     expect(ids).not.toContain('copy-path');
   });
+
+  it('renders a divider immediately above Archive', () => {
+    const archive = buildNoteSidebarMenu(false).find((i) => i.id === 'archive');
+    expect(archive?.separatorBefore).toBe(true);
+  });
+
+  it('no other item carries a divider', () => {
+    const items = buildNoteSidebarMenu(false).filter((i) => i.id !== 'archive');
+    expect(items.every((i) => !i.separatorBefore)).toBe(true);
+  });
 });

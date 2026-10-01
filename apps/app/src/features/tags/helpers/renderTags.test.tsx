@@ -524,7 +524,7 @@ describe('renderTags', () => {
   });
 
   describe('expanded tag note list — "Reveal in Clutter"', () => {
-    it('appends exactly one extra menu item, "Reveal in Clutter," when onRevealInNotesSidebar is provided', () => {
+    it('adds exactly one extra menu item, "Reveal in Clutter," when onRevealInNotesSidebar is provided', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
@@ -546,6 +546,40 @@ describe('renderTags', () => {
       );
 
       expect(screen.getAllByText('Reveal in Clutter')).toHaveLength(1);
+    });
+
+    it('is positioned immediately above "Reveal in Finder," not appended after Archive', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            {
+              ...renderOptions,
+              tagExpansionStore,
+              effectivePageState,
+              noteRowActions,
+              onRevealInNotesSidebar: noop,
+            }
+          )}
+        </>
+      );
+
+      const menuLabels = screen
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent)
+        .filter((text): text is string => text !== null);
+      const revealInClutterIndex = menuLabels.findIndex((text) => text.includes('Reveal in Clutter'));
+      const revealInFinderIndex = menuLabels.findIndex((text) => text.includes('Reveal in Finder'));
+      const archiveIndex = menuLabels.findIndex((text) => text.includes('Archive'));
+
+      expect(revealInClutterIndex).toBeGreaterThanOrEqual(0);
+      expect(revealInClutterIndex).toBeLessThan(revealInFinderIndex);
+      expect(revealInFinderIndex).toBeLessThan(archiveIndex);
     });
 
     it('selecting it calls onRevealInNotesSidebar with the note id, and nothing else in the standard menu', () => {

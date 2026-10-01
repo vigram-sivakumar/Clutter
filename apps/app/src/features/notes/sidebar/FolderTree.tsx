@@ -303,16 +303,48 @@ export interface PageEntryProps {
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
   /**
-   * Appended to the standard note menu (buildNoteSidebarMenu's items) —
-   * for an action that exists only in one calling context, not every
-   * Note row everywhere (today: the Tags sidebar's "Reveal in Clutter").
-   * Omitted everywhere else, so the Notes sidebar's own menu is
-   * unaffected. `onExtraMenuSelect` only ever receives ids from this
+   * Spliced into the standard note menu (buildNoteSidebarMenu's items),
+   * immediately above "Reveal in Finder" — see insertBeforeRevealInFinder
+   * below — for an action that exists only in one calling context, not
+   * every Note row everywhere (today: the Tags sidebar's "Reveal in
+   * Clutter"). Omitted everywhere else, so the Notes sidebar's own menu
+   * is unaffected. `onExtraMenuSelect` only ever receives ids from this
    * list — every id `buildNoteSidebarMenu` itself produces is still
    * handled internally, unchanged.
    */
   extraMenuItems?: readonly OverflowMenuItemConfig[];
   onExtraMenuSelect?(id: string): void;
+}
+
+/**
+ * Splices `extraItems` into `standardItems` immediately before the
+ * "Reveal in Finder" item (buildLocationActionMenuItems' `reveal-in-finder`
+ * id) — e.g. the Tags sidebar's "Reveal in Clutter", which reads
+ * naturally grouped with the menu's other location/navigation actions
+ * rather than tacked on at the very end, after Archive. Falls back to
+ * appending at the end if that item is ever absent (a draft's empty
+ * menu, or a future standard-menu change), so this never silently drops
+ * `extraItems`.
+ */
+function insertBeforeRevealInFinder(
+  standardItems: OverflowMenuItemConfig[],
+  extraItems: readonly OverflowMenuItemConfig[] | undefined
+): OverflowMenuItemConfig[] {
+  if (!extraItems || extraItems.length === 0) {
+    return standardItems;
+  }
+
+  const revealInFinderIndex = standardItems.findIndex((item) => item.id === 'reveal-in-finder');
+
+  if (revealInFinderIndex === -1) {
+    return [...standardItems, ...extraItems];
+  }
+
+  return [
+    ...standardItems.slice(0, revealInFinderIndex),
+    ...extraItems,
+    ...standardItems.slice(revealInFinderIndex),
+  ];
 }
 
 /**
@@ -387,7 +419,10 @@ export function PageEntry({
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
       menuItems={
         rowActions
-          ? [...buildNoteSidebarMenu(entry.isDraft, entry.favorite), ...(extraMenuItems ?? [])]
+          ? insertBeforeRevealInFinder(
+              buildNoteSidebarMenu(entry.isDraft, entry.favorite),
+              extraMenuItems
+            )
           : undefined
       }
       menuOpen={rowActions?.openMenuId === entry.id}
