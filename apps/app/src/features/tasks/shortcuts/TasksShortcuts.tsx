@@ -43,7 +43,7 @@ export function TasksShortcuts({ onShortcut }: TasksShortcutsProps) {
       <Dialog
         open={isNewTaskOpen}
         onClose={closeNewTask}
-        size="medium"
+        size="large"
         top={240}
         scrim="strong"
       >
