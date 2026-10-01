@@ -32,9 +32,15 @@ describe('MarkdownEditor.css — WikiLink text-decoration composition', () => {
   const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('declares a plain, unqualified .cm-task-completed rule — no :has() or construct-specific ancestor selector', () => {
-    const match = cssWithoutComments.match(/(?<![\w.-])\.cm-task-completed\s*\{([^}]*)\}/);
+    const match = cssWithoutComments.match(/(?<![\w.-])\.cm-task-completed\s*(?:,[^{]*)?\{([^}]*)\}/);
     expect(match, '.cm-task-completed rule not found').not.toBeNull();
-    expect(match![1]).toMatch(/text-decoration-line\s*:\s*line-through\s*;/);
+    expect(match![1]).toMatch(/color\s*:\s*var\(--foreground-tertiary\)\s*;/);
+  });
+
+  it('dims completed task content by color only — no strikethrough (deliberately removed 2026-09-13)', () => {
+    const match = cssWithoutComments.match(/(?<![\w.-])\.cm-task-completed\s*(?:,[^{]*)?\{([^}]*)\}/);
+    expect(match, '.cm-task-completed rule not found').not.toBeNull();
+    expect(match![1]).not.toMatch(/text-decoration-line/);
   });
 
   it('no longer declares any :has()-based completed-task descendant selector', () => {

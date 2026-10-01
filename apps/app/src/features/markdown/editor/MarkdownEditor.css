@@ -1150,10 +1150,7 @@
  * background/foreground pairing that a flat `color` override would break
  * inside a completed task; `opacity` dims it instead, uniformly, without
  * touching either color. */
-.cm-editor .cm-task-completed {
-  color: var(--foreground-tertiary);
-  text-decoration-line: line-through;
-}
+.cm-editor .cm-task-completed,
 .cm-editor .cm-task-completed span {
   color: var(--foreground-tertiary);
 }
