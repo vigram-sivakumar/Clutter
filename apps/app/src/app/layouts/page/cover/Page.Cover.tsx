@@ -473,7 +473,7 @@ export function PageCover({
                 </MenuItem>
                 {onSavePosition && (
                   <MenuItem
-                    leading={<AppIcon icon="moveRight" />}
+                    leading={<AppIcon icon="move" />}
                     onClick={handleEnterRepositioning}
                   >
                     Reposition

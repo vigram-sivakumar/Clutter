@@ -24,12 +24,12 @@
 .button--large {
   height: var(--height-lg);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
 }
 .button--medium {
   height: var(--height-md);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
 }
 .button--small {
   height: var(--height-sm);
@@ -68,7 +68,11 @@
 
 /* State */
 .button:not(:disabled):hover {
-  background: var(--state-hover-medium);
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle),
+    rgb(var(--state-base)) var(--state-hover-strength-medium)
+  );
 }
 .button--primary:not(:disabled):hover {
   background: color-mix(

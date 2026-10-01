@@ -62,6 +62,8 @@ import Minus from './svg/minus.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
 import MoreVertical from './svg/more-vertical.svg?react';
 import MoveDown from './svg/move-down.svg?react';
+import Move from './svg/move.svg?react';
+import MoveHand from './svg/move-hand.svg?react';
 import MoveLeft from './svg/move-left.svg?react';
 import MoveRight from './svg/move-right.svg?react';
 import MoveUp from './svg/move-up.svg?react';
@@ -169,7 +171,9 @@ export const iconRegistry = {
   minus: Minus,
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
+  move: Move,
   moveDown: MoveDown,
+  moveHand: MoveHand,
   moveLeft: MoveLeft,
   moveRight: MoveRight,
   moveUp: MoveUp,
