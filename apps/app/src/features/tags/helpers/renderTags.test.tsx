@@ -582,6 +582,34 @@ describe('renderTags', () => {
       expect(revealInFinderIndex).toBeLessThan(archiveIndex);
     });
 
+    it('carries the location group\'s divider itself, so no divider sits between it and "Reveal in Finder"', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            {
+              ...renderOptions,
+              tagExpansionStore,
+              effectivePageState,
+              noteRowActions,
+              onRevealInNotesSidebar: noop,
+            }
+          )}
+        </>
+      );
+
+      const revealInClutter = screen.getByText('Reveal in Clutter').closest('[role="menuitem"]');
+      const revealInFinder = screen.getByText('Reveal in Finder').closest('[role="menuitem"]');
+
+      expect(revealInClutter?.previousElementSibling?.getAttribute('role')).toBe('separator');
+      expect(revealInFinder?.previousElementSibling).toBe(revealInClutter);
+    });
+
     it('selecting it calls onRevealInNotesSidebar with the note id, and nothing else in the standard menu', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {

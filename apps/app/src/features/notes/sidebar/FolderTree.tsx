@@ -335,15 +335,23 @@ function insertBeforeRevealInFinder(
   }
 
   const revealInFinderIndex = standardItems.findIndex((item) => item.id === 'reveal-in-finder');
+  const revealInFinder = standardItems[revealInFinderIndex];
 
-  if (revealInFinderIndex === -1) {
+  if (!revealInFinder) {
     return [...standardItems, ...extraItems];
   }
 
+  // "Reveal in Finder" opens the location group's divider; the extras now
+  // lead that group, so the divider moves to the first of them.
+  const groupDivider = revealInFinder.separatorBefore;
+
   return [
     ...standardItems.slice(0, revealInFinderIndex),
-    ...extraItems,
-    ...standardItems.slice(revealInFinderIndex),
+    ...extraItems.map((item, index) =>
+      index === 0 ? { ...item, separatorBefore: groupDivider } : item
+    ),
+    { ...revealInFinder, separatorBefore: false },
+    ...standardItems.slice(revealInFinderIndex + 1),
   ];
 }
 

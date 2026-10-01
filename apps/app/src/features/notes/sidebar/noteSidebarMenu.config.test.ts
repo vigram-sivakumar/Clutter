@@ -61,8 +61,22 @@ describe('buildNoteSidebarMenu', () => {
     expect(archive?.separatorBefore).toBe(true);
   });
 
-  it('no other item carries a divider', () => {
-    const items = buildNoteSidebarMenu(false).filter((i) => i.id !== 'archive');
-    expect(items.every((i) => !i.separatorBefore)).toBe(true);
+  it('groups the menu with dividers above Duplicate, Reveal in Finder, and Archive only', () => {
+    const items = buildNoteSidebarMenu(false);
+    expect(items.map((i) => i.id)).toEqual([
+      'rename',
+      'change-icon',
+      'duplicate',
+      'move-to',
+      'toggle-favorite',
+      'reveal-in-finder',
+      'copy-path',
+      'archive',
+    ]);
+    expect(items.filter((i) => i.separatorBefore).map((i) => i.id)).toEqual([
+      'duplicate',
+      'reveal-in-finder',
+      'archive',
+    ]);
   });
 });
