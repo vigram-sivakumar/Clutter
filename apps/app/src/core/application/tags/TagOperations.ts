@@ -8,6 +8,7 @@ import { ensureClutterDirectory } from '../../vault/initialize/ensureClutterDire
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import type { PageOperations } from '../page/PageOperations';
 import type { CollectionViewConfigStore } from '../collection/CollectionViewConfigStore';
+import type { TagExpansionStore } from './TagExpansionStore';
 import { collectionViewKeyForTag } from '../collection/collectionViewKey';
 
 /**
@@ -75,7 +76,11 @@ export class TagOperations {
     // key, so it isn't orphaned under the old tag name — the smallest
     // integration point for that requirement, not a reason to route any
     // other collection-view-config concern through TagOperations.
-    private readonly collectionViewConfigStore?: CollectionViewConfigStore
+    private readonly collectionViewConfigStore?: CollectionViewConfigStore,
+    // Same optional, real-boot-only shape as collectionViewConfigStore
+    // above, for the same reason: rename() moves a renamed tag's persisted
+    // Tags-sidebar expansion state to its new name (ADR-035 §9).
+    private readonly tagExpansionStore?: TagExpansionStore
   ) {}
 
   /**
@@ -188,6 +193,12 @@ export class TagOperations {
       collectionViewKeyForTag(oldName),
       collectionViewKeyForTag(canonicalName)
     );
+
+    // Same `oldName` -> `canonicalName` reasoning as above: the Tags
+    // sidebar keys expansion by the tag's exact `Tag.name`, which is what
+    // every rename() caller passes as `oldName`, and what the renamed tag's
+    // `Tag.name` becomes afterwards.
+    this.tagExpansionStore?.renameTag(oldName, canonicalName);
   }
 
   /**

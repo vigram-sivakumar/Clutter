@@ -45,13 +45,40 @@ export async function readWorkspaceStateFileText(
  * write always layers onto the freshest on-disk state of every key it
  * doesn't itself own.
  *
+ * Every call is serialized through one in-process queue (ADR-035 §9):
+ * the read-merge-write above is only clobber-free if no other owner's
+ * read lands between this call's read and its write. Without the queue,
+ * two owners persisting concurrently could each read the same base and
+ * the later write would reinstate the other's stale key. Serializing here,
+ * inside the one shared helper, gives every owner (FoldStateStore,
+ * CollectionViewConfigStore, TasksViewConfigStore, TagExpansionStore,
+ * WorkspaceSessionStore) the guarantee without any of them changing.
+ * Process-wide rather than per-vault — only one vault is open at a time,
+ * and serializing writes across vaults would merely be slower, never
+ * incorrect. Not an atomic-write mechanism (write-then-rename remains out
+ * of scope — docs/durability-model.md).
+ *
  * A malformed on-disk file at write time (e.g. corrupted externally,
  * mid-session) is treated as empty rather than throwing — this is a
  * best-effort, fire-and-forget persist path, matching every other
  * `.clutter/*` writer's accepted failure posture (see `FoldStateStore`'s
  * own doc comment on `set()`).
  */
-export async function mergeAndWriteWorkspaceStateFile(
+export function mergeAndWriteWorkspaceStateFile(
+  fileSystem: VaultFileSystem,
+  rootPath: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  const write = writeQueue.then(() => mergeAndWrite(fileSystem, rootPath, patch));
+  // A failed write must not wedge the queue for every later writer — the
+  // failure still propagates to this call's own caller via `write`.
+  writeQueue = write.catch(() => {});
+  return write;
+}
+
+let writeQueue: Promise<void> = Promise.resolve();
+
+async function mergeAndWrite(
   fileSystem: VaultFileSystem,
   rootPath: string,
   patch: Record<string, unknown>

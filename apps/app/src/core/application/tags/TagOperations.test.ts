@@ -30,6 +30,7 @@ import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import type { Page } from '../../vault/models/Page';
+import { TagExpansionStore } from './TagExpansionStore';
 
 const ROOT = '/vault';
 
@@ -287,6 +288,26 @@ describe('TagOperations.canRename', () => {
 });
 
 describe('TagOperations.rename', () => {
+  it('moves the renamed tag\'s persisted Tags-sidebar expansion state to its new name (ADR-035)', async () => {
+    const page = buildPage('p1', '#product-design');
+    const { vault, fileSystem, pageOperations } = setup([page]);
+    const tagExpansionStore = TagExpansionStore.empty(fileSystem, ROOT);
+    tagExpansionStore.toggleExpanded('product-design');
+    const tagOperations = new TagOperations(
+      vault,
+      fileSystem,
+      ROOT,
+      pageOperations,
+      undefined,
+      tagExpansionStore
+    );
+
+    await tagOperations.rename('product-design', 'UX design');
+
+    expect(tagExpansionStore.isExpanded('product-design')).toBe(false);
+    expect(tagExpansionStore.isExpanded('UX-design')).toBe(true);
+  });
+
   it('successfully changes the canonical tag name in the source Markdown', async () => {
     const page = buildPage('p1', 'Working on #product-design today.');
     const { vault, tagOperations } = setup([page]);

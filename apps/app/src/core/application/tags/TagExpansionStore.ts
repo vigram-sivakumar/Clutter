@@ -128,6 +128,25 @@ export class TagExpansionStore {
   }
 
   /**
+   * Moves `oldName`'s expanded state to `newName` — the tag-rename
+   * integration point `TagOperations.rename()` calls alongside
+   * `CollectionViewConfigStore.renameKey()`, so a renamed tag doesn't
+   * silently collapse (ADR-035 §9). A no-op when the names are identical
+   * or `oldName` isn't expanded (a collapsed tag is just absence from the
+   * set, so there is nothing to move).
+   */
+  renameTag(oldName: string, newName: string): void {
+    if (oldName === newName || !this.expandedTagNames.has(oldName)) {
+      return;
+    }
+
+    this.expandedTagNames.delete(oldName);
+    this.expandedTagNames.add(newName);
+    this.notify();
+    void this.persist();
+  }
+
+  /**
    * Registers a store observer — same shape as `Workspace.subscribe`/
    * `EffectivePageState.subscribe`, consumed via `useTagExpansionStore`.
    */

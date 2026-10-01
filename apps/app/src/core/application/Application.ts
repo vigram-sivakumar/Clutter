@@ -509,7 +509,8 @@ export class Application {
       this.fileSystem,
       this.rootPath,
       this.pageOperations,
-      this.collectionViewConfigStore
+      this.collectionViewConfigStore,
+      this.tagExpansionStore
     );
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with

@@ -208,3 +208,38 @@ describe('TagExpansionStore — multi-writer coexistence with FoldStateStore', (
     expect(written.tagExpansion).toEqual(['design']);
   });
 });
+
+describe('TagExpansionStore — renameTag()', () => {
+  it('moves an expanded tag\'s state to its new name and persists it', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ tagExpansion: ['product-design', 'other'] }),
+    });
+    const store = await TagExpansionStore.load(fileSystem, ROOT);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.renameTag('product-design', 'UX-design');
+    await flushMicrotasks();
+
+    expect(store.isExpanded('product-design')).toBe(false);
+    expect(store.isExpanded('UX-design')).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    const restarted = await reload(fileSystem);
+    expect(restarted.isExpanded('UX-design')).toBe(true);
+    expect(restarted.isExpanded('product-design')).toBe(false);
+    expect(restarted.isExpanded('other')).toBe(true);
+  });
+
+  it('is a no-op for a collapsed tag — nothing to move, no notification', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await TagExpansionStore.load(fileSystem, ROOT);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.renameTag('product-design', 'UX-design');
+
+    expect(store.isExpanded('UX-design')).toBe(false);
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
