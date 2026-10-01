@@ -1,5 +1,5 @@
 import { AppIcon } from '@shared/icon';
-import { EditableText } from '@components/editable-text/EditableText';
+import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 
 import './NewTaskContent.css';
@@ -33,12 +33,11 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
           <AppIcon icon="dismiss" />
         </Button>
       </div>
-      <EditableText
+      <Input
         value={title}
         placeholder="Task title"
         autoFocus
-        onEdit={onTitleChange}
-        onCommit={() => undefined}
+        onChange={(event) => onTitleChange(event.target.value)}
       />
     </div>
   );
