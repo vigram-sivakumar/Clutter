@@ -33,6 +33,12 @@
 
 .input--multiline .input__field {
   resize: none;
+  /* Input.tsx's auto-grow effect sets an explicit height every render —
+     hidden so a transient scrollbar never appears between that height
+     being cleared ('auto') and the next frame's measured value, and so
+     the scrollbar's own width is never included in the scrollHeight that
+     measurement reads. */
+  overflow: hidden;
 }
 
 .input__leading,

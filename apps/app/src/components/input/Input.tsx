@@ -1,8 +1,27 @@
-import { forwardRef } from 'react';
-import type { Ref, TextareaHTMLAttributes } from 'react';
+import { forwardRef, useLayoutEffect, useRef } from 'react';
+import type { ForwardedRef, Ref, TextareaHTMLAttributes } from 'react';
 
 import type { InputProps } from './Input.types';
 import './Input.css';
+
+/** Assigns `node` to every ref in `refs`, function or object alike. */
+function mergeRefs<T>(
+  ...refs: readonly (ForwardedRef<T> | undefined)[]
+): (node: T | null) => void {
+  return (node) => {
+    for (const ref of refs) {
+      if (!ref) {
+        continue;
+      }
+
+      if (typeof ref === 'function') {
+        ref(node);
+      } else {
+        ref.current = node;
+      }
+    }
+  };
+}
 
 export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(
   (
@@ -30,13 +49,39 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
       .filter(Boolean)
       .join(' ');
 
+    // Grows/shrinks a multiline field to fit its own wrapped content —
+    // `rows` alone only sets the *initial* height; a <textarea> never
+    // resizes itself as content wraps past it, so without this it just
+    // scrolls internally instead of the field visibly growing. Resets to
+    // 'auto' first so a shrink (deleting a wrapped line) is measured
+    // correctly too, not just growth. Runs on every render (no dependency
+    // array) rather than keying off `value` specifically, since
+    // `inputProps.value` is typed as `unknown` here (shared with <input>)
+    // and this is a cheap, idempotent DOM read+write either way.
+    const autoGrowRef = useRef<HTMLTextAreaElement>(null);
+
+    useLayoutEffect(() => {
+      if (!multiline) {
+        return;
+      }
+
+      const element = autoGrowRef.current;
+
+      if (!element) {
+        return;
+      }
+
+      element.style.height = 'auto';
+      element.style.height = `${element.scrollHeight}px`;
+    });
+
     return (
       <div className={wrapperClassName}>
         {leading && <div className="input__leading">{leading}</div>}
 
         {multiline ? (
           <textarea
-            ref={ref as Ref<HTMLTextAreaElement>}
+            ref={mergeRefs(ref as ForwardedRef<HTMLTextAreaElement>, autoGrowRef)}
             className="input__field"
             rows={3}
             // InputHTMLAttributes and TextareaHTMLAttributes share every
