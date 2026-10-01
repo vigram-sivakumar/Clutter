@@ -62,9 +62,11 @@ export function NewTaskContent({
         {/* No onClick on Create yet — this is still the UI-only pass: no
             TaskOperations call, no Daily Note assignment, no persistence. */}
         <Button
+          className="new-task__due-date-button"
           ref={datePicker.anchorRef}
           variant="ghost"
           size="medium"
+          interaction="subtle"
           leading={<AppIcon icon="calendarDots" />}
           onClick={datePicker.toggle}
         >

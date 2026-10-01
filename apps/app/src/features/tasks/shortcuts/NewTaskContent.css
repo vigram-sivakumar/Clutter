@@ -47,3 +47,10 @@
 .button.new-task__create-button {
   padding-inline: var(--space-24);
 }
+
+/* Same two-class override reasoning as .new-task__create-button above —
+   this wins over both the size rule's padding-inline and
+   .button--has-leading's own padding-inline-end. */
+.button.new-task__due-date-button {
+  padding-inline: 0;
+}
