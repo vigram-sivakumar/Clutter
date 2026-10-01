@@ -309,5 +309,24 @@ describe('TaskExtractor', () => {
 
       expect(tasks.map((t) => t.text)).toEqual(['Before', 'Between', 'After']);
     });
+
+    it('keeps exact offsets for identical and indented tasks around a fence holding the same line', () => {
+      const content = [
+        '- [ ] Dup test',
+        '```text',
+        '- [ ] Dup test',
+        '```',
+        '',
+        '  - [ ] Dup test',
+        '- [ ] Dup test',
+      ].join('\n');
+
+      const tasks = extractor.extract(content);
+
+      expect(tasks.map((t) => t.startOffset)).toEqual([0, 43, 60]);
+      for (const task of tasks) {
+        expect(content.slice(task.startOffset, task.endOffset)).toBe(task.rawText);
+      }
+    });
   });
 });

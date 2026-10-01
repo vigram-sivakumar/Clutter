@@ -16,6 +16,13 @@ import {
  */
 export type TaskMetadataPatch = Partial<Record<RecognizedMetadataKey, string | null>>;
 
+/** The occurrence fields locateLine() resolves a task by — see TaskOccurrence's positional-identity note. */
+interface TaskSourcePosition {
+  readonly rawText: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+}
+
 /**
  * Owns task mutation: toggling completion and setting/removing/updating
  * inline @key:value metadata. This is the facade ADR-012/014/016 already
@@ -103,29 +110,17 @@ export class TaskOperations {
   /**
    * Removes a task's line from its source page entirely — the delete half
    * of this facade's mutation surface, mirroring mutate()/mutateDate()'s
-   * own locate-via-rawText shape exactly, just splicing the line out
+   * own locateLine() resolution exactly, just splicing the line out
    * instead of rewriting it. No surrounding blank-line cleanup; only the
    * task's own line is touched.
    */
   public async delete(task: TaskOccurrence): Promise<void> {
-    if (task.rawText == null) {
-      throw new Error(
-        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
-      );
-    }
-
-    const rawText = task.rawText;
+    const source = this.requireSourcePosition(task);
 
     try {
       await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
-        const lineIndex = lines.indexOf(rawText);
-
-        if (lineIndex === -1) {
-          throw new Error(
-            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
-          );
-        }
+        const lineIndex = this.locateLine(markdown, lines, task, source);
 
         lines.splice(lineIndex, 1);
 
@@ -142,30 +137,19 @@ export class TaskOperations {
 
   /**
    * Inserts an exact copy of a task's line immediately below the original
-   * in its source page — same locate-via-rawText shape as delete(), just
+   * in its source page — same locateLine() resolution as delete(), just
    * splicing a copy in after the line instead of removing it. The copy is
    * verbatim (completion state and every inline token included); only the
    * task's own line is copied, never any nested lines beneath it.
    */
   public async duplicate(task: TaskOccurrence): Promise<void> {
-    if (task.rawText == null) {
-      throw new Error(
-        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
-      );
-    }
-
-    const rawText = task.rawText;
+    const source = this.requireSourcePosition(task);
+    const rawText = source.rawText;
 
     try {
       await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
-        const lineIndex = lines.indexOf(rawText);
-
-        if (lineIndex === -1) {
-          throw new Error(
-            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
-          );
-        }
+        const lineIndex = this.locateLine(markdown, lines, task, source);
 
         lines.splice(lineIndex + 1, 0, rawText);
 
@@ -214,25 +198,14 @@ export class TaskOperations {
       throw new Error('Task title must not be empty.');
     }
 
-    if (task.rawText == null) {
-      throw new Error(
-        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
-      );
-    }
-
-    const rawText = task.rawText;
+    const source = this.requireSourcePosition(task);
+    const rawText = source.rawText;
     const dueDateChanged = change.dueDate !== task.dueDate;
 
     try {
       await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
-        const lineIndex = lines.indexOf(rawText);
-
-        if (lineIndex === -1) {
-          throw new Error(
-            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
-          );
-        }
+        const lineIndex = this.locateLine(markdown, lines, task, source);
 
         const match = rawText.match(TASK_LINE_PATTERN);
 
@@ -324,31 +297,13 @@ export class TaskOperations {
     task: TaskOccurrence,
     change: { completed?: boolean; metadata: TaskMetadataPatch }
   ): Promise<void> {
-    if (task.rawText == null) {
-      throw new Error(
-        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
-      );
-    }
-
-    const rawText = task.rawText;
+    const source = this.requireSourcePosition(task);
+    const rawText = source.rawText;
 
     try {
       await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
-        const lineIndex = lines.indexOf(rawText);
-
-        // Not business policy — a structural precondition, the same
-        // category as MoveService's occupied-path check
-        // (ARCHITECTURE_RULES rule 5's amendment): the task's source line
-        // is no longer where this TaskOccurrence says it is (in whatever
-        // Markdown mutateBody() supplied — the open session's current,
-        // possibly-dirty content, or the Vault's durable copy), so there
-        // is nothing safe to rewrite.
-        if (lineIndex === -1) {
-          throw new Error(
-            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
-          );
-        }
+        const lineIndex = this.locateLine(markdown, lines, task, source);
 
         lines[lineIndex] = this.rewriteLine(rawText, change);
 
@@ -369,24 +324,13 @@ export class TaskOperations {
   }
 
   private async mutateDate(task: TaskOccurrence, date: string | null): Promise<void> {
-    if (task.rawText == null) {
-      throw new Error(
-        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
-      );
-    }
-
-    const rawText = task.rawText;
+    const source = this.requireSourcePosition(task);
+    const rawText = source.rawText;
 
     try {
       await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
         const lines = markdown.split('\n');
-        const lineIndex = lines.indexOf(rawText);
-
-        if (lineIndex === -1) {
-          throw new Error(
-            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
-          );
-        }
+        const lineIndex = this.locateLine(markdown, lines, task, source);
 
         lines[lineIndex] = this.rewriteDate(rawText, date);
 
@@ -399,6 +343,75 @@ export class TaskOperations {
 
       throw error;
     }
+  }
+
+  private requireSourcePosition(task: TaskOccurrence): TaskSourcePosition {
+    const { rawText, startOffset, endOffset } = task;
+
+    if (rawText == null || startOffset == null || endOffset == null) {
+      throw new Error(
+        `Task "${task.text}" has no recorded source position — cannot locate it for mutation.`
+      );
+    }
+
+    return { rawText, startOffset, endOffset };
+  }
+
+  /**
+   * Resolves the exact task occurrence `task` names to its line index in
+   * `markdown` (whatever mutateBody() supplied — the open session's
+   * current, possibly-dirty content, or the Vault's durable copy).
+   * `lines` must be `markdown.split('\n')`.
+   *
+   * Positional first: the occurrence's own startOffset/endOffset, accepted
+   * only when they still span one whole line whose text is exactly
+   * `rawText`. This is what keeps two textually-identical task lines
+   * distinct — rawText alone can't tell them apart.
+   *
+   * Offsets are relative to the page's last *durable* body, so an open
+   * session with unsaved edits above the task legitimately shifts them.
+   * Only then, and only when `rawText` appears on exactly one line, is
+   * that line accepted — a unique match can't be the wrong occurrence.
+   * Two or more identical lines with stale offsets is genuinely ambiguous,
+   * and is refused rather than guessed (never "first match").
+   *
+   * Not business policy — a structural precondition, the same category as
+   * MoveService's occupied-path check (ARCHITECTURE_RULES rule 5's
+   * amendment): if the occurrence can't be resolved unambiguously, there
+   * is nothing safe to rewrite.
+   */
+  private locateLine(
+    markdown: string,
+    lines: readonly string[],
+    task: TaskOccurrence,
+    { rawText, startOffset, endOffset }: TaskSourcePosition
+  ): number {
+    const spansWholeLine =
+      startOffset >= 0 &&
+      endOffset <= markdown.length &&
+      (startOffset === 0 || markdown[startOffset - 1] === '\n') &&
+      (endOffset === markdown.length || markdown[endOffset] === '\n');
+
+    if (spansWholeLine && markdown.slice(startOffset, endOffset) === rawText) {
+      return markdown.slice(0, startOffset).split('\n').length - 1;
+    }
+
+    const matches: number[] = [];
+    lines.forEach((line, index) => {
+      if (line === rawText) {
+        matches.push(index);
+      }
+    });
+
+    if (matches.length === 1) {
+      return matches[0]!;
+    }
+
+    throw new Error(
+      matches.length === 0
+        ? `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
+        : `Could not locate task "${task.text}" unambiguously in its source page — it has changed since this task was read and ${matches.length} identical lines now match.`
+    );
   }
 
   private rewriteLine(

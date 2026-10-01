@@ -382,15 +382,149 @@ describe('TaskOperations', () => {
     );
   });
 
-  it('mutates the first matching line when two tasks share identical rawText (documented limitation — no stable id yet)', async () => {
-    const page = buildPage('p1', '- [ ] Buy milk\n- [ ] Buy milk');
-    const { vault, taskOperations } = setup(page);
+  describe('targets the exact occurrence among textually-identical task lines', () => {
+    const DUPLICATES = '- [ ] Dup test\n- [ ] Dup test';
 
-    await taskOperations.setDueDate(firstTask(page), '2026-08-05');
+    function taskAt(page: Page, index: number): TaskOccurrence {
+      const task = page.analysis.tasks[index];
+      if (!task) throw new Error(`Fixture page has no task at ${index}`);
+      return task;
+    }
 
-    expect(vault.getPage('p1')!.source.markdown).toBe(
-      '- [ ] Buy milk @due:2026-08-05\n- [ ] Buy milk'
-    );
+    it('extracts the two identical lines as occurrences with distinct offsets', () => {
+      const page = buildPage('p1', DUPLICATES);
+
+      expect(taskAt(page, 0).rawText).toBe(taskAt(page, 1).rawText);
+      expect(taskAt(page, 0).startOffset).toBe(0);
+      expect(taskAt(page, 1).startOffset).toBe(15);
+    });
+
+    it('completing the first only changes the first', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.toggleComplete(taskAt(page, 0));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [x] Dup test @completed:2026-08-04\n- [ ] Dup test'
+      );
+    });
+
+    it('completing the second only changes the second', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.toggleComplete(taskAt(page, 1));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Dup test\n- [x] Dup test @completed:2026-08-04'
+      );
+    });
+
+    it('changing the due date of the second only changes the second', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(taskAt(page, 1), '2026-08-05');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Dup test\n- [ ] Dup test @2026-08-05'
+      );
+    });
+
+    it('editing the second (update) only changes the second', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(taskAt(page, 1), { title: 'Renamed', dueDate: undefined });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Dup test\n- [ ] Renamed');
+    });
+
+    it('deleting the second only deletes the second', async () => {
+      // Separated by a line so which one was removed is observable.
+      const page = buildPage('p1', '- [ ] Dup test\nMiddle\n- [ ] Dup test');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.delete(taskAt(page, 1));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Dup test\nMiddle');
+    });
+
+    it('duplicating the second inserts the copy below the second, not the first', async () => {
+      const page = buildPage('p1', '- [ ] Dup test\nMiddle\n- [ ] Dup test');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.duplicate(taskAt(page, 1));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Dup test\nMiddle\n- [ ] Dup test\n- [ ] Dup test'
+      );
+    });
+
+    it('a fresh duplicate stays individually targetable — later actions hit only the occurrence chosen', async () => {
+      const page = buildPage('p1', '- [ ] Dup test');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.duplicate(firstTask(page));
+
+      const [original, copy] = vault.getPage('p1')!.analysis.tasks;
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Dup test\n- [ ] Dup test');
+      expect(original!.startOffset).not.toBe(copy!.startOffset);
+
+      await taskOperations.toggleComplete(copy!);
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Dup test\n- [x] Dup test @completed:2026-08-04'
+      );
+
+      await taskOperations.setDate(vault.getPage('p1')!.analysis.tasks[0]!, '2026-08-05');
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Dup test @2026-08-05\n- [x] Dup test @completed:2026-08-04'
+      );
+    });
+
+    it('identical task text elsewhere in the same note does not attract the mutation', async () => {
+      const page = buildPage(
+        'p1',
+        '# Today\n- [ ] Buy milk\n\n## Later\nSome prose.\n- [ ] Buy milk @energy:low\n- [ ] Buy milk'
+      );
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.toggleComplete(taskAt(page, 2));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '# Today\n- [ ] Buy milk\n\n## Later\nSome prose.\n- [ ] Buy milk @energy:low\n- [x] Buy milk @completed:2026-08-04'
+      );
+    });
+
+    it('refuses, without mutating, when stale offsets leave several identical lines to choose from', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+      const stale = { ...taskAt(page, 1), startOffset: 3, endOffset: 17 };
+
+      await expect(taskOperations.toggleComplete(stale)).rejects.toThrow(/unambiguously/);
+      expect(vault.getPage('p1')!.source.markdown).toBe(DUPLICATES);
+    });
+
+    it('refuses offsets that fall outside the note entirely when identical lines exist', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+      const stale = { ...taskAt(page, 1), startOffset: 100, endOffset: 114 };
+
+      await expect(taskOperations.delete(stale)).rejects.toThrow(/unambiguously/);
+      expect(vault.getPage('p1')!.source.markdown).toBe(DUPLICATES);
+    });
+
+    it('refuses a task with no recorded offsets rather than matching by text', async () => {
+      const page = buildPage('p1', DUPLICATES);
+      const { vault, taskOperations } = setup(page);
+      const unpositioned = { ...taskAt(page, 1), startOffset: undefined, endOffset: undefined };
+
+      await expect(taskOperations.toggleComplete(unpositioned)).rejects.toThrow(
+        /no recorded source position/
+      );
+      expect(vault.getPage('p1')!.source.markdown).toBe(DUPLICATES);
+    });
   });
 
   it('runs the full lifecycle — due date, complete, uncomplete, remove due date — without drift', async () => {
@@ -516,6 +650,35 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
 
     expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
       'Preamble.\n- [x] Collect the bill @completed:2026-08-04'
+    );
+  });
+
+  it('refuses, leaving the session untouched, when unsaved edits shift identical task lines', async () => {
+    // Offsets come from the durable body; the unsaved preamble shifts both
+    // identical lines, so neither offset lands on its task any more and
+    // picking either line would be a guess.
+    const page = buildPage('p1', '- [ ] Dup test\n- [ ] Dup test');
+    const { documentRegistry, pageOperations, taskOperations } = setup(page);
+    await pageOperations.open(page.id);
+    pageOperations.commitEdit(page.id, 'Preamble.\n- [ ] Dup test\n- [ ] Dup test');
+
+    await expect(
+      taskOperations.toggleComplete(page.analysis.tasks[1]!)
+    ).rejects.toThrow(/unambiguously/);
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+      'Preamble.\n- [ ] Dup test\n- [ ] Dup test'
+    );
+  });
+
+  it('targets the exact occurrence through an open session when its offsets are current', async () => {
+    const page = buildPage('p1', '- [ ] Dup test\n- [ ] Dup test');
+    const { documentRegistry, pageOperations, taskOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    await taskOperations.toggleComplete(page.analysis.tasks[1]!);
+
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+      '- [ ] Dup test\n- [x] Dup test @completed:2026-08-04'
     );
   });
 

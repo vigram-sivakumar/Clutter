@@ -10,11 +10,11 @@ import type { Occurrence } from './Occurrence';
 // are the task's exact character range in `sourcePageId`'s current
 // `source.markdown` — the authoritative way to locate *this specific*
 // task occurrence, including distinguishing two textually-identical task
-// lines in the same note. `rawText` remains the original line's text and
-// stays the mechanism TaskOperations' mutation facade matches against
-// (and the fallback when offsets are stale after an external edit); it is
-// not a substitute for positional identity and should not be used to
-// decide *which* occurrence a navigation action targets. Deliberately not
+// lines in the same note. TaskOperations' mutation facade resolves the
+// occurrence by these offsets too (locateLine()). `rawText` remains the
+// original line's text — the check that the offsets still point at this
+// task, and the input each mutation rewrites; on its own it is never used
+// to decide *which* of several identical lines an action targets. Deliberately not
 // a persistent id — see TaskOccurrence's own "future evolution" note on
 // Occurrence.sourceVersion for why a stable TaskId is a separate, later
 // concern this shape is already positioned to add without replacing

@@ -7,9 +7,9 @@ export interface ScannedTask {
   readonly completedAt?: string;
   // The exact, unmodified source line this task was extracted from —
   // fulfils Occurrence.rawText's long-reserved "populate during analysis"
-  // contract. This is what TaskOperations (the mutation facade) matches
-  // against to locate the line it needs to rewrite; there is no other
-  // stable identity for a task occurrence today.
+  // contract. TaskOperations (the mutation facade) checks it against the
+  // text at startOffset/endOffset (the occurrence's positional identity,
+  // below) before rewriting that line.
   readonly rawText: string;
   // The task line's exact character range within the original document
   // (the same `content` string passed to `extract()` — never a trimmed or
