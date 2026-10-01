@@ -75,6 +75,12 @@ type PageProps = {
   onRemoveEmoji?(): void;
   onSetCoverImage?(url: string): void;
   onSetCoverImageFromUpload?(sourcePath: string): void;
+  /**
+   * Slot rendered in the document flow directly below the title/description
+   * header and directly above `body` — the page's Properties. Owns no
+   * presentation here; whatever the caller supplies renders as-is.
+   */
+  properties?: ReactNode;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -212,6 +218,7 @@ export function Page({
   onRemoveEmoji,
   onSetCoverImage,
   onSetCoverImageFromUpload,
+  properties,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -343,6 +350,7 @@ export function Page({
               onShowCoverImage={onShowCoverImage}
             />
           </header>
+          {properties}
           <main className="page__body">{body}</main>
         </div>
       </div>

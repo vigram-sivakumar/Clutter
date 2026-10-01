@@ -31,5 +31,8 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
     // matters (an auto-derived value would be indistinguishable from a
     // user-written one).
     tags: frontmatter.tags ?? [],
+    ...(frontmatter.unownedLines && {
+      unownedFrontmatter: frontmatter.unownedLines,
+    }),
   };
 }

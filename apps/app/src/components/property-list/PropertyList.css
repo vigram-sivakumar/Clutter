@@ -41,3 +41,8 @@
   padding-inline: 0;
   font-size: inherit;
 }
+
+.property-list__chip {
+  display: inline-block;
+  margin-right: var(--space-4);
+}

@@ -25,4 +25,12 @@ export interface PageFrontmatter {
   modified?: string;
   /** See PageMetadata.tags's own doc comment — note-level, independent of inline `#tag` occurrences. */
   tags?: string[];
+  /**
+   * Verbatim raw lines of every frontmatter key Clutter does not own
+   * (custom keys, and `aliases`, which Clutter reads but never writes) —
+   * see FrontmatterParser's OWNED_FRONTMATTER_KEYS. Carried through
+   * PageMetadata.unownedFrontmatter so FrontmatterSerializer can write them
+   * back unchanged. Never set when constructing a new page.
+   */
+  unownedLines?: readonly string[];
 }

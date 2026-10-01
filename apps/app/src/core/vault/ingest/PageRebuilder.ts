@@ -57,6 +57,13 @@ export class PageRebuilder {
         // keeps frontmatter tags independent of inline #tags. See
         // PageMetadata.tags's own doc comment.
         tags: frontmatter.tags ?? page.metadata.tags ?? [],
+        // Straight from the reparsed document (the file is the source of
+        // truth for keys Clutter doesn't own), never carried over from the
+        // previous page: an external edit that removed such a key must
+        // not be resurrected by the next save.
+        ...(frontmatter.unownedLines && {
+          unownedFrontmatter: frontmatter.unownedLines,
+        }),
       },
       source: {
         markdown: body,

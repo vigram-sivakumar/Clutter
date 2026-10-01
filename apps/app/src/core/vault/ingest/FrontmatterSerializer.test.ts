@@ -138,3 +138,71 @@ describe('FrontmatterSerializer round-trip', () => {
     expect(frontmatterBlock).not.toContain('tags');
   });
 });
+
+describe('unowned frontmatter preservation', () => {
+  const content = [
+    '---',
+    'id: abc',
+    'author: Jane',
+    'aliases:',
+    '  - Alt One',
+    '  - Alt Two',
+    'meta:',
+    '  nested: yes',
+    '',
+    '  other: 2',
+    'favorite: true',
+    '---',
+    'body',
+  ].join('\n');
+
+  it('captures non-owned keys (including aliases and nested blocks) verbatim', async () => {
+    const { FrontmatterParser } = await import('./FrontmatterParser');
+    const parsed = new FrontmatterParser().parse(content);
+    expect(parsed.frontmatter.unownedLines).toEqual([
+      'author: Jane',
+      'aliases:',
+      '  - Alt One',
+      '  - Alt Two',
+      'meta:',
+      '  nested: yes',
+      '',
+      '  other: 2',
+    ]);
+    expect(parsed.frontmatter.favorite).toBe(true);
+    expect(parsed.frontmatterAnalysis.aliases.map((a) => a.value)).toEqual([
+      'Alt One',
+      'Alt Two',
+    ]);
+  });
+
+  it('round-trips unowned lines through rebuild + serializeDocument', async () => {
+    const { FrontmatterParser } = await import('./FrontmatterParser');
+    const { PageBuilder } = await import('./PageBuilder');
+    const { PageRebuilder } = await import('./PageRebuilder');
+    const parser = new FrontmatterParser();
+    const parsed = parser.parse(content);
+    const page = new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: '/v/n.md',
+        directoryPath: '/v',
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+    const out = new FrontmatterSerializer().serializeDocument(page, 'body');
+    const reparsed = parser.parse(out);
+    expect(reparsed.frontmatter.unownedLines).toEqual(parsed.frontmatter.unownedLines);
+    expect(reparsed.frontmatter.favorite).toBe(true);
+    expect(new PageRebuilder().rebuild(page, reparsed).analysis.aliases).toHaveLength(2);
+  });
+
+  it('does not preserve the retired `type` key', async () => {
+    const { FrontmatterParser } = await import('./FrontmatterParser');
+    const parsed = new FrontmatterParser().parse('---\nid: a\ntype: note\n---\n');
+    expect(parsed.frontmatter.unownedLines).toBeUndefined();
+  });
+});

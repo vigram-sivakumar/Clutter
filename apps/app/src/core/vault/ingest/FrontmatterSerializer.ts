@@ -30,7 +30,7 @@ export class FrontmatterSerializer {
     const lines = ['---'];
 
     for (const [key, value] of Object.entries(frontmatter)) {
-      if (value === undefined) {
+      if (value === undefined || key === 'unownedLines') {
         continue;
       }
 
@@ -127,6 +127,13 @@ export class FrontmatterSerializer {
       for (const tag of page.metadata.tags) {
         lines.push(`  - ${tag}`);
       }
+    }
+
+    // Frontmatter Clutter doesn't own (custom keys, `aliases`) — written
+    // back verbatim after the owned fields, so a save never deletes it.
+    // The serializer still never invents or reformats any of it.
+    if (page.metadata.unownedFrontmatter) {
+      lines.push(...page.metadata.unownedFrontmatter);
     }
 
     lines.push('---');

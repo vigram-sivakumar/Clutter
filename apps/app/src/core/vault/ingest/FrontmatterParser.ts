@@ -5,6 +5,33 @@ import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
 
 export type ParsedFrontmatter = Record<string, unknown>;
 
+// Every frontmatter key Clutter itself reads into PageFrontmatter (and
+// writes back via FrontmatterSerializer). Any other key — `aliases`
+// included, which Clutter reads for link resolution but never writes — is
+// not Clutter's to rewrite: its raw lines are captured verbatim into
+// `unownedLines` so a save round-trips them instead of dropping them.
+// `type` stays here deliberately: it is a retired, inert legacy key that
+// is parsed but intentionally NOT preserved (see FrontmatterSerializer).
+const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
+  'id',
+  'type',
+  'icon',
+  'cover',
+  'coverHidden',
+  'coverLayout',
+  'coverPositionAbove',
+  'coverPositionSide',
+  'description',
+  'favorite',
+  'status',
+  'archivedAt',
+  'originalParentId',
+  'originalPath',
+  'created',
+  'modified',
+  'tags',
+]);
+
 export interface ParsedMarkdown {
   frontmatter: ParsedFrontmatter & PageFrontmatter;
   frontmatterAnalysis: FrontmatterAnalysis;
@@ -64,11 +91,34 @@ export class FrontmatterParser {
 
     let currentArrayKey: string | null = null;
 
+    // Raw lines of keys Clutter doesn't own, kept verbatim (a key line plus
+    // its indented/list continuation lines). `pendingBlankLines` holds
+    // blank lines seen inside such a block, flushed only if the block
+    // continues, so trailing blanks never accumulate.
+    const unownedLines: string[] = [];
+    let capturingUnowned = false;
+    let pendingBlankLines: string[] = [];
+
     for (const line of frontmatterText.split('\n')) {
       const trimmed = line.trim();
-      if (!trimmed) continue;
+      if (!trimmed) {
+        if (capturingUnowned) pendingBlankLines.push(line);
+        continue;
+      }
 
-      if (trimmed.startsWith('- ')) {
+      const isListItem = trimmed.startsWith('- ');
+      const isContinuation =
+        capturingUnowned && (isListItem || /^\s/.test(line));
+
+      if (isContinuation) {
+        unownedLines.push(...pendingBlankLines, line);
+        pendingBlankLines = [];
+      } else {
+        capturingUnowned = false;
+        pendingBlankLines = [];
+      }
+
+      if (isListItem) {
         if (currentArrayKey === 'aliases') {
           const aliases = (frontmatter.aliases as string[] | undefined) ?? [];
           aliases.push(trimmed.slice(2).trim());
@@ -81,11 +131,21 @@ export class FrontmatterParser {
         continue;
       }
 
+      // Indented line inside an unowned block that isn't a list item
+      // (e.g. a nested mapping): raw-captured above, never interpreted as
+      // one of Clutter's own keys.
+      if (isContinuation) continue;
+
       const sepIdx = trimmed.indexOf(':');
       if (sepIdx === -1) continue;
 
       const key = trimmed.slice(0, sepIdx).trim();
       const value = trimmed.slice(sepIdx + 1).trim();
+
+      if (!OWNED_FRONTMATTER_KEYS.has(key)) {
+        unownedLines.push(line);
+        capturingUnowned = true;
+      }
       const scalar = this.parseScalar(value);
 
       currentArrayKey = value === '' ? key : null;
@@ -192,6 +252,10 @@ export class FrontmatterParser {
           }
           break;
       }
+    }
+
+    if (unownedLines.length > 0) {
+      frontmatter.unownedLines = unownedLines;
     }
 
     return frontmatter;

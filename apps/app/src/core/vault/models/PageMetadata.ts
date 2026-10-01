@@ -73,4 +73,16 @@ export interface PageMetadata {
    * handling a hand-constructed fixture, never a real `Page`.
    */
   readonly tags?: readonly string[];
+
+  /**
+   * Verbatim raw frontmatter lines for keys Clutter does not own — custom
+   * keys, and `aliases` (read for link resolution, never rewritten).
+   * Round-tripped unchanged by FrontmatterSerializer so a Clutter save never
+   * deletes frontmatter it doesn't manage. Opaque on purpose: no consumer
+   * interprets it (aliases are read from `Page.analysis.aliases`), so this
+   * is preservation, not a second metadata representation. Optional, and
+   * absent when there is nothing to preserve, for the same fixture-churn
+   * reason as `tags`.
+   */
+  readonly unownedFrontmatter?: readonly string[];
 }

@@ -16,7 +16,12 @@ type PropertyListItem =
     }
   | {
       name: string;
-      type: Exclude<PropertyType, 'url'>;
+      type: 'multi-select';
+      value: readonly string[];
+    }
+  | {
+      name: string;
+      type: Exclude<PropertyType, 'url' | 'multi-select'>;
       value: ReactNode;
     };
 
@@ -34,12 +39,22 @@ function renderPropertyValue(item: PropertyListItem) {
     );
   }
 
+  if (item.type === 'multi-select') {
+    return item.value.map((entry) => (
+      <span key={entry} className="property-list__chip">
+        {entry}
+      </span>
+    ));
+  }
+
   if (item.type === 'boolean') {
     return <Checkbox isChecked={item.value === true} />;
   }
 
   return item.value;
 }
+
+export type { PropertyListItem };
 
 export function PropertyList({ items, className }: PropertyListProps) {
   if (items.length === 0) {
