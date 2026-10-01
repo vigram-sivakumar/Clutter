@@ -26,6 +26,7 @@ import { CollectionViewConfigStore } from './collection/CollectionViewConfigStor
 import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
+import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -140,6 +141,14 @@ export class Application {
    * unmount on a sidebar-tab switch.
    */
   public readonly dailyNotesSidebarState: DailyNotesSidebarState;
+  /**
+   * The persistence boundary for workspace session state (ADR-035): the
+   * `workspaceSession` key of the same `.clutter/workspace.json` the stores
+   * above write to. Loaded and seeded in `bootstrap()`, restored and attached
+   * at the end of `open()`, flushed in `close()`. `Workspace` and
+   * `dailyNotesSidebarState` stay the runtime owners and never see it.
+   */
+  public readonly workspaceSessionStore: WorkspaceSessionStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -245,6 +254,12 @@ export class Application {
     // TagExpansionStore.load() itself, never thrown.
     const tagExpansionStore = await TagExpansionStore.load(fileSystem, rootPath);
 
+    // ADR-035: the last session's workspace state — same tolerant
+    // "read a .clutter/workspace.json key once at boot" shape as the
+    // stores above. Only loaded here; seeding happens once the Vault is
+    // attached (below) and restoring the active view happens in open().
+    const workspaceSessionStore = await WorkspaceSessionStore.load(fileSystem, rootPath);
+
     // Tag presentation metadata (icon today, color later) is read directly
     // here, once — not through VaultScanner (this isn't Page/Folder
     // content) and not through a dedicated loader (one reader, one writer,
@@ -334,7 +349,8 @@ export class Application {
       foldStateStore,
       collectionViewConfigStore,
       tasksViewConfigStore,
-      tagExpansionStore
+      tagExpansionStore,
+      workspaceSessionStore
     );
 
     application.rootPath = rootPath;
@@ -342,6 +358,16 @@ export class Application {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem, normalizeMarkdownForSave);
+
+    // ADR-035 §7 step 5: restore the persisted sidebar chrome into its
+    // runtime owners before anything renders. Pure in-memory setter calls;
+    // nothing is persisted yet (the store only attaches at the end of
+    // open()). Collapsed folders no longer in the Vault are skipped.
+    workspaceSessionStore.seed(
+      application.workspace,
+      application.dailyNotesSidebarState,
+      (folderId) => vault.getFolder(folderId) !== undefined
+    );
 
     // ADR-017/ADR-019: today's note is no longer created through the Gate,
     // and no directory is scaffolded for it, here. open() below resolves
@@ -378,7 +404,10 @@ export class Application {
     // Same default-to-empty-store reasoning as tasksViewConfigStore above,
     // for the many existing tests that construct Application directly
     // without exercising Tags-sidebar expansion persistence.
-    tagExpansionStore: TagExpansionStore = TagExpansionStore.empty(fileSystem, '')
+    tagExpansionStore: TagExpansionStore = TagExpansionStore.empty(fileSystem, ''),
+    // Same default-to-empty-store reasoning, for tests that construct
+    // Application directly without exercising session persistence.
+    workspaceSessionStore: WorkspaceSessionStore = WorkspaceSessionStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -392,6 +421,7 @@ export class Application {
     this.collectionViewConfigStore = collectionViewConfigStore;
     this.tasksViewConfigStore = tasksViewConfigStore;
     this.tagExpansionStore = tagExpansionStore;
+    this.workspaceSessionStore = workspaceSessionStore;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
@@ -629,14 +659,46 @@ export class Application {
   }
 
   /**
-   * Starts the filesystem watcher, then opens the fallback page to decide
-   * what shows at boot (see openFallbackPage() below).
+   * Starts the filesystem watcher, then decides what shows at boot — the
+   * startup-strategy seam ADR-019/ADR-025 named, with its first non-default
+   * branch (ADR-035 §7): restore the last session's active view if it is
+   * still valid against the Vault, otherwise open the fallback page
+   * exactly as before. Only once that has completed does
+   * WorkspaceSessionStore start observing, so neither the seeded state nor
+   * the fallback navigation can overwrite the saved session before it was
+   * restored.
    */
   public async open(): Promise<void> {
     await registerVaultAssetScope(this.rootPath);
     await this.fileSystemWatcher.start(this.rootPath);
 
-    void this.openFallbackPage();
+    await this.restoreLastSessionOrFallback();
+
+    this.workspaceSessionStore.attach({
+      workspace: this.workspace,
+      dailyNotesSidebarState: this.dailyNotesSidebarState,
+      // ADR-035 §6: a draft (no Vault entry) never survives a restart, so
+      // it's never written as restorable.
+      isPersistableView: (view) => view.type !== 'page' || this.vault.getPage(view.id) !== undefined,
+    });
+  }
+
+  /**
+   * Restore-or-fallback, never throwing: a failure while opening either
+   * one is logged and boot continues, the same outcome the previous
+   * fire-and-forget `void this.openFallbackPage()` had.
+   */
+  private async restoreLastSessionOrFallback(): Promise<void> {
+    try {
+      const savedView = this.workspaceSessionStore.restoredSession.activeView;
+      const restored = savedView ? await this.navigation.restore(savedView) : false;
+
+      if (!restored) {
+        await this.openFallbackPage();
+      }
+    } catch (error) {
+      console.error('Application: failed to open the startup page.', error);
+    }
   }
 
   /**
@@ -664,12 +726,15 @@ export class Application {
     const todayNotePath = DailyNotePath.absoluteFrom(this.vault.root, new Date());
     const todayPage = this.vault.getPageByPath(todayNotePath);
 
+    // Awaited so open() (ADR-035) only starts session persistence once the
+    // fallback is actually active; the delete-time callers still invoke
+    // this fire-and-forget, exactly as before.
     if (todayPage) {
-      void this.pageOperations.open(todayPage.id);
+      await this.pageOperations.open(todayPage.id);
       return;
     }
 
-    void this.pageOperations.openAtPath(todayNotePath, {
+    await this.pageOperations.openAtPath(todayNotePath, {
       type: 'daily-note',
     });
   }
@@ -750,6 +815,10 @@ export class Application {
 
     await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
     await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+    // ADR-035: after the page flush above, so a draft promoted by that
+    // flush is already a real page and is written as restorable.
+    await this.workspaceSessionStore.flush();
+    this.workspaceSessionStore.dispose();
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();
     // Cancel every armed autosave timer before dropping the sessions they
