@@ -251,6 +251,12 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                 entry={note}
                 level={1}
                 workspace={workspace}
+                // The Tags sidebar's note entry represents note-level
+                // membership, not "this is the open page" — it must not
+                // light up just because its own sibling context entry
+                // (or anything else) opened this same note elsewhere.
+                // See PageEntry's own highlightActive doc comment.
+                highlightActive={false}
                 onPageClick={onOpenNoteEntry}
                 // getPagesByFrontmatterTag/getPagesByTag are both
                 // durable-only (see their own doc comments) — a note

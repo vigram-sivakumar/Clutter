@@ -314,6 +314,19 @@ export interface PageEntryProps {
    */
   extraMenuItems?: readonly OverflowMenuItemConfig[];
   onExtraMenuSelect?(id: string): void;
+  /**
+   * Whether this row shows the "currently active page" highlight when
+   * `workspace.activePageId` matches it — true (the Notes sidebar's own
+   * existing behavior) unless a caller explicitly opts out. The Tags
+   * sidebar's expanded-tag note entry sets this `false`: a tag's note
+   * entry represents note-level membership, not "this is the open
+   * page," and the same note's sibling context entries (a different
+   * row entirely) are a different, far more common way to open it from
+   * here — highlighting the note entry as a side effect of opening it
+   * via one of ITS OWN context entries read as an unrelated row
+   * lighting up for no reason the user did to that row specifically.
+   */
+  highlightActive?: boolean;
 }
 
 /**
@@ -375,6 +388,7 @@ export function PageEntry({
   resolveEmbed,
   extraMenuItems,
   onExtraMenuSelect,
+  highlightActive = true,
 }: PageEntryProps) {
   const label = getPageDisplayLabel(entry);
   const isEditing = rowActions?.editingId === entry.id;
@@ -394,7 +408,7 @@ export function PageEntry({
       resolveTag={resolveTag}
       resolveEmbed={resolveEmbed}
       level={level}
-      selected={workspace.activePageId === entry.id}
+      selected={highlightActive && workspace.activePageId === entry.id}
       // A row mid-rename must not also navigate on click — EditableText's
       // contenteditable surface isn't one of Entry's recognized
       // interactive-descendant tags, so leaving onClick wired here would
