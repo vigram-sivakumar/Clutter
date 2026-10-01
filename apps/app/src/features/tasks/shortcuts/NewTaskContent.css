@@ -32,6 +32,7 @@
 
 .new-task__input .input__field {
   font-size: var(--text-body);
+  line-height: var(--lh-body);
 }
 
 .new-task__footer {

@@ -37,21 +37,32 @@ export class TaskOperations {
   constructor(private readonly pageOperations: PageOperations) {}
 
   /**
-   * Appends a new task line to `pageId`'s body — the create half of this
-   * facade's mutation surface, following the exact shape mutate()/
-   * mutateDate() already use: decide the new content, delegate persistence
-   * to PageOperations.mutateBody() (ADR-031), never touch Vault/the Gate
-   * directly. No inline `@date` is ever written here — a task's due date
-   * for display purposes already falls out of TaskBuilder's existing
-   * containing-Daily-Note fallback (TaskOccurrence.dueDate's own doc
-   * comment) whenever the caller created this task in that date's Daily
-   * Note, which is the only way this method is used today (see
-   * Sidebar.Tasks.tsx's onCreateTask). Caller is responsible for resolving
-   * `pageId` (e.g. via PageOperations.openAtPath for a Daily Note) and for
-   * forcing durability afterward (PageOperations.requestSave) if the
-   * result needs to be visible immediately rather than on the next
-   * autosave — this method only commits the new line, mirroring every
-   * other mutation here.
+   * Inserts a new task line into `pageId`'s body, immediately before the
+   * body's first existing task line — the newest task is always the first
+   * one in the file (and therefore first in the Daily Notes sidebar for
+   * that date), rather than buried at the end after a day of appends. Text
+   * before that first task line (frontmatter is never part of this string
+   * at all — see PageBuilder/FrontmatterSerializer, which parse it out
+   * separately — but also any leading prose/headings a user wrote) is left
+   * exactly where it was; only the task area itself is reordered. A body
+   * with no existing task line becomes the document's own first line
+   * instead, for the same "newest first" reason, with every other line
+   * preserved immediately after it.
+   *
+   * The create half of this facade's mutation surface, following the exact
+   * shape mutate()/mutateDate() already use: decide the new content,
+   * delegate persistence to PageOperations.mutateBody() (ADR-031), never
+   * touch Vault/the Gate directly. No inline `@date` is ever written here —
+   * a task's due date for display purposes already falls out of
+   * TaskBuilder's existing containing-Daily-Note fallback
+   * (TaskOccurrence.dueDate's own doc comment) whenever the caller created
+   * this task in that date's Daily Note, which is the only way this method
+   * is used today (see Sidebar.Tasks.tsx's onCreateTask). Caller is
+   * responsible for resolving `pageId` (e.g. via PageOperations.openAtPath
+   * for a Daily Note) and for forcing durability afterward
+   * (PageOperations.requestSave) if the result needs to be visible
+   * immediately rather than on the next autosave — this method only
+   * commits the new line, mirroring every other mutation here.
    */
   public async create(pageId: string, title: string): Promise<void> {
     const trimmed = title.trim();
@@ -64,7 +75,21 @@ export class TaskOperations {
       await this.pageOperations.mutateBody(pageId, (markdown) => {
         const line = `- [ ] ${trimmed}`;
 
-        return markdown === '' ? line : `${markdown}\n${line}`;
+        if (markdown === '') {
+          return line;
+        }
+
+        const lines = markdown.split('\n');
+        const firstTaskIndex = lines.findIndex((candidate) =>
+          TASK_LINE_PATTERN.test(candidate)
+        );
+
+        if (firstTaskIndex === -1) {
+          return `${line}\n${markdown}`;
+        }
+
+        lines.splice(firstTaskIndex, 0, line);
+        return lines.join('\n');
       });
     } catch (error) {
       if (error instanceof MutateBodyAbandonedError) {

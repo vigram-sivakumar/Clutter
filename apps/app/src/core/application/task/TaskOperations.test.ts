@@ -520,14 +520,50 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
   });
 
   describe('create', () => {
-    it('appends a new unchecked task line to an existing page body', async () => {
+    it('inserts the new task before an existing task line, not after it', async () => {
       const page = buildPage('p1', '- [ ] Collect the bill');
       const { vault, taskOperations } = setup(page);
 
       await taskOperations.create(page.id, 'Buy milk');
 
       expect(vault.getPage('p1')!.source.markdown).toBe(
-        '- [ ] Collect the bill\n- [ ] Buy milk'
+        '- [ ] Buy milk\n- [ ] Collect the bill'
+      );
+    });
+
+    it('inserts before the first task and leaves everything else (including content after it) untouched', async () => {
+      const page = buildPage(
+        'p1',
+        '- [ ] Existing task\n\nToday\'s notes...\n\n## Heading'
+      );
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, 'Newly created task');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Newly created task\n- [ ] Existing task\n\nToday\'s notes...\n\n## Heading'
+      );
+    });
+
+    it('inserts before the first task even when prose precedes it', async () => {
+      const page = buildPage('p1', 'Some intro text\n- [ ] Existing task\n\nMore notes');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, 'Newest task');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        'Some intro text\n- [ ] Newest task\n- [ ] Existing task\n\nMore notes'
+      );
+    });
+
+    it('becomes the document\'s own first line when no task exists yet, preserving the rest', async () => {
+      const page = buildPage('p1', 'Today\'s notes...\n\n## Heading');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, 'Buy milk');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Buy milk\nToday\'s notes...\n\n## Heading'
       );
     });
 
@@ -567,7 +603,7 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       await taskOperations.create(page.id, 'Buy milk');
 
       expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
-        '- [ ] Collect the bill\n- [ ] Buy milk'
+        '- [ ] Buy milk\n- [ ] Collect the bill'
       );
       // Not yet durable — mirrors every other mutate()-based method here:
       // this method only commits, the caller (Sidebar.Tasks.tsx's
@@ -578,7 +614,7 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       await pageOperations.requestSave(page.id);
 
       expect(vault.getPage('p1')!.source.markdown).toBe(
-        '- [ ] Collect the bill\n- [ ] Buy milk'
+        '- [ ] Buy milk\n- [ ] Collect the bill'
       );
     });
   });
