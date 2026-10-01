@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import { isTauri } from '@tauri-apps/api/core';
 
@@ -1207,6 +1207,20 @@ export const MarkdownEditor = forwardRef<
         changes: { from: 0, insert: '\n' },
         selection: EditorSelection.cursor(0),
         scrollIntoView: true,
+      });
+      view.focus();
+    },
+    revealRange(from, to) {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      const docLength = view.state.doc.length;
+      const safeFrom = Math.min(Math.max(from, 0), docLength);
+      const safeTo = Math.min(Math.max(to, safeFrom), docLength);
+      view.dispatch({
+        selection: EditorSelection.range(safeFrom, safeTo),
+        effects: EditorView.scrollIntoView(safeFrom, { y: 'center' }),
       });
       view.focus();
     },

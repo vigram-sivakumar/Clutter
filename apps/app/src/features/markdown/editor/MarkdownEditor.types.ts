@@ -304,4 +304,16 @@ export interface MarkdownEditorHandle {
    * default, which otherwise makes a bare `focus()` land there).
    */
   focusAtNewLineAtStart(): void;
+  /**
+   * Moves the selection to the given document character range and scrolls
+   * it toward the vertical center of the viewport — used by Tasks sidebar
+   * "Open in note" navigation (TaskOccurrence.startOffset/endOffset) to
+   * land on the exact task line rather than wherever the editor's own
+   * default open position (cached scroll/selection, or document start)
+   * happens to be. `from`/`to` are clamped to the document's current
+   * length, so a stale offset (the document changed after the task was
+   * indexed) degrades to a nearby valid position instead of throwing.
+   * A no-op if the editor isn't mounted yet.
+   */
+  revealRange(from: number, to: number): void;
 }

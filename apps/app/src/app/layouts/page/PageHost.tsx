@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -87,6 +87,7 @@ import {
   type MarkdownEditorHandle,
 } from '@features/markdown/editor/MarkdownEditor';
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
+import type { PendingTaskReveal } from '@features/tasks/helpers/PendingTaskReveal';
 
 interface PageHostProps {
   application: Application;
@@ -121,6 +122,14 @@ interface PageHostProps {
    * TasksSectionSettingsMenu's doc comment).
    */
   readonly tasksViewConfig: TaskDisplayConfig;
+  /**
+   * A pending "land on this task" request from Sidebar's Tasks panel (see
+   * AppLayout's own doc comment on this state) — applied, once, to the
+   * editor via MarkdownEditorHandle.revealRange once the right page's
+   * editor is mounted, then cleared through onTaskRevealHandled.
+   */
+  readonly pendingTaskReveal: PendingTaskReveal | null;
+  readonly onTaskRevealHandled: () => void;
 }
 
 const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
@@ -200,6 +209,8 @@ export function PageHost({
   onOpenResource,
   onOpenImageOverlay,
   tasksViewConfig,
+  pendingTaskReveal,
+  onTaskRevealHandled,
 }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
@@ -458,6 +469,29 @@ export function PageHost({
   // React observes DocumentSession changes through this hook.
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
+
+  // Applies a pending Tasks-sidebar "Open in note" reveal once the editor
+  // for its target page is the one actually mounted. `pageOperations.open`
+  // (called by Sidebar.Tasks' onOpenTask, fire-and-forget) resolves
+  // asynchronously, so `activePageId` typically still names the *previous*
+  // page on the render that sets `pendingTaskReveal` — this effect simply
+  // re-runs (its own dependency list includes both) once `workspace`'s own
+  // notify() flips `activePageId` to the right one. By the time this
+  // effect's callback runs, the matching `MarkdownEditor` has already
+  // mounted (and set `editorRef.current`): React commits/runs a child's own
+  // effects before its parent's for the same commit, and the `key={activePageId}`
+  // remount below is exactly that child. `revealRange` itself clamps a
+  // stale offset (the document changed after the task was indexed) rather
+  // than throwing. Cleared via onTaskRevealHandled immediately after
+  // applying, so it never re-fires for the same request, and never leaks
+  // into a later, unrelated navigation to the same page.
+  useEffect(() => {
+    if (!pendingTaskReveal || pendingTaskReveal.pageId !== activePageId) {
+      return;
+    }
+    editorRef.current?.revealRange(pendingTaskReveal.from, pendingTaskReveal.to);
+    onTaskRevealHandled();
+  }, [activePageId, pendingTaskReveal, onTaskRevealHandled]);
 
   const onOpenFolder = (id: string) => application.folderOperations.open(id);
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,

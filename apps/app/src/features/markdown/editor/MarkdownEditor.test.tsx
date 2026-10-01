@@ -91,6 +91,46 @@ describe('MarkdownEditor imperative focus handle', () => {
     expect(view.state.doc.toString()).toBe('\n');
     expect(view.state.selection.main.head).toBe(0);
   });
+
+  // Tasks sidebar "Open in note" navigation (TaskOccurrence.startOffset/
+  // endOffset) — see PendingTaskReveal/PageHost's own doc comments.
+  describe('revealRange()', () => {
+    it('moves the selection to the given range and focuses the editor', () => {
+      const ref = createRef<MarkdownEditorHandle>();
+      const content = '- [ ] Buy groceries\n- [ ] Finish report\n- [ ] Buy groceries';
+      const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown={content} />);
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      // The SECOND "Buy groceries" occurrence — identical rawText to the
+      // first, distinguishable only by its offset, which is exactly what
+      // this is a regression test for.
+      const secondOccurrence = { from: 40, to: 59 };
+      expect(content.slice(secondOccurrence.from, secondOccurrence.to)).toBe('- [ ] Buy groceries');
+
+      ref.current?.revealRange(secondOccurrence.from, secondOccurrence.to);
+
+      expect(view.state.selection.main.from).toBe(secondOccurrence.from);
+      expect(view.state.selection.main.to).toBe(secondOccurrence.to);
+      expect(document.activeElement).toBe(view.contentDOM);
+    });
+
+    it('clamps an out-of-range offset to the document length instead of throwing', () => {
+      const ref = createRef<MarkdownEditorHandle>();
+      const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown="- [ ] Short" />);
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      expect(() => ref.current?.revealRange(500, 520)).not.toThrow();
+
+      expect(view.state.selection.main.from).toBe(view.state.doc.length);
+      expect(view.state.selection.main.to).toBe(view.state.doc.length);
+    });
+
+    it('is a no-op when the editor is not mounted', () => {
+      const ref = createRef<MarkdownEditorHandle>();
+
+      expect(() => ref.current?.revealRange(0, 5)).not.toThrow();
+    });
+  });
 });
 
 describe('MarkdownEditor: DOM sync from the markdown prop', () => {

@@ -19,6 +19,7 @@ import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { testIds } from '@shared/testing/selectors';
+import type { PendingTaskReveal } from '@features/tasks/helpers/PendingTaskReveal';
 
 interface SidebarProps {
   application: Application;
@@ -31,6 +32,8 @@ interface SidebarProps {
   /** See AppLayout's own doc comment on its `tasksViewConfig` state — lifted here since Sidebar's Tasks panel is one of its two consumers. */
   readonly tasksViewConfig: TaskDisplayConfig;
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
+  /** See AppLayout's own doc comment on its `pendingTaskReveal` state — set here by Tasks' "Open in note", consumed by PageHost. */
+  readonly onRevealTask: (reveal: PendingTaskReveal) => void;
 }
 
 export function Sidebar({
@@ -38,6 +41,7 @@ export function Sidebar({
   onOpenResource,
   tasksViewConfig,
   onTasksViewConfigChange,
+  onRevealTask,
 }: SidebarProps) {
   const {
     vault,
@@ -123,6 +127,7 @@ export function Sidebar({
           effectivePageState={effectivePageState}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={onTasksViewConfigChange}
+          onRevealTask={onRevealTask}
         />
       ),
     },
