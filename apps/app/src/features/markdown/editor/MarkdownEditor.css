@@ -1153,7 +1153,7 @@
  * touching either color. */
 .cm-editor .cm-task-completed,
 .cm-editor .cm-task-completed span {
-  color: var(--foreground-tertiary);
+  color: var(--foreground-placeholder);
 }
 
 /* use the below if you want code block accent color */
