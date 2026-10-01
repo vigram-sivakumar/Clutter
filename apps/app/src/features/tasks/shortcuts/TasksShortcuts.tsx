@@ -27,12 +27,8 @@ export function TasksShortcuts({ onShortcut, onCreateTask }: TasksShortcutsProps
   // dispatches through onShortcut/NavigationRouter — see
   // tasksShortcuts.config.ts's own comment on why.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  const [draftTitle, setDraftTitle] = useState('');
 
-  const closeNewTask = () => {
-    setIsNewTaskOpen(false);
-    setDraftTitle('');
-  };
+  const closeNewTask = () => setIsNewTaskOpen(false);
 
   return (
     <Section>
@@ -56,12 +52,7 @@ export function TasksShortcuts({ onShortcut, onCreateTask }: TasksShortcutsProps
         scrim="strong"
         dismissible={false}
       >
-        <NewTaskContent
-          title={draftTitle}
-          onTitleChange={setDraftTitle}
-          onClose={closeNewTask}
-          onCreateTask={onCreateTask}
-        />
+        <NewTaskContent mode="create" onClose={closeNewTask} onSubmit={onCreateTask} />
       </Dialog>
     </Section>
   );

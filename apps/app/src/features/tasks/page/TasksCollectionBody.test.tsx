@@ -40,6 +40,8 @@ describe('TasksCollectionBody', () => {
         tasks={[dueToday, dueTomorrow]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
       />
     );
 
@@ -58,6 +60,8 @@ describe('TasksCollectionBody', () => {
         tasks={[dueTomorrow, dueToday, overdue]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
       />
     );
 
@@ -82,6 +86,8 @@ describe('TasksCollectionBody', () => {
         tasks={[overdue, dueToday, dueTomorrow, completedOverdue]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
       />
     );
 
@@ -110,6 +116,8 @@ describe('TasksCollectionBody', () => {
         tasks={[oldCompleted, recentCompleted, incomplete]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
       />
     );
 
@@ -132,6 +140,8 @@ describe('TasksCollectionBody', () => {
         tasks={[incomplete, completed]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
       />
     );
 
@@ -154,6 +164,8 @@ describe('TasksCollectionBody', () => {
         tasks={[unscheduled, scheduled, completedUnscheduled]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
+        onEditTask={vi.fn()}
+        onDeleteTask={vi.fn()}
         // Even with Show completed enabled, the Unscheduled view keeps its
         // pre-existing, unaffected behavior — it isn't one of the two
         // sections (Today/Everything else) the setting targets.
@@ -176,6 +188,8 @@ describe('TasksCollectionBody', () => {
           tasks={[completedToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: false, autoSortCompleted: false }}
         />
       );
@@ -192,6 +206,8 @@ describe('TasksCollectionBody', () => {
           tasks={[completedToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
       );
@@ -208,6 +224,8 @@ describe('TasksCollectionBody', () => {
           tasks={[completedOverdue]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
       );
@@ -225,6 +243,8 @@ describe('TasksCollectionBody', () => {
           tasks={[completed, active]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: true }}
         />
       );
@@ -254,6 +274,8 @@ describe('TasksCollectionBody', () => {
           tasks={[dueToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
         />
@@ -280,6 +302,8 @@ describe('TasksCollectionBody', () => {
           tasks={[dueTomorrow]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
         />
       );
@@ -297,6 +321,8 @@ describe('TasksCollectionBody', () => {
           tasks={[completed]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
         />
       );
       expect(completedResult.container.querySelector('strong')).toHaveTextContent('Ship');
@@ -309,6 +335,8 @@ describe('TasksCollectionBody', () => {
           tasks={[unscheduled]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
         />
       );
       expect(unscheduledResult.container.querySelector('em')).toHaveTextContent('urgent');
@@ -321,6 +349,8 @@ describe('TasksCollectionBody', () => {
           tasks={[all]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
         />
       );
       expect(allResult.container.querySelector('s')).toHaveTextContent('old');
@@ -335,6 +365,8 @@ describe('TasksCollectionBody', () => {
           tasks={[dueToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
+          onEditTask={vi.fn()}
+          onDeleteTask={vi.fn()}
         />
       );
 

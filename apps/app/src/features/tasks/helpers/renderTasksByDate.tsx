@@ -20,9 +20,12 @@ import { isPast, isToday } from '@shared/helpers/time';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
+  /** Also what "Open in note" in the row's More Actions menu invokes — same action, same destination. */
   readonly onOpenTask: (task: TaskOccurrence) => void;
-  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
-  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
+  /** Opens the Edit Task modal for this task. */
+  readonly onEditTask: (task: TaskOccurrence) => void;
+  /** Deletes the task's line from its source note. */
+  readonly onDeleteTask: (task: TaskOccurrence) => void;
 }
 
 /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -42,7 +45,8 @@ export function renderTaskRow(
   {
     onToggleComplete,
     onOpenTask,
-    onDateChange,
+    onEditTask,
+    onDeleteTask,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -58,11 +62,12 @@ export function renderTaskRow(
       title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
-      date={dueDate}
-      onDateChange={onDateChange && ((next) => onDateChange(task, next))}
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
+      onEdit={() => onEditTask(task)}
+      onOpenInNote={() => onOpenTask(task)}
+      onDelete={() => onDeleteTask(task)}
       resolveWikiLink={resolveWikiLink}
       resolveTag={resolveTag}
       resolveEmbed={resolveEmbed}
@@ -102,12 +107,21 @@ export function renderTodayContent({
   today,
   onToggleComplete,
   onOpenTask,
-  onDateChange,
+  onEditTask,
+  onDeleteTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderTodayContentProps) {
-  return renderTaskList(today, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
+  return renderTaskList(today, {
+    onToggleComplete,
+    onOpenTask,
+    onEditTask,
+    onDeleteTask,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  });
 }
 
 export interface RenderOverdueContentProps extends TaskRowCallbacks, TaskRowResolvers {
@@ -125,12 +139,21 @@ export function renderOverdueContent({
   overdue,
   onToggleComplete,
   onOpenTask,
-  onDateChange,
+  onEditTask,
+  onDeleteTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderOverdueContentProps) {
-  return renderTaskList(overdue, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
+  return renderTaskList(overdue, {
+    onToggleComplete,
+    onOpenTask,
+    onEditTask,
+    onDeleteTask,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  });
 }
 
 export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
@@ -146,12 +169,21 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
-  onDateChange,
+  onEditTask,
+  onDeleteTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: RenderUpcomingContentProps) {
-  return renderTaskList(upcoming, { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed });
+  return renderTaskList(upcoming, {
+    onToggleComplete,
+    onOpenTask,
+    onEditTask,
+    onDeleteTask,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  });
 }
 
 /** A section header's own settings-menu open state, owned by the caller (see TasksSectionSettingsMenu's own doc comment for why). */
@@ -187,7 +219,8 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
-  onDateChange,
+  onEditTask,
+  onDeleteTask,
   navigation,
   resolveWikiLink,
   resolveTag,
@@ -229,7 +262,8 @@ export function renderTasksByDate({
           today,
           onToggleComplete,
           onOpenTask,
-          onDateChange,
+          onEditTask,
+          onDeleteTask,
           resolveWikiLink,
           resolveTag,
           resolveEmbed,
@@ -251,7 +285,8 @@ export function renderTasksByDate({
             overdue,
             onToggleComplete,
             onOpenTask,
-            onDateChange,
+            onEditTask,
+            onDeleteTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
@@ -283,7 +318,8 @@ export function renderTasksByDate({
             upcoming,
             onToggleComplete,
             onOpenTask,
-            onDateChange,
+            onEditTask,
+            onDeleteTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,

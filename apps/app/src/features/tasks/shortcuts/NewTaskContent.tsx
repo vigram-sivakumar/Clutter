@@ -9,59 +9,77 @@ import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
 import './NewTaskContent.css';
 
 export interface NewTaskContentProps {
-  title: string;
-  onTitleChange(value: string): void;
+  /** 'create' (default) is the New Task flow; 'edit' is the task row's Edit menu action — same modal, different header/CTA text and pre-filled draft values. */
+  mode?: 'create' | 'edit';
+  /** Seeds the title field's local draft state on mount — only read once, like React's own `defaultValue` convention, since this component always unmounts/remounts fresh per open (see the doc comment below). */
+  initialTitle?: string;
+  /** Seeds the due-date field's local draft state on mount — see initialTitle's own doc comment. */
+  initialDueDate?: string;
   onClose(): void;
-  /** See TasksShortcutsProps.onCreateTask's own doc comment. */
-  onCreateTask(title: string, dueDate: string | undefined): Promise<void>;
+  /**
+   * Create: creates the task in its target Daily Note and resolves once
+   * durable (see TasksShortcutsProps.onCreateTask's own doc comment).
+   * Edit: updates the existing task's title/due date in place and
+   * resolves once durable (see Sidebar.Tasks.tsx's onSaveTask). Either
+   * way, a plain callback prop — never a TaskOperations/PageOperations
+   * import here (UI/Features must not import a concrete application-layer
+   * class directly, ARCHITECTURE_RULES rule 6).
+   */
+  onSubmit(title: string, dueDate: string | undefined): Promise<void>;
 }
 
 /**
- * The New Task flow's content, rendered inside the shared `Dialog`
- * primitive by `TasksShortcuts` — owns the title/due-date draft state and
- * the Create button's own request lifecycle (in-flight/error), but not the
- * creation logic itself: onCreateTask is a plain callback prop (never a
- * TaskOperations/PageOperations import here — UI/Features must not import
- * a concrete application-layer class directly, ARCHITECTURE_RULES rule 6).
+ * The New Task / Edit Task modal's content, rendered inside the shared
+ * `Dialog` primitive by `TasksShortcuts` (create) or `EditTaskDialog`
+ * (edit) — the same component either way, per product direction not to
+ * build a second edit UI. Owns the title/due-date draft state and the
+ * submit button's own request lifecycle (in-flight/error) entirely
+ * locally, seeded once from `initialTitle`/`initialDueDate` — this
+ * component always unmounts when its own Dialog closes (Overlay returns
+ * null while !open), so a fresh mount with fresh initial values is
+ * exactly what the next open (whether a brand new Create or a different
+ * task's Edit) already produces on its own; nothing needs to be reset or
+ * lifted to either caller.
  */
 export function NewTaskContent({
-  title,
-  onTitleChange,
+  mode = 'create',
+  initialTitle = '',
+  initialDueDate,
   onClose,
-  onCreateTask,
+  onSubmit,
 }: NewTaskContentProps) {
-  // Local, not lifted to TasksShortcuts like title/onTitleChange — this
-  // whole component unmounts when the Dialog closes (Overlay returns null
-  // while !open), so there's nothing to reset explicitly, and nothing
-  // outside this draft needs the value yet.
-  const [dueDate, setDueDate] = useState<string | undefined>(undefined);
+  const [title, setTitle] = useState(initialTitle);
+  const [dueDate, setDueDate] = useState<string | undefined>(initialDueDate);
   const datePicker = useOverlay<HTMLButtonElement>();
 
-  // Disables Create while a request is in flight (prevents a double
-  // submit) and surfaces a failure inline — same minimal, scoped error
-  // treatment ImagePicker.Link.tsx/.css already use (no shared error/
-  // danger token exists yet in the design system; this mirrors that
+  // Disables the submit button while a request is in flight (prevents a
+  // double submit) and surfaces a failure inline — same minimal, scoped
+  // error treatment ImagePicker.Link.tsx/.css already use (no shared
+  // error/danger token exists yet in the design system; this mirrors that
   // file's own deliberate, local color rather than inventing one).
-  const [isCreating, setIsCreating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const trimmedTitle = title.trim();
+  const isEdit = mode === 'edit';
 
-  const handleCreate = async () => {
-    if (trimmedTitle === '' || isCreating) {
+  const handleSubmit = async () => {
+    if (trimmedTitle === '' || isSubmitting) {
       return;
     }
 
-    setIsCreating(true);
+    setIsSubmitting(true);
     setError(undefined);
 
     try {
-      await onCreateTask(trimmedTitle, dueDate);
+      await onSubmit(trimmedTitle, dueDate);
       onClose();
-    } catch (creationError) {
-      setIsCreating(false);
+    } catch (submitError) {
+      setIsSubmitting(false);
       setError(
-        creationError instanceof Error ? creationError.message : 'Failed to create task.'
+        submitError instanceof Error
+          ? submitError.message
+          : `Failed to ${isEdit ? 'save' : 'create'} task.`
       );
     }
   };
@@ -69,7 +87,7 @@ export function NewTaskContent({
   return (
     <div className="new-task">
       <div className="new-task__header">
-        <span className="new-task__title">New task</span>
+        <span className="new-task__title">{isEdit ? 'Edit Task' : 'New task'}</span>
         <Button
           size="small"
           variant="ghost"
@@ -90,7 +108,7 @@ export function NewTaskContent({
         rows={1}
         hasBackground={false}
         hasBorder={false}
-        onChange={(event) => onTitleChange(event.target.value)}
+        onChange={(event) => setTitle(event.target.value)}
       />
       {error && (
         <span className="new-task__error" role="alert">
@@ -113,10 +131,10 @@ export function NewTaskContent({
           className="new-task__create-button"
           variant="primary"
           size="medium"
-          disabled={trimmedTitle === '' || isCreating}
-          onClick={handleCreate}
+          disabled={trimmedTitle === '' || isSubmitting}
+          onClick={handleSubmit}
         >
-          Create
+          {isEdit ? 'Save' : 'Create'}
         </Button>
       </div>
       <TaskDatePicker

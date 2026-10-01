@@ -35,6 +35,10 @@ export interface TasksCollectionBodyProps {
   readonly tasks: readonly TaskOccurrence[];
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
+  /** Opens the Edit Task modal for a row's task. */
+  readonly onEditTask: (task: TaskOccurrence) => void;
+  /** Deletes a row's task from its source note. */
+  readonly onDeleteTask: (task: TaskOccurrence) => void;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
    * (see groupTasks.ts's TaskDisplayConfig) — applied to the tasks-today/
@@ -48,8 +52,6 @@ export interface TasksCollectionBodyProps {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
    */
   readonly displayConfig?: TaskDisplayConfig;
-  /** Omitted hides the row's calendar action entirely — see Task.tsx's own prop doc comment. */
-  readonly onDateChange?: (task: TaskOccurrence, date: string | null) => void;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
@@ -71,28 +73,29 @@ export function TasksCollectionBody({
   tasks,
   onToggleComplete,
   onOpenTask,
+  onEditTask,
+  onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
-  onDateChange,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const rowCallbacks = { onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed };
+  const rowCallbacks = {
+    onToggleComplete,
+    onOpenTask,
+    onEditTask,
+    onDeleteTask,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  };
 
   if (view === 'tasks-today') {
     const { today } = groupTasks(tasks, displayConfig);
     return (
       <PageBody className="collection__content">
         <CollectionRowList>
-          {renderTodayContent({
-            today,
-            onToggleComplete,
-            onOpenTask,
-            onDateChange,
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
+          {renderTodayContent({ today, ...rowCallbacks })}
         </CollectionRowList>
       </PageBody>
     );
@@ -103,7 +106,7 @@ export function TasksCollectionBody({
     return (
       <PageBody className="collection__content">
         <CollectionRowList>
-          {renderOverdueContent({ overdue, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+          {renderOverdueContent({ overdue, ...rowCallbacks })}
         </CollectionRowList>
       </PageBody>
     );
@@ -114,7 +117,7 @@ export function TasksCollectionBody({
     return (
       <PageBody className="collection__content">
         <CollectionRowList>
-          {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, onDateChange, resolveWikiLink, resolveTag, resolveEmbed })}
+          {renderUpcomingContent({ upcoming, ...rowCallbacks })}
         </CollectionRowList>
       </PageBody>
     );
