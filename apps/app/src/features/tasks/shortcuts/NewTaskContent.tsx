@@ -1,0 +1,45 @@
+import { AppIcon } from '@shared/icon';
+import { EditableText } from '@components/editable-text/EditableText';
+import { Button } from '@components/button/Button';
+
+import './NewTaskContent.css';
+
+export interface NewTaskContentProps {
+  title: string;
+  onTitleChange(value: string): void;
+  onClose(): void;
+}
+
+/**
+ * The New Task flow's content, rendered inside the shared `Dialog`
+ * primitive by `TasksShortcuts` — owns only the title field's local draft
+ * state and UI; it never calls TaskOperations or persists anything (see
+ * tasksShortcuts.config.ts's own comment on why 'create-task' has no
+ * backing capability yet).
+ */
+export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContentProps) {
+  return (
+    <div className="new-task">
+      <div className="new-task__header">
+        <span className="new-task__title">New task</span>
+        <Button
+          size="small"
+          variant="ghost"
+          interaction="subtle"
+          isIconOnly
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <AppIcon icon="dismiss" />
+        </Button>
+      </div>
+      <EditableText
+        value={title}
+        placeholder="Task title"
+        autoFocus
+        onEdit={onTitleChange}
+        onCommit={() => undefined}
+      />
+    </div>
+  );
+}

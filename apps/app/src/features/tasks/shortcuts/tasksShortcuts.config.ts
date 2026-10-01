@@ -1,15 +1,14 @@
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationItem';
 
-// 'create-task' is rendered disabled: NavigationRouter.createTask() throws
-// (ADR-012/013/014's disposition — creating a *new* task has no backing
-// capability yet, distinct from TaskOperations' existing mutations on
-// already-extracted tasks). Kept visible rather than removed, same as
-// Controls' placeholders, so the affordance isn't lost entirely — but it
-// must never be clickable while it can only throw (see ADR-016's
-// post-migration cleanup entry).
+// 'create-task' no longer dispatches through onShortcut/NavigationRouter at
+// all — TasksShortcuts intercepts its click locally to open a task-creation
+// overlay (UI only, no backing capability yet; see TasksShortcuts.tsx).
+// NavigationRouter.createTask() still throws (ADR-012/013/014's
+// disposition) and must stay unreachable from this button until a real
+// capability exists (see ADR-016's post-migration cleanup entry).
 export const tasksShortcuts = [
-  { id: 'create-task', title: 'New', icon: 'plus', disabled: true },
+  { id: 'create-task', title: 'New', icon: 'plus', disabled: false },
   {
     id: 'all-tasks',
     title: getSystemLocationPresentation('tasks-all').label,

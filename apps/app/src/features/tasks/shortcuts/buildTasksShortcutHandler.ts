@@ -8,6 +8,11 @@ export function buildTasksShortcutHandler(
   return (id) => {
     switch (id) {
       case 'create-task':
+        // Unreachable: TasksShortcuts intercepts this click itself to open
+        // the task-creation overlay, never forwarding it to onShortcut.
+        // Left here only so this switch stays exhaustive over
+        // TasksShortcutId; still throws if that ever changes before
+        // NavigationRouter.createTask() has a real capability behind it.
         navigation.createTask();
         break;
       case 'all-tasks':
