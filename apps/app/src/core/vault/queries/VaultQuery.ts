@@ -153,4 +153,32 @@ export class VaultQuery {
       page.analysis.tags.some((occurrence) => occurrence.name === name)
     );
   }
+
+  /**
+   * `folderId` itself followed by every ancestor up to (but not including)
+   * the vault root — the same parent-chain walk
+   * `buildBreadcrumbs.ts`'s private `ancestorBreadcrumbs` already performs
+   * (`vault.getFolder(id).parentId`, repeated), extracted here as the one
+   * shared "ancestor chain" primitive rather than a second copy of the
+   * walk. `null` (the vault root) yields an empty array — there is no
+   * folder to include. A broken/missing folder id on the chain stops the
+   * walk early (same tolerance `ancestorBreadcrumbs` already has).
+   */
+  public getFolderAndAncestorIds(folderId: string | null): string[] {
+    const ids: string[] = [];
+    let current = folderId;
+
+    while (current) {
+      const folder = this.vault.getFolder(current);
+
+      if (!folder) {
+        break;
+      }
+
+      ids.push(folder.id);
+      current = folder.parentId;
+    }
+
+    return ids;
+  }
 }

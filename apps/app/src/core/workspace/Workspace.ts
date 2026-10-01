@@ -491,6 +491,24 @@ export class Workspace implements Observable {
   }
 
   /**
+   * Sets a folder's expanded state directly, unlike toggleFolderExpanded's
+   * blind negation — same shape and reasoning as setSectionExpanded. Needed
+   * by a caller that must land on a specific target state (e.g. "Reveal in
+   * Clutter" forcing every ancestor folder of a revealed note open) rather
+   * than negating whatever is currently stored, which could collapse an
+   * already-expanded ancestor instead of guaranteeing it stays open.
+   */
+  public setFolderExpanded(folderId: string, expanded: boolean): void {
+    if (expanded) {
+      this.collapsedFolderIds.delete(folderId);
+    } else {
+      this.collapsedFolderIds.add(folderId);
+    }
+
+    this.notify();
+  }
+
+  /**
    * Toggles the expanded state of a sidebar section header.
    */
   public toggleSectionExpanded(sectionId: string): void {

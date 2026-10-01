@@ -109,6 +109,38 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
   });
 });
 
+describe('Workspace.setFolderExpanded ("Reveal in Clutter")', () => {
+  it('lands on the exact requested state, unlike toggleFolderExpanded\'s blind negation', () => {
+    const workspace = new Workspace();
+
+    workspace.setFolderExpanded('folder-1', false);
+    expect(workspace.isFolderExpanded('folder-1')).toBe(false);
+
+    workspace.setFolderExpanded('folder-1', true);
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
+  });
+
+  it('expanding an already-expanded folder is a deliberate landing on true, not a no-op toggle', () => {
+    const workspace = new Workspace();
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
+
+    workspace.setFolderExpanded('folder-1', true);
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
+  });
+
+  it('notifies subscribers', () => {
+    const workspace = new Workspace();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.setFolderExpanded('folder-1', false);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('Workspace.activeView (ADR-022)', () => {
   it('defaults to no active view', () => {
     const workspace = new Workspace();

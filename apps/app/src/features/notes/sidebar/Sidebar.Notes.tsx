@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
@@ -49,6 +49,9 @@ import type {
   LocationEntityKind,
   LocationPathFormat,
 } from '@core/presentation/getLocationPathRepresentations';
+import { scrollRowIntoView } from '@shared/helpers/scrollRowIntoView';
+import { flashRevealHighlight } from '@shared/helpers/flashRevealHighlight';
+import { testIds } from '@shared/testing/selectors';
 
 interface NotesProps {
   vault: Vault;
@@ -76,6 +79,18 @@ interface NotesProps {
    * FolderTree's own onResourceClick already has.
    */
   onOpenResource?(resource: VaultResource): void;
+  /**
+   * A pageId some other sidebar surface (today: the Tags sidebar's
+   * "Reveal in Clutter" note action) requested be located in this folder
+   * tree — expands every ancestor folder required, scrolls the row into
+   * view, and flashes it temporarily (`entry-reveal-highlight`). Never
+   * opens the note, selects it, or touches the active page/editor — this
+   * is a sidebar-location action only. One-shot: cleared via
+   * `onRevealHandled` once applied, same request/ack shape as
+   * `PendingEditorReveal`/`onRevealApplied`.
+   */
+  revealPageId?: string | null;
+  onRevealHandled?(): void;
 }
 
 export function Notes({
@@ -92,9 +107,67 @@ export function Notes({
   onOpenFolder,
   onOpenDraft,
   onOpenResource,
+  revealPageId,
+  onRevealHandled,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
+
+  // "Reveal in Clutter" (Tags sidebar) target, once its required ancestor
+  // folders have been force-expanded below but before the row they
+  // reveal has necessarily re-rendered yet — the effect after this one
+  // (no dependency array, runs after every render) picks it up once the
+  // DOM node actually exists, same two-phase "expand now, find/scroll on
+  // a later render" shape as DailyNotesList.tsx's own
+  // pendingScrollDateRef/scrollToDate.
+  const pendingRevealPageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!revealPageId) {
+      return;
+    }
+
+    const page = vault.getPage(revealPageId);
+
+    if (!page) {
+      onRevealHandled?.();
+      return;
+    }
+
+    // Every ancestor folder containing this note must be expanded for
+    // its row to render at all — forced open (setFolderExpanded, not
+    // toggleFolderExpanded) so an already-expanded ancestor is never
+    // accidentally collapsed by this request.
+    for (const folderId of query.getFolderAndAncestorIds(page.parentId)) {
+      if (!workspace.isFolderExpanded(folderId)) {
+        workspace.setFolderExpanded(folderId, true);
+      }
+    }
+
+    pendingRevealPageIdRef.current = revealPageId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealPageId]);
+
+  useEffect(() => {
+    const pageId = pendingRevealPageIdRef.current;
+
+    if (!pageId) {
+      return;
+    }
+
+    const node = document.querySelector<HTMLElement>(
+      `[data-testid="${testIds.sidebar.noteItem(pageId)}"]`
+    );
+
+    if (!node) {
+      return;
+    }
+
+    pendingRevealPageIdRef.current = null;
+    scrollRowIntoView(node);
+    flashRevealHighlight(node);
+    onRevealHandled?.();
+  });
 
   // Same composition PageHost.tsx uses to inject the page editor's own
   // WikiLink/Tag/embed resolution — cheap, stateless glue, not worth

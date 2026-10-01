@@ -503,3 +503,46 @@ describe('VaultQuery.getPagesByTag', () => {
     expect(query.getPagesByTag('nonexistent')).toEqual([]);
   });
 });
+
+describe('VaultQuery.getFolderAndAncestorIds', () => {
+  it('returns an empty array for the vault root (null)', () => {
+    const query = new VaultQuery(makeVault());
+
+    expect(query.getFolderAndAncestorIds(null)).toEqual([]);
+  });
+
+  it('returns just the folder itself when it is a root-level folder', () => {
+    const query = new VaultQuery(makeVault([makeFolder('f1', 'Projects')]));
+
+    expect(query.getFolderAndAncestorIds('f1')).toEqual(['f1']);
+  });
+
+  it('walks up the full parent chain, leaf-to-root order, for a deeply nested folder', () => {
+    const folders = [
+      makeFolder('grandparent', 'A'),
+      makeFolder('parent', 'B', 'grandparent'),
+      makeFolder('child', 'C', 'parent'),
+    ];
+    const query = new VaultQuery(makeVault(folders));
+
+    expect(query.getFolderAndAncestorIds('child')).toEqual([
+      'child',
+      'parent',
+      'grandparent',
+    ]);
+  });
+
+  it('stops the walk, rather than throwing, if a folder id in the chain is missing', () => {
+    // A child whose parentId points at a folder that was never registered
+    // — the walk should return what it found so far, not throw.
+    const query = new VaultQuery(makeVault([makeFolder('child', 'C', 'missing-parent')]));
+
+    expect(query.getFolderAndAncestorIds('child')).toEqual(['child']);
+  });
+
+  it('returns an empty array for an unknown folder id', () => {
+    const query = new VaultQuery(makeVault());
+
+    expect(query.getFolderAndAncestorIds('nonexistent')).toEqual([]);
+  });
+});

@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Notes } from './Sidebar.Notes';
+import { useWorkspace } from '@app/hooks/useWorkspace';
 import { AppIcon } from '@shared/icon';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
@@ -46,6 +47,17 @@ class ResizeObserverMock {
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+  // Needed by scrollRowIntoView (the "Reveal in Clutter" reveal effect) —
+  // same stub Page.Cover.test.tsx/MarkdownEditor.test.tsx already use for
+  // the same prefers-reduced-motion check. jsdom has no real
+  // Element.scrollIntoView implementation at all.
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
 afterAll(() => {
@@ -193,6 +205,8 @@ function notesElement(
   overrides?: {
     onOpen?(pageId: string): void;
     onOpenFolder?(folderId: string): void;
+    revealPageId?: string | null;
+    onRevealHandled?(): void;
   }
 ) {
   return (
@@ -209,6 +223,8 @@ function notesElement(
       onOpen={overrides?.onOpen ?? vi.fn()}
       onOpenFolder={overrides?.onOpenFolder ?? vi.fn()}
       onOpenDraft={vi.fn()}
+      revealPageId={overrides?.revealPageId}
+      onRevealHandled={overrides?.onRevealHandled}
     />
   );
 }
@@ -831,5 +847,115 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
     fireEvent.click(screen.getByText('contract').closest('.entry')!);
 
     expect(onOpenResource).toHaveBeenCalledWith(resource);
+  });
+});
+
+describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
+  // The real app (Sidebar.tsx) wraps Notes in `useWorkspace`, which
+  // re-renders on every `workspace.notify()` — including the notify the
+  // reveal effect's own `setFolderExpanded` calls trigger, which is what
+  // lets the second render actually show the just-expanded folder's
+  // children. Rendering `<Notes>` directly (as `notesElement` does
+  // elsewhere in this file) skips that subscription entirely, so any
+  // test that needs the post-expand re-render to actually happen must
+  // render through this wrapper instead.
+  function ReactiveNotes({
+    deps,
+    overrides,
+  }: {
+    deps: ReturnType<typeof setup>;
+    overrides?: Parameters<typeof notesElement>[1];
+  }) {
+    const workspace = useWorkspace(deps.workspace);
+    return notesElement({ ...deps, workspace }, overrides);
+  }
+
+  function makeNestedFolders(): Folder[] {
+    const grandparent = makeFolder('grandparent', `${ROOT}/Projects`);
+    const parent = { ...makeFolder('parent', `${ROOT}/Projects/Work`), parentId: 'grandparent' };
+    return [grandparent, parent];
+  }
+
+  it('expands every ancestor folder required to make the revealed note visible', () => {
+    const folders = makeNestedFolders();
+    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const deps = setup(folders, [page]);
+    // Both ancestors start collapsed — folders default to expanded, so
+    // this is the only way to actually prove the reveal forces them open
+    // rather than merely finding an already-visible row.
+    deps.workspace.toggleFolderExpanded('grandparent');
+    deps.workspace.toggleFolderExpanded('parent');
+
+    // Mounted first with no reveal pending, then re-rendered with the
+    // reveal target — matching the real app, where Sidebar.tsx's
+    // useWorkspace subscription is already established long before any
+    // "Reveal in Clutter" click, rather than racing to subscribe on the
+    // very same mount that triggers the expand.
+    const { rerender } = render(<ReactiveNotes deps={deps} overrides={{ revealPageId: null }} />);
+    rerender(<ReactiveNotes deps={deps} overrides={{ revealPageId: 'p1' }} />);
+
+    expect(deps.workspace.isFolderExpanded('grandparent')).toBe(true);
+    expect(deps.workspace.isFolderExpanded('parent')).toBe(true);
+    expect(screen.getByTestId('sidebar.noteItem.p1')).toBeInTheDocument();
+  });
+
+  it('applies the temporary flash-highlight class to the revealed row', () => {
+    const folders = makeNestedFolders();
+    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const deps = setup(folders, [page]);
+
+    render(notesElement(deps, { revealPageId: 'p1' }));
+
+    const row = screen.getByTestId('sidebar.noteItem.p1');
+    expect(row.classList.contains('entry-reveal-highlight')).toBe(true);
+    expect(row.classList.contains('entry-reveal-highlight--visible')).toBe(true);
+  });
+
+  it('calls onRevealHandled once the row has been located and flashed', () => {
+    const folders = makeNestedFolders();
+    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const deps = setup(folders, [page]);
+    const onRevealHandled = vi.fn();
+
+    render(notesElement(deps, { revealPageId: 'p1', onRevealHandled }));
+
+    expect(onRevealHandled).toHaveBeenCalledTimes(1);
+  });
+
+  it('never opens the note, selects it, or changes the active page', () => {
+    const folders = makeNestedFolders();
+    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const deps = setup(folders, [page]);
+    const openSpy = vi.spyOn(deps.pageOperations, 'open');
+
+    render(notesElement(deps, { revealPageId: 'p1' }));
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(deps.workspace.activePageId).toBeNull();
+    // Not the "selected/active" treatment — just the temporary flash.
+    expect(screen.getByTestId('sidebar.noteItem.p1').classList.contains('entry-selected')).toBe(
+      false
+    );
+  });
+
+  it('does nothing when revealPageId is absent', () => {
+    const folders = makeNestedFolders();
+    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const deps = setup(folders, [page]);
+    deps.workspace.toggleFolderExpanded('grandparent');
+
+    render(notesElement(deps, { revealPageId: null }));
+
+    expect(deps.workspace.isFolderExpanded('grandparent')).toBe(false);
+    expect(screen.queryByText('Note')).toBeNull();
+  });
+
+  it('calls onRevealHandled and does not throw for an unknown pageId', () => {
+    const deps = setup([]);
+    const onRevealHandled = vi.fn();
+
+    render(notesElement(deps, { revealPageId: 'nonexistent', onRevealHandled }));
+
+    expect(onRevealHandled).toHaveBeenCalledTimes(1);
   });
 });

@@ -522,4 +522,75 @@ describe('renderTags', () => {
       expect(caret).toBeDisabled();
     });
   });
+
+  describe('expanded tag note list — "Reveal in Clutter"', () => {
+    it('appends exactly one extra menu item, "Reveal in Clutter," when onRevealInNotesSidebar is provided', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            {
+              ...renderOptions,
+              tagExpansionStore,
+              effectivePageState,
+              noteRowActions,
+              onRevealInNotesSidebar: noop,
+            }
+          )}
+        </>
+      );
+
+      expect(screen.getAllByText('Reveal in Clutter')).toHaveLength(1);
+    });
+
+    it('selecting it calls onRevealInNotesSidebar with the note id, and nothing else in the standard menu', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      const onRevealInNotesSidebar = vi.fn();
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            {
+              ...renderOptions,
+              tagExpansionStore,
+              effectivePageState,
+              noteRowActions,
+              onRevealInNotesSidebar,
+            }
+          )}
+        </>
+      );
+
+      fireEvent.click(screen.getByText('Reveal in Clutter'));
+
+      expect(onRevealInNotesSidebar).toHaveBeenCalledWith('p1');
+    });
+
+    it('is absent when onRevealInNotesSidebar is not provided — the Notes sidebar\'s own menu is unaffected', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
+          )}
+        </>
+      );
+
+      expect(screen.queryByText('Reveal in Clutter')).toBeNull();
+    });
+  });
 });

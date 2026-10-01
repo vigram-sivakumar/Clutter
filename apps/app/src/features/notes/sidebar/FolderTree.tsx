@@ -9,6 +9,7 @@ import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import { buildResourceSidebarMenu } from './resourceSidebarMenu.config';
 import { testIds } from '@shared/testing/selectors';
+import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
 import type { Folder } from '@core/vault/models';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -301,6 +302,17 @@ export interface PageEntryProps {
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  /**
+   * Appended to the standard note menu (buildNoteSidebarMenu's items) —
+   * for an action that exists only in one calling context, not every
+   * Note row everywhere (today: the Tags sidebar's "Reveal in Clutter").
+   * Omitted everywhere else, so the Notes sidebar's own menu is
+   * unaffected. `onExtraMenuSelect` only ever receives ids from this
+   * list — every id `buildNoteSidebarMenu` itself produces is still
+   * handled internally, unchanged.
+   */
+  extraMenuItems?: readonly OverflowMenuItemConfig[];
+  onExtraMenuSelect?(id: string): void;
 }
 
 /**
@@ -321,6 +333,8 @@ export function PageEntry({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  extraMenuItems,
+  onExtraMenuSelect,
 }: PageEntryProps) {
   const label = getPageDisplayLabel(entry);
   const isEditing = rowActions?.editingId === entry.id;
@@ -372,7 +386,9 @@ export function PageEntry({
       }
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
       menuItems={
-        rowActions ? buildNoteSidebarMenu(entry.isDraft, entry.favorite) : undefined
+        rowActions
+          ? [...buildNoteSidebarMenu(entry.isDraft, entry.favorite), ...(extraMenuItems ?? [])]
+          : undefined
       }
       menuOpen={rowActions?.openMenuId === entry.id}
       onMenuOpenChange={
@@ -399,6 +415,8 @@ export function PageEntry({
                 rowActions.onCopyPagePath(entry.id, 'full-path');
               } else if (id === 'copy-path-as-markdown') {
                 rowActions.onCopyPagePath(entry.id, 'as-markdown');
+              } else {
+                onExtraMenuSelect?.(id);
               }
             }
           : undefined

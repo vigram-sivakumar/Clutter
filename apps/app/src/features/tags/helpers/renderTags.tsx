@@ -64,11 +64,22 @@ interface RenderTagsOptions {
    * parallel implementation.
    */
   noteRowActions?: NoteRowActions;
+  /**
+   * The expanded-note-list's one extra action, "Reveal in Clutter" —
+   * switches to the Notes sidebar tab and locates the note there
+   * (expand ancestors, scroll, flash-highlight), without opening it.
+   * This is the only action added beyond the standard note menu — see
+   * `PageEntry`'s `extraMenuItems`/`onExtraMenuSelect` for how it's
+   * appended without touching the Notes sidebar's own menu.
+   */
+  onRevealInNotesSidebar?(pageId: string): void;
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
   rowActions?: TagRowActions;
 }
+
+const REVEAL_IN_NOTES_SIDEBAR_ITEM_ID = 'reveal-in-notes-sidebar';
 
 function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
   const {
@@ -78,6 +89,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     workspace,
     effectivePageState,
     noteRowActions,
+    onRevealInNotesSidebar,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -155,6 +167,20 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
             resolveEmbed={resolveEmbed}
+            extraMenuItems={
+              onRevealInNotesSidebar
+                ? [{ id: REVEAL_IN_NOTES_SIDEBAR_ITEM_ID, label: 'Reveal in Clutter', icon: 'folder' }]
+                : undefined
+            }
+            onExtraMenuSelect={
+              onRevealInNotesSidebar
+                ? (id) => {
+                    if (id === REVEAL_IN_NOTES_SIDEBAR_ITEM_ID) {
+                      onRevealInNotesSidebar(note.id);
+                    }
+                  }
+                : undefined
+            }
           />
         ))}
     </Fragment>

@@ -1,6 +1,6 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
@@ -61,6 +61,20 @@ export function Sidebar({
     pageOperations
   );
 
+  // "Reveal in Clutter" (Tags sidebar's note action) — purely intra-
+  // Sidebar coordination between the Tags panel (producer) and the Notes
+  // panel (consumer), so it lives here rather than lifted to AppLayout
+  // the way pendingReveal/onRequestReveal is: Sidebar is already the
+  // confirmed common ancestor of both, no sibling outside Sidebar needs
+  // this. One-shot, cleared via onRevealHandled once the Notes panel has
+  // applied it (same request/ack shape as PendingEditorReveal).
+  const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(null);
+
+  function revealNoteInNotesSidebar(pageId: string): void {
+    workspace.setActiveSidebarTab('notes');
+    setSidebarNoteReveal(pageId);
+  }
+
   const tabs: Array<{
     value: string;
     icon: SystemIcon;
@@ -85,6 +99,8 @@ export function Sidebar({
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenResource={onOpenResource}
+          revealPageId={sidebarNoteReveal}
+          onRevealHandled={() => setSidebarNoteReveal(null)}
         />
       ),
     },
@@ -146,6 +162,7 @@ export function Sidebar({
           workspace={workspace}
           tagExpansionStore={application.tagExpansionStore}
           onRequestReveal={onRequestReveal}
+          onRevealInNotesSidebar={revealNoteInNotesSidebar}
         />
       ),
     },

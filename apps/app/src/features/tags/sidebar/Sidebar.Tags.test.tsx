@@ -128,6 +128,7 @@ function extraPanelProps() {
       subscribe: () => () => {},
     } as unknown as TagExpansionStore,
     onRequestReveal: vi.fn(),
+    onRevealInNotesSidebar: vi.fn(),
   };
 }
 

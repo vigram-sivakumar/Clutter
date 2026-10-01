@@ -35,6 +35,14 @@ interface TagsPanelProps {
   readonly tagExpansionStore: TagExpansionStore;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by an expanded tag's note click, same pipeline Tag collection's "Open note" already drives. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
+  /**
+   * The expanded-note-list's one extra action, "Reveal in Clutter" —
+   * switches to the Notes sidebar tab and locates this note in its
+   * folder tree (expand ancestors, scroll into view, flash-highlight).
+   * Never opens the note. See Sidebar.tsx's own
+   * revealNoteInNotesSidebar for the combined implementation.
+   */
+  readonly onRevealInNotesSidebar: (pageId: string) => void;
 }
 
 export function Tags({
@@ -48,6 +56,7 @@ export function Tags({
   workspace,
   tagExpansionStore,
   onRequestReveal,
+  onRevealInNotesSidebar,
 }: TagsPanelProps) {
   // Forces a re-render when a tag's expansion is toggled — the store is
   // the source of truth (and what actually persists), this hook is purely
@@ -123,6 +132,7 @@ export function Tags({
         workspace,
         effectivePageState,
         noteRowActions,
+        onRevealInNotesSidebar,
         resolveWikiLink,
         resolveTag,
         resolveEmbed,

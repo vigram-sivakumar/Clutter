@@ -31,6 +31,7 @@ import type {
 } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
+import { scrollRowIntoView } from '@shared/helpers/scrollRowIntoView';
 
 /**
  * Imperative handle exposed via ref so a Calendar-driven date open (see
@@ -42,61 +43,6 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
  */
 export interface DailyNotesListHandle {
   scrollToDate(date: ISODate | string): void;
-}
-
-// Walks up from a row to find the nearest actually-scrolling ancestor
-// (Sidebar.View.css's `.view--content`, in practice) without hardcoding
-// that class name — this list doesn't own that container, so it shouldn't
-// assume its selector.
-function getScrollParent(element: HTMLElement): HTMLElement | null {
-  let node = element.parentElement;
-
-  while (node) {
-    const overflowY = getComputedStyle(node).overflowY;
-
-    if (
-      (overflowY === 'auto' || overflowY === 'scroll') &&
-      node.scrollHeight > node.clientHeight
-    ) {
-      return node;
-    }
-
-    node = node.parentElement;
-  }
-
-  return null;
-}
-
-function isFullyVisibleWithin(
-  element: HTMLElement,
-  container: HTMLElement
-): boolean {
-  const elementRect = element.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
-
-  return (
-    elementRect.top >= containerRect.top &&
-    elementRect.bottom <= containerRect.bottom
-  );
-}
-
-// Only moves the scroll position when the row isn't already fully in view —
-// scrollIntoView itself has no "only if needed" mode, it always re-centers.
-function scrollRowIntoView(node: HTMLElement): void {
-  const scrollParent = getScrollParent(node);
-
-  if (scrollParent && isFullyVisibleWithin(node, scrollParent)) {
-    return;
-  }
-
-  const prefersReducedMotion = window.matchMedia(
-    '(prefers-reduced-motion: reduce)'
-  ).matches;
-
-  node.scrollIntoView({
-    block: 'center',
-    behavior: prefersReducedMotion ? 'auto' : 'smooth',
-  });
 }
 
 interface RealMonthSection {

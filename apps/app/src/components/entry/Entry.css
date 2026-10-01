@@ -153,6 +153,25 @@
   cursor: not-allowed;
 }
 
+/*
+ * Temporary "you were just navigated here" flash (e.g. the Tags
+ * sidebar's "Reveal in Clutter" note action) — same two-class
+ * visible/fade-out shape and timing as the Markdown editor's own
+ * `cm-reveal-line`/`cm-reveal-line--visible` (editorRevealHighlight.ts,
+ * MarkdownEditor.css), toggled via plain `classList` calls
+ * (flashRevealHighlight.ts) rather than React state, so it layers onto
+ * whatever this row's real state (selected, hovered) already renders
+ * without owning or replacing it.
+ */
+.entry-reveal-highlight {
+  background-color: transparent;
+  transition: background-color 400ms ease;
+}
+
+.entry-reveal-highlight.entry-reveal-highlight--visible {
+  background-color: var(--md-reveal-highlight-surface);
+}
+
 /* Object type specific classes */
 .section-header {
   font-size: var(--text-label-small);
