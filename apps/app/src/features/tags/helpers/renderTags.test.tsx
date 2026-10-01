@@ -476,6 +476,37 @@ describe('renderTags', () => {
       expect(screen.queryByText('My Note')).toBeNull();
     });
 
+    it.each([
+      ['directly opened', 'n1', true],
+      ['opened via a context entry', null, false],
+    ])('note entry highlight when %s', (_label, directlyOpenedNoteId, expected) => {
+      const note = fakeNote();
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [],
+        getPagesByFrontmatterTag: () => [note],
+      } as unknown as EffectivePageState;
+      const workspace = { activePageId: note.id } as unknown as Workspace;
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            {
+              ...renderOptions,
+              workspace,
+              tagExpansionStore,
+              effectivePageState,
+              directlyOpenedNoteId: directlyOpenedNoteId === null ? null : note.id,
+            }
+          )}
+        </>
+      );
+
+      expect(
+        screen.getByTestId(`sidebar.noteItem.${note.id}`).classList.contains('entry-selected')
+      ).toBe(expected);
+    });
+
     it('a note whose only membership is frontmatter renders as a full note row, not a context entry', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {

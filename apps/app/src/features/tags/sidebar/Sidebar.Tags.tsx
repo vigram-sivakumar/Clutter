@@ -92,6 +92,9 @@ export function Tags({
   // the expanded-tag note list — see the editingId doc comment above.
   const [noteOpenMenuId, setNoteOpenMenuId] = useState<string | null>(null);
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
+  // Which note entry was opened by clicking it directly (vs. via a context
+  // line) — only that entry highlights. See renderTags's directlyOpenedNoteId.
+  const [directlyOpenedNoteId, setDirectlyOpenedNoteId] = useState<string | null>(null);
 
   // The exact same Note-row action handlers (menu, rename, archive,
   // favorite, move, reveal/copy-path) Sidebar.Notes.tsx's own notes
@@ -112,6 +115,7 @@ export function Tags({
   // Frontmatter note-level membership has no body occurrence to reveal —
   // opening it is exactly PageOperations.open(), nothing more.
   const onOpenNoteEntry = (pageId: string): void => {
+    setDirectlyOpenedNoteId(pageId);
     pageOperations.open(pageId);
   };
 
@@ -121,6 +125,7 @@ export function Tags({
   // getTagLineContexts (one context entry's own exact occurrence
   // offsets), never recomputed by a second filter over analysis.tags.
   const onOpenContextEntry = (pageId: string, ranges: readonly SourceRange[]): void => {
+    setDirectlyOpenedNoteId(null);
     pageOperations.open(pageId);
 
     if (ranges.length > 0) {
@@ -147,6 +152,7 @@ export function Tags({
         onOpenTag: (name) => navigation.openTag(name),
         onOpenNoteEntry,
         onOpenContextEntry,
+        directlyOpenedNoteId,
         vault,
         tagExpansionStore,
         workspace,

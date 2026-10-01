@@ -114,6 +114,13 @@ interface RenderTagsOptions {
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
   rowActions?: TagRowActions;
+  /**
+   * The note whose frontmatter note entry was last opened by clicking
+   * that entry itself (not via one of its context lines). Only that
+   * entry highlights as selected; opening the same note through a
+   * context entry leaves every note entry unhighlighted.
+   */
+  directlyOpenedNoteId?: string | null;
 }
 
 const REVEAL_IN_NOTES_SIDEBAR_ITEM_ID = 'reveal-in-notes-sidebar';
@@ -183,6 +190,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     resolveTag,
     resolveEmbed,
     rowActions,
+    directlyOpenedNoteId,
   } = options;
   const menuItems = rowActions ? buildTagSidebarMenu() : undefined;
   const isEditing = rowActions?.editingId === tag.name;
@@ -251,12 +259,10 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                 entry={note}
                 level={1}
                 workspace={workspace}
-                // The Tags sidebar's note entry represents note-level
-                // membership, not "this is the open page" — it must not
-                // light up just because its own sibling context entry
-                // (or anything else) opened this same note elsewhere.
+                // Highlight only when this entry itself was clicked to
+                // open the note, not when a sibling context entry did.
                 // See PageEntry's own highlightActive doc comment.
-                highlightActive={false}
+                highlightActive={directlyOpenedNoteId === note.id}
                 onPageClick={onOpenNoteEntry}
                 // getPagesByFrontmatterTag/getPagesByTag are both
                 // durable-only (see their own doc comments) — a note
