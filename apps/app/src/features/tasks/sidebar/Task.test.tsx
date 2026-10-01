@@ -171,6 +171,28 @@ describe('Task — More Actions menu', () => {
     expect(screen.getByText('Delete')).toBeDefined();
   });
 
+  it('shows the assigned due date trailing the Due date item, and nothing trailing it when unassigned', () => {
+    const { container, rerender } = render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onChangeDueDate={vi.fn()}
+      />
+    );
+
+    openMenu(container);
+
+    expect(screen.getByText('Due date')).toBeDefined();
+    expect(screen.getByText(formatTaskDueDate('2026-09-28'))).toBeDefined();
+
+    rerender(
+      <Task title="Finish table work" isChecked={false} onChangeDueDate={vi.fn()} />
+    );
+
+    expect(screen.queryByText(formatTaskDueDate('2026-09-28'))).toBeNull();
+  });
+
   it('selecting Open in note calls onOpenInNote, not the row\'s own onClick', () => {
     const onClick = vi.fn();
     const onOpenInNote = vi.fn();
@@ -228,7 +250,7 @@ describe('Task — Change due date action', () => {
     expect(document.querySelector('.calendar')).toBeNull();
 
     openMenu(container);
-    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
+    fireEvent.click(screen.getByText('Due date'));
 
     const calendar = document.querySelector('.calendar');
     expect(calendar).not.toBeNull();
@@ -259,7 +281,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
+    fireEvent.click(screen.getByText('Due date'));
 
     // '15' is unambiguous within September 2026's grid — the only
     // outside-month padding days that month shows are Aug 30-31 (leading)
@@ -289,7 +311,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
+    fireEvent.click(screen.getByText('Due date'));
     fireEvent.click(screen.getByRole('button', { name: 'Clear date' }));
 
     expect(onChangeDueDate).toHaveBeenCalledWith(null);

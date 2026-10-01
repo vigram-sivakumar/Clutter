@@ -79,8 +79,9 @@ export function Task({
   if (onChangeDueDate) {
     menuItems.push({
       id: 'change-due-date',
-      label: date ? formatTaskDueDate(date) : 'Due date',
+      label: 'Due date',
       icon: 'calendarDots',
+      trailing: date ? formatTaskDueDate(date) : undefined,
     });
   }
 

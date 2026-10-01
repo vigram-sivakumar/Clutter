@@ -1,5 +1,5 @@
 import { Fragment, useId, useRef, useState } from 'react';
-import type { MutableRefObject, RefObject } from 'react';
+import type { MutableRefObject, ReactNode, RefObject } from 'react';
 
 import { Button } from '@components/button/Button';
 import { ButtonProps } from '@components/button/Button';
@@ -27,6 +27,8 @@ export interface OverflowMenuItemConfig {
   id: string;
   label: string;
   icon: SystemIcon;
+  /** Same as `Entry`/`MenuItem`'s own `trailing` prop — rendered at the row's far right in the muted `.entry__meta` style (e.g. a current value like an assigned date). Omitted renders no trailing content. */
+  trailing?: ReactNode;
   /** Rendered but non-interactive — never omitted from the menu. */
   disabled?: boolean;
   /**
@@ -297,6 +299,7 @@ export function OverflowMenuBody({
               onOpenChange(false);
             }}
             leading={item.icon ? <AppIcon icon={item.icon} /> : undefined}
+            trailing={item.trailing}
           >
             {item.label}
           </MenuItem>
