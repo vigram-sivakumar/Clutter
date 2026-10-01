@@ -44,7 +44,7 @@ describe('buildPageProperties', () => {
   it('exposes exactly Tags, Aliases, Created, Modified, in order', () => {
     const items = buildPageProperties(makePage('note'));
     expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
-    expect(items[0]).toEqual({ name: 'Tags', type: 'multi-select', value: ['a', 'b'] });
+    expect(items[0]).toEqual({ name: 'Tags', type: 'tag', value: ['a', 'b'] });
     expect(items[1]).toEqual({ name: 'Aliases', type: 'multi-select', value: ['Alt'] });
   });
 
@@ -54,13 +54,12 @@ describe('buildPageProperties', () => {
     );
   });
 
-  it('formats timestamps, falls back to raw text, and blanks missing ones', () => {
+  it('assigns semantic types and carries raw date values', () => {
     const items = buildPageProperties(makePage('note', { createdAt: null }));
-    expect(items[2]!.value).toBe('');
+    expect(items.map((i) => i.type)).toEqual(['tag', 'multi-select', 'date', 'date']);
+    expect(items[2]!.value).toBeNull();
     expect(items[3]!.value).toBe('not-a-date');
-    const ok = buildPageProperties(makePage('note'));
-    expect(ok[2]!.value).not.toBe('2026-01-02T03:04:05.000Z');
-    expect(ok[2]!.value).not.toBe('');
+    expect(buildPageProperties(makePage('note'))[2]!.value).toBe('2026-01-02T03:04:05.000Z');
   });
 
   it('treats a missing tags array as empty', () => {

@@ -14,27 +14,21 @@ import type { Page } from '@core/vault/models/Page';
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
  * inline `#tags`. `Aliases` come from the page's parsed analysis. `Created`
- * and `Modified` are system-maintained timestamps, display-only.
+ * and `Modified` are system-maintained `date` properties, display-only;
+ * they carry the raw ISO value and the registry formats it.
+ *
+ * Properties carry semantic `type` + `value` only; icon, formatting and the
+ * future editor are resolved from `core/properties/PropertyTypeRegistry`.
  */
 export function buildPageProperties(page: Page): PropertyListItem[] {
   return [
-    { name: 'Tags', type: 'multi-select', value: page.metadata.tags ?? [] },
+    { name: 'Tags', type: 'tag', value: page.metadata.tags ?? [] },
     {
       name: 'Aliases',
       type: 'multi-select',
       value: page.analysis.aliases.map((alias) => alias.value),
     },
-    { name: 'Created', type: 'text', value: formatTimestamp(page.metadata.createdAt) },
-    { name: 'Modified', type: 'text', value: formatTimestamp(page.metadata.updatedAt) },
+    { name: 'Created', type: 'date', value: page.metadata.createdAt },
+    { name: 'Modified', type: 'date', value: page.metadata.updatedAt },
   ];
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) {
-    return '';
-  }
-
-  const date = new Date(iso);
-
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }

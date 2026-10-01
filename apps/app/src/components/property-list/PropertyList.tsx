@@ -1,29 +1,12 @@
-import type { ReactNode } from 'react';
-
 import { Checkbox } from '@components/checkbox/Checkbox';
-import type { PropertyType } from '@core/properties/Property.types';
+import type { Property } from '@core/properties/Property.types';
 import { Entry } from '@components/entry/Entry';
-import { propertyTypeIcons } from '@core/properties/PropertyTypeIcons';
+import { propertyTypeRegistry } from '@core/properties/PropertyTypeRegistry';
 import { AppIcon } from '@shared/icon';
 
 import './PropertyList.css';
 
-type PropertyListItem =
-  | {
-      name: string;
-      type: 'url';
-      value: string;
-    }
-  | {
-      name: string;
-      type: 'multi-select';
-      value: readonly string[];
-    }
-  | {
-      name: string;
-      type: Exclude<PropertyType, 'url' | 'multi-select'>;
-      value: ReactNode;
-    };
+type PropertyListItem = Property;
 
 interface PropertyListProps {
   items: PropertyListItem[];
@@ -31,27 +14,29 @@ interface PropertyListProps {
 }
 
 function renderPropertyValue(item: PropertyListItem) {
-  if (item.type === 'url') {
-    return (
-      <a href={item.value} target="_blank" rel="noopener noreferrer">
-        {item.value}
-      </a>
-    );
+  switch (item.type) {
+    case 'url':
+      return (
+        <a href={item.value} target="_blank" rel="noopener noreferrer">
+          {item.value}
+        </a>
+      );
+    case 'tag':
+    case 'multi-select':
+      return item.value.map((entry) => (
+        <span key={entry} className="property-list__chip">
+          {entry}
+        </span>
+      ));
+    case 'boolean':
+      return <Checkbox isChecked={item.value} />;
+    case 'text':
+      return propertyTypeRegistry.text.format(item.value);
+    case 'date':
+      return propertyTypeRegistry.date.format(item.value);
+    case 'number':
+      return propertyTypeRegistry.number.format(item.value);
   }
-
-  if (item.type === 'multi-select') {
-    return item.value.map((entry) => (
-      <span key={entry} className="property-list__chip">
-        {entry}
-      </span>
-    ));
-  }
-
-  if (item.type === 'boolean') {
-    return <Checkbox isChecked={item.value === true} />;
-  }
-
-  return item.value;
 }
 
 export type { PropertyListItem };
@@ -72,7 +57,7 @@ export function PropertyList({ items, className }: PropertyListProps) {
             leading={
               <AppIcon
                 className="property__icon"
-                icon={propertyTypeIcons[item.type]}
+                icon={propertyTypeRegistry[item.type].icon}
               />
             }
           >
