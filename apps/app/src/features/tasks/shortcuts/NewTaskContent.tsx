@@ -34,6 +34,7 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
         </Button>
       </div>
       <Input
+        className="new-task__input"
         value={title}
         placeholder="Task title"
         autoFocus

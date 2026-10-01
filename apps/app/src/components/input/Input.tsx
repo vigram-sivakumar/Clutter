@@ -10,19 +10,24 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       trailing,
       hasBackground = true,
       hasBorder = true,
+      className,
       ...inputProps
     },
     ref
   ) => {
-    const className = [
+    // Applied to the wrapper, not the native <input> — pulled out of
+    // inputProps so a caller's className can't silently clobber the
+    // "input__field" class the inner <input> needs for its own styling.
+    const wrapperClassName = [
       'input',
       hasBackground && 'input--background',
       hasBorder && 'input--border',
+      className,
     ]
       .filter(Boolean)
       .join(' ');
     return (
-      <div className={className}>
+      <div className={wrapperClassName}>
         {leading && <div className="input__leading">{leading}</div>}
 
         <input ref={ref} className="input__field" {...inputProps} />

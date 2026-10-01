@@ -25,3 +25,11 @@
   font-weight: var(--fw-bold);
   color: var(--foreground-primary);
 }
+
+.new-task__input {
+  padding-inline: 0;
+}
+
+.new-task__input .input__field {
+  font-size: var(--text-body-small);
+}
