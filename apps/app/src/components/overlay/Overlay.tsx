@@ -55,6 +55,7 @@ export function Overlay(props: OverlayProps) {
   const centeredPosition = useOverlayCenteredPosition({
     open: open && isCentered,
     surfaceRef,
+    top: isCentered ? props.top : undefined,
   });
 
   const overlayLayout = isCentered ? centeredPosition : anchoredPosition;

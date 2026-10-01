@@ -51,6 +51,15 @@ export interface AnchoredOverlayProps extends OverlayBaseProps {
 
 export interface CenteredOverlayProps extends OverlayBaseProps {
   position: 'centered';
+  /**
+   * Fixed distance in px from the viewport's top edge, in place of this
+   * overlay's default true vertical center. Horizontal centering is
+   * unaffected. Still clamped the same way the default centered position
+   * is — see `useOverlayCenteredPosition` — so a window too short for both
+   * this value and the overlay's own height never crops it; it's pulled
+   * back down to fit instead.
+   */
+  top?: number;
 }
 
 export type OverlayProps = AnchoredOverlayProps | CenteredOverlayProps;

@@ -6,6 +6,8 @@ import type { OverlayLayout } from '../Overlay.types';
 interface UseOverlayCenteredPositionOptions {
   open: boolean;
   surfaceRef: RefObject<HTMLDivElement>;
+  /** See `CenteredOverlayProps.top`'s own doc comment. */
+  top?: number;
 }
 
 const COLLISION_PADDING = 8;
@@ -24,6 +26,7 @@ function clamp(value: number, min: number, max: number): number {
 export function useOverlayCenteredPosition({
   open,
   surfaceRef,
+  top,
 }: UseOverlayCenteredPositionOptions): OverlayLayout {
   const [position, setPosition] = useState<OverlayLayout>(INITIAL_POSITION);
 
@@ -48,12 +51,10 @@ export function useOverlayCenteredPosition({
       viewportHeight - overlayRect.height - COLLISION_PADDING
     );
 
+    const desiredTop = top ?? (viewportHeight - overlayRect.height) / 2;
+
     const nextPosition: OverlayLayout = {
-      top: clamp(
-        (viewportHeight - overlayRect.height) / 2,
-        COLLISION_PADDING,
-        maxTop
-      ),
+      top: clamp(desiredTop, COLLISION_PADDING, maxTop),
       left: clamp(
         (viewportWidth - overlayRect.width) / 2,
         COLLISION_PADDING,
@@ -72,7 +73,7 @@ export function useOverlayCenteredPosition({
 
       return positionHasChanged ? nextPosition : currentPosition;
     });
-  }, [surfaceRef]);
+  }, [surfaceRef, top]);
 
   useLayoutEffect(() => {
     if (!open) {
