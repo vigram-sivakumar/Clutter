@@ -1,3 +1,10 @@
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import type { Folder } from '@core/vault/models';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
@@ -25,11 +32,72 @@ import type {
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
-// The Workspace session-state id for the "All Daily Notes" collapsible
-// section (see Workspace.collapsedSectionIds) — seeded collapsed there by
-// default, unlike every other section id, so Daily Notes shows only the
-// current month on first render each session.
-const ALL_DAILY_NOTES_SECTION_ID = 'daily-notes-all';
+/**
+ * Imperative handle exposed via ref so a Calendar-driven date open (see
+ * Sidebar.DailyNotes.tsx) can bring the corresponding row into view after
+ * opening it — the calendar and this list are independent siblings with no
+ * other shared channel (see DailyNotesShortcuts.tsx), so this is the one
+ * seam for that coordination rather than threading scroll state through
+ * Workspace or a prop both sides would need to poll.
+ */
+export interface DailyNotesListHandle {
+  scrollToDate(date: ISODate | string): void;
+}
+
+// Walks up from a row to find the nearest actually-scrolling ancestor
+// (Sidebar.View.css's `.view--content`, in practice) without hardcoding
+// that class name — this list doesn't own that container, so it shouldn't
+// assume its selector.
+function getScrollParent(element: HTMLElement): HTMLElement | null {
+  let node = element.parentElement;
+
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+
+    if (
+      (overflowY === 'auto' || overflowY === 'scroll') &&
+      node.scrollHeight > node.clientHeight
+    ) {
+      return node;
+    }
+
+    node = node.parentElement;
+  }
+
+  return null;
+}
+
+function isFullyVisibleWithin(
+  element: HTMLElement,
+  container: HTMLElement
+): boolean {
+  const elementRect = element.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+
+  return (
+    elementRect.top >= containerRect.top &&
+    elementRect.bottom <= containerRect.bottom
+  );
+}
+
+// Only moves the scroll position when the row isn't already fully in view —
+// scrollIntoView itself has no "only if needed" mode, it always re-centers.
+function scrollRowIntoView(node: HTMLElement): void {
+  const scrollParent = getScrollParent(node);
+
+  if (scrollParent && isFullyVisibleWithin(node, scrollParent)) {
+    return;
+  }
+
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+
+  node.scrollIntoView({
+    block: 'center',
+    behavior: prefersReducedMotion ? 'auto' : 'smooth',
+  });
+}
 
 interface RealMonthSection {
   monthFolder: Folder;
@@ -221,19 +289,41 @@ function formatMonthSectionTitle(monthIsoDate: ISODate): string {
     : formatDate(monthIsoDate, 'monthYear');
 }
 
-export function DailyNotesList({
-  vault,
-  query,
-  membershipSelector,
-  workspace,
-  onOpen,
-  onOpenDraft,
-  onOpenDate,
-  rowActions,
-  resolveWikiLink,
-  resolveTag,
-  resolveEmbed,
-}: DailyNotesListProps) {
+export const DailyNotesList = forwardRef<
+  DailyNotesListHandle,
+  DailyNotesListProps
+>(function DailyNotesList(
+  {
+    vault,
+    query,
+    membershipSelector,
+    workspace,
+    onOpen,
+    onOpenDraft,
+    onOpenDate,
+    rowActions,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+  },
+  ref
+) {
+  // Row DOM nodes keyed by date (entry.name), so scrollToDate can find a
+  // row without every row needing an id/ref prop threaded in from outside.
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  // A date scrollToDate couldn't reach yet because its section was still
+  // collapsed — expanding is a state update, so the row doesn't exist in
+  // rowRefs until the next render; the effect below picks this up once it
+  // does.
+  const pendingScrollDateRef = useRef<string | null>(null);
+
+  // Local, not Workspace-backed: switching sidebar tabs unmounts this
+  // component (Sidebar.tsx renders only the active tab's panel), so these
+  // reset to collapsed on every remount rather than persisting for the
+  // session the way Workspace.collapsedSectionIds does for other sections.
+  const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
+  const [isEarlierExpanded, setIsEarlierExpanded] = useState(false);
+
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
   for (const { monthFolder, monthIsoDate } of collectRealMonthSections(
@@ -298,15 +388,13 @@ export function DailyNotesList({
   }
 
   // Months run oldest to newest (a month heading is only a visual marker at
-  // each month boundary, never an independent ordering container), but days
-  // within a month run newest to oldest — the most recent note in a month
-  // is the one most likely to be reopened, so it sits closest to the
-  // section boundary. No current-month/current-year/other-years
-  // partitioning.
+  // each month boundary, never an independent ordering container), and days
+  // within a month now run the same direction — oldest to newest. No
+  // current-month/current-year/other-years partitioning.
   const sections = sortRenderedSections(Array.from(sectionsByMonth.values()))
     .map((section) => ({
       ...section,
-      pages: section.pages.sort((a, b) => b.name.localeCompare(a.name)),
+      pages: section.pages.sort((a, b) => a.name.localeCompare(b.name)),
     }))
     // A month section with no Daily Notes in it has nothing to show — a
     // permanent presentation rule, independent of how the month folder
@@ -316,114 +404,187 @@ export function DailyNotesList({
 
   // The calendar above this list already identifies the current month, so
   // its rows render directly, unheaded — "current" is a lookup against the
-  // chronological timeline, not a sorting rule. Every other month goes
-  // under "All Daily Notes", in the same chronological order the timeline
-  // already produced (a plain filter, not a second sort/partition).
+  // chronological timeline, not a sorting rule. Months after it are
+  // "Upcoming" (kept in the timeline's ascending order, so the nearest
+  // future month is first); months before it are "Earlier" (reversed from
+  // the timeline's ascending order, so the nearest past month is first).
   const currentMonthSection = sections.find(
     (section) => section.monthIsoDate === currentMonthIso
   );
-  const otherSections = sections.filter(
-    (section) => section !== currentMonthSection
+  const upcomingSections = sections.filter(
+    (section) => section.monthIsoDate > currentMonthIso
   );
+  const earlierSections = sections
+    .filter((section) => section.monthIsoDate < currentMonthIso)
+    .reverse();
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToDate(date: string) {
+        const needsUpcomingExpand =
+          !isUpcomingExpanded &&
+          upcomingSections.some((section) =>
+            section.pages.some((page) => page.name === date)
+          );
+        const needsEarlierExpand =
+          !isEarlierExpanded &&
+          earlierSections.some((section) =>
+            section.pages.some((page) => page.name === date)
+          );
+
+        if (needsUpcomingExpand || needsEarlierExpand) {
+          // The row for `date` doesn't exist in rowRefs until the expand
+          // triggered below has rendered it — the effect that watches
+          // pendingScrollDateRef finishes the job once it does.
+          pendingScrollDateRef.current = date;
+
+          if (needsUpcomingExpand) {
+            setIsUpcomingExpanded(true);
+          }
+
+          if (needsEarlierExpand) {
+            setIsEarlierExpanded(true);
+          }
+
+          return;
+        }
+
+        const node = rowRefs.current.get(date);
+
+        if (node) {
+          scrollRowIntoView(node);
+        }
+      },
+    }),
+    [upcomingSections, earlierSections, isUpcomingExpanded, isEarlierExpanded]
+  );
+
+  useEffect(() => {
+    const date = pendingScrollDateRef.current;
+
+    if (!date) {
+      return;
+    }
+
+    const node = rowRefs.current.get(date);
+
+    if (node) {
+      pendingScrollDateRef.current = null;
+      scrollRowIntoView(node);
+    }
+  });
+
+  const renderMonthSections = (monthSections: RenderedMonthSection[]) =>
+    monthSections.map((section) => {
+      const key = section.monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
+
+      return (
+        <Section
+          key={key}
+          hasHeader
+          title={formatMonthSectionTitle(section.monthIsoDate)}
+        >
+          {renderPages(section.pages)}
+        </Section>
+      );
+    });
 
   const renderPages = (pages: TimelineEntry[]) =>
     pages.map((entry) => {
       const label = getPageDisplayLabel(entry);
 
       return (
-        <DailyNote
+        <div
           key={entry.id}
-          title={label.text}
-          titleStyle={getPageDisplayLabelStyle(label)}
-          resolveWikiLink={resolveWikiLink}
-          resolveTag={resolveTag}
-          resolveEmbed={resolveEmbed}
-          date={entry.name}
-          isToday={isToday(entry.name)}
-          selected={workspace.activePageId === entry.id}
-          onClick={() => {
-            if (entry.isVirtual) {
-              return onOpenDate(entry.name);
+          ref={(node) => {
+            if (node) {
+              rowRefs.current.set(entry.name, node);
+            } else {
+              rowRefs.current.delete(entry.name);
             }
-
-            return entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id);
           }}
-          menuItems={
-            rowActions && !entry.isVirtual
-              ? buildDailyNoteSidebarMenu(entry.isDraft)
-              : undefined
-          }
-          menuOpen={rowActions?.openMenuId === entry.id}
-          onMenuOpenChange={
-            rowActions && !entry.isVirtual
-              ? (open) =>
-                  open
-                    ? rowActions.onOpenMenu(entry.id)
-                    : rowActions.onCloseMenu()
-              : undefined
-          }
-          onMenuSelect={
-            rowActions && !entry.isVirtual
-              ? (id) => {
-                  if (id === 'archive') {
-                    rowActions.onArchiveNote(entry.id);
-                  } else if (id === 'reveal-in-finder') {
-                    rowActions.onRevealPageInFinder(entry.id);
-                  } else if (id === 'copy-path-at-vault') {
-                    rowActions.onCopyPagePath(entry.id, 'at-vault');
-                  } else if (id === 'copy-path-full-path') {
-                    rowActions.onCopyPagePath(entry.id, 'full-path');
-                  } else if (id === 'copy-path-as-markdown') {
-                    rowActions.onCopyPagePath(entry.id, 'as-markdown');
+        >
+          <DailyNote
+            key={entry.id}
+            title={label.text}
+            titleStyle={getPageDisplayLabelStyle(label)}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
+            resolveEmbed={resolveEmbed}
+            date={entry.name}
+            isToday={isToday(entry.name)}
+            selected={workspace.activePageId === entry.id}
+            onClick={() => {
+              if (entry.isVirtual) {
+                return onOpenDate(entry.name);
+              }
+
+              return entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id);
+            }}
+            menuItems={
+              rowActions && !entry.isVirtual
+                ? buildDailyNoteSidebarMenu(entry.isDraft)
+                : undefined
+            }
+            menuOpen={rowActions?.openMenuId === entry.id}
+            onMenuOpenChange={
+              rowActions && !entry.isVirtual
+                ? (open) =>
+                    open
+                      ? rowActions.onOpenMenu(entry.id)
+                      : rowActions.onCloseMenu()
+                : undefined
+            }
+            onMenuSelect={
+              rowActions && !entry.isVirtual
+                ? (id) => {
+                    if (id === 'archive') {
+                      rowActions.onArchiveNote(entry.id);
+                    } else if (id === 'reveal-in-finder') {
+                      rowActions.onRevealPageInFinder(entry.id);
+                    } else if (id === 'copy-path-at-vault') {
+                      rowActions.onCopyPagePath(entry.id, 'at-vault');
+                    } else if (id === 'copy-path-full-path') {
+                      rowActions.onCopyPagePath(entry.id, 'full-path');
+                    } else if (id === 'copy-path-as-markdown') {
+                      rowActions.onCopyPagePath(entry.id, 'as-markdown');
+                    }
                   }
-                }
-              : undefined
-          }
-        />
+                : undefined
+            }
+          />
+        </div>
       );
     });
 
   return (
-    <>
-      {currentMonthSection && (
-        <Section>
-          {renderPages(currentMonthSection.pages)}
+    <Section>
+      {isEarlierExpanded && renderMonthSections(earlierSections)}
 
-          {otherSections.length > 0 && (
-            <Entry
-              className="tertiary"
-              leading={<AppIcon icon="moreHorizontal" />}
-              onClick={() =>
-                workspace.toggleSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
-              }
-            >
-              {workspace.isSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
-                ? 'See less'
-                : 'See more'}
-            </Entry>
-          )}
-        </Section>
+      {earlierSections.length > 0 && (
+        <Entry
+          className="tertiary"
+          leading={<AppIcon icon="arrowUp" />}
+          onClick={() => setIsEarlierExpanded((expanded) => !expanded)}
+        >
+          {isEarlierExpanded ? 'Hide earlier' : 'Show earlier'}
+        </Entry>
       )}
 
-      {otherSections.length > 0 &&
-        workspace.isSectionExpanded(ALL_DAILY_NOTES_SECTION_ID) && (
-          <Section>
-            {otherSections.map((section) => {
-              const key =
-                section.monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
+      {currentMonthSection && renderPages(currentMonthSection.pages)}
 
-              return (
-                <Section
-                  key={key}
-                  hasHeader
-                  title={formatMonthSectionTitle(section.monthIsoDate)}
-                >
-                  {renderPages(section.pages)}
-                </Section>
-              );
-            })}
-          </Section>
-        )}
-    </>
+      {upcomingSections.length > 0 && (
+        <Entry
+          className="tertiary"
+          leading={<AppIcon icon="arrowDown" />}
+          onClick={() => setIsUpcomingExpanded((expanded) => !expanded)}
+        >
+          {isUpcomingExpanded ? 'Hide upcoming' : 'Show upcoming'}
+        </Entry>
+      )}
+
+      {isUpcomingExpanded && renderMonthSections(upcomingSections)}
+    </Section>
   );
-}
+});

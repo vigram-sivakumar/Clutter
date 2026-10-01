@@ -124,18 +124,8 @@ export class Workspace implements Observable {
    * node kinds, and merging them risks an id collision (e.g. a folder
    * literally named "favorites") for no benefit. Same shape and default
    * (expanded unless explicitly collapsed) as collapsedFolderIds.
-   *
-   * "daily-notes-all" (the Daily Notes sidebar's "All Daily Notes" section)
-   * is seeded here collapsed by default, unlike every other id this class
-   * tracks — Daily Notes should show only the current month on first
-   * render each session. Toggling it is a normal collapsedSectionIds
-   * mutation from there on: it stays however the user left it for the rest
-   * of this session (surviving sidebar tab switches, since Workspace
-   * outlives DailyNotesList's mount), and resets to collapsed only when a
-   * new Workspace is constructed (app restart) — this class is never
-   * persisted to disk.
    */
-  private readonly collapsedSectionIds = new Set<string>(['daily-notes-all']);
+  private readonly collapsedSectionIds = new Set<string>();
 
   /**
    * Which sidebar tab (Daily Notes/Notes/Tasks/Tags/Search) is currently

@@ -1,13 +1,15 @@
 .is-completed {
   color: var(--foreground-tertiary);
-  text-decoration: line-through;
+}
+.task-title.is-completed .compact-markdown * {
+  color: var(--foreground-tertiary) !important;
 }
 .task__due-date {
   font-size: var(--text-label-small);
   min-width: 40px;
   text-align: right;
 }
-.is-overdue {
+/* .is-overdue {
   color: var(--calendar-accent);
   opacity: var(--opacity-subtle);
-}
+} */

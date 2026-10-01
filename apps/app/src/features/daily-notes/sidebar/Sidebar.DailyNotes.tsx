@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { DailyNotesShortcuts } from '@features/daily-notes/shortcuts/DailyNotesShortcuts';
 import type { Vault } from '@core/vault/models';
@@ -19,7 +19,11 @@ import {
   pickLocationPathRepresentation,
 } from '@core/presentation/getLocationPathRepresentations';
 
-import { DailyNotesList, type DailyNoteRowActions } from './DailyNotesList';
+import {
+  DailyNotesList,
+  type DailyNoteRowActions,
+  type DailyNotesListHandle,
+} from './DailyNotesList';
 
 interface DailyNotesPanelProps {
   vault: Vault;
@@ -55,6 +59,18 @@ export function DailyNotes({
   // in this tab so only one menu is ever open at a time.
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+  // The Calendar (inside DailyNotesShortcuts, below) and the list are
+  // independent siblings in this tree with no other shared channel — this
+  // ref is the one seam that lets a calendar date click, after opening the
+  // note exactly as it already did, also bring that row into view in the
+  // list beneath it.
+  const dailyNotesListRef = useRef<DailyNotesListHandle>(null);
+
+  const handleCalendarOpenDate = (date: string) => {
+    onOpenDate(date);
+    dailyNotesListRef.current?.scrollToDate(date);
+  };
+
   const rowActions: DailyNoteRowActions = {
     openMenuId,
     onOpenMenu: (id) => setOpenMenuId(id),
@@ -77,7 +93,11 @@ export function DailyNotes({
         return;
       }
 
-      const representations = getLocationPathRepresentations(page, 'page', vault.root);
+      const representations = getLocationPathRepresentations(
+        page,
+        'page',
+        vault.root
+      );
       const value = pickLocationPathRepresentation(representations, format);
 
       if (value !== null) {
@@ -89,17 +109,26 @@ export function DailyNotes({
   // Same composition PageHost.tsx/Sidebar.Notes.tsx use to inject the page
   // editor's own WikiLink/Tag/embed resolution — cheap, stateless glue, not
   // worth memoizing (resolveTag.ts/resolveWikiLink.ts/resolvePageEmbed.ts).
-  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations);
+  const resolveWikiLink = createWikiLinkResolver(
+    vault,
+    pageOperations,
+    folderOperations
+  );
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
 
   return (
     <View
       navigation={
-        <DailyNotesShortcuts vault={vault} activeDate={activeDate} onOpenDate={onOpenDate} />
+        <DailyNotesShortcuts
+          vault={vault}
+          activeDate={activeDate}
+          onOpenDate={handleCalendarOpenDate}
+        />
       }
     >
       <DailyNotesList
+        ref={dailyNotesListRef}
         vault={vault}
         query={query}
         membershipSelector={membershipSelector}
