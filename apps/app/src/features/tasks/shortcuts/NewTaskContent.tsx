@@ -4,6 +4,7 @@ import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { TaskDatePicker } from '@features/tasks/sidebar/TaskDatePicker';
+import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
 
 import './NewTaskContent.css';
 
@@ -67,7 +68,7 @@ export function NewTaskContent({
           leading={<AppIcon icon="calendarDots" />}
           onClick={datePicker.toggle}
         >
-          {dueDate ?? 'Due date'}
+          {dueDate ? formatTaskDueDate(dueDate) : 'Due date'}
         </Button>
         <Button
           className="new-task__create-button"
