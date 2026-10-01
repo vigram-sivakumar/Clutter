@@ -93,9 +93,25 @@ describe('MarkdownEditor imperative focus handle', () => {
   });
 
   // Tasks sidebar "Open in note" navigation (TaskOccurrence.startOffset/
-  // endOffset) — see PendingTaskReveal/PageHost's own doc comments.
+  // endOffset) — see PendingTaskReveal/PageHost's own doc comments. Must
+  // never create an EditorSelection over the task text: a selection is
+  // live editing state, so typing immediately after navigation would
+  // replace the task instead of inserting at the user's real cursor — the
+  // prior implementation's actual bug (see taskRevealHighlight.ts's own
+  // doc comment). The visual cue is a purely-rendering `Decoration.line`
+  // instead, asserted here via its `cm-task-reveal-line` DOM class.
   describe('revealRange()', () => {
-    it('moves the selection to the given range and focuses the editor', () => {
+    function lineFor(view: EditorView, pos: number): HTMLElement {
+      const lineEls = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+      const lineIndex = view.state.doc.lineAt(pos).number - 1;
+      const lineEl = lineEls[lineIndex];
+      if (!lineEl) {
+        throw new Error(`expected a .cm-line at index ${lineIndex}`);
+      }
+      return lineEl;
+    }
+
+    it('never selects the task text, and focuses the editor without disturbing the existing selection', () => {
       const ref = createRef<MarkdownEditorHandle>();
       const content = '- [ ] Buy groceries\n- [ ] Finish report\n- [ ] Buy groceries';
       const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown={content} />);
@@ -107,11 +123,35 @@ describe('MarkdownEditor imperative focus handle', () => {
       const secondOccurrence = { from: 40, to: 59 };
       expect(content.slice(secondOccurrence.from, secondOccurrence.to)).toBe('- [ ] Buy groceries');
 
+      const selectionBefore = view.state.selection.main;
+
       ref.current?.revealRange(secondOccurrence.from, secondOccurrence.to);
 
-      expect(view.state.selection.main.from).toBe(secondOccurrence.from);
-      expect(view.state.selection.main.to).toBe(secondOccurrence.to);
+      // Selection is byte-for-byte unchanged — `revealRange` never
+      // dispatches a `selection` field at all.
+      expect(view.state.selection.main.from).toBe(selectionBefore.from);
+      expect(view.state.selection.main.to).toBe(selectionBefore.to);
       expect(document.activeElement).toBe(view.contentDOM);
+
+      // The second occurrence's own line (not the first, textually
+      // identical one) carries the temporary highlight instead.
+      expect(lineFor(view, secondOccurrence.from).className).toContain('cm-task-reveal-line');
+      expect(lineFor(view, 0).className).not.toContain('cm-task-reveal-line');
+    });
+
+    it('typing immediately after navigation inserts at the real cursor instead of replacing the task', () => {
+      const ref = createRef<MarkdownEditorHandle>();
+      const content = '- [ ] Buy groceries\n- [ ] Finish report';
+      const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown={content} />);
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      // Cursor starts at the end of the document (fresh-open default).
+      const cursorBefore = view.state.selection.main.head;
+
+      ref.current?.revealRange(0, 19);
+      view.dispatch({ changes: { from: cursorBefore, insert: 'X' } });
+
+      expect(view.state.doc.toString()).toBe(content.slice(0, cursorBefore) + 'X' + content.slice(cursorBefore));
     });
 
     it('clamps an out-of-range offset to the document length instead of throwing', () => {
@@ -121,8 +161,7 @@ describe('MarkdownEditor imperative focus handle', () => {
 
       expect(() => ref.current?.revealRange(500, 520)).not.toThrow();
 
-      expect(view.state.selection.main.from).toBe(view.state.doc.length);
-      expect(view.state.selection.main.to).toBe(view.state.doc.length);
+      expect(lineFor(view, view.state.doc.length).className).toContain('cm-task-reveal-line');
     });
 
     it('is a no-op when the editor is not mounted', () => {

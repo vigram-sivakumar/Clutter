@@ -23,6 +23,7 @@ import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
 import { createInlineLivePreviewParticipants } from './highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './highlight/inlineLivePreviewRegion';
 import { leadingIndentDecoration } from './highlight/leadingIndentDecoration';
+import { taskRevealHighlight } from './highlight/taskRevealHighlight';
 import { linkMouseHandlers } from './link/linkMouseHandlers';
 import { urlMouseHandlers } from './link/urlMouseHandlers';
 import { urlPasteChoiceField } from './link/urlPaste/urlPasteChoiceState';
@@ -455,6 +456,10 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     tableHandleMenuSync(() => onOpenTableHandleMenu?.()),
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
+    // Editable-only: `MarkdownEditor.tsx`'s `revealRange` (Tasks sidebar's
+    // "Open in note") is only ever called against the top-level editable
+    // view, never a note embed's read-only nested one.
+    taskRevealHighlight(),
     ...rendering,
     // The trigger itself only opens a menu, but every one of its current
     // menu items (Format code, Change Language, Download, Remove) mutates

@@ -39,6 +39,7 @@ import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
+import { setTaskRevealHighlight } from './codemirror/highlight/taskRevealHighlight';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
 import type { OnOpenPdfMenu, OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
@@ -1210,6 +1211,22 @@ export const MarkdownEditor = forwardRef<
       });
       view.focus();
     },
+    // Never an EditorSelection — the prior implementation selected the
+    // task's text, which made the selection live editing state: typing
+    // immediately after navigation replaced the task instead of inserting
+    // at the user's actual cursor. This leaves `state.selection` completely
+    // untouched (so normal cursor placement/typing continues exactly as
+    // before) and shows the task's position with a purely-visual, self-
+    // expiring `Decoration.line` instead (`taskRevealHighlight.ts`).
+    //
+    // Scrolling is a plain DOM `scrollTop` write on the real scrolling
+    // ancestor, not CM6's own `EditorView.scrollIntoView` effect — this
+    // view's `.cm-scroller` is `overflow: visible` (see
+    // `findScrollableAncestor`'s own doc comment above), so CM6's built-in
+    // scroll-into-view has no visible effect in this app's actual layout;
+    // the ancestor found at mount time is the element that really scrolls.
+    // Skipped entirely when the task's line is already on screen, per the
+    // product spec's "don't unnecessarily jump the document" requirement.
     revealRange(from, to) {
       const view = viewRef.current;
       if (!view) {
@@ -1218,10 +1235,24 @@ export const MarkdownEditor = forwardRef<
       const docLength = view.state.doc.length;
       const safeFrom = Math.min(Math.max(from, 0), docLength);
       const safeTo = Math.min(Math.max(to, safeFrom), docLength);
-      view.dispatch({
-        selection: EditorSelection.range(safeFrom, safeTo),
-        effects: EditorView.scrollIntoView(safeFrom, { y: 'center' }),
-      });
+      const line = view.state.doc.lineAt(safeFrom);
+
+      const scrollAncestor = scrollAncestorRef.current;
+      if (scrollAncestor) {
+        const ancestorRect = scrollAncestor.getBoundingClientRect();
+        const lineCoords = view.coordsAtPos(line.from);
+        const alreadyVisible =
+          !!lineCoords && lineCoords.top >= ancestorRect.top && lineCoords.bottom <= ancestorRect.bottom;
+        if (lineCoords && !alreadyVisible) {
+          const lineCenter = (lineCoords.top + lineCoords.bottom) / 2;
+          const ancestorCenter = (ancestorRect.top + ancestorRect.bottom) / 2;
+          const targetScrollTop = scrollAncestor.scrollTop + (lineCenter - ancestorCenter);
+          scrollAncestor.scrollTop = Math.max(0, targetScrollTop);
+          lastKnownScrollTopRef.current = scrollAncestor.scrollTop;
+        }
+      }
+
+      view.dispatch({ effects: setTaskRevealHighlight.of({ from: safeFrom, to: safeTo }) });
       view.focus();
     },
   }));

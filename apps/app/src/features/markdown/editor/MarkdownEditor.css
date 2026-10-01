@@ -1972,3 +1972,22 @@
   user-select: none;
   cursor: pointer;
 }
+
+/*
+ * Temporary "Open in note" task-reveal line flash
+ * (`codemirror/highlight/taskRevealHighlight.ts`). `background-color` only
+ * — never `margin` on this `Decoration.line` class, per this file's own
+ * permanent CM6 margin rule (CLAUDE.md): a `.cm-line`-level `margin` has
+ * twice been confirmed, via direct interactive testing, to corrupt CM6's
+ * own cursor/navigation bookkeeping, while `background-color` (like every
+ * other line decoration here — `.cm-quote-line`, list hanging indent,
+ * fenced-code background) never touches layout at all. `Decoration.line`
+ * toggles this class on the line's existing DOM node rather than replacing
+ * it, so `transition` animates the fade-out when `clearTaskRevealHighlight`
+ * removes the class; there is no corresponding fade-in — the highlight is
+ * simply present from the instant `revealRange` applies it.
+ */
+.cm-editor .cm-task-reveal-line {
+  background-color: var(--md-task-reveal-surface);
+  transition: background-color 400ms ease;
+}
