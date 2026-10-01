@@ -267,15 +267,15 @@ function renderList(
   );
 }
 
-// The "other months" group is collapsed by default (Workspace seeds it
-// that way) — tests that need to look inside it expand it via the "See
-// more" row first, the only way a user can. This replaced an earlier
-// design with its own "All Daily Notes" collapsible section header +
-// caret; the current UI (responsive-sidebar work) is a flat chronological
-// timeline with a single "See more"/"See less" toggle row instead — no
-// wrapping header, no caret, one plain click target.
-function expandAllDailyNotes() {
-  fireEvent.click(screen.getByText('See more'));
+// Past and future months start collapsed behind the "Show earlier" /
+// "Show upcoming" rows (DailyNotesSidebarState's defaults) — tests that
+// need to look inside them click those rows first, the only way a user can.
+function showEarlier() {
+  fireEvent.click(screen.getByText('Show earlier'));
+}
+
+function showUpcoming() {
+  fireEvent.click(screen.getByText('Show upcoming'));
 }
 
 describe('DailyNotesList — empty month sections', () => {
@@ -293,10 +293,10 @@ describe('DailyNotesList — empty month sections', () => {
     renderList({ vault, query, membershipSelector, workspace });
 
     // Nothing else is populated (besides the virtual Today entry, in the
-    // current month) — there are no other months to group, so the "See
-    // more" toggle row itself doesn't render at all.
+    // current month) — the empty past month counts as no earlier month at
+    // all, so the "Show earlier" row itself doesn't render.
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
-    expect(screen.queryByText('See more')).toBeNull();
+    expect(screen.queryByText('Show earlier')).toBeNull();
   });
 
   it('renders the current month\'s Daily Notes with no month heading', () => {
@@ -450,7 +450,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
     expect(screen.getAllByText('Start typing...')).toHaveLength(3);
   });
 
-  it('an unplaced (folder-less) past month renders inside "All Daily Notes" with a plain, non-interactive heading', async () => {
+  it('an unplaced (folder-less) past month renders under "Show earlier" with a plain, non-interactive heading', async () => {
     const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
 
     const pastMonthIso = addMonths(TODAY, -1);
@@ -466,15 +466,15 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
 
     renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft });
 
-    expandAllDailyNotes();
+    showEarlier();
 
     const pastHeader = screen
       .getByText(monthNameOf(pastMonthIso), { exact: false })
       .closest('.section-header') as HTMLElement;
 
     // No collapse caret, and the header itself isn't an interactive row —
-    // per-month collapse/click-to-open was removed; only "All Daily Notes"
-    // itself is collapsible.
+    // per-month collapse/click-to-open was removed; only the Earlier/
+    // Upcoming groups as a whole expand and collapse.
     expect(pastHeader.querySelector('.section-header__caret')).toBeNull();
     expect(pastHeader.closest('.entry-interactive')).toBeNull();
 
@@ -571,7 +571,7 @@ describe('DailyNotesList — each Daily Note date keeps its own stable draft (Pa
   });
 });
 
-describe('DailyNotesList — current month vs. All Daily Notes (no partitioning logic)', () => {
+describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
   it('the current month renders with no heading, directly under the calendar', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
@@ -587,7 +587,7 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
     expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
   });
 
-  it('orders rows within the current month newest to oldest, top to bottom', () => {
+  it('orders rows within the current month oldest to newest, top to bottom', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
     const month = makeMonthFolder('month', TODAY, 'year');
@@ -604,58 +604,61 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
       (el) => el.textContent
     );
 
-    expect(dayNumbers).toEqual([2, 27].sort((a, b) => b - a).map((n) => String(n)));
+    // The whole list is one ascending timeline (DailyNotesList's
+    // sortRenderedSections), and days within a month follow it.
+    expect(dayNumbers).toEqual(['2', '27']);
   });
 
-  it('groups every other month under "All Daily Notes", oldest to newest, once expanded', () => {
+  it('puts past months behind "Show earlier" (nearest first) and future months behind "Show upcoming"', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
 
-    const pastMonthIso = addMonths(TODAY, -1);
-    const futureMonthIso = addMonths(TODAY, 1);
+    const lastMonthIso = addMonths(TODAY, -1);
+    const twoMonthsAgoIso = addMonths(TODAY, -2);
+    const nextMonthIso = addMonths(TODAY, 1);
 
-    const pastYear = makeFolder('year-past', `${ROOT}/Daily Notes/${yearOf(pastMonthIso)}`, 'root');
-    const currentYear = makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
-    const futureYear = makeFolder(
-      'year-future',
-      `${ROOT}/Daily Notes/${yearOf(futureMonthIso)}`,
-      'root'
-    );
+    // Each month gets its own year folder id, so the test holds whichever
+    // calendar years these months fall in.
+    const folders = [
+      dailyNotesRoot,
+      makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root'),
+      makeFolder('year-last', `${ROOT}/Daily Notes/${yearOf(lastMonthIso)}`, 'root'),
+      makeFolder('year-two-ago', `${ROOT}/Daily Notes/${yearOf(twoMonthsAgoIso)}`, 'root'),
+      makeFolder('year-next', `${ROOT}/Daily Notes/${yearOf(nextMonthIso)}`, 'root'),
+      makeMonthFolder('month-current', TODAY, 'year-current'),
+      makeMonthFolder('month-last', lastMonthIso, 'year-last'),
+      makeMonthFolder('month-two-ago', twoMonthsAgoIso, 'year-two-ago'),
+      makeMonthFolder('month-next', nextMonthIso, 'year-next'),
+    ];
+    const pages = [
+      makeDailyNote('daily-current', dayInMonth(TODAY, 15), 'month-current'),
+      makeDailyNote('daily-last', dayInMonth(lastMonthIso, 28), 'month-last'),
+      makeDailyNote('daily-two-ago', dayInMonth(twoMonthsAgoIso, 10), 'month-two-ago'),
+      makeDailyNote('daily-next', dayInMonth(nextMonthIso, 2), 'month-next'),
+    ];
 
-    const pastMonth = makeMonthFolder('month-past', pastMonthIso, 'year-past');
-    const currentMonth = makeMonthFolder('month-current', TODAY, 'year-current');
-    const futureMonth = makeMonthFolder('month-future', futureMonthIso, 'year-future');
-
-    const pastNote = makeDailyNote('daily-past', dayInMonth(pastMonthIso, 28), 'month-past');
-    const currentNote = makeDailyNote('daily-current', dayInMonth(TODAY, 15), 'month-current');
-    const futureNote = makeDailyNote('daily-future', dayInMonth(futureMonthIso, 2), 'month-future');
-
-    const { vault, query, membershipSelector, workspace } = setup(
-      [pastNote, currentNote, futureNote],
-      [dailyNotesRoot, pastYear, currentYear, futureYear, pastMonth, currentMonth, futureMonth]
-    );
-
+    const { vault, query, membershipSelector, workspace } = setup(pages, folders);
     const { container } = renderList({ vault, query, membershipSelector, workspace });
 
-    // Only the current month's rows are visible initially; the other two
-    // months are behind the collapsed "See more" toggle.
-    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
-    expect(screen.queryByText(monthNameOf(futureMonthIso), { exact: false })).toBeNull();
-    expect(screen.getByText('See more')).toBeInTheDocument();
+    // Only the current month's rows are visible initially.
+    expect(screen.queryByText(monthNameOf(lastMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText(monthNameOf(nextMonthIso), { exact: false })).toBeNull();
 
-    expandAllDailyNotes();
+    showEarlier();
+    showUpcoming();
 
     const headerTitles = Array.from(container.querySelectorAll('.section-header')).map(
       (el) => el.textContent
     );
 
-    // Its two month sub-headings, oldest to newest — no wrapping "All Daily
-    // Notes" header anymore (just the flat "See more"/"See less" toggle
-    // row, not a .section-header), and no current/future/past partitioning.
+    // Earlier renders above the current month, nearest past month first;
+    // Upcoming renders below it.
     expect(headerTitles).toEqual([
-      expect.stringContaining(monthNameOf(pastMonthIso)),
-      expect.stringContaining(monthNameOf(futureMonthIso)),
+      expect.stringContaining(monthNameOf(lastMonthIso)),
+      expect.stringContaining(monthNameOf(twoMonthsAgoIso)),
+      expect.stringContaining(monthNameOf(nextMonthIso)),
     ]);
-    expect(screen.getByText('See less')).toBeInTheDocument();
+    expect(screen.getByText('Hide earlier')).toBeInTheDocument();
+    expect(screen.getByText('Hide upcoming')).toBeInTheDocument();
   });
 
   it("a month in a different year than today carries its own year in the heading — no separate, standalone year heading", () => {
@@ -683,7 +686,7 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
     );
 
     renderList({ vault, query, membershipSelector, workspace });
-    expandAllDailyNotes();
+    showEarlier();
 
     expect(screen.queryByText(yearOf(pastYearMonthIso), { exact: true })).toBeNull();
     expect(screen.getByText(new RegExp(yearOf(pastYearMonthIso)))).toBeInTheDocument();
