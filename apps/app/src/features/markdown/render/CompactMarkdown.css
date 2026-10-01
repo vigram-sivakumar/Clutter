@@ -1,3 +1,7 @@
+/* 
+IMPORTANT: I manually commented out few of the css the comments in the css might not reflect those so never uncomment any of the commented css without permission
+*/
+
 /*
  * Compact (sidebar-row) presentation of CompactSpan output. Deliberately
  * minimal — reuses the same semantic CSS custom properties the page
@@ -8,21 +12,20 @@
  * No hover/click affordance here — token-level activation is out of scope
  * for v1 (see renderCompactMarkdown.tsx's own doc comment).
  */
-.compact-markdown * {
-  color: var(--foreground-secondary) !important;
-  text-decoration-color: var(--link-underline) !important;
-}
+/* .compact-markdown * {
+  color: var(--foreground-secondary);
+  text-decoration-color: var(--link-underline);
+} */
 
 .compact-markdown-code {
-  font-family: ui-monospace, monospace;
-  font-size: var(--text-label-small);
-  /* Same surface token the editor's own .tok-code uses (MarkdownEditor.css)
-   * — was --surface-subtle, a coincidentally similar but different token. */
+  font-family: inherit;
+  /* font-family: ui-monospace, monospace; */
+  /* font-size: var(--text-label-small);
   background: var(--md-inline-code-surface);
   color: var(--md-inline-code-foreground);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-default);
-  padding: 0.2em 0.4em;
+  padding: 0.2em 0.4em; */
 }
 
 /*
@@ -40,9 +43,10 @@
  * applies at the default thickness/color, with no shorthand conflict and no
  * shared `text-decoration-color`/`-thickness` with the underline below.
  */
-.compact-markdown-link {
+
+/* .compact-markdown-link {
   color: var(--md-link-foreground);
-}
+} */
 
 /* Owns the underline exclusively, on its own inner element — same shape
  * (thickness, offset, token) as the editor's `.tok-link-title` — so
@@ -51,36 +55,42 @@
  * struck link's line-through inheriting the underline's intentionally
  * subtle 50%-alpha color/thickness (both are per-element properties that
  * apply uniformly to every decoration line declared on the same element). */
-.compact-markdown-link-title {
+
+/* .compact-markdown-link-title {
   text-decoration: underline;
   text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--md-link-underline);
   text-underline-offset: var(--md-underline-offset);
-}
+} */
 
-.compact-markdown-wikilink {
+/* .compact-markdown-wikilink {
   color: var(--md-wiki-foreground);
-}
+} */
 
 /* Same split as `.compact-markdown-link`/`.compact-markdown-link-title`
  * above, mirroring the editor's `.tok-wikilink`/`.tok-wikilink__title` —
  * see that pair's doc comments for the full rationale. */
-.compact-markdown-wikilink-title {
+
+/* .compact-markdown-wikilink-title {
   text-decoration: underline;
   text-decoration-thickness: var(--md-underline-thickness);
   text-decoration-color: var(--link-underline);
   text-underline-offset: var(--md-underline-offset);
-}
+} */
 
-.compact-markdown-wikilink[data-wikilink-status='unresolved'] {
+/* .compact-markdown-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);
-}
+} */
 
 .compact-markdown-tag {
   color: var(--md-tag-foreground);
-  background-color: var(--md-tag-surface);
+  /* background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
-  padding: var(--md-badge-padding);
+  padding: var(--md-badge-padding); */
+}
+.compact-markdown-tag .compact-markdown-tag-prefix {
+  opacity: var(--opacity-medium);
+  padding-right: 2px;
 }
 
 .compact-markdown-tag[data-tag-status='unresolved'] {
