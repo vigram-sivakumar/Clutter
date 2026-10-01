@@ -123,6 +123,19 @@ export function Tags({
     }
   };
 
+  // The tag row's "+" — same openDraft(...) root-level note creation
+  // every other "+ New"/"+" entry point already uses (Sidebar.Notes.tsx),
+  // then a single updateMetadata() carrying the tag, which
+  // PageOperations' own draft-promotion branch treats as a committed
+  // change and persists immediately (same mechanism Cover Image already
+  // uses to promote a draft via a metadata edit, not a body edit).
+  // openDraft() already opens/selects the new note in the workspace, so
+  // no separate navigation call is needed here.
+  const onCreateNoteForTag = async (tagName: string): Promise<void> => {
+    const draftId = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.updateMetadata(draftId, { tags: [tagName] });
+  };
+
   return (
     <View navigation={<TagsShortcuts onShortcut={onShortcut} />}>
       {renderTags(tags, {
@@ -133,6 +146,7 @@ export function Tags({
         effectivePageState,
         noteRowActions,
         onRevealInNotesSidebar,
+        onCreateNoteForTag: (tagName) => void onCreateNoteForTag(tagName),
         resolveWikiLink,
         resolveTag,
         resolveEmbed,

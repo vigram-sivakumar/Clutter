@@ -2043,6 +2043,19 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     ).rejects.toThrow(/Page not found/);
   });
 
+  it('a tags patch promotes the draft and persists the tag in frontmatter — the "+" create-note-with-tag flow', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateMetadata(id, { tags: ['Project'] });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.tags).toEqual(['Project']);
+    const content = await fileSystem.readFile(persisted.path);
+    expect(content).toContain('tags:\n  - Project');
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
   // The "Add a description" milestone's own draft-promotion case: a
   // description commit is a genuine committed change, promoting the draft
   // exactly like favorite/cover already do — the first persisted save

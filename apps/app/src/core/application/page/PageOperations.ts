@@ -93,6 +93,7 @@ export type EditablePageMetadata = Pick<
   | 'coverPositionAbove'
   | 'coverPositionSide'
   | 'favorite'
+  | 'tags'
 >;
 
 /** The public shape UI reads for a draft it can't find in the Vault yet — see PageOperations.getDraft(). */
@@ -1800,10 +1801,10 @@ export class PageOperations {
   private toFrontmatterMetadataPatch(
     patch: Partial<EditablePageMetadata>
   ): Partial<
-    Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>
+    Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite' | 'tags'>
   > {
     const result: Partial<
-      Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>
+      Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite' | 'tags'>
     > = {};
 
     if ('description' in patch) {
@@ -1817,6 +1818,9 @@ export class PageOperations {
     }
     if ('favorite' in patch) {
       result.favorite = patch.favorite;
+    }
+    if ('tags' in patch) {
+      result.tags = patch.tags ? [...patch.tags] : undefined;
     }
 
     return result;

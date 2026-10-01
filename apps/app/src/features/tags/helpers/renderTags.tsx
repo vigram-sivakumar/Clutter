@@ -73,6 +73,14 @@ interface RenderTagsOptions {
    * appended without touching the Notes sidebar's own menu.
    */
   onRevealInNotesSidebar?(pageId: string): void;
+  /**
+   * The tag row's "+" action (same placement/styling as a Folder's own
+   * "+") — creates a new note already carrying this tag in its
+   * frontmatter. Optional so a caller without this capability (none
+   * today) simply omits the affordance, same convention as every other
+   * optional action here.
+   */
+  onCreateNoteForTag?(tagName: string): void;
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
@@ -90,6 +98,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     effectivePageState,
     noteRowActions,
     onRevealInNotesSidebar,
+    onCreateNoteForTag,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -118,6 +127,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         isEmpty={isEmpty}
         isExpanded={isExpanded}
         onExpandToggle={() => tagExpansionStore.toggleExpanded(tag.name)}
+        onAddClick={onCreateNoteForTag ? () => onCreateNoteForTag(tag.name) : undefined}
         onClick={isEditing ? undefined : () => onOpenTag(tag.name)}
         isEditing={isEditing}
         onTitleCommit={

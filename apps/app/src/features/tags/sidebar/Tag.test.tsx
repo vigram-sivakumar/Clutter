@@ -222,3 +222,25 @@ describe('Tag — sidebar Rename wiring', () => {
     expect(onTitleEditingEnd).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Tag — "+" create-note action', () => {
+  it('renders no "+" button when onAddClick is omitted — only the caret', () => {
+    render(<Tag title="design" />);
+
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('clicking "+" calls onAddClick, not the row\'s own onClick', () => {
+    const onAddClick = vi.fn();
+    const onClick = vi.fn();
+    render(<Tag title="design" onAddClick={onAddClick} onClick={onClick} />);
+
+    // Two elements match role "button" once onClick is also set — the
+    // row's own Entry (a clickable div, role="button" for keyboard
+    // activation) and the "+" button itself; the "+" is the last one.
+    fireEvent.click(screen.getAllByRole('button').at(-1)!);
+
+    expect(onAddClick).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+});

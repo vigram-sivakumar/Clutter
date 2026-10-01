@@ -118,4 +118,23 @@ describe('FrontmatterSerializer round-trip', () => {
 
     expect(frontmatterBlock).not.toContain('undefined');
   });
+
+  it('round-trips metadata.tags as a block list', () => {
+    const page = makePage({
+      metadata: { ...makePage().metadata, tags: ['Project', 'Design'] },
+    });
+
+    const frontmatterBlock = serializer.serializePage(page);
+    const parsed = parser.parse(`${frontmatterBlock}\n`);
+
+    expect(parsed.frontmatter.tags).toEqual(['Project', 'Design']);
+  });
+
+  it('omits the tags key entirely when there are no tags', () => {
+    const page = makePage({ metadata: { ...makePage().metadata, tags: [] } });
+
+    const frontmatterBlock = serializer.serializePage(page);
+
+    expect(frontmatterBlock).not.toContain('tags');
+  });
 });

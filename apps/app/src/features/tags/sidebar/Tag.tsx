@@ -1,3 +1,4 @@
+import { Button } from '@components/button/Button';
 import { CountBadge } from '@components/count-badge/CountBadge';
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { EditableText } from '@components/editable-text/EditableText';
@@ -5,6 +6,7 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
+import { AppIcon } from '@shared/icon';
 import { TagLeading } from './TagLeading';
 import './Tag.css';
 
@@ -19,6 +21,13 @@ interface TagProps extends Omit<EntryProps, 'children'> {
   hasCaret?: boolean;
   isExpanded?: boolean;
   onExpandToggle?: () => void;
+  /**
+   * The per-row "+" action — same placement/styling as Folder's own
+   * onAddClick (Folder.tsx), creates a new note already tagged with this
+   * row's tag. Optional so Tag stays usable in contexts that don't want
+   * the affordance.
+   */
+  onAddClick?: () => void;
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
@@ -56,6 +65,7 @@ export function Tag({
   hasCaret = true,
   isExpanded = false,
   onExpandToggle,
+  onAddClick,
   isEditing = false,
   onTitleCommit,
   onTitleCancel,
@@ -87,19 +97,32 @@ export function Tag({
         }
         trailing={<CountBadge count={count} />}
         actions={
-          menuItems && menuItems.length > 0 ? (
-            <OverflowMenu
-              items={menuItems}
-              triggerRef={triggerRef}
-              open={menuOpen}
-              onOpenChange={onMenuOpenChange ?? (() => {})}
-              onSelect={(id) =>
-                changeIconTrigger.handleSelect(id, onMenuSelect ?? (() => {}))
-              }
-              side="bottom"
-              alignment="start"
-            />
-          ) : undefined
+          <>
+            {onAddClick && (
+              <Button
+                size="small"
+                variant="ghost"
+                interaction="subtle"
+                isIconOnly
+                onClick={onAddClick}
+              >
+                <AppIcon icon={'plus'} />
+              </Button>
+            )}
+            {menuItems && menuItems.length > 0 && (
+              <OverflowMenu
+                items={menuItems}
+                triggerRef={triggerRef}
+                open={menuOpen}
+                onOpenChange={onMenuOpenChange ?? (() => {})}
+                onSelect={(id) =>
+                  changeIconTrigger.handleSelect(id, onMenuSelect ?? (() => {}))
+                }
+                side="bottom"
+                alignment="start"
+              />
+            )}
+          </>
         }
       >
         {isEditing ? (

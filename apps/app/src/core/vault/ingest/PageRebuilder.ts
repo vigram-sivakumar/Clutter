@@ -51,6 +51,13 @@ export class PageRebuilder {
         originalParentId: frontmatter.originalParentId ?? null,
         createdAt: frontmatter.created ?? page.metadata.createdAt,
         updatedAt: frontmatter.modified ?? new Date().toISOString(),
+        // Preserve, never re-derive: once PageBuilder's initial
+        // migration (or a later edit) has set this, an absent `tags`
+        // key on a later reparse means "unchanged," not "gone" — this
+        // is what keeps frontmatter tags independent of the body after
+        // the one-time population. See PageMetadata.tags's own doc
+        // comment.
+        tags: frontmatter.tags ?? page.metadata.tags ?? [],
       },
       source: {
         markdown: body,

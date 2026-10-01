@@ -73,6 +73,10 @@ export class FrontmatterParser {
           const aliases = (frontmatter.aliases as string[] | undefined) ?? [];
           aliases.push(trimmed.slice(2).trim());
           frontmatter.aliases = aliases;
+        } else if (currentArrayKey === 'tags') {
+          const tags = frontmatter.tags ?? [];
+          tags.push(trimmed.slice(2).trim());
+          frontmatter.tags = tags;
         }
         continue;
       }
@@ -180,6 +184,11 @@ export class FrontmatterParser {
         case 'aliases':
           if (!frontmatter.aliases) {
             frontmatter.aliases = [];
+          }
+          break;
+        case 'tags':
+          if (!frontmatter.tags) {
+            frontmatter.tags = [];
           }
           break;
       }

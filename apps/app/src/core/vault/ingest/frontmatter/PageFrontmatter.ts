@@ -23,4 +23,6 @@ export interface PageFrontmatter {
   originalParentId?: string | null;
   created?: string;
   modified?: string;
+  /** See PageMetadata.tags's own doc comment — note-level, independent of inline `#tag` occurrences. */
+  tags?: string[];
 }

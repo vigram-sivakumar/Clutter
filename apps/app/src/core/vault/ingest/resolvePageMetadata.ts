@@ -26,5 +26,12 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
     originalParentId: frontmatter.originalParentId ?? null,
     createdAt: frontmatter.created ?? null,
     updatedAt: frontmatter.modified ?? null,
+    // Plain default here — the initial-population-from-inline-tags
+    // fallback (when frontmatter omits this entirely) is PageBuilder's
+    // own concern, not this general-purpose defaulter's: it needs the
+    // scanned page's inline tag occurrences, which this function never
+    // sees. See PageBuilder.build() and PageMetadata.tags's own doc
+    // comment.
+    tags: frontmatter.tags ?? [],
   };
 }

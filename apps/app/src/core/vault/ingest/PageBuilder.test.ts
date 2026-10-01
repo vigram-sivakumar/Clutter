@@ -243,3 +243,91 @@ describe('PageBuilder: type is derived from canonical path, never frontmatter', 
     expect(page.type).toBe('note');
   });
 });
+
+describe('PageBuilder — metadata.tags initial population', () => {
+  const builder = new PageBuilder();
+
+  it('derives tags from inline #tag occurrences when frontmatter has never had a tags key', () => {
+    const scanned = makeScannedPage({
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [
+          { name: 'Project', startOffset: 0, endOffset: 8 },
+          { name: 'Design', startOffset: 10, endOffset: 17 },
+        ],
+        links: [],
+        embeds: [],
+      },
+    });
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual(['Project', 'Design']);
+  });
+
+  it('deduplicates by normalized identity, keeping the first-typed casing', () => {
+    const scanned = makeScannedPage({
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [
+          { name: 'Project', startOffset: 0, endOffset: 8 },
+          { name: 'project', startOffset: 20, endOffset: 28 },
+        ],
+        links: [],
+        embeds: [],
+      },
+    });
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual(['Project']);
+  });
+
+  it('never derives from the body when frontmatter already declares tags — even an empty array', () => {
+    const scanned = makeScannedPage({
+      frontmatter: { tags: [] },
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [{ name: 'Project', startOffset: 0, endOffset: 8 }],
+        links: [],
+        embeds: [],
+      },
+    });
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual([]);
+  });
+
+  it('uses the persisted frontmatter tags as-is when present, independent of inline tags', () => {
+    const scanned = makeScannedPage({
+      frontmatter: { tags: ['Archived Topic'] },
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [{ name: 'Project', startOffset: 0, endOffset: 8 }],
+        links: [],
+        embeds: [],
+      },
+    });
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual(['Archived Topic']);
+  });
+
+  it('derives an empty array for a note with no inline tags and no frontmatter tags', () => {
+    const scanned = makeScannedPage();
+
+    const page = builder.build({ parentId: null, page: scanned });
+
+    expect(page.metadata.tags).toEqual([]);
+  });
+});

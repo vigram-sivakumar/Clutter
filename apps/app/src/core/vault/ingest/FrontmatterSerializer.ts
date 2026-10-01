@@ -19,15 +19,34 @@ import type { PageFrontmatter } from './frontmatter';
  */
 export class FrontmatterSerializer {
   /**
-   * Serializes persisted frontmatter during page creation.
+   * Serializes persisted frontmatter during page creation. Array-valued
+   * fields (e.g. `tags`) are written as a block list — the same shape
+   * FrontmatterParser already reads back and serializePage's own `tags`
+   * handling already writes — and omitted entirely while empty, rather
+   * than falling through to the scalar `${key}: ${value}` line (which
+   * would stringify an array as a bare comma-joined, unparseable value).
    */
   serialize(frontmatter: PageFrontmatter): string {
     const lines = ['---'];
 
     for (const [key, value] of Object.entries(frontmatter)) {
-      if (value !== undefined) {
-        lines.push(`${key}: ${value}`);
+      if (value === undefined) {
+        continue;
       }
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          continue;
+        }
+
+        lines.push(`${key}:`);
+        for (const item of value) {
+          lines.push(`  - ${item}`);
+        }
+        continue;
+      }
+
+      lines.push(`${key}: ${value}`);
     }
 
     lines.push('---');
@@ -95,6 +114,18 @@ export class FrontmatterSerializer {
     for (const [key, value] of entries) {
       if (value !== undefined && value !== null) {
         lines.push(`${key}: ${value}`);
+      }
+    }
+
+    // Block-list array, same shape FrontmatterParser already reads back
+    // for `aliases`/`tags` (a `key:` line with no inline value, followed
+    // by `  - value` lines) — omitted entirely while empty, the same
+    // omit-on-default convention as coverHidden/coverLayout above, so a
+    // note with no tags never grows a bare `tags:` line.
+    if (page.metadata.tags && page.metadata.tags.length > 0) {
+      lines.push('tags:');
+      for (const tag of page.metadata.tags) {
+        lines.push(`  - ${tag}`);
       }
     }
 
