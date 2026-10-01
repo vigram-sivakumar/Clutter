@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { OverflowMenu, type OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
+import { TaskDatePicker } from './TaskDatePicker';
 import './Task.css';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
@@ -12,12 +13,22 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
   dueDate?: string;
   isOverdue?: boolean;
 
+  /**
+   * The task's raw ISO `YYYY-MM-DD` date, distinct from `dueDate` (a
+   * pre-formatted display string, e.g. "20 Aug", and undefined when the
+   * date is today — see renderTaskRow) — needed as-is so the Change due
+   * date calendar can pre-select the currently assigned date.
+   */
+  date?: string;
+
   isChecked: boolean;
 
   onCheckedChange?: (checked: boolean) => void;
 
   /** Opens the Edit Task modal (NewTaskContent, mode="edit") for this task. Omitted hides the menu item entirely. */
   onEdit?: () => void;
+  /** Opens the exact same Calendar used elsewhere (TaskDatePicker), to change only this task's due date. A date string sets it, null clears it. Omitted hides the menu item entirely. */
+  onChangeDueDate?: (date: string | null) => void;
   /** Opens the task's source note — same action as clicking the row itself. Omitted hides the menu item entirely. */
   onOpenInNote?: () => void;
   /** Deletes the task's line from its source note. Omitted hides the menu item entirely. */
@@ -39,9 +50,11 @@ export function Task({
   title,
   dueDate,
   isOverdue,
+  date,
   isChecked,
   onCheckedChange,
   onEdit,
+  onChangeDueDate,
   onOpenInNote,
   onDelete,
   resolveWikiLink,
@@ -50,11 +63,21 @@ export function Task({
   ...entryProps
 }: TaskProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  // Shared by the OverflowMenu trigger and the Change due date calendar —
+  // there's only one visible button on this row to anchor either overlay
+  // to, so both anchor to it via OverflowMenu's own triggerRef override
+  // rather than this component owning two separate trigger buttons.
+  const menuAnchorRef = useRef<HTMLButtonElement>(null);
 
   const menuItems: OverflowMenuItemConfig[] = [];
 
   if (onEdit) {
     menuItems.push({ id: 'edit', label: 'Edit', icon: 'edit' });
+  }
+
+  if (onChangeDueDate) {
+    menuItems.push({ id: 'change-due-date', label: 'Change due date', icon: 'calendarDots' });
   }
 
   if (onOpenInNote) {
@@ -69,45 +92,68 @@ export function Task({
   }
 
   return (
-    <Entry
-      {...entryProps}
-      // Keeps the overflow trigger button visible (Entry's own hover-reveal
-      // is pointer-position-based) while this row's menu is open and the
-      // pointer may have moved onto the portaled menu — same reasoning
-      // Note.tsx/Folder.tsx already apply for their own row-owned menus.
-      forceHover={entryProps.forceHover || menuOpen}
-      leading={
-        <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
-      }
-      trailing={
-        dueDate && (
-          <span className={`task__due-date ${isOverdue ? 'is-overdue' : ''}`}>
-            {dueDate}
-          </span>
-        )
-      }
-      actions={
-        <OverflowMenu
-          items={menuItems}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-          onSelect={(id) => {
-            if (id === 'edit') {
-              onEdit?.();
-            } else if (id === 'open-in-note') {
-              onOpenInNote?.();
-            } else if (id === 'delete') {
-              onDelete?.();
-            }
+    <>
+      <Entry
+        {...entryProps}
+        // Keeps the overflow trigger button visible (Entry's own hover-reveal
+        // is pointer-position-based) while this row's menu or date picker is
+        // open and the pointer may have moved onto the portaled overlay —
+        // same reasoning Note.tsx/Folder.tsx already apply for their own
+        // row-owned overlays.
+        forceHover={entryProps.forceHover || menuOpen || isDatePickerOpen}
+        leading={
+          <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
+        }
+        trailing={
+          dueDate && (
+            <span className={`task__due-date ${isOverdue ? 'is-overdue' : ''}`}>
+              {dueDate}
+            </span>
+          )
+        }
+        actions={
+          <OverflowMenu
+            items={menuItems}
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            triggerRef={menuAnchorRef}
+            onSelect={(id) => {
+              if (id === 'edit') {
+                onEdit?.();
+              } else if (id === 'change-due-date') {
+                setIsDatePickerOpen(true);
+              } else if (id === 'open-in-note') {
+                onOpenInNote?.();
+              } else if (id === 'delete') {
+                onDelete?.();
+              }
+            }}
+            side="bottom"
+            alignment="start"
+          />
+        }
+      >
+        <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
+          {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}
+        </span>
+      </Entry>
+
+      {onChangeDueDate && (
+        <TaskDatePicker
+          anchorRef={menuAnchorRef}
+          open={isDatePickerOpen}
+          onClose={() => setIsDatePickerOpen(false)}
+          date={date}
+          onSelect={(selected) => {
+            setIsDatePickerOpen(false);
+            onChangeDueDate(selected);
           }}
-          side="bottom"
-          alignment="start"
+          onClear={() => {
+            setIsDatePickerOpen(false);
+            onChangeDueDate(null);
+          }}
         />
-      }
-    >
-      <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
-        {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}
-      </span>
-    </Entry>
+      )}
+    </>
   );
 }

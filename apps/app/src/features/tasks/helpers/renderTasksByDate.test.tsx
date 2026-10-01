@@ -87,6 +87,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete,
           onOpenTask,
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
@@ -113,6 +114,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete,
           onOpenTask,
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
@@ -136,6 +138,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
@@ -157,6 +160,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
@@ -184,6 +188,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -228,6 +233,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -255,6 +261,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -293,6 +300,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -337,6 +345,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -358,6 +367,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation,
         })}
@@ -384,6 +394,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
           onEditTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
           onDeleteTask: vi.fn(),
           navigation,
         })}
@@ -407,6 +418,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -431,6 +443,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation,
           })}
@@ -455,6 +468,7 @@ describe('renderTasksByDate', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           navigation={fakeNavigation()}
         />
@@ -484,6 +498,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: config,
@@ -504,6 +519,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: config,
@@ -534,6 +550,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -555,6 +572,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -576,6 +594,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation,
           })}
@@ -600,6 +619,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
           })}
@@ -625,6 +645,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: true, autoSortCompleted: false },
@@ -646,6 +667,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: false, autoSortCompleted: false },
@@ -667,6 +689,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: true, autoSortCompleted: false },
@@ -692,6 +715,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: true, autoSortCompleted: false },
@@ -716,6 +740,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: true, autoSortCompleted: true },
@@ -741,6 +766,7 @@ describe('renderTasksByDate', () => {
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
             onEditTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             displayConfig: { showCompleted: true, autoSortCompleted: true },

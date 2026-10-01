@@ -97,6 +97,16 @@ export function Tasks({
     setEditingTask(task);
   };
 
+  // Opens the exact same Calendar (TaskDatePicker) a row's Change due
+  // date menu item uses, via Task.tsx's own onChangeDueDate wiring — same
+  // fire-and-forget shape as onToggleComplete, dispatching straight to
+  // TaskOperations.setDate()/clearDate() (the one owning facade for
+  // task-line mutation, per ADR-031), never touching Vault/PageOperations
+  // itself, and never moving the task to a different page.
+  const onChangeDueDate = (task: TaskOccurrence, date: string | null): void => {
+    void (date === null ? taskOperations.clearDate(task) : taskOperations.setDate(task, date));
+  };
+
   // Same fire-and-forget shape as onToggleComplete — dispatches straight
   // to TaskOperations (the one owning facade for task-line mutation, per
   // ADR-031), never touching Vault/PageOperations itself.
@@ -136,6 +146,7 @@ export function Tasks({
         onToggleComplete,
         onOpenTask,
         onEditTask,
+        onChangeDueDate,
         onDeleteTask,
         navigation,
         resolveWikiLink,

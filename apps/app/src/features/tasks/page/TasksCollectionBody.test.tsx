@@ -41,6 +41,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
       />
     );
@@ -61,6 +62,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
       />
     );
@@ -87,6 +89,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
       />
     );
@@ -117,6 +120,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
       />
     );
@@ -141,6 +145,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
       />
     );
@@ -165,6 +170,7 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onEditTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onDeleteTask={vi.fn()}
         // Even with Show completed enabled, the Unscheduled view keeps its
         // pre-existing, unaffected behavior — it isn't one of the two
@@ -189,6 +195,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: false, autoSortCompleted: false }}
         />
@@ -207,6 +214,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
@@ -225,6 +233,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
@@ -244,6 +253,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: true }}
         />
@@ -275,6 +285,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
@@ -303,6 +314,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
         />
@@ -322,6 +334,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
         />
       );
@@ -336,6 +349,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
         />
       );
@@ -350,6 +364,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
         />
       );
@@ -366,6 +381,7 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onEditTask={vi.fn()}
+          onChangeDueDate={vi.fn()}
           onDeleteTask={vi.fn()}
         />
       );

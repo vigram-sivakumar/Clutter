@@ -152,12 +152,13 @@ describe('Task — More Actions menu', () => {
     expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
   });
 
-  it('renders Edit, Open in note, and Delete when their callbacks are provided', () => {
+  it('renders Edit, Change due date, Open in note, and Delete when their callbacks are provided', () => {
     const { container } = render(
       <Task
         title="Finish table work"
         isChecked={false}
         onEdit={vi.fn()}
+        onChangeDueDate={vi.fn()}
         onOpenInNote={vi.fn()}
         onDelete={vi.fn()}
       />
@@ -166,6 +167,7 @@ describe('Task — More Actions menu', () => {
     openMenu(container);
 
     expect(screen.getByText('Edit')).toBeDefined();
+    expect(screen.getByText('Change due date')).toBeDefined();
     expect(screen.getByText('Open in note')).toBeDefined();
     expect(screen.getByText('Delete')).toBeDefined();
   });
@@ -223,5 +225,99 @@ describe('Task — More Actions menu', () => {
     openMenu(container);
 
     expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('Task — Change due date action', () => {
+  it('opens the existing Calendar overlay, pre-selected to the task\'s current date', () => {
+    const { container } = render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onChangeDueDate={vi.fn()}
+      />
+    );
+
+    expect(document.querySelector('.calendar')).toBeNull();
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Change due date'));
+
+    const calendar = document.querySelector('.calendar');
+    expect(calendar).not.toBeNull();
+    expect(calendar!.querySelector('.calendar-cell--selected')).not.toBeNull();
+  });
+
+  it('opens with nothing pre-selected when the task has no date yet', () => {
+    const { container } = render(
+      <Task title="Finish table work" isChecked={false} onChangeDueDate={vi.fn()} />
+    );
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Change due date'));
+
+    const calendar = document.querySelector('.calendar')!;
+    expect(calendar.querySelector('.calendar-cell--selected')).toBeNull();
+  });
+
+  it('selecting a date in the calendar calls onChangeDueDate with the selected date and closes the overlay', () => {
+    const onChangeDueDate = vi.fn();
+    const { container } = render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onChangeDueDate={onChangeDueDate}
+      />
+    );
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Change due date'));
+
+    // '15' is unambiguous within September 2026's grid — the only
+    // outside-month padding days that month shows are Aug 30-31 (leading)
+    // and Oct 1-10 (trailing), so a mid-month digit can't collide with them.
+    const targetDay = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        '.calendar-cell:not(.calendar-cell--outside-month)'
+      )
+    ).find((button) => button.textContent?.trim() === '15');
+    expect(targetDay).toBeDefined();
+
+    fireEvent.click(targetDay!);
+
+    expect(onChangeDueDate).toHaveBeenCalledWith('2026-09-15');
+    expect(document.querySelector('.calendar')).toBeNull();
+  });
+
+  it('"Clear date" calls onChangeDueDate with null and closes the overlay', () => {
+    const onChangeDueDate = vi.fn();
+    const { container } = render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        date="2026-09-28"
+        onChangeDueDate={onChangeDueDate}
+      />
+    );
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear date' }));
+
+    expect(onChangeDueDate).toHaveBeenCalledWith(null);
+    expect(document.querySelector('.calendar')).toBeNull();
+  });
+
+  it('disables "Clear date" when the task has no date yet', () => {
+    const { container } = render(
+      <Task title="Finish table work" isChecked={false} onChangeDueDate={vi.fn()} />
+    );
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Change due date'));
+
+    expect(screen.getByRole('button', { name: 'Clear date' })).toBeDisabled();
   });
 });

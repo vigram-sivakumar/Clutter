@@ -1264,6 +1264,11 @@ export function PageHost({
                 void application.pageOperations.open(task.sourcePageId)
               }
               onEditTask={setEditingTask}
+              onChangeDueDate={(task, date) =>
+                void (date === null
+                  ? application.taskOperations.clearDate(task)
+                  : application.taskOperations.setDate(task, date))
+              }
               onDeleteTask={(task) => void application.taskOperations.delete(task)}
               displayConfig={tasksViewConfig}
               resolveWikiLink={resolveWikiLink}

@@ -37,6 +37,8 @@ export interface TasksCollectionBodyProps {
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens the Edit Task modal for a row's task. */
   readonly onEditTask: (task: TaskOccurrence) => void;
+  /** Opens a row's Change due date calendar; a date string sets it, null clears it — never moves the task. */
+  readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
   /** Deletes a row's task from its source note. */
   readonly onDeleteTask: (task: TaskOccurrence) => void;
   /**
@@ -74,6 +76,7 @@ export function TasksCollectionBody({
   onToggleComplete,
   onOpenTask,
   onEditTask,
+  onChangeDueDate,
   onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   resolveWikiLink,
@@ -84,6 +87,7 @@ export function TasksCollectionBody({
     onToggleComplete,
     onOpenTask,
     onEditTask,
+    onChangeDueDate,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,
