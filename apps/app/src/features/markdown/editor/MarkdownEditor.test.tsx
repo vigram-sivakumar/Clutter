@@ -171,6 +171,109 @@ describe('MarkdownEditor imperative focus handle', () => {
     });
   });
 
+  // Scrolling the real scroll ancestor (not `.cm-scroller` — see
+  // `applyTaskReveal`'s own doc comment) toward the task. Exercises the
+  // `scrollAncestor.scrollTo(...)` branch directly: jsdom provides no real
+  // layout, so `getBoundingClientRect`/`coordsAtPos` are stubbed to
+  // describe two scenarios (task above/below the visible area vs. already
+  // within it), and `scrollTo` itself is a plain mock since jsdom's
+  // `Element` doesn't implement it at all.
+  describe('revealRange() smooth scrolling', () => {
+    const ancestorRect = { top: 0, bottom: 500, left: 0, right: 800 } as DOMRect;
+
+    function renderWithScrollAncestor(markdown: string) {
+      const ref = createRef<MarkdownEditorHandle>();
+      const ancestor = document.createElement('div');
+      ancestor.style.overflowY = 'auto';
+      ancestor.getBoundingClientRect = () => ancestorRect;
+      ancestor.scrollTo = vi.fn();
+      document.body.appendChild(ancestor);
+
+      const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown={markdown} />, {
+        container: ancestor,
+      });
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+      return { ref, view, ancestor };
+    }
+
+    // A reasonably complete `MediaQueryList` stub, not just `{ matches,
+    // media }` — CM6's own `EditorView` construction (`createEditorView`,
+    // via `@codemirror/view`'s internal print-detection) calls
+    // `window.matchMedia('print').addListener(...)` itself on every mount,
+    // so a bare-bones stub without `addListener`/`removeListener` throws
+    // during `renderWithScrollAncestor` above, before this describe
+    // block's own scroll behavior ever runs.
+    function stubMatchMedia(matches: boolean) {
+      window.matchMedia = ((query: string) =>
+        ({
+          matches,
+          media: query,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    }
+
+    // A direct `window.matchMedia` assignment, not `vi.stubGlobal` +
+    // `vi.unstubAllGlobals()` — the latter would also wipe this file's own
+    // top-level `ResizeObserver` stub (`beforeAll`/`afterAll` above),
+    // which every other `describe` block in this file still depends on.
+    afterEach(() => {
+      // @ts-expect-error -- test-only cleanup of a test-only stub
+      delete window.matchMedia;
+    });
+
+    it('smoothly scrolls the real ancestor (not .cm-scroller) when the task is outside the viewport', () => {
+      stubMatchMedia(false);
+      const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');
+      // Below the ancestor's own visible rect (bottom: 500).
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 900, bottom: 920, left: 0, right: 100 } as DOMRect);
+
+      ref.current?.revealRange(0, 10);
+
+      expect(ancestor.scrollTo).toHaveBeenCalledTimes(1);
+      const call = (ancestor.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+      expect(call.behavior).toBe('smooth');
+      expect(call.top).toBeGreaterThan(0);
+    });
+
+    it('uses an immediate jump ("auto") instead of smooth scrolling when prefers-reduced-motion is set', () => {
+      stubMatchMedia(true);
+      const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 900, bottom: 920, left: 0, right: 100 } as DOMRect);
+
+      ref.current?.revealRange(0, 10);
+
+      expect(ancestor.scrollTo).toHaveBeenCalledTimes(1);
+      const call = (ancestor.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+      expect(call.behavior).toBe('auto');
+    });
+
+    it('does not scroll at all when the task line is already within the visible ancestor rect', () => {
+      stubMatchMedia(false);
+      const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');
+      // Within the ancestor's own visible rect (top: 0, bottom: 500).
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 100, bottom: 120, left: 0, right: 100 } as DOMRect);
+
+      ref.current?.revealRange(0, 10);
+
+      expect(ancestor.scrollTo).not.toHaveBeenCalled();
+    });
+
+    it('falls back to a plain scrollTop write when the ancestor has no scrollTo method', () => {
+      stubMatchMedia(false);
+      const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');
+      // @ts-expect-error -- simulating an environment without Element.scrollTo
+      delete ancestor.scrollTo;
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue({ top: 900, bottom: 920, left: 0, right: 100 } as DOMRect);
+
+      expect(() => ref.current?.revealRange(0, 10)).not.toThrow();
+      expect(ancestor.scrollTop).toBeGreaterThan(0);
+    });
+  });
+
   // The real "Open in note" entry point: PageHost.tsx hands a pending
   // reveal request to this prop (not an imperative revealRange() ref call
   // from its own effect) specifically so the request is applied by this

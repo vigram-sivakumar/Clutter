@@ -1981,13 +1981,27 @@
  * twice been confirmed, via direct interactive testing, to corrupt CM6's
  * own cursor/navigation bookkeeping, while `background-color` (like every
  * other line decoration here — `.cm-quote-line`, list hanging indent,
- * fenced-code background) never touches layout at all. `Decoration.line`
- * toggles this class on the line's existing DOM node rather than replacing
- * it, so `transition` animates the fade-out when `clearTaskRevealHighlight`
- * removes the class; there is no corresponding fade-in — the highlight is
- * simply present from the instant `revealRange` applies it.
+ * fenced-code background) never touches layout at all.
+ *
+ * Split into a base class (always present while the highlight exists —
+ * `transparent`, carrying the `transition`) and a `--visible` modifier
+ * (the actual highlighted color), rather than one class with both the
+ * color and the transition together, specifically so BOTH directions
+ * animate: `taskRevealHighlight.ts` adds `--visible` alongside the base
+ * class to fade *in* (transitions from this base rule's own `transparent`
+ * to the highlighted color), then later removes only `--visible` — base
+ * class (and its `transition`) still present — to fade back *out*, and
+ * only discards the decoration entirely once that fade has had time to
+ * finish (`TASK_REVEAL_FADE_MS`, same file). `Decoration.line` toggles
+ * these classes on the line's existing DOM node rather than replacing it,
+ * which is what lets a plain class toggle animate at all — removing the
+ * decoration outright (no DOM node left carrying the transition) cannot.
  */
 .cm-editor .cm-task-reveal-line {
-  background-color: var(--md-task-reveal-surface);
+  background-color: transparent;
   transition: background-color 400ms ease;
+}
+
+.cm-editor .cm-task-reveal-line--visible {
+  background-color: var(--md-task-reveal-surface);
 }

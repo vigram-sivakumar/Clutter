@@ -148,6 +148,18 @@ function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
 }
 
 /**
+ * The OS-level "Reduce motion" accessibility setting — read fresh on every
+ * call (never cached), since it can change while the app is open. Guarded
+ * for `window.matchMedia` not existing at all (older/non-browser test
+ * environments) rather than assuming every runtime this component mounts
+ * in has it; `false` (motion allowed) is the correct fallback there, the
+ * same as a browser that's never set the preference.
+ */
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
  * Feature-level Markdown editing surface, backed by a CodeMirror 6
  * EditorView.
  *
@@ -1236,9 +1248,37 @@ export const MarkdownEditor = forwardRef<
       if (lineCoords && !alreadyVisible) {
         const lineCenter = (lineCoords.top + lineCoords.bottom) / 2;
         const ancestorCenter = (ancestorRect.top + ancestorRect.bottom) / 2;
-        const targetScrollTop = scrollAncestor.scrollTop + (lineCenter - ancestorCenter);
-        scrollAncestor.scrollTop = Math.max(0, targetScrollTop);
-        lastKnownScrollTopRef.current = scrollAncestor.scrollTop;
+        const targetScrollTop = Math.max(0, scrollAncestor.scrollTop + (lineCenter - ancestorCenter));
+        // The browser's own smooth-scroll animation, not a custom rAF
+        // loop — `Element.scrollTo({ behavior: 'smooth' })` is natively
+        // supported by every target runtime here and needs no manual
+        // easing/cancellation logic. `'auto'` (an immediate jump, same as
+        // the plain `scrollTop =` this replaced) under `prefers-reduced-
+        // motion: reduce`, per that preference's own purpose — some users
+        // get motion-sick or disoriented from animated scrolling and have
+        // explicitly opted out of it at the OS level.
+        //
+        // `scrollTo` is feature-detected, not assumed: `scrollAncestor` is
+        // some arbitrary real DOM ancestor this component found via
+        // `findScrollableAncestor`, and jsdom's own `Element` (this
+        // component's test environment) doesn't implement it at all, only
+        // the plain `scrollTop` setter — falling back to that keeps this
+        // function correct (just non-animated) in an environment lacking
+        // the method, rather than throwing.
+        if (typeof scrollAncestor.scrollTo === 'function') {
+          scrollAncestor.scrollTo({
+            top: targetScrollTop,
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+          });
+        } else {
+          scrollAncestor.scrollTop = targetScrollTop;
+        }
+        // Not updated here with the (pre-animation) current value — an
+        // animated `scrollTo` doesn't reach `targetScrollTop` until the
+        // animation finishes, well after this synchronous call returns.
+        // The existing `scrollPollInterval` below (300ms cadence) already
+        // keeps this ref converging on the real position during and after
+        // the animation; writing a stale value here would only fight it.
       }
     }
 
