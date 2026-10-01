@@ -101,6 +101,133 @@ export class TaskOperations {
   }
 
   /**
+   * Removes a task's line from its source page entirely — the delete half
+   * of this facade's mutation surface, mirroring mutate()/mutateDate()'s
+   * own locate-via-rawText shape exactly, just splicing the line out
+   * instead of rewriting it. No surrounding blank-line cleanup; only the
+   * task's own line is touched.
+   */
+  public async delete(task: TaskOccurrence): Promise<void> {
+    if (task.rawText == null) {
+      throw new Error(
+        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
+      );
+    }
+
+    const rawText = task.rawText;
+
+    try {
+      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+        const lines = markdown.split('\n');
+        const lineIndex = lines.indexOf(rawText);
+
+        if (lineIndex === -1) {
+          throw new Error(
+            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
+          );
+        }
+
+        lines.splice(lineIndex, 1);
+
+        return lines.join('\n');
+      });
+    } catch (error) {
+      if (error instanceof MutateBodyAbandonedError) {
+        throw new Error(`Failed to delete task "${task.text}": ${error.reason}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * The Edit Task modal's Save action: replaces the task's title text and,
+   * only if `change.dueDate` genuinely differs from `task.dueDate`,
+   * updates its inline date — same legacy-`@due:`-vs-bare-mention
+   * preserve/replace/append/remove behavior `setDate()`/`clearDate()`
+   * already give a direct date edit, reused here via `applyDatePatch`
+   * rather than reimplemented.
+   *
+   * Always mutates `task.sourcePageId` in place via mutateBody() — never
+   * resolves or opens a different page, so a due-date change here can
+   * never move the task to a different Daily Note (or anywhere else),
+   * regardless of what date is chosen. Moving a task between Daily Notes
+   * is explicitly out of scope for this method; see Sidebar.Tasks.tsx's
+   * own onSaveTask for why.
+   *
+   * The dueDate-unchanged guard matters specifically for a Daily Note task
+   * with no explicit inline date: `task.dueDate` there is TaskBuilder's
+   * implicit containing-Daily-Note fallback (TaskOccurrence.dueDate's own
+   * doc comment), not real line content. Re-applying that same value
+   * unconditionally would wrongly stamp a spurious explicit date onto a
+   * line that never had one just because the user left the pre-filled
+   * due-date field untouched while editing the title. Only an explicit,
+   * different selection ever adds/changes/removes the inline date.
+   */
+  public async update(
+    task: TaskOccurrence,
+    change: { title: string; dueDate: string | undefined }
+  ): Promise<void> {
+    const trimmedTitle = change.title.trim();
+
+    if (trimmedTitle === '') {
+      throw new Error('Task title must not be empty.');
+    }
+
+    if (task.rawText == null) {
+      throw new Error(
+        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
+      );
+    }
+
+    const rawText = task.rawText;
+    const dueDateChanged = change.dueDate !== task.dueDate;
+
+    try {
+      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+        const lines = markdown.split('\n');
+        const lineIndex = lines.indexOf(rawText);
+
+        if (lineIndex === -1) {
+          throw new Error(
+            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
+          );
+        }
+
+        const match = rawText.match(TASK_LINE_PATTERN);
+
+        if (!match) {
+          throw new Error(
+            `Task source line no longer matches the expected format: "${rawText}"`
+          );
+        }
+
+        const [, indent, marker, rest] = match;
+
+        // Preserve the existing bare date mention verbatim only when the
+        // date isn't changing — when it is, applyDatePatch below computes
+        // the correct replacement/append/removal itself and must see a
+        // rest with no stale bare date already baked in.
+        let newRest = this.replaceTitle(rest ?? '', trimmedTitle, !dueDateChanged);
+
+        if (dueDateChanged) {
+          newRest = this.applyDatePatch(newRest, change.dueDate ?? null);
+        }
+
+        lines[lineIndex] = `${indent}- [${marker}] ${newRest}`;
+
+        return lines.join('\n');
+      });
+    } catch (error) {
+      if (error instanceof MutateBodyAbandonedError) {
+        throw new Error(`Failed to update task "${task.text}": ${error.reason}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Checking a task stamps @completed with today's date; unchecking
    * removes it entirely. The checkbox marker remains the source of truth
    * for completed state — @completed only records when that happened.
@@ -290,6 +417,38 @@ export class TaskOperations {
     }
 
     return rewritten.trim().replace(/ {2,}/g, ' ');
+  }
+
+  /**
+   * update()'s own helper: replaces everything in `rest` that isn't
+   * recognized metadata with `newTitle`. Recognized `@key:value` tokens
+   * (`@due:`/`@completed:`) are always preserved verbatim, in whatever
+   * form they're already written — this is what makes a legacy `@due:`
+   * round-trip through a title edit untouched, same as applyDatePatch's
+   * own legacy-preservation rule. A bare date mention (not a `@key:value`
+   * token, so never caught by METADATA_TOKEN_PATTERN) is preserved
+   * verbatim too, but only when `preserveBareDate` is true — update()
+   * passes false when the date is also changing, since applyDatePatch
+   * then needs to see a rest with no stale bare date already present to
+   * compute the correct replacement.
+   */
+  private replaceTitle(rest: string, newTitle: string, preserveBareDate: boolean): string {
+    const preserved: string[] = [];
+
+    rest.replace(METADATA_TOKEN_PATTERN, (token) => {
+      preserved.push(token);
+      return '';
+    });
+
+    if (preserveBareDate && !/@due:\S+/.test(rest)) {
+      const bareDateMatch = new RegExp(BARE_DATE_PATTERN.source).exec(rest);
+
+      if (bareDateMatch) {
+        preserved.push(`@${bareDateMatch[2]}`);
+      }
+    }
+
+    return preserved.length > 0 ? `${newTitle} ${preserved.join(' ')}` : newTitle;
   }
 
   private rewriteDate(rawLine: string, date: string | null): string {

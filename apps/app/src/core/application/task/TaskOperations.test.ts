@@ -618,4 +618,152 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       );
     });
   });
+
+  describe('delete', () => {
+    it('removes the task line from its page, leaving the rest untouched', async () => {
+      const page = buildPage('p1', 'Intro\n- [ ] Collect the bill\nOutro');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.delete(firstTask(page));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('Intro\nOutro');
+    });
+
+    it('rejects when the task line can no longer be located', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+      const stale = { ...firstTask(page), rawText: '- [ ] Some other line' };
+
+      await expect(taskOperations.delete(stale)).rejects.toThrow(
+        'Could not locate task'
+      );
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+  });
+
+  describe('update', () => {
+    it('replaces the title, leaving an unset due date unset', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the parcel',
+        dueDate: undefined,
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the parcel');
+    });
+
+    it('replaces the title while preserving an untouched bare due date', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the parcel',
+        dueDate: '2026-08-05',
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Collect the parcel @2026-08-05'
+      );
+    });
+
+    it('replaces the title while preserving an untouched legacy @due: token verbatim', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @due:2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the parcel',
+        dueDate: '2026-08-05',
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Collect the parcel @due:2026-08-05'
+      );
+    });
+
+    it('updates the due date in place when it changes, legacy @due: included', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @due:2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the bill',
+        dueDate: '2026-09-01',
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Collect the bill @due:2026-09-01'
+      );
+    });
+
+    it('clears the due date when explicitly set to undefined', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill @2026-08-05');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the bill',
+        dueDate: undefined,
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+
+    it('never adds an inline date for a task whose due date is only the Daily Note\'s implicit fallback', async () => {
+      // No inline date in the raw line at all — dueDate here stands in for
+      // TaskBuilder's containing-Daily-Note fallback (TaskOccurrence.dueDate's
+      // own doc comment); update() must not promote that implicit value into
+      // a real inline token just because the user left it untouched.
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+      const task = { ...firstTask(page), dueDate: '2026-08-04' };
+
+      await taskOperations.update(task, {
+        title: 'Collect the parcel',
+        dueDate: '2026-08-04',
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the parcel');
+    });
+
+    it('preserves @completed verbatim across a title-only edit', async () => {
+      const page = buildPage(
+        'p1',
+        '- [x] Collect the bill @completed:2026-08-04'
+      );
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the parcel',
+        dueDate: undefined,
+      });
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [x] Collect the parcel @completed:2026-08-04'
+      );
+    });
+
+    it('never moves the task — always mutates its own sourcePageId, regardless of the due date chosen', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), {
+        title: 'Collect the bill',
+        dueDate: '2026-12-25',
+      });
+
+      // Still on p1 — update() never calls PageOperations.openAtPath/open
+      // for a different page, so there is nowhere else this could land.
+      expect(vault.getPage('p1')!.source.markdown).toContain('Collect the bill');
+    });
+
+    it('rejects an empty or whitespace-only title without touching the page', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+
+      await expect(
+        taskOperations.update(firstTask(page), { title: '   ', dueDate: undefined })
+      ).rejects.toThrow('Task title must not be empty.');
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+  });
 });
