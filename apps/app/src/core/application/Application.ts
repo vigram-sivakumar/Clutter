@@ -24,6 +24,7 @@ import { TagOperations } from './tags/TagOperations';
 import { FoldStateStore } from './editor/FoldStateStore';
 import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
 import { TasksViewConfigStore } from './task/TasksViewConfigStore';
+import { TagExpansionStore } from './tags/TagExpansionStore';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -122,6 +123,15 @@ export class Application {
    * comment).
    */
   public readonly tasksViewConfigStore: TasksViewConfigStore;
+  /**
+   * Persisted Tags-sidebar expansion state (which tags' inline note lists
+   * are expanded), through a sibling top-level key of the same
+   * `.clutter/workspace.json` `foldStateStore`/`tasksViewConfigStore`
+   * above own (`tagExpansion`) — loaded once in `bootstrap()` below. Not
+   * Gate-backed and not owned by `Workspace`, for the same reasons
+   * `foldStateStore` isn't (see `TagExpansionStore`'s own doc comment).
+   */
+  public readonly tagExpansionStore: TagExpansionStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -221,6 +231,12 @@ export class Application {
     // TasksViewConfigStore.load() itself, never thrown.
     const tasksViewConfigStore = await TasksViewConfigStore.load(fileSystem, rootPath);
 
+    // Same "read a small .clutter/*.json config at boot, tolerate absence"
+    // shape as tasksViewConfigStore above — a sibling top-level key of the
+    // same reserved file, malformed content caught and discarded inside
+    // TagExpansionStore.load() itself, never thrown.
+    const tagExpansionStore = await TagExpansionStore.load(fileSystem, rootPath);
+
     // Tag presentation metadata (icon today, color later) is read directly
     // here, once — not through VaultScanner (this isn't Page/Folder
     // content) and not through a dedicated loader (one reader, one writer,
@@ -309,7 +325,8 @@ export class Application {
       runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver,
       foldStateStore,
       collectionViewConfigStore,
-      tasksViewConfigStore
+      tasksViewConfigStore,
+      tagExpansionStore
     );
 
     application.rootPath = rootPath;
@@ -349,7 +366,11 @@ export class Application {
     // Same default-to-empty-store reasoning as collectionViewConfigStore
     // above, for the many existing tests that construct Application
     // directly without exercising Tasks-view persistence.
-    tasksViewConfigStore: TasksViewConfigStore = TasksViewConfigStore.empty(fileSystem, '')
+    tasksViewConfigStore: TasksViewConfigStore = TasksViewConfigStore.empty(fileSystem, ''),
+    // Same default-to-empty-store reasoning as tasksViewConfigStore above,
+    // for the many existing tests that construct Application directly
+    // without exercising Tags-sidebar expansion persistence.
+    tagExpansionStore: TagExpansionStore = TagExpansionStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -362,6 +383,7 @@ export class Application {
     this.foldStateStore = foldStateStore;
     this.collectionViewConfigStore = collectionViewConfigStore;
     this.tasksViewConfigStore = tasksViewConfigStore;
+    this.tagExpansionStore = tagExpansionStore;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();

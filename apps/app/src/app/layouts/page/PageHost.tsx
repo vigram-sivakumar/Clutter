@@ -3,6 +3,7 @@ import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
+import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
 
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
@@ -523,13 +524,7 @@ export function PageHost({
     }
 
     const clickedPage = vault.getPage(id);
-    const ranges = (clickedPage?.analysis.tags ?? [])
-      .filter((occurrence) => occurrence.name === revealTagName)
-      .filter(
-        (occurrence): occurrence is typeof occurrence & { startOffset: number; endOffset: number } =>
-          occurrence.startOffset !== undefined && occurrence.endOffset !== undefined
-      )
-      .map((occurrence) => ({ from: occurrence.startOffset, to: occurrence.endOffset }));
+    const ranges = getTagOccurrenceRanges(clickedPage, revealTagName);
 
     if (ranges.length > 0) {
       onRequestReveal({ pageId: id, ranges });

@@ -5,7 +5,7 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
-import { AppIcon } from '@shared/icon';
+import { TagLeading } from './TagLeading';
 import './Tag.css';
 
 interface TagProps extends Omit<EntryProps, 'children'> {
@@ -13,6 +13,12 @@ interface TagProps extends Omit<EntryProps, 'children'> {
   emoji?: string | null;
   count?: number;
   isFavorite?: boolean;
+
+  /** No notes to show — forces the caret to read as collapsed and disabled, same as Folder's isEmpty. */
+  isEmpty?: boolean;
+  hasCaret?: boolean;
+  isExpanded?: boolean;
+  onExpandToggle?: () => void;
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
@@ -46,6 +52,10 @@ export function Tag({
   emoji,
   count,
   isFavorite = false,
+  isEmpty = false,
+  hasCaret = true,
+  isExpanded = false,
+  onExpandToggle,
   isEditing = false,
   onTitleCommit,
   onTitleCancel,
@@ -66,7 +76,15 @@ export function Tag({
       <Entry
         {...entryProps}
         forceHover={externalForceHover || menuOpen || changeIconTrigger.open}
-        leading={<AppIcon className="tag__icon" icon="tag" emoji={emoji} />}
+        leading={
+          <TagLeading
+            emoji={emoji}
+            isEmpty={isEmpty}
+            hasCaret={hasCaret}
+            isExpanded={isExpanded}
+            onExpandToggle={onExpandToggle}
+          />
+        }
         trailing={<CountBadge count={count} />}
         actions={
           menuItems && menuItems.length > 0 ? (

@@ -1,7 +1,39 @@
 .tag__icon {
   color: var(--sidebar-icon-foreground);
+  /* Purely decorative — shares .tag__caret's grid cell, same reasoning as
+     Folder.css's identical .folder__icon rule. */
+  pointer-events: none;
 }
 .tag__favorite-icon {
   color: var(--sidebar-icon-foreground);
   opacity: var(--opacity-strong);
+}
+
+.tag__leading {
+  display: grid;
+  place-items: center;
+}
+
+.tag__caret,
+.tag__icon {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 120ms ease;
+}
+
+.tag__caret {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.entry:hover .tag__leading--has-caret .tag__caret {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.entry:hover .tag__leading--has-caret .tag__icon {
+  opacity: 0;
+  pointer-events: none;
 }

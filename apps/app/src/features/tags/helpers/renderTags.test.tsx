@@ -5,9 +5,37 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { renderTags, type TagRowActions } from './renderTags';
+import type { Workspace } from '@core/workspace/Workspace';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 
 const noop = () => {};
-const renderOptions = { onOpenTag: noop };
+
+// Minimal fakes — only the members renderTags actually calls. Every
+// fixture below uses usageCount: 0 (or doesn't interact with
+// expand/collapse), so isExpanded/toggleExpanded/activePageId and
+// getPagesByTag are never exercised by these tests; they exist only to
+// satisfy renderTags' required props.
+const fakeWorkspace = {
+  activePageId: null,
+} as unknown as Workspace;
+
+const fakeTagExpansionStore = {
+  isExpanded: () => false,
+  toggleExpanded: noop,
+} as unknown as TagExpansionStore;
+
+const fakeEffectivePageState = {
+  getPagesByTag: () => [],
+} as unknown as EffectivePageState;
+
+const renderOptions = {
+  onOpenTag: noop,
+  onOpenNote: noop,
+  tagExpansionStore: fakeTagExpansionStore,
+  workspace: fakeWorkspace,
+  effectivePageState: fakeEffectivePageState,
+};
 
 function fakeRowActions(overrides: Partial<TagRowActions> = {}): TagRowActions {
   return {
@@ -137,7 +165,7 @@ describe('renderTags', () => {
 
   it('invokes onOpenTag with the tag name when a row is clicked', () => {
     const onOpenTag = vi.fn();
-    render(<>{renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], { onOpenTag })}</>);
+    render(<>{renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>);
 
     fireEvent.click(screen.getByText('Project'));
 
@@ -166,7 +194,7 @@ describe('renderTags', () => {
     it('clicking a hyphen-separated tag\'s row still calls onOpenTag with the raw stored name, not the display label', () => {
       const onOpenTag = vi.fn();
       render(
-        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], { onOpenTag })}</>
+        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
@@ -177,7 +205,7 @@ describe('renderTags', () => {
     it('clicking an underscore-separated tag\'s row still calls onOpenTag with the raw stored name, not the display label', () => {
       const onOpenTag = vi.fn();
       render(
-        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], { onOpenTag })}</>
+        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
@@ -208,7 +236,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag: noop, rowActions }
+            { ...renderOptions, rowActions }
           )}
         </>
       );
@@ -224,7 +252,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag: noop, rowActions }
+            { ...renderOptions, rowActions }
           )}
         </>
       );
@@ -240,7 +268,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag, rowActions }
+            { ...renderOptions, onOpenTag, rowActions }
           )}
         </>
       );
@@ -257,7 +285,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag: noop, rowActions }
+            { ...renderOptions, rowActions }
           )}
         </>
       );
@@ -282,7 +310,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag: noop, rowActions }
+            { ...renderOptions, rowActions }
           )}
         </>
       );
@@ -303,7 +331,7 @@ describe('renderTags', () => {
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { onOpenTag, rowActions }
+            { ...renderOptions, onOpenTag, rowActions }
           )}
         </>
       );

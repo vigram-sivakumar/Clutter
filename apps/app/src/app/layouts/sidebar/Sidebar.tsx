@@ -134,7 +134,18 @@ export function Sidebar({
     {
       value: 'tags',
       icon: getSystemLocationPresentation('tags').icon,
-      panel: <Tags vault={vault} navigation={navigation} tagOperations={application.tagOperations} />,
+      panel: (
+        <Tags
+          vault={vault}
+          navigation={navigation}
+          tagOperations={application.tagOperations}
+          pageOperations={pageOperations}
+          effectivePageState={effectivePageState}
+          workspace={workspace}
+          tagExpansionStore={application.tagExpansionStore}
+          onRequestReveal={onRequestReveal}
+        />
+      ),
     },
     {
       value: 'search',

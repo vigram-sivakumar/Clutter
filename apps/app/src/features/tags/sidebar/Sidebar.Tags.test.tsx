@@ -10,6 +10,10 @@ import { TagBuilder } from '@core/vault/knowledge/TagBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TagOperations } from '@core/application/tags/TagOperations';
+import type { PageOperations } from '@core/application/page/PageOperations';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { Workspace } from '@core/workspace/Workspace';
+import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { Page } from '@core/vault/models/Page';
 
 import { Tags } from './Sidebar.Tags';
@@ -101,6 +105,24 @@ function fakeTagOperations(
   } as unknown as TagOperations;
 }
 
+// None of these tests exercise expansion/reveal — expand/collapse and
+// child-note-click behavior is covered separately (renderTags.test.tsx
+// for the row/expansion logic itself). These fakes only satisfy Tags'
+// required props.
+function extraPanelProps() {
+  return {
+    pageOperations: { open: vi.fn() } as unknown as PageOperations,
+    effectivePageState: { getPagesByTag: () => [] } as unknown as EffectivePageState,
+    workspace: { activePageId: null } as unknown as Workspace,
+    tagExpansionStore: {
+      isExpanded: () => false,
+      toggleExpanded: vi.fn(),
+      subscribe: () => () => {},
+    } as unknown as TagExpansionStore,
+    onRequestReveal: vi.fn(),
+  };
+}
+
 function startRenaming() {
   fireEvent.click(screen.getAllByRole('button').at(-1)!);
   fireEvent.click(screen.getByText('Rename'));
@@ -111,7 +133,7 @@ describe('Sidebar Tags — overflow → Rename focus transition', () => {
   it('clicking Rename leaves the EditableText mounted and focused, with the caret at the end — the overlay closing must not steal focus back', () => {
     const rename = vi.fn(() => Promise.resolve());
     const page = makePage('p1', ['Product-design']);
-    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} />);
+    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} {...extraPanelProps()} />);
 
     const field = startRenaming();
 
@@ -126,7 +148,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
   it('submitting an empty value returns false to EditableText — the row stays in edit mode, nothing is persisted', () => {
     const rename = vi.fn(() => Promise.resolve());
     const page = makePage('p1', ['Product-design']);
-    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} />);
+    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} {...extraPanelProps()} />);
 
     const field = startRenaming();
     field.textContent = '';
@@ -142,7 +164,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
   it('submitting a whitespace-only value also returns false — does not call TagOperations.rename', () => {
     const rename = vi.fn(() => Promise.resolve());
     const page = makePage('p1', ['Product-design']);
-    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} />);
+    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} {...extraPanelProps()} />);
 
     const field = startRenaming();
     field.textContent = '   ';
@@ -155,7 +177,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
   it('submitting a valid value calls TagOperations.rename with the raw old name and the canonical (hyphenated) new name', () => {
     const rename = vi.fn(() => Promise.resolve());
     const page = makePage('p1', ['Product-design']);
-    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} />);
+    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} {...extraPanelProps()} />);
 
     const field = startRenaming();
     field.textContent = 'UX design';
@@ -168,7 +190,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
   it('a valid rename ends the edit session — the row is no longer a textbox', () => {
     const rename = vi.fn(() => Promise.resolve());
     const page = makePage('p1', ['Product-design']);
-    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} />);
+    render(<Tags vault={makeVault([page])} navigation={fakeNavigation()} tagOperations={fakeTagOperations(rename)} {...extraPanelProps()} />);
 
     startRenaming();
     const field = screen.getByRole('textbox');
@@ -188,6 +210,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
         vault={makeVault([page])}
         navigation={fakeNavigation()}
         tagOperations={fakeTagOperations(rename, canRename)}
+        {...extraPanelProps()}
       />
     );
 
@@ -214,6 +237,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
         vault={makeVault([page])}
         navigation={fakeNavigation()}
         tagOperations={fakeTagOperations(rename, canRename)}
+        {...extraPanelProps()}
       />
     );
 
@@ -238,6 +262,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
         vault={makeVault([page])}
         navigation={fakeNavigation()}
         tagOperations={fakeTagOperations(rename, canRename)}
+        {...extraPanelProps()}
       />
     );
 
@@ -267,6 +292,7 @@ describe('Sidebar Tags — rename commit rejection wiring', () => {
         vault={makeVault([page])}
         navigation={fakeNavigation()}
         tagOperations={fakeTagOperations(rename, canRename)}
+        {...extraPanelProps()}
       />
     );
 
@@ -308,7 +334,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
       rename: vi.fn(() => Promise.resolve()),
     } as unknown as TagOperations;
 
-    render(<Tags vault={vault} navigation={fakeNavigation()} tagOperations={tagOperations} />);
+    render(<Tags vault={vault} navigation={fakeNavigation()} tagOperations={tagOperations} {...extraPanelProps()} />);
 
     const field = startRenaming();
     field.textContent = 'Personal: project';
@@ -333,7 +359,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
       rename: vi.fn(() => Promise.resolve()),
     } as unknown as TagOperations;
 
-    render(<Tags vault={vault} navigation={fakeNavigation()} tagOperations={tagOperations} />);
+    render(<Tags vault={vault} navigation={fakeNavigation()} tagOperations={tagOperations} {...extraPanelProps()} />);
 
     const field = startRenaming();
     field.textContent = 'Personal: project';
