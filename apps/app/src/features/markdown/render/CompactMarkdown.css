@@ -125,5 +125,6 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
  * `-wikilink-title`, which own the underline separately. Mirrors the
  * editor's `.tok-strike`. */
 .compact-markdown-struck {
-  text-decoration-line: line-through;
+  text-decoration-line: none;
+  /* text-decoration-line: line-through; */
 }

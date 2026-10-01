@@ -1,9 +1,9 @@
 .property-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  font-size: var(--text-body);
-  line-height: var(--lh-body);
+  gap: var(--space-6);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
 }
 .property-list__row {
   display: flex;
