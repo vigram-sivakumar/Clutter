@@ -57,6 +57,36 @@ export interface MarkdownEditorProps {
    */
   readonly focusOnOpen?: boolean;
   /**
+   * A pending Tasks-sidebar "Open in note" reveal request for *this*
+   * mount's own page, if one is waiting — `{ from, to }`, the task's exact
+   * `startOffset`/`endOffset` (`PendingTaskReveal`'s own doc comment).
+   * `PageHost.tsx` is the only caller: it already filters its own
+   * `pendingTaskReveal` state down to `null` unless
+   * `pendingTaskReveal.pageId === activePageId`, so by the time this prop
+   * is non-null it is always meant for the page this exact instance is
+   * showing — there is no separate pageId to check here.
+   *
+   * Deliberately a prop, not an imperative ref call from the parent's own
+   * effect (the prior implementation): a prop is applied by *this*
+   * component's own effect, which React guarantees runs only after this
+   * same component's mount effect has already constructed `viewRef.current`
+   * and finished every synchronous mount-time dispatch (restored
+   * scroll/history/fold state) — see the reveal effect's own doc comment
+   * next to `useImperativeHandle` below. A parent-side effect calling
+   * `editorRef.current?.revealRange(...)` instead has no such guarantee:
+   * it only knows the *ref* exists, not that this component's *own*
+   * mount-time work has actually settled, which is exactly what let the
+   * reveal silently lose to post-mount state in practice.
+   */
+  readonly pendingTaskReveal?: { readonly from: number; readonly to: number } | null;
+  /**
+   * Fires exactly once, immediately after `pendingTaskReveal` above has
+   * been applied — `PageHost.tsx`'s own cue to clear its `pendingTaskReveal`
+   * state so the same request never re-applies on a later, unrelated
+   * render of this same mounted instance.
+   */
+  readonly onTaskRevealApplied?: () => void;
+  /**
    * Fires on every content change (typing, paste, deletion) — commits into
    * the document session's Committed stage only, no persistence
    * (autosave-execution-model.md §3.1). Called unconditionally on every
@@ -305,15 +335,24 @@ export interface MarkdownEditorHandle {
    */
   focusAtNewLineAtStart(): void;
   /**
-   * Moves the selection to the given document character range and scrolls
-   * it toward the vertical center of the viewport — used by Tasks sidebar
-   * "Open in note" navigation (TaskOccurrence.startOffset/endOffset) to
-   * land on the exact task line rather than wherever the editor's own
-   * default open position (cached scroll/selection, or document start)
-   * happens to be. `from`/`to` are clamped to the document's current
-   * length, so a stale offset (the document changed after the task was
-   * indexed) degrades to a nearby valid position instead of throwing.
-   * A no-op if the editor isn't mounted yet.
+   * Scrolls the line containing `from` toward the vertical center of the
+   * viewport (skipped if it's already on screen) and shows a temporary,
+   * self-expiring `.cm-task-reveal-line` background on it — used by Tasks
+   * sidebar "Open in note" navigation (TaskOccurrence.startOffset/
+   * endOffset) to land on the exact task line rather than wherever the
+   * editor's own default open position (cached scroll/selection, or
+   * document start) happens to be. Never creates an `EditorSelection` and
+   * never touches the document's existing selection at all — see
+   * `taskRevealHighlight.ts`'s own doc comment for why a selection was the
+   * prior implementation's actual bug. `from`/`to` are clamped to the
+   * document's current length, so a stale offset (the document changed
+   * after the task was indexed) degrades to a nearby valid position
+   * instead of throwing. A no-op if the editor isn't mounted yet.
+   *
+   * Exposed as an imperative method for direct callers/tests; `PageHost.tsx`
+   * itself no longer calls this directly — see `pendingTaskReveal`
+   * (`MarkdownEditorProps`) for why the real "Open in note" flow goes
+   * through a prop instead.
    */
   revealRange(from: number, to: number): void;
 }

@@ -170,6 +170,127 @@ describe('MarkdownEditor imperative focus handle', () => {
       expect(() => ref.current?.revealRange(0, 5)).not.toThrow();
     });
   });
+
+  // The real "Open in note" entry point: PageHost.tsx hands a pending
+  // reveal request to this prop (not an imperative revealRange() ref call
+  // from its own effect) specifically so the request is applied by this
+  // component's *own* post-mount effect — guaranteed by React to run only
+  // after the mount effect above has fully constructed the view and
+  // finished every synchronous mount-time dispatch. Regression coverage
+  // for the bug this fixed: the decoration must be visible immediately,
+  // with no click or other interaction required first.
+  describe('pendingTaskReveal prop', () => {
+    function lineFor(view: EditorView, pos: number): HTMLElement {
+      const lineEls = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+      const lineIndex = view.state.doc.lineAt(pos).number - 1;
+      const lineEl = lineEls[lineIndex];
+      if (!lineEl) {
+        throw new Error(`expected a .cm-line at index ${lineIndex}`);
+      }
+      return lineEl;
+    }
+
+    it('applies on first mount, with the decoration visible immediately — no click required', () => {
+      const content = '- [ ] Buy groceries\n- [ ] Finish report';
+      const onTaskRevealApplied = vi.fn();
+      const { container } = render(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={{ from: 21, to: 40 }}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      // No click, no further interaction — the decoration must already be
+      // in the DOM right after the component's own effects have run.
+      expect(lineFor(view, 21).className).toContain('cm-task-reveal-line');
+      expect(lineFor(view, 0).className).not.toContain('cm-task-reveal-line');
+      expect(onTaskRevealApplied).toHaveBeenCalledTimes(1);
+    });
+
+    it('never selects the task text when applied via the prop', () => {
+      const content = '- [ ] Buy groceries\n- [ ] Finish report';
+      const { container } = render(
+        <MarkdownEditor pageId="test-page" markdown={content} pendingTaskReveal={{ from: 21, to: 40 }} />
+      );
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      expect(view.state.selection.main.empty).toBe(true);
+    });
+
+    it('does not reapply on a re-render that keeps the same pendingTaskReveal reference', () => {
+      const content = '- [ ] Buy groceries\n- [ ] Finish report';
+      const onTaskRevealApplied = vi.fn();
+      const reveal = { from: 21, to: 40 };
+      const { rerender } = render(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={reveal}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+      expect(onTaskRevealApplied).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={reveal}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+
+      expect(onTaskRevealApplied).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies again for a second, distinct request on an already-mounted editor (same note, a different task)', () => {
+      const content = '- [ ] Buy groceries\n- [ ] Finish report';
+      const onTaskRevealApplied = vi.fn();
+      const { container, rerender } = render(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={{ from: 0, to: 19 }}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+      expect(lineFor(view, 0).className).toContain('cm-task-reveal-line');
+
+      rerender(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={{ from: 21, to: 40 }}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+
+      expect(lineFor(view, 21).className).toContain('cm-task-reveal-line');
+      expect(lineFor(view, 0).className).not.toContain('cm-task-reveal-line');
+      expect(onTaskRevealApplied).toHaveBeenCalledTimes(2);
+    });
+
+    it('is inert when the prop is null/omitted', () => {
+      const content = '- [ ] Buy groceries';
+      const onTaskRevealApplied = vi.fn();
+      const { container } = render(
+        <MarkdownEditor
+          pageId="test-page"
+          markdown={content}
+          pendingTaskReveal={null}
+          onTaskRevealApplied={onTaskRevealApplied}
+        />
+      );
+      const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+      expect(lineFor(view, 0).className).not.toContain('cm-task-reveal-line');
+      expect(onTaskRevealApplied).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('MarkdownEditor: DOM sync from the markdown prop', () => {

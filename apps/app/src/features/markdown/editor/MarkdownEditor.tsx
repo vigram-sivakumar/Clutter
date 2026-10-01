@@ -207,6 +207,8 @@ export const MarkdownEditor = forwardRef<
     pageId,
     markdown,
     focusOnOpen,
+    pendingTaskReveal,
+    onTaskRevealApplied,
     foldStateStore,
     onEdit,
     onFlush,
@@ -1195,6 +1197,55 @@ export const MarkdownEditor = forwardRef<
   const resolveDateRef = useRef(resolveDate);
   resolveDateRef.current = resolveDate;
 
+  // Shared by the imperative `revealRange` handle below and by the
+  // `pendingTaskReveal`-prop effect further down (`MarkdownEditorProps`'s
+  // own doc comment on that prop explains why the real "Open in note" flow
+  // goes through the prop, not this method, but both apply the identical
+  // reveal — one business rule, one implementation, per
+  // docs/implementation-rules.md's "never duplicate a business rule"
+  // rule).
+  //
+  // Never an EditorSelection — the prior implementation selected the
+  // task's text, which made the selection live editing state: typing
+  // immediately after navigation replaced the task instead of inserting
+  // at the user's actual cursor. This leaves `state.selection` completely
+  // untouched (so normal cursor placement/typing continues exactly as
+  // before) and shows the task's position with a purely-visual, self-
+  // expiring `Decoration.line` instead (`taskRevealHighlight.ts`).
+  //
+  // Scrolling is a plain DOM `scrollTop` write on the real scrolling
+  // ancestor, not CM6's own `EditorView.scrollIntoView` effect — this
+  // view's `.cm-scroller` is `overflow: visible` (see
+  // `findScrollableAncestor`'s own doc comment above), so CM6's built-in
+  // scroll-into-view has no visible effect in this app's actual layout;
+  // the ancestor found at mount time is the element that really scrolls.
+  // Skipped entirely when the task's line is already on screen, per the
+  // product spec's "don't unnecessarily jump the document" requirement.
+  function applyTaskReveal(view: EditorView, from: number, to: number) {
+    const docLength = view.state.doc.length;
+    const safeFrom = Math.min(Math.max(from, 0), docLength);
+    const safeTo = Math.min(Math.max(to, safeFrom), docLength);
+    const line = view.state.doc.lineAt(safeFrom);
+
+    const scrollAncestor = scrollAncestorRef.current;
+    if (scrollAncestor) {
+      const ancestorRect = scrollAncestor.getBoundingClientRect();
+      const lineCoords = view.coordsAtPos(line.from);
+      const alreadyVisible =
+        !!lineCoords && lineCoords.top >= ancestorRect.top && lineCoords.bottom <= ancestorRect.bottom;
+      if (lineCoords && !alreadyVisible) {
+        const lineCenter = (lineCoords.top + lineCoords.bottom) / 2;
+        const ancestorCenter = (ancestorRect.top + ancestorRect.bottom) / 2;
+        const targetScrollTop = scrollAncestor.scrollTop + (lineCenter - ancestorCenter);
+        scrollAncestor.scrollTop = Math.max(0, targetScrollTop);
+        lastKnownScrollTopRef.current = scrollAncestor.scrollTop;
+      }
+    }
+
+    view.dispatch({ effects: setTaskRevealHighlight.of({ from: safeFrom, to: safeTo }) });
+    view.focus();
+  }
+
   useImperativeHandle(ref, () => ({
     focus() {
       viewRef.current?.focus();
@@ -1211,49 +1262,12 @@ export const MarkdownEditor = forwardRef<
       });
       view.focus();
     },
-    // Never an EditorSelection — the prior implementation selected the
-    // task's text, which made the selection live editing state: typing
-    // immediately after navigation replaced the task instead of inserting
-    // at the user's actual cursor. This leaves `state.selection` completely
-    // untouched (so normal cursor placement/typing continues exactly as
-    // before) and shows the task's position with a purely-visual, self-
-    // expiring `Decoration.line` instead (`taskRevealHighlight.ts`).
-    //
-    // Scrolling is a plain DOM `scrollTop` write on the real scrolling
-    // ancestor, not CM6's own `EditorView.scrollIntoView` effect — this
-    // view's `.cm-scroller` is `overflow: visible` (see
-    // `findScrollableAncestor`'s own doc comment above), so CM6's built-in
-    // scroll-into-view has no visible effect in this app's actual layout;
-    // the ancestor found at mount time is the element that really scrolls.
-    // Skipped entirely when the task's line is already on screen, per the
-    // product spec's "don't unnecessarily jump the document" requirement.
     revealRange(from, to) {
       const view = viewRef.current;
       if (!view) {
         return;
       }
-      const docLength = view.state.doc.length;
-      const safeFrom = Math.min(Math.max(from, 0), docLength);
-      const safeTo = Math.min(Math.max(to, safeFrom), docLength);
-      const line = view.state.doc.lineAt(safeFrom);
-
-      const scrollAncestor = scrollAncestorRef.current;
-      if (scrollAncestor) {
-        const ancestorRect = scrollAncestor.getBoundingClientRect();
-        const lineCoords = view.coordsAtPos(line.from);
-        const alreadyVisible =
-          !!lineCoords && lineCoords.top >= ancestorRect.top && lineCoords.bottom <= ancestorRect.bottom;
-        if (lineCoords && !alreadyVisible) {
-          const lineCenter = (lineCoords.top + lineCoords.bottom) / 2;
-          const ancestorCenter = (ancestorRect.top + ancestorRect.bottom) / 2;
-          const targetScrollTop = scrollAncestor.scrollTop + (lineCenter - ancestorCenter);
-          scrollAncestor.scrollTop = Math.max(0, targetScrollTop);
-          lastKnownScrollTopRef.current = scrollAncestor.scrollTop;
-        }
-      }
-
-      view.dispatch({ effects: setTaskRevealHighlight.of({ from: safeFrom, to: safeTo }) });
-      view.focus();
+      applyTaskReveal(view, from, to);
     },
   }));
 
@@ -1543,6 +1557,45 @@ export const MarkdownEditor = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => activeEditorCleanupRef.current?.();
   }, []);
+
+  // Applies a pending Tasks-sidebar "Open in note" reveal exactly once,
+  // after the mount effect above has fully constructed `viewRef.current`
+  // and finished every synchronous mount-time dispatch (restored
+  // scroll/history/fold state). A *separate* effect from the mount effect
+  // above (not inlined into it) specifically so React's own guarantee that
+  // one component instance's effects run in declaration order does the
+  // sequencing for us: this effect cannot observe `viewRef.current` before
+  // the mount effect has already finished setting it up, in the very same
+  // commit — whether this is this component's first mount (a cross-page
+  // "Open in note") or an already-mounted instance simply receiving a
+  // fresh `pendingTaskReveal` prop (an "Open in note" for a task inside
+  // the already-open note, no remount involved at all).
+  //
+  // This replaces an earlier implementation where `PageHost.tsx`'s own
+  // effect called `editorRef.current?.revealRange(...)` imperatively —
+  // that only guaranteed the *ref* existed, not that *this* component's
+  // own mount-time work had actually settled, which is exactly the gap
+  // that let the reveal apply (scroll included) while the temporary
+  // highlight silently failed to paint until some later, unrelated
+  // interaction forced CodeMirror to re-render. Consuming the request as a
+  // prop, inside this component's own post-mount effect, removes that gap
+  // entirely rather than papering over it with a delay.
+  //
+  // Keyed only on `pendingTaskReveal` (not `onTaskRevealApplied`, a fresh
+  // closure every `PageHost` render) — applying once per distinct non-null
+  // value, then relying on the callback to flip the prop back to `null`,
+  // is what makes this "apply exactly once": the effect never reruns for
+  // the *same* request, since `pendingTaskReveal`'s own reference only
+  // changes when `PageHost` hands this instance a genuinely new one.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !pendingTaskReveal) {
+      return;
+    }
+    applyTaskReveal(view, pendingTaskReveal.from, pendingTaskReveal.to);
+    onTaskRevealApplied?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTaskReveal]);
 
   useEffect(() => {
     const view = viewRef.current;
