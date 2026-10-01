@@ -116,3 +116,14 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
 .compact-markdown-date[data-date-status='invalid'] {
   opacity: var(--opacity-medium);
 }
+
+/* Strikethrough — every struck element
+ * owns its own line, per the Strikethrough Rendering Contract
+ * (`STRIKETHROUGH.md`): `text-decoration-color` follows the element that
+ * declares the line, so this class must sit on the construct itself, never
+ * on an ancestor wrapper. Never on `.compact-markdown-link-title` /
+ * `-wikilink-title`, which own the underline separately. Mirrors the
+ * editor's `.tok-strike`. */
+.compact-markdown-struck {
+  text-decoration-line: line-through;
+}

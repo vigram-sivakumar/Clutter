@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 
 import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
@@ -28,7 +28,7 @@ export interface CompactMarkdownResolvers {
 }
 
 /**
- * Strike-ownership style per the Strikethrough Rendering Contract
+ * Strike-ownership class (`.compact-markdown-struck` in `CompactMarkdown.css`) per the Strikethrough Rendering Contract
  * (`apps/app/src/features/markdown/editor/codemirror/highlight/STRIKETHROUGH.md`):
  * a semantic construct that owns its own foreground styling must also own
  * its own `text-decoration-line: line-through` when struck, rather than
@@ -52,7 +52,13 @@ export interface CompactMarkdownResolvers {
  * its own underline, so it always renders at the default thickness/color
  * like every other construct's strike.
  */
-const STRIKE_LINE_THROUGH: CSSProperties = { textDecorationLine: 'line-through' };
+const STRIKE_CLASS = 'compact-markdown-struck';
+
+/** Appends `STRIKE_CLASS` to `base` (or returns it alone / undefined). */
+function strikeClass(base: string | undefined, struck: boolean): string | undefined {
+  if (!struck) return base;
+  return base ? `${base} ${STRIKE_CLASS}` : STRIKE_CLASS;
+}
 
 function renderDate(isoDate: string, key: number, struck: boolean): ReactNode {
   // Mirrors DateWidget.ts exactly: a shape-valid-but-calendar-invalid date
@@ -64,9 +70,8 @@ function renderDate(isoDate: string, key: number, struck: boolean): ReactNode {
   return (
     <span
       key={key}
-      className="compact-markdown-date"
+      className={strikeClass('compact-markdown-date', struck)}
       data-date-status={valid ? 'valid' : 'invalid'}
-      style={struck ? STRIKE_LINE_THROUGH : undefined}
     >
       <span className="compact-markdown-date-prefix">@</span>
       {label}
@@ -86,9 +91,8 @@ function renderWikiLink(
   return (
     <span
       key={key}
-      className="compact-markdown-wikilink"
+      className={strikeClass('compact-markdown-wikilink', struck)}
       data-wikilink-status={resolution.status}
-      style={struck ? STRIKE_LINE_THROUGH : undefined}
     >
       <span className="compact-markdown-wikilink-title">{resolution.displayLabel}</span>
     </span>
@@ -139,7 +143,7 @@ function renderEmbed(path: string, resolveEmbed: ResolvePageEmbed | undefined): 
  */
 function renderLink(label: string, key: number, struck: boolean): ReactNode {
   return (
-    <span key={key} className="compact-markdown-link" style={struck ? STRIKE_LINE_THROUGH : undefined}>
+    <span key={key} className={strikeClass('compact-markdown-link', struck)}>
       <span className="compact-markdown-link-title">{label}</span>
     </span>
   );
@@ -151,9 +155,8 @@ function renderTag(name: string, resolveTag: ResolveTag | undefined, key: number
   return (
     <span
       key={key}
-      className="compact-markdown-tag"
+      className={strikeClass('compact-markdown-tag', struck)}
       data-tag-status={resolution.status}
-      style={struck ? STRIKE_LINE_THROUGH : undefined}
     >
       <span className="compact-markdown-tag-prefix">#</span>
       {resolution.displayLabel}
@@ -252,7 +255,6 @@ function renderStruckChildren(children: readonly CompactSpan[], resolvers: Compa
 }
 
 function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolvers, key: number, struck: boolean): ReactNode {
-  const strikeStyle = struck ? STRIKE_LINE_THROUGH : undefined;
   switch (span.kind) {
     case 'text':
       // Plain text has no element of its own to carry a strike style —
@@ -261,13 +263,13 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
       return span.value;
     case 'bold':
       return (
-        <strong key={key} style={strikeStyle}>
+        <strong key={key} className={strikeClass(undefined, struck)}>
           {renderCompactSpans(span.children, resolvers)}
         </strong>
       );
     case 'italic':
       return (
-        <em key={key} style={strikeStyle}>
+        <em key={key} className={strikeClass(undefined, struck)}>
           {renderCompactSpans(span.children, resolvers)}
         </em>
       );
@@ -279,13 +281,13 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
       return <Fragment key={key}>{renderStruckChildren(span.children, resolvers)}</Fragment>;
     case 'highlight':
       return (
-        <mark key={key} className="compact-markdown-highlight" style={strikeStyle}>
+        <mark key={key} className={strikeClass('compact-markdown-highlight', struck)}>
           {renderCompactSpans(span.children, resolvers)}
         </mark>
       );
     case 'code':
       return (
-        <code key={key} className="compact-markdown-code" style={strikeStyle}>
+        <code key={key} className={strikeClass('compact-markdown-code', struck)}>
           {span.value}
         </code>
       );

@@ -39,6 +39,10 @@ describe('CompactMarkdown.css — styling-parity tokens', () => {
     expect(titleBody).toMatch(/text-decoration-color:\s*var\(--md-link-underline\)/);
   });
 
+  it('.compact-markdown-struck owns the line-through in CSS (not inline styles)', () => {
+    expect(rule('.compact-markdown-struck')).toMatch(/text-decoration-line:\s*line-through/);
+  });
+
   it('.compact-markdown-date uses the editor\'s own date foreground token, not `inherit`', () => {
     const body = rule('.compact-markdown-date');
     expect(body).toMatch(/color:\s*var\(--md-date-foreground\)/);

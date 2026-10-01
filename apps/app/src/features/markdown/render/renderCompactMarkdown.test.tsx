@@ -333,7 +333,7 @@ describe('renderCompactMarkdown', () => {
       // No <s> at all: the code fills the entire strikethrough, so there
       // is no plain-text run left for a generic <s> to own.
       expect(container.querySelector('s')).toBeNull();
-      expect((code as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((code as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
     });
 
     it('~~[Google](www.google.co.in)~~ — the Link owns its own strike; it is NOT nested inside an <s>', () => {
@@ -349,7 +349,7 @@ describe('renderCompactMarkdown', () => {
       // thickness/color; the underline lives separately on the inner
       // `.compact-markdown-link-title` span (see CompactMarkdown.css) so it
       // never shares `text-decoration-color`/`-thickness` with the strike.
-      expect((link as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((link as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       // The underline itself is declared in CompactMarkdown.css on this
       // inner element, not verifiable via jsdom's getComputedStyle (this
       // test environment doesn't apply imported stylesheet rules) — the
@@ -412,7 +412,7 @@ describe('renderCompactMarkdown', () => {
       expect(strong).not.toBeNull();
       expect(link).not.toBeNull();
       expect(strong!.contains(link)).toBe(true);
-      expect(strong!.style.textDecorationLine).toBe('line-through');
+      expect(strong!.classList.contains('compact-markdown-struck')).toBe(true);
       expect(container).not.toHaveTextContent('[Google]');
       expect(container).not.toHaveTextContent('www.google.co.in');
       expect(container.querySelector('s')).toBeNull();
@@ -424,7 +424,7 @@ describe('renderCompactMarkdown', () => {
       // ownership *violation* (no element contains another element that
       // also declares its own text-decoration-line) — just an accepted
       // visual gap, identical in scope to the editor's own.
-      expect((link as HTMLElement).style.textDecorationLine).toBe('');
+      expect((link as HTMLElement).classList.contains('compact-markdown-struck')).toBe(false);
     });
   });
 
@@ -445,7 +445,7 @@ describe('renderCompactMarkdown', () => {
     if (el.tagName === 'S') {
       return true;
     }
-    return (el as HTMLElement).style.textDecorationLine.includes('line-through');
+    return (el as HTMLElement).classList.contains('compact-markdown-struck');
   }
 
   /**
@@ -484,7 +484,7 @@ describe('renderCompactMarkdown', () => {
       expect(strike!.contains(tag)).toBe(false);
       expect(tag).toHaveAttribute('data-tag-status', 'unresolved');
       expect(tag!.querySelector('.compact-markdown-tag-prefix')).not.toBeNull();
-      expect((tag as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((tag as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -499,7 +499,7 @@ describe('renderCompactMarkdown', () => {
       // the underline lives on the separate inner `.compact-markdown-link-title`
       // element (CompactMarkdown.css) so the two never share a
       // `text-decoration-color`/`-thickness`.
-      expect((link as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((link as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(link!.querySelector('.compact-markdown-link-title')).not.toBeNull();
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
@@ -511,7 +511,7 @@ describe('renderCompactMarkdown', () => {
       expect(code).not.toBeNull();
       expect(code).toHaveTextContent('code');
       expect(container.querySelector('s')).toBeNull();
-      expect((code as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((code as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -523,7 +523,7 @@ describe('renderCompactMarkdown', () => {
       expect(strong).toHaveTextContent('bold');
       expect(container).not.toHaveTextContent('**bold**');
       expect(container.querySelector('s')).toBeNull();
-      expect(strong!.style.textDecorationLine).toBe('line-through');
+      expect(strong!.classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -534,7 +534,7 @@ describe('renderCompactMarkdown', () => {
       expect(em).not.toBeNull();
       expect(em).toHaveTextContent('italic');
       expect(container.querySelector('s')).toBeNull();
-      expect(em!.style.textDecorationLine).toBe('line-through');
+      expect(em!.classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -546,7 +546,7 @@ describe('renderCompactMarkdown', () => {
       expect(mark).toHaveTextContent('highlight');
       expect(container).not.toHaveTextContent('==highlight==');
       expect(container.querySelector('s')).toBeNull();
-      expect((mark as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((mark as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -558,7 +558,7 @@ describe('renderCompactMarkdown', () => {
       expect(strike).not.toBeNull();
       expect(date).not.toBeNull();
       expect(strike!.contains(date)).toBe(false);
-      expect((date as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((date as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
 
@@ -573,7 +573,7 @@ describe('renderCompactMarkdown', () => {
       // Strike lives on the outer element at the default thickness/color;
       // the underline lives on the separate inner
       // `.compact-markdown-wikilink-title` element (CompactMarkdown.css).
-      expect((wikilink as HTMLElement).style.textDecorationLine).toBe('line-through');
+      expect((wikilink as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       expect(wikilink!.querySelector('.compact-markdown-wikilink-title')).not.toBeNull();
       expect(hasNestedStrikeOwner(container)).toBe(false);
     });
@@ -597,7 +597,7 @@ describe('renderCompactMarkdown', () => {
       // are siblings, each self-owning.
       expect(Array.from(strikeSpans).map((s) => s.textContent)).toEqual(['plain ', ' ', ' ', ' text']);
       for (const el of [code, tag, link]) {
-        expect((el as HTMLElement).style.textDecorationLine).toMatch(/line-through/);
+        expect((el as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
         for (const strike of strikeSpans) {
           expect(strike.contains(el)).toBe(false);
         }
@@ -629,7 +629,7 @@ describe('renderCompactMarkdown', () => {
       // Link/WikiLink) lives on a separate inner `-title` element, per the
       // CSS decoration-sharing fix (CompactMarkdown.css).
       for (const el of [link, tag, code, wikilink]) {
-        expect((el as HTMLElement).style.textDecorationLine).toBe('line-through');
+        expect((el as HTMLElement).classList.contains('compact-markdown-struck')).toBe(true);
       }
       expect(link!.querySelector('.compact-markdown-link-title')).not.toBeNull();
       expect(wikilink!.querySelector('.compact-markdown-wikilink-title')).not.toBeNull();
