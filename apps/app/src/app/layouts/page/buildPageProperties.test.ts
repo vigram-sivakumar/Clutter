@@ -56,14 +56,14 @@ describe('buildPageProperties', () => {
 
   it('formats timestamps, falls back to raw text, and blanks missing ones', () => {
     const items = buildPageProperties(makePage('note', { createdAt: null }));
-    expect(items[2].value).toBe('');
-    expect(items[3].value).toBe('not-a-date');
+    expect(items[2]!.value).toBe('');
+    expect(items[3]!.value).toBe('not-a-date');
     const ok = buildPageProperties(makePage('note'));
-    expect(ok[2].value).not.toBe('2026-01-02T03:04:05.000Z');
-    expect(ok[2].value).not.toBe('');
+    expect(ok[2]!.value).not.toBe('2026-01-02T03:04:05.000Z');
+    expect(ok[2]!.value).not.toBe('');
   });
 
   it('treats a missing tags array as empty', () => {
-    expect(buildPageProperties(makePage('note', { tags: undefined }))[0].value).toEqual([]);
+    expect(buildPageProperties(makePage('note', { tags: undefined }))[0]!.value).toEqual([]);
   });
 });
