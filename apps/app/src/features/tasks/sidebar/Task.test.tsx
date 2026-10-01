@@ -153,7 +153,7 @@ describe('Task — More Actions menu', () => {
     expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
   });
 
-  it('renders Due date, Open in note, and Delete when their callbacks are provided', () => {
+  it('renders Due date, Show in note, and Delete when their callbacks are provided', () => {
     const { container } = render(
       <Task
         title="Finish table work"
@@ -167,7 +167,7 @@ describe('Task — More Actions menu', () => {
     openMenu(container);
 
     expect(screen.getByText('Due date')).toBeDefined();
-    expect(screen.getByText('Open in note')).toBeDefined();
+    expect(screen.getByText('Show in note')).toBeDefined();
     expect(screen.getByText('Delete')).toBeDefined();
   });
 
@@ -193,7 +193,7 @@ describe('Task — More Actions menu', () => {
     expect(screen.queryByText(formatTaskDueDate('2026-09-28'))).toBeNull();
   });
 
-  it('selecting Open in note calls onOpenInNote, not the row\'s own onClick', () => {
+  it('selecting Show in note calls onOpenInNote, not the row\'s own onClick', () => {
     const onClick = vi.fn();
     const onOpenInNote = vi.fn();
     const { container } = render(
@@ -206,7 +206,7 @@ describe('Task — More Actions menu', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Open in note'));
+    fireEvent.click(screen.getByText('Show in note'));
 
     expect(onOpenInNote).toHaveBeenCalled();
     expect(onClick).not.toHaveBeenCalled();

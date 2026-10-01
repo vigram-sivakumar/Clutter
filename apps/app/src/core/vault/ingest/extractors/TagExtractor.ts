@@ -13,7 +13,7 @@ export interface ScannedTagOccurrence {
   // than whole-line granularity, since (unlike a task) a line can carry
   // more than one tag. `startOffset` is the `#` character's own index;
   // `endOffset` is exclusive and excludes any trailing text/whitespace —
-  // this is what lets a later consumer (Tag collection → "Open in note",
+  // this is what lets a later consumer (Tag collection → "Show in note",
   // ADR pending) resolve this occurrence to its containing editor line
   // without re-deriving the match position from `name` and a text search.
   readonly startOffset: number;

@@ -10,7 +10,7 @@ import {
 
 /**
  * The generic "you've landed here" cue behind every navigate-to-content-
- * in-the-editor flow — Tasks sidebar's "Open in note" and Tag collection's
+ * in-the-editor flow — Tasks sidebar's "Show in note" and Tag collection's
  * "Open note" today, the intended mechanism for any future search/
  * backlink/mention navigation too (see this module's own doc comment
  * further down, and `MarkdownEditor.tsx`'s `applyEditorReveal`/
@@ -44,7 +44,7 @@ export interface RevealRange {
 
 /**
  * One or more target ranges to reveal simultaneously — a single-task
- * "Open in note" passes one; a tag with several occurrences in the same
+ * "Show in note" passes one; a tag with several occurrences in the same
  * note passes one per occurrence (deduplicated to their containing lines
  * by this module, not by the caller — see `decorationsFor`). Every target
  * line is highlighted at the same time, for the same duration, and fades

@@ -92,7 +92,7 @@ describe('MarkdownEditor imperative focus handle', () => {
     expect(view.state.selection.main.head).toBe(0);
   });
 
-  // Tasks sidebar "Open in note" navigation (TaskOccurrence.startOffset/
+  // Tasks sidebar "Show in note" navigation (TaskOccurrence.startOffset/
   // endOffset) — see PendingEditorReveal/PageHost's own doc comments. Must
   // never create an EditorSelection over the task text: a selection is
   // live editing state, so typing immediately after navigation would

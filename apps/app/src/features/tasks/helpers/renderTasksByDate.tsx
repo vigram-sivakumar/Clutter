@@ -19,7 +19,7 @@ import { isPast, isToday } from '@shared/helpers/time';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
-  /** Also what "Open in note" in the row's More Actions menu invokes — same action, same destination. */
+  /** Also what "Show in note" in the row's More Actions menu invokes — same action, same destination. */
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens the row's Change due date calendar; a date string sets it, null clears it. Reuses TaskOperations.setDate()/clearDate() — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;

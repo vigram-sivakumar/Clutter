@@ -1977,7 +1977,7 @@
 /*
  * Temporary editor-reveal line flash — the one shared visual treatment
  * behind every "navigate to content in the editor" flow (Tasks sidebar
- * "Open in note", Tag collection "Open note", any future search/backlink/
+ * "Show in note", Tag collection "Open note", any future search/backlink/
  * mention navigation — see `codemirror/highlight/editorRevealHighlight.ts`'s
  * own doc comment). `background-color` only — never `margin` on this
  * `Decoration.line` class, per this file's own permanent CM6 margin rule

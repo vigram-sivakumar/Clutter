@@ -1,9 +1,9 @@
 /**
  * A single pending "land on this content" request — the generalized form
- * of what was originally Tasks sidebar's own "Open in note" request
+ * of what was originally Tasks sidebar's own "Show in note" request
  * (`PendingTaskReveal`, since folded into this). Set by any navigation
  * source that wants to open a note and immediately scroll to/highlight
- * specific content in it — Tasks sidebar's "Open in note" (today, always
+ * specific content in it — Tasks sidebar's "Show in note" (today, always
  * one range) and Tag collection's "Open note" (today, one range per
  * occurrence of the clicked tag in that note) — lifted to AppLayout (the
  * confirmed common ancestor of Sidebar and PageHost, the same shape

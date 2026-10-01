@@ -86,7 +86,7 @@ export function Task({
   }
 
   if (onOpenInNote) {
-    menuItems.push({ id: 'open-in-note', label: 'Open in note', icon: 'note' });
+    menuItems.push({ id: 'open-in-note', label: 'Show in note', icon: 'note' });
   }
 
   if (onDelete) {

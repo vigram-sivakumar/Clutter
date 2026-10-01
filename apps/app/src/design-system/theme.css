@@ -56,7 +56,7 @@ html.theme-transitioning [data-themeable] *::after {
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
-  /* Temporary editor-reveal line flash (Tasks sidebar "Open in note", Tag
+  /* Temporary editor-reveal line flash (Tasks sidebar "Show in note", Tag
      collection "Open note", any future navigate-to-content consumer) —
      independent of --md-highlight-surface above (that's the permanent
      ==inline highlight== rendering, this is a transient navigation cue

@@ -457,7 +457,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     tableWholeDeletionKeymap(),
     fencedCodeFenceAutoClose(),
     // Editable-only: `MarkdownEditor.tsx`'s `revealRange`/`revealRanges`
-    // (Tasks sidebar's "Open in note", Tag collection's "Open note") are
+    // (Tasks sidebar's "Show in note", Tag collection's "Open note") are
     // only ever called against the top-level editable view, never a note
     // embed's read-only nested one.
     editorRevealHighlight(),

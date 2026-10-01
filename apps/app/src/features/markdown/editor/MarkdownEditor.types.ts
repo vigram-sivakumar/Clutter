@@ -61,7 +61,7 @@ export interface MarkdownEditorProps {
    * page, if one is waiting — one or more `{ from, to }` ranges (an
    * occurrence's exact `startOffset`/`endOffset`), each resolved to its
    * containing editor line by `editorRevealHighlight.ts`. Today's
-   * producers are Tasks sidebar "Open in note" (always exactly one range)
+   * producers are Tasks sidebar "Show in note" (always exactly one range)
    * and Tag collection "Open note" (every occurrence of the clicked tag in
    * that note, so every matching line highlights at once — see
    * `PendingEditorReveal`'s own doc comment); any future search/backlink/
@@ -348,12 +348,12 @@ export interface MarkdownEditorHandle {
    * Single-target convenience wrapper over `revealRanges([{ from, to }])`
    * — see that method's own doc comment for the full behavior (scroll,
    * highlight, clamping, no-op-when-unmounted). Used by Tasks sidebar
-   * "Open in note" navigation (TaskOccurrence.startOffset/endOffset),
+   * "Show in note" navigation (TaskOccurrence.startOffset/endOffset),
    * which always targets exactly one occurrence.
    *
    * Exposed as an imperative method for direct callers/tests; `PageHost.tsx`
    * itself no longer calls this directly — see `pendingReveal`
-   * (`MarkdownEditorProps`) for why the real "Open in note" flow goes
+   * (`MarkdownEditorProps`) for why the real "Show in note" flow goes
    * through a prop instead.
    */
   revealRange(from: number, to: number): void;

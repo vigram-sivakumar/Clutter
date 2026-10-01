@@ -32,7 +32,7 @@ interface SidebarProps {
   /** See AppLayout's own doc comment on its `tasksViewConfig` state — lifted here since Sidebar's Tasks panel is one of its two consumers. */
   readonly tasksViewConfig: TaskDisplayConfig;
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
-  /** See AppLayout's own doc comment on its `pendingReveal` state — set here by Tasks' "Open in note" (and by PageHost's own Tag collection "Open note"), consumed by PageHost. */
+  /** See AppLayout's own doc comment on its `pendingReveal` state — set here by Tasks' "Show in note" (and by PageHost's own Tag collection "Open note"), consumed by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
 

@@ -85,7 +85,7 @@ export function AppLayout({ application }: AppLayoutProps) {
     application.tasksViewConfigStore.update(next);
   }
 
-  // Navigate-to-content requests (Tasks sidebar "Open in note", Tag
+  // Navigate-to-content requests (Tasks sidebar "Show in note", Tag
   // collection "Open note") → PageHost's editor, carrying each occurrence's
   // exact offsets so the correct content (not just the correct page) is
   // targeted — lifted here for the same reason tasksViewConfig is, just
