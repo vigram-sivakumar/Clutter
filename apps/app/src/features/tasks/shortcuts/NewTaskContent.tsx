@@ -9,47 +9,29 @@ import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
 import './NewTaskContent.css';
 
 export interface NewTaskContentProps {
-  /** 'create' (default) is the New Task flow; 'edit' is the task row's Edit menu action — same modal, different header/CTA text and pre-filled draft values. */
-  mode?: 'create' | 'edit';
-  /** Seeds the title field's local draft state on mount — only read once, like React's own `defaultValue` convention, since this component always unmounts/remounts fresh per open (see the doc comment below). */
-  initialTitle?: string;
-  /** Seeds the due-date field's local draft state on mount — see initialTitle's own doc comment. */
-  initialDueDate?: string;
   onClose(): void;
   /**
-   * Create: creates the task in its target Daily Note and resolves once
-   * durable (see TasksShortcutsProps.onCreateTask's own doc comment).
-   * Edit: updates the existing task's title/due date in place and
-   * resolves once durable (see Sidebar.Tasks.tsx's onSaveTask). Either
-   * way, a plain callback prop — never a TaskOperations/PageOperations
-   * import here (UI/Features must not import a concrete application-layer
-   * class directly, ARCHITECTURE_RULES rule 6).
+   * Creates the task in its target Daily Note and resolves once durable
+   * (see TasksShortcutsProps.onCreateTask's own doc comment) — a plain
+   * callback prop, never a TaskOperations/PageOperations import here
+   * (UI/Features must not import a concrete application-layer class
+   * directly, ARCHITECTURE_RULES rule 6).
    */
   onSubmit(title: string, dueDate: string | undefined): Promise<void>;
 }
 
 /**
- * The New Task / Edit Task modal's content, rendered inside the shared
- * `Dialog` primitive by `TasksShortcuts` (create) or `EditTaskDialog`
- * (edit) — the same component either way, per product direction not to
- * build a second edit UI. Owns the title/due-date draft state and the
- * submit button's own request lifecycle (in-flight/error) entirely
- * locally, seeded once from `initialTitle`/`initialDueDate` — this
- * component always unmounts when its own Dialog closes (Overlay returns
- * null while !open), so a fresh mount with fresh initial values is
- * exactly what the next open (whether a brand new Create or a different
- * task's Edit) already produces on its own; nothing needs to be reset or
- * lifted to either caller.
+ * The New Task modal's content, rendered inside the shared `Dialog`
+ * primitive by `TasksShortcuts`. Owns the title/due-date draft state and
+ * the submit button's own request lifecycle (in-flight/error) entirely
+ * locally — this component always unmounts when its own Dialog closes
+ * (Overlay returns null while !open), so a fresh mount is exactly what
+ * the next open already produces on its own; nothing needs to be reset or
+ * lifted to the caller.
  */
-export function NewTaskContent({
-  mode = 'create',
-  initialTitle = '',
-  initialDueDate,
-  onClose,
-  onSubmit,
-}: NewTaskContentProps) {
-  const [title, setTitle] = useState(initialTitle);
-  const [dueDate, setDueDate] = useState<string | undefined>(initialDueDate);
+export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState<string | undefined>(undefined);
   const datePicker = useOverlay<HTMLButtonElement>();
 
   // Disables the submit button while a request is in flight (prevents a
@@ -61,7 +43,6 @@ export function NewTaskContent({
   const [error, setError] = useState<string | undefined>(undefined);
 
   const trimmedTitle = title.trim();
-  const isEdit = mode === 'edit';
 
   const handleSubmit = async () => {
     if (trimmedTitle === '' || isSubmitting) {
@@ -77,9 +58,7 @@ export function NewTaskContent({
     } catch (submitError) {
       setIsSubmitting(false);
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : `Failed to ${isEdit ? 'save' : 'create'} task.`
+        submitError instanceof Error ? submitError.message : 'Failed to create task.'
       );
     }
   };
@@ -87,7 +66,7 @@ export function NewTaskContent({
   return (
     <div className="new-task">
       <div className="new-task__header">
-        <span className="new-task__title">{isEdit ? 'Edit Task' : 'New task'}</span>
+        <span className="new-task__title">New task</span>
         <Button
           size="small"
           variant="ghost"
@@ -134,7 +113,7 @@ export function NewTaskContent({
           disabled={trimmedTitle === '' || isSubmitting}
           onClick={handleSubmit}
         >
-          {isEdit ? 'Save' : 'Create'}
+          Create
         </Button>
       </div>
       <TaskDatePicker

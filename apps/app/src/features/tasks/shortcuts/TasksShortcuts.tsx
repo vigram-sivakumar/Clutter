@@ -52,7 +52,7 @@ export function TasksShortcuts({ onShortcut, onCreateTask }: TasksShortcutsProps
         scrim="strong"
         dismissible={false}
       >
-        <NewTaskContent mode="create" onClose={closeNewTask} onSubmit={onCreateTask} />
+        <NewTaskContent onClose={closeNewTask} onSubmit={onCreateTask} />
       </Dialog>
     </Section>
   );

@@ -1,9 +1,16 @@
 import { useRef, useState } from 'react';
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
-import { OverflowMenu, type OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import {
+  OverflowMenu,
+  type OverflowMenuItemConfig,
+} from '@components/menu/OverflowMenu';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
-import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
+import type {
+  ResolveTag,
+  ResolveWikiLink,
+} from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import { TaskDatePicker } from './TaskDatePicker';
 import './Task.css';
@@ -25,8 +32,6 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
 
   onCheckedChange?: (checked: boolean) => void;
 
-  /** Opens the Edit Task modal (NewTaskContent, mode="edit") for this task. Omitted hides the menu item entirely. */
-  onEdit?: () => void;
   /** Opens the exact same Calendar used elsewhere (TaskDatePicker), to change only this task's due date. A date string sets it, null clears it. Omitted hides the menu item entirely. */
   onChangeDueDate?: (date: string | null) => void;
   /** Opens the task's source note — same action as clicking the row itself. Omitted hides the menu item entirely. */
@@ -53,7 +58,6 @@ export function Task({
   date,
   isChecked,
   onCheckedChange,
-  onEdit,
   onChangeDueDate,
   onOpenInNote,
   onDelete,
@@ -72,12 +76,12 @@ export function Task({
 
   const menuItems: OverflowMenuItemConfig[] = [];
 
-  if (onEdit) {
-    menuItems.push({ id: 'edit', label: 'Edit', icon: 'edit' });
-  }
-
   if (onChangeDueDate) {
-    menuItems.push({ id: 'change-due-date', label: 'Change due date', icon: 'calendarDots' });
+    menuItems.push({
+      id: 'change-due-date',
+      label: date ? formatTaskDueDate(date) : 'Due date',
+      icon: 'calendarDots',
+    });
   }
 
   if (onOpenInNote) {
@@ -88,7 +92,12 @@ export function Task({
     // Visually separated as a destructive action — same separatorBefore +
     // trash-icon convention NoteEmbedMoreActions.tsx's own "Remove" item
     // already uses, not a new danger-styling pattern.
-    menuItems.push({ id: 'delete', label: 'Delete', icon: 'trash', separatorBefore: true });
+    menuItems.push({
+      id: 'delete',
+      label: 'Delete',
+      icon: 'trash',
+      separatorBefore: true,
+    });
   }
 
   return (
@@ -101,16 +110,6 @@ export function Task({
         // same reasoning Note.tsx/Folder.tsx already apply for their own
         // row-owned overlays.
         forceHover={entryProps.forceHover || menuOpen || isDatePickerOpen}
-        // Entry's default hides the trailing .entry__meta slot on hover to
-        // make room for .entry__actions — fine for a row with nothing else
-        // in trailing, but Task is the one row with both a due-date badge
-        // (meta) and the overflow button (actions) at once: hiding one
-        // while the other appears flips two widths in the same flex row at
-        // the same instant (neither animates width, only opacity), which
-        // reads as the button jumping. Keeping both slots always sized
-        // removes that swap entirely — the due-date badge and the overflow
-        // button just sit side by side.
-        hideTrailingOnHover={false}
         leading={
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         }
@@ -128,9 +127,7 @@ export function Task({
             onOpenChange={setMenuOpen}
             triggerRef={menuAnchorRef}
             onSelect={(id) => {
-              if (id === 'edit') {
-                onEdit?.();
-              } else if (id === 'change-due-date') {
+              if (id === 'change-due-date') {
                 setIsDatePickerOpen(true);
               } else if (id === 'open-in-note') {
                 onOpenInNote?.();
@@ -144,7 +141,11 @@ export function Task({
         }
       >
         <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
-          {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}
+          {renderCompactMarkdown(title ?? '', {
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })}
         </span>
       </Entry>
 

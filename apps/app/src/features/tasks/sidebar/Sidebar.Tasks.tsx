@@ -13,7 +13,6 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { buildTasksShortcutHandler } from '@features/tasks/shortcuts/buildTasksShortcutHandler';
 import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
-import { EditTaskDialog } from '@features/tasks/shortcuts/EditTaskDialog';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
@@ -60,15 +59,6 @@ export function Tasks({
   const [todaySettingsMenuOpen, setTodaySettingsMenuOpen] = useState(false);
   const [upcomingSettingsMenuOpen, setUpcomingSettingsMenuOpen] = useState(false);
 
-  // The task row's More Actions > Edit dialog — which task is being
-  // edited, undefined when closed. Same local-UI-state convention as the
-  // settings-menu booleans above; EditTaskDialog owns the actual Dialog +
-  // NewTaskContent wiring (shared with PageHost.tsx's task-collection
-  // pages — see that component's own doc comment).
-  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(
-    undefined
-  );
-
   // Same composition PageHost.tsx/Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx
   // use to inject the page editor's own WikiLink/Tag/embed resolution —
   // cheap, stateless glue, not worth memoizing
@@ -90,11 +80,6 @@ export function Tasks({
   // via the sourcePageId every TaskOccurrence already carries.
   const onOpenTask = (task: TaskOccurrence): void => {
     void pageOperations.open(task.sourcePageId);
-  };
-
-  // Opens the Edit Task modal (EditTaskDialog) for this row.
-  const onEditTask = (task: TaskOccurrence): void => {
-    setEditingTask(task);
   };
 
   // Opens the exact same Calendar (TaskDatePicker) a row's Change due
@@ -145,7 +130,6 @@ export function Tasks({
         workspace,
         onToggleComplete,
         onOpenTask,
-        onEditTask,
         onChangeDueDate,
         onDeleteTask,
         navigation,
@@ -163,11 +147,6 @@ export function Tasks({
           onOpenChange: setUpcomingSettingsMenuOpen,
         },
       })}
-      <EditTaskDialog
-        task={editingTask}
-        onClose={() => setEditingTask(undefined)}
-        taskOperations={taskOperations}
-      />
     </View>
   );
 }

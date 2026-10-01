@@ -81,8 +81,6 @@ import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
-import { EditTaskDialog } from '@features/tasks/shortcuts/EditTaskDialog';
-import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
   MarkdownEditor,
@@ -242,17 +240,6 @@ export function PageHost({
   // this is read-only-at-settlement bookkeeping, never itself a reason to
   // re-render.
   const descriptionDraftValues = useRef(new Map<string, string>());
-
-  // The task-collection views' (Today/Overdue/Upcoming/Completed/All/
-  // Unscheduled) Edit Task modal — which task's dialog is open, undefined
-  // when closed. Local UI state, never persisted, same convention
-  // TasksShortcuts.tsx's own isNewTaskOpen uses for the sidebar's New Task
-  // dialog; EditTaskDialog itself is the one place both this page-level
-  // surface and Sidebar.Tasks.tsx share the Dialog + NewTaskContent wiring
-  // (see that component's own doc comment).
-  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(
-    undefined
-  );
 
   // Collection-view wiring: persisted per collection through
   // CollectionViewConfigStore, keyed by the current collection's identity
@@ -1253,34 +1240,26 @@ export function PageHost({
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         body={
-          <>
-            <TasksCollectionBody
-              view={view}
-              tasks={[...vault.tasks()]}
-              onToggleComplete={(task) =>
-                void application.taskOperations.toggleComplete(task)
-              }
-              onOpenTask={(task) =>
-                void application.pageOperations.open(task.sourcePageId)
-              }
-              onEditTask={setEditingTask}
-              onChangeDueDate={(task, date) =>
-                void (date === null
-                  ? application.taskOperations.clearDate(task)
-                  : application.taskOperations.setDate(task, date))
-              }
-              onDeleteTask={(task) => void application.taskOperations.delete(task)}
-              displayConfig={tasksViewConfig}
-              resolveWikiLink={resolveWikiLink}
-              resolveTag={resolveTag}
-              resolveEmbed={resolvePageEmbed}
-            />
-            <EditTaskDialog
-              task={editingTask}
-              onClose={() => setEditingTask(undefined)}
-              taskOperations={application.taskOperations}
-            />
-          </>
+          <TasksCollectionBody
+            view={view}
+            tasks={[...vault.tasks()]}
+            onToggleComplete={(task) =>
+              void application.taskOperations.toggleComplete(task)
+            }
+            onOpenTask={(task) =>
+              void application.pageOperations.open(task.sourcePageId)
+            }
+            onChangeDueDate={(task, date) =>
+              void (date === null
+                ? application.taskOperations.clearDate(task)
+                : application.taskOperations.setDate(task, date))
+            }
+            onDeleteTask={(task) => void application.taskOperations.delete(task)}
+            displayConfig={tasksViewConfig}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
+            resolveEmbed={resolvePageEmbed}
+          />
         }
       />
     );

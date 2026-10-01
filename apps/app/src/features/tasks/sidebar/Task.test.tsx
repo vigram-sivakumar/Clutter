@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Task } from './Task';
+import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -152,12 +153,11 @@ describe('Task — More Actions menu', () => {
     expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
   });
 
-  it('renders Edit, Change due date, Open in note, and Delete when their callbacks are provided', () => {
+  it('renders Due date, Open in note, and Delete when their callbacks are provided', () => {
     const { container } = render(
       <Task
         title="Finish table work"
         isChecked={false}
-        onEdit={vi.fn()}
         onChangeDueDate={vi.fn()}
         onOpenInNote={vi.fn()}
         onDelete={vi.fn()}
@@ -166,23 +166,9 @@ describe('Task — More Actions menu', () => {
 
     openMenu(container);
 
-    expect(screen.getByText('Edit')).toBeDefined();
-    expect(screen.getByText('Change due date')).toBeDefined();
+    expect(screen.getByText('Due date')).toBeDefined();
     expect(screen.getByText('Open in note')).toBeDefined();
     expect(screen.getByText('Delete')).toBeDefined();
-  });
-
-  it('selecting Edit calls onEdit and closes the menu', () => {
-    const onEdit = vi.fn();
-    const { container } = render(
-      <Task title="Finish table work" isChecked={false} onEdit={onEdit} />
-    );
-
-    openMenu(container);
-    fireEvent.click(screen.getByText('Edit'));
-
-    expect(onEdit).toHaveBeenCalled();
-    expect(screen.queryByText('Edit')).toBeNull();
   });
 
   it('selecting Open in note calls onOpenInNote, not the row\'s own onClick', () => {
@@ -219,7 +205,7 @@ describe('Task — More Actions menu', () => {
   it('clicking the menu trigger does not trigger the row\'s own onClick', () => {
     const onClick = vi.fn();
     const { container } = render(
-      <Task title="Finish table work" isChecked={false} onClick={onClick} onEdit={vi.fn()} />
+      <Task title="Finish table work" isChecked={false} onClick={onClick} onDelete={vi.fn()} />
     );
 
     openMenu(container);
@@ -242,7 +228,7 @@ describe('Task — Change due date action', () => {
     expect(document.querySelector('.calendar')).toBeNull();
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
 
     const calendar = document.querySelector('.calendar');
     expect(calendar).not.toBeNull();
@@ -255,7 +241,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByText('Due date'));
 
     const calendar = document.querySelector('.calendar')!;
     expect(calendar.querySelector('.calendar-cell--selected')).toBeNull();
@@ -273,7 +259,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
 
     // '15' is unambiguous within September 2026's grid — the only
     // outside-month padding days that month shows are Aug 30-31 (leading)
@@ -303,7 +289,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByText(formatTaskDueDate('2026-09-28')));
     fireEvent.click(screen.getByRole('button', { name: 'Clear date' }));
 
     expect(onChangeDueDate).toHaveBeenCalledWith(null);
@@ -316,7 +302,7 @@ describe('Task — Change due date action', () => {
     );
 
     openMenu(container);
-    fireEvent.click(screen.getByText('Change due date'));
+    fireEvent.click(screen.getByText('Due date'));
 
     expect(screen.getByRole('button', { name: 'Clear date' })).toBeDisabled();
   });

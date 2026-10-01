@@ -22,8 +22,6 @@ interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   /** Also what "Open in note" in the row's More Actions menu invokes — same action, same destination. */
   readonly onOpenTask: (task: TaskOccurrence) => void;
-  /** Opens the Edit Task modal for this task. */
-  readonly onEditTask: (task: TaskOccurrence) => void;
   /** Opens the row's Change due date calendar; a date string sets it, null clears it. Reuses TaskOperations.setDate()/clearDate() — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
   /** Deletes the task's line from its source note. */
@@ -47,7 +45,6 @@ export function renderTaskRow(
   {
     onToggleComplete,
     onOpenTask,
-    onEditTask,
     onChangeDueDate,
     onDeleteTask,
     resolveWikiLink,
@@ -69,7 +66,6 @@ export function renderTaskRow(
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
-      onEdit={() => onEditTask(task)}
       onChangeDueDate={(next) => onChangeDueDate(task, next)}
       onOpenInNote={() => onOpenTask(task)}
       onDelete={() => onDeleteTask(task)}
@@ -112,7 +108,6 @@ export function renderTodayContent({
   today,
   onToggleComplete,
   onOpenTask,
-  onEditTask,
   onChangeDueDate,
   onDeleteTask,
   resolveWikiLink,
@@ -122,7 +117,6 @@ export function renderTodayContent({
   return renderTaskList(today, {
     onToggleComplete,
     onOpenTask,
-    onEditTask,
     onChangeDueDate,
     onDeleteTask,
     resolveWikiLink,
@@ -146,7 +140,6 @@ export function renderOverdueContent({
   overdue,
   onToggleComplete,
   onOpenTask,
-  onEditTask,
   onChangeDueDate,
   onDeleteTask,
   resolveWikiLink,
@@ -156,7 +149,6 @@ export function renderOverdueContent({
   return renderTaskList(overdue, {
     onToggleComplete,
     onOpenTask,
-    onEditTask,
     onChangeDueDate,
     onDeleteTask,
     resolveWikiLink,
@@ -178,7 +170,6 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
-  onEditTask,
   onChangeDueDate,
   onDeleteTask,
   resolveWikiLink,
@@ -188,7 +179,6 @@ export function renderUpcomingContent({
   return renderTaskList(upcoming, {
     onToggleComplete,
     onOpenTask,
-    onEditTask,
     onChangeDueDate,
     onDeleteTask,
     resolveWikiLink,
@@ -230,7 +220,6 @@ export function renderTasksByDate({
   workspace,
   onToggleComplete,
   onOpenTask,
-  onEditTask,
   onChangeDueDate,
   onDeleteTask,
   navigation,
@@ -274,7 +263,6 @@ export function renderTasksByDate({
           today,
           onToggleComplete,
           onOpenTask,
-          onEditTask,
           onChangeDueDate,
           onDeleteTask,
           resolveWikiLink,
@@ -298,7 +286,6 @@ export function renderTasksByDate({
             overdue,
             onToggleComplete,
             onOpenTask,
-            onEditTask,
             onChangeDueDate,
             onDeleteTask,
             resolveWikiLink,
@@ -332,7 +319,6 @@ export function renderTasksByDate({
             upcoming,
             onToggleComplete,
             onOpenTask,
-            onEditTask,
             onChangeDueDate,
             onDeleteTask,
             resolveWikiLink,
