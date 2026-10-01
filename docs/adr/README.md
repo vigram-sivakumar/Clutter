@@ -32,3 +32,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [030](./030-lazy-reserved-resource-materialization.md) | Reserved/system resources are lazily materialized — generalizing ADR-019 beyond Daily Notes | Accepted |
 | [033](./033-fold-state-persistence.md) | Fold-state persistence — `.clutter/workspace.json`'s first real reader/writer | Accepted |
 | [034](./034-table-architecture-html-projection-active-cell-editor.md) | Table rendering — real HTML `<table>` projection + one reusable active-cell CodeMirror 6 editor | Accepted |
+| [035](./035-persist-workspace-session-state.md) | Persist workspace session state — `WorkspaceSessionStore` observes `Workspace` | Accepted (not yet implemented) |

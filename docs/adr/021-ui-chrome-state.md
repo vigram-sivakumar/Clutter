@@ -1,6 +1,6 @@
 # ADR-021: UI Chrome State — Extend `Workspace` for Discrete Navigation-Shaped Toggles; Layout Geometry Stays Local
 
-**Status:** Accepted (design frozen; implementation may proceed against this contract)
+**Status:** Accepted (design frozen; implementation may proceed against this contract) — non-persistence stance amended by [ADR-035](./035-persist-workspace-session-state.md) (Workspace session state is now persisted by a sibling `WorkspaceSessionStore`; everything else in this ADR stands)
 
 ## Context
 
