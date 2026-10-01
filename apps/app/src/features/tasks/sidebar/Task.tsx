@@ -101,7 +101,7 @@ export function Task({
             }
           }}
           side="bottom"
-          alignment="end"
+          alignment="start"
         />
       }
     >
