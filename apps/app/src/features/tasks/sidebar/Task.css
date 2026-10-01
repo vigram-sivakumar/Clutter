@@ -9,18 +9,6 @@
   min-width: 40px;
   text-align: right;
 }
-
-/* Task is the only row that shows both a trailing due-date badge and the
-   overflow menu button — on hover, Entry's default hide-on-hover collapses
-   the badge to width 0 at the same instant .entry__actions expands from 0,
-   and neither animates width (only opacity), so the row's content column
-   would otherwise resize abruptly and the button would appear to jump.
-   Reserving enough width for the longest due-date string ("30 Sep 27") on
-   .entry__trailing itself keeps that total width constant across the swap
-   — only the opacity crossfade inside it is visible, no reflow. */
-.task-entry .entry__trailing {
-  min-width: 64px;
-}
 /* .is-overdue {
   color: var(--calendar-accent);
   opacity: var(--opacity-subtle);
