@@ -9,15 +9,23 @@ import { NewTaskContent } from './NewTaskContent';
 
 interface TasksShortcutsProps {
   onShortcut: (id: TasksShortcutId) => void;
+  /**
+   * Creates the task in its target Daily Note (due date's, or today's —
+   * see Sidebar.Tasks.tsx's own onCreateTask) and resolves once it's
+   * durable. Rejects on failure, which NewTaskContent uses to decide
+   * whether to close itself — plain pass-through, no TaskOperations/
+   * PageOperations import here (UI/Features must never import a concrete
+   * application-layer class directly, ARCHITECTURE_RULES rule 6).
+   */
+  onCreateTask: (title: string, dueDate: string | undefined) => Promise<void>;
 }
 
-export function TasksShortcuts({ onShortcut }: TasksShortcutsProps) {
-  // UI-only for now: opens the shared Dialog (Clutter's modal primitive —
-  // centered Overlay with its own opaque surface/backdrop/animation, see
-  // Dialog.tsx) with NewTaskContent's typeable title field. Nothing here
-  // calls TaskOperations or persists anything — see tasksShortcuts.config.ts's
-  // own comment on why 'create-task' can't yet dispatch through
-  // onShortcut/NavigationRouter.
+export function TasksShortcuts({ onShortcut, onCreateTask }: TasksShortcutsProps) {
+  // Opens the shared Dialog (Clutter's modal primitive — centered Overlay
+  // with its own opaque surface/backdrop/animation, see Dialog.tsx) with
+  // NewTaskContent's title field + due-date picker. 'create-task' never
+  // dispatches through onShortcut/NavigationRouter — see
+  // tasksShortcuts.config.ts's own comment on why.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
 
@@ -48,7 +56,12 @@ export function TasksShortcuts({ onShortcut }: TasksShortcutsProps) {
         scrim="strong"
         dismissible={false}
       >
-        <NewTaskContent title={draftTitle} onTitleChange={setDraftTitle} onClose={closeNewTask} />
+        <NewTaskContent
+          title={draftTitle}
+          onTitleChange={setDraftTitle}
+          onClose={closeNewTask}
+          onCreateTask={onCreateTask}
+        />
       </Dialog>
     </Section>
   );

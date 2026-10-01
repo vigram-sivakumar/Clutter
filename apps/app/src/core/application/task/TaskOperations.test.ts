@@ -518,4 +518,68 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       'Preamble.\n- [x] Collect the bill @completed:2026-08-04'
     );
   });
+
+  describe('create', () => {
+    it('appends a new unchecked task line to an existing page body', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, 'Buy milk');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Collect the bill\n- [ ] Buy milk'
+      );
+    });
+
+    it('does not add a leading blank line when the page body is empty', async () => {
+      const page = buildPage('p1', '');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, 'Buy milk');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Buy milk');
+    });
+
+    it('trims the title and never writes an inline @date', async () => {
+      const page = buildPage('p1', '');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create(page.id, '  Buy milk  ');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Buy milk');
+    });
+
+    it('rejects an empty or whitespace-only title without touching the page', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+
+      await expect(taskOperations.create(page.id, '   ')).rejects.toThrow(
+        'Task title must not be empty.'
+      );
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+
+    it('commits into an open session rather than bypassing it', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, documentRegistry, pageOperations, taskOperations } = setup(page);
+      await pageOperations.open(page.id);
+
+      await taskOperations.create(page.id, 'Buy milk');
+
+      expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+        '- [ ] Collect the bill\n- [ ] Buy milk'
+      );
+      // Not yet durable — mirrors every other mutate()-based method here:
+      // this method only commits, the caller (Sidebar.Tasks.tsx's
+      // onCreateTask) is responsible for requestSave() when immediate
+      // durability matters.
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+
+      await pageOperations.requestSave(page.id);
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        '- [ ] Collect the bill\n- [ ] Buy milk'
+      );
+    });
+  });
 });

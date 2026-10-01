@@ -41,6 +41,16 @@
   gap: var(--space-12);
 }
 
+/* No error/danger color token exists yet anywhere in the design system —
+   mirrors ImagePicker.Link.css's own deliberate, scoped-to-this-file color
+   rather than inventing one. */
+.new-task__error {
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-thin);
+  line-height: var(--lh-label-small);
+  color: #e5484d;
+}
+
 /* .button.new-task__create-button (two classes) rather than a single
    class — Button.css's own .button--medium sets padding-inline at the
    same specificity, and which stylesheet loads later isn't guaranteed. */

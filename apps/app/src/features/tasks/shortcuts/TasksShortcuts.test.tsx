@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TasksShortcuts } from './TasksShortcuts';
+import type { TasksShortcutId } from './tasksShortcuts.config';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 // Overlay's anchored positioning (useOverlayPosition) observes the anchor/
@@ -28,10 +29,26 @@ afterEach(() => {
   cleanup();
 });
 
+// A resolved-by-default stub — every test that doesn't care about
+// onCreateTask's own behavior still needs a well-typed prop to render at
+// all (TasksShortcutsProps.onCreateTask is required, no default).
+function renderTasksShortcuts(overrides?: {
+  onShortcut?: ReturnType<typeof vi.fn<(id: TasksShortcutId) => void>>;
+  onCreateTask?: ReturnType<
+    typeof vi.fn<(title: string, dueDate: string | undefined) => Promise<void>>
+  >;
+}) {
+  const onShortcut = overrides?.onShortcut ?? vi.fn();
+  const onCreateTask = overrides?.onCreateTask ?? vi.fn().mockResolvedValue(undefined);
+
+  render(<TasksShortcuts onShortcut={onShortcut} onCreateTask={onCreateTask} />);
+
+  return { onShortcut, onCreateTask };
+}
+
 describe('TasksShortcuts', () => {
   it('opens a task-creation overlay on "New" click without invoking onShortcut', () => {
-    const onShortcut = vi.fn();
-    render(<TasksShortcuts onShortcut={onShortcut} />);
+    const { onShortcut } = renderTasksShortcuts();
 
     // Clicking opens the overlay at all only if Entry's disabled guard lets
     // the click through — a stronger signal than asserting the attribute
@@ -44,7 +61,7 @@ describe('TasksShortcuts', () => {
   });
 
   it('focuses the title field on open, and Escape does not dismiss it', () => {
-    render(<TasksShortcuts onShortcut={vi.fn()} />);
+    renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
 
@@ -59,7 +76,7 @@ describe('TasksShortcuts', () => {
   });
 
   it('dismisses the overlay via the close button', () => {
-    render(<TasksShortcuts onShortcut={vi.fn()} />);
+    renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
     expect(screen.getByRole('textbox')).toBeInTheDocument();
@@ -70,7 +87,7 @@ describe('TasksShortcuts', () => {
   });
 
   it('a backdrop click does not dismiss the overlay', () => {
-    render(<TasksShortcuts onShortcut={vi.fn()} />);
+    renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
     expect(screen.getByRole('textbox')).toBeInTheDocument();
@@ -82,13 +99,50 @@ describe('TasksShortcuts', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
+  it('Create is disabled until a non-empty title is typed, and calls onCreateTask with no due date by default', async () => {
+    const { onCreateTask } = renderTasksShortcuts();
+
+    fireEvent.click(screen.getByText('New'));
+
+    const createButton = screen.getByText('Create').closest('button')!;
+    expect(createButton).toBeDisabled();
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Buy milk' } });
+    expect(createButton).not.toBeDisabled();
+
+    fireEvent.click(createButton);
+
+    await waitFor(() => {
+      expect(onCreateTask).toHaveBeenCalledWith('Buy milk', undefined);
+    });
+
+    // Closes itself once creation resolves.
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+  });
+
+  it('keeps the overlay open and shows the error when onCreateTask rejects', async () => {
+    const onCreateTask = vi.fn().mockRejectedValue(new Error('Could not reach the Daily Note'));
+    renderTasksShortcuts({ onCreateTask });
+
+    fireEvent.click(screen.getByText('New'));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Buy milk' } });
+    fireEvent.click(screen.getByText('Create').closest('button')!);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not reach the Daily Note');
+    });
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+
   it.each([
     ['tasks-all', 'all-tasks'],
     ['tasks-unscheduled', 'unscheduled'],
     ['tasks-completed', 'completed'],
   ] as const)('invokes onShortcut with "%s" when clicked', (locationId, id) => {
-    const onShortcut = vi.fn();
-    render(<TasksShortcuts onShortcut={onShortcut} />);
+    const { onShortcut } = renderTasksShortcuts();
 
     const title = getSystemLocationPresentation(locationId).label;
     fireEvent.click(screen.getByText(title));

@@ -37,6 +37,45 @@ export class TaskOperations {
   constructor(private readonly pageOperations: PageOperations) {}
 
   /**
+   * Appends a new task line to `pageId`'s body — the create half of this
+   * facade's mutation surface, following the exact shape mutate()/
+   * mutateDate() already use: decide the new content, delegate persistence
+   * to PageOperations.mutateBody() (ADR-031), never touch Vault/the Gate
+   * directly. No inline `@date` is ever written here — a task's due date
+   * for display purposes already falls out of TaskBuilder's existing
+   * containing-Daily-Note fallback (TaskOccurrence.dueDate's own doc
+   * comment) whenever the caller created this task in that date's Daily
+   * Note, which is the only way this method is used today (see
+   * Sidebar.Tasks.tsx's onCreateTask). Caller is responsible for resolving
+   * `pageId` (e.g. via PageOperations.openAtPath for a Daily Note) and for
+   * forcing durability afterward (PageOperations.requestSave) if the
+   * result needs to be visible immediately rather than on the next
+   * autosave — this method only commits the new line, mirroring every
+   * other mutation here.
+   */
+  public async create(pageId: string, title: string): Promise<void> {
+    const trimmed = title.trim();
+
+    if (trimmed === '') {
+      throw new Error('Task title must not be empty.');
+    }
+
+    try {
+      await this.pageOperations.mutateBody(pageId, (markdown) => {
+        const line = `- [ ] ${trimmed}`;
+
+        return markdown === '' ? line : `${markdown}\n${line}`;
+      });
+    } catch (error) {
+      if (error instanceof MutateBodyAbandonedError) {
+        throw new Error(`Failed to create task "${trimmed}": ${error.reason}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Checking a task stamps @completed with today's date; unchecking
    * removes it entirely. The checkbox marker remains the source of truth
    * for completed state — @completed only records when that happened.

@@ -7,6 +7,9 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
+import { toDate } from '@shared/helpers/time/helpers/toDate';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { buildTasksShortcutHandler } from '@features/tasks/shortcuts/buildTasksShortcutHandler';
 import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
@@ -87,8 +90,32 @@ export function Tasks({
     void (date === null ? taskOperations.clearDate(task) : taskOperations.setDate(task, date));
   };
 
+  // New Task's target Daily Note: the selected due date's, or today's when
+  // none was picked — the task's canonical location (its containing Daily
+  // Note), per TaskBuilder's existing implicit-due-date fallback, which is
+  // also why no inline @date is ever written by TaskOperations.create().
+  // Same PageOperations.openAtPath(DailyNotePath.absoluteFrom(...))
+  // resolve-or-draft call Sidebar.tsx's own DailyNotes "onOpenDate" and
+  // resolveDate.ts already use — not a second Daily-Note-opening
+  // mechanism. Awaited (not fire-and-forget, unlike onToggleComplete/
+  // onDateChange above): NewTaskContent needs to know whether creation
+  // succeeded before deciding to close itself. requestSave() forces the
+  // promoted draft (or already-persisted page)'s new content to the
+  // Durable stage immediately, rather than waiting on the body's ordinary
+  // autosave debounce — the same explicit-flush call PageHost's onBlur
+  // already makes — so the task is visible in the Daily Notes sidebar via
+  // Vault's own notify() as soon as this resolves, no reload needed.
+  const onCreateTask = async (title: string, dueDate: string | undefined): Promise<void> => {
+    const targetDate = dueDate ?? toISODate(new Date());
+    const path = DailyNotePath.absoluteFrom(vault.root, toDate(targetDate));
+    const pageId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await taskOperations.create(pageId, title);
+    await pageOperations.requestSave(pageId);
+  };
+
   return (
-    <View navigation={<TasksShortcuts onShortcut={onShortcut} />}>
+    <View navigation={<TasksShortcuts onShortcut={onShortcut} onCreateTask={onCreateTask} />}>
       {renderTasksByDate({
         tasks,
         workspace,
