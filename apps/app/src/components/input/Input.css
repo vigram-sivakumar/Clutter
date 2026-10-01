@@ -23,6 +23,18 @@
   box-shadow: var(--shadow-inset-default);
 }
 
+/* A wrapped, multi-line field needs its text top-aligned (not vertically
+   centered against the row the way a single line is) and breathing room
+   above/below it, since .input's own padding is inline-only. */
+.input--multiline {
+  align-items: flex-start;
+  padding-block: var(--space-6);
+}
+
+.input--multiline .input__field {
+  resize: none;
+}
+
 .input__leading,
 .input__trailing {
   display: flex;

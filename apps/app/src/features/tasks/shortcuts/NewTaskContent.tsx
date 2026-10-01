@@ -86,6 +86,8 @@ export function NewTaskContent({
         value={title}
         placeholder="Task title"
         autoFocus
+        multiline
+        rows={1}
         hasBackground={false}
         hasBorder={false}
         onChange={(event) => onTitleChange(event.target.value)}
