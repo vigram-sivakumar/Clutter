@@ -59,8 +59,8 @@ export class PageAnalysisMapper {
       sourcePageId,
       name: tag.name,
       rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
+      startOffset: tag.startOffset,
+      endOffset: tag.endOffset,
       sourceVersion: undefined,
     }));
   }

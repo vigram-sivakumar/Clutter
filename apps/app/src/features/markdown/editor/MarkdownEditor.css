@@ -93,6 +93,7 @@
 .markdown__editor .cm-line {
   padding-block: 0;
   padding-inline: 0;
+  border-radius: var(--radius-md);
 }
 
 /*
@@ -1974,34 +1975,41 @@
 }
 
 /*
- * Temporary "Open in note" task-reveal line flash
- * (`codemirror/highlight/taskRevealHighlight.ts`). `background-color` only
- * — never `margin` on this `Decoration.line` class, per this file's own
- * permanent CM6 margin rule (CLAUDE.md): a `.cm-line`-level `margin` has
- * twice been confirmed, via direct interactive testing, to corrupt CM6's
- * own cursor/navigation bookkeeping, while `background-color` (like every
- * other line decoration here — `.cm-quote-line`, list hanging indent,
- * fenced-code background) never touches layout at all.
+ * Temporary editor-reveal line flash — the one shared visual treatment
+ * behind every "navigate to content in the editor" flow (Tasks sidebar
+ * "Open in note", Tag collection "Open note", any future search/backlink/
+ * mention navigation — see `codemirror/highlight/editorRevealHighlight.ts`'s
+ * own doc comment). `background-color` only — never `margin` on this
+ * `Decoration.line` class, per this file's own permanent CM6 margin rule
+ * (CLAUDE.md): a `.cm-line`-level `margin` has twice been confirmed, via
+ * direct interactive testing, to corrupt CM6's own cursor/navigation
+ * bookkeeping, while `background-color` (like every other line decoration
+ * here — `.cm-quote-line`, list hanging indent, fenced-code background)
+ * never touches layout at all.
  *
  * Split into a base class (always present while the highlight exists —
  * `transparent`, carrying the `transition`) and a `--visible` modifier
  * (the actual highlighted color), rather than one class with both the
  * color and the transition together, specifically so BOTH directions
- * animate: `taskRevealHighlight.ts` adds `--visible` alongside the base
+ * animate: `editorRevealHighlight.ts` adds `--visible` alongside the base
  * class to fade *in* (transitions from this base rule's own `transparent`
  * to the highlighted color), then later removes only `--visible` — base
  * class (and its `transition`) still present — to fade back *out*, and
  * only discards the decoration entirely once that fade has had time to
- * finish (`TASK_REVEAL_FADE_MS`, same file). `Decoration.line` toggles
- * these classes on the line's existing DOM node rather than replacing it,
- * which is what lets a plain class toggle animate at all — removing the
+ * finish (`REVEAL_FADE_MS`, same file). `Decoration.line` toggles these
+ * classes on the line's existing DOM node rather than replacing it, which
+ * is what lets a plain class toggle animate at all — removing the
  * decoration outright (no DOM node left carrying the transition) cannot.
+ * Applied independently to every target line when more than one
+ * occurrence is being revealed at once (e.g. several tag occurrences in
+ * the same note) — each line gets its own instance of these same two
+ * classes, so multiple lines fade in/out together, identically.
  */
-.cm-editor .cm-task-reveal-line {
+.cm-editor .cm-reveal-line {
   background-color: transparent;
   transition: background-color 400ms ease;
 }
 
-.cm-editor .cm-task-reveal-line--visible {
-  background-color: var(--md-task-reveal-surface);
+.cm-editor .cm-reveal-line--visible {
+  background-color: var(--md-reveal-highlight-surface);
 }

@@ -45,6 +45,38 @@ describe('TagExtractor', () => {
     expect(occurrences.map((o) => o.name)).toEqual(['product']);
   });
 
+  describe('startOffset/endOffset', () => {
+    it('spans exactly the #name text, excluding any preceding whitespace', () => {
+      const extractor = new TagExtractor();
+      const content = 'see #project for details';
+      const [occurrence] = extractor.extract(content);
+
+      expect(occurrence).toBeDefined();
+      expect(content.slice(occurrence!.startOffset, occurrence!.endOffset)).toBe('#project');
+    });
+
+    it('gives two textually-identical tags on the same line distinct offsets', () => {
+      const extractor = new TagExtractor();
+      const content = '#project appears twice: #project';
+      const [first, second] = extractor.extract(content);
+
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect(first!.startOffset).not.toBe(second!.startOffset);
+      expect(content.slice(first!.startOffset, first!.endOffset)).toBe('#project');
+      expect(content.slice(second!.startOffset, second!.endOffset)).toBe('#project');
+    });
+
+    it('resolves correctly on a later line, accounting for preceding newlines', () => {
+      const extractor = new TagExtractor();
+      const content = 'first line\nsecond line has #project in it';
+      const [occurrence] = extractor.extract(content);
+
+      expect(occurrence).toBeDefined();
+      expect(content.slice(occurrence!.startOffset, occurrence!.endOffset)).toBe('#project');
+    });
+  });
+
   describe('fenced code blocks are never scanned for tags', () => {
     it('ignores a single #word inside a fenced code block', () => {
       const extractor = new TagExtractor();

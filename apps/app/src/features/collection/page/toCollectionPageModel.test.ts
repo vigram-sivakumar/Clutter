@@ -603,7 +603,7 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
     expect(model.notes).toEqual([]);
   });
 
-  it('clicking a note entry invokes onOpenNote, same as any other collection view', () => {
+  it('clicking a note entry invokes onOpenNote with the clicked tag name, so the caller can resolve/reveal its occurrences', () => {
     const tagged = makePage({
       id: 'page-1',
       name: 'Tagged',
@@ -629,6 +629,12 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
 
     model.notes[0]?.onClick();
 
-    expect(onOpenNote).toHaveBeenCalledWith('page-1');
+    // Unlike every other collection source (folder, Workspace, Favorites —
+    // see those branches' own click tests), a Tag collection entry's
+    // onClick passes the clicked tag's name as onOpenNote's second
+    // argument, so the caller (PageHost.tsx's openNoteFromCollection) can
+    // resolve every occurrence of that tag in the opened note and request
+    // a reveal — see CollectionPageActions.onOpenNote's own doc comment.
+    expect(onOpenNote).toHaveBeenCalledWith('page-1', 'project');
   });
 });

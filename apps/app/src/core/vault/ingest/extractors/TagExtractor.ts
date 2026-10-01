@@ -5,6 +5,19 @@ export interface ScannedTagOccurrence {
   // normalizeTagName() exists for comparison (dedup, metadata lookup,
   // future autocomplete matching), not for deciding what gets stored.
   readonly name: string;
+  // The `#name` span's exact character range within the original document
+  // (the same `content` string passed to `extract()`), fulfilling
+  // Occurrence.startOffset/endOffset's long-reserved "populate during
+  // analysis" contract — same approach TaskExtractor's own
+  // startOffset/endOffset already established, just at tag-span rather
+  // than whole-line granularity, since (unlike a task) a line can carry
+  // more than one tag. `startOffset` is the `#` character's own index;
+  // `endOffset` is exclusive and excludes any trailing text/whitespace —
+  // this is what lets a later consumer (Tag collection → "Open in note",
+  // ADR pending) resolve this occurrence to its containing editor line
+  // without re-deriving the match position from `name` and a text search.
+  readonly startOffset: number;
+  readonly endOffset: number;
 }
 
 /**
@@ -72,6 +85,8 @@ export class TagExtractor {
 
       tags.push({
         name,
+        startOffset: hashPos,
+        endOffset: hashPos + 1 + name.length,
       });
     }
 

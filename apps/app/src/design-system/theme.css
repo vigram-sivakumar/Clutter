@@ -56,11 +56,13 @@ html.theme-transitioning [data-themeable] *::after {
   --md-highlight-shadow-inline:
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
-  /* Temporary "Open in note" task-reveal line flash — independent of
-     --md-highlight-surface above (that's the permanent ==inline highlight==
-     rendering, this is a transient navigation cue that fades away on its
-     own), so the two can never be confused with each other visually. */
-  --md-task-reveal-surface: rgba(24, 124, 246, 0.22);
+  /* Temporary editor-reveal line flash (Tasks sidebar "Open in note", Tag
+     collection "Open note", any future navigate-to-content consumer) —
+     independent of --md-highlight-surface above (that's the permanent
+     ==inline highlight== rendering, this is a transient navigation cue
+     that fades away on its own), so the two can never be confused with
+     each other visually. */
+  --md-reveal-highlight-surface: rgba(24, 124, 246, 0.22);
 
   --md-wiki-foreground: var(--foreground-primary);
   --md-wiki-icon-foreground: var(--foreground-tertiary);
@@ -206,7 +208,7 @@ html.theme-transitioning [data-themeable] *::after {
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
   /* See the dark-mode block's own doc comment on this token. */
-  --md-task-reveal-surface: rgba(0, 122, 255, 0.16);
+  --md-reveal-highlight-surface: rgba(0, 122, 255, 0.16);
 
   --md-wiki-foreground: var(--foreground-primary);
   --md-wiki-icon-foreground: var(--foreground-tertiary);

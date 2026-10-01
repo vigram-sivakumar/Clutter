@@ -87,7 +87,7 @@ import {
   type MarkdownEditorHandle,
 } from '@features/markdown/editor/MarkdownEditor';
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
-import type { PendingTaskReveal } from '@features/tasks/helpers/PendingTaskReveal';
+import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
 interface PageHostProps {
   application: Application;
@@ -123,21 +123,31 @@ interface PageHostProps {
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   /**
-   * A pending "land on this task" request from Sidebar's Tasks panel (see
+   * A pending "land on this content" request — from Sidebar's Tasks panel,
+   * or from this component's own Tag collection "Open note" click (see
    * AppLayout's own doc comment on this state) — threaded straight through
-   * to `MarkdownEditor`'s own `pendingTaskReveal` prop (filtered to this
-   * exact target page below), which applies it in its own post-mount
-   * effect and reports back via `onTaskRevealHandled`. See
-   * `MarkdownEditorProps.pendingTaskReveal`'s own doc comment for why this
-   * is a prop handed to the editor rather than an imperative
-   * `MarkdownEditorHandle.revealRange()` call from an effect here: a
-   * parent-side effect only knows the child *ref* exists, not that the
-   * child's own mount-time work has actually settled, which previously let
-   * the reveal's scroll apply while its temporary highlight silently
-   * failed to paint.
+   * to `MarkdownEditor`'s own `pendingReveal` prop (filtered to this exact
+   * target page below), which applies it in its own post-mount effect and
+   * reports back via `onRevealHandled`. See
+   * `MarkdownEditorProps.pendingReveal`'s own doc comment for why this is a
+   * prop handed to the editor rather than an imperative
+   * `MarkdownEditorHandle.revealRange()`/`revealRanges()` call from an
+   * effect here: a parent-side effect only knows the child *ref* exists,
+   * not that the child's own mount-time work has actually settled, which
+   * previously let the reveal's scroll apply while its temporary highlight
+   * silently failed to paint.
    */
-  readonly pendingTaskReveal: PendingTaskReveal | null;
-  readonly onTaskRevealHandled: () => void;
+  readonly pendingReveal: PendingEditorReveal | null;
+  /**
+   * Requests a new reveal — passed straight through from AppLayout
+   * (`setPendingReveal`). `Sidebar`'s Tasks panel is one caller (routed
+   * through `AppLayout` directly); this component's own Tag collection
+   * "Open note" click (`openNoteFromCollection` below) is the other,
+   * called directly here since the click handler already lives in this
+   * component's own render.
+   */
+  readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
+  readonly onRevealHandled: () => void;
 }
 
 const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
@@ -217,8 +227,9 @@ export function PageHost({
   onOpenResource,
   onOpenImageOverlay,
   tasksViewConfig,
-  pendingTaskReveal,
-  onTaskRevealHandled,
+  pendingReveal,
+  onRequestReveal,
+  onRevealHandled,
 }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
@@ -480,18 +491,50 @@ export function PageHost({
 
   // Narrowed to `null` unless this request actually targets the page this
   // render is showing — `pageOperations.open` (called by Sidebar.Tasks'
-  // onOpenTask, fire-and-forget) resolves asynchronously, so
-  // `activePageId` can still name the *previous* page on the render that
-  // sets `pendingTaskReveal`; this recomputes on every render and simply
-  // yields `null` until `workspace`'s own notify() flips `activePageId` to
-  // match. Handed to `MarkdownEditor` below as its own `pendingTaskReveal`
-  // prop — see that prop's own doc comment (`MarkdownEditor.types.ts`) for
-  // why applying it is that component's own job now, not an imperative
-  // `revealRange()` call from an effect here.
-  const editorPendingTaskReveal =
-    pendingTaskReveal && pendingTaskReveal.pageId === activePageId
-      ? { from: pendingTaskReveal.from, to: pendingTaskReveal.to }
-      : null;
+  // onOpenTask, or by this component's own openNoteFromCollection below,
+  // both fire-and-forget) resolves asynchronously, so `activePageId` can
+  // still name the *previous* page on the render that sets `pendingReveal`;
+  // this recomputes on every render and simply yields `null` until
+  // `workspace`'s own notify() flips `activePageId` to match. Handed to
+  // `MarkdownEditor` below as its own `pendingReveal` prop — see that
+  // prop's own doc comment (`MarkdownEditor.types.ts`) for why applying it
+  // is that component's own job now, not an imperative
+  // `revealRange()`/`revealRanges()` call from an effect here.
+  const editorPendingReveal =
+    pendingReveal && pendingReveal.pageId === activePageId ? { ranges: pendingReveal.ranges } : null;
+
+  // Shared by both `toCollectionPageModel` call sites below (folder
+  // branch, filtered-view branch) — opens the note exactly like every
+  // other collection click (`application.pageOperations.open`), and, when
+  // this click came from a Tag collection view (`revealTagName` set by
+  // `toCollectionEntry`'s own tag-aware onClick), additionally resolves
+  // every occurrence of that tag in the clicked note's own Markdown and
+  // requests a reveal for all of them at once — the same
+  // `onRequestReveal`/`pendingReveal` pipeline Sidebar's Tasks panel
+  // already drives (`AppLayout`'s own doc comment on that state). Reading
+  // `vault.getPage(id)` fresh here (not `page`, this component's own
+  // *active* page) is deliberate: the clicked note is very often a
+  // *different* page than the one currently open.
+  const openNoteFromCollection = (id: string, revealTagName?: string): void => {
+    application.pageOperations.open(id);
+
+    if (!revealTagName) {
+      return;
+    }
+
+    const clickedPage = vault.getPage(id);
+    const ranges = (clickedPage?.analysis.tags ?? [])
+      .filter((occurrence) => occurrence.name === revealTagName)
+      .filter(
+        (occurrence): occurrence is typeof occurrence & { startOffset: number; endOffset: number } =>
+          occurrence.startOffset !== undefined && occurrence.endOffset !== undefined
+      )
+      .map((occurrence) => ({ from: occurrence.startOffset, to: occurrence.endOffset }));
+
+    if (ranges.length > 0) {
+      onRequestReveal({ pageId: id, ranges });
+    }
+  };
 
   const onOpenFolder = (id: string) => application.folderOperations.open(id);
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
@@ -855,7 +898,7 @@ export function PageHost({
       workspace,
       {
         onOpenFolder,
-        onOpenNote: (id: string) => application.pageOperations.open(id),
+        onOpenNote: openNoteFromCollection,
         onOpenDraftNote: (id: string) => application.workspace.openPage(id),
       }
     );
@@ -1316,7 +1359,7 @@ export function PageHost({
       workspace,
       {
         onOpenFolder,
-        onOpenNote: (id: string) => application.pageOperations.open(id),
+        onOpenNote: openNoteFromCollection,
         onOpenDraftNote: (id: string) => application.workspace.openPage(id),
       }
     );
@@ -1549,8 +1592,8 @@ export function PageHost({
               ref={editorRef}
               markdown={model.markdown}
               focusOnOpen={focusEditorOnOpen(model.title)}
-              pendingTaskReveal={editorPendingTaskReveal}
-              onTaskRevealApplied={onTaskRevealHandled}
+              pendingReveal={editorPendingReveal}
+              onRevealApplied={onRevealHandled}
               foldStateStore={application.foldStateStore}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
@@ -1727,8 +1770,8 @@ export function PageHost({
             ref={editorRef}
             markdown={model.markdown}
             focusOnOpen={focusEditorOnOpen(model.title)}
-            pendingTaskReveal={editorPendingTaskReveal}
-            onTaskRevealApplied={onTaskRevealHandled}
+            pendingReveal={editorPendingReveal}
+            onRevealApplied={onRevealHandled}
             foldStateStore={application.foldStateStore}
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}

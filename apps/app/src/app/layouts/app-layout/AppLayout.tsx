@@ -19,7 +19,7 @@ import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
-import type { PendingTaskReveal } from '@features/tasks/helpers/PendingTaskReveal';
+import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
 /**
  * Resolves the shared Tasks-view Show completed / Auto-sort completed
@@ -85,13 +85,17 @@ export function AppLayout({ application }: AppLayoutProps) {
     application.tasksViewConfigStore.update(next);
   }
 
-  // Tasks sidebar "Open in note" → PageHost's editor, carrying the task's
-  // startOffset/endOffset so the correct occurrence (not just the correct
-  // page) is targeted — lifted here for the same reason tasksViewConfig
-  // is, just above: AppLayout is the confirmed common ancestor of Sidebar
-  // and PageHost. Consumed exactly once by PageHost (which clears it via
-  // onTaskRevealHandled once applied), not persisted.
-  const [pendingTaskReveal, setPendingTaskReveal] = useState<PendingTaskReveal | null>(null);
+  // Navigate-to-content requests (Tasks sidebar "Open in note", Tag
+  // collection "Open note") → PageHost's editor, carrying each occurrence's
+  // exact offsets so the correct content (not just the correct page) is
+  // targeted — lifted here for the same reason tasksViewConfig is, just
+  // above: AppLayout is the confirmed common ancestor of Sidebar and
+  // PageHost. Consumed exactly once by PageHost (which clears it via
+  // onRevealHandled once applied), not persisted. See
+  // `PendingEditorReveal`'s own doc comment for the full shape and why
+  // this one state/callback pair serves every navigation source, not just
+  // Tasks.
+  const [pendingReveal, setPendingReveal] = useState<PendingEditorReveal | null>(null);
 
   const { revealResourceInFinder, copyResourcePath, downloadResourceById } =
     createResourceLocationActions(application.vault);
@@ -166,7 +170,7 @@ export function AppLayout({ application }: AppLayoutProps) {
               onOpenResource={openVaultResourceOverlay}
               tasksViewConfig={tasksViewConfig}
               onTasksViewConfigChange={updateTasksViewConfig}
-              onRevealTask={setPendingTaskReveal}
+              onRequestReveal={setPendingReveal}
             />
           }
         </aside>
@@ -187,8 +191,9 @@ export function AppLayout({ application }: AppLayoutProps) {
           onOpenResource={openVaultResourceOverlay}
           onOpenImageOverlay={openImageOverlay}
           tasksViewConfig={tasksViewConfig}
-          pendingTaskReveal={pendingTaskReveal}
-          onTaskRevealHandled={() => setPendingTaskReveal(null)}
+          pendingReveal={pendingReveal}
+          onRequestReveal={setPendingReveal}
+          onRevealHandled={() => setPendingReveal(null)}
         />
       </main>
       <SidebarToggle

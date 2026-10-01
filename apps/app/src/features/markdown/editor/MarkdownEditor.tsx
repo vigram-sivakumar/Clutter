@@ -39,7 +39,7 @@ import type { TableColumnAlignment } from './codemirror/table/tableAlignment';
 import { TableHandleMenu, type TableHandleMenuAnchor } from './codemirror/table/TableHandleMenu';
 import type { OnTableHandleMenuChange, TableHandleMenuSelection } from './codemirror/table/tableHandleMenuSync';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
-import { setTaskRevealHighlight } from './codemirror/highlight/taskRevealHighlight';
+import { setRevealHighlight } from './codemirror/highlight/editorRevealHighlight';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
 import type { OnOpenPdfMenu, OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
@@ -219,8 +219,8 @@ export const MarkdownEditor = forwardRef<
     pageId,
     markdown,
     focusOnOpen,
-    pendingTaskReveal,
-    onTaskRevealApplied,
+    pendingReveal,
+    onRevealApplied,
     foldStateStore,
     onEdit,
     onFlush,
@@ -1209,40 +1209,57 @@ export const MarkdownEditor = forwardRef<
   const resolveDateRef = useRef(resolveDate);
   resolveDateRef.current = resolveDate;
 
-  // Shared by the imperative `revealRange` handle below and by the
-  // `pendingTaskReveal`-prop effect further down (`MarkdownEditorProps`'s
-  // own doc comment on that prop explains why the real "Open in note" flow
-  // goes through the prop, not this method, but both apply the identical
-  // reveal — one business rule, one implementation, per
-  // docs/implementation-rules.md's "never duplicate a business rule"
-  // rule).
+  // The one shared implementation behind every "navigate to content in the
+  // editor" entry point — the imperative `revealRange`/`revealRanges`
+  // handle methods below, and the `pendingReveal`-prop effect further down
+  // (`MarkdownEditorProps`'s own doc comment on that prop explains why the
+  // real Task/Tag navigation flows go through the prop, not these
+  // methods). One business rule, one implementation, per
+  // docs/implementation-rules.md's "never duplicate a business rule" rule
+  // — a future search/backlink/mention navigation gets this same behavior
+  // for free by calling `revealRanges`, not by writing a parallel version.
   //
-  // Never an EditorSelection — the prior implementation selected the
-  // task's text, which made the selection live editing state: typing
-  // immediately after navigation replaced the task instead of inserting
-  // at the user's actual cursor. This leaves `state.selection` completely
-  // untouched (so normal cursor placement/typing continues exactly as
-  // before) and shows the task's position with a purely-visual, self-
-  // expiring `Decoration.line` instead (`taskRevealHighlight.ts`).
+  // Never an EditorSelection — the original (Task-only) implementation
+  // selected the target text, which made the selection live editing
+  // state: typing immediately after navigation replaced it instead of
+  // inserting at the user's actual cursor. This leaves `state.selection`
+  // completely untouched (so normal cursor placement/typing continues
+  // exactly as before) and shows every target's position with a purely-
+  // visual, self-expiring `Decoration.line` instead
+  // (`editorRevealHighlight.ts`) — one line per target, deduplicated,
+  // never a sub-line text-range highlight (see that module's own doc
+  // comment for why this is a permanent Clutter interaction rule, not a
+  // per-caller choice).
   //
-  // Scrolling is a plain DOM `scrollTop` write on the real scrolling
-  // ancestor, not CM6's own `EditorView.scrollIntoView` effect — this
-  // view's `.cm-scroller` is `overflow: visible` (see
-  // `findScrollableAncestor`'s own doc comment above), so CM6's built-in
-  // scroll-into-view has no visible effect in this app's actual layout;
-  // the ancestor found at mount time is the element that really scrolls.
-  // Skipped entirely when the task's line is already on screen, per the
-  // product spec's "don't unnecessarily jump the document" requirement.
-  function applyTaskReveal(view: EditorView, from: number, to: number) {
+  // Scrolling is a plain DOM `scrollTo` on the real scrolling ancestor,
+  // not CM6's own `EditorView.scrollIntoView` effect — this view's
+  // `.cm-scroller` is `overflow: visible` (see `findScrollableAncestor`'s
+  // own doc comment above), so CM6's built-in scroll-into-view has no
+  // visible effect in this app's actual layout; the ancestor found at
+  // mount time is the element that really scrolls. Only ever scrolls to
+  // `ranges[0]` — per the product spec's "don't repeatedly scroll through
+  // far-apart occurrences," a multi-target reveal (e.g. several tag
+  // occurrences) lands on the first one and highlights every target at
+  // once, rather than visiting each in turn. Skipped entirely when that
+  // first target's line is already on screen.
+  function applyEditorReveal(view: EditorView, ranges: readonly { readonly from: number; readonly to: number }[]) {
+    if (ranges.length === 0) {
+      return;
+    }
+
     const docLength = view.state.doc.length;
-    const safeFrom = Math.min(Math.max(from, 0), docLength);
-    const safeTo = Math.min(Math.max(to, safeFrom), docLength);
-    const line = view.state.doc.lineAt(safeFrom);
+    const clampedRanges = ranges.map((range) => {
+      const safeFrom = Math.min(Math.max(range.from, 0), docLength);
+      const safeTo = Math.min(Math.max(range.to, safeFrom), docLength);
+      return { from: safeFrom, to: safeTo };
+    });
+
+    const firstLine = view.state.doc.lineAt(clampedRanges[0]!.from);
 
     const scrollAncestor = scrollAncestorRef.current;
     if (scrollAncestor) {
       const ancestorRect = scrollAncestor.getBoundingClientRect();
-      const lineCoords = view.coordsAtPos(line.from);
+      const lineCoords = view.coordsAtPos(firstLine.from);
       const alreadyVisible =
         !!lineCoords && lineCoords.top >= ancestorRect.top && lineCoords.bottom <= ancestorRect.bottom;
       if (lineCoords && !alreadyVisible) {
@@ -1282,7 +1299,7 @@ export const MarkdownEditor = forwardRef<
       }
     }
 
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: safeFrom, to: safeTo }) });
+    view.dispatch({ effects: setRevealHighlight.of(clampedRanges) });
     view.focus();
   }
 
@@ -1307,7 +1324,14 @@ export const MarkdownEditor = forwardRef<
       if (!view) {
         return;
       }
-      applyTaskReveal(view, from, to);
+      applyEditorReveal(view, [{ from, to }]);
+    },
+    revealRanges(ranges) {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      applyEditorReveal(view, ranges);
     },
   }));
 
@@ -1598,18 +1622,20 @@ export const MarkdownEditor = forwardRef<
     return () => activeEditorCleanupRef.current?.();
   }, []);
 
-  // Applies a pending Tasks-sidebar "Open in note" reveal exactly once,
-  // after the mount effect above has fully constructed `viewRef.current`
-  // and finished every synchronous mount-time dispatch (restored
-  // scroll/history/fold state). A *separate* effect from the mount effect
-  // above (not inlined into it) specifically so React's own guarantee that
-  // one component instance's effects run in declaration order does the
-  // sequencing for us: this effect cannot observe `viewRef.current` before
-  // the mount effect has already finished setting it up, in the very same
-  // commit — whether this is this component's first mount (a cross-page
-  // "Open in note") or an already-mounted instance simply receiving a
-  // fresh `pendingTaskReveal` prop (an "Open in note" for a task inside
-  // the already-open note, no remount involved at all).
+  // Applies a pending navigate-to-content reveal (Tasks sidebar "Open in
+  // note", Tag collection "Open note", any future consumer of this same
+  // prop) exactly once, after the mount effect above has fully
+  // constructed `viewRef.current` and finished every synchronous
+  // mount-time dispatch (restored scroll/history/fold state). A
+  // *separate* effect from the mount effect above (not inlined into it)
+  // specifically so React's own guarantee that one component instance's
+  // effects run in declaration order does the sequencing for us: this
+  // effect cannot observe `viewRef.current` before the mount effect has
+  // already finished setting it up, in the very same commit — whether
+  // this is this component's first mount (a cross-page navigation) or an
+  // already-mounted instance simply receiving a fresh `pendingReveal` prop
+  // (a navigation to content inside the already-open note, no remount
+  // involved at all).
   //
   // This replaces an earlier implementation where `PageHost.tsx`'s own
   // effect called `editorRef.current?.revealRange(...)` imperatively —
@@ -1621,21 +1647,21 @@ export const MarkdownEditor = forwardRef<
   // prop, inside this component's own post-mount effect, removes that gap
   // entirely rather than papering over it with a delay.
   //
-  // Keyed only on `pendingTaskReveal` (not `onTaskRevealApplied`, a fresh
-  // closure every `PageHost` render) — applying once per distinct non-null
-  // value, then relying on the callback to flip the prop back to `null`,
-  // is what makes this "apply exactly once": the effect never reruns for
-  // the *same* request, since `pendingTaskReveal`'s own reference only
-  // changes when `PageHost` hands this instance a genuinely new one.
+  // Keyed only on `pendingReveal` (not `onRevealApplied`, a fresh closure
+  // every `PageHost` render) — applying once per distinct non-null value,
+  // then relying on the callback to flip the prop back to `null`, is what
+  // makes this "apply exactly once": the effect never reruns for the
+  // *same* request, since `pendingReveal`'s own reference only changes
+  // when `PageHost` hands this instance a genuinely new one.
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || !pendingTaskReveal) {
+    if (!view || !pendingReveal) {
       return;
     }
-    applyTaskReveal(view, pendingTaskReveal.from, pendingTaskReveal.to);
-    onTaskRevealApplied?.();
+    applyEditorReveal(view, pendingReveal.ranges);
+    onRevealApplied?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingTaskReveal]);
+  }, [pendingReveal]);
 
   useEffect(() => {
     const view = viewRef.current;

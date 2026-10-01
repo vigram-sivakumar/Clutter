@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { clearTaskRevealHighlight, setTaskRevealHighlight, taskRevealHighlight } from './taskRevealHighlight';
+import { clearRevealHighlight, editorRevealHighlight, setRevealHighlight } from './editorRevealHighlight';
 
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
-  const state = EditorState.create({ doc, extensions: [taskRevealHighlight()] });
+  const state = EditorState.create({ doc, extensions: [editorRevealHighlight()] });
   return new EditorView({ state, parent });
 }
 
@@ -22,48 +22,108 @@ function lineEl(view: EditorView, index: number): HTMLElement {
 
 /** The base class — present in both the `visible` and `fading` stages, absent once fully cleared. */
 function hasRevealLine(view: EditorView, index: number): boolean {
-  return lineEl(view, index).className.includes('cm-task-reveal-line');
+  return lineEl(view, index).className.includes('cm-reveal-line');
 }
 
 /** The `--visible` modifier — present only while the highlighted color itself is showing, not during the fade-out. */
 function isVisible(view: EditorView, index: number): boolean {
-  return lineEl(view, index).className.includes('cm-task-reveal-line--visible');
+  return lineEl(view, index).className.includes('cm-reveal-line--visible');
 }
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('taskRevealHighlight', () => {
-  it('marks the line containing the range start, not any other line, with the --visible modifier', () => {
-    const view = mountView('first line\nsecond line\nthird line');
+describe('editorRevealHighlight', () => {
+  describe('single target', () => {
+    it('marks the line containing the range start, not any other line, with the --visible modifier', () => {
+      const view = mountView('first line\nsecond line\nthird line');
 
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 12, to: 23 }) });
+      view.dispatch({ effects: setRevealHighlight.of([{ from: 12, to: 23 }]) });
 
-    expect(hasRevealLine(view, 0)).toBe(false);
-    expect(hasRevealLine(view, 1)).toBe(true);
-    expect(isVisible(view, 1)).toBe(true);
-    expect(hasRevealLine(view, 2)).toBe(false);
+      expect(hasRevealLine(view, 0)).toBe(false);
+      expect(hasRevealLine(view, 1)).toBe(true);
+      expect(isVisible(view, 1)).toBe(true);
+      expect(hasRevealLine(view, 2)).toBe(false);
+    });
+
+    it('never touches the selection', () => {
+      const view = mountView('first line\nsecond line');
+      view.dispatch({ selection: { anchor: 0 } });
+
+      view.dispatch({ effects: setRevealHighlight.of([{ from: 11, to: 22 }]) });
+
+      expect(view.state.selection.main.from).toBe(0);
+      expect(view.state.selection.main.to).toBe(0);
+    });
+
+    it('clears outright via clearRevealHighlight (no fade — a direct, non-timed clear)', () => {
+      const view = mountView('only line');
+      view.dispatch({ effects: setRevealHighlight.of([{ from: 0, to: 4 }]) });
+      expect(hasRevealLine(view, 0)).toBe(true);
+
+      view.dispatch({ effects: clearRevealHighlight.of(null) });
+
+      expect(hasRevealLine(view, 0)).toBe(false);
+    });
   });
 
-  it('never touches the selection', () => {
-    const view = mountView('first line\nsecond line');
-    view.dispatch({ selection: { anchor: 0 } });
+  describe('multiple targets (e.g. several tag occurrences in one note)', () => {
+    it('highlights every unique containing line simultaneously', () => {
+      const view = mountView('one #x\ntwo\nthree #x\nfour');
 
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 11, to: 22 }) });
+      view.dispatch({
+        effects: setRevealHighlight.of([
+          { from: 4, to: 6 },
+          { from: 17, to: 19 },
+        ]),
+      });
 
-    expect(view.state.selection.main.from).toBe(0);
-    expect(view.state.selection.main.to).toBe(0);
-  });
+      expect(isVisible(view, 0)).toBe(true);
+      expect(hasRevealLine(view, 1)).toBe(false);
+      expect(isVisible(view, 2)).toBe(true);
+      expect(hasRevealLine(view, 3)).toBe(false);
+    });
 
-  it('clears outright via clearTaskRevealHighlight (no fade — a direct, non-timed clear)', () => {
-    const view = mountView('only line');
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 0, to: 4 }) });
-    expect(hasRevealLine(view, 0)).toBe(true);
+    it('deduplicates multiple ranges that resolve to the same line into one decoration', () => {
+      const view = mountView('#x and #x on one line\nanother line');
 
-    view.dispatch({ effects: clearTaskRevealHighlight.of(null) });
+      view.dispatch({
+        effects: setRevealHighlight.of([
+          { from: 0, to: 2 },
+          { from: 7, to: 9 },
+        ]),
+      });
 
-    expect(hasRevealLine(view, 0)).toBe(false);
+      expect(isVisible(view, 0)).toBe(true);
+      expect(hasRevealLine(view, 1)).toBe(false);
+      // Exactly one decorated line, not two overlapping ones.
+      expect(view.dom.querySelectorAll('.cm-reveal-line')).toHaveLength(1);
+    });
+
+    it('fades out and clears every highlighted line together, on the same schedule', () => {
+      vi.useFakeTimers();
+      const view = mountView('one #x\ntwo\nthree #x');
+
+      view.dispatch({
+        effects: setRevealHighlight.of([
+          { from: 4, to: 6 },
+          { from: 13, to: 15 },
+        ]),
+      });
+      expect(isVisible(view, 0)).toBe(true);
+      expect(isVisible(view, 2)).toBe(true);
+
+      vi.advanceTimersByTime(2500);
+      expect(isVisible(view, 0)).toBe(false);
+      expect(isVisible(view, 2)).toBe(false);
+      expect(hasRevealLine(view, 0)).toBe(true);
+      expect(hasRevealLine(view, 2)).toBe(true);
+
+      vi.advanceTimersByTime(400);
+      expect(hasRevealLine(view, 0)).toBe(false);
+      expect(hasRevealLine(view, 2)).toBe(false);
+    });
   });
 
   // appear smoothly -> stay visible -> fade out smoothly -> disappear
@@ -76,7 +136,7 @@ describe('taskRevealHighlight', () => {
     vi.useFakeTimers();
     const view = mountView('only line');
 
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 0, to: 4 }) });
+    view.dispatch({ effects: setRevealHighlight.of([{ from: 0, to: 4 }]) });
     expect(hasRevealLine(view, 0)).toBe(true);
     expect(isVisible(view, 0)).toBe(true);
 
@@ -104,9 +164,9 @@ describe('taskRevealHighlight', () => {
     vi.useFakeTimers();
     const view = mountView('abc\ndef');
 
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 0, to: 2 }) });
+    view.dispatch({ effects: setRevealHighlight.of([{ from: 0, to: 2 }]) });
     vi.advanceTimersByTime(1500);
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 4, to: 6 }) });
+    view.dispatch({ effects: setRevealHighlight.of([{ from: 4, to: 6 }]) });
     vi.advanceTimersByTime(1500);
     // The second reveal's own 2.5s window hasn't elapsed yet (1500 < 2500).
     expect(isVisible(view, 1)).toBe(true);
@@ -122,7 +182,7 @@ describe('taskRevealHighlight', () => {
   it('mousedown starts the same smooth fade-out immediately, rather than disappearing instantly', () => {
     vi.useFakeTimers();
     const view = mountView('only line');
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 0, to: 4 }) });
+    view.dispatch({ effects: setRevealHighlight.of([{ from: 0, to: 4 }]) });
     expect(isVisible(view, 0)).toBe(true);
 
     view.contentDOM.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
@@ -149,7 +209,7 @@ describe('taskRevealHighlight', () => {
   it('a second mousedown during an already-running fade is a no-op (does not restart or extend the fade)', () => {
     vi.useFakeTimers();
     const view = mountView('only line');
-    view.dispatch({ effects: setTaskRevealHighlight.of({ from: 0, to: 4 }) });
+    view.dispatch({ effects: setRevealHighlight.of([{ from: 0, to: 4 }]) });
 
     view.contentDOM.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     vi.advanceTimersByTime(200);

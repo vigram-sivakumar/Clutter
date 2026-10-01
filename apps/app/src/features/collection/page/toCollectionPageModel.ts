@@ -68,7 +68,9 @@ function toCollectionEntry(
   entry: Folder | EffectivePage,
   actions: CollectionPageActions,
   selected: boolean,
-  membershipSelector: MembershipSelector
+  membershipSelector: MembershipSelector,
+  /** Set only when building entries for a Tag collection view (`toFilteredCollectionPageModel`'s `view.kind === 'tag'` branch) — see `CollectionPageActions.onOpenNote`'s own doc comment. */
+  revealTagName?: string
 ): CollectionEntryModel {
   const type = isFolder(entry) ? 'folder' : 'note';
   const { title, icon, emoji } = buildEntryPresentation(entry);
@@ -102,7 +104,7 @@ function toCollectionEntry(
         return;
       }
 
-      actions.onOpenNote(entry.id);
+      actions.onOpenNote(entry.id, revealTagName);
     },
   };
 }
@@ -143,7 +145,9 @@ function toFilteredCollectionPageModel(
     const tag = vault.getTagByName(view.tagName);
     const notes = effectivePageState
       .getPagesByTag(view.tagName)
-      .map((child) => toCollectionEntry(child, actions, workspace.activePageId === child.id, membershipSelector));
+      .map((child) =>
+        toCollectionEntry(child, actions, workspace.activePageId === child.id, membershipSelector, view.tagName)
+      );
 
     return {
       title: tag?.name ?? view.tagName,

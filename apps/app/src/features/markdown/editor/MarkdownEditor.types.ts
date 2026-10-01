@@ -57,13 +57,21 @@ export interface MarkdownEditorProps {
    */
   readonly focusOnOpen?: boolean;
   /**
-   * A pending Tasks-sidebar "Open in note" reveal request for *this*
-   * mount's own page, if one is waiting — `{ from, to }`, the task's exact
-   * `startOffset`/`endOffset` (`PendingTaskReveal`'s own doc comment).
+   * A pending navigate-to-content reveal request for *this* mount's own
+   * page, if one is waiting — one or more `{ from, to }` ranges (an
+   * occurrence's exact `startOffset`/`endOffset`), each resolved to its
+   * containing editor line by `editorRevealHighlight.ts`. Today's
+   * producers are Tasks sidebar "Open in note" (always exactly one range)
+   * and Tag collection "Open note" (every occurrence of the clicked tag in
+   * that note, so every matching line highlights at once — see
+   * `PendingEditorReveal`'s own doc comment); any future search/backlink/
+   * mention navigation is meant to reuse this exact same prop, not a
+   * parallel one.
+   *
    * `PageHost.tsx` is the only caller: it already filters its own
-   * `pendingTaskReveal` state down to `null` unless
-   * `pendingTaskReveal.pageId === activePageId`, so by the time this prop
-   * is non-null it is always meant for the page this exact instance is
+   * `pendingReveal` state down to `null` unless
+   * `pendingReveal.pageId === activePageId`, so by the time this prop is
+   * non-null it is always meant for the page this exact instance is
    * showing — there is no separate pageId to check here.
    *
    * Deliberately a prop, not an imperative ref call from the parent's own
@@ -78,14 +86,16 @@ export interface MarkdownEditorProps {
    * mount-time work has actually settled, which is exactly what let the
    * reveal silently lose to post-mount state in practice.
    */
-  readonly pendingTaskReveal?: { readonly from: number; readonly to: number } | null;
+  readonly pendingReveal?: {
+    readonly ranges: readonly { readonly from: number; readonly to: number }[];
+  } | null;
   /**
-   * Fires exactly once, immediately after `pendingTaskReveal` above has
-   * been applied — `PageHost.tsx`'s own cue to clear its `pendingTaskReveal`
-   * state so the same request never re-applies on a later, unrelated
-   * render of this same mounted instance.
+   * Fires exactly once, immediately after `pendingReveal` above has been
+   * applied — `PageHost.tsx`'s own cue to clear its `pendingReveal` state
+   * so the same request never re-applies on a later, unrelated render of
+   * this same mounted instance.
    */
-  readonly onTaskRevealApplied?: () => void;
+  readonly onRevealApplied?: () => void;
   /**
    * Fires on every content change (typing, paste, deletion) — commits into
    * the document session's Committed stage only, no persistence
@@ -335,24 +345,40 @@ export interface MarkdownEditorHandle {
    */
   focusAtNewLineAtStart(): void;
   /**
-   * Scrolls the line containing `from` toward the vertical center of the
-   * viewport (skipped if it's already on screen) and shows a temporary,
-   * self-expiring `.cm-task-reveal-line` background on it — used by Tasks
-   * sidebar "Open in note" navigation (TaskOccurrence.startOffset/
-   * endOffset) to land on the exact task line rather than wherever the
-   * editor's own default open position (cached scroll/selection, or
-   * document start) happens to be. Never creates an `EditorSelection` and
-   * never touches the document's existing selection at all — see
-   * `taskRevealHighlight.ts`'s own doc comment for why a selection was the
-   * prior implementation's actual bug. `from`/`to` are clamped to the
-   * document's current length, so a stale offset (the document changed
-   * after the task was indexed) degrades to a nearby valid position
-   * instead of throwing. A no-op if the editor isn't mounted yet.
+   * Single-target convenience wrapper over `revealRanges([{ from, to }])`
+   * — see that method's own doc comment for the full behavior (scroll,
+   * highlight, clamping, no-op-when-unmounted). Used by Tasks sidebar
+   * "Open in note" navigation (TaskOccurrence.startOffset/endOffset),
+   * which always targets exactly one occurrence.
    *
    * Exposed as an imperative method for direct callers/tests; `PageHost.tsx`
-   * itself no longer calls this directly — see `pendingTaskReveal`
+   * itself no longer calls this directly — see `pendingReveal`
    * (`MarkdownEditorProps`) for why the real "Open in note" flow goes
    * through a prop instead.
    */
   revealRange(from: number, to: number): void;
+  /**
+   * Scrolls the line containing the first range's `from` toward the
+   * vertical center of the viewport (skipped if it's already on screen),
+   * and shows a temporary, self-expiring `.cm-reveal-line` background on
+   * *every* range's containing line simultaneously (deduplicated — a line
+   * hit by more than one range highlights once) — used by Tag collection
+   * "Open note" navigation to reveal every occurrence of the clicked tag
+   * in that note at once, landing on the first one rather than visiting
+   * each in turn. Never creates an `EditorSelection` and never touches the
+   * document's existing selection at all — see `editorRevealHighlight.ts`'s
+   * own doc comment for why a selection was the original (Task-only)
+   * implementation's actual bug, and for why this is always a whole-line
+   * decoration, never a sub-line text-range highlight. Each range's
+   * `from`/`to` is clamped to the document's current length, so a stale
+   * offset (the document changed after the occurrence was indexed)
+   * degrades to a nearby valid position instead of throwing. A no-op if
+   * the editor isn't mounted yet, or if `ranges` is empty.
+   *
+   * Exposed as an imperative method for direct callers/tests; `PageHost.tsx`
+   * itself no longer calls this directly — see `pendingReveal`
+   * (`MarkdownEditorProps`) for why the real "Open note" flow goes through
+   * a prop instead.
+   */
+  revealRanges(ranges: readonly { readonly from: number; readonly to: number }[]): void;
 }

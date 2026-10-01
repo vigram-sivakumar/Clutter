@@ -3,7 +3,18 @@ import type { CoverLayout } from '@core/vault/models/PageMetadata';
 
 export interface CollectionPageActions {
   onOpenFolder(id: string): void;
-  onOpenNote(id: string): void;
+  /**
+   * Opens a note from this collection. `revealTagName`, set only by the
+   * Tag collection view's own entries (`toFilteredCollectionPageModel`'s
+   * `view.kind === 'tag'` branch, threaded through `toCollectionEntry`),
+   * asks the caller to also resolve every occurrence of that tag in the
+   * opened note and reveal/highlight them all — see `PageHost.tsx`'s
+   * `openNoteFromCollection` for the one implementation of this. Every
+   * other collection source (folder browsing, Workspace, Favorites) always
+   * omits it, which is an ordinary open with no reveal, identical to this
+   * method's behavior before Tag collection reveal existed.
+   */
+  onOpenNote(id: string, revealTagName?: string): void;
   /**
    * A draft has no Vault entry yet, so onOpenNote() (PageOperations.open(),
    * which requires one) would throw for it — it's already open via

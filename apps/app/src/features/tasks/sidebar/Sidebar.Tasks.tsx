@@ -7,7 +7,7 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
-import type { PendingTaskReveal } from '../helpers/PendingTaskReveal';
+import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { toDate } from '@shared/helpers/time/helpers/toDate';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
@@ -37,8 +37,8 @@ interface TasksPanelProps {
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
-  /** See AppLayout's own doc comment on its `pendingTaskReveal` state — set by onOpenTask below, consumed once by PageHost. */
-  readonly onRevealTask: (reveal: PendingTaskReveal) => void;
+  /** See AppLayout's own doc comment on its `pendingReveal` state — set by onOpenTask below, consumed once by PageHost. */
+  readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
 
 export function Tasks({
@@ -51,7 +51,7 @@ export function Tasks({
   effectivePageState,
   tasksViewConfig,
   onTasksViewConfigChange,
-  onRevealTask,
+  onRequestReveal,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
@@ -82,16 +82,20 @@ export function Tasks({
   // Clicking a task opens its source note — the same PageOperations.open()
   // every other sidebar entry (FolderTree, DailyNotesList) already uses,
   // via the sourcePageId every TaskOccurrence already carries. Also hands
-  // the task's exact startOffset/endOffset to AppLayout's pendingTaskReveal
-  // state, so PageHost can land the editor's selection on this specific
-  // occurrence once the note is open — positional, not a rawText search,
-  // so the second of two textually-identical task lines opens correctly.
-  // Both fields are always populated by TaskExtractor today; the guard
-  // only protects against Occurrence's own still-optional typing.
+  // the task's exact startOffset/endOffset to AppLayout's pendingReveal
+  // state (one range — a task is always a single occurrence), so PageHost
+  // can land the editor's highlight on this specific occurrence once the
+  // note is open — positional, not a rawText search, so the second of two
+  // textually-identical task lines opens correctly. Both fields are
+  // always populated by TaskExtractor today; the guard only protects
+  // against Occurrence's own still-optional typing.
   const onOpenTask = (task: TaskOccurrence): void => {
     void pageOperations.open(task.sourcePageId);
     if (task.startOffset !== undefined && task.endOffset !== undefined) {
-      onRevealTask({ pageId: task.sourcePageId, from: task.startOffset, to: task.endOffset });
+      onRequestReveal({
+        pageId: task.sourcePageId,
+        ranges: [{ from: task.startOffset, to: task.endOffset }],
+      });
     }
   };
 
