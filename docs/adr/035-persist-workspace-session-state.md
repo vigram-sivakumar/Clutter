@@ -1,6 +1,6 @@
 # ADR-035: Persist Workspace Session State — `WorkspaceSessionStore` Observes `Workspace`
 
-**Status:** Accepted (design frozen; **not yet implemented** — implementation proceeds only on separate approval, against this contract)
+**Status:** Accepted — implemented (see Implementation Record at the end)
 
 ## Context
 
@@ -205,3 +205,15 @@ Also considered: **persisting `activePageId` only** — rejected, since `ActiveV
 ## Why This Approach Is Preferred
 
 It crosses the non-persistence boundary ADR-006 and ADR-021 deliberately held, at exactly the point and in exactly the shape they anticipated — a separate persistence owner through `VaultFileSystem`, a sibling key in the file ADR-033 already brought to life — while changing nothing about what `Workspace` is. Every mechanism it relies on (the shared workspace-state helpers, single-owner stores, tolerant boot-time loading, the startup seam, `ActiveView`, `Workspace.subscribe()`) already exists and is proven; the only genuinely new contracts are the restore ordering, field-level versioned validation, and serialized writes, each scoped to the state this requirement actually needs.
+
+## Implementation Record
+
+Implemented in four commits after approval: write queue + tag-rename fix (`b69cb967`), `DailyNotesSidebarState` (`9342d23a`), `WorkspaceSessionStore` + `NavigationRouter.restore()` (`d61cbb8d`), Composition Root wiring (`312f3520`). The following implementation choices go slightly beyond what this ADR's text spells out; none changes its contract:
+
+- **Restore lives on `NavigationRouter.restore(view)`**, not inline in `Application.open()`. It reuses the router's existing `commit()` reactivation path (the one `back()`/`forward()` use, now returning a promise) instead of duplicating "which facade opens which `ActiveView` variant." Its validity check is stricter than history's `stillExists()`: drafts are never restorable, and a tag view requires `vault.getTagByName(tagName)` to resolve.
+- **`Workspace` gained two read-only accessors**, `collapsedFolders`/`collapsedSections` (copies of its existing sets), in addition to §9.3's `setSidebarVisible()`. The store needs the whole set to snapshot it; no new state or behavior was added to `Workspace`.
+- **The restorable sidebar-tab list (`SIDEBAR_TABS`) lives in `WorkspaceSessionStore.ts`**, and `Sidebar.tsx` types its tab values as `SidebarTab`, so a tab added to the sidebar without being accepted as restorable fails to compile.
+- **`openFallbackPage()` now awaits its own `open`/`openAtPath` call**, so `open()` can attach the store only once the fallback is active (§7's mandatory order). Its delete-time callers (ADR-025) still invoke it fire-and-forget, unchanged. A failure while restoring or falling back is logged and boot continues, matching the previous unawaited behavior.
+- **Writes are change-only and the snapshot is taken at write time**, so a draft promoted by `close()`'s page flush is persisted as restorable even though promotion fires no `Workspace` notification.
+
+Verification: unit tests for the write queue (shown to fail without it), `TagExpansionStore.renameTag`/`TagOperations.rename`, `DailyNotesSidebarState`, `NavigationRouter.restore`, `WorkspaceSessionStore` (load/validation/migration, seeding, debounced persistence, flush, round trip), and `Application` boot-restore-close integration. In the web runtime (in-memory vault, so no cross-reload persistence by design) Earlier expansion was confirmed to survive a sidebar-tab switch. Cross-restart behavior in the Tauri desktop app is covered by the integration tests but was not exercised against a real vault.
