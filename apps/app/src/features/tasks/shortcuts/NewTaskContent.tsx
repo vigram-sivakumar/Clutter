@@ -45,7 +45,7 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
       <div className="new-task__footer">
         {/* No onClick yet — this is still the UI-only pass: no
             TaskOperations call, no Daily Note assignment, no persistence. */}
-        <Button variant="primary" size="medium">
+        <Button className="new-task__create-button" variant="primary" size="medium">
           Create
         </Button>
       </div>

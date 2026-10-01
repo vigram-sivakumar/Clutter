@@ -39,3 +39,10 @@
   align-items: center;
   justify-content: flex-end;
 }
+
+/* .button.new-task__create-button (two classes) rather than a single
+   class — Button.css's own .button--medium sets padding-inline at the
+   same specificity, and which stylesheet loads later isn't guaranteed. */
+.button.new-task__create-button {
+  padding-inline: var(--space-24);
+}
