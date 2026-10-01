@@ -14,6 +14,8 @@ describe('TaskExtractor', () => {
         dueDate: undefined,
         completedAt: undefined,
         rawText: '- [ ] Buy milk',
+        startOffset: 0,
+        endOffset: 14,
       },
       {
         completed: true,
@@ -21,6 +23,8 @@ describe('TaskExtractor', () => {
         dueDate: undefined,
         completedAt: undefined,
         rawText: '- [x] Walk the dog',
+        startOffset: 15,
+        endOffset: 33,
       },
     ]);
   });
@@ -36,6 +40,8 @@ describe('TaskExtractor', () => {
         dueDate: '2026-08-05',
         completedAt: undefined,
         rawText: line,
+        startOffset: 0,
+        endOffset: 38,
       },
     ]);
   });
@@ -51,6 +57,8 @@ describe('TaskExtractor', () => {
         dueDate: undefined,
         completedAt: '2026-08-04',
         rawText: line,
+        startOffset: 0,
+        endOffset: 41,
       },
     ]);
   });
@@ -67,6 +75,8 @@ describe('TaskExtractor', () => {
       text: 'Submit report',
       dueDate: '2026-08-05',
       completedAt: '2026-08-04',
+      startOffset: 0,
+      endOffset: 57,
     };
 
     expect(inOrder).toEqual([{ ...expectedBase, rawText: lineInOrder }]);
@@ -84,6 +94,8 @@ describe('TaskExtractor', () => {
         dueDate: undefined,
         completedAt: undefined,
         rawText: line,
+        startOffset: 0,
+        endOffset: 37,
       },
     ]);
   });
@@ -99,6 +111,8 @@ describe('TaskExtractor', () => {
         dueDate: undefined,
         completedAt: undefined,
         rawText: line,
+        startOffset: 0,
+        endOffset: 28,
       },
     ]);
   });
@@ -120,6 +134,8 @@ describe('TaskExtractor', () => {
         dueDate: '2026-08-05',
         completedAt: undefined,
         rawText: line,
+        startOffset: 0,
+        endOffset: 38,
       },
     ]);
   });
@@ -129,6 +145,37 @@ describe('TaskExtractor', () => {
     const tasks = extractor.extract(line);
 
     expect(tasks[0]!.rawText).toBe(line);
+  });
+
+  it('gives two textually-identical task lines distinct, correctly-ordered offsets', () => {
+    const content = [
+      '- [ ] Buy groceries',
+      '- [ ] Finish report',
+      '- [ ] Buy groceries',
+    ].join('\n');
+
+    const tasks = extractor.extract(content);
+
+    expect(tasks).toHaveLength(3);
+    expect(tasks[0]!.rawText).toBe(tasks[2]!.rawText);
+    expect(tasks[0]!.startOffset).not.toBe(tasks[2]!.startOffset);
+
+    for (const task of tasks) {
+      expect(content.slice(task.startOffset, task.endOffset)).toBe(task.rawText);
+    }
+
+    expect(tasks[0]).toMatchObject({ startOffset: 0, endOffset: 19 });
+    expect(tasks[1]).toMatchObject({ startOffset: 20, endOffset: 39 });
+    expect(tasks[2]).toMatchObject({ startOffset: 40, endOffset: 59 });
+  });
+
+  it('preserves leading indentation in the computed offset range', () => {
+    const content = 'Some paragraph.\n  - [ ] Indented task';
+    const tasks = extractor.extract(content);
+
+    expect(tasks).toHaveLength(1);
+    // startOffset points at the indentation itself, not the `-` marker.
+    expect(content.slice(tasks[0]!.startOffset, tasks[0]!.endOffset)).toBe('  - [ ] Indented task');
   });
 
   describe('bare @YYYY-MM-DD Date references (v1: no @due: required)', () => {
@@ -143,6 +190,8 @@ describe('TaskExtractor', () => {
           dueDate: '2026-08-20',
           completedAt: undefined,
           rawText: line,
+          startOffset: 0,
+          endOffset: 31,
         },
       ]);
     });

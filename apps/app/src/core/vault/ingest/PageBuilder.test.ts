@@ -60,7 +60,13 @@ describe('PageBuilder', () => {
         headings: [{ title: 'Heading', level: 1 }],
         blockReferences: [],
         tasks: [
-          { text: 'do the thing', completed: false, rawText: '- [ ] do the thing' },
+          {
+            text: 'do the thing',
+            completed: false,
+            rawText: '- [ ] do the thing',
+            startOffset: 0,
+            endOffset: 19,
+          },
         ],
         tags: [{ name: 'design' }],
         links: [],
@@ -77,8 +83,8 @@ describe('PageBuilder', () => {
         text: 'do the thing',
         completed: false,
         rawText: '- [ ] do the thing',
-        startOffset: undefined,
-        endOffset: undefined,
+        startOffset: 0,
+        endOffset: 19,
         sourceVersion: undefined,
       },
     ]);

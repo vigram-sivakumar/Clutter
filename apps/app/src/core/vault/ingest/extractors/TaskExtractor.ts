@@ -11,6 +11,18 @@ export interface ScannedTask {
   // against to locate the line it needs to rewrite; there is no other
   // stable identity for a task occurrence today.
   readonly rawText: string;
+  // The task line's exact character range within the original document
+  // (the same `content` string passed to `extract()` — never a trimmed or
+  // otherwise transformed copy), fulfilling Occurrence.startOffset/
+  // endOffset's long-reserved "populate during analysis" contract.
+  // `startOffset` is the index of the line's first character (including
+  // leading indentation); `endOffset` is exclusive and excludes the
+  // trailing newline. Computed positionally from the running per-line
+  // offset `extract()` already tracks — this is what makes two
+  // textually-identical task lines distinguishable: their `rawText` is
+  // equal, but their offsets never are.
+  readonly startOffset: number;
+  readonly endOffset: number;
 }
 
 // Inline occurrence metadata: `@key:value`, recognized keys only — an
@@ -96,7 +108,7 @@ export class TaskExtractor {
     let offset = 0;
     for (const line of content.split('\n')) {
       if (!isInsideAnyRange(offset, codeRanges)) {
-        const task = this.extractFromLine(line);
+        const task = this.extractFromLine(line, offset);
 
         if (task) {
           tasks.push(task);
@@ -109,7 +121,7 @@ export class TaskExtractor {
     return tasks;
   }
 
-  private extractFromLine(line: string): ScannedTask | null {
+  private extractFromLine(line: string, offset: number): ScannedTask | null {
     const match = line.match(TASK_LINE_PATTERN);
 
     if (!match) {
@@ -151,6 +163,8 @@ export class TaskExtractor {
       dueDate,
       completedAt: metadata.completed,
       rawText: line,
+      startOffset: offset,
+      endOffset: offset + line.length,
     };
   }
 

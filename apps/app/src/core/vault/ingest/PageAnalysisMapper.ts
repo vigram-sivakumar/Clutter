@@ -45,8 +45,8 @@ export class PageAnalysisMapper {
       dueDate: task.dueDate,
       completedAt: task.completedAt,
       rawText: task.rawText,
-      startOffset: undefined,
-      endOffset: undefined,
+      startOffset: task.startOffset,
+      endOffset: task.endOffset,
       sourceVersion: undefined,
     }));
   }
