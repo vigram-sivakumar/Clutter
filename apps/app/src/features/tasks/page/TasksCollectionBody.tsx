@@ -37,6 +37,8 @@ export interface TasksCollectionBodyProps {
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens a row's Change due date calendar; a date string sets it, null clears it — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
+  /** Inserts an exact copy of a row's task directly below the original in its source note. */
+  readonly onDuplicateTask: (task: TaskOccurrence) => void;
   /** Deletes a row's task from its source note. */
   readonly onDeleteTask: (task: TaskOccurrence) => void;
   /**
@@ -74,6 +76,7 @@ export function TasksCollectionBody({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onDuplicateTask,
   onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   resolveWikiLink,
@@ -84,6 +87,7 @@ export function TasksCollectionBody({
     onToggleComplete,
     onOpenTask,
     onChangeDueDate,
+    onDuplicateTask,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,

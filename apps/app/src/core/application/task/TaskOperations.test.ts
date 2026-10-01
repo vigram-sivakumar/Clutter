@@ -641,6 +641,33 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
     });
   });
 
+  describe('duplicate', () => {
+    it('inserts an exact copy of the task line directly below the original', async () => {
+      const page = buildPage(
+        'p1',
+        'Intro\n- [x] Collect the bill @2026-08-05\n- [ ] Buy milk\nOutro'
+      );
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.duplicate(firstTask(page));
+
+      expect(vault.getPage('p1')!.source.markdown).toBe(
+        'Intro\n- [x] Collect the bill @2026-08-05\n- [x] Collect the bill @2026-08-05\n- [ ] Buy milk\nOutro'
+      );
+    });
+
+    it('rejects when the task line can no longer be located', async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill');
+      const { vault, taskOperations } = setup(page);
+      const stale = { ...firstTask(page), rawText: '- [ ] Some other line' };
+
+      await expect(taskOperations.duplicate(stale)).rejects.toThrow(
+        'Could not locate task'
+      );
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+    });
+  });
+
   describe('update', () => {
     it('replaces the title, leaving an unset due date unset', async () => {
       const page = buildPage('p1', '- [ ] Collect the bill');

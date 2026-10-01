@@ -1326,6 +1326,7 @@ export function PageHost({
                 ? application.taskOperations.clearDate(task)
                 : application.taskOperations.setDate(task, date))
             }
+            onDuplicateTask={(task) => void application.taskOperations.duplicate(task)}
             onDeleteTask={(task) => void application.taskOperations.delete(task)}
             displayConfig={tasksViewConfig}
             resolveWikiLink={resolveWikiLink}

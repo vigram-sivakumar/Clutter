@@ -23,6 +23,8 @@ interface TaskRowCallbacks {
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens the row's Change due date calendar; a date string sets it, null clears it. Reuses TaskOperations.setDate()/clearDate() — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
+  /** Inserts an exact copy of the task's line directly below the original. */
+  readonly onDuplicateTask: (task: TaskOccurrence) => void;
   /** Deletes the task's line from its source note. */
   readonly onDeleteTask: (task: TaskOccurrence) => void;
 }
@@ -45,6 +47,7 @@ export function renderTaskRow(
     onToggleComplete,
     onOpenTask,
     onChangeDueDate,
+    onDuplicateTask,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,
@@ -57,7 +60,10 @@ export function renderTaskRow(
 
   return (
     <Task
-      key={task.text}
+      // Positional, not task.text — two textually-identical tasks (e.g. one
+      // just made by Duplicate, or the same line in two notes) must never
+      // share a React key. See TaskOccurrence's own positional-identity note.
+      key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
       title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
@@ -67,6 +73,7 @@ export function renderTaskRow(
       onClick={() => onOpenTask(task)}
       onChangeDueDate={(next) => onChangeDueDate(task, next)}
       onOpenInNote={() => onOpenTask(task)}
+      onDuplicate={() => onDuplicateTask(task)}
       onDelete={() => onDeleteTask(task)}
       resolveWikiLink={resolveWikiLink}
       resolveTag={resolveTag}
@@ -108,6 +115,7 @@ export function renderTodayContent({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onDuplicateTask,
   onDeleteTask,
   resolveWikiLink,
   resolveTag,
@@ -117,6 +125,7 @@ export function renderTodayContent({
     onToggleComplete,
     onOpenTask,
     onChangeDueDate,
+    onDuplicateTask,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,
@@ -140,6 +149,7 @@ export function renderOverdueContent({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onDuplicateTask,
   onDeleteTask,
   resolveWikiLink,
   resolveTag,
@@ -149,6 +159,7 @@ export function renderOverdueContent({
     onToggleComplete,
     onOpenTask,
     onChangeDueDate,
+    onDuplicateTask,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,
@@ -170,6 +181,7 @@ export function renderUpcomingContent({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onDuplicateTask,
   onDeleteTask,
   resolveWikiLink,
   resolveTag,
@@ -179,6 +191,7 @@ export function renderUpcomingContent({
     onToggleComplete,
     onOpenTask,
     onChangeDueDate,
+    onDuplicateTask,
     onDeleteTask,
     resolveWikiLink,
     resolveTag,
@@ -206,6 +219,7 @@ export function renderTasksByDate({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onDuplicateTask,
   onDeleteTask,
   navigation,
   resolveWikiLink,
@@ -237,6 +251,7 @@ export function renderTasksByDate({
           onToggleComplete,
           onOpenTask,
           onChangeDueDate,
+          onDuplicateTask,
           onDeleteTask,
           resolveWikiLink,
           resolveTag,
@@ -260,6 +275,7 @@ export function renderTasksByDate({
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
+            onDuplicateTask,
             onDeleteTask,
             resolveWikiLink,
             resolveTag,
@@ -284,6 +300,7 @@ export function renderTasksByDate({
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
+            onDuplicateTask,
             onDeleteTask,
             resolveWikiLink,
             resolveTag,

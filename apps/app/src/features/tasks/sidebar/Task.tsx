@@ -36,6 +36,8 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
   onChangeDueDate?: (date: string | null) => void;
   /** Opens the task's source note — same action as clicking the row itself. Omitted hides the menu item entirely. */
   onOpenInNote?: () => void;
+  /** Inserts an exact copy of the task directly below the original in its source note. Omitted hides the menu item entirely. */
+  onDuplicate?: () => void;
   /** Deletes the task's line from its source note. Omitted hides the menu item entirely. */
   onDelete?: () => void;
 
@@ -60,6 +62,7 @@ export function Task({
   onCheckedChange,
   onChangeDueDate,
   onOpenInNote,
+  onDuplicate,
   onDelete,
   resolveWikiLink,
   resolveTag,
@@ -87,6 +90,10 @@ export function Task({
 
   if (onOpenInNote) {
     menuItems.push({ id: 'open-in-note', label: 'Show in note', icon: 'note' });
+  }
+
+  if (onDuplicate) {
+    menuItems.push({ id: 'duplicate', label: 'Duplicate', icon: 'copy' });
   }
 
   if (onDelete) {
@@ -132,6 +139,8 @@ export function Task({
                 setIsDatePickerOpen(true);
               } else if (id === 'open-in-note') {
                 onOpenInNote?.();
+              } else if (id === 'duplicate') {
+                onDuplicate?.();
               } else if (id === 'delete') {
                 onDelete?.();
               }

@@ -108,6 +108,11 @@ export function Tasks({
     void taskOperations.delete(task);
   };
 
+  // Same fire-and-forget, TaskOperations-only shape as onDeleteTask.
+  const onDuplicateTask = (task: TaskOccurrence): void => {
+    void taskOperations.duplicate(task);
+  };
+
   // New Task's target Daily Note: the selected due date's, or today's when
   // none was picked — the task's canonical location (its containing Daily
   // Note), per TaskBuilder's existing implicit-due-date fallback, which is
@@ -149,6 +154,7 @@ export function Tasks({
         onToggleComplete,
         onOpenTask,
         onChangeDueDate,
+        onDuplicateTask,
         onDeleteTask,
         navigation,
         resolveWikiLink,

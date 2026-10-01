@@ -141,6 +141,46 @@ export class TaskOperations {
   }
 
   /**
+   * Inserts an exact copy of a task's line immediately below the original
+   * in its source page — same locate-via-rawText shape as delete(), just
+   * splicing a copy in after the line instead of removing it. The copy is
+   * verbatim (completion state and every inline token included); only the
+   * task's own line is copied, never any nested lines beneath it.
+   */
+  public async duplicate(task: TaskOccurrence): Promise<void> {
+    if (task.rawText == null) {
+      throw new Error(
+        `Task "${task.text}" has no recorded source line — cannot locate it for mutation.`
+      );
+    }
+
+    const rawText = task.rawText;
+
+    try {
+      await this.pageOperations.mutateBody(task.sourcePageId, (markdown) => {
+        const lines = markdown.split('\n');
+        const lineIndex = lines.indexOf(rawText);
+
+        if (lineIndex === -1) {
+          throw new Error(
+            `Could not locate task "${task.text}" in its source page — the page may have changed since this task was read.`
+          );
+        }
+
+        lines.splice(lineIndex + 1, 0, rawText);
+
+        return lines.join('\n');
+      });
+    } catch (error) {
+      if (error instanceof MutateBodyAbandonedError) {
+        throw new Error(`Failed to duplicate task "${task.text}": ${error.reason}`);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * The Edit Task modal's Save action: replaces the task's title text and,
    * only if `change.dueDate` genuinely differs from `task.dueDate`,
    * updates its inline date — same legacy-`@due:`-vs-bare-mention

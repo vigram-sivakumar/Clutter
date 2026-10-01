@@ -153,13 +153,14 @@ describe('Task — More Actions menu', () => {
     expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
   });
 
-  it('renders Due date, Show in note, and Delete when their callbacks are provided', () => {
+  it('renders Due date, Show in note, Duplicate, and Delete when their callbacks are provided', () => {
     const { container } = render(
       <Task
         title="Finish table work"
         isChecked={false}
         onChangeDueDate={vi.fn()}
         onOpenInNote={vi.fn()}
+        onDuplicate={vi.fn()}
         onDelete={vi.fn()}
       />
     );
@@ -168,6 +169,7 @@ describe('Task — More Actions menu', () => {
 
     expect(screen.getByText('Due date')).toBeDefined();
     expect(screen.getByText('Show in note')).toBeDefined();
+    expect(screen.getByText('Duplicate')).toBeDefined();
     expect(screen.getByText('Delete')).toBeDefined();
   });
 
@@ -209,6 +211,25 @@ describe('Task — More Actions menu', () => {
     fireEvent.click(screen.getByText('Show in note'));
 
     expect(onOpenInNote).toHaveBeenCalled();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('selecting Duplicate calls onDuplicate, not the row\'s own onClick', () => {
+    const onClick = vi.fn();
+    const onDuplicate = vi.fn();
+    const { container } = render(
+      <Task
+        title="Finish table work"
+        isChecked={false}
+        onClick={onClick}
+        onDuplicate={onDuplicate}
+      />
+    );
+
+    openMenu(container);
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    expect(onDuplicate).toHaveBeenCalled();
     expect(onClick).not.toHaveBeenCalled();
   });
 
