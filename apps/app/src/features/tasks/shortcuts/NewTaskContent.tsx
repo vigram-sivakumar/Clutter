@@ -37,6 +37,8 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
         value={title}
         placeholder="Task title"
         autoFocus
+        hasBackground={false}
+        hasBorder={false}
         onChange={(event) => onTitleChange(event.target.value)}
       />
     </div>
