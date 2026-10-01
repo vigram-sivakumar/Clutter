@@ -50,8 +50,8 @@ Three adjacent issues surfaced and are recorded below as implementation requirem
 
 - **`Workspace`** remains the sole runtime owner and mutator of every field listed below. It gains no filesystem, storage, or `Vault` dependency, no `load()`/`save()`, and no knowledge that persistence exists. ADR-006's zero-dependency invariant and ARCHITECTURE_RULES.md rule 7 are preserved exactly.
 - **`WorkspaceSessionStore`** (new, `core/application/workspace/WorkspaceSessionStore.ts` or equivalent `core/application` location) owns the persisted snapshot of that state, end-to-end — one reader, one writer of the `workspaceSession` key — the same single-owner shape `FoldStateStore`/`TasksViewConfigStore`/`TagExpansionStore` already establish. It is constructed and loaded by the Composition Root, exposed as `application.workspaceSessionStore`, and:
-  1. at boot, **seeds** `Workspace` through `Workspace`'s own public setters; then
-  2. after startup restoration completes, **observes** `Workspace` via `Workspace.subscribe()` and persists a snapshot when the persisted subset changes.
+  1. at boot, **seeds** its runtime owners — `Workspace` and `DailyNotesSidebarState` (§2) — through their own public setters; then
+  2. after startup restoration completes, **observes** both via their `subscribe()` and persists one combined snapshot when the persisted subset changes.
 - It is **not** Gate-backed: `.clutter/*` is application infrastructure, outside the Persistence Gate by ARCHITECTURE_RULES.md rule 2's own Scope paragraph — the same reasoning ADR-033 applied.
 
 ### 2. Persisted state (exactly this, nothing more)
@@ -66,7 +66,7 @@ Three adjacent issues surfaced and are recorded below as implementation requirem
 - `notes.collapsedFolderIds` — `Workspace.collapsedFolderIds`
 - `dailyNotes.earlierExpanded`, `dailyNotes.upcomingExpanded`
 
-**Daily Notes runtime owner.** Earlier/Upcoming currently have no shared owner. Persisting them gives them a second consumer, which is exactly the trigger ADR-021's three-part test named (shared, discrete/human-paced, describes what the workspace is currently showing). They are therefore lifted into `Workspace` as explicit, Daily-Notes-specific state — not merged into `collapsedSectionIds` (opposite default polarity: these default to *collapsed*; and ADR-021 already rejected merging different node kinds into one id set). `WorkspaceSessionStore` then observes a single runtime owner for everything it persists. `DailyNotesList`'s `scrollToDate` auto-expand writes through the same setter and is persisted like any other expansion change (the same way `setFolderExpanded` on reveal already behaves).
+**Daily Notes runtime owner — deliberately *not* `Workspace`.** Earlier/Upcoming are Daily Notes sidebar UI state that now needs persistence, not workspace navigation state. **Invariant: a persistence requirement never by itself makes `Workspace` the runtime owner of unrelated UI state** — `Workspace` is not a catch-all UI-state container. These two flags therefore get their own small runtime owner, `DailyNotesSidebarState` (`core/application/daily-notes/DailyNotesSidebarState.ts`): an in-memory, zero-dependency `Observable` holding exactly `earlierExpanded`/`upcomingExpanded` (both default `false`), with exact-value setters and `subscribe()`, constructed by the Composition Root and exposed as `application.dailyNotesSidebarState`. It lives in `core` (not `features/`) only because `WorkspaceSessionStore` must be able to observe it without a `core → features` import (dependencies point downward). `DailyNotesList.tsx`'s two `useState`s are replaced by reads/writes against it, which also makes the flags survive sidebar-tab switches. `DailyNotesList`'s `scrollToDate` auto-expand writes through the same setters and is persisted like any other expansion change (the same way `setFolderExpanded` on reveal already behaves). `WorkspaceSessionStore` persists the complete session snapshot across both runtime owners; ownership of the *runtime* state and ownership of its *persistence* are separate concerns.
 
 **Explicitly not persisted** (remain transient, component-local or runtime-only): menus, popovers, modals, hover, drag state, temporary reveal/highlight state (`pendingReveal`, sidebar note reveal), text selection/cursor/focus, pending navigation requests, loading state, notifications, editor history (`editorHistoryCache`), navigation history (back/forward stacks), open-pages list (`openPageIds`), and search query/results. Per-page editor state (e.g. scroll position) is a separate future concern and not part of this ADR.
 
@@ -137,7 +137,7 @@ Application.bootstrap()
   5. seed Workspace chrome from the snapshot:
        activeSidebarTab, sidebar visibility, collapsedSections,
        collapsedFolderIds (filtered to ids present in Vault),
-       Daily Notes earlier/upcoming
+       DailyNotesSidebarState earlier/upcoming
      — pure in-memory setter calls; no persistence subscription yet
 Application.open()
   6. start watcher                                        (unchanged)
@@ -145,6 +145,7 @@ Application.open()
        if the saved activeView validates against the current Vault → restore it
        else → openFallbackPage()  (today's Daily Note, unchanged)
   8. only after 7 has completed: WorkspaceSessionStore subscribes to Workspace
+     and DailyNotesSidebarState
      and begins persisting
 AppShell renders
 ```
@@ -164,7 +165,7 @@ AppShell renders
 
 1. **Serialize `.clutter/workspace.json` writes.** `mergeAndWriteWorkspaceStateFile` currently reads, merges, then writes with no in-process serialization; two owners persisting concurrently can each read the same base, and the later write reinstates the other's stale key. `WorkspaceSessionStore` adds the most frequent writer to this file, so all mutations of it must go through a single in-process write queue (inside the shared helper, so every existing owner benefits without changing its API). Atomic write-then-rename and any broader durability redesign remain **out of scope** (`docs/durability-model.md`).
 2. **Tag rename must migrate `tagExpansion`.** `TagOperations.rename()` already calls `CollectionViewConfigStore.renameKey()`; it must equally move the old name's membership in `TagExpansionStore` to the new name. This is an adjacent correctness fix to already-persisted state, delivered with this work, not a change to `TagExpansionStore`'s ownership.
-3. **`Workspace` public API additions** limited to what seeding and the Daily Notes lift require — idempotent setters (e.g. an exact-value sidebar-visibility setter alongside `toggleSidebarVisible()`) and the Daily Notes earlier/upcoming state — all in-memory, all notifying through the existing `notify()`.
+3. **`Workspace` public API additions** limited to what seeding requires — idempotent exact-value setters (e.g. a sidebar-visibility setter alongside `toggleSidebarVisible()`) — all in-memory, all notifying through the existing `notify()`. No new *kind* of state is added to `Workspace`; Daily Notes earlier/upcoming live in `DailyNotesSidebarState` (§2).
 
 ### 10. Folder identity limitation (accepted)
 
@@ -186,7 +187,7 @@ Also considered: **persisting `activePageId` only** — rejected, since `ActiveV
 ## Relationship to Previous ADRs
 
 - **ADR-006** — amended in one respect only: `Workspace`'s tracked state is no longer categorically non-persisted. Everything else stands: `Workspace` remains separate from `Vault`, zero-dependency, and in-memory as an object; persistence is a sibling concern, exactly the "deliberate, scoped addition… through `VaultFileSystem`" ADR-006 named.
-- **ADR-021** — its "everything added here stays session-only" clause is amended for `activeSidebarTab`, `collapsedSectionIds`, and `isSidebarVisible`; its ownership test, its boundary list, and its layout-geometry decision are unchanged (and are applied here to lift Daily Notes earlier/upcoming into `Workspace`).
+- **ADR-021** — its "everything added here stays session-only" clause is amended for `activeSidebarTab`, `collapsedSectionIds`, and `isSidebarVisible`; its ownership test, its boundary list, and its layout-geometry decision are unchanged (and are why Daily Notes earlier/upcoming get their own `DailyNotesSidebarState` owner rather than being added to `Workspace`).
 - **ADR-022** — unchanged; its `ActiveView` union is the persisted navigation value.
 - **ADR-033** — unchanged; this ADR takes the "sibling top-level key + sibling store" extension shape ADR-033 named, and does not generalize `FoldStateStore`.
 - **ADR-019 / ADR-025** — the startup seam they named gains its first non-default branch (restore last valid view); `openFallbackPage()`'s policy and its delete-time use are unchanged.
@@ -196,6 +197,7 @@ Also considered: **persisting `activePageId` only** — rejected, since `ActiveV
 
 - `docs/architecture-specification.md` §10 is amended: `Workspace` itself remains in-memory, but its session state is persisted by `WorkspaceSessionStore`, outside `Workspace`.
 - `.clutter/workspace.json` gains a fifth owner and a fifth top-level key (`workspaceSession`), and the first per-key schema version.
+- A new, tiny runtime owner, `DailyNotesSidebarState`, replaces `DailyNotesList`'s two local `useState`s.
 - Boot gains one load step (bootstrap), one seed step (bootstrap), one restore branch (`open()`), and one deferred subscription (end of `open()`).
 - Three implementation requirements ride with this work: write serialization for `.clutter/workspace.json`, `tagExpansion` migration on tag rename, and minimal in-memory `Workspace` setter additions.
 - Known accepted limitations: path-derived folder ids lose collapse state across rename/move; a downgrade discards a newer `workspaceSession`; a final write can be lost on abrupt termination; non-atomic writes remain out of scope.
