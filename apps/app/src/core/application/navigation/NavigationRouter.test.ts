@@ -22,7 +22,7 @@ type WorkspaceHistoryMethods =
 function createNavigationRouter(options: {
   folderOperations?: Partial<Pick<FolderOperations, 'open' | 'ensureReservedFolder'>>;
   pageOperations?: Partial<Pick<PageOperations, 'open' | 'getDraft'>>;
-  vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder'>>;
+  vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder' | 'getTagByName'>>;
   workspace?: Partial<Pick<Workspace, WorkspaceHistoryMethods>>;
 }): NavigationRouter {
   return new NavigationRouter(
@@ -478,5 +478,87 @@ describe('NavigationRouter.back/forward (ADR-027)', () => {
       { recordHistory: false }
     );
     expect(history.canNavigateBack).toBe(false);
+  });
+});
+
+describe('NavigationRouter.restore (ADR-035)', () => {
+  it('reopens a page that still exists, without recording history', async () => {
+    const openPage = vi.fn(async () => {});
+    const navigation = createNavigationRouter({
+      pageOperations: { open: openPage },
+      vault: { getPage: (id: string) => (id === 'p1' ? ({ id } as Page) : undefined) },
+    });
+
+    await expect(navigation.restore({ type: 'page', id: 'p1' })).resolves.toBe(true);
+    expect(openPage).toHaveBeenCalledWith('p1', { recordHistory: false });
+  });
+
+  it('reports a deleted page as not restorable and opens nothing', async () => {
+    const openPage = vi.fn(async () => {});
+    const navigation = createNavigationRouter({
+      pageOperations: { open: openPage },
+      vault: { getPage: () => undefined },
+    });
+
+    await expect(navigation.restore({ type: 'page', id: 'gone' })).resolves.toBe(false);
+    expect(openPage).not.toHaveBeenCalled();
+  });
+
+  it('never restores a draft, even a live one — drafts are not restorable', async () => {
+    const openPage = vi.fn(async () => {});
+    const navigation = createNavigationRouter({
+      pageOperations: {
+        open: openPage,
+        getDraft: () => ({ folderId: null, type: 'note' }) as ReturnType<PageOperations['getDraft']>,
+      },
+      vault: { getPage: () => undefined },
+    });
+
+    await expect(navigation.restore({ type: 'page', id: 'draft-1' })).resolves.toBe(false);
+    expect(openPage).not.toHaveBeenCalled();
+  });
+
+  it('reopens an existing folder and rejects a deleted one', async () => {
+    const openFolder = vi.fn(async () => {});
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      vault: { getFolder: (id: string) => (id === 'f1' ? ({ id } as Folder) : undefined) },
+    });
+
+    await expect(navigation.restore({ type: 'folder', id: 'f1' })).resolves.toBe(true);
+    await expect(navigation.restore({ type: 'folder', id: 'gone' })).resolves.toBe(false);
+    expect(openFolder).toHaveBeenCalledTimes(1);
+    expect(openFolder).toHaveBeenCalledWith('f1', { recordHistory: false });
+  });
+
+  it('reopens a filtered view without recording history', async () => {
+    const openFilteredView = vi.fn();
+    const navigation = createNavigationRouter({
+      workspace: { openFilteredView },
+    });
+
+    await expect(
+      navigation.restore({ type: 'filtered-view', view: { kind: 'tasks-today' } })
+    ).resolves.toBe(true);
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tasks-today' }, { recordHistory: false });
+  });
+
+  it('restores a tag view only while the tag still exists', async () => {
+    const openFilteredView = vi.fn();
+    const navigation = createNavigationRouter({
+      vault: {
+        getTagByName: (name: string) =>
+          name === 'design' ? ({ name } as ReturnType<Vault['getTagByName']>) : undefined,
+      },
+      workspace: { openFilteredView },
+    });
+
+    await expect(
+      navigation.restore({ type: 'filtered-view', view: { kind: 'tag', tagName: 'design' } })
+    ).resolves.toBe(true);
+    await expect(
+      navigation.restore({ type: 'filtered-view', view: { kind: 'tag', tagName: 'deleted' } })
+    ).resolves.toBe(false);
+    expect(openFilteredView).toHaveBeenCalledTimes(1);
   });
 });

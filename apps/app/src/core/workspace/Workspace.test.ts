@@ -451,3 +451,19 @@ describe('Workspace.setSidebarVisible (ADR-035)', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Workspace.collapsedFolders / collapsedSections (ADR-035)', () => {
+  it('lists exactly the collapsed ids, as a copy that cannot mutate Workspace', () => {
+    const workspace = new Workspace();
+    workspace.setFolderExpanded('f1', false);
+    workspace.setFolderExpanded('f2', false);
+    workspace.setFolderExpanded('f2', true);
+    workspace.setSectionExpanded('favorites', false);
+
+    expect(workspace.collapsedFolders).toEqual(['f1']);
+    expect(workspace.collapsedSections).toEqual(['favorites']);
+
+    (workspace.collapsedFolders as string[]).push('f3');
+    expect(workspace.isFolderExpanded('f3')).toBe(true);
+  });
+});

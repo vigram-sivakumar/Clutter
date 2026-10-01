@@ -64,7 +64,7 @@ export class NavigationRouter {
       }
 
       this.workspace.popBackForReplay();
-      this.commit(entry);
+      void this.commit(entry);
       return;
     }
   }
@@ -86,9 +86,53 @@ export class NavigationRouter {
       }
 
       this.workspace.popForwardForReplay();
-      this.commit(entry);
+      void this.commit(entry);
       return;
     }
+  }
+
+  /**
+   * Restores a persisted session's active view at startup (ADR-035 §7) —
+   * the same compound shape as back()/forward(): a validity check against
+   * the current Vault, then reactivation through the normal open path with
+   * recordHistory:false, so a restore is never itself a history entry.
+   * Resolves `false`, opening nothing, when the view is no longer valid;
+   * choosing the fallback is the caller's decision (Application.open()),
+   * never this method's — the same separation back()/forward() keep from
+   * openFallbackPage().
+   */
+  public async restore(view: ActiveView): Promise<boolean> {
+    if (!this.isRestorable(view)) {
+      return false;
+    }
+
+    await this.commit(view);
+    return true;
+  }
+
+  /**
+   * Stricter than stillExists() below, deliberately, in two ways: a draft
+   * is never restorable (ADR-017 drafts don't survive a restart, and
+   * ADR-035 never persists one), and a tag view whose tag no longer exists
+   * is invalid — a history replay reopens an emptied tag view as a normal
+   * empty render, but a fresh session should not open on a tag the user
+   * can no longer see anywhere. `getTagByName` is an exact-name lookup,
+   * matching how a tag view's `tagName` is always the tag's own `Tag.name`.
+   */
+  private isRestorable(view: ActiveView): boolean {
+    if (view.type === 'page') {
+      return this.vault.getPage(view.id) !== undefined;
+    }
+
+    if (view.type === 'folder') {
+      return this.vault.getFolder(view.id) !== undefined;
+    }
+
+    if (view.view.kind === 'tag') {
+      return this.vault.getTagByName(view.view.tagName) !== undefined;
+    }
+
+    return true;
   }
 
   /**
@@ -125,13 +169,14 @@ export class NavigationRouter {
    * Reactivates a validated history entry through the same path a normal
    * open would use (session creation, outgoing-page flush), with
    * recordHistory:false so replaying history is never itself recorded
-   * (ADR-027).
+   * (ADR-027). Shared by back()/forward() (fire-and-forget) and restore()
+   * (awaited, so startup only proceeds once the view is actually active).
    */
-  private commit(entry: ActiveView): void {
+  private async commit(entry: ActiveView): Promise<void> {
     if (entry.type === 'page') {
-      void this.pageOperations.open(entry.id, { recordHistory: false });
+      await this.pageOperations.open(entry.id, { recordHistory: false });
     } else if (entry.type === 'folder') {
-      void this.folderOperations.open(entry.id, { recordHistory: false });
+      await this.folderOperations.open(entry.id, { recordHistory: false });
     } else {
       this.workspace.openFilteredView(entry.view, { recordHistory: false });
     }

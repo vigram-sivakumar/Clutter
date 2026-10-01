@@ -20,6 +20,7 @@ import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
+import type { SidebarTab } from '@core/application/workspace/WorkspaceSessionStore';
 
 interface SidebarProps {
   application: Application;
@@ -76,7 +77,9 @@ export function Sidebar({
   }
 
   const tabs: Array<{
-    value: string;
+    // Typed as SidebarTab so a new tab can't be added here without also
+    // being accepted as restorable by WorkspaceSessionStore (ADR-035).
+    value: SidebarTab;
     icon: SystemIcon;
     emoji?: string;
     panel: ReactNode;

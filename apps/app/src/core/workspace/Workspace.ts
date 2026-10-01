@@ -509,6 +509,23 @@ export class Workspace implements Observable {
   }
 
   /**
+   * Every folder id currently collapsed, as a read-only copy — for an
+   * observer that needs the whole set (WorkspaceSessionStore's snapshot,
+   * ADR-035) rather than one isFolderExpanded() lookup at a time.
+   */
+  public get collapsedFolders(): readonly string[] {
+    return [...this.collapsedFolderIds];
+  }
+
+  /**
+   * Every sidebar section id currently collapsed — same read-only-copy
+   * shape and reasoning as collapsedFolders above.
+   */
+  public get collapsedSections(): readonly string[] {
+    return [...this.collapsedSectionIds];
+  }
+
+  /**
    * Toggles the expanded state of a sidebar section header.
    */
   public toggleSectionExpanded(sectionId: string): void {
