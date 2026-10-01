@@ -50,7 +50,18 @@ export interface PendingNewFolder {
  * actions keeps rendering the plain, unwired overflow button it always
  * has.
  */
-export interface SidebarRowActions {
+/**
+ * The subset of `SidebarRowActions` a Note row actually uses — split out
+ * so a second, independent context that renders Note rows outside the
+ * Notes-sidebar folder tree (today: the Tags sidebar's expanded-tag note
+ * list) can supply exactly this, and nothing folder/resource-shaped, to
+ * the exact same `PageEntry`/`Note` component this file already renders
+ * — rather than either faking out unused folder/resource fields or a
+ * second, parallel note-row implementation. `SidebarRowActions` below
+ * extends this unchanged for every existing caller (FolderTree itself,
+ * Sidebar.Notes.tsx, FavoriteList).
+ */
+export interface NoteRowActions {
   openMenuId: string | null;
   onOpenMenu(id: string): void;
   onCloseMenu(): void;
@@ -77,11 +88,11 @@ export interface SidebarRowActions {
   /** Discrete commit (PageOperations.updateDraftTitle), draft notes only. */
   onDraftTitleCommit(pageId: string, value: string): void | boolean;
   /**
-   * No onDeleteNote/onDeleteFolder here — the sidebar menu configs
-   * (noteSidebarMenu.config.ts/folderSidebarMenu.config.ts) never include a
-   * 'delete' item (deletion-UX product decision: permanent Delete is
-   * withdrawn from every ordinary workspace resource, and this row never
-   * renders an archived one), so there is no dispatch target for it.
+   * No onDeleteNote here — the sidebar menu config
+   * (noteSidebarMenu.config.ts) never includes a 'delete' item
+   * (deletion-UX product decision: permanent Delete is withdrawn from
+   * every ordinary workspace resource, and this row never renders an
+   * archived one), so there is no dispatch target for it.
    */
   onArchiveNote(pageId: string): void;
   /** ADR-028 — a raw filesystem copy, see PageOperations.duplicate(). */
@@ -112,7 +123,21 @@ export interface SidebarRowActions {
    * full create-then-select-then-close flow.
    */
   onCreateFolder(name: string): Promise<string>;
+  /**
+   * Location-actions pipeline, page-scoped (Note and Daily Note — both a
+   * `Page`, see `getLocationPathRepresentations.ts`'s `LocationEntityKind`
+   * doc comment). Read-only OS interaction, not a `PageOperations`
+   * capability: no Gate/Vault write path is involved. Daily Note rows
+   * dispatch through this same pair via their own `SidebarRowActions`
+   * instance (Sidebar.DailyNotes.tsx), not a separate
+   * onRevealDailyNoteInFinder — one Page-shaped implementation, not two.
+   */
+  onRevealPageInFinder(pageId: string): void;
+  /** Copies one of the three location representations — see onRevealPageInFinder above. */
+  onCopyPagePath(pageId: string, format: LocationPathFormat): void;
+}
 
+export interface SidebarRowActions extends NoteRowActions {
   /**
    * Discrete Enter/blur-changed commit for a folder — a synchronous
    * canRename() pre-check only (FolderOperations.canRename()), same shape
@@ -193,18 +218,6 @@ export interface SidebarRowActions {
    * `resource.kind === 'image'`, so a pdf row's menu never dispatches here.
    */
   onDownloadResource(resourceId: string): void;
-  /**
-   * Location-actions pipeline, page-scoped (Note and Daily Note — both a
-   * `Page`, see `getLocationPathRepresentations.ts`'s `LocationEntityKind`
-   * doc comment). Same no-Gate-involvement reasoning as
-   * onRevealResourceInFinder above. Daily Note rows dispatch through this
-   * same pair via their own `SidebarRowActions` instance
-   * (Sidebar.DailyNotes.tsx), not a separate onRevealDailyNoteInFinder —
-   * one Page-shaped implementation, not two.
-   */
-  onRevealPageInFinder(pageId: string): void;
-  /** Copies one of the three location representations — see onRevealPageInFinder above. */
-  onCopyPagePath(pageId: string, format: LocationPathFormat): void;
   /** Location-actions pipeline, folder-scoped — no 'as-markdown' format ever reaches this (the menu never offers it for a folder). */
   onRevealFolderInFinder(folderId: string): void;
   /** Copies one of the two location representations available for a folder — see onRevealFolderInFinder above. */
@@ -272,7 +285,33 @@ interface FolderTreeProps {
   resolveEmbed?: ResolvePageEmbed;
 }
 
-function PageEntry({
+export interface PageEntryProps {
+  entry: EffectivePage;
+  level: number;
+  workspace: Workspace;
+  onPageClick(pageId: string): void;
+  onDraftPageClick(pageId: string): void;
+  /**
+   * Narrowed to `NoteRowActions` (not the full `SidebarRowActions`) —
+   * this component only ever reads the Note-shaped subset, so a caller
+   * with no folders/resources of its own (the Tags sidebar's expanded
+   * note list) can supply exactly that, nothing more.
+   */
+  rowActions?: NoteRowActions;
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
+}
+
+/**
+ * The exact same Note row FolderTree renders for every note in the Notes
+ * sidebar — exported so a second context that lists `EffectivePage`s
+ * outside the folder tree (today: the Tags sidebar's expanded-tag note
+ * list, see `renderTags.tsx`) renders identically: same layout, selection,
+ * click behavior, overflow menu, rename, archive, favorite, move, and
+ * reveal/copy-path actions — rather than a second, reduced implementation.
+ */
+export function PageEntry({
   entry,
   level,
   workspace,
@@ -282,17 +321,7 @@ function PageEntry({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
-}: {
-  entry: EffectivePage;
-  level: number;
-  workspace: Workspace;
-  onPageClick(pageId: string): void;
-  onDraftPageClick(pageId: string): void;
-  rowActions?: SidebarRowActions;
-  resolveWikiLink?: ResolveWikiLink;
-  resolveTag?: ResolveTag;
-  resolveEmbed?: ResolvePageEmbed;
-}) {
+}: PageEntryProps) {
   const label = getPageDisplayLabel(entry);
   const isEditing = rowActions?.editingId === entry.id;
   const hasGeneratedName = isAutoGeneratedName(entry.name);

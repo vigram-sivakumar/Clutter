@@ -4,10 +4,16 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TagOperations } from '@core/application/tags/TagOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
+import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
+import { createTagResolver } from '@app/layouts/page/resolveTag';
+import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { buildNoteRowActions } from '@features/notes/helpers/buildNoteRowActions';
 import { serializeTagName } from '@core/vault/models/Tag';
 import { buildTagsShortcutHandler } from '@features/tags/shortcuts/buildTagsShortcutHandler';
 import { TagsShortcuts } from '@features/tags/shortcuts/TagsShortcuts';
@@ -21,7 +27,9 @@ interface TagsPanelProps {
   readonly navigation: NavigationRouter;
   readonly tagOperations: TagOperations;
   readonly pageOperations: PageOperations;
+  readonly folderOperations: FolderOperations;
   readonly effectivePageState: EffectivePageState;
+  readonly membershipSelector: MembershipSelector;
   readonly workspace: Workspace;
   /** Persisted expansion state (survives app reload) — see its own doc comment for why this isn't on `workspace`. */
   readonly tagExpansionStore: TagExpansionStore;
@@ -34,7 +42,9 @@ export function Tags({
   navigation,
   tagOperations,
   pageOperations,
+  folderOperations,
   effectivePageState,
+  membershipSelector,
   workspace,
   tagExpansionStore,
   onRequestReveal,
@@ -49,8 +59,46 @@ export function Tags({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   // Single owner of "which row's rename session is active" — same
   // editingId/onStartRename/onRenameEnd shape Sidebar.Notes.tsx already
-  // uses for Note/Folder rename.
+  // uses for Note/Folder rename. This is the *tag* row's own rename/menu
+  // state — a separate instance, noteOpenMenuId/noteEditingId below, owns
+  // the same question for a Note row in an expanded tag's list, exactly
+  // like Sidebar.Notes.tsx's own Workspace-row/Favorites-row split
+  // (favoriteOpenMenuId) — opening one list's menu must never affect the
+  // other's, even for the same page id.
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Same composition Sidebar.Notes.tsx uses to inject the page editor's
+  // own WikiLink/Tag/embed resolution into a Note row's compact Markdown
+  // title rendering — cheap, stateless glue, not worth memoizing.
+  const resolveWikiLink = createWikiLinkResolver(
+    vault,
+    pageOperations,
+    folderOperations,
+    effectivePageState
+  );
+  const resolveTag = createTagResolver(navigation, vault);
+  const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
+
+  // Independent "which note row's menu/rename session is open" state for
+  // the expanded-tag note list — see the editingId doc comment above.
+  const [noteOpenMenuId, setNoteOpenMenuId] = useState<string | null>(null);
+  const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
+
+  // The exact same Note-row action handlers (menu, rename, archive,
+  // favorite, move, reveal/copy-path) Sidebar.Notes.tsx's own notes
+  // dispatch through — see buildNoteRowActions' own doc comment.
+  const noteRowActions = buildNoteRowActions({
+    vault,
+    pageOperations,
+    folderOperations,
+    membershipSelector,
+    openMenuId: noteOpenMenuId,
+    onOpenMenu: (id) => setNoteOpenMenuId(id),
+    onCloseMenu: () => setNoteOpenMenuId(null),
+    editingId: noteEditingId,
+    onStartRename: (id) => setNoteEditingId(id),
+    onRenameEnd: () => setNoteEditingId(null),
+  });
 
   // Mirrors PageHost's openNoteFromCollection exactly (same
   // pageOperations.open + getTagOccurrenceRanges + onRequestReveal
@@ -74,6 +122,10 @@ export function Tags({
         tagExpansionStore,
         workspace,
         effectivePageState,
+        noteRowActions,
+        resolveWikiLink,
+        resolveTag,
+        resolveEmbed,
         rowActions: {
           openMenuId,
           onOpenMenu: (name) => setOpenMenuId(name),

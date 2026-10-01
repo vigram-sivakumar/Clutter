@@ -25,6 +25,7 @@ import {
 } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
+import { buildNoteRowActions } from '../helpers/buildNoteRowActions';
 import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
@@ -159,50 +160,18 @@ export function Notes({
   }
 
   const rowActions: SidebarRowActions = {
-    openMenuId,
-    onOpenMenu: (id) => setOpenMenuId(id),
-    onCloseMenu: () => setOpenMenuId(null),
-
-    editingId,
-    onStartRename: (id) => {
-      setOpenMenuId(null);
-      setEditingId(id);
-    },
-    onRenameEnd: () => setEditingId(null),
-
-    onNoteTitleEdit: (pageId, value) =>
-      pageOperations.commitTitle(pageId, value),
-    onNoteTitleFlush: (pageId) => void pageOperations.requestTitleSave(pageId),
-    onNoteTitleCancel: (pageId) => pageOperations.cancelTitleEdit(pageId),
-    // A synchronous pre-check only — the continuous channel above
-    // (onNoteTitleEdit/onNoteTitleFlush) already persists; this exists so
-    // Enter/blur-changed on a colliding title rejects immediately (stay
-    // open, shake) instead of waiting on the debounced save to fail.
-    onNoteTitleCommit: (pageId, value) =>
-      pageOperations.canRename(pageId, value) ? undefined : false,
-    onDraftTitleCommit: (pageId, value) => {
-      if (!pageOperations.canRename(pageId, value)) {
-        return false;
-      }
-
-      void pageOperations.updateDraftTitle(pageId, value);
-    },
-    onArchiveNote: (pageId) => void pageOperations.archive(pageId),
-    onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
-    onToggleFavoriteNote: (pageId, isFavorite) =>
-      void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
-    onChangeNoteIcon: (pageId, emoji) =>
-      void pageOperations.updateMetadata(pageId, { icon: emoji }),
-    // Same flow as the topbar's Move (PageHost.tsx): same
-    // buildMoveDestinationItems helper, same PageOperations.move() call —
-    // nothing about Move is reimplemented for the sidebar.
-    noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
-    onMoveNote: (pageId, destinationFolderId) =>
-      void pageOperations.move(pageId, destinationFolderId),
-    // Same flow as the topbar's Move (PageHost.tsx): root-level creation
-    // via the existing FolderOperations.create(), the same operation the
-    // "+" button (handleCommitNewFolder above) already uses.
-    onCreateFolder: (name) => folderOperations.create(name, null),
+    ...buildNoteRowActions({
+      vault,
+      pageOperations,
+      folderOperations,
+      membershipSelector,
+      openMenuId,
+      onOpenMenu: (id) => setOpenMenuId(id),
+      onCloseMenu: () => setOpenMenuId(null),
+      editingId,
+      onStartRename: (id) => setEditingId(id),
+      onRenameEnd: () => setEditingId(null),
+    }),
 
     // Same synchronous pre-check role as onNoteTitleCommit above.
     onFolderTitleCommit: (folderId, value) =>
@@ -269,14 +238,13 @@ export function Notes({
       void resourceOperations.moveResource(resourceId, destinationFolderId),
 
     // Location-actions pipeline — read-only OS/clipboard actions, so they
-    // read straight from `vault` (getPage/getFolder/getResource + the
+    // read straight from `vault` (getFolder/getResource + the
     // already-public `vault.root`) rather than going through
-    // PageOperations/FolderOperations/ResourceOperations/the Gate, which
-    // own writes, not this. revealLocationInFinder/copyLocationPath (below)
-    // are the one shared implementation for all three entity kinds.
-    onRevealPageInFinder: (pageId) => revealLocationInFinder(vault.getPage(pageId)?.path),
-    onCopyPagePath: (pageId, format) =>
-      copyLocationPath(vault.getPage(pageId), 'page', format),
+    // FolderOperations/ResourceOperations/the Gate, which own writes, not
+    // this. revealLocationInFinder/copyLocationPath (below) are the one
+    // shared implementation for both entity kinds (onRevealPageInFinder/
+    // onCopyPagePath above already come from buildNoteRowActions, which
+    // has its own equivalent pair scoped to Note).
     onRevealFolderInFinder: (folderId) =>
       revealLocationInFinder(vault.getFolder(folderId)?.path),
     onCopyFolderPath: (folderId, format) =>

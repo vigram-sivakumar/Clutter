@@ -140,7 +140,9 @@ export function Sidebar({
           navigation={navigation}
           tagOperations={application.tagOperations}
           pageOperations={pageOperations}
+          folderOperations={folderOperations}
           effectivePageState={effectivePageState}
+          membershipSelector={membershipSelector}
           workspace={workspace}
           tagExpansionStore={application.tagExpansionStore}
           onRequestReveal={onRequestReveal}

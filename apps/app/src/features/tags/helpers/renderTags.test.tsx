@@ -8,6 +8,8 @@ import { renderTags, type TagRowActions } from './renderTags';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
+import type { NoteRowActions } from '@features/notes/sidebar/FolderTree';
+import type { EffectivePage } from '@core/application/page/EffectivePageState';
 
 const noop = () => {};
 
@@ -36,6 +38,49 @@ const renderOptions = {
   workspace: fakeWorkspace,
   effectivePageState: fakeEffectivePageState,
 };
+
+function fakeNote(overrides: Partial<EffectivePage> = {}): EffectivePage {
+  return {
+    id: 'p1',
+    type: 'note',
+    folderId: null,
+    isDraft: false,
+    name: 'My Note',
+    description: null,
+    markdown: '',
+    icon: null,
+    favorite: false,
+    createdAt: null,
+    updatedAt: null,
+    ...overrides,
+  };
+}
+
+function fakeNoteRowActions(overrides: Partial<NoteRowActions> = {}): NoteRowActions {
+  return {
+    openMenuId: null,
+    onOpenMenu: noop,
+    onCloseMenu: noop,
+    editingId: null,
+    onStartRename: noop,
+    onRenameEnd: noop,
+    onNoteTitleEdit: noop,
+    onNoteTitleFlush: noop,
+    onNoteTitleCancel: noop,
+    onNoteTitleCommit: noop,
+    onDraftTitleCommit: noop,
+    onArchiveNote: noop,
+    onDuplicateNote: noop,
+    onToggleFavoriteNote: noop,
+    onChangeNoteIcon: noop,
+    noteMoveDestinations: [],
+    onMoveNote: noop,
+    onCreateFolder: () => Promise.resolve('new-folder-id'),
+    onRevealPageInFinder: noop,
+    onCopyPagePath: noop,
+    ...overrides,
+  };
+}
 
 function fakeRowActions(overrides: Partial<TagRowActions> = {}): TagRowActions {
   return {
@@ -339,6 +384,142 @@ describe('renderTags', () => {
       fireEvent.click(screen.getByRole('textbox'));
 
       expect(onOpenTag).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('expanded tag note list — full note-row parity', () => {
+    it('a collapsed tag renders no note rows even when it has notes', () => {
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, effectivePageState }
+          )}
+        </>
+      );
+
+      expect(screen.queryByText('My Note')).toBeNull();
+    });
+
+    it('an expanded tag renders a note row for every note the tag->notes index returns', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote({ id: 'p1', name: 'First' }), fakeNote({ id: 'p2', name: 'Second' })],
+      } as unknown as EffectivePageState;
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 2 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState }
+          )}
+        </>
+      );
+
+      expect(screen.getByText('First')).toBeInTheDocument();
+      expect(screen.getByText('Second')).toBeInTheDocument();
+    });
+
+    it('clicking an expanded note row calls onOpenNote with the note id and the tag name', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const onOpenNote = vi.fn();
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, onOpenNote }
+          )}
+        </>
+      );
+
+      fireEvent.click(screen.getByText('My Note'));
+
+      expect(onOpenNote).toHaveBeenCalledWith('p1', 'design');
+    });
+
+    it('an expanded note row offers the full note overflow menu (Rename, Archive) — not a reduced action set', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      // openMenuId set directly, rather than simulating the click-to-open
+      // interaction: rowActions is a static fixture here, not React
+      // state, so a click handled by a no-op onOpenMenu stub would never
+      // actually re-render the menu open — same reasoning as this file's
+      // own tag-row Rename tests above.
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
+          )}
+        </>
+      );
+
+      expect(screen.getByText('Rename')).toBeInTheDocument();
+      expect(screen.getByText('Archive')).toBeInTheDocument();
+    });
+
+    it("selecting Archive from an expanded note row's menu calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const onArchiveNote = vi.fn();
+      const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1', onArchiveNote });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
+          )}
+        </>
+      );
+
+      fireEvent.click(screen.getByText('Archive'));
+
+      expect(onArchiveNote).toHaveBeenCalledWith('p1');
+    });
+
+    it('a note row mid-rename does not also navigate (same edit-mode suppression as the Notes sidebar)', () => {
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote()],
+      } as unknown as EffectivePageState;
+      const onOpenNote = vi.fn();
+      const noteRowActions = fakeNoteRowActions({ editingId: 'p1' });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'design', favorite: false, usageCount: 1 }],
+            { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions, onOpenNote }
+          )}
+        </>
+      );
+
+      fireEvent.click(screen.getByRole('textbox'));
+
+      expect(onOpenNote).not.toHaveBeenCalled();
+    });
+
+    it('a tag with zero occurrences renders its caret disabled — same as an empty folder — since there is nothing to expand', () => {
+      const toggleExpanded = vi.fn();
+      const tagExpansionStore = { isExpanded: () => false, toggleExpanded } as unknown as TagExpansionStore;
+      render(
+        <>{renderTags([{ name: 'empty-tag', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore })}</>
+      );
+
+      // Two elements match role "button" here — the row's own
+      // Entry (a clickable div, role="button" for keyboard activation)
+      // and the caret itself; only the caret is expected to be disabled.
+      const caret = screen.getAllByRole('button').find((el) => el.classList.contains('caret-slot'));
+      expect(caret).toBeDisabled();
     });
   });
 });

@@ -5,15 +5,12 @@ import { Tag } from '../sidebar/Tag';
 import { buildTagSidebarMenu } from '../sidebar/tagSidebarMenu.config';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
 import { formatTagDisplayLabel, type Tag as TagModel } from '@core/vault/models/Tag';
-import { Note } from '@features/notes/sidebar/Note';
-import {
-  getPageDisplayLabel,
-  getPageDisplayLabelStyle,
-} from '@core/presentation/getPageDisplayLabel';
-import { testIds } from '@shared/testing/selectors';
+import { PageEntry, type NoteRowActions } from '@features/notes/sidebar/FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 export interface TagRowActions {
   openMenuId: string | null;
@@ -53,25 +50,39 @@ interface RenderTagsOptions {
   tagExpansionStore: TagExpansionStore;
   /**
    * `workspace` is still needed here for `activePageId` (a child note
-   * row's selected state) — expansion itself no longer lives on it, see
-   * `tagExpansionStore` above.
+   * row's selected state, read by `PageEntry` itself) — expansion itself
+   * no longer lives on it, see `tagExpansionStore` above.
    */
   workspace: Workspace;
   /** The existing tag->notes index the Tag Collection view already reads. */
   effectivePageState: EffectivePageState;
+  /**
+   * The exact same Note-row action handlers (menu, rename, archive,
+   * favorite, move, reveal/copy-path) the Notes sidebar's own notes
+   * dispatch through — see `PageEntry`'s own doc comment for why a note
+   * rendered here must behave identically rather than through a reduced,
+   * parallel implementation.
+   */
+  noteRowActions?: NoteRowActions;
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
+  resolveEmbed?: ResolvePageEmbed;
   rowActions?: TagRowActions;
 }
 
-function renderTagRow(
-  tag: TagModel,
-  isFavorite: boolean,
-  onOpenTag: (name: string) => void,
-  onOpenNote: (pageId: string, tagName: string) => void,
-  tagExpansionStore: TagExpansionStore,
-  workspace: Workspace,
-  effectivePageState: EffectivePageState,
-  rowActions?: TagRowActions
-) {
+function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
+  const {
+    onOpenTag,
+    onOpenNote,
+    tagExpansionStore,
+    workspace,
+    effectivePageState,
+    noteRowActions,
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+    rowActions,
+  } = options;
   const menuItems = rowActions ? buildTagSidebarMenu() : undefined;
   const isEditing = rowActions?.editingId === tag.name;
   // A tag with zero occurrences has nothing to expand into — same
@@ -128,60 +139,38 @@ function renderTagRow(
         }
       />
       {isExpanded &&
-        notes.map((note) => {
-          const label = getPageDisplayLabel(note);
-
-          return (
-            <Note
-              key={note.id}
-              data-testid={testIds.sidebar.noteItem(note.id)}
-              title={label.text}
-              titleStyle={getPageDisplayLabelStyle(label)}
-              emoji={note.icon}
-              level={1}
-              selected={workspace.activePageId === note.id}
-              onClick={() => onOpenNote(note.id, tag.name)}
-            />
-          );
-        })}
+        notes.map((note) => (
+          <PageEntry
+            key={note.id}
+            entry={note}
+            level={1}
+            workspace={workspace}
+            onPageClick={(pageId) => onOpenNote(pageId, tag.name)}
+            // getPagesByTag is durable-only (see its own doc comment) — a
+            // note reached from here is never a draft, so this branch is
+            // provably unreachable, same as PageEntry's own callers that
+            // guard entry.isDraft before choosing which handler to call.
+            onDraftPageClick={() => {}}
+            rowActions={noteRowActions}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
+            resolveEmbed={resolveEmbed}
+          />
+        ))}
     </Fragment>
   );
 }
 
 export function renderTags(tags: readonly TagModel[], options: RenderTagsOptions) {
   const { favorites, others } = groupTagsByFavorite(tags);
-  const { onOpenTag, onOpenNote, tagExpansionStore, workspace, effectivePageState, rowActions } =
-    options;
 
   return (
     <>
       <FavoritesSection isEmpty={favorites.length === 0} title="Favorites">
-        {favorites.map((tag) =>
-          renderTagRow(
-            tag,
-            true,
-            onOpenTag,
-            onOpenNote,
-            tagExpansionStore,
-            workspace,
-            effectivePageState,
-            rowActions
-          )
-        )}
+        {favorites.map((tag) => renderTagRow(tag, true, options))}
       </FavoritesSection>
       <Section hasHeader={favorites.length > 0} title="Others">
-        {others.map((tag) =>
-          renderTagRow(
-            tag,
-            false,
-            onOpenTag,
-            onOpenNote,
-            tagExpansionStore,
-            workspace,
-            effectivePageState,
-            rowActions
-          )
-        )}
+        {others.map((tag) => renderTagRow(tag, false, options))}
       </Section>
     </>
   );

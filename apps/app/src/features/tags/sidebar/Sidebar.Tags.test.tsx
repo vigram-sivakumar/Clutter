@@ -11,7 +11,9 @@ import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TagOperations } from '@core/application/tags/TagOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
+import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { Page } from '@core/vault/models/Page';
@@ -112,7 +114,13 @@ function fakeTagOperations(
 function extraPanelProps() {
   return {
     pageOperations: { open: vi.fn() } as unknown as PageOperations,
+    folderOperations: { create: vi.fn() } as unknown as FolderOperations,
     effectivePageState: { getPagesByTag: () => [] } as unknown as EffectivePageState,
+    membershipSelector: {
+      vaultRoot: '/vault',
+      getWorkspaceFolders: () => [],
+      getVisibleChildFolders: () => [],
+    } as unknown as MembershipSelector,
     workspace: { activePageId: null } as unknown as Workspace,
     tagExpansionStore: {
       isExpanded: () => false,
