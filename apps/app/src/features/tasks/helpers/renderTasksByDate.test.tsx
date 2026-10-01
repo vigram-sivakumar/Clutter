@@ -633,7 +633,7 @@ describe('renderTasksByDate', () => {
       expect(queryByText('Overdue')).not.toBeInTheDocument();
     });
 
-    it('auto-sort off preserves the normal/original ordering of a mixed complete+incomplete section', () => {
+    it('auto-sort off still sorts a mixed complete+incomplete Today section alphabetically by title', () => {
       const completed = task({ text: 'Completed task', completed: true, dueDate: '2026-08-04' });
       const active1 = task({ text: 'Active task 1', dueDate: '2026-08-04' });
       const active2 = task({ text: 'Active task 2', dueDate: '2026-08-04' });
@@ -652,7 +652,7 @@ describe('renderTasksByDate', () => {
       );
 
       const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
-      expect(titles).toEqual(['Completed task', 'Active task 1', 'Active task 2']);
+      expect(titles).toEqual(['Active task 1', 'Active task 2', 'Completed task']);
     });
 
     it('auto-sort on moves the completed task to the bottom of the Today section', () => {
