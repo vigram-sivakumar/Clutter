@@ -52,6 +52,7 @@ import Flag from './svg/flag.svg?react';
 import FolderAdd from './svg/folder-add.svg?react';
 import Folder from './svg/folder.svg?react';
 import GiftBox from './svg/gift-box.svg?react';
+import Hash from './svg/hash.svg?react';
 import Heart from './svg/heart.svg?react';
 import Image from './svg/image.svg?react';
 import Info from './svg/info.svg?react';
@@ -160,6 +161,7 @@ export const iconRegistry = {
   folderAdd: FolderAdd,
   folder: Folder,
   giftBox: GiftBox,
+  hash: Hash,
   heart: Heart,
   image: Image,
   info: Info,
