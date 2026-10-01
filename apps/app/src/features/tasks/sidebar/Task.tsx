@@ -101,6 +101,16 @@ export function Task({
         // same reasoning Note.tsx/Folder.tsx already apply for their own
         // row-owned overlays.
         forceHover={entryProps.forceHover || menuOpen || isDatePickerOpen}
+        // Entry's default hides the trailing .entry__meta slot on hover to
+        // make room for .entry__actions — fine for a row with nothing else
+        // in trailing, but Task is the one row with both a due-date badge
+        // (meta) and the overflow button (actions) at once: hiding one
+        // while the other appears flips two widths in the same flex row at
+        // the same instant (neither animates width, only opacity), which
+        // reads as the button jumping. Keeping both slots always sized
+        // removes that swap entirely — the due-date badge and the overflow
+        // button just sit side by side.
+        hideTrailingOnHover={false}
         leading={
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         }
