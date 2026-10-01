@@ -42,6 +42,13 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
         hasBorder={false}
         onChange={(event) => onTitleChange(event.target.value)}
       />
+      <div className="new-task__footer">
+        {/* No onClick yet — this is still the UI-only pass: no
+            TaskOperations call, no Daily Note assignment, no persistence. */}
+        <Button variant="primary" size="medium">
+          Create
+        </Button>
+      </div>
     </div>
   );
 }
