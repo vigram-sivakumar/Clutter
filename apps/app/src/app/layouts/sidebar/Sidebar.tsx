@@ -68,6 +68,27 @@ export function Sidebar({
     panel: ReactNode;
   }> = [
     {
+      value: 'notes',
+      icon: getSystemLocationPresentation('notes').icon,
+      panel: (
+        <Notes
+          vault={vault}
+          query={query}
+          workspace={workspace}
+          navigation={navigation}
+          pageOperations={pageOperations}
+          folderOperations={folderOperations}
+          resourceOperations={resourceOperations}
+          effectivePageState={effectivePageState}
+          membershipSelector={membershipSelector}
+          onOpen={(pageId) => pageOperations.open(pageId)}
+          onOpenFolder={(folderId) => folderOperations.open(folderId)}
+          onOpenDraft={(pageId) => workspace.openPage(pageId)}
+          onOpenResource={onOpenResource}
+        />
+      ),
+    },
+    {
       value: 'daily-notes',
       icon: getSystemLocationPresentation('daily-notes').icon,
       panel: (
@@ -89,27 +110,6 @@ export function Sidebar({
               { type: 'daily-note' }
             )
           }
-        />
-      ),
-    },
-    {
-      value: 'notes',
-      icon: getSystemLocationPresentation('notes').icon,
-      panel: (
-        <Notes
-          vault={vault}
-          query={query}
-          workspace={workspace}
-          navigation={navigation}
-          pageOperations={pageOperations}
-          folderOperations={folderOperations}
-          resourceOperations={resourceOperations}
-          effectivePageState={effectivePageState}
-          membershipSelector={membershipSelector}
-          onOpen={(pageId) => pageOperations.open(pageId)}
-          onOpenFolder={(folderId) => folderOperations.open(folderId)}
-          onOpenDraft={(pageId) => workspace.openPage(pageId)}
-          onOpenResource={onOpenResource}
         />
       ),
     },
