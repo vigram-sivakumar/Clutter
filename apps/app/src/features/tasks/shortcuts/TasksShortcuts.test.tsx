@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { TasksShortcuts } from './TasksShortcuts';
 import type { TasksShortcutId } from './tasksShortcuts.config';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 
 // Overlay's anchored positioning (useOverlayPosition) observes the anchor/
 // surface elements via ResizeObserver, which jsdom doesn't implement — same
@@ -37,13 +38,22 @@ function renderTasksShortcuts(overrides?: {
   onCreateTask?: ReturnType<
     typeof vi.fn<(title: string, dueDate: string | undefined) => Promise<void>>
   >;
+  tasksViewConfig?: TaskDisplayConfig;
 }) {
   const onShortcut = overrides?.onShortcut ?? vi.fn();
   const onCreateTask = overrides?.onCreateTask ?? vi.fn().mockResolvedValue(undefined);
+  const onTasksViewConfigChange = vi.fn<(next: TaskDisplayConfig) => void>();
 
-  render(<TasksShortcuts onShortcut={onShortcut} onCreateTask={onCreateTask} />);
+  render(
+    <TasksShortcuts
+      onShortcut={onShortcut}
+      onCreateTask={onCreateTask}
+      tasksViewConfig={overrides?.tasksViewConfig ?? DEFAULT_TASK_DISPLAY_CONFIG}
+      onTasksViewConfigChange={onTasksViewConfigChange}
+    />
+  );
 
-  return { onShortcut, onCreateTask };
+  return { onShortcut, onCreateTask, onTasksViewConfigChange };
 }
 
 describe('TasksShortcuts', () => {
@@ -148,5 +158,51 @@ describe('TasksShortcuts', () => {
     fireEvent.click(screen.getByText(title));
 
     expect(onShortcut).toHaveBeenCalledWith(id);
+  });
+
+  describe('the Tasks-view settings action on All Tasks', () => {
+    const allTasksRow = () =>
+      screen
+        .getByText(getSystemLocationPresentation('tasks-all').label)
+        .closest('.entry') as HTMLElement;
+
+    it('lives only on the All Tasks row, in its always-visible trailing slot (not the hover-only actions slot)', () => {
+      renderTasksShortcuts();
+
+      const trigger = screen.getByLabelText('Task display settings');
+      expect(screen.getAllByLabelText('Task display settings')).toHaveLength(1);
+      expect(allTasksRow().querySelector('.entry__meta')).toContainElement(
+        trigger
+      );
+      expect(allTasksRow().querySelector('.entry__actions')).toBeNull();
+      expect(allTasksRow()).not.toHaveClass('entry-hide-trailing-on-hover');
+    });
+
+    it('opens the menu without navigating to All Tasks', () => {
+      const { onShortcut } = renderTasksShortcuts();
+
+      expect(screen.queryByText('Show completed')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByLabelText('Task display settings'));
+
+      expect(screen.getByText('Show completed')).toBeInTheDocument();
+      expect(screen.getByText('Auto-sort completed')).toBeInTheDocument();
+      expect(onShortcut).not.toHaveBeenCalled();
+    });
+
+    it('writes the shared Tasks-view config and closes the menu when a setting is toggled', () => {
+      const { onTasksViewConfigChange } = renderTasksShortcuts({
+        tasksViewConfig: { showCompleted: true, autoSortCompleted: false },
+      });
+
+      fireEvent.click(screen.getByLabelText('Task display settings'));
+      fireEvent.click(screen.getByText('Auto-sort completed'));
+
+      expect(onTasksViewConfigChange).toHaveBeenCalledWith({
+        showCompleted: true,
+        autoSortCompleted: true,
+      });
+      expect(screen.queryByText('Auto-sort completed')).not.toBeInTheDocument();
+    });
   });
 });

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Vault } from '@core/vault/models';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
@@ -55,13 +54,6 @@ export function Tasks({
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
-
-  // Each section header's own settings-menu open state — local to this
-  // panel (never persisted), and deliberately two independent booleans
-  // rather than one "which section's menu is open" value, matching
-  // TasksSectionSettingsMenu's own caller-owned `open` prop.
-  const [todaySettingsMenuOpen, setTodaySettingsMenuOpen] = useState(false);
-  const [upcomingSettingsMenuOpen, setUpcomingSettingsMenuOpen] = useState(false);
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx
   // use to inject the page editor's own WikiLink/Tag/embed resolution —
@@ -141,7 +133,16 @@ export function Tasks({
   };
 
   return (
-    <View navigation={<TasksShortcuts onShortcut={onShortcut} onCreateTask={onCreateTask} />}>
+    <View
+      navigation={
+        <TasksShortcuts
+          onShortcut={onShortcut}
+          onCreateTask={onCreateTask}
+          tasksViewConfig={tasksViewConfig}
+          onTasksViewConfigChange={onTasksViewConfigChange}
+        />
+      }
+    >
       {renderTasksByDate({
         tasks,
         workspace,
@@ -154,15 +155,6 @@ export function Tasks({
         resolveTag,
         resolveEmbed,
         displayConfig: tasksViewConfig,
-        onDisplayConfigChange: onTasksViewConfigChange,
-        todaySettingsMenu: {
-          open: todaySettingsMenuOpen,
-          onOpenChange: setTodaySettingsMenuOpen,
-        },
-        upcomingSettingsMenu: {
-          open: upcomingSettingsMenuOpen,
-          onOpenChange: setUpcomingSettingsMenuOpen,
-        },
       })}
     </View>
   );

@@ -2,7 +2,6 @@ import { Fragment } from 'react';
 
 // Components
 import { Task } from '../sidebar/Task';
-import { TasksSectionSettingsMenu } from '../sidebar/TasksSectionSettingsMenu';
 import { Section } from '@app/layouts/sidebar/section/Section';
 
 // Models
@@ -187,32 +186,18 @@ export function renderUpcomingContent({
   });
 }
 
-/** A section header's own settings-menu open state, owned by the caller (see TasksSectionSettingsMenu's own doc comment for why). */
-export interface TasksSectionSettingsMenuState {
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}
-
-const CLOSED_SETTINGS_MENU: TasksSectionSettingsMenuState = {
-  open: false,
-  onOpenChange: () => {},
-};
-
 interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly navigation: NavigationRouter;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
-   * — one value, read and written identically by both the Today and
-   * Everything else section's own settings menu (never one preference per
-   * section). Defaults to DEFAULT_TASK_DISPLAY_CONFIG/a no-op setter for
-   * callers (most existing tests) that don't exercise the settings menu.
+   * — applied identically to every group. Read-only here: the one control
+   * that changes it is the All Tasks row's settings action
+   * (TasksShortcuts.tsx), never a group header. Defaults to
+   * DEFAULT_TASK_DISPLAY_CONFIG for callers (most tests) that don't care.
    */
   readonly displayConfig?: TaskDisplayConfig;
-  readonly onDisplayConfigChange?: (next: TaskDisplayConfig) => void;
-  readonly todaySettingsMenu?: TasksSectionSettingsMenuState;
-  readonly upcomingSettingsMenu?: TasksSectionSettingsMenuState;
 }
 
 export function renderTasksByDate({
@@ -227,9 +212,6 @@ export function renderTasksByDate({
   resolveTag,
   resolveEmbed,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
-  onDisplayConfigChange = () => {},
-  todaySettingsMenu = CLOSED_SETTINGS_MENU,
-  upcomingSettingsMenu = CLOSED_SETTINGS_MENU,
 }: RenderTasksByDateProps) {
   // Grouped once here — every Section needs this to know whether it's
   // empty (for default expansion) as well as what to render, and
@@ -249,15 +231,6 @@ export function renderTasksByDate({
           workspace.setSectionExpanded('tasks-today', expanded)
         }
         onClick={() => navigation.openTasksToday()}
-        forceHover={todaySettingsMenu.open}
-        actions={
-          <TasksSectionSettingsMenu
-            config={displayConfig}
-            onConfigChange={onDisplayConfigChange}
-            open={todaySettingsMenu.open}
-            onOpenChange={todaySettingsMenu.onOpenChange}
-          />
-        }
       >
         {renderTodayContent({
           today,
@@ -305,15 +278,6 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-upcoming', expanded)
           }
           onClick={() => navigation.openTasksUpcoming()}
-          forceHover={upcomingSettingsMenu.open}
-          actions={
-            <TasksSectionSettingsMenu
-              config={displayConfig}
-              onConfigChange={onDisplayConfigChange}
-              open={upcomingSettingsMenu.open}
-              onOpenChange={upcomingSettingsMenu.onOpenChange}
-            />
-          }
         >
           {renderUpcomingContent({
             upcoming,

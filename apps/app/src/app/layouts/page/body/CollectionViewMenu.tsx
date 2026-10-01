@@ -185,6 +185,7 @@ export function CollectionViewMenu({
                       isActive ? (
                         <AppIcon
                           icon={sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
+                          className="menu__item-indicator"
                         />
                       ) : undefined
                     }

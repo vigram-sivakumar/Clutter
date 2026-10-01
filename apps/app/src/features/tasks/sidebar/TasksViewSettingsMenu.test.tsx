@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { TasksSectionSettingsMenu } from './TasksSectionSettingsMenu';
+import { TasksViewSettingsMenu } from './TasksViewSettingsMenu';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 
 class ResizeObserverMock {
@@ -29,7 +29,7 @@ function renderMenu(config: TaskDisplayConfig = DEFAULT_TASK_DISPLAY_CONFIG) {
   const onConfigChange = vi.fn();
   const onOpenChange = vi.fn();
   const utils = render(
-    <TasksSectionSettingsMenu
+    <TasksViewSettingsMenu
       config={config}
       onConfigChange={onConfigChange}
       open={false}
@@ -40,16 +40,15 @@ function renderMenu(config: TaskDisplayConfig = DEFAULT_TASK_DISPLAY_CONFIG) {
   return { ...utils, trigger, onConfigChange, onOpenChange };
 }
 
-describe('TasksSectionSettingsMenu — trigger', () => {
-  it('renders a settings icon-only trigger button, hidden until its row is hovered (Entry\'s own hover-actions slot)', () => {
+describe('TasksViewSettingsMenu — trigger', () => {
+  it('renders a settings icon-only trigger button', () => {
     const { trigger } = renderMenu();
 
     expect(trigger.tagName).toBe('BUTTON');
     expect(trigger.querySelector('svg')).toBeInTheDocument();
-    // The hover-reveal mechanism itself is Entry.css's own
-    // `.entry:hover:has(.entry__actions) .entry__actions` rule — this
-    // component only has to land inside that slot, which the section
-    // header wires via Section's `actions` prop (see renderTasksByDate.tsx).
+    // Its always-visible placement is the All Tasks row's own concern
+    // (Entry's `trailing` slot, see TasksShortcuts.tsx) — this component
+    // only renders the trigger and its menu.
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
   });
 
@@ -62,12 +61,12 @@ describe('TasksSectionSettingsMenu — trigger', () => {
   });
 });
 
-describe('TasksSectionSettingsMenu — menu contents (open)', () => {
+describe('TasksViewSettingsMenu — menu contents (open)', () => {
   function renderOpenMenu(config: TaskDisplayConfig = DEFAULT_TASK_DISPLAY_CONFIG) {
     const onConfigChange = vi.fn();
     const onOpenChange = vi.fn();
     const utils = render(
-      <TasksSectionSettingsMenu
+      <TasksViewSettingsMenu
         config={config}
         onConfigChange={onConfigChange}
         open
@@ -85,7 +84,7 @@ describe('TasksSectionSettingsMenu — menu contents (open)', () => {
     expect(getAllByRole('menuitem')).toHaveLength(2);
   });
 
-  it('uses the tick-selection pattern — a tick icon when enabled, an empty same-sized placeholder when disabled (never a checkbox/radio input)', () => {
+  it('uses the tick-selection pattern — a trailing tick icon when enabled, no tick when disabled, nothing in the leading slot (never a checkbox/radio input)', () => {
     const { getByText, container } = renderOpenMenu({
       showCompleted: true,
       autoSortCompleted: false,
@@ -94,12 +93,10 @@ describe('TasksSectionSettingsMenu — menu contents (open)', () => {
     const showRow = getByText('Show completed').closest('.entry')!;
     const sortRow = getByText('Auto-sort completed').closest('.entry')!;
 
-    expect(showRow.querySelector('.entry__leading svg')).toBeInTheDocument();
-    expect(sortRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
-    // Both rows still get the same fixed-width leading wrapper, ticked or
-    // not — this is what keeps the label from shifting when toggled.
-    expect(showRow.querySelector('.entry__leading')).toBeInTheDocument();
-    expect(sortRow.querySelector('.entry__leading')).toBeInTheDocument();
+    expect(showRow.querySelector('.entry__meta svg')).toBeInTheDocument();
+    expect(sortRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
+    expect(showRow.querySelector('.entry__leading')).not.toBeInTheDocument();
+    expect(sortRow.querySelector('.entry__leading')).not.toBeInTheDocument();
     expect(container.querySelectorAll('input[type="checkbox"], input[type="radio"]')).toHaveLength(0);
   });
 
@@ -109,8 +106,8 @@ describe('TasksSectionSettingsMenu — menu contents (open)', () => {
     const showRow = getByText('Show completed').closest('.entry')!;
     const sortRow = getByText('Auto-sort completed').closest('.entry')!;
 
-    expect(showRow.querySelector('.entry__leading svg')).toBeInTheDocument();
-    expect(sortRow.querySelector('.entry__leading svg')).toBeInTheDocument();
+    expect(showRow.querySelector('.entry__meta svg')).toBeInTheDocument();
+    expect(sortRow.querySelector('.entry__meta svg')).toBeInTheDocument();
   });
 
   it('shows neither ticked when both settings are disabled', () => {
@@ -119,8 +116,8 @@ describe('TasksSectionSettingsMenu — menu contents (open)', () => {
     const showRow = getByText('Show completed').closest('.entry')!;
     const sortRow = getByText('Auto-sort completed').closest('.entry')!;
 
-    expect(showRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
-    expect(sortRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
+    expect(showRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
+    expect(sortRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
   });
 
   it('clicking Show completed flips only that field, keeping Auto-sort completed intact', () => {

@@ -6,7 +6,7 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { AppIcon } from '@shared/icon';
 import type { TaskDisplayConfig } from '../helpers/groupTasks';
 
-export interface TasksSectionSettingsMenuProps {
+export interface TasksViewSettingsMenuProps {
   readonly config: TaskDisplayConfig;
   readonly onConfigChange: (next: TaskDisplayConfig) => void;
   readonly open: boolean;
@@ -14,34 +14,34 @@ export interface TasksSectionSettingsMenuProps {
 }
 
 /**
- * The Tasks sidebar's per-section "settings" action — lives in the Today/
- * Everything else `Section` header's `actions` slot (hover-revealed, the
- * same `Entry`/`.entry__actions` mechanism Folder.tsx's "+" button and
- * Note.tsx's overflow-menu trigger already use), and opens a small,
- * two-item tick-selection menu (Show completed / Auto-sort completed) —
- * the same `Button` + `Overlay` + `Menu`/`MenuItem` tick pattern
- * CollectionViewMenu.tsx's Properties submenu already establishes: a
- * leading tick icon (or an empty, same-sized placeholder) marks each
- * independently-toggleable setting, never a checkbox/radio control.
- * Unlike that Properties submenu, selecting either item here closes the
- * menu (`onOpenChange(false)`, alongside `onConfigChange`) — a deliberate
- * product choice for this menu, not a shared convention with it.
+ * The Tasks view's global settings action — lives once, on the Tasks
+ * sidebar's "All Tasks" row (TasksShortcuts.tsx), in that row's
+ * always-visible `trailing` slot rather than its hover-revealed `actions`
+ * slot, so the view's configurability is discoverable without hovering.
+ * Deliberately not on any individual group header (Today/Overdue/
+ * Upcoming): both settings apply to every group at once, and placing the
+ * control on one group misrepresented that scope.
  *
- * `config`/`onConfigChange` are the one shared Tasks-view preference —
- * this component is mounted once per section (Today, Everything else),
- * but both instances read and write the exact same `config` object, so
- * toggling either setting from either section changes it everywhere.
- * `open`/`onOpenChange` are owned by the caller (not local state) because
- * the caller also needs to know whether this section's own menu is open,
- * to force the section header to stay visibly hovered while it is (see
- * Note.tsx/Folder.tsx's identical `forceHover` reasoning).
+ * Opens a small, two-item tick-selection menu (Show completed /
+ * Auto-sort completed) — the same `Button` + `Overlay` + `Menu`/`MenuItem`
+ * tick pattern CollectionViewMenu.tsx's Properties submenu already
+ * establishes, except the tick sits in the item's trailing slot (absent
+ * when the setting is off) — never a checkbox/radio control. Unlike that Properties submenu, selecting either item here
+ * closes the menu (`onOpenChange(false)`, alongside `onConfigChange`) — a
+ * deliberate product choice for this menu, not a shared convention with it.
+ *
+ * `config`/`onConfigChange` are the one shared Tasks-view preference
+ * (owned by AppLayout). `open`/`onOpenChange` are owned by the caller (not
+ * local state) because the caller also needs to know whether the menu is
+ * open, to keep its row visibly hovered while it is (see Note.tsx/
+ * Folder.tsx's identical `forceHover` reasoning).
  */
-export function TasksSectionSettingsMenu({
+export function TasksViewSettingsMenu({
   config,
   onConfigChange,
   open,
   onOpenChange,
-}: TasksSectionSettingsMenuProps) {
+}: TasksViewSettingsMenuProps) {
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -68,8 +68,10 @@ export function TasksSectionSettingsMenu({
       >
         <Menu size="medium">
           <MenuItem
-            leading={
-              config.showCompleted ? <AppIcon icon="tick" /> : <span className="app-icon" />
+            trailing={
+              config.showCompleted ? (
+                <AppIcon icon="tick" className="menu__item-indicator" />
+              ) : undefined
             }
             onClick={(event) => {
               event.stopPropagation();
@@ -80,8 +82,10 @@ export function TasksSectionSettingsMenu({
             Show completed
           </MenuItem>
           <MenuItem
-            leading={
-              config.autoSortCompleted ? <AppIcon icon="tick" /> : <span className="app-icon" />
+            trailing={
+              config.autoSortCompleted ? (
+                <AppIcon icon="tick" className="menu__item-indicator" />
+              ) : undefined
             }
             onClick={(event) => {
               event.stopPropagation();

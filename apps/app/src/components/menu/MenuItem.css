@@ -2,6 +2,17 @@
   color: var(--foreground-primary);
 }
 
+/* A state indicator (selection tick, active sort direction) placed in a
+ * menu row's `trailing` slot. That slot renders inside Entry's
+ * `.entry__meta`, which is muted (`--entry-muted-foreground`) because it's
+ * meant for secondary metadata — an indicator of the row's own state
+ * should read at the row's primary color instead. Applied to the icon
+ * itself, so other trailing metadata keeps its muted color.
+ */
+.menu__item-indicator {
+  color: var(--foreground-primary);
+}
+
 /* A menu row's highlight must be driven exclusively by the shared roving
  * `activeId` (`forceHover` -> `.entry-force-hover`) — never by native
  * `:hover` on its own. `Entry.css`'s own rule paints the same background

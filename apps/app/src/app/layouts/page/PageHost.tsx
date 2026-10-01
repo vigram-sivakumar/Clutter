@@ -119,8 +119,8 @@ interface PageHostProps {
    * panel) — applied to the Today/Everything else collection pages'
    * `TasksCollectionBody` below, so they always render identically to
    * their sidebar counterparts. Read-only here: the settings menu that
-   * changes it lives only on the sidebar's own section headers (see
-   * TasksSectionSettingsMenu's doc comment).
+   * changes it lives only on the sidebar's All Tasks row (see
+   * TasksViewSettingsMenu's doc comment).
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   /**

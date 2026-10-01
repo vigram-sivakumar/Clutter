@@ -1,32 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { useState } from 'react';
 import { cleanup, render, fireEvent, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderTasksByDate } from './renderTasksByDate';
-import { DEFAULT_TASK_DISPLAY_CONFIG } from './groupTasks';
 import { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-
-/**
- * renderTasksByDate is a plain function, not a component — it re-renders
- * only when its *caller* (in real usage, Sidebar.Tasks.tsx's `Tasks`
- * component) re-renders with new props. Tests that only care about a
- * single render (checkbox click, date formatting, navigation) call it
- * directly; a test that needs the settings menu's `open` state to
- * actually flip in response to a click needs a real owning component in
- * the loop, exactly like the real `Tasks` component provides — this is
- * that minimal stand-in, owning just the Today section's open state.
- */
-function TodaySettingsMenuHarness(
-  props: Omit<Parameters<typeof renderTasksByDate>[0], 'todaySettingsMenu'>
-) {
-  const [open, setOpen] = useState(false);
-  return <>{renderTasksByDate({ ...props, todaySettingsMenu: { open, onOpenChange: setOpen } })}</>;
-}
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -395,14 +376,15 @@ describe('renderTasksByDate', () => {
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
-  describe('the settings action', () => {
-    it('is available from both the Today and Upcoming section headers', () => {
+  describe('the Tasks-view settings action', () => {
+    it('is not on any group header — Today, Overdue, and Upcoming carry no settings trigger (it lives on the All Tasks row)', () => {
       const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+      const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
 
-      const { getByText } = render(
+      const { getByText, queryByLabelText } = render(
         <>
           {renderTasksByDate({
-            tasks: [dueSoon],
+            tasks: [dueSoon, overdue],
             workspace: new Workspace(),
             onToggleComplete: vi.fn(),
             onOpenTask: vi.fn(),
@@ -413,112 +395,10 @@ describe('renderTasksByDate', () => {
         </>
       );
 
-      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
-      const upcomingHeader = getByText('Upcoming').closest('.section-header') as HTMLElement;
-
-      expect(within(todayHeader).getByLabelText('Task display settings')).toBeInTheDocument();
-      expect(within(upcomingHeader).getByLabelText('Task display settings')).toBeInTheDocument();
-    });
-
-    it('lives in the header\'s hover-revealed actions slot, and clicking it does not toggle the section or navigate', () => {
-      const navigation = fakeNavigation();
-
-      const { getByText, getByLabelText } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation,
-          })}
-        </>
-      );
-
-      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
-      expect(todayHeader.querySelector('.entry__actions')).toContainElement(
-        getByLabelText('Task display settings')
-      );
-
-      fireEvent.click(getByLabelText('Task display settings'));
-
-      expect(navigation.openTasksToday).not.toHaveBeenCalled();
-    });
-
-    it('clicking it opens the menu, which is closed by default', () => {
-      const { getByText, queryByText } = render(
-        <TodaySettingsMenuHarness
-          tasks={[]}
-          workspace={new Workspace()}
-          onToggleComplete={vi.fn()}
-          onOpenTask={vi.fn()}
-          onChangeDueDate={vi.fn()}
-          onDeleteTask={vi.fn()}
-          navigation={fakeNavigation()}
-        />
-      );
-
-      expect(queryByText('Show completed')).not.toBeInTheDocument();
-
-      const todayHeader = getByText('Today').closest('.section-header') as HTMLElement;
-      fireEvent.click(within(todayHeader).getByLabelText('Task display settings'));
-
-      expect(getByText('Show completed')).toBeInTheDocument();
-      expect(getByText('Auto-sort completed')).toBeInTheDocument();
-    });
-
-    it('both section headers share the exact same config — toggling from Upcoming\'s menu is reflected the next time Today\'s menu opens', () => {
-      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
-      let config = DEFAULT_TASK_DISPLAY_CONFIG;
-      const onDisplayConfigChange = vi.fn((next) => {
-        config = next;
-      });
-
-      const { getByText, rerender } = render(
-        <>
-          {renderTasksByDate({
-            tasks: [dueSoon],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: config,
-            onDisplayConfigChange,
-            upcomingSettingsMenu: { open: true, onOpenChange: () => {} },
-          })}
-        </>
-      );
-
-      fireEvent.click(getByText('Show completed'));
-      expect(config).toEqual({ showCompleted: false, autoSortCompleted: false });
-
-      rerender(
-        <>
-          {renderTasksByDate({
-            tasks: [dueSoon],
-            workspace: new Workspace(),
-            onToggleComplete: vi.fn(),
-            onOpenTask: vi.fn(),
-            onChangeDueDate: vi.fn(),
-            onDeleteTask: vi.fn(),
-            navigation: fakeNavigation(),
-            displayConfig: config,
-            onDisplayConfigChange,
-            todaySettingsMenu: { open: true, onOpenChange: () => {} },
-          })}
-        </>
-      );
-
-      // Overlay portals the menu to document.body, so it isn't scoped under
-      // either header's own DOM subtree — this is the same menu instance's
-      // content regardless of which section's trigger opened it, since both
-      // read the identical `config` object.
-      const showCompletedRow = getByText('Show completed').closest('.entry')!;
-      expect(showCompletedRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
+      expect(getByText('Today')).toBeInTheDocument();
+      expect(getByText('Overdue')).toBeInTheDocument();
+      expect(getByText('Upcoming')).toBeInTheDocument();
+      expect(queryByLabelText('Task display settings')).not.toBeInTheDocument();
     });
   });
 
