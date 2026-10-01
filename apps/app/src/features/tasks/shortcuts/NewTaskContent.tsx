@@ -43,8 +43,12 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
         onChange={(event) => onTitleChange(event.target.value)}
       />
       <div className="new-task__footer">
-        {/* No onClick yet — this is still the UI-only pass: no
-            TaskOperations call, no Daily Note assignment, no persistence. */}
+        {/* No onClick on either button yet — this is still the UI-only
+            pass: no due-date picker, no TaskOperations call, no Daily
+            Note assignment, no persistence. */}
+        <Button variant="outlined" size="medium" leading={<AppIcon icon="calendar" />}>
+          Due date
+        </Button>
         <Button className="new-task__create-button" variant="primary" size="medium">
           Create
         </Button>

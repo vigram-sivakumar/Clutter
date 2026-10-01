@@ -37,7 +37,8 @@
 .new-task__footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: var(--space-12);
 }
 
 /* .button.new-task__create-button (two classes) rather than a single
