@@ -25,6 +25,7 @@ import { FoldStateStore } from './editor/FoldStateStore';
 import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
 import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
+import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -132,6 +133,13 @@ export class Application {
    * `foldStateStore` isn't (see `TagExpansionStore`'s own doc comment).
    */
   public readonly tagExpansionStore: TagExpansionStore;
+  /**
+   * Runtime owner of the Daily Notes sidebar's Earlier/Upcoming expansion
+   * (ADR-035 §2) — in-memory, zero-dependency, deliberately not part of
+   * `Workspace`. Constructed here so it outlives `DailyNotesList`'s
+   * unmount on a sidebar-tab switch.
+   */
+  public readonly dailyNotesSidebarState: DailyNotesSidebarState;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -385,6 +393,7 @@ export class Application {
     this.tasksViewConfigStore = tasksViewConfigStore;
     this.tagExpansionStore = tagExpansionStore;
     this.workspace = new Workspace();
+    this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();
   }

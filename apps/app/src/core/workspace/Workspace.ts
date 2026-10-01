@@ -579,4 +579,19 @@ export class Workspace implements Observable {
     this._isSidebarVisible = !this._isSidebarVisible;
     this.notify();
   }
+
+  /**
+   * Sets sidebar visibility to an exact value, unlike
+   * toggleSidebarVisible's blind negation — needed to seed a restored
+   * session (ADR-035), which must land on the persisted value regardless
+   * of the current default. A no-op (no notification) when unchanged.
+   */
+  public setSidebarVisible(visible: boolean): void {
+    if (this._isSidebarVisible === visible) {
+      return;
+    }
+
+    this._isSidebarVisible = visible;
+    this.notify();
+  }
 }

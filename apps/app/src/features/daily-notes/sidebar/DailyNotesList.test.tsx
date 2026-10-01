@@ -5,6 +5,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
+import { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { MembershipSelector } from '@core/application/membership/MembershipSelector';
@@ -256,7 +257,13 @@ function renderList(
     Pick<Parameters<typeof DailyNotesList>[0], 'vault' | 'query' | 'membershipSelector' | 'workspace'>
 ) {
   return render(
-    <DailyNotesListHarness onOpen={vi.fn()} onOpenDraft={vi.fn()} onOpenDate={vi.fn()} {...props} />
+    <DailyNotesListHarness
+      dailyNotesSidebarState={new DailyNotesSidebarState()}
+      onOpen={vi.fn()}
+      onOpenDraft={vi.fn()}
+      onOpenDate={vi.fn()}
+      {...props}
+    />
   );
 }
 
@@ -739,7 +746,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
   });
 });
 
-describe('DailyNotesList — "All Daily Notes" collapsed state (session-scoped via Workspace)', () => {
+describe('DailyNotesList — Earlier/Upcoming expansion (owned by DailyNotesSidebarState, ADR-035)', () => {
   function setupWithPastMonth() {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const currentYear = makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
@@ -765,49 +772,46 @@ describe('DailyNotesList — "All Daily Notes" collapsed state (session-scoped v
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getByText('See more')).toBeInTheDocument();
+    expect(screen.getByText('Show earlier')).toBeInTheDocument();
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
   });
 
-  it('expanding reveals the grouped months', () => {
+  it('"Show earlier" reveals past months and records the expansion on DailyNotesSidebarState', () => {
     const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+    const dailyNotesSidebarState = new DailyNotesSidebarState();
 
-    renderList({ vault, query, membershipSelector, workspace });
-    expandAllDailyNotes();
+    renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
+    fireEvent.click(screen.getByText('Show earlier'));
 
     expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Hide earlier')).toBeInTheDocument();
+    expect(dailyNotesSidebarState.earlierExpanded).toBe(true);
   });
 
-  it('stays expanded across a remount that reuses the same Workspace (e.g. switching sidebar tabs and back)', () => {
+  it('stays expanded across a remount that reuses the same DailyNotesSidebarState (e.g. switching sidebar tabs and back)', () => {
     const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+    const dailyNotesSidebarState = new DailyNotesSidebarState();
 
-    const { unmount } = renderList({ vault, query, membershipSelector, workspace });
-    expandAllDailyNotes();
-    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    const { unmount } = renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
+    fireEvent.click(screen.getByText('Show earlier'));
 
     // Simulate a sidebar tab switch: DailyNotesList unmounts entirely
     // (Sidebar.tsx renders only the active tab's panel), then remounts
-    // with the same, still-live Workspace instance.
+    // with the same, still-live DailyNotesSidebarState instance.
     unmount();
-    renderList({ vault, query, membershipSelector, workspace });
+    renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
 
     expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
   });
 
-  it('resets to collapsed only when a new Workspace is constructed (app restart)', () => {
+  it('renders already expanded when the state was seeded expanded (a restored session)', () => {
     const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+    const dailyNotesSidebarState = new DailyNotesSidebarState();
+    dailyNotesSidebarState.setEarlierExpanded(true);
 
-    const { unmount } = renderList({ vault, query, membershipSelector, workspace });
-    expandAllDailyNotes();
+    renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
+
     expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
-    unmount();
-
-    // A fresh Workspace — same as Application constructing `new Workspace()`
-    // at boot — has no memory of the prior session's expand action.
-    const freshWorkspace = new Workspace();
-    renderList({ vault, query, membershipSelector, workspace: freshWorkspace });
-
-    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
   });
 });
 

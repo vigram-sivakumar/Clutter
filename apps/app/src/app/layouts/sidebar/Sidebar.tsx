@@ -113,6 +113,7 @@ export function Sidebar({
           query={query}
           membershipSelector={membershipSelector}
           workspace={workspace}
+          dailyNotesSidebarState={application.dailyNotesSidebarState}
           navigation={navigation}
           pageOperations={pageOperations}
           folderOperations={folderOperations}

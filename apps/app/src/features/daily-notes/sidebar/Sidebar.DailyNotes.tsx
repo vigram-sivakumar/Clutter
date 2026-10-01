@@ -9,6 +9,7 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
@@ -30,6 +31,7 @@ interface DailyNotesPanelProps {
   query: VaultQuery;
   membershipSelector: MembershipSelector;
   workspace: Workspace;
+  dailyNotesSidebarState: DailyNotesSidebarState;
   navigation: NavigationRouter;
   pageOperations: PageOperations;
   folderOperations: FolderOperations;
@@ -45,6 +47,7 @@ export function DailyNotes({
   query,
   membershipSelector,
   workspace,
+  dailyNotesSidebarState,
   navigation,
   pageOperations,
   folderOperations,
@@ -133,6 +136,7 @@ export function DailyNotes({
         query={query}
         membershipSelector={membershipSelector}
         workspace={workspace}
+        dailyNotesSidebarState={dailyNotesSidebarState}
         onOpen={onOpen}
         onOpenDraft={onOpenDraft}
         onOpenDate={onOpenDate}

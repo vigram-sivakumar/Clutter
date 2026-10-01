@@ -3,13 +3,14 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from 'react';
 import type { Folder } from '@core/vault/models';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Vault } from '@core/vault/models';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
+import { useDailyNotesSidebarState } from '@app/hooks/useDailyNotesSidebarState';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { Section } from '@app/layouts/sidebar/section/Section';
@@ -113,6 +114,12 @@ interface DailyNotesListProps {
   // year/month folder the way membership was previously determined.
   membershipSelector: MembershipSelector;
   workspace: Workspace;
+  /**
+   * Owner of the "Show earlier" / "Show upcoming" expansion (ADR-035 §2) —
+   * outlives this component's unmount on a sidebar-tab switch, and is
+   * persisted across restarts by WorkspaceSessionStore.
+   */
+  dailyNotesSidebarState: DailyNotesSidebarState;
   onOpen(pageId: string): void;
   /**
    * A draft has no Vault entry yet, so onOpen() (PageOperations.open(),
@@ -244,6 +251,7 @@ export const DailyNotesList = forwardRef<
     query,
     membershipSelector,
     workspace,
+    dailyNotesSidebarState,
     onOpen,
     onOpenDraft,
     onOpenDate,
@@ -263,12 +271,12 @@ export const DailyNotesList = forwardRef<
   // does.
   const pendingScrollDateRef = useRef<string | null>(null);
 
-  // Local, not Workspace-backed: switching sidebar tabs unmounts this
-  // component (Sidebar.tsx renders only the active tab's panel), so these
-  // reset to collapsed on every remount rather than persisting for the
-  // session the way Workspace.collapsedSectionIds does for other sections.
-  const [isUpcomingExpanded, setIsUpcomingExpanded] = useState(false);
-  const [isEarlierExpanded, setIsEarlierExpanded] = useState(false);
+  // Owned by DailyNotesSidebarState (ADR-035 §2), not local state — so
+  // the expansion survives this component unmounting on a sidebar-tab
+  // switch, and is persisted across restarts by WorkspaceSessionStore.
+  const sidebarState = useDailyNotesSidebarState(dailyNotesSidebarState);
+  const isUpcomingExpanded = sidebarState.upcomingExpanded;
+  const isEarlierExpanded = sidebarState.earlierExpanded;
 
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
@@ -386,11 +394,11 @@ export const DailyNotesList = forwardRef<
           pendingScrollDateRef.current = date;
 
           if (needsUpcomingExpand) {
-            setIsUpcomingExpanded(true);
+            sidebarState.setUpcomingExpanded(true);
           }
 
           if (needsEarlierExpand) {
-            setIsEarlierExpanded(true);
+            sidebarState.setEarlierExpanded(true);
           }
 
           return;
@@ -403,7 +411,7 @@ export const DailyNotesList = forwardRef<
         }
       },
     }),
-    [upcomingSections, earlierSections, isUpcomingExpanded, isEarlierExpanded]
+    [upcomingSections, earlierSections, isUpcomingExpanded, isEarlierExpanded, sidebarState]
   );
 
   useEffect(() => {
@@ -512,7 +520,7 @@ export const DailyNotesList = forwardRef<
         <Entry
           className="tertiary"
           leading={<AppIcon icon="arrowUp" />}
-          onClick={() => setIsEarlierExpanded((expanded) => !expanded)}
+          onClick={() => sidebarState.setEarlierExpanded(!isEarlierExpanded)}
         >
           {isEarlierExpanded ? 'Hide earlier' : 'Show earlier'}
         </Entry>
@@ -524,7 +532,7 @@ export const DailyNotesList = forwardRef<
         <Entry
           className="tertiary"
           leading={<AppIcon icon="arrowDown" />}
-          onClick={() => setIsUpcomingExpanded((expanded) => !expanded)}
+          onClick={() => sidebarState.setUpcomingExpanded(!isUpcomingExpanded)}
         >
           {isUpcomingExpanded ? 'Hide upcoming' : 'Show upcoming'}
         </Entry>

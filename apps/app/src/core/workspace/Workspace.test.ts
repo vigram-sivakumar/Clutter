@@ -435,3 +435,19 @@ describe('Workspace.isSidebarVisible (ADR-021, M4)', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('Workspace.setSidebarVisible (ADR-035)', () => {
+  it('lands on the exact value given and notifies only on change', () => {
+    const workspace = new Workspace();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.setSidebarVisible(true);
+    expect(listener).not.toHaveBeenCalled();
+
+    workspace.setSidebarVisible(false);
+    workspace.setSidebarVisible(false);
+    expect(workspace.isSidebarVisible).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
