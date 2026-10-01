@@ -51,7 +51,7 @@ export function NewTaskContent({
             pass: no due-date picker, no TaskOperations call, no Daily
             Note assignment, no persistence. */}
         <Button
-          variant="outlined"
+          variant="ghost"
           size="medium"
           leading={<AppIcon icon="calendarDots" />}
         >
