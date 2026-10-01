@@ -5,7 +5,14 @@ import './Dialog.css';
 
 export interface DialogProps extends Pick<
   CenteredOverlayProps,
-  'open' | 'onClose' | 'returnFocusRef' | 'backdrop' | 'scrim' | 'animate' | 'top'
+  | 'open'
+  | 'onClose'
+  | 'returnFocusRef'
+  | 'backdrop'
+  | 'scrim'
+  | 'animate'
+  | 'top'
+  | 'dismissible'
 > {
   size?: 'small' | 'medium' | 'large';
 

@@ -23,6 +23,7 @@ export function Overlay(props: OverlayProps) {
     className,
     returnFocusRef,
     suppressReturnFocusRef,
+    dismissible = true,
   } = props;
 
   const isCentered = props.position === 'centered';
@@ -33,7 +34,7 @@ export function Overlay(props: OverlayProps) {
     : (returnFocusRef ?? props.anchorRef);
 
   useEscape({
-    open,
+    open: open && dismissible,
     onClose,
   });
 
@@ -77,7 +78,9 @@ export function Overlay(props: OverlayProps) {
             .join(' ')}
           onClick={(event) => {
             event.stopPropagation();
-            onClose();
+            if (dismissible) {
+              onClose();
+            }
           }}
         />
       )}

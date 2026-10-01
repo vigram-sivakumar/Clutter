@@ -46,6 +46,7 @@ export function TasksShortcuts({ onShortcut }: TasksShortcutsProps) {
         size="large"
         top={240}
         scrim="strong"
+        dismissible={false}
       >
         <NewTaskContent title={draftTitle} onTitleChange={setDraftTitle} onClose={closeNewTask} />
       </Dialog>

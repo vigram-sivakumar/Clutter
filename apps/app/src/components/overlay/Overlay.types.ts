@@ -25,6 +25,15 @@ interface OverlayBaseProps {
   scrim?: OverlayScrim;
   animate?: boolean;
 
+  /**
+   * When `false`, Escape and a backdrop click no longer call `onClose` —
+   * the backdrop (if any) still renders, but only an explicit call to
+   * `onClose` from inside this overlay's own content (e.g. a dedicated
+   * close button) can dismiss it. Defaults to `true`, preserving every
+   * existing caller's current auto-dismiss behavior.
+   */
+  dismissible?: boolean;
+
   children: ReactNode;
   className?: string;
 

@@ -43,7 +43,7 @@ describe('TasksShortcuts', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('focuses the title field on open and dismisses on Escape', () => {
+  it('focuses the title field on open, and Escape does not dismiss it', () => {
     render(<TasksShortcuts onShortcut={vi.fn()} />);
 
     fireEvent.click(screen.getByText('New'));
@@ -51,9 +51,11 @@ describe('TasksShortcuts', () => {
     const input = screen.getByRole('textbox');
     expect(input).toHaveFocus();
 
-    fireEvent.keyDown(input, { key: 'Escape' });
+    // dismissible={false} on the Dialog — auto-dismiss is off; only the
+    // explicit close button (below) may close it.
+    fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
   it('dismisses the overlay via the close button', () => {
@@ -65,6 +67,19 @@ describe('TasksShortcuts', () => {
     fireEvent.click(screen.getByLabelText('Close'));
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('a backdrop click does not dismiss the overlay', () => {
+    render(<TasksShortcuts onShortcut={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('New'));
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+
+    const backdrop = document.querySelector('.overlay__backdrop');
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop!);
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
   it.each([
