@@ -40,7 +40,13 @@ export function TasksShortcuts({ onShortcut }: TasksShortcutsProps) {
         />
       ))}
 
-      <Dialog open={isNewTaskOpen} onClose={closeNewTask} size="medium" top={240}>
+      <Dialog
+        open={isNewTaskOpen}
+        onClose={closeNewTask}
+        size="medium"
+        top={240}
+        scrim="strong"
+      >
         <NewTaskContent title={draftTitle} onTitleChange={setDraftTitle} onClose={closeNewTask} />
       </Dialog>
     </Section>
