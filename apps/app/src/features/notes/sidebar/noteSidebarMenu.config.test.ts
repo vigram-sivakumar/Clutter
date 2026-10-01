@@ -61,20 +61,20 @@ describe('buildNoteSidebarMenu', () => {
     expect(archive?.separatorBefore).toBe(true);
   });
 
-  it('groups the menu with dividers above Duplicate, Reveal in Finder, and Archive only', () => {
+  it('groups the menu with dividers above Add to Favorites, Reveal in Finder, and Archive only', () => {
     const items = buildNoteSidebarMenu(false);
     expect(items.map((i) => i.id)).toEqual([
       'rename',
       'change-icon',
+      'toggle-favorite',
       'duplicate',
       'move-to',
-      'toggle-favorite',
       'reveal-in-finder',
       'copy-path',
       'archive',
     ]);
     expect(items.filter((i) => i.separatorBefore).map((i) => i.id)).toEqual([
-      'duplicate',
+      'toggle-favorite',
       'reveal-in-finder',
       'archive',
     ]);

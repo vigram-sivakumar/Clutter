@@ -47,15 +47,16 @@ export function buildNoteSidebarMenu(
     { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'change-icon', label: 'Change icon', icon: 'smile' },
     // Dividers split the menu into four groups: identity (rename, icon),
-    // organization (duplicate, move, favorite), location (reveal, copy
+    // organization (favorite, duplicate, move), location (reveal, copy
     // path), and Archive on its own as the destructive-adjacent action.
-    { id: 'duplicate', label: 'Duplicate', icon: 'copy', separatorBefore: true },
-    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     {
       id: 'toggle-favorite',
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
+      separatorBefore: true,
     },
+    { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
+    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
     // Note; see getLocationPathRepresentations.ts's LocationEntityKind.
     ...buildLocationActionMenuItems('page').map((item, index) =>
