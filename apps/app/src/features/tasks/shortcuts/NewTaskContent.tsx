@@ -17,7 +17,11 @@ export interface NewTaskContentProps {
  * tasksShortcuts.config.ts's own comment on why 'create-task' has no
  * backing capability yet).
  */
-export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContentProps) {
+export function NewTaskContent({
+  title,
+  onTitleChange,
+  onClose,
+}: NewTaskContentProps) {
   return (
     <div className="new-task">
       <div className="new-task__header">
@@ -46,10 +50,18 @@ export function NewTaskContent({ title, onTitleChange, onClose }: NewTaskContent
         {/* No onClick on either button yet — this is still the UI-only
             pass: no due-date picker, no TaskOperations call, no Daily
             Note assignment, no persistence. */}
-        <Button variant="outlined" size="medium" leading={<AppIcon icon="calendar" />}>
+        <Button
+          variant="outlined"
+          size="medium"
+          leading={<AppIcon icon="calendarDots" />}
+        >
           Due date
         </Button>
-        <Button className="new-task__create-button" variant="primary" size="medium">
+        <Button
+          className="new-task__create-button"
+          variant="primary"
+          size="medium"
+        >
           Create
         </Button>
       </div>

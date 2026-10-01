@@ -37,6 +37,21 @@
   border-radius: var(--radius-sm);
 }
 
+/* Extra 4px on the side away from a leading/trailing icon, on top of the
+   size rules' own base padding-inline above — placed after them so it
+   wins at equal (single-class) specificity regardless of import order.
+   See Button.tsx's own comment for the icon-only / both-icons cases this
+   deliberately leaves unmodified. */
+.button--has-leading {
+  padding-inline-end: calc(var(--space-6) + 4px);
+}
+.button--has-trailing {
+  padding-inline-start: calc(var(--space-6) + 4px);
+}
+.button--no-icon {
+  padding-inline: calc(var(--space-6) + 4px);
+}
+
 /* Variant */
 .button--filled {
   background: var(--surface-subtle);
@@ -64,6 +79,7 @@
 .button--primary {
   background: var(--surface-brand);
   color: var(--foreground-brand);
+  font-weight: var(--fw-medium);
 }
 
 /* State */

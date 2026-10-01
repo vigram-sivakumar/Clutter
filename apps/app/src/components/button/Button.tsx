@@ -35,6 +35,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     }: ButtonProps,
     ref
   ) {
+    // An icon-only button (leading/trailing never render for it, see
+    // button__content below) has its own padding: 0 treatment and is
+    // excluded from all three cases here. A button with both a leading
+    // and a trailing icon has no side "away from" an icon, so it also
+    // gets neither modifier — same as the icon-only case, it falls back
+    // to the unmodified base padding.
+    const hasLeadingOnly = !isIconOnly && Boolean(leading) && !trailing;
+    const hasTrailingOnly = !isIconOnly && Boolean(trailing) && !leading;
+    const hasNoIcon = !isIconOnly && !leading && !trailing;
+
     /** Button classes */
     const Class = [
       'button',
@@ -46,6 +56,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isActive && 'button--active',
       disabled && 'button--disabled',
       isIconOnly && 'button--icon',
+      hasLeadingOnly && 'button--has-leading',
+      hasTrailingOnly && 'button--has-trailing',
+      hasNoIcon && 'button--no-icon',
     ]
       .filter(Boolean)
       .join(' ');
