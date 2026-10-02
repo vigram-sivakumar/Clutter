@@ -333,7 +333,7 @@ describe('DatePropertyValue — Clear', () => {
     expect(screen.getByRole('button', { name: 'Clear' })).toBeTruthy();
   });
 
-  it('clears the value: commits null, empties the input, closes the calendar', () => {
+  it('clears the value: commits null and keeps the calendar open', () => {
     const onCommit = vi.fn();
     render(
       <DatePropertyValue
@@ -350,10 +350,10 @@ describe('DatePropertyValue — Clear', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(null);
-    expect(isCalendarOpen()).toBe(false);
+    expect(isCalendarOpen()).toBe(true);
   });
 
-  it('leaves the input empty with the placeholder after clearing', () => {
+  it('empties the input and the calendar selection, leaving the month in view', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     fireEvent.click(getField());
@@ -361,6 +361,28 @@ describe('DatePropertyValue — Clear', () => {
 
     expect(getField().value).toBe('');
     expect(getField().placeholder).toBe('Empty');
+    expect(selectedDay()).toBeNull();
+    expect(calendarMonthYear()).toBe('September 2025');
+  });
+
+  it('lets a new date be picked straight after clearing', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(getDay(20));
+
+    expect(getField().value).toBe('20.09.2025');
+  });
+
+  it('shows the dismiss icon on the Clear button', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+
+    const clear = screen.getByRole('button', { name: 'Clear' });
+    expect(clear.classList.contains('button--has-leading')).toBe(true);
+    expect(clear.querySelector('svg')).not.toBeNull();
   });
 
   it('also discards a typed draft', () => {

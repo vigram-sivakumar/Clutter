@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
+import { AppIcon } from '@shared/icon';
 import { parseDateInput } from '@shared/helpers/time/parseDateInput';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
@@ -62,7 +63,8 @@ interface DatePropertyEditorProps {
  *   to it. Incomplete/invalid text commits nothing and resets nothing.
  * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
  *   a pick commits and drops the draft, so the input shows the formatted
- *   value; its "Clear" action commits null, emptying the value.
+ *   value; its "Clear" action commits null, emptying the value while the
+ *   Calendar stays open.
  * On blur the draft is dropped and the input shows the canonical value in
  * `DD.MM.YYYY` again — so any typed form is normalized, and a
  * still-invalid draft simply reverts.
@@ -124,10 +126,11 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     close();
   }
 
+  // Stays open: the user can pick another date right away, or dismiss the
+  // calendar themselves.
   function handleClear() {
     setDraft(null);
     onCommit(null);
-    close();
   }
 
   return (
@@ -179,12 +182,13 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
             onModeChange={setMode}
             onSelectedDateChange={handleSelect}
           />
-          {/* Same footer action as TaskDatePicker's, labelled "Clear" — it empties the value, nothing is deleted. */}
+          {/* Same footer action as TaskDatePicker's, labelled "Clear" with a dismiss icon — it empties the value, nothing is deleted. */}
           <Button
             className="property-date-picker__clear"
             variant="ghost"
             interaction="subtle"
             size="small"
+            leading={<AppIcon icon="dismiss" />}
             disabled={value === null}
             onClick={handleClear}
           >
