@@ -93,11 +93,20 @@
   box-shadow: none;
 }
 
+/* `padding` lives on the header in *both* states (not on the collapsed
+ * card), so the title row has the same height and inset expanded or
+ * collapsed — collapsing never makes it jump. Top-level only; a nested
+ * embed's header stays flush (reset below). */
 .cm-note-embed__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--md-marker-text-gap);
+  padding: var(--space-6);
+}
+
+.cm-content[contenteditable='false'] .cm-note-embed__header {
+  padding: 0;
 }
 
 /* The resolved page's own identity icon — emoji if assigned, else the
@@ -360,20 +369,19 @@
  */
 /*
  * Surface matches the broken-embed card (`--md-embed-surface`, radius
- * `--md-embed-radius`, `--space-6` padding) and the inset hairline + soft
+ * `--md-embed-radius`) and the inset hairline + soft
  * shadow a folded fenced-code card gets (`fencedCodeBackgroundLayer`'s
  * `--folded` modifier: `--shadow-inset-thin`, `--shadow-sm`). `padding`,
- * never `margin`, per the codebase's permanent CM6 rule.
+ * never `margin`, per the codebase's permanent CM6 rule. The header's own
+ * `--space-6` padding (above) provides the card's inner spacing.
  */
 .cm-note-embed--collapsed {
-  padding: var(--space-6);
   border-radius: var(--md-embed-radius);
   background: var(--md-embed-surface);
   box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
 }
 
 .cm-content[contenteditable='false'] .cm-note-embed--collapsed {
-  padding: 0;
   background: none;
   box-shadow: none;
 }
