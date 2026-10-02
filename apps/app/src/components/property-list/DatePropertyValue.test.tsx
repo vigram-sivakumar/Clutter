@@ -6,8 +6,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { DatePropertyValue } from './DatePropertyValue';
 import { PropertyList } from './PropertyList';
-import { toISODate } from '@shared/helpers/time/helpers/toISODate';
-
 import { formatDatePropertyEditValue, formatDatePropertyValue } from './formatDatePropertyValue';
 
 // Overlay positions itself with a ResizeObserver, which jsdom lacks —
@@ -179,15 +177,29 @@ describe('DatePropertyValue — editable', () => {
     expect(getField().placeholder).toBe('Empty');
   });
 
-  it("prefills today when an empty date is opened, and opens the calendar on today", () => {
-    render(<StatefulDate initial={null} />);
+  it('leaves an empty date empty when opened, with the calendar on the current month', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value={null}
+        format={formatDatePropertyValue}
+        editFormat={formatDatePropertyEditValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.click(getField());
 
     const today = new Date();
-    expect(getField().value).toBe(formatDatePropertyEditValue(toISODate(today)));
+    expect(getField().value).toBe('');
+    expect(onCommit).not.toHaveBeenCalled();
     expect(isCalendarOpen()).toBe(true);
-    expect(selectedDay()).toBe(String(today.getDate()));
+    expect(selectedDay()).toBeNull();
+    expect(calendarMonthYear()).toBe(
+      `${today.toLocaleString('en', { month: 'long' })} ${today.getFullYear()}`
+    );
   });
 });
 

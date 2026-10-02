@@ -3,7 +3,6 @@ import type { KeyboardEvent } from 'react';
 
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
-import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { parseDateInput } from '@shared/helpers/time/parseDateInput';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
@@ -66,9 +65,6 @@ interface DatePropertyEditorProps {
  * On blur the draft is dropped and the input shows the canonical value in
  * `DD.MM.YYYY` again — so any typed form is normalized, and a
  * still-invalid draft simply reverts.
- *
- * Opening an empty date fills in today (committed, so input and Calendar
- * agree) and opens the Calendar on it.
  */
 function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
   const anchorRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -91,21 +87,13 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     setOpen(false);
   }
 
-  function openCalendar() {
-    if (value === null) {
-      onCommit(toISODate(new Date()));
-    }
-
-    setOpen(true);
-  }
-
   function handleFocus() {
     if (ignoreNextFocusRef.current) {
       ignoreNextFocusRef.current = false;
       return;
     }
 
-    openCalendar();
+    setOpen(true);
   }
 
   function handleChange(text: string) {
@@ -121,7 +109,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      openCalendar();
+      setOpen(true);
     } else if (event.key === 'Enter') {
       event.preventDefault();
       setDraft(null);
@@ -158,7 +146,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
             setOpen(false);
           }
         }}
-        onClick={openCalendar}
+        onClick={() => setOpen(true)}
         onKeyDown={handleKeyDown}
       />
       {/*
