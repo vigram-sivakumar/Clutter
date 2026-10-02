@@ -19,6 +19,17 @@
   max-width: 160px;
   color: var(--foreground-tertiary);
 }
+/* The name's icon is the property's type; hovering the name swaps it for
+   the vertical-dots (menu) icon, in the same place and size. */
+.property-list__name .property__icon--menu {
+  display: none;
+}
+.property-list__name:hover .property__icon--menu {
+  display: inline-flex;
+}
+.property-list__name:hover .property__icon--type {
+  display: none;
+}
 .property-list__value {
   min-width: 0px;
   width: 100%;

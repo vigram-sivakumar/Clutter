@@ -32,10 +32,15 @@ export function PropertyList({ items, className }: PropertyListProps) {
           <Entry
             className="property-list__name"
             leading={
-              <AppIcon
-                className="property__icon"
-                icon={propertyTypeRegistry[item.type].icon}
-              />
+              <>
+                <AppIcon
+                  className="property__icon property__icon--type"
+                  icon={propertyTypeRegistry[item.type].icon}
+                />
+                {/* Shown in the type icon's place while the name is hovered
+                    (PropertyList.css) — the mark of the property's menu. */}
+                <AppIcon className="property__icon property__icon--menu" icon="moreVertical" />
+              </>
             }
           >
             <PropertyName item={item} />
