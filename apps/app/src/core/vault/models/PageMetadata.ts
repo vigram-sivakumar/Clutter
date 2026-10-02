@@ -75,14 +75,24 @@ export interface PageMetadata {
   readonly tags?: readonly string[];
 
   /**
-   * Verbatim raw frontmatter lines for keys Clutter does not own — custom
-   * keys, and `aliases` (read for link resolution, never rewritten).
-   * Round-tripped unchanged by FrontmatterSerializer so a Clutter save never
-   * deletes frontmatter it doesn't manage. Opaque on purpose: no consumer
-   * interprets it (aliases are read from `Page.analysis.aliases`), so this
-   * is preservation, not a second metadata representation. Optional, and
-   * absent when there is nothing to preserve, for the same fixture-churn
-   * reason as `tags`.
+   * The page's frontmatter `aliases`, in file order — the editable value
+   * the Aliases Property shows and `PageOperations.updateMetadata` writes.
+   * The file is the source of truth: a reparse always takes the list from
+   * the document (an absent key is an empty list), so an external edit
+   * that removes an alias is never resurrected. `Page.analysis.aliases`
+   * is derived from the same parsed key for link resolution. Optional for
+   * the same fixture-churn reason as `tags`; every real `Page` resolves it
+   * to a concrete (possibly empty) array.
+   */
+  readonly aliases?: readonly string[];
+
+  /**
+   * Verbatim raw frontmatter lines for keys Clutter does not own (custom
+   * keys). Round-tripped unchanged by FrontmatterSerializer so a Clutter
+   * save never deletes frontmatter it doesn't manage. Opaque on purpose:
+   * no consumer interprets it, so this is preservation, not a second
+   * metadata representation. Optional, and absent when there is nothing
+   * to preserve, for the same fixture-churn reason as `tags`.
    */
   readonly unownedFrontmatter?: readonly string[];
 }

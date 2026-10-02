@@ -156,20 +156,18 @@ describe('unowned frontmatter preservation', () => {
     'body',
   ].join('\n');
 
-  it('captures non-owned keys (including aliases and nested blocks) verbatim', async () => {
+  it('captures non-owned keys (and nested blocks) verbatim; aliases are owned, not captured', async () => {
     const { FrontmatterParser } = await import('./FrontmatterParser');
     const parsed = new FrontmatterParser().parse(content);
     expect(parsed.frontmatter.unownedLines).toEqual([
       'author: Jane',
-      'aliases:',
-      '  - Alt One',
-      '  - Alt Two',
       'meta:',
       '  nested: yes',
       '',
       '  other: 2',
     ]);
     expect(parsed.frontmatter.favorite).toBe(true);
+    expect(parsed.frontmatter.aliases).toEqual(['Alt One', 'Alt Two']);
     expect(parsed.frontmatterAnalysis.aliases.map((a) => a.value)).toEqual([
       'Alt One',
       'Alt Two',
@@ -197,6 +195,7 @@ describe('unowned frontmatter preservation', () => {
     const reparsed = parser.parse(out);
     expect(reparsed.frontmatter.unownedLines).toEqual(parsed.frontmatter.unownedLines);
     expect(reparsed.frontmatter.favorite).toBe(true);
+    expect(reparsed.frontmatter.aliases).toEqual(['Alt One', 'Alt Two']);
     expect(new PageRebuilder().rebuild(page, reparsed).analysis.aliases).toHaveLength(2);
   });
 
@@ -204,5 +203,99 @@ describe('unowned frontmatter preservation', () => {
     const { FrontmatterParser } = await import('./FrontmatterParser');
     const parsed = new FrontmatterParser().parse('---\nid: a\ntype: note\n---\n');
     expect(parsed.frontmatter.unownedLines).toBeUndefined();
+  });
+});
+
+describe('aliases frontmatter round-trip', () => {
+  const parser = new FrontmatterParser();
+  const serializer = new FrontmatterSerializer();
+
+  async function buildPage(content: string): Promise<Page> {
+    const { PageBuilder } = await import('./PageBuilder');
+    const parsed = parser.parse(content);
+    return new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: '/v/n.md',
+        directoryPath: '/v',
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+  }
+
+  it.each([
+    ['a block list', 'aliases:\n  - Alt One\n  - Alt Two', ['Alt One', 'Alt Two']],
+    ['a flow list', 'aliases: [Alt One, "Alt, Two"]', ['Alt One', 'Alt, Two']],
+    ['a single value', 'aliases: Alt One', ['Alt One']],
+    ['quoted block items', 'aliases:\n  - "Alt: One"\n  - \'it\'\'s\'', ['Alt: One', "it's"]],
+    ['an empty flow list', 'aliases: []', []],
+  ])('reads %s into PageMetadata.aliases and analysis.aliases', async (_label, yaml, expected) => {
+    const page = await buildPage(`---\nid: a\n${yaml}\n---\nbody`);
+
+    expect(page.metadata.aliases).toEqual(expected);
+    expect(page.analysis.aliases.map((alias) => alias.value)).toEqual(expected);
+  });
+
+  it('a save writes every existing alias back, and they reparse identically', async () => {
+    const page = await buildPage(
+      '---\nid: a\naliases: [Alt One, "Alt, Two", "#hash", "Key: value", 2026, true]\n---\nbody'
+    );
+
+    const reparsed = parser.parse(serializer.serializeDocument(page, 'body'));
+
+    expect(page.metadata.aliases).toEqual(['Alt One', 'Alt, Two', '#hash', 'Key: value', '2026', 'true']);
+    expect(reparsed.frontmatter.aliases).toEqual(page.metadata.aliases);
+    expect(reparsed.frontmatter.unownedLines).toBeUndefined();
+  });
+
+  it('writes a block list, quoting only values a plain scalar would misread', () => {
+    const page = makePage({
+      metadata: {
+        ...makePage().metadata,
+        aliases: ['Plain', 'He said "hi"', '#hash', 'a: b', '- dash', 'yes'],
+      },
+    });
+
+    const block = serializer.serializePage(page);
+
+    expect(block).toContain(
+      [
+        'aliases:',
+        '  - Plain',
+        '  - He said "hi"',
+        '  - "#hash"',
+        '  - "a: b"',
+        '  - "- dash"',
+        '  - "yes"',
+      ].join('\n')
+    );
+    expect(parser.parse(`${block}\n`).frontmatter.aliases).toEqual(page.metadata.aliases);
+  });
+
+  it('omits the aliases key entirely when there are none', () => {
+    const page = makePage({ metadata: { ...makePage().metadata, aliases: [] } });
+
+    expect(serializer.serializePage(page)).not.toContain('aliases');
+  });
+
+  it('a metadata patch replaces the list, and the rebuilt page follows the file', async () => {
+    const { PageRebuilder } = await import('./PageRebuilder');
+    const page = await buildPage('---\nid: a\naliases:\n  - Old\n---\nbody');
+    const patched = { ...page, metadata: { ...page.metadata, aliases: ['Old', 'New'] } };
+
+    const rebuilt = new PageRebuilder().rebuild(
+      patched,
+      parser.parse(serializer.serializeDocument(patched, 'body'))
+    );
+
+    expect(rebuilt.metadata.aliases).toEqual(['Old', 'New']);
+    expect(rebuilt.analysis.aliases.map((alias) => alias.value)).toEqual(['Old', 'New']);
+
+    // An external edit that drops the key is not resurrected from the old page.
+    const externallyCleared = new PageRebuilder().rebuild(rebuilt, parser.parse('---\nid: a\n---\nbody'));
+    expect(externallyCleared.metadata.aliases).toEqual([]);
   });
 });

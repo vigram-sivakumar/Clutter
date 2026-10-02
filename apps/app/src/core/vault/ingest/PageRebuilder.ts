@@ -57,6 +57,11 @@ export class PageRebuilder {
         // keeps frontmatter tags independent of inline #tags. See
         // PageMetadata.tags's own doc comment.
         tags: frontmatter.tags ?? page.metadata.tags ?? [],
+        // Unlike tags, always the reparsed document's own list: aliases
+        // were always file-authoritative (read straight from frontmatter
+        // for link resolution), so an absent key means none, and an
+        // external removal is never resurrected. See PageMetadata.aliases.
+        aliases: frontmatter.aliases ?? [],
         // Straight from the reparsed document (the file is the source of
         // truth for keys Clutter doesn't own), never carried over from the
         // previous page: an external edit that removed such a key must

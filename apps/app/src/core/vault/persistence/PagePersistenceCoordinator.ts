@@ -1459,6 +1459,7 @@ export class PagePersistenceCoordinator {
     coverHidden?: PageMetadata['coverHidden'];
     coverLayout?: PageMetadata['coverLayout'];
     favorite?: PageMetadata['favorite'];
+    aliases?: PageMetadata['aliases'];
   } {
     const patch: {
       description?: PageMetadata['description'];
@@ -1467,6 +1468,7 @@ export class PagePersistenceCoordinator {
       coverHidden?: PageMetadata['coverHidden'];
       coverLayout?: PageMetadata['coverLayout'];
       favorite?: PageMetadata['favorite'];
+      aliases?: PageMetadata['aliases'];
     } = {};
 
     if (frontmatter.description !== undefined) {
@@ -1486,6 +1488,11 @@ export class PagePersistenceCoordinator {
     }
     if (frontmatter.favorite !== undefined) {
       patch.favorite = frontmatter.favorite;
+    }
+    // A losing draft-promotion attempt carrying a new alias must not lose
+    // it (the PageMetadata.aliases list is user-written, like favorite).
+    if (frontmatter.aliases !== undefined) {
+      patch.aliases = frontmatter.aliases;
     }
 
     return patch;

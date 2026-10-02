@@ -1,6 +1,16 @@
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
 import type { PageFrontmatter } from './frontmatter';
+import { quoteFrontmatterString } from './frontmatter/frontmatterStringValue';
+
+/**
+ * Formats one block-list item. `aliases` are free text, so they go through
+ * quoteFrontmatterString (FrontmatterParser unquotes them back); `tags`
+ * follow the tag grammar, never need quoting, and stay byte-identical.
+ */
+function formatListItem(key: string, item: string): string {
+  return `  - ${key === 'aliases' ? quoteFrontmatterString(item) : item}`;
+}
 
 /**
  * FrontmatterSerializer is the sole component responsible for converting the canonical `Page` model
@@ -41,7 +51,7 @@ export class FrontmatterSerializer {
 
         lines.push(`${key}:`);
         for (const item of value) {
-          lines.push(`  - ${item}`);
+          lines.push(formatListItem(key, item));
         }
         continue;
       }
@@ -129,7 +139,18 @@ export class FrontmatterSerializer {
       }
     }
 
-    // Frontmatter Clutter doesn't own (custom keys, `aliases`) — written
+    // Same block-list shape and omit-while-empty convention as `tags`.
+    // Values are written as they are in PageMetadata.aliases — never
+    // deduplicated or re-cased here — quoted only where a plain value
+    // would be misread.
+    if (page.metadata.aliases && page.metadata.aliases.length > 0) {
+      lines.push('aliases:');
+      for (const alias of page.metadata.aliases) {
+        lines.push(formatListItem('aliases', alias));
+      }
+    }
+
+    // Frontmatter Clutter doesn't own (custom keys) — written
     // back verbatim after the owned fields, so a save never deletes it.
     // The serializer still never invents or reformats any of it.
     if (page.metadata.unownedFrontmatter) {

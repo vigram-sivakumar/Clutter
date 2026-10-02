@@ -2,14 +2,14 @@ import type { PageFrontmatter } from './frontmatter';
 import type { ScannedPageAnalysis } from './analysis';
 import { MarkdownAnalyzer } from './analysis';
 import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
+import { parseFlowSequence, unquoteFrontmatterString } from './frontmatter/frontmatterStringValue';
 
 export type ParsedFrontmatter = Record<string, unknown>;
 
 // Every frontmatter key Clutter itself reads into PageFrontmatter (and
-// writes back via FrontmatterSerializer). Any other key — `aliases`
-// included, which Clutter reads for link resolution but never writes — is
-// not Clutter's to rewrite: its raw lines are captured verbatim into
-// `unownedLines` so a save round-trips them instead of dropping them.
+// writes back via FrontmatterSerializer). Any other key is not Clutter's
+// to rewrite: its raw lines are captured verbatim into `unownedLines` so a
+// save round-trips them instead of dropping them.
 // `type` stays here deliberately: it is a retired, inert legacy key that
 // is parsed but intentionally NOT preserved (see FrontmatterSerializer).
 const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
@@ -30,6 +30,10 @@ const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
   'created',
   'modified',
   'tags',
+  // Owned since the Aliases Property made it editable: parsed into
+  // PageFrontmatter.aliases (every form below) and written back by
+  // FrontmatterSerializer, so it must not also be captured verbatim.
+  'aliases',
 ]);
 
 export interface ParsedMarkdown {
@@ -120,9 +124,7 @@ export class FrontmatterParser {
 
       if (isListItem) {
         if (currentArrayKey === 'aliases') {
-          const aliases = (frontmatter.aliases as string[] | undefined) ?? [];
-          aliases.push(trimmed.slice(2).trim());
-          frontmatter.aliases = aliases;
+          this.addAliases(frontmatter, [trimmed.slice(2)]);
         } else if (currentArrayKey === 'tags') {
           const tags = frontmatter.tags ?? [];
           tags.push(trimmed.slice(2).trim());
@@ -242,8 +244,14 @@ export class FrontmatterParser {
           }
           break;
         case 'aliases':
+          // Block list (`aliases:` then `  - value` lines, handled above),
+          // one-line flow list (`aliases: [a, "b"]`), or a single value
+          // (`aliases: a`) — every form other tools write.
           if (!frontmatter.aliases) {
             frontmatter.aliases = [];
+          }
+          if (value !== '') {
+            this.addAliases(frontmatter, parseFlowSequence(value) ?? [value]);
           }
           break;
         case 'tags':
@@ -260,6 +268,20 @@ export class FrontmatterParser {
 
     return frontmatter;
   }
+  /** Appends raw alias values, unquoted and trimmed; empty values are skipped. */
+  private addAliases(frontmatter: PageFrontmatter, rawValues: readonly string[]): void {
+    const aliases = frontmatter.aliases ?? [];
+
+    for (const raw of rawValues) {
+      const alias = unquoteFrontmatterString(raw).trim();
+      if (alias.length > 0) {
+        aliases.push(alias);
+      }
+    }
+
+    frontmatter.aliases = aliases;
+  }
+
   // Out-of-range or non-numeric values are ignored (field stays unset, so
   // resolvePageMetadata/FolderBuilder default it to 50) rather than clamped
   // or rejecting the whole file — mirrors coverLayout's own

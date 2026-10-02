@@ -158,16 +158,19 @@ function setup(
   page: Page,
   fileSystem?: VaultFileSystem,
   folders?: Folder[],
-  openFallbackPage: () => void = () => {}
+  openFallbackPage: () => void = () => {},
+  otherPages: Page[] = []
 ) {
-  const vault = makeVault([page], folders ?? [makeArchiveFolder()]);
+  const vault = makeVault([page, ...otherPages], folders ?? [makeArchiveFolder()]);
   const resolvedFileSystem = fileSystem ?? new InMemoryVaultFileSystem();
 
   if (resolvedFileSystem instanceof InMemoryVaultFileSystem) {
-    resolvedFileSystem.seedFile(
-      page.path,
-      new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
-    );
+    for (const seeded of [page, ...otherPages]) {
+      resolvedFileSystem.seedFile(
+        seeded.path,
+        new FrontmatterSerializer().serializeDocument(seeded, seeded.source.markdown)
+      );
+    }
   }
 
   const workspace = new Workspace();
@@ -439,6 +442,102 @@ describe('PageOperations.updateMetadata()', () => {
     expect(updated.metadata.cover).toBe('cover.png');
     expect(updated.metadata.coverHidden).toBe(true);
     expect(updated.metadata.coverLayout).toBe('above');
+  });
+});
+
+describe('PageOperations.updateMetadata(): aliases', () => {
+  function buildPageWithAliases(id: string, path: string, aliases: string[]): Page {
+    return new PageBuilder().build({
+      parentId: null,
+      page: {
+        path,
+        directoryPath: ROOT,
+        frontmatter: { id, aliases },
+        frontmatterAnalysis: { aliases: aliases.map((value) => ({ value })) },
+        content: 'Body',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+  }
+
+  function setupPair(ownAliases: string[], otherAliases: string[]) {
+    const page = buildPageWithAliases('page-1', `${ROOT}/Note.md`, ownAliases);
+    const other = buildPageWithAliases('page-2', `${ROOT}/Other.md`, otherAliases);
+    return { page, ...setup(page, undefined, undefined, undefined, [other]) };
+  }
+
+  it('adds and removes aliases, persisting them to frontmatter and both alias representations', async () => {
+    const { page, vault, fileSystem, pageOperations } = setupPair(['First'], []);
+
+    await pageOperations.updateMetadata(page.id, { aliases: ['First', 'Second'] });
+
+    let updated = vault.getPage(page.id)!;
+    expect(updated.metadata.aliases).toEqual(['First', 'Second']);
+    expect(updated.analysis.aliases.map((alias) => alias.value)).toEqual(['First', 'Second']);
+    expect(await fileSystem.readFile(page.path)).toContain('aliases:\n  - First\n  - Second');
+
+    await pageOperations.updateMetadata(page.id, { aliases: ['Second'] });
+
+    updated = vault.getPage(page.id)!;
+    expect(updated.metadata.aliases).toEqual(['Second']);
+    expect(await fileSystem.readFile(page.path)).not.toContain('First');
+
+    await pageOperations.updateMetadata(page.id, { aliases: [] });
+
+    expect(vault.getPage(page.id)!.metadata.aliases).toEqual([]);
+    expect(await fileSystem.readFile(page.path)).not.toContain('aliases');
+  });
+
+  it('keeps existing aliases through an unrelated metadata save', async () => {
+    const { page, vault, fileSystem, pageOperations } = setupPair(['Keep Me', 'And: me'], []);
+
+    await pageOperations.updateMetadata(page.id, { favorite: true });
+
+    expect(vault.getPage(page.id)!.metadata.aliases).toEqual(['Keep Me', 'And: me']);
+    expect(await fileSystem.readFile(page.path)).toContain('  - Keep Me\n  - "And: me"');
+  });
+
+  it('rejects an alias another page already uses (case-insensitively), writing nothing', async () => {
+    const { page, vault, fileSystem, pageOperations } = setupPair([], ['Shared']);
+    const before = await fileSystem.readFile(page.path);
+
+    await expect(
+      pageOperations.updateMetadata(page.id, { aliases: ['shared'] })
+    ).rejects.toThrow(/already used by page page-2/);
+
+    expect(vault.getPage(page.id)!.metadata.aliases).toEqual([]);
+    expect(await fileSystem.readFile(page.path)).toBe(before);
+  });
+
+  it('rejects a duplicate alias on the same page', async () => {
+    const { page, pageOperations } = setupPair(['Alpha'], []);
+
+    await expect(
+      pageOperations.updateMetadata(page.id, { aliases: ['Alpha', 'ALPHA '] })
+    ).rejects.toThrow(/Duplicate alias/);
+  });
+
+  it('rejects an empty alias', async () => {
+    const { page, pageOperations } = setupPair([], []);
+
+    await expect(pageOperations.updateMetadata(page.id, { aliases: ['  '] })).rejects.toThrow(
+      /cannot be empty/
+    );
+  });
+
+  it('does not re-check aliases the page already had, so a pre-existing conflict never blocks a removal', async () => {
+    const { page, vault, pageOperations } = setupPair(['Shared', 'Mine'], ['Shared']);
+
+    await pageOperations.updateMetadata(page.id, { aliases: ['Shared'] });
+
+    expect(vault.getPage(page.id)!.metadata.aliases).toEqual(['Shared']);
   });
 });
 
@@ -2054,6 +2153,19 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     const content = await fileSystem.readFile(persisted.path);
     expect(content).toContain('tags:\n  - Project');
     expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
+  it('an aliases patch promotes the draft and persists the aliases in frontmatter', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateMetadata(id, { aliases: ['Nickname', 'a: b'] });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.aliases).toEqual(['Nickname', 'a: b']);
+    expect(await fileSystem.readFile(persisted.path)).toContain(
+      'aliases:\n  - Nickname\n  - "a: b"'
+    );
   });
 
   // The "Add a description" milestone's own draft-promotion case: a
