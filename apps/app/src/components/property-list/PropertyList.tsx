@@ -6,6 +6,8 @@ import { Entry } from '@components/entry/Entry';
 import { propertyTypeIcons } from '@core/properties/PropertyTypeIcons';
 import { AppIcon } from '@shared/icon';
 
+import { TextPropertyValue } from './TextPropertyValue';
+
 import './PropertyList.css';
 
 type PropertyListItem =
@@ -21,7 +23,18 @@ type PropertyListItem =
     }
   | {
       name: string;
-      type: Exclude<PropertyType, 'url' | 'multi-select'>;
+      type: 'text';
+      value: string;
+      /**
+       * Makes the value editable (multiline — see TextPropertyValue).
+       * Omitted for a display-only text Property (e.g. the system-maintained
+       * Created/Modified timestamps), which renders as plain text.
+       */
+      onCommit?(value: string): void;
+    }
+  | {
+      name: string;
+      type: Exclude<PropertyType, 'url' | 'multi-select' | 'text'>;
       value: ReactNode;
     };
 
@@ -79,9 +92,17 @@ export function PropertyList({ items, className }: PropertyListProps) {
             <span>{item.name}</span>
           </Entry>
 
-          <Entry className="property-list__value">
-            <span>{renderPropertyValue(item)}</span>
-          </Entry>
+          {item.type === 'text' && item.onCommit ? (
+            <TextPropertyValue
+              name={item.name}
+              value={item.value}
+              onCommit={item.onCommit}
+            />
+          ) : (
+            <Entry className="property-list__value">
+              <span>{renderPropertyValue(item)}</span>
+            </Entry>
+          )}
         </div>
       ))}
     </div>

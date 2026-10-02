@@ -48,3 +48,11 @@
   display: inline-block;
   margin-right: var(--space-4);
 }
+
+/* The editable text value: Input's multiline wrapper doubles as the value
+   cell. Inline padding zeroed so its text lines up with read-only values. */
+.property-list__text-input {
+  padding-inline: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
