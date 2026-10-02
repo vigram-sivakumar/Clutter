@@ -38,6 +38,7 @@ import ChevronSquareRightLight from './svg/chevron-square-right-light.svg?react'
 import ChevronUp from './svg/chevron-up.svg?react';
 import Check from './svg/check.svg?react';
 import Copy from './svg/copy.svg?react';
+import Duplicate from './svg/duplicate.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
 import Code from './svg/code.svg?react';
@@ -149,6 +150,7 @@ export const iconRegistry = {
   chevronUp: ChevronUp,
   check: Check,
   copy: Copy,
+  duplicate: Duplicate,
   circleDashed: CircleDashed,
   clock: Clock,
   code: Code,

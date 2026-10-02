@@ -55,7 +55,7 @@ export function buildNoteSidebarMenu(
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
       separatorBefore: true,
     },
-    { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
+    { id: 'duplicate', label: 'Duplicate', icon: 'duplicate' },
     { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
     // Note; see getLocationPathRepresentations.ts's LocationEntityKind.

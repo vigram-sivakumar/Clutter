@@ -176,7 +176,7 @@ function buildRowItems(
     {
       id: 'duplicate',
       label: 'Duplicate',
-      icon: 'copy',
+      icon: 'duplicate',
       separatorBefore: true,
     },
     { id: 'clear', label: 'Clear contents', icon: 'dismiss' },
@@ -247,7 +247,7 @@ function buildColumnItems(
     {
       id: 'duplicate',
       label: 'Duplicate',
-      icon: 'copy',
+      icon: 'duplicate',
       separatorBefore: true,
     },
     { id: 'clear', label: 'Clear contents', icon: 'dismiss' },

@@ -93,7 +93,7 @@ export function Task({
   }
 
   if (onDuplicate) {
-    menuItems.push({ id: 'duplicate', label: 'Duplicate', icon: 'copy' });
+    menuItems.push({ id: 'duplicate', label: 'Duplicate', icon: 'duplicate' });
   }
 
   if (onDelete) {

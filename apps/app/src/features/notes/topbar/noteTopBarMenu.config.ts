@@ -54,7 +54,7 @@ export function buildNoteTopBarMenu(
     {
       id: 'duplicate',
       label: 'Duplicate',
-      icon: 'copy',
+      icon: 'duplicate',
     },
     {
       id: 'move-to',

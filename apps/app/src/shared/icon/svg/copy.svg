@@ -1,7 +1,14 @@
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
-    d="M10 6H9C7.34315 6 6 7.34315 6 9V10M10 6H11C12.6569 6 14 7.34315 14 9V11C14 12.6569 12.6569 14 11 14H9C7.34315 14 6 12.6569 6 11V10M10 6V5C10 3.34315 8.65685 2 7 2H5C3.34315 2 2 3.34315 2 5V7C2 8.65685 3.34315 10 5 10H6"
+    d="M5.5 3H5C3.89543 3 3 3.89543 3 5V12C3 13.1046 3.89543 14 5 14H11C12.1046 14 13 13.1046 13 12V5C13 3.89543 12.1046 3 11 3H10.5"
     stroke="currentColor"
     stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M6.5 2H9.5C10.0523 2 10.5 2.44772 10.5 3V3.5C10.5 4.05228 10.0523 4.5 9.5 4.5H6.5C5.94772 4.5 5.5 4.05228 5.5 3.5V3C5.5 2.44772 5.94772 2 6.5 2Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   />
 </svg>
