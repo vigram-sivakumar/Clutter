@@ -1,15 +1,14 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 
-import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { MenuContext } from '@components/menu/Menu.context';
 import { MenuItem } from '@components/menu/MenuItem';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
 import { Popover } from '@components/popover/Popover';
-import { AppIcon } from '@shared/icon';
 
 import type { MultiSelectSuggestion, PropertyEditability } from './PropertyList.types';
+import { Pill } from './Pill';
 import { PropertyValueCell } from './PropertyValueCell';
 import { useRejectShake } from './useRejectShake';
 
@@ -65,11 +64,10 @@ export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
 }
 
 /**
- * One value as a pill — the tag pill's shape and hover-dismiss button
- * (`property-list__tag` and its remove button), on a neutral surface
- * (`--plain`) with no `#` prefix, since these aren't tags. With `onEdit`,
- * a click (or Enter/Space when focused) on the pill — not its dismiss
- * button — starts editing it in place.
+ * One value as a pill — the shared Pill on a neutral surface (`plain`)
+ * with no `#` prefix, since these aren't tags. With `onEdit`, a click (or
+ * Enter/Space when focused) on the pill — not its dismiss button — starts
+ * editing it in place.
  */
 function ValuePill({
   value,
@@ -80,55 +78,16 @@ function ValuePill({
   onRemove?(): void;
   onEdit?(): void;
 }) {
-  function handleRemove(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation();
-    onRemove?.();
-  }
-
-  function handleEdit(event: MouseEvent<HTMLSpanElement>) {
-    // Never also reaches the editor's "click anywhere to type" handler.
-    event.stopPropagation();
-    onEdit?.();
-  }
-
-  function handleEditKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
-    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    onEdit?.();
-  }
-
   return (
-    <span
-      className={['property-list__tag property-list__tag--plain', onEdit && 'property-list__tag--editable']
-        .filter(Boolean)
-        .join(' ')}
-      // A <span>, not a <button>: it contains the dismiss <button>, and
-      // buttons can't nest.
-      role={onEdit ? 'button' : undefined}
-      tabIndex={onEdit ? 0 : undefined}
-      aria-label={onEdit ? `Edit ${value}` : undefined}
-      onClick={onEdit ? handleEdit : undefined}
-      onKeyDown={onEdit ? handleEditKeyDown : undefined}
+    <Pill
+      tone="plain"
+      onEdit={onEdit}
+      label={`Edit ${value}`}
+      onRemove={onRemove}
+      removeLabel={`Remove ${value}`}
     >
       {value}
-      {onRemove && (
-        <Button
-          className="property-list__tag-remove"
-          isIconOnly
-          variant="ghost"
-          size="small"
-          aria-label={`Remove ${value}`}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={handleRemove}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
-      )}
-    </span>
+    </Pill>
   );
 }
 
