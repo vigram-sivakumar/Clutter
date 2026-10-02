@@ -1058,6 +1058,150 @@ describe('PageOperations.renameCustomProperty()', () => {
       await expect(pageOperations.deleteCustomProperty(page.id, 'x')).rejects.toThrow(/Cannot edit archived page/);
     });
 
+    it.each([
+      ['tags', 'tags:\n  - work\n  - home', 'work'],
+      ['aliases', 'aliases:\n  - Alt', 'Alt'],
+    ])(
+      'removeSystemProperty clears %s and unlists it in one save, hiding the section when nothing is left listed',
+      async (key, valueYaml, value) => {
+        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          `${valueYaml}\nauthor: Jane\nproperties:\n  show: true\n  visible:\n    - ${key}`,
+          'priority: low'
+        );
+        const otherBefore = await fileSystem.readFile(other.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.removeSystemProperty(page.id, key as 'tags');
+
+        // One atomic save: the value change and the visibility change together.
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+        const content = await fileSystem.readFile(page.path);
+        expect(content).not.toContain(`${key}:`);
+        expect(content).not.toContain(value);
+        expect(content).toContain('author: Jane');
+        expect(content).toContain('Body text');
+        const metadata = vault.getPage(page.id)!.metadata;
+        expect(metadata[key as 'tags' | 'aliases'] ?? []).toEqual([]);
+        expect(readVisibleProperties(metadata.unownedFrontmatter ?? [])).toEqual([]);
+        // The last listed property: the note is back to never-configured — no properties block at all.
+        expect(content).not.toContain('properties');
+        expect(readPropertiesSectionVisibility(metadata.unownedFrontmatter ?? [])).toBe(false);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+      }
+    );
+
+    it('removeSystemProperty keeps the section shown while other properties are still listed, and leaves the other system value alone', async () => {
+      const { page, vault, pageOperations } = await setupWithFrontmatter(
+        'tags:\n  - work\naliases:\n  - Alt\nproperties:\n  show: true\n  visible:\n    - tags\n    - aliases\n    - created'
+      );
+
+      await pageOperations.removeSystemProperty(page.id, 'tags');
+
+      const metadata = vault.getPage(page.id)!.metadata;
+      expect(metadata.tags ?? []).toEqual([]);
+      expect(metadata.aliases).toEqual(['Alt']);
+      expect(readVisibleProperties(metadata.unownedFrontmatter ?? [])).toEqual(['aliases', 'created']);
+      expect(readPropertiesSectionVisibility(metadata.unownedFrontmatter ?? [])).toBe(true);
+    });
+
+    it.each(['created', 'modified'] as const)(
+      'removeSystemProperty on %s only unlists it, in one save, leaving the frontmatter and other values alone',
+      async (key) => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          `tags:\n  - work\nauthor: Jane\nproperties:\n  show: true\n  visible:\n    - ${key}\n    - tags`
+        );
+        const before = await fileSystem.readFile(page.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.removeSystemProperty(page.id, key);
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        const content = await fileSystem.readFile(page.path);
+        expect(visibleOf(vault, page.id)).toEqual(['tags']);
+        // Only the list entry changed: tags and the custom property are intact.
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        expect(content).toContain('author: Jane');
+        expect(content).toContain('tags:\n  - work');
+        expect(content).not.toBe(before);
+        expect(readPropertiesSectionVisibility(vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [])).toBe(true);
+      }
+    );
+
+    it('removeSystemProperty on the last listed created/modified returns the note to the never-configured state', async () => {
+      const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+        'author: Jane\nproperties:\n  show: true\n  visible:\n    - created'
+      );
+
+      await pageOperations.removeSystemProperty(page.id, 'created');
+
+      expect(await fileSystem.readFile(page.path)).not.toContain('properties');
+      expect(readPropertiesSectionVisibility(vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [])).toBe(false);
+    });
+
+    it('removeSystemProperty rejects custom keys, an archived page and an unknown page, writing nothing', async () => {
+      const { page, coordinator, pageOperations } = await setupWithFrontmatter(
+        'priority: high\nproperties:\n  visible:\n    - created'
+      );
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      for (const key of ['priority', 'properties']) {
+        await expect(pageOperations.removeSystemProperty(page.id, key as 'tags')).rejects.toThrow(/can be removed/);
+      }
+      await expect(pageOperations.removeSystemProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
+      expect(enqueue).not.toHaveBeenCalled();
+
+      await archiveDirectly(coordinator, page.id);
+      await expect(pageOperations.removeSystemProperty(page.id, 'tags')).rejects.toThrow(/Cannot edit archived page/);
+    });
+
+    it('deleteCustomProperty of the last listed property returns the note to the never-configured state in one save', async () => {
+      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+        'author: Jane\npriority: high\nproperties:\n  show: true\n  visible:\n    - priority'
+      );
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      await pageOperations.deleteCustomProperty(page.id, 'priority');
+
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      const content = await fileSystem.readFile(page.path);
+      // No properties block at all — not `show: false`, not an empty `visible`.
+      for (const gone of ['properties', 'show:', 'visible', 'priority']) {
+        expect(content).not.toContain(gone);
+      }
+      expect(content).toContain('author: Jane');
+      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
+      expect(readPropertiesSectionVisibility(lines)).toBe(false);
+      expect(visibleOf(vault, page.id)).toEqual([]);
+    });
+
+    it('deleteCustomProperty with other properties still listed leaves the section as it was, and keeps other configuration under properties', async () => {
+      const { page, vault, pageOperations } = await setupWithFrontmatter(
+        'a: 1\nb: 2\nproperties:\n  show: true\n  other: 1\n  visible:\n    - a\n    - b'
+      );
+
+      await pageOperations.deleteCustomProperty(page.id, 'a');
+      let lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
+      expect(visibleOf(vault, page.id)).toEqual(['b']);
+      expect(readPropertiesSectionVisibility(lines)).toBe(true);
+
+      await pageOperations.deleteCustomProperty(page.id, 'b');
+      lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
+      // Last one: listing reset, but the unrelated entry under properties survives.
+      expect(lines).toEqual(['properties:', '  other: 1']);
+    });
+
+    it('deleting an unlisted custom property does not touch the Properties listing', async () => {
+      const { page, vault, pageOperations } = await setupWithFrontmatter(
+        'priority: high\nproperties:\n  show: true\n  visible:'
+      );
+
+      await pageOperations.deleteCustomProperty(page.id, 'priority');
+
+      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
+      expect(readPropertiesSectionVisibility(lines)).toBe(true);
+    });
+
     it('removeAllProperties deletes every custom property and the whole properties block in one save, keeping the body and other pages', async () => {
       const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
         'author: Jane\npeople:\n  - Ana\npriority: high\nproperties:\n  show: true\n  visible:\n    - tags\n    - people',

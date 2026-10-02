@@ -12,6 +12,7 @@ import {
   readPropertiesSectionVisibility,
   readVisibleProperties,
   removePropertiesBlock,
+  removePropertiesListing,
   removeVisibleProperty,
   renameVisibleProperty,
   setPropertiesSectionVisibility,
@@ -437,5 +438,37 @@ describe('removePropertiesBlock', () => {
     const lines = customLines('priority: high');
 
     expect(removePropertiesBlock(lines)).toEqual(lines);
+  });
+});
+
+describe('removePropertiesListing', () => {
+  it('removes show and visible, and the whole block when nothing else is configured under it', () => {
+    const lines = customLines('priority: high\nproperties:\n  show: true\n  visible:\n    - tags\nmood: ok');
+
+    expect(removePropertiesListing(lines)).toEqual(['priority: high', 'mood: ok']);
+  });
+
+  it('leaves no empty visible list and no show: false behind', () => {
+    for (const yaml of [
+      'properties:\n  show: true\n  visible:',
+      'properties:\n  show: false\n  visible: []',
+      'properties:\n  visible: [tags]',
+    ]) {
+      expect(removePropertiesListing(customLines(yaml))).toEqual([]);
+    }
+  });
+
+  it('keeps the block, byte-identical, when something else is configured under it', () => {
+    const result = removePropertiesListing(customLines('properties:\n  show: true\n  other: 1\n  visible:\n    - tags'));
+
+    expect(result).toEqual(['properties:', '  other: 1']);
+    expect(readPropertiesSectionVisibility(result)).toBe(false);
+    expect(readVisibleProperties(result)).toEqual([]);
+  });
+
+  it('changes nothing when there is no block', () => {
+    const lines = customLines('priority: high');
+
+    expect(removePropertiesListing(lines)).toEqual(lines);
   });
 });

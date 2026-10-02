@@ -397,3 +397,42 @@ export function removePropertiesBlock(lines: readonly string[]): string[] {
 
   return [...lines.slice(0, block.start), ...lines.slice(lastContentLine(block) + 1)];
 }
+
+/**
+ * The raw lines with the Properties section's listing configuration — its
+ * `show` and `visible` entries — removed, back to "never configured": hidden,
+ * nothing listed. Anything else under `properties:` stays byte-identical and
+ * keeps the block alive; when nothing else is left the whole `properties:`
+ * block goes too (removePropertiesBlock), so no empty `visible` list and no
+ * `show: false` is left behind. No block: nothing changes.
+ */
+export function removePropertiesListing(lines: readonly string[]): string[] {
+  const block = findProperties(lines);
+
+  if (!block) {
+    return [...lines];
+  }
+
+  const drop = new Set<number>();
+  const show = findShow(lines);
+  const visible = findVisible(lines);
+
+  if (show && show.line !== -1) {
+    drop.add(show.line);
+  }
+
+  if (visible && visible.line !== -1) {
+    drop.add(visible.line);
+    visible.items.forEach((index) => drop.add(index));
+  }
+
+  const hasOtherConfig = block.continuation.some(
+    (line, offset) => !isBlank(line) && !drop.has(block.start + 1 + offset)
+  );
+
+  if (!hasOtherConfig) {
+    return removePropertiesBlock(lines);
+  }
+
+  return lines.filter((_, index) => !drop.has(index));
+}

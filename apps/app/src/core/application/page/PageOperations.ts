@@ -14,12 +14,13 @@ import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
-import { isPageSystemPropertyKey } from '../../properties/systemProperties';
+import { isPageSystemPropertyKey, type SystemPropertyKey } from '../../properties/systemProperties';
 import {
   addVisibleProperty,
   readPropertiesSectionVisibility,
   readVisibleProperties,
   removePropertiesBlock,
+  removePropertiesListing,
   removeVisibleProperty,
   renameVisibleProperty,
   setPropertiesSectionVisibility,
@@ -145,6 +146,22 @@ interface DraftDescriptor {
   readonly type: PageType;
   readonly title?: string;
   readonly deterministicPath?: string;
+}
+
+/**
+ * `key` taken out of `properties.visible`. When it was listed and was the
+ * last one, the Properties listing is reset too (removePropertiesListing):
+ * no empty `visible`, no `show`, and no `properties:` block unless something
+ * else is configured under it — the note then behaves like one that never
+ * had Properties. Otherwise only that entry goes.
+ */
+function unlistProperty(lines: readonly string[], key: string): string[] {
+  const wasListed = readVisibleProperties(lines).includes(key);
+  const unlisted = removeVisibleProperty(lines, key);
+
+  return wasListed && readVisibleProperties(unlisted).length === 0
+    ? removePropertiesListing(unlisted)
+    : unlisted;
 }
 
 /**
@@ -1802,7 +1819,9 @@ export class PageOperations {
   /**
    * Deletes custom property `key` from this page's frontmatter: its lines
    * go (removeCustomProperty), and so does its entry in
-   * `properties.visible`, in the same single save. Every other line stays
+   * `properties.visible`, in the same single save — and when that was the
+   * last listed property, the note returns to its never-configured state
+   * (see unlistProperty). Every other line stays
    * byte-identical and no other page is touched. Rejects, with no write, a
    * key that isn't a custom property here — a system Property (`tags`,
    * `created`, …) or the reserved `properties` cannot be deleted this way.
@@ -1810,8 +1829,59 @@ export class PageOperations {
    */
   public async deleteCustomProperty(pageId: string, key: string): Promise<void> {
     await this.saveCustomFrontmatter(pageId, (lines) =>
-      removeVisibleProperty(removeCustomProperty(lines, key), key)
+      unlistProperty(removeCustomProperty(lines, key), key)
     );
+  }
+
+  /**
+   * Removes a system property from this page's Properties list.
+   *
+   * - `created` / `modified`: only unlists the key from `properties.visible`
+   *   — the note's own timestamps are never written or cleared here.
+   * - `tags` / `aliases`: also clears the note's frontmatter value (an empty
+   *   list isn't written, so the line goes), in the same single Gate `save`
+   *   so the value and the list never disagree. Body `#tags` are independent
+   *   of the frontmatter value and untouched.
+   *
+   * When the key was the last listed property, the note returns to its
+   * never-configured state (see unlistProperty). The key stays available to
+   * show again. Any other key is rejected, with no write. Same archived-page
+   * guard as updateMetadata().
+   */
+  public async removeSystemProperty(pageId: string, key: SystemPropertyKey): Promise<void> {
+    if (!isPageSystemPropertyKey(key)) {
+      throw new Error(`"${key}" is not a property that can be removed.`);
+    }
+
+    if (key === 'created' || key === 'modified') {
+      await this.saveCustomFrontmatter(pageId, (lines) => unlistProperty(lines, key));
+      return;
+    }
+
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
+    }
+
+    const lines = unlistProperty(page.metadata.unownedFrontmatter ?? [], key);
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: page.source.markdown,
+      metadata: {
+        ...this.withEditedKeysCanonicalized(page, key === 'tags' ? { tags: [] } : { aliases: [] }),
+        unownedFrontmatter: lines,
+      },
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
   }
 
   /**
