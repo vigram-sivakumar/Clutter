@@ -163,9 +163,10 @@ function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmat
   const flowItems = splitFlowSequence(inlineValue);
 
   if (flowItems) {
-    // An empty `[]` has nothing to show as pills; a nested `[`/`{` item
-    // fails stringArray (ambiguous) — both text.
-    const items = flowItems.length === 1 && flowItems[0] === '' ? null : stringArray(flowItems);
+    // An empty `[]` is an empty list — what emptying a list's last pill
+    // writes — so it stays a list (and its editor) rather than becoming
+    // text. A nested `[`/`{` item fails stringArray (ambiguous): text.
+    const items = flowItems.length === 1 && flowItems[0] === '' ? [] : stringArray(flowItems);
     return items ? { key, type: 'list', value: items } : asText();
   }
 

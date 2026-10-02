@@ -17,6 +17,12 @@ function customLines(yaml: string): readonly string[] {
 }
 
 describe('readCustomProperties', () => {
+  it('reads an empty flow list as an empty list, not text', () => {
+    expect(readCustomProperties(customLines('people: []'))).toEqual([
+      { key: 'people', type: 'list', value: [] },
+    ]);
+  });
+
   it('reads every custom key in file order, inferring its type from the value', () => {
     const lines = customLines(
       [
@@ -106,7 +112,6 @@ describe('readCustomProperties — conservative type inference', () => {
     ['[a, true]', 'not a string array'],
     ['[a, [b]]', 'nested list'],
     ['[a, {b: c}]', 'nested mapping'],
-    ['[]', 'empty list'],
   ])('%s falls back to text (%s)', (yamlValue) => {
     expect(typeOf(yamlValue).type).toBe('text');
   });
@@ -230,6 +235,17 @@ describe('removeCustomListItem', () => {
 });
 
 describe('setCustomListValue', () => {
+  it('an emptied list is still a list, and can be filled again', () => {
+    for (const yaml of ['people:\n  - Ana', 'people: [Ana]']) {
+      const emptied = setCustomListValue(customLines(yaml), 'people', []);
+
+      expect(readCustomProperties(emptied)).toEqual([{ key: 'people', type: 'list', value: [] }]);
+      expect(readCustomProperties(setCustomListValue(emptied, 'people', ['Bo']))).toEqual([
+        { key: 'people', type: 'list', value: ['Bo'] },
+      ]);
+    }
+  });
+
   it('adds a value to a block list, keeping its indentation and every other line', () => {
     const lines = customLines('author: Jane\npeople:\n    - Ana\n    - Bo\nx: 1');
 
