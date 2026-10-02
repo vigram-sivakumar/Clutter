@@ -13,10 +13,12 @@
 }
 .property-list__name {
   max-width: 160px;
+  color: var(--foreground-tertiary);
 }
 .property-list__value {
   min-width: 0px;
   width: 100%;
+  color: var(--foreground-primary);
 }
 /* X */
 .property-list__value {

@@ -80,7 +80,7 @@ export function PropertyList({ items, className }: PropertyListProps) {
           </Entry>
 
           <Entry className="property-list__value">
-            <span className="primary">{renderPropertyValue(item)}</span>
+            <span>{renderPropertyValue(item)}</span>
           </Entry>
         </div>
       ))}
