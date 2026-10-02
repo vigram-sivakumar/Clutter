@@ -1765,6 +1765,9 @@ export function PageHost({
           key={activePageId}
           page={page}
           getTagSuggestions={getTagSuggestions}
+          // The editor's own inline-#tag click path (createTagResolver's
+          // activate → navigation.openTag), not a second navigation.
+          onOpenTag={(name) => resolveTag(name).activate()}
         />
       }
       body={

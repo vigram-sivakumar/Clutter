@@ -48,6 +48,7 @@ describe('buildPageProperties', () => {
       name: 'Tags',
       type: 'tag',
       value: ['a', 'b'],
+      onOpenTag: undefined,
       editable: false,
     });
     expect(items[1]).toEqual({
@@ -74,6 +75,12 @@ describe('buildPageProperties', () => {
       editable: false,
     });
     expect(buildPageProperties(makePage('note'))[2]!.value).toBe('2026-01-02T03:04:05.000Z');
+  });
+
+  it('wires onOpenTag onto the Tags Property', () => {
+    const onOpenTag = (): void => {};
+    const items = buildPageProperties(makePage('note'), { onOpenTag });
+    expect(items[0]).toMatchObject({ name: 'Tags', onOpenTag });
   });
 
   it('treats a missing tags array as empty', () => {

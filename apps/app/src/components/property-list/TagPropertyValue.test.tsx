@@ -399,6 +399,93 @@ describe('TagPropertyValue — autocomplete', () => {
   });
 });
 
+describe('TagPropertyValue — opening a tag', () => {
+  function pill(name: string): HTMLElement {
+    return screen.getByRole('button', { name: `Open tag ${name}` });
+  }
+
+  it('clicking an editable pill opens its Tag Collection — no edit, no focus, no change', () => {
+    const onOpenTag = vi.fn();
+    const onCommit = vi.fn();
+    render(
+      <TagPropertyValue
+        name="Tags"
+        value={['design', 'product']}
+        editable
+        onOpenTag={onOpenTag}
+        onCommit={onCommit}
+      />
+    );
+
+    fireEvent.click(pill('product'));
+
+    expect(onOpenTag).toHaveBeenCalledExactlyOnceWith('product');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).not.toBe(getInput());
+  });
+
+  it('clicking a read-only pill (like the frontmatter Tags) opens its Tag Collection', () => {
+    const onOpenTag = vi.fn();
+    render(
+      <TagPropertyValue name="Tags" value={['design']} editable={false} onOpenTag={onOpenTag} />
+    );
+
+    fireEvent.click(pill('design'));
+
+    expect(onOpenTag).toHaveBeenCalledExactlyOnceWith('design');
+  });
+
+  it('Enter or Space on a focused pill opens it', () => {
+    const onOpenTag = vi.fn();
+    render(
+      <TagPropertyValue name="Tags" value={['design']} editable={false} onOpenTag={onOpenTag} />
+    );
+
+    fireEvent.keyDown(pill('design'), { key: 'Enter' });
+    fireEvent.keyDown(pill('design'), { key: ' ' });
+
+    expect(onOpenTag).toHaveBeenCalledTimes(2);
+  });
+
+  it('the dismiss button removes the tag and does not open it', () => {
+    const onOpenTag = vi.fn();
+    render(<StatefulTagsWithOpen initial={['design', 'product']} onOpenTag={onOpenTag} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag product' }));
+
+    expect(storedValue()).toEqual(['design']);
+    expect(onOpenTag).not.toHaveBeenCalled();
+  });
+
+  it('pills are plain (not buttons) when no onOpenTag is supplied', () => {
+    render(<TagPropertyValue name="Tags" value={['design']} editable={false} />);
+
+    expect(screen.queryByRole('button', { name: 'Open tag design' })).toBeNull();
+  });
+});
+
+function StatefulTagsWithOpen({
+  initial,
+  onOpenTag,
+}: {
+  initial: string[];
+  onOpenTag(name: string): void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <>
+      <TagPropertyValue
+        name="Tags"
+        value={value}
+        editable
+        onOpenTag={onOpenTag}
+        onCommit={setValue}
+      />
+      <output data-testid="value">{JSON.stringify(value)}</output>
+    </>
+  );
+}
+
 describe('PropertyList tag Property', () => {
   it('renders a read-only tag Property (like Tags) as pills', () => {
     render(

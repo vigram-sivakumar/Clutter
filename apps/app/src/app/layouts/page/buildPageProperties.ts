@@ -21,10 +21,23 @@ import type { Page } from '@core/vault/models/Page';
  *
  * Editability is decided here, per Property — never by PropertyList from a
  * type or name. None of these four is editable yet.
+ *
+ * `actions` carries the page-level behaviors a Property can trigger — kept
+ * out of `page` so this stays a pure policy function. `onOpenTag` makes the
+ * Tags pills open their Tag Collection.
  */
-export function buildPageProperties(page: Page): PropertyListItem[] {
+export function buildPageProperties(
+  page: Page,
+  actions: { onOpenTag?(name: string): void } = {}
+): PropertyListItem[] {
   return [
-    { name: 'Tags', type: 'tag', value: page.metadata.tags ?? [], editable: false },
+    {
+      name: 'Tags',
+      type: 'tag',
+      value: page.metadata.tags ?? [],
+      onOpenTag: actions.onOpenTag,
+      editable: false,
+    },
     {
       name: 'Aliases',
       type: 'multi-select',

@@ -34,6 +34,12 @@ export type PropertyListItem =
        * the adapter. Omitted: no suggestions, typing still adds tags.
        */
       getSuggestions?: GetTagSuggestions;
+      /**
+       * Opens a tag's Tag Collection — the same navigation clicking an
+       * inline `#tag` in the editor does — when its pill is clicked.
+       * Omitted: pills aren't clickable.
+       */
+      onOpenTag?(name: string): void;
     } & PropertyEditability<string[]>)
   | ({
       name: string;

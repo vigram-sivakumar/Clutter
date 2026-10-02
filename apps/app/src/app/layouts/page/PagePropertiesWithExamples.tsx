@@ -20,10 +20,13 @@ import { buildPageProperties } from './buildPageProperties';
 export function PagePropertiesWithExamples({
   page,
   getTagSuggestions,
+  onOpenTag,
 }: {
   page: Page;
   /** The page's existing-tag search (createTagSuggester), for tag autocomplete. */
   getTagSuggestions?: GetTagSuggestions;
+  /** Opens a tag's Tag Collection — the editor's own inline-#tag navigation. */
+  onOpenTag?(name: string): void;
 }) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
@@ -37,7 +40,7 @@ export function PagePropertiesWithExamples({
   return (
     <PropertyList
       items={[
-        ...buildPageProperties(page),
+        ...buildPageProperties(page, { onOpenTag }),
         {
           name: 'Example text',
           type: 'text',
@@ -57,6 +60,7 @@ export function PagePropertiesWithExamples({
           type: 'tag',
           value: exampleTags,
           getSuggestions: getTagSuggestions,
+          onOpenTag,
           editable: true,
           onCommit: setExampleTags,
         },

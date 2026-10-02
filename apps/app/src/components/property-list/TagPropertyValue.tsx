@@ -23,6 +23,8 @@ type TagPropertyValueProps = {
   value: readonly string[];
   /** Existing-tag search for autocomplete (see PropertyList.types). */
   getSuggestions?: GetTagSuggestions;
+  /** Opens a tag's Tag Collection on pill click (see PropertyList.types). */
+  onOpenTag?(name: string): void;
 } & PropertyEditability<string[]>;
 
 /**
@@ -56,7 +58,7 @@ export function TagPropertyValue(props: TagPropertyValueProps) {
       <PropertyValueCell>
         <span className="property-list__tags">
           {props.value.map((tag) => (
-            <TagPill key={tag} tag={tag} />
+            <TagPill key={tag} tag={tag} onOpen={props.onOpenTag} />
           ))}
         </span>
       </PropertyValueCell>
@@ -68,27 +70,63 @@ export function TagPropertyValue(props: TagPropertyValueProps) {
       name={props.name}
       value={props.value}
       getSuggestions={props.getSuggestions}
+      onOpenTag={props.onOpenTag}
       onCommit={props.onCommit}
     />
   );
 }
 
+interface TagPillProps {
+  tag: string;
+  /** Click (or Enter/Space) on the pill opens the tag's Tag Collection. */
+  onOpen?(name: string): void;
+  /** Shows the hover dismiss button, which removes the tag. */
+  onRemove?(): void;
+}
+
 /**
  * One tag as a pill — the editor's inline tag look (same tokens, a dimmed
- * `#` prefix, `formatTagDisplayLabel` for the label). With `onRemove`, a
- * dismiss button appears over the pill on hover, absolutely positioned so
- * it never shifts the row.
+ * `#` prefix, `formatTagDisplayLabel` for the label). Two interactions:
+ * - with `onOpen`, the pill is a button opening the tag's Tag Collection;
+ * - with `onRemove`, a dismiss button appears over the pill on hover,
+ *   absolutely positioned so it never shifts the row, and removes the tag.
+ * Neither click reaches the editor's "click anywhere to type" handler, and
+ * the dismiss click never reaches the pill's own.
  */
-function TagPill({ tag, onRemove }: { tag: string; onRemove?(): void }) {
+function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
   function handleRemove(event: MouseEvent<HTMLButtonElement>) {
-    // The editor focuses its input on any click inside it — removing a tag
-    // must not also start typing.
     event.stopPropagation();
     onRemove?.();
   }
 
+  function handleOpen(event: MouseEvent<HTMLSpanElement>) {
+    event.stopPropagation();
+    onOpen?.(tag);
+  }
+
+  function handleOpenKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onOpen?.(tag);
+  }
+
   return (
-    <span className="property-list__tag">
+    <span
+      className={['property-list__tag', onOpen && 'property-list__tag--link']
+        .filter(Boolean)
+        .join(' ')}
+      // A <span>, not a <button>: it contains the dismiss <button>, and
+      // buttons can't nest.
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? `Open tag ${tag}` : undefined}
+      onClick={onOpen ? handleOpen : undefined}
+      onKeyDown={onOpen ? handleOpenKeyDown : undefined}
+    >
       <span className="property-list__tag-prefix">#</span>
       {formatTagDisplayLabel(tag)}
       {onRemove && (
@@ -140,6 +178,7 @@ interface TagPropertyEditorProps {
   name: string;
   value: readonly string[];
   getSuggestions?: GetTagSuggestions;
+  onOpenTag?(name: string): void;
   /** Fired with the whole new tag list after each add or remove. */
   onCommit(value: string[]): void;
 }
@@ -165,7 +204,13 @@ interface TagPropertyEditorProps {
  * highlight, Enter adds the typed text, like Space. Space always adds exactly what was typed — a new tag if no
  * existing one matches. Escape closes the popover until typing resumes.
  */
-function TagPropertyEditor({ name, value, getSuggestions, onCommit }: TagPropertyEditorProps) {
+function TagPropertyEditor({
+  name,
+  value,
+  getSuggestions,
+  onOpenTag,
+  onCommit,
+}: TagPropertyEditorProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -260,7 +305,7 @@ function TagPropertyEditor({ name, value, getSuggestions, onCommit }: TagPropert
       onClick={() => inputRef.current?.focus()}
     >
       {value.map((tag) => (
-        <TagPill key={tag} tag={tag} onRemove={() => removeTag(tag)} />
+        <TagPill key={tag} tag={tag} onOpen={onOpenTag} onRemove={() => removeTag(tag)} />
       ))}
       <Input
         ref={inputRef}
