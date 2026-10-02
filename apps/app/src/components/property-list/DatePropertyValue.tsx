@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { parseDateInput } from '@shared/helpers/time/parseDateInput';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
@@ -16,8 +17,10 @@ type DatePropertyValueProps = {
   name: string;
   /** Raw stored value (a local `YYYY-MM-DD` date or an ISO timestamp), or null. */
   value: string | null;
-  /** Display formatting for a raw value — supplied by the property type registry. */
+  /** Read-only display formatting for a raw value — supplied by the property type registry. */
   format(value: string): string;
+  /** Editable-input formatting for a raw value (`DD.MM.YYYY`) — supplied by the property type registry. */
+  editFormat(value: string): string;
 } & PropertyEditability<string>;
 
 /**
@@ -27,17 +30,15 @@ type DatePropertyValueProps = {
  * date and opens the shared Calendar as an anchored overlay.
  */
 export function DatePropertyValue(props: DatePropertyValueProps) {
-  const display = props.value ? props.format(props.value) : '';
-
   if (!props.editable) {
-    return <PropertyValueCell>{display}</PropertyValueCell>;
+    return <PropertyValueCell>{props.value ? props.format(props.value) : ''}</PropertyValueCell>;
   }
 
   return (
     <DatePropertyEditor
       name={props.name}
       value={props.value}
-      display={display}
+      display={props.value ? props.editFormat(props.value) : ''}
       onCommit={props.onCommit}
     />
   );
@@ -51,8 +52,6 @@ interface DatePropertyEditorProps {
   onCommit(value: string): void;
 }
 
-/** Tells the user which numeric order the input expects (day first — see parseDateInput). */
-const DATE_INPUT_PLACEHOLDER = 'DD/MM/YYYY';
 
 /**
  * Editable state. Two entry paths, one canonical value (`value`, owned by
@@ -64,8 +63,12 @@ const DATE_INPUT_PLACEHOLDER = 'DD/MM/YYYY';
  * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
  *   a pick commits and drops the draft, so the input shows the formatted
  *   value.
- * On blur the draft is dropped and the input shows the formatted
- * canonical value again — a still-invalid draft simply reverts.
+ * On blur the draft is dropped and the input shows the canonical value in
+ * `DD.MM.YYYY` again — so any typed form is normalized, and a
+ * still-invalid draft simply reverts.
+ *
+ * Opening an empty date fills in today (committed, so input and Calendar
+ * agree) and opens the Calendar on it.
  */
 function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
   const anchorRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -88,13 +91,21 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     setOpen(false);
   }
 
+  function openCalendar() {
+    if (value === null) {
+      onCommit(toISODate(new Date()));
+    }
+
+    setOpen(true);
+  }
+
   function handleFocus() {
     if (ignoreNextFocusRef.current) {
       ignoreNextFocusRef.current = false;
       return;
     }
 
-    setOpen(true);
+    openCalendar();
   }
 
   function handleChange(text: string) {
@@ -110,7 +121,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setOpen(true);
+      openCalendar();
     } else if (event.key === 'Enter') {
       event.preventDefault();
       setDraft(null);
@@ -134,7 +145,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         aria-label={name}
         aria-haspopup="dialog"
         aria-expanded={open}
-        placeholder={DATE_INPUT_PLACEHOLDER}
+        placeholder="Empty"
         value={draft ?? display}
         onChange={(event) => handleChange(event.target.value)}
         onFocus={handleFocus}
@@ -147,7 +158,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
             setOpen(false);
           }
         }}
-        onClick={() => setOpen(true)}
+        onClick={openCalendar}
         onKeyDown={handleKeyDown}
       />
       {/*

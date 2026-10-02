@@ -49,3 +49,14 @@ export function formatDatePropertyValue(raw: string, referenceDate: Date = new D
 
   return parsed.dateTime ? `${date}, ${formatTimeDisplay(parsed.dateTime)}` : date;
 }
+
+/**
+ * The editable date input's value for a raw `date` Property value —
+ * `'numericDotted'` (`02.10.2026`): an absolute date the user can read and
+ * edit in place, and what any typed form normalizes back to. An
+ * unparseable value is shown raw.
+ */
+export function formatDatePropertyEditValue(raw: string): string {
+  const parsed = parseDatePropertyValue(raw);
+  return parsed ? formatDateDisplay(parsed.isoDate, 'numericDotted') : raw;
+}
