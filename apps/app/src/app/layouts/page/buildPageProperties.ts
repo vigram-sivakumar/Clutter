@@ -1,4 +1,5 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
+import type { PropertyActions } from '@components/property-list/PropertyList.types';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import { systemPropertyLabel } from '@core/properties/systemProperties';
 import type { SystemPropertyKey } from '@core/properties/systemProperties';
@@ -105,6 +106,16 @@ function emptyItem(type: CustomPropertyType, name: string): PropertyListItem {
     case 'multi-select':
       return { name, type, value: [], editable: false };
   }
+}
+
+/** `item` with the menu actions that are available (see PropertyActions) — none when none is. */
+function withActions(item: PropertyListItem, actions: PropertyActions): PropertyListItem {
+  return {
+    ...item,
+    ...(actions.onHide && { onHide: actions.onHide }),
+    ...(actions.onClear && { onClear: actions.onClear }),
+    ...(actions.onDelete && { onDelete: actions.onDelete }),
+  };
 }
 
 /** The writes a custom property's value can be given — each present only when the host can perform it. */
@@ -258,6 +269,19 @@ export function buildPageProperties(
      * archived): they are listed after the existing custom properties.
      */
     drafts?: PropertyDraftActions;
+    /**
+     * Stops showing a property (PageOperations.hideProperty), by its
+     * canonical key. Present (and the page not archived): every listed
+     * Property's menu offers Hide. Its value is untouched.
+     */
+    onHideProperty?(key: string): void;
+    /**
+     * Deletes a custom property from the frontmatter
+     * (PageOperations.deleteCustomProperty), by its actual key. Present
+     * (and the page not archived): a custom Property's menu offers Delete.
+     * System Properties are never deletable.
+     */
+    onDeleteProperty?(key: string): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -268,6 +292,8 @@ export function buildPageProperties(
   const onRemoveListItem = isArchived ? undefined : actions.onRemoveListItem;
   const onCommitListValue = isArchived ? undefined : actions.onCommitListValue;
   const onSetScalarValue = isArchived ? undefined : actions.onSetScalarValue;
+  const onHideProperty = isArchived ? undefined : actions.onHideProperty;
+  const onDeleteProperty = isArchived ? undefined : actions.onDeleteProperty;
   const tags = page.metadata.tags ?? [];
   const customLines = page.metadata.unownedFrontmatter ?? [];
 
@@ -284,7 +310,21 @@ export function buildPageProperties(
   const visibleKeys = readVisibleProperties(customLines);
   const customItems = new Map<string, PropertyListItem>(
     readCustomProperties(customLines).map((property): [string, PropertyListItem] => {
-      const item = toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue });
+      const { key } = property;
+      const clear =
+        property.type === 'list'
+          ? onCommitListValue && (() => onCommitListValue(key, []))
+          : onSetScalarValue &&
+            // Emptied, keeping its type: a boolean's only empty state is unchecked.
+            (() => onSetScalarValue(key, property.type, property.type === 'boolean' ? false : null));
+      const item = withActions(
+        toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue }),
+        {
+          onHide: onHideProperty && (() => onHideProperty(key)),
+          onClear: clear,
+          onDelete: onDeleteProperty && (() => onDeleteProperty(key)),
+        }
+      );
 
       if (!onRenameProperty) {
         return [property.key, item];
@@ -384,7 +424,21 @@ export function buildPageProperties(
   // Rows follow `properties.visible`, in the order the properties were
   // added to it: a listed system key, or a listed custom key that exists
   // in the frontmatter. A listed key that matches neither shows nothing.
-  const rowsByKey = new Map<string, PropertyListItem>([...systemRows, ...customItems]);
+  // Every system row can be hidden; Tags and Aliases can also be cleared.
+  // Created and Last edited are system-maintained, so they can't be
+  // cleared, and no system property can be deleted.
+  const systemClear: Partial<Record<SystemPropertyKey, () => void>> = {
+    tags: onCommitTags && (() => onCommitTags([])),
+    aliases: aliasActions && (() => aliasActions.onCommit([])),
+  };
+  const systemItems = systemRows.map(([key, item]): [SystemPropertyKey, PropertyListItem] => [
+    key,
+    withActions(item, {
+      onHide: onHideProperty && (() => onHideProperty(key)),
+      onClear: systemClear[key],
+    }),
+  ]);
+  const rowsByKey = new Map<string, PropertyListItem>([...systemItems, ...customItems]);
   const shownItems = [...new Set(visibleKeys)].flatMap((key) => {
     const item = rowsByKey.get(key);
     return item ? [item] : [];

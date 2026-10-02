@@ -51,7 +51,23 @@ export type PropertyNameEditability = {
  */
 type RemovableValues = { onRemoveValue?(index: number, value: string): void };
 
-export type PropertyListItem = PropertyNameEditability & PropertyListItemByType;
+/**
+ * What a Property's menu (the vertical-dots button that replaces its icon
+ * while its name is hovered) can do — each action present only when the
+ * adapter allows it, never inferred here, and the menu itself absent when
+ * none is. The adapter decides which apply: e.g. a system timestamp can be
+ * hidden but not cleared or deleted.
+ * - `onHide`: stops showing the Property; its value is untouched.
+ * - `onClear`: empties its value (keeping its type).
+ * - `onDelete`: removes the Property altogether.
+ */
+export type PropertyActions = {
+  onHide?(): void;
+  onClear?(): void;
+  onDelete?(): void;
+};
+
+export type PropertyListItem = PropertyNameEditability & PropertyActions & PropertyListItemByType;
 
 type PropertyListItemByType =
   | ({ name: string; type: 'text'; value: string } & PropertyEditability<string>)

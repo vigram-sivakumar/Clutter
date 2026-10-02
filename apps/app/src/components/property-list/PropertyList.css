@@ -19,15 +19,22 @@
   max-width: 160px;
   color: var(--foreground-tertiary);
 }
-/* The name's icon is the property's type; hovering the name swaps it for
-   the vertical-dots (menu) icon, in the same place and size. */
-.property-list__name .property__icon--menu {
+/* The name's icon is the property's type. For a Property with a menu,
+   hovering the name (or keeping its menu open) swaps it for the menu's
+   vertical-dots button, in the same place and size. */
+.property-list__name .property__menu-button {
   display: none;
+  height: 20px;
+  width: 20px;
+  min-width: 0;
+  padding: 0;
 }
-.property-list__name:hover .property__icon--menu {
+.property-list__name:hover .property__menu-button,
+.property-list__name .property__menu-button[aria-expanded='true'] {
   display: inline-flex;
 }
-.property-list__name:hover .property__icon--type {
+.property-list__name:hover:has(.property__menu-button) .property__icon--type,
+.property-list__name:has(.property__menu-button[aria-expanded='true']) .property__icon--type {
   display: none;
 }
 .property-list__value {

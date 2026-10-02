@@ -5,6 +5,7 @@ import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 
 import type { PropertyListItem } from './PropertyList.types';
+import { PropertyMenu } from './PropertyMenu';
 import { propertyTypeRegistry, renderPropertyValue } from './propertyTypeRegistry';
 
 import './PropertyList.css';
@@ -37,9 +38,14 @@ export function PropertyList({ items, className }: PropertyListProps) {
                   className="property__icon property__icon--type"
                   icon={propertyTypeRegistry[item.type].icon}
                 />
-                {/* Shown in the type icon's place while the name is hovered
-                    (PropertyList.css) — the mark of the property's menu. */}
-                <AppIcon className="property__icon property__icon--menu" icon="moreVertical" />
+                {/* Replaces the type icon while the name is hovered
+                    (PropertyList.css) — only when there is something to do. */}
+                {(item.onHide || item.onClear || item.onDelete) && (
+                  <PropertyMenu
+                    name={item.name}
+                    actions={{ onHide: item.onHide, onClear: item.onClear, onDelete: item.onDelete }}
+                  />
+                )}
               </>
             }
           >

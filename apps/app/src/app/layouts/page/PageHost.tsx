@@ -1720,6 +1720,8 @@ export function PageHost({
       void application.pageOperations.setCustomPropertyList(page.id, key, value),
     onSetScalarValue: (key, type, value) =>
       void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
+    onHideProperty: (key) => void application.pageOperations.hideProperty(page.id, key),
+    onDeleteProperty: (key) => void application.pageOperations.deleteCustomProperty(page.id, key),
     drafts: {
       items: propertyDrafts.drafts,
       // Named: the property is written now (empty, typed), and the
