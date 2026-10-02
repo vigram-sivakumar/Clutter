@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 
-import { Checkbox } from '@components/checkbox/Checkbox';
 import type { PropertyType } from '@core/properties/Property.types';
 import type { iconRegistry } from '@shared/icon/iconRegistry';
 
+import { CheckboxPropertyValue } from './CheckboxPropertyValue';
 import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
@@ -42,11 +42,7 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   },
   boolean: {
     icon: 'check',
-    renderValue: (item) => (
-      <PropertyValueCell>
-        <Checkbox isChecked={item.value === true} />
-      </PropertyValueCell>
-    ),
+    renderValue: (item) => <CheckboxPropertyValue {...item} />,
   },
   url: {
     icon: 'link',

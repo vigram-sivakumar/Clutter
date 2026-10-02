@@ -33,6 +33,7 @@ export function PagePropertiesWithExamples({
   );
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
   const [exampleTags, setExampleTags] = useState<string[]>(['design', 'product']);
+  const [exampleChecked, setExampleChecked] = useState(true);
   const [exampleUrl, setExampleUrl] = useState<string | null>(
     'https://example.com/docs/guides/getting-started/installation/configuration-and-advanced-options?ref=properties'
   );
@@ -63,6 +64,13 @@ export function PagePropertiesWithExamples({
           onOpenTag,
           editable: true,
           onCommit: setExampleTags,
+        },
+        {
+          name: 'Example checkbox',
+          type: 'boolean',
+          value: exampleChecked,
+          editable: true,
+          onCommit: setExampleChecked,
         },
         {
           name: 'Example URL',

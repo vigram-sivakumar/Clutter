@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 /**
@@ -48,7 +46,7 @@ export type PropertyListItem =
       value: string | null;
     } & PropertyEditability<string | null>)
   | ({ name: string; type: 'multi-select'; value: readonly string[] } & ReadOnlyProperty)
-  | ({ name: string; type: 'boolean'; value: ReactNode } & ReadOnlyProperty);
+  | ({ name: string; type: 'boolean'; value: boolean } & PropertyEditability<boolean>);
 
 export type PropertyListItemOf<Type extends PropertyListItem['type']> = Extract<
   PropertyListItem,
