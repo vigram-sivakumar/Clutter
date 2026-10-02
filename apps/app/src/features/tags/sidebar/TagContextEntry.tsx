@@ -27,10 +27,7 @@ export interface TagContextEntryProps extends Omit<EntryProps, 'children' | 'lea
  * own title — not a raw-text `<span>`, so the line's own emphasis/links/
  * code/strikethrough/tags render the same way they would anywhere else
  * in the sidebar, never raw syntax, while the tag occurrence itself
- * still reads as plain visible text within that rendering. Unlike every
- * other sidebar row, the line wraps to at most two lines before
- * ellipsizing (see TagContextEntry.css) — a line is prose, not a title,
- * and one truncated line rarely shows enough of it to recognize.
+ * still reads as plain visible text within that rendering.
  *
  * Leading icon is `squiggleLine` — a lightweight, already-existing
  * system icon communicating "a piece of written content," distinct from
@@ -42,13 +39,11 @@ export function TagContextEntry({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
-  className,
   ...entryProps
 }: TagContextEntryProps) {
   return (
     <Entry
       {...entryProps}
-      className={className ? `tag-context-entry ${className}` : 'tag-context-entry'}
       leading={<AppIcon className="tag-context-entry__icon" icon="squiggleLine" />}
     >
       <span className="tag-context-entry__text">
