@@ -42,6 +42,12 @@
   padding-right: 2px;
 }
 
+/* A clickable pill (Pill sets role="button" only then) is a button, not
+   text: without this it inherits the editor's text cursor. */
+.pill[role='button'] {
+  cursor: pointer;
+}
+
 /* The dismiss button is the pill's last in-flow item, shown only while
    its editor has focus. */
 .pill .pill__remove {
