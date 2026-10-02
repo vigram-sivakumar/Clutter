@@ -258,7 +258,6 @@
 /* An editable (custom) property name: EditableText in the name cell, in
    the name's own color, so it reads as the same label until typed into. */
 .property-list__name .property-list__name-input {
-  min-width: 1ch;
   color: inherit;
 }
 /* A new property's empty name field shows its placeholder ("Name"): it
