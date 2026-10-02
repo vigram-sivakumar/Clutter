@@ -57,7 +57,6 @@ import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
-import { PageHeaderAddPropertyMenu } from './header/PageHeaderAddPropertyMenu';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
@@ -1765,11 +1764,9 @@ export function PageHost({
       onSaveCoverPosition={onSaveCoverPosition}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
-      addProperty={
-        // An archived page is view-only: nothing can be added to it.
-        page.metadata.status === 'archived' ? undefined : (
-          <PageHeaderAddPropertyMenu onAddCustomProperty={propertyDrafts.add} />
-        )
+      // An archived page is view-only: nothing can be added to it.
+      onAddCustomProperty={
+        page.metadata.status === 'archived' ? undefined : propertyDrafts.add
       }
       properties={
         <PropertyList

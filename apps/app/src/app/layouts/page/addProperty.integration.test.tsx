@@ -14,7 +14,7 @@ import {
 import type { Page } from '@core/vault/models/Page';
 
 import { buildPageProperties } from './buildPageProperties';
-import { PageHeaderAddPropertyMenu } from './header/PageHeaderAddPropertyMenu';
+import { PageHeaderMoreActionsMenu } from './header/PageHeaderMoreActionsMenu';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 
 class ResizeObserverMock {
@@ -80,7 +80,10 @@ function Harness({
 
   return (
     <>
-      <PageHeaderAddPropertyMenu onAddCustomProperty={drafts.add} />
+      <PageHeaderMoreActionsMenu
+        hasCoverImage={false}
+        onAddCustomProperty={status === 'archived' ? undefined : drafts.add}
+      />
       <PropertyList items={items} />
     </>
   );
@@ -97,8 +100,10 @@ const names = () =>
   [...document.querySelectorAll('.property-list__name')].map((name) => name.textContent);
 const nameField = () => document.querySelector('.property-list__name .editable-text[data-placeholder]') as HTMLDivElement | null;
 
+/** More actions → Add properties → a type, the way a user reaches it. */
 function choose(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Add properties' }));
+  fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 
@@ -222,10 +227,11 @@ describe('Add properties — the whole flow', () => {
     expect(document.activeElement).toBe(field);
   });
 
-  it('adds nothing on an archived page', () => {
+  it('offers no Add properties item on an archived page', () => {
     setup({ status: 'archived' });
-    // The page lists no draft rows even if one were started.
-    choose('Text');
-    expect(nameField()).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+
+    expect(screen.queryByRole('menuitem', { name: 'Add properties' })).toBeNull();
   });
 });

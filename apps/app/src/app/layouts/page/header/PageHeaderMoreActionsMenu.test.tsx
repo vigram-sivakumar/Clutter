@@ -269,3 +269,98 @@ describe('PageHeaderMoreActionsMenu — never nests a second Overlay', () => {
     expect(document.querySelectorAll('.overlay')).toHaveLength(1);
   });
 });
+
+describe('PageHeaderMoreActionsMenu — Add properties', () => {
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+  const rootItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
+
+  it('has no Add properties item without the handler, and there is no separate + button', () => {
+    renderMenu();
+
+    expect(screen.queryByRole('menuitem', { name: 'Add properties' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add properties' })).toBeNull();
+  });
+
+  it('adds an Add properties item to the More actions menu when the handler is given', () => {
+    renderMenu({ onAddCustomProperty: vi.fn() });
+
+    expect(rootItems()).toContain('Add properties');
+    // Alongside the existing items, which are unchanged.
+    expect(rootItems()).toEqual(expect.arrayContaining(['Emoji', 'Cover image', 'Description']));
+    // It stays offered after Description/Emoji/Cover are used up.
+    expect(screen.queryByRole('button', { name: 'Add properties' })).toBeNull();
+  });
+
+  it('stays offered when every one-time item is already set', () => {
+    renderMenu({
+      onAddCustomProperty: vi.fn(),
+      emoji: '🙂',
+      hasCoverImage: true,
+      hasDescription: true,
+    });
+
+    expect(rootItems()).toEqual(['Add properties']);
+  });
+
+  it('clicking it swaps the menu, in place, for the property types', () => {
+    renderMenu({ onAddCustomProperty: vi.fn() });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+
+    expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
+    expect(rootItems()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
+    // One Overlay, never two menus at once.
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+  });
+
+  it.each([
+    ['Text', 'text'],
+    ['Date', 'date'],
+    ['URL', 'url'],
+    ['Number', 'number'],
+    ['Boolean', 'boolean'],
+    ['Multi-select', 'multi-select'],
+  ])('choosing %s adds a %s property and closes the menu', (label, type) => {
+    const onAddCustomProperty = vi.fn();
+    renderMenu({ onAddCustomProperty });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+
+    expect(onAddCustomProperty).toHaveBeenCalledExactlyOnceWith(type);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('lists available system properties first, and choosing one reports its key', () => {
+    const onAddSystemProperty = vi.fn();
+    const onAddCustomProperty = vi.fn();
+    renderMenu({
+      onAddCustomProperty,
+      onAddSystemProperty,
+      addableSystemProperties: [{ id: 'modified', label: 'Last edited', icon: 'calendar' }],
+    });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    expect(rootItems()[0]).toBe('Last edited');
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Last edited' }));
+    expect(onAddSystemProperty).toHaveBeenCalledExactlyOnceWith('modified');
+    expect(onAddCustomProperty).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('reopening starts on the root menu again, not the properties list', () => {
+    renderMenu({ onAddCustomProperty: vi.fn() });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    expect(rootItems()).toContain('Text');
+
+    // Close (the trigger toggles) and open again.
+    openMenu();
+    expect(screen.queryByRole('menu')).toBeNull();
+    openMenu();
+
+    expect(rootItems()).toContain('Add properties');
+    expect(rootItems()).not.toContain('Text');
+  });
+});

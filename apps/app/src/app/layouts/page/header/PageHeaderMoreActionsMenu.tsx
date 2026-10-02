@@ -6,6 +6,9 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { EmojiTray } from '@components/emoji-tray/EmojiTray';
 import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
+import type { CustomPropertyType } from '@core/properties/Property.types';
+import { AddPropertyMenu } from './AddPropertyMenu';
+import type { AddableSystemProperty } from './AddPropertyMenu';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
@@ -61,9 +64,21 @@ export interface PageHeaderMoreActionsMenuProps {
   hasDescription?: boolean;
   /** Presence (alongside `!hasDescription`) gates "Description", same convention as onSelectEmoji above. */
   onEditDescription?: () => void;
+  /**
+   * Presence gates "Add properties" — the item that swaps this menu to the
+   * list of what can be added (AddPropertyMenu): a new, unnamed custom
+   * Property of a chosen type, which the host adds and focuses for
+   * naming. Same "handler presence decides whether the item exists"
+   * convention as the handlers above; omitted for a page with no
+   * Properties list (or an archived one).
+   */
+  onAddCustomProperty?: (type: CustomPropertyType) => void;
+  /** System Properties available to show again, and how — see AddPropertyMenu. Omitted until a system Property can be hidden. */
+  addableSystemProperties?: readonly AddableSystemProperty[];
+  onAddSystemProperty?: (id: string) => void;
 }
 
-type MenuView = 'root' | 'emoji' | 'cover';
+type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
 
 /**
  * The page header's "More actions" menu. Structurally, this is one
@@ -73,7 +88,8 @@ type MenuView = 'root' | 'emoji' | 'cover';
  *   Overlay
  *   ├── 'root'  → <Menu> (Emoji/Cover image/Description items)
  *   ├── 'emoji' → the existing EmojiTray, unwrapped
- *   └── 'cover' → the existing ImagePicker, unwrapped
+ *   ├── 'cover' → the existing ImagePicker, unwrapped
+ *   └── 'properties' → AddPropertyMenu (a `<Menu>`: what can be added to the Properties list)
  *
  * `EmojiTray` and `ImagePicker` are each already a complete, self-styled
  * surface (own background/border-radius/box-shadow/padding — see either
@@ -128,6 +144,9 @@ export function PageHeaderMoreActionsMenu({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
+  onAddCustomProperty,
+  addableSystemProperties,
+  onAddSystemProperty,
 }: PageHeaderMoreActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MenuView>('root');
@@ -171,6 +190,9 @@ export function PageHeaderMoreActionsMenu({
   const showShowCoverImageItem = hasCoverImage && Boolean(coverHidden) && Boolean(onShowCoverImage);
   // Same "omit once set" convention as Emoji/Cover image above.
   const showDescriptionItem = Boolean(onEditDescription) && !hasDescription;
+  // Always offered when the page can take Properties: unlike the items
+  // above, adding one doesn't use the item up.
+  const showAddPropertiesItem = Boolean(onAddCustomProperty);
 
   return (
     <>
@@ -245,7 +267,39 @@ export function PageHeaderMoreActionsMenu({
                 Description
               </MenuItem>
             )}
+            {showAddPropertiesItem && (
+              <MenuItem
+                leading={<AppIcon icon="plus" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setView('properties');
+                }}
+              >
+                Add properties
+              </MenuItem>
+            )}
           </Menu>
+        )}
+
+        {view === 'properties' && onAddCustomProperty && (
+          <AddPropertyMenu
+            systemProperties={addableSystemProperties}
+            onAddSystemProperty={
+              onAddSystemProperty &&
+              ((id) => {
+                // The new row's name field must keep focus — see
+                // suppressReturnFocusRef's doc comment above.
+                suppressReturnFocusRef.current = true;
+                setOpen(false);
+                onAddSystemProperty(id);
+              })
+            }
+            onAddCustomProperty={(type) => {
+              suppressReturnFocusRef.current = true;
+              setOpen(false);
+              onAddCustomProperty(type);
+            }}
+          />
         )}
 
         {view === 'emoji' && (

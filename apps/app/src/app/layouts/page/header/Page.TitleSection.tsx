@@ -1,5 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { PageHeaderControls } from './PageHeaderControls';
+import type { CustomPropertyType } from '@core/properties/Property.types';
+import type { AddableSystemProperty } from './AddPropertyMenu';
 import type { SystemIcon } from '@shared/icon';
 import './Page.TitleSection.css';
 
@@ -36,8 +38,10 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls' More-actions "Description" gate — see Page.tsx's matching prop. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to PageHeaderControls' `addProperty` — the "Add properties" control, beside More actions. */
-  addProperty?: ReactNode;
+  /** Forwarded to PageHeaderControls' More-actions "Add properties" item — see PageHeaderMoreActionsMenu's own doc comment. */
+  onAddCustomProperty?: (type: CustomPropertyType) => void;
+  addableSystemProperties?: readonly AddableSystemProperty[];
+  onAddSystemProperty?: (id: string) => void;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -71,7 +75,9 @@ export function PageTitleSection({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  addProperty,
+  onAddCustomProperty,
+  addableSystemProperties,
+  onAddSystemProperty,
   actions,
   belowDescription,
   className,
@@ -97,7 +103,9 @@ export function PageTitleSection({
         onShowCoverImage={onShowCoverImage}
         hasDescription={hasDescription}
         onEditDescription={onEditDescription}
-        addProperty={addProperty}
+        onAddCustomProperty={onAddCustomProperty}
+        addableSystemProperties={addableSystemProperties}
+        onAddSystemProperty={onAddSystemProperty}
       />
 
       <div className="page-title-section__content">
