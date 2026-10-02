@@ -475,8 +475,8 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
     expect(workspace.activePageId).toBe('page-b');
   });
 
-  it('Today → draft Daily Note → another Daily Note: only the one draft exists, so Back/Forward travel Today ↔ that draft', async () => {
-    const { workspace, pageOperations, navigation } = setupWithRouter([
+  it('Today → contentful Daily Note draft → another Daily Note: the first persists, the second opens as the one draft, and Back/Forward walk all three', async () => {
+    const { workspace, pageOperations, navigation, vault } = setupWithRouter([
       buildPage('page-today', 'Today'),
     ]);
 
@@ -486,21 +486,26 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
     const draft13 = await pageOperations.openAtPath(path13, { type: 'daily-note' });
     pageOperations.commitEdit(draft13, 'Notes for the 13th');
 
-    // Single global draft: it holds content, so it is neither repurposed
-    // nor joined by a second one — opening the 17th just reopens it.
     const path17 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-17'));
     const draft17 = await pageOperations.openAtPath(path17, { type: 'daily-note' });
 
-    expect(draft17).toBe(draft13);
-    expect(pageOperations.getDraft(draft13)?.title).toBe('2024-01-13');
-    expect(workspace.activePageId).toBe(draft13);
+    // The 13th was persisted (same id, now a real page); the 17th is the
+    // single remaining draft.
+    expect(vault.getPage(draft13)?.path).toBe(path13);
+    expect(draft17).not.toBe(draft13);
+    expect(pageOperations.getDraft(draft17)?.title).toBe('2024-01-17');
+    expect(pageOperations.getDraft(draft13)).toBeUndefined();
+    expect(workspace.activePageId).toBe(draft17);
 
+    navigation.back();
+    expect(workspace.activePageId).toBe(draft13);
     navigation.back();
     expect(workspace.activePageId).toBe('page-today');
     expect(workspace.canNavigateBack).toBe(false);
 
     navigation.forward();
-    expect(workspace.activePageId).toBe(draft13);
+    navigation.forward();
+    expect(workspace.activePageId).toBe(draft17);
     expect(workspace.canNavigateForward).toBe(false);
   });
 

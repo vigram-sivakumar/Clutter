@@ -532,14 +532,6 @@ export class PageOperations {
   }
 
   /**
-   * True while the one global draft exists — lets UI disable "new note"
-   * affordances without knowing anything about the draft's target.
-   */
-  public hasDraft(): boolean {
-    return this.draft !== undefined;
-  }
-
-  /**
    * The one place a draft is ever created or repurposed, so the
    * "at most one unsaved draft, globally" invariant has exactly one
    * enforcement point (every entry point — New Note, a folder's "+", a
@@ -548,25 +540,44 @@ export class PageOperations {
    * - No live draft: mint one (fresh id, fresh empty session).
    * - A live draft that is still empty: retarget it in place — same id and
    *   session, descriptor replaced with `descriptor` ("the request's own
-   *   target wins"), so asking for another folder/date/type reuses the
-   *   slot instead of adding to it.
-   * - A live draft that already holds content: never repurposed (that
-   *   would silently discard what the user typed). It is simply reopened
-   *   unchanged; `descriptor` is ignored.
+   *   target wins"). Nothing is persisted.
+   * - A live draft that holds content: persist it first through the
+   *   ordinary save path (persistExistingDraft → save → persistDraft →
+   *   Gate), which frees the slot, then continue as "no live draft" —
+   *   navigation is never silently refused. Only if that persist fails is
+   *   the old draft reopened instead (its unsaved content is still in the
+   *   session, flagged SaveError, and replacing it would destroy it).
    *
    * Never creates a second draft in any branch.
    */
-  private acquireDraft(descriptor: DraftDescriptor, recordable: boolean): string {
+  private async acquireDraft(
+    descriptor: DraftDescriptor,
+    recordable: boolean
+  ): Promise<string> {
     const existing = this.draft;
 
-    if (existing && this.documentRegistry.get(existing.id)) {
+    if (existing && !this.documentRegistry.get(existing.id)) {
+      // Stale slot (session already closed) — nothing left to protect.
+      this.draft = undefined;
+    } else if (existing) {
       if (this.isEmptyDraft(existing.id)) {
         this.draft = { id: existing.id, descriptor };
+        this.flushActivePage();
+        this.workspace.openPage(existing.id, { recordable });
+        return existing.id;
       }
 
-      this.flushActivePage();
-      this.workspace.openPage(existing.id, { recordable });
-      return existing.id;
+      if (!(await this.persistExistingDraft(existing.id))) {
+        this.flushActivePage();
+        this.workspace.openPage(existing.id, {
+          recordable: existing.descriptor.type === 'daily-note',
+        });
+        return existing.id;
+      }
+
+      // Slot is free now — but another call may have claimed it while the
+      // persist was in flight, so decide again rather than assume.
+      return this.acquireDraft(descriptor, recordable);
     }
 
     const id = this.pageCreator.generateId();
@@ -577,6 +588,27 @@ export class PageOperations {
     this.workspace.openPage(id, { recordable });
 
     return id;
+  }
+
+  /**
+   * Persists a draft that holds content through save() — the same
+   * body-trigger path autosave uses, not a second one. True once the slot
+   * is free; false if the save failed (the draft stays, in SaveError).
+   */
+  private async persistExistingDraft(pageId: string): Promise<boolean> {
+    const session = this.documentRegistry.get(pageId);
+
+    if (!session) {
+      return false;
+    }
+
+    try {
+      await this.save(pageId, session.currentRevision.markdown);
+    } catch {
+      return false;
+    }
+
+    return this.draftFor(pageId) === undefined;
   }
 
   private draftFor(pageId: string): DraftDescriptor | undefined {

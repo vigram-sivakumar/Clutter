@@ -2627,10 +2627,10 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
     expect(pageOperations.getDraft(id)?.folderId).toBe(child.id);
   });
 
-  it('opening a draft in a second folder retargets the one global draft there — it never mints a second, and a draft with content keeps its folder', async () => {
+  it('opening a draft in a second folder retargets an empty draft there — and persists a draft with content into its own folder first, then drafts for the new folder', async () => {
     const folderA = { ...makeFolder('folder-a', `${ROOT}/A`), parentId: null };
     const folderB = { ...makeFolder('folder-b', `${ROOT}/B`), parentId: null };
-    const { pageOperations } = setupEmpty([folderA, folderB]);
+    const { vault, pageOperations } = setupEmpty([folderA, folderB]);
 
     const idA = await pageOperations.openDraft({ folderId: folderA.id });
     const idB = await pageOperations.openDraft({ folderId: folderB.id });
@@ -2639,9 +2639,11 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
     expect(pageOperations.getDraft(idA)?.folderId).toBe(folderB.id);
 
     pageOperations.commitEdit(idA, 'Real content');
-    await pageOperations.openDraft({ folderId: folderA.id });
+    const idC = await pageOperations.openDraft({ folderId: folderA.id });
 
-    expect(pageOperations.getDraft(idA)?.folderId).toBe(folderB.id);
+    expect(vault.getPage(idA)?.parentId).toBe(folderB.id);
+    expect(idC).not.toBe(idA);
+    expect(pageOperations.getDraft(idC)?.folderId).toBe(folderA.id);
   });
 
   it('first save() persists the folder-scoped draft as a markdown file inside that folder', async () => {

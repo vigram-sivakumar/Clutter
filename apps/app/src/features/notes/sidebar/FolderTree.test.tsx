@@ -358,7 +358,7 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     expect(getAllByText('New Note')).toHaveLength(1);
   });
 
-  it('a draft with real content is not distinguished by body text — and a second openDraft() adds no second row', async () => {
+  it('a draft with real content is persisted (not repurposed) by the next openDraft() — one saved note plus the single new draft, neither labelled by body text', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
     const firstId = await pageOperations.openDraft({ folderId: null });
@@ -372,7 +372,9 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     );
 
     expect(queryByText('Real content')).not.toBeInTheDocument();
-    expect(getAllByText('New Note')).toHaveLength(1);
+    // The first draft became a real (untitled) page; the second is the one
+    // remaining draft — two rows, never three.
+    expect(getAllByText('New Note')).toHaveLength(2);
   });
 });
 
@@ -848,7 +850,7 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(workspace.activePageId).toBeDefined();
   });
 
-  it('the one draft renders only under the folder it was last opened in', async () => {
+  it('a draft with content is persisted into its own folder when another folder\'s draft opens — one row under each folder', async () => {
     const folderA = makeFolder('folder-a', `${ROOT}/A`, null);
     const folderB = makeFolder('folder-b', `${ROOT}/B`, null);
     const { query, workspace, pageOperations, membershipSelector } = setup(
@@ -858,8 +860,8 @@ describe('FolderTree: create note from folder ("+" button)', () => {
 
     const draftA = await pageOperations.openDraft({ folderId: 'folder-a' });
     pageOperations.commitEdit(draftA, 'Real content');
-    // Single global draft: it has content, so it is not moved to folder B
-    // and no second draft is created.
+    // Single global draft: A's draft has content, so it is persisted into
+    // folder A (not moved) and B gets the one new draft.
     await pageOperations.openDraft({ folderId: 'folder-b' });
 
     const { container } = renderTree(query, membershipSelector, workspace);
@@ -877,9 +879,9 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(workspace.isFolderExpanded('folder-b')).toBe(true);
 
     expect(container.querySelectorAll('.entry').length).toBeGreaterThan(2);
-    // Exactly one draft row (a Note's title never derives from body
-    // content), under the folder the single draft belongs to.
-    expect(screen.getAllByText('New Note')).toHaveLength(1);
+    // One persisted note under A and the single draft under B (a Note's
+    // title never derives from body content).
+    expect(screen.getAllByText('New Note')).toHaveLength(2);
   });
 });
 
