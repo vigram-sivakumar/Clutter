@@ -13,8 +13,7 @@
    resting opacity/pointer-events to hidden) — this is the one hover surface
    that reveals it, so it owns the reveal rule rather than PageHeaderControls
    guessing at its own container's hover state. */
-.page-title-section:hover .page-header-controls__menu,
-.page-title-section:hover .page-header-controls__properties {
+.page-title-section:hover .page-header-controls__menu {
   opacity: 1;
   pointer-events: auto;
 }
