@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
+import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { openExternalUrl, resolveNavigationUrl } from '@shared/helpers/openExternalUrl';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import { sharedMarkdownParser } from '@features/markdown/render/sharedMarkdownParser';
+import { AppIcon } from '@shared/icon';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
@@ -67,7 +70,9 @@ export function parseUrlPropertyInput(text: string): string | null {
 export function UrlPropertyValue(props: UrlPropertyValueProps) {
   if (!props.editable) {
     return (
-      <PropertyValueCell truncate>{props.value && <UrlLink url={props.value} />}</PropertyValueCell>
+      <PropertyValueCell truncate trailing={props.value && <UrlActions url={props.value} />}>
+        {props.value && <UrlLink url={props.value} />}
+      </PropertyValueCell>
     );
   }
 
@@ -96,6 +101,57 @@ function UrlLink({ url }: { url: string }) {
     >
       <span className="property-list__link-title">{url}</span>
     </a>
+  );
+}
+
+/** How long the Copy button shows its "copied" check before reverting. */
+const COPIED_FEEDBACK_MS = 1500;
+
+/**
+ * The URL's trailing actions: open it (the same `openExternalUrl` path
+ * as the link) and copy it to the clipboard (`copyTextToClipboard`, the
+ * app's one clipboard-write helper). Copy briefly swaps to a check so
+ * the click visibly did something.
+ */
+function UrlActions({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  return (
+    <div className="property-list__url-actions">
+      <Button
+        isIconOnly
+        variant="ghost"
+        interaction="subtle"
+        size="small"
+        aria-label="Open link"
+        title="Open link"
+        onClick={() => void openExternalUrl(url)}
+      >
+        <AppIcon icon="arrowUpRight" />
+      </Button>
+      <Button
+        isIconOnly
+        variant="ghost"
+        interaction="subtle"
+        size="small"
+        aria-label={copied ? 'Copied' : 'Copy link'}
+        title={copied ? 'Copied' : 'Copy link'}
+        onClick={() => {
+          void copyTextToClipboard(url).then(() => setCopied(true));
+        }}
+      >
+        <AppIcon icon={copied ? 'check' : 'copy'} />
+      </Button>
+    </div>
   );
 }
 
@@ -179,6 +235,8 @@ function UrlPropertyEditor({ name, value, onCommit }: UrlPropertyEditorProps) {
       aria-label={name}
       title={isEditing ? undefined : (value ?? undefined)}
       placeholder="Empty"
+      // Hidden while editing, so it never competes with the text being typed.
+      trailing={!isEditing && value ? <UrlActions url={value} /> : undefined}
       value={draft ?? value ?? ''}
       onFocus={() => setDraft(value ?? '')}
       onChange={(event) => setDraft(event.target.value)}

@@ -165,3 +165,20 @@
 .property-list__url-input--link .input__field {
   text-overflow: ellipsis;
 }
+
+/* A URL's Open/Copy pair, in the Entry/Input trailing slot — vertically
+   centered by that slot; a compact group like the top bar's buttons. */
+.property-list__url-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* With trailing content, Input's icon-aware padding leaves the trailing
+   side at the base --space-6 (not +4px), so the negative margin on that
+   side shrinks to match — the trailing actions then end exactly at the
+   column edge, where a read-only value's actions end. */
+.property-list__input.input--has-trailing {
+  margin-inline-end: calc(-1 * var(--space-6));
+}

@@ -16,8 +16,15 @@ vi.mock('@shared/helpers/openExternalUrl', async (importOriginal) => {
   return { ...actual, openExternalUrl: (url: string) => openExternalUrl(url) };
 });
 
+const copyTextToClipboard = vi.fn<(text: string) => Promise<void>>(async () => {});
+
+vi.mock('@shared/helpers/copyTextToClipboard', () => ({
+  copyTextToClipboard: (text: string) => copyTextToClipboard(text),
+}));
+
 beforeEach(() => {
   openExternalUrl.mockClear();
+  copyTextToClipboard.mockClear();
 });
 
 afterEach(() => {
@@ -237,6 +244,55 @@ describe('UrlPropertyValue — editable', () => {
 
     fireEvent.blur(getField());
     expect(wrapper.classList.contains('input--background')).toBe(false);
+  });
+});
+
+describe('UrlPropertyValue — Open / Copy actions', () => {
+  it('shows Open and Copy next to a read-only URL', () => {
+    render(<UrlPropertyValue name="Site" value="example.com" editable={false} />);
+
+    expect(screen.getByRole('button', { name: 'Open link' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+  });
+
+  it('shows them in the editable input at rest, and hides them while editing', () => {
+    render(<StatefulUrl initial="https://example.com" />);
+
+    const actions = () => screen.queryByRole('button', { name: 'Open link' });
+    expect(actions()).not.toBeNull();
+    expect(actions()!.closest('.input__trailing')).not.toBeNull();
+
+    fireEvent.focus(getField());
+    expect(actions()).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
+
+    fireEvent.blur(getField());
+    expect(actions()).not.toBeNull();
+  });
+
+  it('omits them when there is no URL', () => {
+    render(<StatefulUrl initial={null} />);
+
+    expect(screen.queryByRole('button', { name: 'Open link' })).toBeNull();
+  });
+
+  it('Open opens the URL through openExternalUrl', () => {
+    render(<StatefulUrl initial="example.com/docs" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
+
+    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith('example.com/docs');
+  });
+
+  it('Copy copies the URL as stored and briefly shows a check', async () => {
+    render(<StatefulUrl initial="example.com/docs" />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    });
+
+    expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith('example.com/docs');
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy();
   });
 });
 
