@@ -101,7 +101,7 @@ const NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR = [
   '.tok-tag',
   '.tok-date',
   '.cm-task-checkbox',
-  '.cm-media-block',
+  '.cm-media-block:not(.cm-note-embed)',
   '.cm-fold-toggle',
 ].join(',');
 
@@ -482,17 +482,21 @@ export class NoteEmbedWidget extends WidgetType {
     // `getOnOpenPage` navigation the Expand button uses. Never fires for a
     // drag/selection gesture (a text selection exists), or when the click
     // lands on something the content already makes interactive (links,
-    // tags, dates, checkboxes, media, fold toggles, buttons) — only a plain
-    // click on the passage itself navigates. A nested embed inside this
-    // one matches `.cm-media-block` *within* `content`, so the outer embed
-    // ignores it and the inner one (whose own container is outside its own
-    // `content`) handles its own click.
+    // tags, dates, checkboxes, non-embed media, fold toggles, buttons) —
+    // only a plain click on the passage itself navigates. Only the
+    // outermost embed handles it: a nested embed's click bubbles up here.
     content.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
         return;
       }
       if (window.getSelection()?.toString()) {
+        return;
+      }
+      // Nested inside another embed's content: leave the click to bubble to
+      // the outermost embed, which is the one that opens (and the only one
+      // that highlights). This embed's own Expand button still opens it.
+      if (container.parentElement?.closest('.cm-note-embed__content')) {
         return;
       }
       const interactive = target.closest(NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR);

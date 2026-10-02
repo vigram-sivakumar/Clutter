@@ -239,6 +239,29 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(onOpenNoteEmbedMenu).toHaveBeenCalledWith({ anchor: moreActionsButton, pos: 2, to: 17 });
   });
 
+  it('a click inside a nested embed opens only the outermost note; the nested one\'s own Expand still opens it', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Outer]]',
+      resolverFor({
+        Outer: { status: 'resolved', pageId: 'page-outer', title: 'Outer', markdown: '![[Inner]]', icon: 'note', emoji: null },
+        Inner: { status: 'resolved', pageId: 'page-inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    const innerLine = view.dom.querySelectorAll<HTMLElement>('.cm-note-embed .cm-note-embed__content .cm-note-embed__content .cm-line')[0]!;
+    expect(innerLine).toBeDefined();
+    innerLine.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPage).toHaveBeenCalledTimes(1);
+    expect(onOpenPage).toHaveBeenCalledWith('page-outer');
+
+    const innerExpand = view.dom
+      .querySelectorAll<HTMLButtonElement>('.cm-note-embed__content .cm-note-embed [aria-label="Expand"]')[0]!;
+    innerExpand.click();
+    expect(onOpenPage).toHaveBeenLastCalledWith('page-inner');
+  });
+
   it('nested inside another read-only note embed: Edit source and More actions carry the read-only mutating marker, Expand does not', () => {
     const view = mountView(
       '![[Outer]]',
