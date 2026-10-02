@@ -56,6 +56,11 @@
 .property-list__tag-editor:focus-within .pill .pill__remove {
   display: inline-flex;
 }
+/* The visible dismiss button sits at the pill's right edge, so the pill
+   drops its own right padding. */
+.property-list__tag-editor:focus-within .pill:has(.pill__remove) {
+  padding-inline-end: 0;
+}
 
 /* Hovered pill: a slightly lifted surface. Both selectors, because the
    read-only one above declares --pill-surface at higher specificity. */
