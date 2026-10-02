@@ -248,10 +248,11 @@ describe('UrlPropertyValue — editable', () => {
 });
 
 describe('UrlPropertyValue — Open / Copy actions', () => {
-  it('shows Open and Copy next to a read-only URL', () => {
+  it("puts Open and Copy in a read-only URL's hover-revealed Entry actions slot", () => {
     render(<UrlPropertyValue name="Site" value="example.com" editable={false} />);
 
-    expect(screen.getByRole('button', { name: 'Open link' })).toBeTruthy();
+    const open = screen.getByRole('button', { name: 'Open link' });
+    expect(open.closest('.entry__actions')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
   });
 

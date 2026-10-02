@@ -75,7 +75,7 @@ export function UrlPropertyValue(props: UrlPropertyValueProps) {
     return (
       <PropertyValueCell
         truncate
-        trailing={props.value && <UrlActions url={props.value} />}
+        actions={props.value && <UrlActions url={props.value} />}
       >
         {props.value && <UrlLink url={props.value} />}
       </PropertyValueCell>
@@ -245,7 +245,9 @@ function UrlPropertyEditor({ name, value, onCommit }: UrlPropertyEditorProps) {
       aria-label={name}
       title={isEditing ? undefined : (value ?? undefined)}
       placeholder="Empty"
-      // Hidden while editing, so it never competes with the text being typed.
+      // Hidden while editing, so it never competes with the text being
+      // typed; at rest, revealed on hover (PropertyList.css), like Entry's
+      // own actions slot does for a read-only URL.
       trailing={!isEditing && value ? <UrlActions url={value} /> : undefined}
       value={draft ?? value ?? ''}
       onFocus={() => setDraft(value ?? '')}

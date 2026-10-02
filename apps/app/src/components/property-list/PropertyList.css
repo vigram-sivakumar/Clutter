@@ -166,10 +166,11 @@
   text-overflow: ellipsis;
 }
 
-/* A URL's Open/Copy pair, in the Entry/Input trailing slot (which centers
-   it vertically): a compact button group in the same style as the top
-   bar's `.button-group` — subtle surface, small inner padding — with the
-   group's radius = the buttons' radius + that padding, so the corners nest. */
+/* A URL's Open/Copy pair — in Entry's `actions` slot for a read-only URL
+   (Entry.css reveals it on hover), in Input's trailing slot for an
+   editable one (revealed on hover below); both slots center it
+   vertically. A compact button group — subtle surface, small inner
+   padding, small radius, a thin inset border and a medium shadow. */
 .property-list__url-actions {
   display: flex;
   align-items: center;
@@ -182,10 +183,18 @@
   box-shadow: var(--shadow-inset-thin), var(--shadow-md);
 }
 
-/* Same 20px square in both states: Input.css already sizes `.input .button`
-   this way; this matches it inside a read-only Entry too. */
+/* The group's buttons share its small radius. */
 .property-list__url-actions .button {
   border-radius: var(--radius-sm);
+}
+
+/* Lets the buttons keep Button's own `size="small"` height. Input.css's
+   `.input .button { height: 20px }` sizes every button inside an Input and
+   outranks `.button--small` (two classes vs one), so in an editable URL it
+   silently forced these to 20px; this three-class selector outranks it,
+   for this group only. */
+.property-list__url-actions .button.button--small {
+  height: var(--height-sm);
 }
 
 /* With trailing content, Input's icon-aware padding leaves the trailing
@@ -194,4 +203,14 @@
    column edge, where a read-only value's actions end. */
 .property-list__input.input--has-trailing {
   margin-inline-end: calc(-1 * var(--space-6));
+}
+
+/* Input has no hover-revealed actions slot of its own, so an editable
+   URL's actions get Entry's actions behavior here: hidden until the field
+   is hovered (and not rendered at all while editing — UrlPropertyValue). */
+.property-list__url-input .property-list__url-actions {
+  display: none;
+}
+.property-list__url-input:hover .property-list__url-actions {
+  display: flex;
 }
