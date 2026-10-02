@@ -33,8 +33,8 @@ export function parseDatePropertyValue(raw: string): ParsedDatePropertyValue | n
 
 /**
  * Display string for a raw `date` Property value, through the shared
- * date-label helper (`'condensed'` — the list-surface mode, e.g. `Today`,
- * `15 Sep`, `15 Sep 2025`), plus the time for a timestamp. Display only;
+ * date-label helper (`'condensedFullYear'` — `Today`/`Tomorrow`/`Yesterday`,
+ * else `11 Nov 2026`), plus `, 08:20 PM` for a timestamp. Display only;
  * the raw value stays the canonical one. An unparseable value is shown raw
  * rather than hidden.
  */
@@ -45,7 +45,7 @@ export function formatDatePropertyValue(raw: string, referenceDate: Date = new D
     return raw;
   }
 
-  const date = formatDateDisplay(parsed.isoDate, 'condensed', referenceDate);
+  const date = formatDateDisplay(parsed.isoDate, 'condensedFullYear', referenceDate);
 
   return parsed.dateTime ? `${date}, ${formatTimeDisplay(parsed.dateTime)}` : date;
 }

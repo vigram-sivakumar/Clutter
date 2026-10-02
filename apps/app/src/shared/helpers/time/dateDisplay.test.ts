@@ -248,10 +248,28 @@ describe('formatDateDisplay', () => {
 });
 
 describe('formatTimeDisplay', () => {
-  it('formats the local time as a 12-hour H:MM AM/PM label', () => {
-    expect(formatTimeDisplay(new Date(2026, 8, 15, 9, 36))).toBe('9:36 AM');
+  it('formats the local time as a 12-hour HH:MM AM/PM label', () => {
+    expect(formatTimeDisplay(new Date(2026, 8, 15, 9, 36))).toBe('09:36 AM');
+    expect(formatTimeDisplay(new Date(2026, 10, 11, 20, 20))).toBe('08:20 PM');
     expect(formatTimeDisplay(new Date(2026, 8, 15, 0, 5))).toBe('12:05 AM');
     expect(formatTimeDisplay(new Date(2026, 8, 15, 12, 0))).toBe('12:00 PM');
     expect(formatTimeDisplay(new Date(2026, 8, 15, 23, 59))).toBe('11:59 PM');
+  });
+});
+
+describe("formatDateDisplay — 'condensedFullYear'", () => {
+  // Friday, 2 Oct 2026.
+  const REF = new Date(2026, 9, 2, 12);
+
+  it('keeps Today/Tomorrow/Yesterday as bare words', () => {
+    expect(formatDateDisplay('2026-10-02', 'condensedFullYear', REF)).toBe('Today');
+    expect(formatDateDisplay('2026-10-03', 'condensedFullYear', REF)).toBe('Tomorrow');
+    expect(formatDateDisplay('2026-10-01', 'condensedFullYear', REF)).toBe('Yesterday');
+  });
+
+  it('shows every other date as an abbreviated date with the year, never a weekday', () => {
+    expect(formatDateDisplay('2026-09-30', 'condensedFullYear', REF)).toBe('30 Sep 2026');
+    expect(formatDateDisplay('2026-11-11', 'condensedFullYear', REF)).toBe('11 Nov 2026');
+    expect(formatDateDisplay('2027-11-11', 'condensedFullYear', REF)).toBe('11 Nov 2027');
   });
 });

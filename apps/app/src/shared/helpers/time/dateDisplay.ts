@@ -55,8 +55,19 @@ import type { ISODate } from './types';
  *   no year. A date outside `referenceDate`'s year abbreviates the year
  *   to its last two digits instead — `"2 Sep 27"` — the only mode that
  *   ever shortens the year rather than showing it in full or omitting it.
+ * - `'condensedFullYear'` — the Property list's date values.
+ *   `Today`/`Tomorrow`/`Yesterday` stay bare words, exactly like every
+ *   other mode; every other date — even one within the current week — is
+ *   `'condensed'`'s abbreviated-month date with the year always shown,
+ *   `"11 Nov 2026"`, never a weekday name.
  */
-export type DateDisplayMode = 'compact' | 'condensed' | 'full' | 'shortWeekday' | 'contextual';
+export type DateDisplayMode =
+  | 'compact'
+  | 'condensed'
+  | 'condensedFullYear'
+  | 'full'
+  | 'shortWeekday'
+  | 'contextual';
 
 const MONTH_LABELS = [
   'January',
@@ -213,9 +224,20 @@ export function formatDateDisplay(
   referenceDate: Date = new Date()
 ): string {
   const relation = classify(isoDate, referenceDate);
-  const monthLabels = mode === 'condensed' || mode === 'contextual' ? MONTH_LABELS_SHORT : MONTH_LABELS;
+  const monthLabels =
+    mode === 'condensed' || mode === 'condensedFullYear' || mode === 'contextual'
+      ? MONTH_LABELS_SHORT
+      : MONTH_LABELS;
   const monthLabel = monthLabels[relation.month - 1]!;
   const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
+
+  if (mode === 'condensedFullYear') {
+    if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
+      return dayIdentityLabel(relation, mode);
+    }
+
+    return fullDate;
+  }
 
   if (mode === 'full' || mode === 'shortWeekday') {
     return `${dayIdentityLabel(relation, mode)}, ${fullDate}`;
@@ -245,14 +267,14 @@ export function formatDateDisplay(
 }
 
 /**
- * Formats the local time of day of `date` as a 12-hour label — `9:36 AM`,
- * `12:05 PM` — the companion to `formatDateDisplay` for a value that carries
- * a time (e.g. a page's `created`/`modified` timestamp). Same `H:MM AM/PM`
- * shape the Date autocomplete's time suggestions already show.
+ * Formats the local time of day of `date` as a 12-hour label with a
+ * two-digit hour — `08:20 PM`, `12:05 AM` — the companion to
+ * `formatDateDisplay` for a value that carries a time (e.g. a page's
+ * `created`/`modified` timestamp).
  */
 export function formatTimeDisplay(date: Date): string {
   const hours = date.getHours();
-  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  const hour12 = String(hours % 12 === 0 ? 12 : hours % 12).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
 }
