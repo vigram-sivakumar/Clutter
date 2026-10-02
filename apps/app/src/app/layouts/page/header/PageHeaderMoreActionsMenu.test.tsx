@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { systemPropertyLabel } from '@core/properties/systemProperties';
 
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu';
@@ -337,7 +338,7 @@ describe('PageHeaderMoreActionsMenu — Add properties', () => {
     renderMenu({
       onAddCustomProperty,
       onAddSystemProperty,
-      addableSystemProperties: [{ id: 'modified', label: 'Last edited', icon: 'calendar' }],
+      addableSystemProperties: [{ id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' }],
     });
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));

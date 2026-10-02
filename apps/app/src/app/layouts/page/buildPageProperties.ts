@@ -1,5 +1,6 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
 import type { CustomPropertyType } from '@core/properties/Property.types';
+import { systemPropertyLabel } from '@core/properties/systemProperties';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
@@ -41,7 +42,7 @@ export interface AliasPropertyActions {
  * the host supplies `aliases` actions and the page isn't archived (an
  * archived page is view-only). Plain text, never unique-checked: several
  * pages may share an alias. `Created`
- * and `Modified` are system-maintained timestamps: `date` Properties
+ * and `Last edited` (the `modified` key) are system-maintained timestamps: `date` Properties
  * carrying the raw ISO timestamp (formatting is the date type's job),
  * explicitly `editable: false`.
  *
@@ -317,7 +318,7 @@ export function buildPageProperties(
   return [
     onCommitTags
       ? {
-          name: 'Tags',
+          name: systemPropertyLabel('tags'),
           type: 'tag',
           value: tags,
           onOpenTag: actions.onOpenTag,
@@ -327,19 +328,19 @@ export function buildPageProperties(
           editable: true,
           onCommit: onCommitTags,
         }
-      : { name: 'Tags', type: 'tag', value: tags, onOpenTag: actions.onOpenTag, editable: false },
+      : { name: systemPropertyLabel('tags'), type: 'tag', value: tags, onOpenTag: actions.onOpenTag, editable: false },
     aliasActions
       ? {
-          name: 'Aliases',
+          name: systemPropertyLabel('aliases'),
           type: 'multi-select',
           value: aliases,
           getSuggestions: aliasActions.getSuggestions,
           editable: true,
           onCommit: aliasActions.onCommit,
         }
-      : { name: 'Aliases', type: 'multi-select', value: aliases, editable: false },
-    { name: 'Created', type: 'date', value: page.metadata.createdAt, editable: false },
-    { name: 'Modified', type: 'date', value: page.metadata.updatedAt, editable: false },
+      : { name: systemPropertyLabel('aliases'), type: 'multi-select', value: aliases, editable: false },
+    { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
+    { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
     ...customItems,
     ...draftItems,
   ];

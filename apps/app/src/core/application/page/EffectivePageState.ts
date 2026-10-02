@@ -17,7 +17,7 @@ type Unsubscribe = () => void;
  * `path`, and `status` are deliberately excluded; add a field only when a
  * shipped consumer demonstrably needs it, never speculatively.
  * `createdAt`/`updatedAt` are the one timestamp pair included, added for
- * the collection Table view's "Date created"/"Date updated" columns
+ * the collection Table view's Created/Last edited columns
  * (`toCollectionPageModel`'s shipped consumer) — a draft never has
  * persisted `PageMetadata`, so it always resolves both to `null`
  * pre-promotion, same as `icon`/`favorite` above.

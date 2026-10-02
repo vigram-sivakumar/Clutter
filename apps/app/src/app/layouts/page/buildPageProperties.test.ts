@@ -42,9 +42,9 @@ function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata
 }
 
 describe('buildPageProperties', () => {
-  it('exposes exactly Tags, Aliases, Created, Modified, in order', () => {
+  it('exposes exactly Tags, Aliases, Created, Last edited, in order', () => {
     const items = buildPageProperties(makePage('note'));
-    expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
+    expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
     expect(items[0]).toEqual({
       name: 'Tags',
       type: 'tag',
@@ -130,7 +130,7 @@ describe('buildPageProperties', () => {
     });
 
     const items = buildPageProperties(page);
-    expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
+    expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
     expect(items[0]!.value).toEqual(['work']);
     expect(items[1]!.value).toEqual(['UX']);
   });
@@ -365,7 +365,7 @@ describe('buildPageProperties', () => {
         const actions = drafts([{ id: 1, type: 'date' as never }]);
         const items = buildPageProperties(customPage(), { drafts: actions });
 
-        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified', 'Priority', '']);
+        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Priority', '']);
         expect(items[5]).toMatchObject({ name: '', type: 'date', value: null, editable: false });
         expect(typeof items[5]!.onRename).toBe('function');
         items[5]!.onAbandon!();
@@ -437,7 +437,7 @@ describe('buildPageProperties', () => {
         const items = buildPageProperties(customPage({ status: 'archived' }), {
           drafts: drafts([{ id: 1, type: 'text' as never }]),
         });
-        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified', 'Priority']);
+        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Priority']);
       });
     });
 
@@ -458,11 +458,11 @@ describe('buildPageProperties', () => {
     );
   });
 
-  it('exposes Created/Modified as read-only date Properties carrying the raw timestamp', () => {
+  it('exposes Created/Last edited as read-only date Properties carrying the raw timestamp', () => {
     const items = buildPageProperties(makePage('note', { createdAt: null }));
     expect(items[2]).toEqual({ name: 'Created', type: 'date', value: null, editable: false });
     expect(items[3]).toEqual({
-      name: 'Modified',
+      name: 'Last edited',
       type: 'date',
       value: 'not-a-date',
       editable: false,

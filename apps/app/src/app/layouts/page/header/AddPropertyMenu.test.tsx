@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { systemPropertyLabel } from '@core/properties/systemProperties';
 
 import {
   customPropertyTypeOptions,
@@ -56,8 +57,8 @@ describe('AddPropertyMenu', () => {
   it('lists the available system properties first, then the custom types', () => {
     renderMenu({
       systemProperties: [
-        { id: 'created', label: 'Created', icon: 'calendar' },
-        { id: 'modified', label: 'Last edited', icon: 'calendar' },
+        { id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' },
+        { id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' },
       ],
     });
 
@@ -78,7 +79,7 @@ describe('AddPropertyMenu', () => {
   it('shows only the system properties it is given: one already displayed is simply not passed', () => {
     // The host computes "available" as the system properties minus those
     // the page shows, so a shown Created is never handed to the menu.
-    renderMenu({ systemProperties: [{ id: 'modified', label: 'Last edited', icon: 'calendar' }] });
+    renderMenu({ systemProperties: [{ id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' }] });
 
     expect(itemLabels()).toContain('Last edited');
     expect(itemLabels()).not.toContain('Created');
@@ -87,7 +88,7 @@ describe('AddPropertyMenu', () => {
 
   it('choosing a system property reports its key only', () => {
     const { onAddSystemProperty, onAddCustomProperty } = renderMenu({
-      systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }],
+      systemProperties: [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }],
     });
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Created' }));

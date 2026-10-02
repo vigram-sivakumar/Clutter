@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { CollectionEntry } from '@features/collection/CollectionEntry';
+import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
 import './NoteTable.css';
 import {
   buildNoteTableGridTemplateColumns,
@@ -42,19 +43,19 @@ export function NoteTable({
 
         {columns.lastOpened && (
           <div className="note-table__header-cell note-table__header-cell--last-opened">
-            Last opened
+            {collectionFieldLabel('lastOpened')}
           </div>
         )}
 
         {columns.created && (
           <div className="note-table__header-cell note-table__header-cell--created">
-            Date created
+            {collectionFieldLabel('created')}
           </div>
         )}
 
         {columns.updated && (
           <div className="note-table__header-cell note-table__header-cell--updated">
-            Date updated
+            {collectionFieldLabel('updated')}
           </div>
         )}
       </div>

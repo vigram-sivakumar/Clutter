@@ -219,9 +219,9 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    expect(queryByText('Date created')).not.toBeInTheDocument();
+    expect(queryByText('Created')).not.toBeInTheDocument();
     expect(queryByText('Last opened')).toBeInTheDocument();
-    expect(queryByText('Date updated')).toBeInTheDocument();
+    expect(queryByText('Last edited')).toBeInTheDocument();
   });
 
   it('Table mode: the header and each row share the same narrowed grid-template-columns when columns are hidden', () => {
@@ -236,7 +236,7 @@ describe('CollectionBody — Properties visibility', () => {
     const header = container.querySelector('.note-table__header') as HTMLElement;
     const row = container.querySelector('.note-table-row') as HTMLElement;
 
-    // Name + only the one visible optional column (Updated) — Last
+    // Name + only the one visible optional column (Last edited) — Last
     // opened/Created contribute no track at all, so the remaining
     // columns reflow rather than leaving reserved empty space.
     expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr) 140px');

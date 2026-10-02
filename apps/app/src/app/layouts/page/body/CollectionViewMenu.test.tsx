@@ -101,7 +101,7 @@ describe('CollectionViewMenu — root view', () => {
     // Only Name's row has a trailing arrow — the Properties trigger row's
     // chevron lives in the same slot but is a distinct, un-conditional
     // affordance, so this counts svgs scoped to Sort by's own rows only.
-    const sortByRows = [getByText('Name'), getByText('Last opened'), getByText('Created'), getByText('Updated')];
+    const sortByRows = [getByText('Name'), getByText('Last opened'), getByText('Created'), getByText('Last edited')];
     const arrows = sortByRows.filter((row) => row.closest('.entry')!.querySelector('.entry__trailing svg'));
     expect(arrows).toHaveLength(1);
   });
@@ -109,7 +109,7 @@ describe('CollectionViewMenu — root view', () => {
   it('selecting a different sort key activates it with the default (down) direction, and does not close the menu', () => {
     const { getByText, onSortChange } = renderMenu();
 
-    fireEvent.click(getByText('Updated'));
+    fireEvent.click(getByText('Last edited'));
 
     expect(onSortChange).toHaveBeenCalledWith({ key: 'updated', direction: 'down' });
     expect(getByText('Sort by')).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe('CollectionViewMenu — Properties submenu', () => {
     expect(getByText('Description')).toBeInTheDocument();
     expect(getByText('Last opened')).toBeInTheDocument();
     expect(getByText('Created')).toBeInTheDocument();
-    expect(getByText('Updated')).toBeInTheDocument();
+    expect(getByText('Last edited')).toBeInTheDocument();
     expect(getByText('Properties')).toBeInTheDocument(); // the submenu's own title
   });
 

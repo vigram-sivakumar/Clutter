@@ -96,3 +96,11 @@ Users can add a custom property from the page header's More actions (`…`) menu
 
 **Editability stays explicit.** Custom text, number, boolean, date and URL values are editable only when the host supplies `onSetScalarValue` and the page is not archived; lists when it supplies `onCommitListValue`; a type never implies editability.
 
+## Amendment — system property terminology and stored identity
+
+User-facing terminology for the system timestamps is **Created**, **Last edited** and **Last opened**; the older wording ("Modified", "Updated", "Date created", "Date updated") is retired everywhere it was shown. Internal names are unchanged: the frontmatter key stays `modified` (and `created`), the model field stays `updatedAt`, and the collection views keep persisting `lastOpened` / `created` / `updated`.
+
+The labels are defined once, in the system property definitions (`core/properties/systemProperties.ts`, `systemPropertyDefinitions` / `systemPropertyLabel`), keyed by the canonical internal key (`tags`, `aliases`, `created`, `modified`, `lastOpened`). Every user-facing place reads from there rather than writing its own string: `buildPageProperties` (the Properties list rows), the Add properties menu (which is handed system properties labelled from the same definitions), and the collection views (`collectionFieldLabel`, which says that the collection's `updated` field is the `modified` Property) for the Table headers and the Properties and Sort by menus.
+
+**Stored identity is the key, never the label.** Anything persisted about a system property — including the per-note show/hide of system properties, once designed — must store the canonical key (`modified`), not its display wording ("Last edited"), so that changing UI copy can never invalidate stored configuration. `Last opened` is defined but not yet a Property on the page's Properties list.
+

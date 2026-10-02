@@ -4,6 +4,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
+import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
@@ -37,9 +38,9 @@ const PROPERTY_ITEMS: ReadonlyArray<{
   label: string;
 }> = [
   { key: 'description', label: 'Description' },
-  { key: 'lastOpened', label: 'Last opened' },
-  { key: 'created', label: 'Created' },
-  { key: 'updated', label: 'Updated' },
+  { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
+  { key: 'created', label: collectionFieldLabel('created') },
+  { key: 'updated', label: collectionFieldLabel('updated') },
 ];
 
 // Deliberately the same labels as PROPERTY_ITEMS (Name is the one
@@ -48,9 +49,9 @@ const PROPERTY_ITEMS: ReadonlyArray<{
 // not "Last Viewed"/"Date Created"/"Date Updated".
 const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
   { key: 'name', label: 'Name' },
-  { key: 'lastOpened', label: 'Last opened' },
-  { key: 'created', label: 'Created' },
-  { key: 'updated', label: 'Updated' },
+  { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
+  { key: 'created', label: collectionFieldLabel('created') },
+  { key: 'updated', label: collectionFieldLabel('updated') },
 ];
 
 type ConfigureMenuView = 'root' | 'properties';
