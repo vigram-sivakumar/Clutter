@@ -2,6 +2,7 @@
   /* Property rows are 32px — Entry's and Input's height and every value
      cell's minimum read this, for this list only. */
   --height-lg: 32px;
+  margin-left: -6px;
 
   display: flex;
   flex-direction: column;
@@ -34,7 +35,8 @@
   display: inline-flex;
 }
 .property-list__name:hover:has(.property__menu-button) .property__icon--type,
-.property-list__name:has(.property__menu-button[aria-expanded='true']) .property__icon--type {
+.property-list__name:has(.property__menu-button[aria-expanded='true'])
+  .property__icon--type {
   display: none;
 }
 .property-list__value {
@@ -62,7 +64,6 @@
   overflow-wrap: anywhere;
 }
 .property-list .entry {
-  padding-inline: 0;
   font-size: inherit;
 }
 
@@ -233,7 +234,6 @@
 }
 
 /* ---- Tags (`tag` Property) ---------------------------------------- */
-
 
 /* A tag suggestion row: the tag label with the pills' dimmed `#`. */
 .property-list__tag-suggestion {

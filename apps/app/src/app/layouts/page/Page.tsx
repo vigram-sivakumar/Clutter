@@ -1,3 +1,4 @@
+import type { PropertiesControl } from './header/propertiesControl';
 import type { ReactNode, RefObject } from 'react';
 import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
@@ -81,9 +82,8 @@ type PageProps = {
    * presentation here; whatever the caller supplies renders as-is.
    */
   properties?: ReactNode;
-  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
-  onToggleProperties?: () => void;
-  propertiesShown?: boolean;
+  /** Forwarded to the More-actions Properties control — see PropertiesControl. */
+  propertiesControl?: PropertiesControl;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -222,8 +222,7 @@ export function Page({
   onSetCoverImage,
   onSetCoverImageFromUpload,
   properties,
-  onToggleProperties,
-  propertiesShown,
+  propertiesControl,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -347,8 +346,7 @@ export function Page({
               onRemoveEmoji={onRemoveEmoji}
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
-              onToggleProperties={onToggleProperties}
-              propertiesShown={propertiesShown}
+              propertiesControl={propertiesControl}
               hasCoverImage={Boolean(coverImage)}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}

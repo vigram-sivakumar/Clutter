@@ -1,3 +1,4 @@
+import type { PropertiesControl } from './propertiesControl';
 import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
@@ -58,9 +59,8 @@ export interface PageHeaderControlsProps {
   /** Forwarded to PageHeaderMoreActionsMenu's "Description" gate — see its own doc comment. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
-  onToggleProperties?: () => void;
-  propertiesShown?: boolean;
+  /** Forwarded to the More-actions Properties control — see PropertiesControl. */
+  propertiesControl?: PropertiesControl;
 }
 
 export function PageHeaderControls({
@@ -77,8 +77,7 @@ export function PageHeaderControls({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  onToggleProperties,
-  propertiesShown,
+  propertiesControl,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -141,8 +140,7 @@ export function PageHeaderControls({
           onShowCoverImage={onShowCoverImage}
           hasDescription={hasDescription}
           onEditDescription={onEditDescription}
-          onToggleProperties={onToggleProperties}
-          propertiesShown={propertiesShown}
+          propertiesControl={propertiesControl}
         />
       )}
     </div>

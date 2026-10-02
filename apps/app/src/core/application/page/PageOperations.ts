@@ -1707,9 +1707,13 @@ export class PageOperations {
     property: NewCustomProperty
   ): Promise<void> {
     // The new property is shown at once: its key joins `properties.visible`
-    // in the same save as the property itself.
+    // — and the Properties section is shown, so a first property makes it
+    // appear — in the same save as the property itself.
     await this.saveCustomFrontmatter(pageId, (lines) =>
-      addVisibleProperty(addCustomProperty(lines, name, property), name.trim())
+      setPropertiesSectionVisibility(
+        addVisibleProperty(addCustomProperty(lines, name, property), name.trim()),
+        true
+      )
     );
   }
 
@@ -1719,8 +1723,10 @@ export class PageOperations {
    * — a system key (`tags`, `aliases`, `created`, `modified`) or the actual
    * key of a custom property already in the frontmatter. It only adds: the
    * list keeps its order (the key goes last), nothing is removed or
-   * reordered, and the property's value is untouched. Already shown is a
-   * no-op. Rejects, with no write, a custom key that isn't in the
+   * reordered, and the property's value is untouched. It also shows the
+   * Properties section (`properties.show: true`) in the same save, so
+   * choosing a property when none is shown yet makes the section appear.
+   * Already shown, in a shown section, is a no-op. Rejects, with no write, a custom key that isn't in the
    * frontmatter or a reserved one (`properties`); same guard and Gate
    * `save` as renameCustomProperty(). hideProperty() is its counterpart.
    */
@@ -1738,7 +1744,10 @@ export class PageOperations {
         }
       }
 
-      return readVisibleProperties(lines).includes(name) ? null : addVisibleProperty(lines, name);
+      // Showing a property shows the section it lives in, in the same save.
+      return readVisibleProperties(lines).includes(name) && readPropertiesSectionVisibility(lines)
+        ? null
+        : setPropertiesSectionVisibility(addVisibleProperty(lines, name), true);
     });
   }
 

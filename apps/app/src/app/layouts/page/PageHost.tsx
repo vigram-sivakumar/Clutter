@@ -61,7 +61,8 @@ import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
-import { readPropertiesSectionVisibility } from '@core/vault/ingest/frontmatter/propertyVisibility';
+import type { PropertiesControl } from './header/propertiesControl';
+import { derivePropertiesSectionState } from './propertiesSectionState';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import {
@@ -490,11 +491,6 @@ export function PageHost({
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
-  // Whether this page's Properties section is shown: `properties.show` in its
-  // own frontmatter (hidden unless it says `true`) — separate from
-  // `properties.visible`, which says which individual properties the
-  // section lists. Read from the page itself, so it survives reloads.
-  const arePropertiesShown = page ? readPropertiesSectionVisibility(page.metadata.unownedFrontmatter ?? []) : false;
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -1751,17 +1747,59 @@ export function PageHost({
   // What Add properties can still show: system Properties and custom
   // properties that exist but aren't shown.
   const addableProperties = getAddableProperties(page);
-  // The "+ Add properties" row always ends the list — except on an archived
-  // page, which is view-only.
+  // The Properties section. Two independent per-note settings drive it:
+  // `properties.show` (is the section displayed at all) and
+  // `properties.visible` (which properties it lists). Hiding the section
+  // never removes a listed property.
+  const isArchived = page.metadata.status === 'archived';
+  const sectionState = derivePropertiesSectionState({
+    lines: page.metadata.unownedFrontmatter ?? [],
+    isArchived,
+    hasDraft: propertyDrafts.drafts.length > 0,
+  });
+  const isSectionDisplayed = sectionState.isDisplayed;
   const addPropertyRow =
-    page.metadata.status === 'archived' ? undefined : (
+    sectionState.showsAddRow ? (
       <AddPropertyRow
         systemProperties={addableProperties.systemProperties}
         hiddenProperties={addableProperties.hiddenProperties}
         onShowProperty={(key) => void application.pageOperations.showProperty(page.id, key)}
         onAddCustomProperty={propertyDrafts.add}
       />
-    );
+    ) : undefined;
+  // The title's control: "Add a property" until the first property exists,
+  // then only the section toggle (Hide / Show properties) — it changes
+  // `properties.show` and never `properties.visible`.
+  const propertiesControl: PropertiesControl | undefined =
+    sectionState.control === null
+      ? undefined
+      : sectionState.control === 'hide'
+        ? {
+            mode: 'toggle',
+            shown: true,
+            onToggle: () => {
+              // An unnamed draft belongs to the section being hidden: drop it,
+              // so it can't reappear (and grab focus) when shown again.
+              propertyDrafts.clear();
+              void application.pageOperations.setPropertiesSectionVisibility(page.id, false);
+            },
+          }
+        : sectionState.control === 'add'
+          ? {
+              mode: 'add',
+              menu: {
+                systemProperties: addableProperties.systemProperties,
+                hiddenProperties: addableProperties.hiddenProperties,
+                // Shows the property and the section in one save.
+                onShowProperty: (key) => void application.pageOperations.showProperty(page.id, key),
+                onAddCustomProperty: propertyDrafts.add,
+              },
+            }
+          : {
+              mode: 'toggle',
+              shown: false,
+              onToggle: () => void application.pageOperations.setPropertiesSectionVisibility(page.id, true),
+            };
 
   return (
     <Page
@@ -1831,27 +1869,12 @@ export function PageHost({
       coverKey={activePageId}
       bodyFocusRef={editorRef}
       // An archived page is view-only: nothing can be added to it.
-      propertiesShown={arePropertiesShown}
-      onToggleProperties={
-        // An archived page is view-only: its section can't be toggled.
-        page.metadata.status === 'archived'
-          ? undefined
-          : () => {
-              if (arePropertiesShown) {
-                // An unnamed draft belongs to the section being hidden: drop
-                // it, so it can't reappear (and grab focus) when shown again.
-                propertyDrafts.clear();
-              }
-
-              // Only `properties.show` changes — never `properties.visible`.
-              void application.pageOperations.setPropertiesSectionVisibility(page.id, !arePropertiesShown);
-            }
-      }
+      propertiesControl={propertiesControl}
       properties={
-        // The whole section, hidden by default and toggled from the title
-        // controls. Shown, it lists what `properties.visible` lists, ending
-        // with "+ Add a property"; nothing at all if there is neither.
-        arePropertiesShown && (propertyItems.length > 0 || addPropertyRow) ? (
+        // The whole section, hidden by default. Displayed, it lists what
+        // `properties.visible` lists, ending with "+ Add a property" once
+        // there is one; nothing at all if there is neither.
+        isSectionDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
           <PropertyList key={activePageId} items={propertyItems} footer={addPropertyRow} />
         ) : undefined
       }

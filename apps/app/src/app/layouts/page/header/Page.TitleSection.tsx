@@ -1,3 +1,4 @@
+import type { PropertiesControl } from './propertiesControl';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { PageHeaderControls } from './PageHeaderControls';
 import type { SystemIcon } from '@shared/icon';
@@ -36,9 +37,8 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls' More-actions "Description" gate — see Page.tsx's matching prop. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
-  onToggleProperties?: () => void;
-  propertiesShown?: boolean;
+  /** Forwarded to the More-actions Properties control — see PropertiesControl. */
+  propertiesControl?: PropertiesControl;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -72,8 +72,7 @@ export function PageTitleSection({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  onToggleProperties,
-  propertiesShown,
+  propertiesControl,
   actions,
   belowDescription,
   className,
@@ -99,8 +98,7 @@ export function PageTitleSection({
         onShowCoverImage={onShowCoverImage}
         hasDescription={hasDescription}
         onEditDescription={onEditDescription}
-        onToggleProperties={onToggleProperties}
-        propertiesShown={propertiesShown}
+        propertiesControl={propertiesControl}
       />
 
       <div className="page-title-section__content">

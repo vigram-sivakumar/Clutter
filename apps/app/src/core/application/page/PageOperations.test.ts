@@ -856,7 +856,8 @@ describe('PageOperations.renameCustomProperty()', () => {
         expect(enqueue).toHaveBeenCalledTimes(1);
         expect(enqueue.mock.calls[0]![1].kind).toBe('save');
         const content = await fileSystem.readFile(page.path);
-        expect(content).toContain(`author: Jane\npriority: high\nproperties:\n  visible:\n    - ${key}`);
+        // The key is listed, and the section is shown with it.
+        expect(content).toContain(`author: Jane\npriority: high\nproperties:\n  show: true\n  visible:\n    - ${key}`);
         expect(content).toContain('Body text');
         expect(visibleOf(vault, page.id)).toEqual([key]);
         expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
@@ -925,7 +926,9 @@ describe('PageOperations.renameCustomProperty()', () => {
 
       expect(enqueue).toHaveBeenCalledTimes(1);
       const content = await fileSystem.readFile(page.path);
-      expect(content).toContain('author: Jane\nproperties:\n  visible:\n    - tags\n    - Due date\nDue date: # date');
+      expect(content).toContain(
+        'author: Jane\nproperties:\n  show: true\n  visible:\n    - tags\n    - Due date\nDue date: # date'
+      );
       expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due date']);
       expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!).at(-1)).toEqual({
         key: 'Due date',
@@ -1122,24 +1125,47 @@ describe('PageOperations.renameCustomProperty()', () => {
         expect(enqueue).not.toHaveBeenCalled();
       });
 
-      it('show and the properties list change independently: neither operation touches the other', async () => {
-        const { page, vault, pageOperations } = await setupWithFrontmatter('priority: high');
+      it('choosing a property shows the section with it, in one save; hiding the section or a property never touches the other', async () => {
+        const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter('priority: high');
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+        // The first property chosen also makes the section appear.
         await pageOperations.showProperty(page.id, 'priority');
-        await pageOperations.showProperty(page.id, 'tags');
+        expect(enqueue).toHaveBeenCalledTimes(1);
         expect(sectionShown(vault, page.id)).toBe(true);
+        expect(visibleOf(vault, page.id)).toEqual(['priority']);
+
+        await pageOperations.showProperty(page.id, 'tags');
         expect(visibleOf(vault, page.id)).toEqual(['priority', 'tags']);
 
+        // Hiding a property leaves the section shown...
         await pageOperations.hideProperty(page.id, 'priority');
         expect(sectionShown(vault, page.id)).toBe(true);
-
-        await pageOperations.setPropertiesSectionVisibility(page.id, false);
         expect(visibleOf(vault, page.id)).toEqual(['tags']);
 
-        await pageOperations.addCustomProperty(page.id, 'Due', { type: 'date', value: null });
+        // ...and hiding the section leaves the list alone.
+        await pageOperations.setPropertiesSectionVisibility(page.id, false);
         expect(sectionShown(vault, page.id)).toBe(false);
+        expect(visibleOf(vault, page.id)).toEqual(['tags']);
+
+        // Choosing a property again brings the section back.
+        await pageOperations.addCustomProperty(page.id, 'Due', { type: 'date', value: null });
+        expect(sectionShown(vault, page.id)).toBe(true);
         expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due']);
+      });
+
+      it('showing a property that is already listed, while the section is hidden, shows the section; already shown in a shown section writes nothing', async () => {
+        const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter(
+          'properties:\n  show: false\n  visible:\n    - tags'
+        );
+
+        await pageOperations.showProperty(page.id, 'tags');
+        expect(sectionShown(vault, page.id)).toBe(true);
+        expect(visibleOf(vault, page.id)).toEqual(['tags']);
+
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+        await pageOperations.showProperty(page.id, 'tags');
+        expect(enqueue).not.toHaveBeenCalled();
       });
 
       it('rejects for an archived or unknown page, writing nothing', async () => {
