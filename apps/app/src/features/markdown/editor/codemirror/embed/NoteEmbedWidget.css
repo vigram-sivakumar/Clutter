@@ -75,7 +75,11 @@
   cursor: pointer;
 }
 
-.cm-note-embed:hover > .cm-note-embed__content {
+/* Only the innermost hovered embed is painted: an embed nested inside
+ * another is also `:hover` whenever its host is, so the host excludes itself
+ * while any embed inside it is hovered — one highlight at a time, matching
+ * the embed a click would open. */
+.cm-note-embed:hover:not(:has(.cm-note-embed:hover)) > .cm-note-embed__content {
   background-color: var(--md-reveal-highlight-surface);
 }
 
