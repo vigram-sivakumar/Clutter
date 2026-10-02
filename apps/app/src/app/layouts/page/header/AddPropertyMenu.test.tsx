@@ -52,7 +52,7 @@ describe('AddPropertyMenu', () => {
 
     expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.queryByText('New properties')).toBeNull();
+    expect(screen.queryByText('Type')).toBeNull();
   });
 
   it('lists the available system properties first, then the custom types', () => {
@@ -74,7 +74,7 @@ describe('AddPropertyMenu', () => {
       'Multi-select',
     ]);
     expect(screen.getByText('Properties')).toBeInTheDocument();
-    expect(screen.getByText('New properties')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.queryByText('Hidden')).toBeNull();
   });
 
@@ -141,7 +141,7 @@ describe('AddPropertyMenu — hidden custom properties', () => {
     ]);
     expect(screen.getByText('Properties')).toBeInTheDocument();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
-    expect(screen.getByText('New properties')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
   it('shows only the group it has, with the new types still offered', () => {

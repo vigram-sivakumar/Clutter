@@ -102,7 +102,7 @@ export function AddPropertyMenu({
           ))}
         </>
       )}
-      {hasTitles && <MenuGroupTitle>New properties</MenuGroupTitle>}
+      {hasTitles && <MenuGroupTitle>Type</MenuGroupTitle>}
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}

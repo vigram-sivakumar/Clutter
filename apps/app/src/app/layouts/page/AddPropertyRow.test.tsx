@@ -91,7 +91,7 @@ describe('AddPropertyRow — clicking it', () => {
 
     expect(screen.getByText('Properties')).toBeInTheDocument();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
-    expect(screen.getByText('New properties')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Created',
       'Due date',
