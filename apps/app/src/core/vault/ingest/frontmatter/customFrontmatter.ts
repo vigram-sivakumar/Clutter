@@ -269,3 +269,56 @@ export function renameCustomProperty(
   renamed[block.start] = `${name.trim()}${line.slice(line.indexOf(':'))}`;
   return renamed;
 }
+
+/**
+ * The raw lines with item `index` removed from list custom property
+ * `key` — the pill being dismissed. `expected` is that item's value as
+ * shown; the removal is refused (throws) unless the item there still has
+ * it, so a file changed in the meantime never loses the wrong item.
+ *
+ * Only that item's text goes: a block list drops its `- item` line; a
+ * flow list (`[a, b]`) is rewritten from its remaining items exactly as
+ * written (quoting kept). Every other line stays byte-identical. Removing
+ * the last item leaves the key with an empty list (`key: []`).
+ */
+export function removeCustomListItem(
+  lines: readonly string[],
+  key: string,
+  index: number,
+  expected: string
+): string[] {
+  const block = splitKeyBlocks(lines).find((candidate) => candidate.key === key);
+  const property = block && readBlock(block);
+
+  if (!block || !property || property.type !== 'list') {
+    throw new Error(`No list property "${key}".`);
+  }
+
+  if (property.value[index] !== expected) {
+    throw new Error(`List property "${key}" has no item "${expected}" at ${index}.`);
+  }
+
+  const result = [...lines];
+
+  if (block.inlineValue !== '') {
+    const remaining = splitFlowSequence(block.inlineValue)!.filter((_, itemIndex) => itemIndex !== index);
+    const line = lines[block.start]!;
+    result[block.start] = `${line.slice(0, line.indexOf(':'))}: [${remaining.join(', ')}]`;
+    return result;
+  }
+
+  // Block list: the index-th list-item line after the key.
+  let seen = -1;
+  for (let lineIndex = block.start + 1; lineIndex < lines.length; lineIndex++) {
+    if (/^\s*-(?:\s|$)/.test(lines[lineIndex]!) && ++seen === index) {
+      result.splice(lineIndex, 1);
+      if (property.value.length === 1) {
+        const keyLine = lines[block.start]!;
+        result[block.start] = `${keyLine.slice(0, keyLine.indexOf(':'))}: []`;
+      }
+      return result;
+    }
+  }
+
+  throw new Error(`List property "${key}" has no item at ${index}.`);
+}

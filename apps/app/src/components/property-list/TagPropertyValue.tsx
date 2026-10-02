@@ -25,6 +25,8 @@ type TagPropertyValueProps = {
   getSuggestions?: GetTagSuggestions;
   /** Opens a tag's Tag Collection on pill click (see PropertyList.types). */
   onOpenTag?(name: string): void;
+  /** Read-only: makes each pill dismissable (see PropertyList.types). */
+  onRemoveValue?(index: number, value: string): void;
 } & PropertyEditability<string[]>;
 
 /**
@@ -50,15 +52,21 @@ function hasTag(tags: readonly string[], name: string): boolean {
  * The `tag` Property's value — frontmatter tags only; inline `#tags` in the
  * body are never read or touched here. `editable` (supplied by the
  * adapter, never inferred here) picks the state: read-only renders the
- * pills; editable renders the pills plus an inline input.
+ * pills (dismissable with `onRemoveValue`); editable renders the pills
+ * plus an inline input.
  */
 export function TagPropertyValue(props: TagPropertyValueProps) {
   if (!props.editable) {
     return (
       <PropertyValueCell>
         <span className="property-list__tags">
-          {props.value.map((tag) => (
-            <TagPill key={tag} tag={tag} onOpen={props.onOpenTag} />
+          {props.value.map((tag, index) => (
+            <TagPill
+              key={tag}
+              tag={tag}
+              onOpen={props.onOpenTag}
+              onRemove={props.onRemoveValue && (() => props.onRemoveValue!(index, tag))}
+            />
           ))}
         </span>
       </PropertyValueCell>

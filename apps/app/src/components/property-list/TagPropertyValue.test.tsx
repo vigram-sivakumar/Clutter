@@ -81,6 +81,23 @@ describe('parseTagInput', () => {
   });
 });
 
+describe('TagPropertyValue — read-only, dismissable', () => {
+  it('with onRemoveValue, each pill has a dismiss button removing that tag — and no input', () => {
+    const onRemoveValue = vi.fn();
+    render(<TagPropertyValue name="Tags" value={['design', 'product']} editable={false} onRemoveValue={onRemoveValue} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag product' }));
+
+    expect(onRemoveValue).toHaveBeenCalledExactlyOnceWith(1, 'product');
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('without it, read-only pills have no dismiss button', () => {
+    render(<TagPropertyValue name="Tags" value={['design']} editable={false} />);
+    expect(screen.queryByRole('button', { name: 'Remove tag design' })).toBeNull();
+  });
+});
+
 describe('TagPropertyValue — read-only', () => {
   it('renders each tag as a # pill, with no input and no dismiss buttons', () => {
     render(<TagPropertyValue name="Tags" value={['design', 'product-ui']} editable={false} />);

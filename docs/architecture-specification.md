@@ -405,6 +405,8 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
       // description, icon, cover*, favorite, tags, aliases — Gate 'save' + metadata patch; may promote a draft (ADR-017)
     renameCustomProperty(pageId: string, key: string, name: string): Promise<void>;
       // ADR-036 — renames one custom frontmatter key on this page only
+    removeCustomPropertyItem(pageId: string, key: string, index: number, value: string): Promise<void>;
+      // ADR-036 — removes one item from a list custom property on this page only
   }
 ```
 
@@ -425,7 +427,7 @@ Constructed once at the Composition Root. No internal state of its own beyond it
 - `delete()`/`close()` have no existence check of their own ([ADR-017](./adr/017-draft-page-lifecycle.md) §5/§7): `delete()` enqueues `{kind:'delete'}` unconditionally, relying on the Gate's own abandon-if-missing guard, so a delete for a draft that was never persisted resolves harmlessly instead of racing an in-flight, not-yet-executed `create` for the same id.
 - `delete()` and `close()` on the same page never race — `delete()` closes the session (via `DocumentRegistry`) before enqueuing the disk delete, so no save can complete against a page mid-deletion.
 - No method here ever calls `VaultFileSystem` directly.
-- [ADR-036](./adr/036-frontmatter-properties-aliases-and-custom-keys.md): `renameCustomProperty()` changes only the renamed key's text in this page's preserved frontmatter — its value lines and every other line stay byte-identical, and no other page is read or written. It rejects, with no write, an empty name, a canonical system key in any letter case (`OWNED_FRONTMATTER_KEYS`), a name the frontmatter reader can't read back as a key, or another key on the same page — the same `validateCustomPropertyName` rule the Properties UI checks for feedback. Aliases are never unique-checked anywhere.
+- [ADR-036](./adr/036-frontmatter-properties-aliases-and-custom-keys.md): `renameCustomProperty()` changes only the renamed key's text in this page's preserved frontmatter — its value lines and every other line stay byte-identical, and no other page is read or written. It rejects, with no write, an empty name, a canonical system key in any letter case (`OWNED_FRONTMATTER_KEYS`), a name the frontmatter reader can't read back as a key, or another key on the same page — the same `validateCustomPropertyName` rule the Properties UI checks for feedback. Aliases are never unique-checked anywhere. `removeCustomPropertyItem()` likewise changes only that one list item's text (a block-list line, or the flow list rewritten from its remaining items as written), and writes nothing when the item at `index` no longer has `value`.
 - [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` never writes to `Vault`/the Gate when a `DocumentSession` is open for `pageId` — a `DocumentSession`, while open, is the exclusive owner of that page's current content, and every app-initiated body mutation must resolve through it rather than around it.
 
 ### Concurrency model

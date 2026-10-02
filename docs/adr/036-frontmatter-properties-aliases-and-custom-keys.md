@@ -73,3 +73,7 @@ Frontmatter written outside Clutter often capitalizes keys (`Aliases:`, `Created
 3. **Edited** — `PageOperations.updateMetadata()` drops the spelling entries for exactly the properties in its patch, so the first intentional edit of a property writes its canonical key; other properties keep their spelling.
 
 Reserved custom-property names use the same registry, case-insensitively (`isReservedPropertyName`). Clutter has no `lastEdited` key — its system key for that is `modified`.
+
+## Amendment — dismissable list pills
+
+Every list Property's pills are dismissable, like Aliases': the system Tags (removing that tag from frontmatter `tags` through `updateMetadata()`; Tags gains no add), and list custom properties through `PageOperations.removeCustomPropertyItem(pageId, key, index, value)`. That method follows `renameCustomProperty()`'s shape — `removeCustomListItem` (`customFrontmatter.ts`) removes only that item's text, every other line byte-identical; the Gate's `'save'` with a metadata patch; this page only — and refuses, with no write, when the item at `index` no longer has `value` (the file changed since it was shown). Custom property values otherwise stay read-only.

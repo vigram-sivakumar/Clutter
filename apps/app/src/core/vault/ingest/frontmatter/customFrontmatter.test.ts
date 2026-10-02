@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FrontmatterParser } from '../FrontmatterParser';
 import {
   isReservedPropertyName,
+  removeCustomListItem,
   readCustomProperties,
   renameCustomProperty,
   validateCustomPropertyName,
@@ -194,5 +195,35 @@ describe('renameCustomProperty', () => {
     const lines = customLines('priority: high');
     expect(() => renameCustomProperty(lines, 'priority', 'Tags')).toThrow(/reserved/);
     expect(() => renameCustomProperty(lines, 'missing', 'x')).toThrow(/No custom property/);
+  });
+});
+
+describe('removeCustomListItem', () => {
+  it('drops only that block-list item line; everything else is byte-identical', () => {
+    const lines = customLines('author: Jane\npeople:\n  - Ana\n  - "Bo, Jr"\n  - Cy\nx: 1');
+
+    expect(removeCustomListItem(lines, 'people', 1, 'Bo, Jr')).toEqual([
+      'author: Jane',
+      'people:',
+      '  - Ana',
+      '  - Cy',
+      'x: 1',
+    ]);
+  });
+
+  it('rewrites a flow list from its remaining items, keeping their quoting', () => {
+    const lines = customLines('labels: [a, "b, c", \'d\']');
+    expect(removeCustomListItem(lines, 'labels', 0, 'a')).toEqual(['labels: ["b, c", \'d\']']);
+  });
+
+  it('removing the last item leaves an empty list', () => {
+    expect(removeCustomListItem(customLines('people:\n  - Ana'), 'people', 0, 'Ana')).toEqual(['people: []']);
+    expect(removeCustomListItem(customLines('labels: [a]'), 'labels', 0, 'a')).toEqual(['labels: []']);
+  });
+
+  it('refuses when the item there is no longer the one shown, or the property is not a list', () => {
+    const lines = customLines('people:\n  - Ana\n  - Bo\npriority: high');
+    expect(() => removeCustomListItem(lines, 'people', 0, 'Bo')).toThrow(/no item "Bo"/);
+    expect(() => removeCustomListItem(lines, 'priority', 0, 'high')).toThrow(/No list property/);
   });
 });

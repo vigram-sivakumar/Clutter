@@ -594,6 +594,29 @@ describe('PageOperations.renameCustomProperty()', () => {
     }
   );
 
+  it('removeCustomPropertyItem removes one list item from this note only', async () => {
+    const { page, other, fileSystem, pageOperations } = await setupWithFrontmatter(
+      'people:\n  - Ana\n  - Bo\npriority: high',
+      'people:\n  - Ana\n  - Bo'
+    );
+    const otherBefore = await fileSystem.readFile(other.path);
+
+    await pageOperations.removeCustomPropertyItem(page.id, 'people', 0, 'Ana');
+
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toContain('people:\n  - Bo\npriority: high');
+    expect(content).not.toContain('Ana');
+    expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+  });
+
+  it('removeCustomPropertyItem writes nothing when the item shown is stale', async () => {
+    const { page, fileSystem, pageOperations } = await setupWithFrontmatter('people:\n  - Ana');
+    const before = await fileSystem.readFile(page.path);
+
+    await expect(pageOperations.removeCustomPropertyItem(page.id, 'people', 0, 'Bo')).rejects.toThrow();
+    expect(await fileSystem.readFile(page.path)).toBe(before);
+  });
+
   it('an unchanged name is a no-op', async () => {
     const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
     const before = await fileSystem.readFile(page.path);

@@ -15,6 +15,7 @@ import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
 import {
+  removeCustomListItem,
   renameCustomProperty,
   validateCustomPropertyName,
 } from '../../vault/ingest/frontmatter/customFrontmatter';
@@ -1571,6 +1572,45 @@ export class PageOperations {
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body, patch);
+  }
+
+  /**
+   * Removes item `index` (shown as `value`) from list custom property
+   * `key`, in this page's frontmatter only — the pill's dismiss button.
+   * Only that item's text goes (removeCustomListItem): every other line of
+   * preserved frontmatter stays byte-identical, and no other page is read
+   * or written. Rejects, with no write, when the item there no longer has
+   * `value` (the file changed since it was shown), the property isn't a
+   * list, or the page is archived/unknown. Written like
+   * renameCustomProperty(): the Gate's 'save' with a metadata patch.
+   */
+  public async removeCustomPropertyItem(
+    pageId: string,
+    key: string,
+    index: number,
+    value: string
+  ): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
+    }
+
+    const lines = removeCustomListItem(page.metadata.unownedFrontmatter ?? [], key, index, value);
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: page.source.markdown,
+      metadata: { unownedFrontmatter: lines },
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
   }
 
   /**

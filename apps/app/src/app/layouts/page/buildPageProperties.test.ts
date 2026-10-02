@@ -83,6 +83,19 @@ describe('buildPageProperties', () => {
     expect(aliases.editable).toBe(false);
   });
 
+  it('Tags pills are dismissable when the host can commit tags, removing just that tag', () => {
+    const onCommitTags = vi.fn();
+    const tags = buildPageProperties(makePage('note'), { onCommitTags })[0]!;
+
+    if (tags.type !== 'tag') throw new Error('expected tags');
+    tags.onRemoveValue!(0, 'a');
+    expect(onCommitTags).toHaveBeenCalledExactlyOnceWith(['b']);
+    expect(tags.editable).toBe(false);
+
+    const archived = buildPageProperties(makePage('note', { status: 'archived' }), { onCommitTags })[0]!;
+    expect(archived.type === 'tag' && archived.onRemoveValue).toBeFalsy();
+  });
+
   it('a differently-cased system key shows as the system property, never as a custom one', async () => {
     const { FrontmatterParser } = await import('@core/vault/ingest/FrontmatterParser');
     const { PageBuilder } = await import('@core/vault/ingest/PageBuilder');
@@ -141,6 +154,15 @@ describe('buildPageProperties', () => {
 
       expect(priority.onRename!(' importance ')).toBe(true);
       expect(onRenameProperty).toHaveBeenCalledExactlyOnceWith('priority', 'importance');
+    });
+
+    it('list pills are dismissable through the host, by key, index and value', () => {
+      const onRemoveListItem = vi.fn();
+      const people = buildPageProperties(custom(), { onRemoveListItem })[6]!;
+
+      if (people.type !== 'multi-select') throw new Error('expected a list');
+      people.onRemoveValue!(0, 'Ana');
+      expect(onRemoveListItem).toHaveBeenCalledExactlyOnceWith('people', 0, 'Ana');
     });
 
     it('are not renamable on an archived page', () => {

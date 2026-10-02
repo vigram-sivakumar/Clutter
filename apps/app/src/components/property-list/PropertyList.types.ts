@@ -33,6 +33,14 @@ export type PropertyEditability<Value> =
  */
 export type PropertyNameEditability = { onRename?(name: string): boolean };
 
+/**
+ * For a read-only list Property (tag, multi-select): makes each pill
+ * dismissable — its hover dismiss button calls this with the pill's index
+ * and value, and the adapter removes that one item. Adding stays off.
+ * Ignored while the Property is editable (its editor already removes).
+ */
+type RemovableValues = { onRemoveValue?(index: number, value: string): void };
+
 export type PropertyListItem = PropertyNameEditability & PropertyListItemByType;
 
 type PropertyListItemByType =
@@ -60,7 +68,8 @@ type PropertyListItemByType =
        * Omitted: pills aren't clickable.
        */
       onOpenTag?(name: string): void;
-    } & PropertyEditability<string[]>)
+    } & RemovableValues &
+      PropertyEditability<string[]>)
   | ({
       name: string;
       type: 'url';
@@ -85,7 +94,8 @@ type PropertyListItemByType =
        * adds values.
        */
       getSuggestions?(query: string): readonly MultiSelectSuggestion[];
-    } & PropertyEditability<string[]>)
+    } & RemovableValues &
+      PropertyEditability<string[]>)
   | ({ name: string; type: 'boolean'; value: boolean } & PropertyEditability<boolean>);
 
 export type PropertyListItemOf<Type extends PropertyListItem['type']> = Extract<

@@ -65,6 +65,20 @@ describe('MultiSelectPropertyValue — read-only', () => {
   });
 });
 
+describe('MultiSelectPropertyValue — read-only, dismissable', () => {
+  it('with onRemoveValue, each pill has a dismiss button removing that item — and no input', () => {
+    const onRemoveValue = vi.fn();
+    render(
+      <MultiSelectPropertyValue name="people" value={['Ana', 'Bo']} editable={false} onRemoveValue={onRemoveValue} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bo' }));
+
+    expect(onRemoveValue).toHaveBeenCalledExactlyOnceWith(1, 'Bo');
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+});
+
 describe('MultiSelectPropertyValue — editable', () => {
   it('Enter adds the typed text as a pill — spaces included — and clears the input', () => {
     const onCommit = vi.fn();

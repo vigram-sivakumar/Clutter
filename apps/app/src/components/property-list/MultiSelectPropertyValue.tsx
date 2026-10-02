@@ -20,6 +20,8 @@ type MultiSelectPropertyValueProps = {
   value: readonly string[];
   /** Autocomplete for the value being typed (see PropertyList.types). */
   getSuggestions?(query: string): readonly MultiSelectSuggestion[];
+  /** Read-only: makes each pill dismissable (see PropertyList.types). */
+  onRemoveValue?(index: number, value: string): void;
 } & PropertyEditability<string[]>;
 
 /** Whether `values` already holds `entry`, ignoring case and surrounding whitespace. */
@@ -31,8 +33,9 @@ function hasValue(values: readonly string[], entry: string): boolean {
 /**
  * The `multi-select` Property's value — multiple free-text values shown as
  * pills (e.g. Aliases). `editable` (supplied by the adapter, never
- * inferred here) picks the state: read-only renders the pills; editable
- * renders the pills plus an inline input.
+ * inferred here) picks the state: read-only renders the pills
+ * (dismissable with `onRemoveValue`); editable renders the pills plus an
+ * inline input.
  */
 export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
   if (!props.editable) {
@@ -40,7 +43,11 @@ export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
       <PropertyValueCell>
         <span className="property-list__tags">
           {props.value.map((entry, index) => (
-            <ValuePill key={`${index}-${entry}`} value={entry} />
+            <ValuePill
+              key={`${index}-${entry}`}
+              value={entry}
+              onRemove={props.onRemoveValue && (() => props.onRemoveValue!(index, entry))}
+            />
           ))}
         </span>
       </PropertyValueCell>

@@ -30,8 +30,8 @@ export interface AliasPropertyActions {
  * date (already the title).
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
- * inline `#tags` — a `tag` Property (pills), read-only until a frontmatter
- * tags write path exists. `Aliases` is the page's frontmatter `aliases`
+ * inline `#tags` — a `tag` Property (pills), not editable, but its pills
+ * are dismissable when the host supplies `onCommitTags`. `Aliases` is the page's frontmatter `aliases`
  * (PageMetadata.aliases) — a `multi-select` Property (pills), editable when
  * the host supplies `aliases` actions and the page isn't archived (an
  * archived page is view-only). Plain text, never unique-checked: several
@@ -56,10 +56,22 @@ export interface AliasPropertyActions {
  * A custom property as a read-only Property of the type its value implies
  * (a list renders as multi-select pills) — values aren't editable yet.
  */
-function toCustomPropertyItem(property: CustomFrontmatterProperty): PropertyListItem {
+function toCustomPropertyItem(
+  property: CustomFrontmatterProperty,
+  onRemoveListItem?: (key: string, index: number, value: string) => void
+): PropertyListItem {
   switch (property.type) {
     case 'list':
-      return { name: property.key, type: 'multi-select', value: property.value, editable: false };
+      return {
+        name: property.key,
+        type: 'multi-select',
+        value: property.value,
+        // Pills are dismissable, like Tags' and Aliases'; adding isn't.
+        ...(onRemoveListItem && {
+          onRemoveValue: (index: number, value: string) => onRemoveListItem(property.key, index, value),
+        }),
+        editable: false,
+      };
     case 'text':
       return { name: property.key, type: 'text', value: property.value, editable: false };
     case 'number':
@@ -84,12 +96,23 @@ export function buildPageProperties(
      * property names are editable.
      */
     onRenameProperty?(key: string, name: string): void;
+    /** Persists the page's frontmatter tags after a pill is dismissed. Present: Tags pills are dismissable. */
+    onCommitTags?(tags: string[]): void;
+    /**
+     * Removes one item from a list custom property
+     * (PageOperations.removeCustomPropertyItem). Present: its pills are
+     * dismissable.
+     */
+    onRemoveListItem?(key: string, index: number, value: string): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
   const isArchived = page.metadata.status === 'archived';
   const aliasActions = isArchived ? undefined : actions.aliases;
   const onRenameProperty = isArchived ? undefined : actions.onRenameProperty;
+  const onCommitTags = isArchived ? undefined : actions.onCommitTags;
+  const onRemoveListItem = isArchived ? undefined : actions.onRemoveListItem;
+  const tags = page.metadata.tags ?? [];
   const customLines = page.metadata.unownedFrontmatter ?? [];
 
   // Custom properties: every frontmatter key Clutter doesn't own, after
@@ -99,7 +122,7 @@ export function buildPageProperties(
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
   const customItems = readCustomProperties(customLines).map((property): PropertyListItem => {
-    const item = toCustomPropertyItem(property);
+    const item = toCustomPropertyItem(property, onRemoveListItem);
 
     if (!onRenameProperty) {
       return item;
@@ -123,8 +146,13 @@ export function buildPageProperties(
     {
       name: 'Tags',
       type: 'tag',
-      value: page.metadata.tags ?? [],
+      value: tags,
       onOpenTag: actions.onOpenTag,
+      // Dismissable pills (no adding): removes that one tag from this
+      // note's frontmatter `tags`, never an inline #tag in the body.
+      ...(onCommitTags && {
+        onRemoveValue: (index: number) => onCommitTags(tags.filter((_, other) => other !== index)),
+      }),
       editable: false,
     },
     aliasActions

@@ -1776,6 +1776,9 @@ export function PageHost({
             },
             onRenameProperty: (key, name) =>
               void application.pageOperations.renameCustomProperty(page.id, key, name),
+            onCommitTags: (tags) => void application.pageOperations.updateMetadata(page.id, { tags }),
+            onRemoveListItem: (key, index, value) =>
+              void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
           })}
         />
       }
