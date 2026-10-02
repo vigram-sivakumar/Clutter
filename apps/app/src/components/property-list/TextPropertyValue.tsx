@@ -61,6 +61,7 @@ export function TextPropertyValue({ name, value, onCommit }: TextPropertyValuePr
       hasBackground={false}
       hasBorder={false}
       aria-label={name}
+      placeholder="Empty"
       value={draft ?? value}
       onFocus={() => setDraft(value)}
       onChange={(event) => setDraft(event.target.value)}

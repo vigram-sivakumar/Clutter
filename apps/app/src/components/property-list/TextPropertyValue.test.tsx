@@ -25,6 +25,12 @@ describe('TextPropertyValue', () => {
     expect(field.value).toBe('line one\nline two');
   });
 
+  it('shows "Empty" as the placeholder', () => {
+    render(<TextPropertyValue name="Description" value="" onCommit={() => {}} />);
+
+    expect(getField().placeholder).toBe('Empty');
+  });
+
   it('commits a changed multi-line value on blur', () => {
     const onCommit = vi.fn();
     render(<TextPropertyValue name="Description" value="before" onCommit={onCommit} />);

@@ -20,6 +20,7 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
   );
+  const [exampleEmptyText, setExampleEmptyText] = useState('');
 
   return (
     <PropertyList
@@ -30,6 +31,12 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           type: 'text',
           value: exampleText,
           onCommit: setExampleText,
+        },
+        {
+          name: 'Example empty text',
+          type: 'text',
+          value: exampleEmptyText,
+          onCommit: setExampleEmptyText,
         },
       ]}
     />
