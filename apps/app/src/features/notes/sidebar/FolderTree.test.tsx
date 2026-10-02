@@ -358,7 +358,7 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     expect(getAllByText('New Note')).toHaveLength(1);
   });
 
-  it('a draft with real content is not distinguished by body text — both unsaved drafts show "New Note"', async () => {
+  it('a draft with real content is not distinguished by body text — and a second openDraft() adds no second row', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
     const firstId = await pageOperations.openDraft({ folderId: null });
@@ -372,7 +372,7 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     );
 
     expect(queryByText('Real content')).not.toBeInTheDocument();
-    expect(getAllByText('New Note')).toHaveLength(2);
+    expect(getAllByText('New Note')).toHaveLength(1);
   });
 });
 
@@ -848,7 +848,7 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(workspace.activePageId).toBeDefined();
   });
 
-  it('drafts opened in two different folders each render only under their own folder', async () => {
+  it('the one draft renders only under the folder it was last opened in', async () => {
     const folderA = makeFolder('folder-a', `${ROOT}/A`, null);
     const folderB = makeFolder('folder-b', `${ROOT}/B`, null);
     const { query, workspace, pageOperations, membershipSelector } = setup(
@@ -858,6 +858,8 @@ describe('FolderTree: create note from folder ("+" button)', () => {
 
     const draftA = await pageOperations.openDraft({ folderId: 'folder-a' });
     pageOperations.commitEdit(draftA, 'Real content');
+    // Single global draft: it has content, so it is not moved to folder B
+    // and no second draft is created.
     await pageOperations.openDraft({ folderId: 'folder-b' });
 
     const { container } = renderTree(query, membershipSelector, workspace);
@@ -875,10 +877,9 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(workspace.isFolderExpanded('folder-b')).toBe(true);
 
     expect(container.querySelectorAll('.entry').length).toBeGreaterThan(2);
-    // Both drafts show the placeholder — a Note's title never derives from
-    // body content, even for a draft with real, uncommitted content — but
-    // they still render as two distinct rows, one under each folder.
-    expect(screen.getAllByText('New Note')).toHaveLength(2);
+    // Exactly one draft row (a Note's title never derives from body
+    // content), under the folder the single draft belongs to.
+    expect(screen.getAllByText('New Note')).toHaveLength(1);
   });
 });
 

@@ -540,13 +540,10 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
   });
 });
 
-describe('DailyNotesList — each Daily Note date keeps its own stable draft (PageOperations.openAtPath)', () => {
-  it('clicking a second date while the first is still empty shows both dates — neither is retargeted or dropped', async () => {
-    // Superseded deliberately: openAtPath() no longer retargets a
-    // still-empty draft across dates (see PageOperations.reusableDrafts
-    // .test.ts) — each date a live draft references stays visible on its
-    // own, since it may also be a live navigation-history destination
-    // (Workspace.isReferencedInHistory()).
+describe('DailyNotesList — one global draft across Daily Note dates (PageOperations.openAtPath)', () => {
+  it('clicking a second date while the first is still empty retargets the one draft — one draft row, never two', async () => {
+    // Single global draft: the second date retargets the first's draft in
+    // place instead of adding a row.
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
     const month = makeMonthFolder('month', TODAY, 'year');
@@ -566,8 +563,8 @@ describe('DailyNotesList — each Daily Note date keeps its own stable draft (Pa
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    // Both dates' drafts, plus the virtual Today entry — three rows.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(3);
+    // The one draft, plus the virtual Today entry — two rows.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
   });
 });
 

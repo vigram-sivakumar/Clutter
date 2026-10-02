@@ -2627,22 +2627,21 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
     expect(pageOperations.getDraft(id)?.folderId).toBe(child.id);
   });
 
-  it('opening drafts in two different folders keeps each scoped to its own folder, once the first is no longer an empty reusable draft', async () => {
-    // findReusableDraftId (ADR-017) retargets a still-empty draft in place
-    // rather than minting a second one — giving folder A's draft real
-    // content is what makes folder B's openDraft() mint a genuinely new,
-    // separately-scoped draft instead of stealing folder A's.
+  it('opening a draft in a second folder retargets the one global draft there — it never mints a second, and a draft with content keeps its folder', async () => {
     const folderA = { ...makeFolder('folder-a', `${ROOT}/A`), parentId: null };
     const folderB = { ...makeFolder('folder-b', `${ROOT}/B`), parentId: null };
     const { pageOperations } = setupEmpty([folderA, folderB]);
 
     const idA = await pageOperations.openDraft({ folderId: folderA.id });
-    pageOperations.commitEdit(idA, 'Real content');
     const idB = await pageOperations.openDraft({ folderId: folderB.id });
 
-    expect(idA).not.toBe(idB);
-    expect(pageOperations.getDraft(idA)?.folderId).toBe(folderA.id);
-    expect(pageOperations.getDraft(idB)?.folderId).toBe(folderB.id);
+    expect(idB).toBe(idA);
+    expect(pageOperations.getDraft(idA)?.folderId).toBe(folderB.id);
+
+    pageOperations.commitEdit(idA, 'Real content');
+    await pageOperations.openDraft({ folderId: folderA.id });
+
+    expect(pageOperations.getDraft(idA)?.folderId).toBe(folderB.id);
   });
 
   it('first save() persists the folder-scoped draft as a markdown file inside that folder', async () => {

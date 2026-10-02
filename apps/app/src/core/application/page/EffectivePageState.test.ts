@@ -346,12 +346,11 @@ describe('EffectivePageState: subscription lifecycle', () => {
     const { pageOperations, effectivePageState } = setup();
 
     const first = await pageOperations.openDraft({ folderId: null });
-    // Real content, so the second openDraft() below doesn't reuse this
-    // one (PageOperations.findReusableDraftId only reuses an empty
-    // draft) — this test needs two genuinely independent, concurrently
-    // open sessions, which is no longer the outcome of two back-to-back
-    // empty openDraft() calls.
-    pageOperations.commitEdit(first, 'not empty');
+    // Persist the first draft (its session stays open as a real page) so
+    // the single global draft slot is free for the second — this test
+    // needs two concurrently open sessions, which now means one real page
+    // plus the one draft.
+    await pageOperations.save(first, 'not empty');
     const second = await pageOperations.openDraft({ folderId: null });
     expect(effectivePageState.subscribedSessionCount).toBe(2);
 
@@ -384,8 +383,8 @@ describe('EffectivePageState: disposal', () => {
 
     const first = await pageOperations.openDraft({ folderId: null });
     // See the identical comment in the subscription-lifecycle describe
-    // above — content keeps this from being reused by the next call.
-    pageOperations.commitEdit(first, 'not empty');
+    // above — persisting frees the single draft slot.
+    await pageOperations.save(first, 'not empty');
     await pageOperations.openDraft({ folderId: null });
     expect(effectivePageState.subscribedSessionCount).toBe(2);
 

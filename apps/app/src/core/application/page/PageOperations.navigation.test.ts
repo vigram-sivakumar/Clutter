@@ -240,16 +240,14 @@ describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
     expect(pageOperations.getDraft(draftId)).toBeDefined();
   });
 
-  it('never repurposes today\'s empty Daily Note draft when opening a different empty Daily Note — the full product scenario', async () => {
+  it('opening a different empty Daily Note retargets the one global draft (today\'s included) — it never adds a second draft', async () => {
     const { pageOperations } = setup([buildPage('page-a', 'A')]);
 
-    // 1. Today's Daily Note exists as an empty draft.
     const todayPath = DailyNotePath.absoluteFrom(ROOT, new Date());
     const todayDraftId = await pageOperations.openAtPath(todayPath, {
       type: 'daily-note',
     });
 
-    // 2. User opens another Daily Note that doesn't yet exist.
     const otherDate = new Date();
     otherDate.setDate(otherDate.getDate() - 3);
     const otherPath = DailyNotePath.absoluteFrom(ROOT, otherDate);
@@ -257,29 +255,18 @@ describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
       type: 'daily-note',
     });
 
-    // 3. Today's Daily Note draft remains — not silently retargeted onto
-    //    the new date's descriptor.
+    expect(otherDraftId).toBe(todayDraftId);
     expect(pageOperations.getDraft(todayDraftId)).toEqual({
       folderId: null,
       type: 'daily-note',
       title: expect.any(String),
-      deterministicPath: todayPath,
+      deterministicPath: otherPath,
     });
 
-    // 4. The new date received its own, separate draft.
-    expect(otherDraftId).not.toBe(todayDraftId);
-    expect(pageOperations.getDraft(otherDraftId)).toBeDefined();
-
-    // 5. Navigating away from the new draft (to a real, unrelated page —
-    //    not another Daily Note, which would exercise reuse rather than
-    //    discard) is itself a recorded navigation, so `otherDraftId` is now
-    //    a Back-target and must be retained — updated deliberately, same
-    //    reasoning as the "past Daily Note draft is retained" test above.
+    // Navigating to a real page: the draft is a Back target, so it is
+    // retained (same history guard as before — unchanged).
     await pageOperations.open('page-a');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(pageOperations.getDraft(otherDraftId)).toBeDefined();
-
-    // 6. Today's Daily Note draft is still present throughout.
     expect(pageOperations.getDraft(todayDraftId)).toBeDefined();
   });
 });
@@ -488,7 +475,7 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
     expect(workspace.activePageId).toBe('page-b');
   });
 
-  it('Today → draft Daily Note → draft Daily Note: Back/Forward travel through both drafts via the real PageOperations.open(), not a fake', async () => {
+  it('Today → draft Daily Note → another Daily Note: only the one draft exists, so Back/Forward travel Today ↔ that draft', async () => {
     const { workspace, pageOperations, navigation } = setupWithRouter([
       buildPage('page-today', 'Today'),
     ]);
@@ -497,34 +484,23 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
 
     const path13 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-13'));
     const draft13 = await pageOperations.openAtPath(path13, { type: 'daily-note' });
-    // Non-empty, so opening the next Daily Note draft doesn't silently
-    // retarget this one onto the new date (findReusableDraftId only
-    // reuses an *empty* draft — real product behavior, unrelated to this
-    // test's concern) — two genuinely distinct drafts is the point here.
     pageOperations.commitEdit(draft13, 'Notes for the 13th');
 
+    // Single global draft: it holds content, so it is neither repurposed
+    // nor joined by a second one — opening the 17th just reopens it.
     const path17 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-17'));
     const draft17 = await pageOperations.openAtPath(path17, { type: 'daily-note' });
-    pageOperations.commitEdit(draft17, 'Notes for the 17th');
 
-    expect(workspace.activePageId).toBe(draft17);
-
-    // 17 -> 13
-    navigation.back();
+    expect(draft17).toBe(draft13);
+    expect(pageOperations.getDraft(draft13)?.title).toBe('2024-01-13');
     expect(workspace.activePageId).toBe(draft13);
 
-    // 13 -> Today
     navigation.back();
     expect(workspace.activePageId).toBe('page-today');
     expect(workspace.canNavigateBack).toBe(false);
 
-    // Today -> 13
     navigation.forward();
     expect(workspace.activePageId).toBe(draft13);
-
-    // 13 -> 17
-    navigation.forward();
-    expect(workspace.activePageId).toBe(draft17);
     expect(workspace.canNavigateForward).toBe(false);
   });
 
@@ -563,39 +539,30 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
     expect(workspace.canNavigateBack).toBe(false);
   });
 
-  it('12 (persisted) -> 13,14,15,16,17 (empty Daily Note drafts): each date keeps its own stable identity, so Back/Forward visits every one individually', async () => {
+  it('12 (persisted) -> 13,14,15,16,17 (empty Daily Note dates): one global draft is retargeted through all of them, so history is just 12 <-> that draft', async () => {
     const { workspace, pageOperations, navigation } = setupWithRouter([
       buildPage('page-12', '12'),
     ]);
 
     await pageOperations.open('page-12');
 
-    const dates = [13, 14, 15, 16, 17];
     const draftIds: string[] = [];
-    for (const day of dates) {
+    for (const day of [13, 14, 15, 16, 17]) {
       const path = DailyNotePath.absoluteFrom(ROOT, new Date(`2024-01-${day}`));
       draftIds.push(await pageOperations.openAtPath(path, { type: 'daily-note' }));
     }
 
-    // Each date minted its own draft — none of them collapsed onto a
-    // shared identity via the empty-draft reuse path.
-    expect(new Set(draftIds).size).toBe(5);
-    expect(workspace.activePageId).toBe(draftIds[4]); // 17
+    expect(new Set(draftIds).size).toBe(1);
+    const draftId = draftIds[0] as string;
+    expect(workspace.activePageId).toBe(draftId);
+    expect(pageOperations.getDraft(draftId)?.title).toBe('2024-01-17');
 
-    // Back: 17 -> 16 -> 15 -> 14 -> 13 -> 12 (5 hops off the current '17')
-    for (let i = dates.length - 2; i >= 0; i--) {
-      navigation.back();
-      expect(workspace.activePageId).toBe(draftIds[i]);
-    }
     navigation.back();
     expect(workspace.activePageId).toBe('page-12');
     expect(workspace.canNavigateBack).toBe(false);
 
-    // Forward: 12 -> 13 -> 14 -> 15 -> 16 -> 17
-    for (let i = 0; i < dates.length; i++) {
-      navigation.forward();
-      expect(workspace.activePageId).toBe(draftIds[i]);
-    }
+    navigation.forward();
+    expect(workspace.activePageId).toBe(draftId);
     expect(workspace.canNavigateForward).toBe(false);
   });
 
