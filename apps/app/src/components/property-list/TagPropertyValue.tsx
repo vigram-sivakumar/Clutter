@@ -1,7 +1,6 @@
 import { useId, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 
-import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { MenuContext } from '@components/menu/Menu.context';
 import { MenuItem } from '@components/menu/MenuItem';
@@ -10,9 +9,9 @@ import { Popover } from '@components/popover/Popover';
 import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
 import { scanTag } from '@features/markdown/editor/codemirror/tag/tagScanner';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
-import { AppIcon } from '@shared/icon';
 
 import type { PropertyEditability } from './PropertyList.types';
+import { Pill } from './Pill';
 import { PropertyValueCell } from './PropertyValueCell';
 import { useRejectShake } from './useRejectShake';
 
@@ -94,63 +93,21 @@ interface TagPillProps {
 
 /**
  * One tag as a pill — the editor's inline tag look (same tokens, a dimmed
- * `#` prefix, `formatTagDisplayLabel` for the label). Two interactions:
- * - with `onOpen`, the pill is a button opening the tag's Tag Collection;
- * - with `onRemove`, a dismiss button appears over the pill on hover,
- *   absolutely positioned so it never shifts the row, and removes the tag.
- * Neither click reaches the editor's "click anywhere to type" handler, and
- * the dismiss click never reaches the pill's own.
+ * `#` prefix, `formatTagDisplayLabel` for the label), on the shared Pill.
+ * With `onOpen`, the pill is a button opening the tag's Tag Collection.
  */
 function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
-  function handleRemove(event: MouseEvent<HTMLButtonElement>) {
-    event.stopPropagation();
-    onRemove?.();
-  }
-
-  function handleOpen(event: MouseEvent<HTMLSpanElement>) {
-    event.stopPropagation();
-    onOpen?.(tag);
-  }
-
-  function handleOpenKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
-    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    onOpen?.(tag);
-  }
-
   return (
-    <span
-      className={['property-list__tag', onOpen && 'property-list__tag--link']
-        .filter(Boolean)
-        .join(' ')}
-      // A <span>, not a <button>: it contains the dismiss <button>, and
-      // buttons can't nest.
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      aria-label={onOpen ? `Open tag ${tag}` : undefined}
-      onClick={onOpen ? handleOpen : undefined}
-      onKeyDown={onOpen ? handleOpenKeyDown : undefined}
+    <Pill
+      className={onOpen ? 'property-list__tag--link' : undefined}
+      onActivate={onOpen && (() => onOpen(tag))}
+      activateLabel={`Open tag ${tag}`}
+      onRemove={onRemove}
+      removeLabel={`Remove tag ${tag}`}
     >
       <span className="property-list__tag-prefix">#</span>
       {formatTagDisplayLabel(tag)}
-      {onRemove && (
-        <Button
-          className="property-list__tag-remove"
-          isIconOnly
-          variant="ghost"
-          size="small"
-          aria-label={`Remove tag ${tag}`}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={handleRemove}
-        >
-          <AppIcon icon="dismiss" />
-        </Button>
-      )}
-    </span>
+    </Pill>
   );
 }
 
