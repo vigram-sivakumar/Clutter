@@ -617,6 +617,70 @@ describe('PageOperations.renameCustomProperty()', () => {
     expect(await fileSystem.readFile(page.path)).toBe(before);
   });
 
+  it('setCustomPropertyList replaces the whole list through the Gate, this note only', async () => {
+    const { page, other, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+      'people:\n  - Ana\n  - Bo\npriority: high',
+      'people:\n  - Ana\n  - Bo'
+    );
+    const otherBefore = await fileSystem.readFile(other.path);
+
+    // Add.
+    await pageOperations.setCustomPropertyList(page.id, 'people', ['Ana', 'Bo', 'Cy']);
+    expect(await fileSystem.readFile(page.path)).toContain('people:\n  - Ana\n  - Bo\n  - Cy\npriority: high');
+
+    // Edit.
+    await pageOperations.setCustomPropertyList(page.id, 'people', ['Ana', 'Bob', 'Cy']);
+    expect(await fileSystem.readFile(page.path)).toContain('people:\n  - Ana\n  - Bob\n  - Cy\npriority: high');
+
+    // Remove.
+    await pageOperations.setCustomPropertyList(page.id, 'people', ['Bob']);
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toContain('people:\n  - Bob\npriority: high');
+    expect(content).toContain('Body text');
+    // The Gate's save rebuilt the page in Vault from what it wrote.
+    expect(vault.getPage(page.id)!.metadata.unownedFrontmatter).toEqual([
+      'people:',
+      '  - Bob',
+      'priority: high',
+    ]);
+    expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+  });
+
+  it('setCustomPropertyList writes through the coordinator, and consecutive commits land in order', async () => {
+    const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter('labels: [a]');
+    const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+    await Promise.all([
+      pageOperations.setCustomPropertyList(page.id, 'labels', ['a', 'b']),
+      pageOperations.setCustomPropertyList(page.id, 'labels', ['a', 'b', 'c']),
+    ]);
+
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(enqueue.mock.calls.every(([, operation]) => operation.kind === 'save')).toBe(true);
+    expect(await fileSystem.readFile(page.path)).toContain('labels: [a, b, c]');
+  });
+
+  it('setCustomPropertyList writes nothing for a non-list property, a line break, or an unknown page', async () => {
+    const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high\npeople: [Ana]');
+    const before = await fileSystem.readFile(page.path);
+
+    await expect(pageOperations.setCustomPropertyList(page.id, 'priority', ['x'])).rejects.toThrow();
+    await expect(pageOperations.setCustomPropertyList(page.id, 'people', ['a\nb'])).rejects.toThrow();
+    await expect(pageOperations.setCustomPropertyList('nope', 'people', ['x'])).rejects.toThrow(/Page not found/);
+    expect(await fileSystem.readFile(page.path)).toBe(before);
+  });
+
+  it('setCustomPropertyList rejects for an archived page, writing nothing', async () => {
+    const { page, coordinator, pageOperations } = await setupWithFrontmatter('people: [Ana]');
+    await archiveDirectly(coordinator, page.id);
+    const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+    await expect(pageOperations.setCustomPropertyList(page.id, 'people', ['Ana', 'Bo'])).rejects.toThrow(
+      /Cannot edit archived page/
+    );
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
   it('an unchanged name is a no-op', async () => {
     const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
     const before = await fileSystem.readFile(page.path);

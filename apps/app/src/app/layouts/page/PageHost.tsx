@@ -1779,6 +1779,8 @@ export function PageHost({
             onCommitTags: (tags) => void application.pageOperations.updateMetadata(page.id, { tags }),
             onRemoveListItem: (key, index, value) =>
               void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
+            onCommitListValue: (key, value) =>
+              void application.pageOperations.setCustomPropertyList(page.id, key, value),
           })}
         />
       }

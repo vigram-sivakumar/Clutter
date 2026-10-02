@@ -17,6 +17,7 @@ import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
 import {
   removeCustomListItem,
   renameCustomProperty,
+  setCustomListValue,
   validateCustomPropertyName,
 } from '../../vault/ingest/frontmatter/customFrontmatter';
 import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
@@ -1601,6 +1602,45 @@ export class PageOperations {
     }
 
     const lines = removeCustomListItem(page.metadata.unownedFrontmatter ?? [], key, index, value);
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: page.source.markdown,
+      metadata: { unownedFrontmatter: lines },
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+  }
+
+  /**
+   * Replaces list custom property `key`'s complete value with `value`, in
+   * this page's frontmatter only — the pill editor committing its list
+   * (adding, editing or removing a value). Only that property's lines
+   * change (setCustomListValue): its flow/block form and every unchanged
+   * item's spelling are kept, and every other line of preserved
+   * frontmatter stays byte-identical. Rejects, with no write, when the
+   * property isn't a list on this page, a value has a line break, or the
+   * page is archived/unknown. Written like removeCustomPropertyItem(): the
+   * Gate's 'save' with a metadata patch.
+   */
+  public async setCustomPropertyList(
+    pageId: string,
+    key: string,
+    value: readonly string[]
+  ): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
+    }
+
+    const lines = setCustomListValue(page.metadata.unownedFrontmatter ?? [], key, value);
 
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'save',

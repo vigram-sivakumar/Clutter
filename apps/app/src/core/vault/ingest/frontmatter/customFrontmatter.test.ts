@@ -6,6 +6,7 @@ import {
   removeCustomListItem,
   readCustomProperties,
   renameCustomProperty,
+  setCustomListValue,
   validateCustomPropertyName,
 } from './customFrontmatter';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
@@ -225,5 +226,72 @@ describe('removeCustomListItem', () => {
     const lines = customLines('people:\n  - Ana\n  - Bo\npriority: high');
     expect(() => removeCustomListItem(lines, 'people', 0, 'Bo')).toThrow(/no item "Bo"/);
     expect(() => removeCustomListItem(lines, 'priority', 0, 'high')).toThrow(/No list property/);
+  });
+});
+
+describe('setCustomListValue', () => {
+  it('adds a value to a block list, keeping its indentation and every other line', () => {
+    const lines = customLines('author: Jane\npeople:\n    - Ana\n    - Bo\nx: 1');
+
+    expect(setCustomListValue(lines, 'people', ['Ana', 'Bo', 'Cy'])).toEqual([
+      'author: Jane',
+      'people:',
+      '    - Ana',
+      '    - Bo',
+      '    - Cy',
+      'x: 1',
+    ]);
+  });
+
+  it('edits a block-list value in place; unchanged items keep their spelling', () => {
+    const lines = customLines('people:\n  - Ana\n  - "Bo, Jr"\n  - Cy');
+
+    expect(setCustomListValue(lines, 'people', ['Ana', 'Bob', 'Cy'])).toEqual([
+      'people:',
+      '  - Ana',
+      '  - Bob',
+      '  - Cy',
+    ]);
+    expect(setCustomListValue(lines, 'people', ['Ana', 'Bo, Jr', 'Cy'])).toEqual(lines);
+  });
+
+  it('removes values from a block list; removing all leaves an empty list', () => {
+    const lines = customLines('people:\n  - Ana\n  - Bo\npriority: high');
+
+    expect(setCustomListValue(lines, 'people', ['Bo'])).toEqual(['people:', '  - Bo', 'priority: high']);
+    expect(setCustomListValue(lines, 'people', [])).toEqual(['people: []', 'priority: high']);
+  });
+
+  it('rewrites a flow list as a flow list, keeping unchanged items as written and quoting only when needed', () => {
+    const lines = customLines('labels: [a, "b, c", \'d\']');
+
+    expect(setCustomListValue(lines, 'labels', ['a', 'b, c', "d", 'e', 'true'])).toEqual([
+      'labels: [a, "b, c", \'d\', e, "true"]',
+    ]);
+    expect(setCustomListValue(lines, 'labels', ['x', 'b, c'])).toEqual(['labels: [x, "b, c"]']);
+    expect(setCustomListValue(lines, 'labels', [])).toEqual(['labels: []']);
+  });
+
+  it('trims values and drops empty ones', () => {
+    expect(setCustomListValue(customLines('labels: [a]'), 'labels', [' a ', '  ', 'b'])).toEqual([
+      'labels: [a, b]',
+    ]);
+  });
+
+  it('the written list reads back as the same values', () => {
+    const values = ['Ana', 'Bo, Jr', 'true', '# not a comment', 'a: b'];
+
+    for (const yaml of ['people:\n  - Ana', 'people: [Ana]']) {
+      const written = setCustomListValue(customLines(yaml), 'people', values);
+      expect(readCustomProperties(written)).toEqual([{ key: 'people', type: 'list', value: values }]);
+    }
+  });
+
+  it('refuses a missing or non-list property and a value with a line break', () => {
+    const lines = customLines('people:\n  - Ana\npriority: high');
+
+    expect(() => setCustomListValue(lines, 'priority', ['x'])).toThrow(/No list property/);
+    expect(() => setCustomListValue(lines, 'missing', ['x'])).toThrow(/No list property/);
+    expect(() => setCustomListValue(lines, 'people', ['a\nb'])).toThrow(/line break/);
   });
 });

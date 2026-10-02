@@ -165,6 +165,47 @@ describe('buildPageProperties', () => {
       expect(onRemoveListItem).toHaveBeenCalledExactlyOnceWith('people', 0, 'Ana');
     });
 
+    it('a list is editable only when the host supplies onCommitListValue — never from its type', () => {
+      const without = buildPageProperties(custom(), { onRemoveListItem: vi.fn() })[6]!;
+      expect(without.editable).toBe(false);
+
+      const onCommitListValue = vi.fn();
+      const people = buildPageProperties(custom(), { onCommitListValue })[6]!;
+      expect(people.editable).toBe(true);
+
+      // Other custom properties and the system Properties stay read-only.
+      const items = buildPageProperties(custom(), { onCommitListValue });
+      expect(items.filter((item) => item.editable).map((item) => item.name)).toEqual(['people']);
+    });
+
+    it("commits the list's complete value through the host, by key", () => {
+      const onCommitListValue = vi.fn();
+      const people = buildPageProperties(custom(), { onCommitListValue })[6]!;
+
+      if (people.type !== 'multi-select' || !people.editable) throw new Error('expected an editable list');
+      people.onCommit(['Ana', 'Bo']);
+      expect(onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', ['Ana', 'Bo']);
+    });
+
+    it('keeps the list renamable alongside its editable value', () => {
+      const onRenameProperty = vi.fn();
+      const people = buildPageProperties(custom(), { onCommitListValue: vi.fn(), onRenameProperty })[6]!;
+
+      expect(people.editable).toBe(true);
+      expect(people.onRename!('team')).toBe(true);
+      expect(onRenameProperty).toHaveBeenCalledExactlyOnceWith('people', 'team');
+    });
+
+    it('leaves Aliases on its own actions: onCommitListValue never makes it editable', () => {
+      const aliases = buildPageProperties(custom(), { onCommitListValue: vi.fn() })[1]!;
+      expect(aliases.editable).toBe(false);
+    });
+
+    it('a list stays non-editable on an archived page', () => {
+      const people = buildPageProperties(custom({ status: 'archived' }), { onCommitListValue: vi.fn() })[6]!;
+      expect(people.editable).toBe(false);
+    });
+
     it('are not renamable on an archived page', () => {
       const items = buildPageProperties(custom({ status: 'archived' }), { onRenameProperty: vi.fn() });
       expect(items[4]!.onRename).toBeUndefined();

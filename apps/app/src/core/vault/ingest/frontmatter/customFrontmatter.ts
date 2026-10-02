@@ -1,4 +1,8 @@
-import { splitFlowSequence, unquoteFrontmatterString } from './frontmatterStringValue';
+import {
+  quoteFrontmatterString,
+  splitFlowSequence,
+  unquoteFrontmatterString,
+} from './frontmatterStringValue';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
 
 /**
@@ -321,4 +325,91 @@ export function removeCustomListItem(
   }
 
   throw new Error(`List property "${key}" has no item at ${index}.`);
+}
+
+/**
+ * A flow-list item's text: quoteFrontmatterString's, and always quoted
+ * when it holds a flow indicator (`,` `[` `]` `{` `}`), which would
+ * otherwise end the item early.
+ */
+function flowListItem(value: string): string {
+  return /[,[\]{}]/.test(value)
+    ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+    : quoteFrontmatterString(value);
+}
+
+/**
+ * The raw lines with list custom property `key`'s whole value replaced by
+ * `values` — the pill editor committing its complete list. Values are
+ * trimmed; empty ones are dropped; one containing a line break is refused
+ * (throws), since a list item is a single line. Throws when `key` isn't a
+ * list property.
+ *
+ * The list keeps its form: a flow list (`[a, b]`) is rewritten as a flow
+ * list, a block list keeps its `- item` lines and indentation. An item
+ * unchanged at its position keeps its original spelling (quoting
+ * included); a new or changed one is written by quoteFrontmatterString,
+ * plain unless that would be misread (a flow list also quotes
+ * `,` `[` `]` `{` `}`). Every other line stays
+ * byte-identical. An empty list is written as `key: []`.
+ */
+export function setCustomListValue(
+  lines: readonly string[],
+  key: string,
+  values: readonly string[]
+): string[] {
+  const block = splitKeyBlocks(lines).find((candidate) => candidate.key === key);
+  const property = block && readBlock(block);
+
+  if (!block || !property || property.type !== 'list') {
+    throw new Error(`No list property "${key}".`);
+  }
+
+  if (values.some((value) => /[\n\r]/.test(value))) {
+    throw new Error(`List property "${key}" cannot hold a value with a line break.`);
+  }
+
+  const next = values.map((value) => value.trim()).filter((value) => value !== '');
+  const keyLine = lines[block.start]!;
+  const keyPrefix = keyLine.slice(0, keyLine.indexOf(':'));
+  const result = [...lines];
+
+  if (block.inlineValue !== '') {
+    const rawItems = splitFlowSequence(block.inlineValue)!;
+    const items = next.map((value, index) =>
+      property.value[index] === value ? rawItems[index]! : flowListItem(value)
+    );
+    result[block.start] = `${keyPrefix}: [${items.join(', ')}]`;
+    return result;
+  }
+
+  // Block list: the key line is followed by its `- item` lines, which are
+  // replaced in place (comments or blank lines between them are kept after).
+  const end = block.start + 1 + block.continuation.length;
+  const itemLineIndexes: number[] = [];
+  for (let lineIndex = block.start + 1; lineIndex < end; lineIndex++) {
+    if (/^\s*-(?:\s|$)/.test(lines[lineIndex]!)) {
+      itemLineIndexes.push(lineIndex);
+    }
+  }
+
+  if (next.length === 0) {
+    result[block.start] = `${keyPrefix}: []`;
+  }
+
+  const indent = /^\s*/.exec(lines[itemLineIndexes[0]!]!)![0];
+  const itemLines = next.map((value, index) =>
+    property.value[index] === value
+      ? lines[itemLineIndexes[index]!]!
+      : `${indent}- ${quoteFrontmatterString(value)}`
+  );
+
+  // Splice from the end so earlier indexes stay valid; the new lines go
+  // where the first item line was.
+  const first = itemLineIndexes[0]!;
+  for (const lineIndex of [...itemLineIndexes].reverse()) {
+    result.splice(lineIndex, 1);
+  }
+  result.splice(first, 0, ...itemLines);
+  return result;
 }

@@ -42,26 +42,40 @@ export interface AliasPropertyActions {
  *
  * Then the custom properties — frontmatter keys Clutter doesn't own,
  * read from the page's preserved raw lines (readCustomProperties), each a
- * read-only Property of its inferred type, with an editable name.
+ * Property of its inferred type, with an editable name; read-only values
+ * except a list when `onCommitListValue` is supplied.
  *
  * Editability is decided here, per Property — never by PropertyList from a
  * type or name. Only Aliases' value and custom properties' names are
- * editable so far; system Property names never are.
+ * editable so far (plus custom list values); system Property names never are.
  *
  * `actions` carries the page-level behaviors a Property can trigger — kept
  * out of `page` so this stays a pure policy function. `onOpenTag` makes the
  * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
 /**
- * A custom property as a read-only Property of the type its value implies
- * (a list renders as multi-select pills) — values aren't editable yet.
+ * A custom property as a Property of the type its value implies (a list
+ * renders as multi-select pills). Everything is read-only except a list
+ * when the host supplies `onCommitListValue`: that — never the type —
+ * makes it editable. Without it the pills are only dismissable.
  */
 function toCustomPropertyItem(
   property: CustomFrontmatterProperty,
-  onRemoveListItem?: (key: string, index: number, value: string) => void
+  onRemoveListItem?: (key: string, index: number, value: string) => void,
+  onCommitListValue?: (key: string, value: string[]) => void
 ): PropertyListItem {
   switch (property.type) {
     case 'list':
+      if (onCommitListValue) {
+        return {
+          name: property.key,
+          type: 'multi-select',
+          value: property.value,
+          editable: true,
+          onCommit: (value) => onCommitListValue(property.key, value),
+        };
+      }
+
       return {
         name: property.key,
         type: 'multi-select',
@@ -104,6 +118,12 @@ export function buildPageProperties(
      * dismissable.
      */
     onRemoveListItem?(key: string, index: number, value: string): void;
+    /**
+     * Persists a list custom property's complete value
+     * (PageOperations.setCustomPropertyList). Present (and the page not
+     * archived): list custom properties are editable — add, edit, remove.
+     */
+    onCommitListValue?(key: string, value: string[]): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -112,6 +132,7 @@ export function buildPageProperties(
   const onRenameProperty = isArchived ? undefined : actions.onRenameProperty;
   const onCommitTags = isArchived ? undefined : actions.onCommitTags;
   const onRemoveListItem = isArchived ? undefined : actions.onRemoveListItem;
+  const onCommitListValue = isArchived ? undefined : actions.onCommitListValue;
   const tags = page.metadata.tags ?? [];
   const customLines = page.metadata.unownedFrontmatter ?? [];
 
@@ -122,7 +143,7 @@ export function buildPageProperties(
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
   const customItems = readCustomProperties(customLines).map((property): PropertyListItem => {
-    const item = toCustomPropertyItem(property, onRemoveListItem);
+    const item = toCustomPropertyItem(property, onRemoveListItem, onCommitListValue);
 
     if (!onRenameProperty) {
       return item;
