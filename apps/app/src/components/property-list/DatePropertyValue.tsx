@@ -1,10 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { Button } from '@components/button/Button';
-import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
-// For the shared `editable-text--shake` reject animation.
-import '@components/editable-text/EditableText.css';
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon } from '@shared/icon';
@@ -15,6 +12,7 @@ import type { CalendarMode } from '@features/daily-notes/calendar/models/Calenda
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
 import { parseDatePropertyValue } from './formatDatePropertyValue';
+import { useRejectShake } from './useRejectShake';
 
 type DatePropertyValueProps = {
   /** The property's name — used only as the field's accessible label. */
@@ -91,18 +89,8 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   // Set when the calendar closes because focus left the input, so Overlay
   // doesn't pull focus back from wherever the user moved it.
   const suppressReturnFocusRef = useRef(false);
-  // Rejected-Enter feedback only — EditableText's same shake, cleared after
-  // its own duration.
-  const [isShaking, setIsShaking] = useState(false);
-
-  useEffect(() => {
-    if (!isShaking) {
-      return;
-    }
-
-    const timeout = setTimeout(() => setIsShaking(false), SHAKE_DURATION_MS);
-    return () => clearTimeout(timeout);
-  }, [isShaking]);
+  // Rejected-Enter feedback only — EditableText's same shake.
+  const { shakeClassName, shake } = useRejectShake();
 
   const committedDate = value ? parseDatePropertyValue(value)?.isoDate : undefined;
   const calendarDate = previewDate ?? committedDate;
@@ -166,7 +154,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
 
   function submitDraft() {
     if (draft !== null && !commitText(draft)) {
-      setIsShaking(true);
+      shake();
       return;
     }
 
@@ -209,7 +197,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         ref={anchorRef}
         className={[
           'property-list__value property-list__input property-list__date-input',
-          isShaking && 'editable-text--shake',
+          shakeClassName,
         ]
           .filter(Boolean)
           .join(' ')}

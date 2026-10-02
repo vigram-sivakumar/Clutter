@@ -21,7 +21,12 @@ export type PropertyListItem =
       /** Raw stored value (see Property.types' PropertyValue), or null when absent. */
       value: string | null;
     } & PropertyEditability<string | null>)
-  | ({ name: string; type: 'url'; value: string } & ReadOnlyProperty)
+  | ({
+      name: string;
+      type: 'url';
+      /** The URL exactly as entered (a bare domain stays bare), or null when absent. */
+      value: string | null;
+    } & PropertyEditability<string | null>)
   | ({ name: string; type: 'multi-select'; value: readonly string[] } & ReadOnlyProperty)
   | ({ name: string; type: 'boolean'; value: ReactNode } & ReadOnlyProperty);
 

@@ -8,6 +8,7 @@ import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
 import { TextPropertyValue } from './TextPropertyValue';
+import { UrlPropertyValue } from './UrlPropertyValue';
 import { formatDatePropertyValue } from './formatDatePropertyValue';
 
 interface PropertyTypeDefinition<Type extends PropertyType> {
@@ -44,13 +45,7 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   },
   url: {
     icon: 'link',
-    renderValue: (item) => (
-      <PropertyValueCell>
-        <a href={item.value} target="_blank" rel="noopener noreferrer">
-          {item.value}
-        </a>
-      </PropertyValueCell>
-    ),
+    renderValue: (item) => <UrlPropertyValue {...item} />,
   },
   'multi-select': {
     icon: 'multiLine',

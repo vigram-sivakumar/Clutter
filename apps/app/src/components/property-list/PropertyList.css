@@ -108,3 +108,33 @@
 .property-date-picker__clear:disabled {
   pointer-events: none;
 }
+
+/* URL values use the Markdown link tokens — the same color and underline
+   as the editor's `.tok-link`/`.tok-link-title` split (MarkdownEditor.css):
+   color on the link, underline on its own inner title element. */
+.property-list__link {
+  color: var(--md-link-foreground);
+  text-decoration: none;
+  cursor: pointer;
+}
+/* Selector specificity beats `.property-list__value .entry__content span`
+   (which makes value spans a clamped box) so the title stays an inline run
+   the underline can follow. */
+.property-list__value .entry__content .property-list__link-title {
+  display: inline;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-underline-offset);
+}
+
+/* An editable URL at rest reads as a link too; while focused it's plain
+   text to edit. */
+.property-list__url-input--link .input__field {
+  color: var(--md-link-foreground);
+  text-decoration: underline;
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-underline-offset);
+}

@@ -23,6 +23,8 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
   const [exampleEmptyText, setExampleEmptyText] = useState('');
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
   const [exampleEmptyDate, setExampleEmptyDate] = useState<string | null>(null);
+  const [exampleUrl, setExampleUrl] = useState<string | null>('https://example.com/docs');
+  const [exampleEmptyUrl, setExampleEmptyUrl] = useState<string | null>(null);
 
   return (
     <PropertyList
@@ -55,6 +57,26 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           value: exampleEmptyDate,
           editable: true,
           onCommit: setExampleEmptyDate,
+        },
+        {
+          name: 'Example URL',
+          type: 'url',
+          value: exampleUrl,
+          editable: true,
+          onCommit: setExampleUrl,
+        },
+        {
+          name: 'Example empty URL',
+          type: 'url',
+          value: exampleEmptyUrl,
+          editable: true,
+          onCommit: setExampleEmptyUrl,
+        },
+        {
+          name: 'Example read-only URL',
+          type: 'url',
+          value: 'example.com',
+          editable: false,
         },
       ]}
     />

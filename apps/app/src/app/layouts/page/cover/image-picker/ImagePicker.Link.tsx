@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import './ImagePicker.Link.css';
 
 interface ImagePickerLinkProps {
@@ -14,26 +15,6 @@ interface ImagePickerLinkProps {
 }
 
 type Status = 'idle' | 'checking' | 'error';
-
-/**
- * Platform URL parser (per the "use the platform parser, not a regex"
- * requirement), not just a string check — `new URL()` throws on anything
- * that isn't a structurally valid URL. The scheme check on top of that
- * is what actually matters for "is this a web URL": `new URL()` alone
- * happily parses `javascript:...`, `data:...`, `file:...`, etc.
- */
-function parseWebImageUrl(raw: string): URL | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return null;
-  }
-  return parsed;
-}
 
 export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
   const [link, setLink] = useState('');
@@ -59,7 +40,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
       return;
     }
 
-    const parsed = parseWebImageUrl(url);
+    const parsed = parseWebUrl(url);
     if (!parsed) {
       setStatus('error');
       setErrorMessage('Enter a valid web address (starting with http:// or https://).');
