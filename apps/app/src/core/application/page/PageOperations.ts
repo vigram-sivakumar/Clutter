@@ -18,12 +18,14 @@ import { isPageSystemPropertyKey } from '../../properties/systemProperties';
 import {
   addVisibleProperty,
   readVisibleProperties,
+  removeVisibleProperty,
   renameVisibleProperty,
 } from '../../vault/ingest/frontmatter/propertyVisibility';
 import {
   addCustomProperty,
   readCustomProperties,
   removeCustomListItem,
+  removeCustomProperty,
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
@@ -1718,8 +1720,7 @@ export class PageOperations {
    * reordered, and the property's value is untouched. Already shown is a
    * no-op. Rejects, with no write, a custom key that isn't in the
    * frontmatter or a reserved one (`properties`); same guard and Gate
-   * `save` as renameCustomProperty(). There is deliberately no way to hide
-   * a property yet.
+   * `save` as renameCustomProperty(). hideProperty() is its counterpart.
    */
   public async showProperty(pageId: string, key: string): Promise<void> {
     const name = key.trim();
@@ -1754,6 +1755,36 @@ export class PageOperations {
     value: CustomScalarValue | null
   ): Promise<void> {
     await this.saveCustomFrontmatter(pageId, (lines) => setCustomScalarValue(lines, key, type, value));
+  }
+
+  /**
+   * Hides a property on this page: removes its canonical key from
+   * `properties.visible` in this page's frontmatter — only that entry; the
+   * rest of the list keeps its order, and the property's value is
+   * untouched (it can be shown again, see showProperty()). Not listed is a
+   * no-op. Same guard and Gate `save` as showProperty().
+   */
+  public async hideProperty(pageId: string, key: string): Promise<void> {
+    const name = key.trim();
+
+    await this.saveCustomFrontmatter(pageId, (lines) =>
+      readVisibleProperties(lines).includes(name) ? removeVisibleProperty(lines, name) : null
+    );
+  }
+
+  /**
+   * Deletes custom property `key` from this page's frontmatter: its lines
+   * go (removeCustomProperty), and so does its entry in
+   * `properties.visible`, in the same single save. Every other line stays
+   * byte-identical and no other page is touched. Rejects, with no write, a
+   * key that isn't a custom property here — a system Property (`tags`,
+   * `created`, …) or the reserved `properties` cannot be deleted this way.
+   * Same guard and Gate `save` as renameCustomProperty().
+   */
+  public async deleteCustomProperty(pageId: string, key: string): Promise<void> {
+    await this.saveCustomFrontmatter(pageId, (lines) =>
+      removeVisibleProperty(removeCustomProperty(lines, key), key)
+    );
   }
 
   /**

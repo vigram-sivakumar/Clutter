@@ -7,6 +7,7 @@ import {
   isReservedPropertyName,
   removeCustomListItem,
   readCustomProperties,
+  removeCustomProperty,
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
@@ -534,4 +535,36 @@ describe('toCustomUrl', () => {
       expect(toCustomUrl(text)).toBeNull();
     }
   );
+});
+
+describe('removeCustomProperty', () => {
+  it('removes a scalar property, leaving every other line byte-identical', () => {
+    expect(removeCustomProperty(customLines('author: Jane\npriority: high\nx: 1'), 'priority')).toEqual([
+      'author: Jane',
+      'x: 1',
+    ]);
+  });
+
+  it('removes a list with all its items, and a block scalar with its text', () => {
+    expect(removeCustomProperty(customLines('a: 1\npeople:\n  - Ana\n  - Bo\nb: 2'), 'people')).toEqual([
+      'a: 1',
+      'b: 2',
+    ]);
+    expect(removeCustomProperty(customLines('a: 1\nnote: |\n  one\n  two\nb: 2'), 'note')).toEqual(['a: 1', 'b: 2']);
+    expect(removeCustomProperty(customLines('labels: [a, b]'), 'labels')).toEqual([]);
+  });
+
+  it('an emptied typed property is removable too, and does not come back when reread', () => {
+    const removed = removeCustomProperty(customLines('due: # date\nx: 1'), 'due');
+
+    expect(removed).toEqual(['x: 1']);
+    expect(readCustomProperties(removed).map((p) => p.key)).toEqual(['x']);
+  });
+
+  it('refuses a missing key and the reserved `properties` key', () => {
+    expect(() => removeCustomProperty(customLines('a: 1'), 'missing')).toThrow(/No custom property/);
+    expect(() => removeCustomProperty(customLines('properties:\n  visible:\n    - tags'), 'properties')).toThrow(
+      /No custom property/
+    );
+  });
 });

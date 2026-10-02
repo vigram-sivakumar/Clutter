@@ -30,9 +30,9 @@ import {
  * (PageMetadata.unownedFrontmatter), not parsed into the page model, so
  * the flat FrontmatterParser needs no nested-YAML support and every other
  * line — including anything else under `properties:` — stays
- * byte-identical. Everything here is show-only: it appends to the list
- * (insertion order is kept, nothing is reordered) and rewrites an entry
- * when its Property is renamed; nothing removes one.
+ * byte-identical. The list keeps insertion order: a Property is shown by
+ * appending its key, hidden by removing only its key, and renamed by
+ * rewriting its entry in place — nothing is ever reordered.
  */
 const PROPERTIES_KEY = 'properties';
 const VISIBLE_KEY = 'visible';
@@ -242,4 +242,41 @@ export function renameVisibleProperty(
   }
 
   return result;
+}
+
+/**
+ * The raw lines with `key` removed from `properties.visible` — hidden from
+ * now on. Only that entry goes: the rest of the list keeps its order and
+ * spelling, the `visible:` line stays (empty if that was the last entry),
+ * and every other line, including other keys under `properties:`, stays
+ * byte-identical. Nothing changes when `key` isn't listed. The property's
+ * own value is never touched — visibility is separate from existence.
+ */
+export function removeVisibleProperty(lines: readonly string[], key: string): string[] {
+  const visible = findVisible(lines);
+  const name = key.trim();
+
+  if (!visible || visible.line === -1 || !readVisibleProperties(lines).includes(name)) {
+    return [...lines];
+  }
+
+  if (visible.inline !== '') {
+    const raw = splitFlowSequence(visible.inline);
+
+    if (!raw) {
+      return [...lines];
+    }
+
+    const visibleLine = lines[visible.line]!;
+    const prefix = visibleLine.slice(0, visibleLine.indexOf(':'));
+    const kept = raw.filter((entry) => entry !== '' && unquoteFrontmatterString(entry).trim() !== name);
+    const result = [...lines];
+
+    result[visible.line] = `${prefix}: [${kept.join(', ')}]`;
+    return result;
+  }
+
+  const drop = new Set(visible.items.filter((index) => itemText(lines[index]!) === name));
+
+  return lines.filter((_, index) => !drop.has(index));
 }

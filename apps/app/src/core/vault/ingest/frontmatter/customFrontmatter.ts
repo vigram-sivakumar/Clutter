@@ -684,3 +684,29 @@ export function addCustomProperty(
 
   return [...lines, raw === '' ? `${key}:` : `${key}: ${raw}`];
 }
+
+/**
+ * The raw lines without custom property `key` — its `key:` line and every
+ * continuation line up to its last non-blank one (a list's items, a block
+ * scalar's text). Blank lines after that, and every other line, are
+ * untouched. Throws when `key` isn't a custom property here (a reserved
+ * raw key such as `properties` never is).
+ */
+export function removeCustomProperty(lines: readonly string[], key: string): string[] {
+  const block = splitKeyBlocks(lines).find(
+    (candidate) => candidate.key === key && !isReservedRawKey(candidate.key)
+  );
+
+  if (!block) {
+    throw new Error(`No custom property "${key}".`);
+  }
+
+  let last = block.start;
+  block.continuation.forEach((line, offset) => {
+    if (line.trim() !== '') {
+      last = block.start + 1 + offset;
+    }
+  });
+
+  return [...lines.slice(0, block.start), ...lines.slice(last + 1)];
+}

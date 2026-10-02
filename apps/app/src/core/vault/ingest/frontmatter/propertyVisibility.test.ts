@@ -10,6 +10,7 @@ import { isReservedRawKey, OWNED_FRONTMATTER_KEYS, matchSystemKey } from './owne
 import {
   addVisibleProperty,
   readVisibleProperties,
+  removeVisibleProperty,
   renameVisibleProperty,
 } from './propertyVisibility';
 
@@ -170,6 +171,63 @@ describe('renameVisibleProperty', () => {
 
     expect(renameVisibleProperty(lines, 'Due', 'Deadline')).toEqual(lines);
     expect(renameVisibleProperty(customLines('priority: high'), 'priority', 'p')).toEqual(['priority: high']);
+  });
+});
+
+describe('removeVisibleProperty', () => {
+  it('removes only that entry from a block list; the rest keeps its order and every other line is untouched', () => {
+    const lines = customLines('a: 1\nproperties:\n  visible:\n    - tags\n    - Due date\n    - created\nb: 2');
+
+    expect(removeVisibleProperty(lines, 'Due date')).toEqual([
+      'a: 1',
+      'properties:',
+      '  visible:',
+      '    - tags',
+      '    - created',
+      'b: 2',
+    ]);
+    expect(readVisibleProperties(removeVisibleProperty(lines, 'tags'))).toEqual(['Due date', 'created']);
+  });
+
+  it('removes an entry of a flow list, keeping the others as written', () => {
+    expect(removeVisibleProperty(customLines('properties:\n  visible: [tags, "a, b", created]'), 'tags')).toEqual([
+      'properties:',
+      '  visible: ["a, b", created]',
+    ]);
+    expect(removeVisibleProperty(customLines('properties:\n  visible: [tags]'), 'tags')).toEqual([
+      'properties:',
+      '  visible: []',
+    ]);
+  });
+
+  it('keeps the `visible:` line when the last entry goes, so showing again appends under it', () => {
+    const emptied = removeVisibleProperty(customLines('properties:\n  visible:\n    - tags'), 'tags');
+
+    expect(emptied).toEqual(['properties:', '  visible:']);
+    expect(readVisibleProperties(emptied)).toEqual([]);
+    expect(readVisibleProperties(addVisibleProperty(emptied, 'created'))).toEqual(['created']);
+  });
+
+  it('leaves other keys under `properties:` and unrelated lines alone', () => {
+    const lines = customLines('properties:\n  order: [a]\n  visible:\n    - tags\nx: 1');
+
+    expect(removeVisibleProperty(lines, 'tags')).toEqual(['properties:', '  order: [a]', '  visible:', 'x: 1']);
+  });
+
+  it('changes nothing when the key is not listed, or there is no list', () => {
+    const lines = customLines('properties:\n  visible:\n    - tags');
+
+    expect(removeVisibleProperty(lines, 'created')).toEqual(lines);
+    expect(removeVisibleProperty(customLines('priority: high'), 'tags')).toEqual(['priority: high']);
+    expect(removeVisibleProperty([], 'tags')).toEqual([]);
+  });
+
+  it('hiding then showing again puts the key back at the end, never touching the property itself', () => {
+    const lines = customLines('priority: high\nproperties:\n  visible:\n    - priority\n    - tags');
+    const hidden = removeVisibleProperty(lines, 'priority');
+
+    expect(hidden).toContain('priority: high');
+    expect(readVisibleProperties(addVisibleProperty(hidden, 'priority'))).toEqual(['tags', 'priority']);
   });
 });
 
