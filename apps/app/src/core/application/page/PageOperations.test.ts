@@ -12,7 +12,7 @@ import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { readCustomProperties } from '../../vault/ingest/frontmatter/customFrontmatter';
-import { readVisibleProperties } from '../../vault/ingest/frontmatter/propertyVisibility';
+import { readPropertiesSectionVisibility, readVisibleProperties } from '../../vault/ingest/frontmatter/propertyVisibility';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
@@ -1053,6 +1053,106 @@ describe('PageOperations.renameCustomProperty()', () => {
 
       await archiveDirectly(coordinator, page.id);
       await expect(pageOperations.deleteCustomProperty(page.id, 'x')).rejects.toThrow(/Cannot edit archived page/);
+    });
+
+    describe('the Properties section (properties.show)', () => {
+      const sectionShown = (vault: any, id: string) =>
+        readPropertiesSectionVisibility(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);
+
+      it('a page with no properties.show has its section hidden', async () => {
+        const { page, vault } = await setupWithFrontmatter('priority: high');
+        expect(sectionShown(vault, page.id)).toBe(false);
+      });
+
+      it('showing sets properties.show through the Gate, leaving visible, values and other frontmatter untouched', async () => {
+        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\nDue date: 2026-10-01\npeople:\n  - Ana\nproperties:\n  visible:\n    - tags\n    - Due date',
+          'priority: low'
+        );
+        const otherBefore = await fileSystem.readFile(other.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain(
+          'author: Jane\nDue date: 2026-10-01\npeople:\n  - Ana\nproperties:\n  show: true\n  visible:\n    - tags\n    - Due date'
+        );
+        expect(content).toContain('Body text');
+        expect(sectionShown(vault, page.id)).toBe(true);
+        expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due date']);
+        // Values intact, and neither `show` nor `visible` became a custom property.
+        expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)).toEqual([
+          { key: 'author', type: 'text', value: 'Jane' },
+          { key: 'Due date', type: 'date', value: '2026-10-01' },
+          { key: 'people', type: 'list', value: ['Ana'] },
+        ]);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+      });
+
+      it('hiding sets show: false and leaves visible untouched; hiding a section with no show writes nothing', async () => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  visible:\n    - tags\n    - priority'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        // Hidden is the default: nothing to write.
+        await pageOperations.setPropertiesSectionVisibility(page.id, false);
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(await fileSystem.readFile(page.path)).not.toContain('show');
+
+        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+        await pageOperations.setPropertiesSectionVisibility(page.id, false);
+
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('properties:\n  show: false\n  visible:\n    - tags\n    - priority');
+        expect(content).toContain('priority: high');
+        expect(sectionShown(vault, page.id)).toBe(false);
+        expect(visibleOf(vault, page.id)).toEqual(['tags', 'priority']);
+      });
+
+      it('setting what it already is writes nothing', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('properties:\n  show: true');
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+
+        expect(enqueue).not.toHaveBeenCalled();
+      });
+
+      it('show and the properties list change independently: neither operation touches the other', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter('priority: high');
+
+        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+        await pageOperations.showProperty(page.id, 'priority');
+        await pageOperations.showProperty(page.id, 'tags');
+        expect(sectionShown(vault, page.id)).toBe(true);
+        expect(visibleOf(vault, page.id)).toEqual(['priority', 'tags']);
+
+        await pageOperations.hideProperty(page.id, 'priority');
+        expect(sectionShown(vault, page.id)).toBe(true);
+
+        await pageOperations.setPropertiesSectionVisibility(page.id, false);
+        expect(visibleOf(vault, page.id)).toEqual(['tags']);
+
+        await pageOperations.addCustomProperty(page.id, 'Due', { type: 'date', value: null });
+        expect(sectionShown(vault, page.id)).toBe(false);
+        expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due']);
+      });
+
+      it('rejects for an archived or unknown page, writing nothing', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('priority: high');
+        await expect(pageOperations.setPropertiesSectionVisibility('nope', true)).rejects.toThrow(/Page not found/);
+
+        await archiveDirectly(coordinator, page.id);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+        await expect(pageOperations.setPropertiesSectionVisibility(page.id, true)).rejects.toThrow(
+          /Cannot edit archived page/
+        );
+        expect(enqueue).not.toHaveBeenCalled();
+      });
     });
 
     it('there is still no visibility setter: hide and show are separate, explicit operations', () => {

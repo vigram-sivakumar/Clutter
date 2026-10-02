@@ -9,9 +9,11 @@ import {
 import { isReservedRawKey, OWNED_FRONTMATTER_KEYS, matchSystemKey } from './ownedFrontmatterKeys';
 import {
   addVisibleProperty,
+  readPropertiesSectionVisibility,
   readVisibleProperties,
   removeVisibleProperty,
   renameVisibleProperty,
+  setPropertiesSectionVisibility,
 } from './propertyVisibility';
 
 /** The page's preserved custom lines, exactly as the parser captures them. */
@@ -228,6 +230,165 @@ describe('removeVisibleProperty', () => {
 
     expect(hidden).toContain('priority: high');
     expect(readVisibleProperties(addVisibleProperty(hidden, 'priority'))).toEqual(['tags', 'priority']);
+  });
+});
+
+describe('readPropertiesSectionVisibility', () => {
+  it('a missing `show` means hidden — the default', () => {
+    expect(readPropertiesSectionVisibility([])).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('priority: high'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  visible:\n    - tags'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  other: 1'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:'))).toBe(false);
+  });
+
+  it('`show: true` means the section is shown', () => {
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: true'))).toBe(true);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: True'))).toBe(true);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n    show: true  # keep\n    visible:\n      - tags'))).toBe(true);
+  });
+
+  it('`show: false` — or anything that is not true — means hidden', () => {
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: false'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: yes'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show:'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: "no"'))).toBe(false);
+  });
+
+  it('only a direct child `show` counts: not one nested deeper, nor outside `properties`', () => {
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  other:\n    show: true'))).toBe(false);
+    expect(readPropertiesSectionVisibility(customLines('show: true'))).toBe(false);
+  });
+
+  it('is independent of `visible`: show with an empty or missing list, a list with no show', () => {
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  show: true'))).toBe(true);
+    expect(readVisibleProperties(customLines('properties:\n  show: true'))).toEqual([]);
+    expect(readPropertiesSectionVisibility(customLines('properties:\n  visible:\n    - tags'))).toBe(false);
+    expect(readVisibleProperties(customLines('properties:\n  visible:\n    - tags'))).toEqual(['tags']);
+  });
+});
+
+describe('setPropertiesSectionVisibility', () => {
+  it('showing creates the block after every existing line, with `show: true` only', () => {
+    expect(setPropertiesSectionVisibility(customLines('author: Jane\npriority: high'), true)).toEqual([
+      'author: Jane',
+      'priority: high',
+      'properties:',
+      '  show: true',
+    ]);
+  });
+
+  it('showing with a block that has no `show` adds it first, keeping `visible` and everything else', () => {
+    const lines = customLines('a: 1\nproperties:\n  order: [x]\n  visible:\n    - tags\nb: 2');
+
+    expect(setPropertiesSectionVisibility(lines, true)).toEqual([
+      'a: 1',
+      'properties:',
+      '  show: true',
+      '  order: [x]',
+      '  visible:',
+      '    - tags',
+      'b: 2',
+    ]);
+  });
+
+  it('showing an empty `properties:` block adds `show` under it', () => {
+    expect(setPropertiesSectionVisibility(customLines('properties:\nx: 1'), true)).toEqual([
+      'properties:',
+      '  show: true',
+      'x: 1',
+    ]);
+  });
+
+  it('an existing `show:` is rewritten in place, keeping its indentation and any comment', () => {
+    const lines = customLines('properties:\n    show: false  # why\n    visible:\n      - tags');
+
+    expect(setPropertiesSectionVisibility(lines, true)).toEqual([
+      'properties:',
+      '    show: true  # why',
+      '    visible:',
+      '      - tags',
+    ]);
+    expect(setPropertiesSectionVisibility(setPropertiesSectionVisibility(lines, true), false)).toEqual([
+      'properties:',
+      '    show: false  # why',
+      '    visible:',
+      '      - tags',
+    ]);
+  });
+
+  it('hiding writes `show: false` only where there is already a `show:`; a missing `show` stays missing', () => {
+    const missing = customLines('priority: high\nproperties:\n  visible:\n    - tags');
+
+    // Hidden is the default: nothing is written to say so.
+    expect(setPropertiesSectionVisibility(missing, false)).toEqual(missing);
+    expect(setPropertiesSectionVisibility(customLines('priority: high'), false)).toEqual(['priority: high']);
+    expect(setPropertiesSectionVisibility(customLines('properties:\n  show: true'), false)).toEqual([
+      'properties:',
+      '  show: false',
+    ]);
+  });
+
+  it('toggling show/hide never touches `visible`, however it is written', () => {
+    for (const visible of ['    - tags\n    - Due date', '    []']) {
+      const yaml = visible.trim() === '[]' ? 'properties:\n  visible: []' : `properties:\n  visible:\n${visible}`;
+      const lines = customLines(yaml);
+      const shown = setPropertiesSectionVisibility(lines, true);
+      const hidden = setPropertiesSectionVisibility(shown, false);
+
+      expect(readVisibleProperties(shown)).toEqual(readVisibleProperties(lines));
+      expect(readVisibleProperties(hidden)).toEqual(readVisibleProperties(lines));
+      // Show then hide leaves exactly the `show: false` line added and nothing else changed.
+      expect(hidden.filter((line) => !/^\s*show:/.test(line))).toEqual(lines);
+    }
+  });
+
+  it('adding and removing visible properties never touches `show`', () => {
+    const lines = customLines('properties:\n  show: true\n  visible:\n    - tags');
+    const added = addVisibleProperty(lines, 'created');
+    const removed = removeVisibleProperty(added, 'tags');
+    const renamed = renameVisibleProperty(added, 'created', 'made');
+
+    for (const result of [added, removed, renamed]) {
+      expect(readPropertiesSectionVisibility(result)).toBe(true);
+      expect(result).toContain('  show: true');
+    }
+    // `visible` created inside a block that only had `show`:
+    const fromShowOnly = addVisibleProperty(customLines('properties:\n  show: true'), 'tags');
+    expect(fromShowOnly).toEqual(['properties:', '  show: true', '  visible:', '    - tags']);
+    expect(readPropertiesSectionVisibility(fromShowOnly)).toBe(true);
+  });
+
+  it('refuses to overwrite a `properties` that is not a mapping', () => {
+    expect(() => setPropertiesSectionVisibility(customLines('properties: none'), true)).toThrow(/not a mapping/);
+  });
+
+  it('every other line stays byte-identical', () => {
+    const lines = customLines('a: 1\n\nproperties:\n  visible:\n    - tags\n\nb:\n  - x\nc: [1, 2]');
+    const shown = setPropertiesSectionVisibility(lines, true);
+
+    expect(shown.filter((line) => !/^\s*show:/.test(line))).toEqual(lines);
+    expect(shown).toHaveLength(lines.length + 1);
+  });
+});
+
+describe('`show` and `visible` are never custom properties', () => {
+  const lines = customLines('author: Jane\nproperties:\n  show: true\n  visible:\n    - tags\npriority: high');
+
+  it('are not listed as custom properties — only the note’s own keys are', () => {
+    expect(readCustomProperties(lines).map((property) => property.key)).toEqual(['author', 'priority']);
+    for (const result of [setPropertiesSectionVisibility(lines, false), setPropertiesSectionVisibility(customLines('x: 1'), true)]) {
+      expect(readCustomProperties(result).map((property) => property.key)).not.toContain('show');
+      expect(readCustomProperties(result).map((property) => property.key)).not.toContain('visible');
+      expect(readCustomProperties(result).map((property) => property.key)).not.toContain('properties');
+    }
+  });
+
+  it('a custom property may still be called `show` or `visible` — they are only reserved inside `properties`', () => {
+    expect(validateCustomPropertyName(lines, '', 'show')).toBeNull();
+    expect(validateCustomPropertyName(lines, '', 'visible')).toBeNull();
+    // ...while `properties` itself stays reserved.
+    expect(validateCustomPropertyName(lines, '', 'properties')).toBe('reserved');
   });
 });
 

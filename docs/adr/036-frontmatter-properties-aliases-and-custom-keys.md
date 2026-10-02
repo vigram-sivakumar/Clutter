@@ -84,7 +84,7 @@ Supersedes "Tags gains no add" above. The system Tags Property is fully editable
 
 ## Amendment — adding custom properties
 
-Users can add a custom property from the page header's More actions (`…`) menu — an "Add properties" item (with a `+` icon) that swaps the menu, in place, for the list of what can be added — and every custom value is editable. All of it extends the existing custom-property infrastructure; no schema, store or write path is added.
+Users can add a custom property from the Properties section's "+ Add a property" row (see "Amendment — the "+ Add a property" row" below), and every custom value is editable. All of it extends the existing custom-property infrastructure; no schema, store or write path is added.
 
 **Typed empties.** A custom property's type is still never stored — it is inferred from how its value is written. An empty value has nothing to infer from, so the types that can be empty and are not text carry theirs as a trailing YAML comment on the key line: `due: # date`, `estimate: # number`, `site: # url` (a null to every other YAML reader, and kept byte-identical on later saves). An empty list is `key: []` and reads as an empty list (so removing the last list item empties the list rather than removing the property), an empty text value is `key:`, and a boolean has no empty state (unchecked is `false`). Clearing a typed scalar therefore never turns it into text. A comment that is not one of these three hints is just text, as before. This is the smallest representation that keeps the type without a parallel definition system: the key line is still the one source of truth.
 
@@ -120,7 +120,7 @@ properties:
 - **Separate from existence and value.** Visibility only decides what is listed. A property's frontmatter value is untouched whether or not it is shown, and a listed custom key that is not in the frontmatter shows nothing. Rows follow the list's order — the order the properties were added.
 - **Option B: preserved raw lines.** `properties` is a *reserved raw key* (`RESERVED_RAW_FRONTMATTER_KEYS`), deliberately **not** in `OWNED_FRONTMATTER_KEYS`: the flat, line-based `FrontmatterParser` gains no nested-YAML support and keeps capturing its lines, which `FrontmatterSerializer` writes back byte-identical like every other preserved line. `propertyVisibility.ts` reads and writes the `visible` list from `PageMetadata.unownedFrontmatter` — derived on demand, never a second representation, the same as custom properties. Anything else under `properties:` is preserved untouched. `properties` is never listed as a custom property and cannot be used as a custom property name, in any letter case.
 - **Show, then hide.** `PageOperations.showProperty(pageId, key)` appends a system key or the key of an existing custom property (never reordering the entries already there; already shown is a no-op; a missing custom key or the reserved key is refused). A new custom property's key is appended in the same save that creates it (`addCustomProperty`), and renaming a shown custom property rewrites its entry in place in the same save (`renameCustomProperty`), so it stays shown. Hiding is `hideProperty` (see "Amendment — a property's menu"). All of them are the existing `saveCustomFrontmatter` — one Gate `'save'` with a metadata patch, this page only. There is no `setPropertyVisibility`: show and hide are separate, explicit operations, and per-note ordering beyond insertion order is the next design step.
-- **Add properties.** The More actions menu's "Add properties" view lists, in groups: the system Properties not shown (labelled from the system property definitions), the custom properties that exist but are not shown (by their actual key), and the new custom types (from the property type registry). Choosing an existing property shows it (`showProperty`); choosing a type adds a draft row as above, made visible once named.
+- **Add properties.** The Add properties menu (opened from the section's "+ Add a property" row) lists, in groups: the system Properties not shown (labelled from the system property definitions), the custom properties that exist but are not shown (by their actual key), and the new custom types (from the property type registry). Choosing an existing property shows it (`showProperty`); choosing a type adds a draft row as above, made visible once named.
 
 ## Amendment — a property's menu: Hide, Clear, Delete
 
@@ -133,7 +133,7 @@ Hovering a Property's name replaces its type icon with a horizontal-dots button 
 
 ## Amendment — the "+ Add a property" row
 
-The Properties list always ends with a `+ Add a property` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent only on an archived page. The More actions "Add properties" item remains and uses the same menu (`AddPropertyMenu`, unchanged).
+The Properties list always ends with a `+ Add a property` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent only on an archived page. It is the only way to add properties: the title controls have no add pathway (see "Amendment — the Properties section: `properties.show`").
 
 The interaction is deliberately minimal — there is no intermediate draft state:
 
@@ -142,3 +142,22 @@ The interaction is deliberately minimal — there is no intermediate draft state
 3. **Dismiss the menu** (Escape, a click outside) without choosing: nothing changes and nothing is written.
 
 The menu closing after a choice never returns focus to the row, so a draft's name field keeps the focus it just took. This amendment adds no write and no persistence path, and no Hide behavior.
+
+## Amendment — the Properties section: `properties.show`
+
+Whether a note shows its Properties section at all is a second, independent setting under the same reserved `properties` key:
+
+```yaml
+properties:
+  show: true
+  visible:
+    - tags
+    - created
+```
+
+- **`properties.show`** controls the whole section. `show: true` shows it; `show: false` or no `show` hides it — hidden is the default, so nothing is written to establish it (a note is never given `show: false` just to say so). The section is the Properties list and its "+ Add a property" row; hidden, neither is rendered.
+- **`properties.visible`** keeps its meaning: which individual properties the section lists. The two never affect each other: toggling the section leaves `visible` byte-identical, and adding, hiding, renaming or deleting properties leaves `show` alone. Here the section is shown and lists only Tags and Created.
+- **Same Option B storage.** `show` is read and written by `propertyVisibility.ts` (`readPropertiesSectionVisibility`, `setPropertiesSectionVisibility`) from the preserved raw lines — the flat `FrontmatterParser` is unchanged, `properties` stays a reserved raw key, and anything else under `properties:` is preserved byte-identically. Only a direct child `show` counts. An existing `show:` line is rewritten in place (spelling, indentation and any trailing comment kept); showing with none adds `show: true` as the block's first entry (creating the block if needed); hiding with none changes nothing. `show` and `visible` are never listed as custom properties (they live inside the reserved block), though a custom property of the same name remains possible.
+- **The write.** `PageOperations.setPropertiesSectionVisibility(pageId, show)` — the existing `saveCustomFrontmatter` (one Gate `'save'` with a metadata patch, this page only, an archived page refused). Setting what it already is writes nothing.
+- **The title control.** The page header's More actions menu has one item for it: **Show properties** while the section is hidden, **Hide properties** while it is shown. It only changes `properties.show` — it opens no picker and never touches `properties.visible`. It replaces the earlier title-section "Add properties" pathway, which is removed rather than kept alongside. Hiding the section also drops any unnamed property draft, so it cannot reappear when the section is shown again. An archived page's section can't be toggled (it still shows if its file says `show: true`).
+

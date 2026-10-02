@@ -61,6 +61,7 @@ import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { readPropertiesSectionVisibility } from '@core/vault/ingest/frontmatter/propertyVisibility';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import {
@@ -489,12 +490,11 @@ export function PageHost({
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
-  // Whether each page's Properties section is shown. Session-only UI state:
-  // not frontmatter, and independent of `properties.visible` (which says
-  // which individual properties the section lists). Hidden by default, so a
-  // page absent from the set has its section hidden.
-  const [pagesShowingProperties, setPagesShowingProperties] = useState<ReadonlySet<string>>(new Set());
-  const arePropertiesShown = activePageId ? pagesShowingProperties.has(activePageId) : false;
+  // Whether this page's Properties section is shown: `properties.show` in its
+  // own frontmatter (hidden unless it says `true`) — separate from
+  // `properties.visible`, which says which individual properties the
+  // section lists. Read from the page itself, so it survives reloads.
+  const arePropertiesShown = page ? readPropertiesSectionVisibility(page.metadata.unownedFrontmatter ?? []) : false;
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -1832,29 +1832,21 @@ export function PageHost({
       bodyFocusRef={editorRef}
       // An archived page is view-only: nothing can be added to it.
       propertiesShown={arePropertiesShown}
-      onToggleProperties={() => {
-        if (!activePageId) {
-          return;
-        }
+      onToggleProperties={
+        // An archived page is view-only: its section can't be toggled.
+        page.metadata.status === 'archived'
+          ? undefined
+          : () => {
+              if (arePropertiesShown) {
+                // An unnamed draft belongs to the section being hidden: drop
+                // it, so it can't reappear (and grab focus) when shown again.
+                propertyDrafts.clear();
+              }
 
-        if (arePropertiesShown) {
-          // An unnamed draft belongs to the section being hidden: drop it,
-          // so it can't reappear (and grab focus) when the section is shown.
-          propertyDrafts.clear();
-        }
-
-        setPagesShowingProperties((current) => {
-          const next = new Set(current);
-
-          if (next.has(activePageId)) {
-            next.delete(activePageId);
-          } else {
-            next.add(activePageId);
-          }
-
-          return next;
-        });
-      }}
+              // Only `properties.show` changes — never `properties.visible`.
+              void application.pageOperations.setPropertiesSectionVisibility(page.id, !arePropertiesShown);
+            }
+      }
       properties={
         // The whole section, hidden by default and toggled from the title
         // controls. Shown, it lists what `properties.visible` lists, ending

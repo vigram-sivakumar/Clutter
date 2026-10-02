@@ -17,9 +17,11 @@ import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
 import { isPageSystemPropertyKey } from '../../properties/systemProperties';
 import {
   addVisibleProperty,
+  readPropertiesSectionVisibility,
   readVisibleProperties,
   removeVisibleProperty,
   renameVisibleProperty,
+  setPropertiesSectionVisibility,
 } from '../../vault/ingest/frontmatter/propertyVisibility';
 import {
   addCustomProperty,
@@ -1755,6 +1757,21 @@ export class PageOperations {
     value: CustomScalarValue | null
   ): Promise<void> {
     await this.saveCustomFrontmatter(pageId, (lines) => setCustomScalarValue(lines, key, type, value));
+  }
+
+  /**
+   * Shows (`true`) or hides (`false`) this page's whole Properties section:
+   * sets `properties.show` in this page's frontmatter (propertyVisibility.ts)
+   * and nothing else — `properties.visible`, every property's value and
+   * every other line stay byte-identical. Hidden is the default, so
+   * hiding a section with no `show` is a no-op and nothing is written;
+   * setting what it already is writes nothing either. Same guard and Gate
+   * `save` as showProperty() — an archived page can't be changed.
+   */
+  public async setPropertiesSectionVisibility(pageId: string, show: boolean): Promise<void> {
+    await this.saveCustomFrontmatter(pageId, (lines) =>
+      readPropertiesSectionVisibility(lines) === show ? null : setPropertiesSectionVisibility(lines, show)
+    );
   }
 
   /**

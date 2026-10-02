@@ -10,15 +10,22 @@ import {
 } from './frontmatterStringValue';
 
 /**
- * Which Properties a note shows: the `visible` list under the reserved
- * `properties` key.
+ * Whether a note shows its Properties section (`show`), and which
+ * Properties the section lists (`visible`) — two independent settings under
+ * the reserved `properties` key.
  *
  * ```yaml
  * properties:
+ *   show: true
  *   visible:
  *     - tags
  *     - Due date
  * ```
+ *
+ * `show` controls the whole section: `true` shows it; `false` or no
+ * `show` hides it (hidden is the default, so nothing is written to
+ * establish it). It never touches `visible`, and `visible` never touches
+ * it.
  *
  * Nothing is shown by default; a Property is shown only when its
  * canonical key is listed — the system key (`tags`, `aliases`, `created`,
@@ -36,6 +43,7 @@ import {
  */
 const PROPERTIES_KEY = 'properties';
 const VISIBLE_KEY = 'visible';
+const SHOW_KEY = 'show';
 
 const indentOf = (line: string): string => /^\s*/.exec(line)![0];
 const isBlank = (line: string): boolean => line.trim() === '';
@@ -279,4 +287,96 @@ export function removeVisibleProperty(lines: readonly string[], key: string): st
   const drop = new Set(visible.items.filter((index) => itemText(lines[index]!) === name));
 
   return lines.filter((_, index) => !drop.has(index));
+}
+
+/**
+ * The `show:` line of the `properties:` block — a direct child of the block
+ * (at its own indentation, so a `show` nested deeper is not it) — or
+ * `line: -1` when the block has none; `undefined` when there is no block.
+ */
+function findShow(lines: readonly string[]): { block: KeyBlock; line: number } | undefined {
+  const block = findProperties(lines);
+
+  if (!block) {
+    return undefined;
+  }
+
+  const firstChild = block.continuation.find((line) => !isBlank(line));
+
+  if (firstChild === undefined) {
+    return { block, line: -1 };
+  }
+
+  const childIndent = indentOf(firstChild);
+  const offset = block.continuation.findIndex(
+    (line) => indentOf(line) === childIndent && new RegExp(`^${SHOW_KEY}\\s*:`).test(line.trim())
+  );
+
+  return { block, line: offset === -1 ? -1 : block.start + 1 + offset };
+}
+
+/**
+ * Whether the note shows its Properties section: only an explicit
+ * `properties.show: true`. No `properties` block, no `show`, `show: false`,
+ * or any other value all mean hidden — the default.
+ */
+export function readPropertiesSectionVisibility(lines: readonly string[]): boolean {
+  const found = findShow(lines);
+
+  if (!found || found.line === -1) {
+    return false;
+  }
+
+  const text = lines[found.line]!;
+  const value = text
+    .slice(text.indexOf(':') + 1)
+    .split(/\s#/)[0]!
+    .trim();
+
+  return /^(?:true|True|TRUE)$/.test(unquoteFrontmatterString(value));
+}
+
+/**
+ * The raw lines with `properties.show` set so the Properties section is
+ * shown (`true`) or hidden (`false`). Only `show` changes: `visible` and
+ * everything else under `properties:` — and every other line — stay
+ * byte-identical.
+ *
+ * - An existing `show:` line is rewritten in place (its spelling,
+ *   indentation and any trailing comment kept).
+ * - Showing with no `show:` adds `show: true` as the block's first entry,
+ *   creating the `properties:` block if there is none.
+ * - Hiding with no `show:` changes nothing: hidden is already the default,
+ *   and `show: false` is never written just to say so.
+ *
+ * Throws when `properties` is something other than a mapping this can
+ * extend (e.g. a scalar), rather than overwrite it.
+ */
+export function setPropertiesSectionVisibility(lines: readonly string[], show: boolean): string[] {
+  const found = findShow(lines);
+
+  if (!found) {
+    return show ? [...lines, `${PROPERTIES_KEY}:`, `  ${SHOW_KEY}: true`] : [...lines];
+  }
+
+  const { block, line } = found;
+
+  if (line !== -1) {
+    const result = [...lines];
+    result[line] = lines[line]!.replace(/^(\s*show\s*:)\s*[^\s#]*(.*)$/, `$1 ${show}$2`);
+    return result;
+  }
+
+  if (!show) {
+    return [...lines];
+  }
+
+  if (block.inlineValue !== '') {
+    throw new Error(`"${PROPERTIES_KEY}" is not a mapping, so "${SHOW_KEY}" can't be added to it.`);
+  }
+
+  const first = block.continuation.find((candidate) => !isBlank(candidate));
+  const indent = first ? indentOf(first) : '  ';
+
+  return [...lines.slice(0, block.start + 1), `${indent}${SHOW_KEY}: true`, ...lines.slice(block.start + 1)];
 }

@@ -64,9 +64,10 @@ export interface PageHeaderMoreActionsMenuProps {
   /**
    * Presence gates the Properties section toggle: "Show properties" while
    * the section is hidden, "Hide properties" while it is shown. It only
-   * shows or hides the whole section (UI state, never frontmatter) — it
-   * opens no picker and changes no individual property; adding properties
-   * is the "+ Add a property" row inside the section. Same "handler
+   * shows or hides the whole section (the note's `properties.show`) — it
+   * opens no picker and changes no individual property (`properties.visible`
+   * is untouched); adding properties is the "+ Add a property" row inside
+   * the section. Same "handler
    * presence decides whether the item exists" convention as the handlers
    * above.
    */
