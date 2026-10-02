@@ -1,6 +1,7 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
+import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 import {
   readCustomProperties,
   validateCustomPropertyName,
@@ -30,8 +31,8 @@ export interface AliasPropertyActions {
  * date (already the title).
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
- * inline `#tags` — a `tag` Property (pills), not editable, but its pills
- * are dismissable when the host supplies `onCommitTags`. `Aliases` is the page's frontmatter `aliases`
+ * inline `#tags` — a `tag` Property (pills), editable when the host
+ * supplies `onCommitTags` and the page isn't archived. `Aliases` is the page's frontmatter `aliases`
  * (PageMetadata.aliases) — a `multi-select` Property (pills), editable when
  * the host supplies `aliases` actions and the page isn't archived (an
  * archived page is view-only). Plain text, never unique-checked: several
@@ -46,8 +47,8 @@ export interface AliasPropertyActions {
  * except a list when `onCommitListValue` is supplied.
  *
  * Editability is decided here, per Property — never by PropertyList from a
- * type or name. Only Aliases' value and custom properties' names are
- * editable so far (plus custom list values); system Property names never are.
+ * type or name. Only Tags', Aliases' and custom list values, and custom
+ * properties' names, are editable so far; system Property names never are.
  *
  * `actions` carries the page-level behaviors a Property can trigger — kept
  * out of `page` so this stays a pure policy function. `onOpenTag` makes the
@@ -110,8 +111,14 @@ export function buildPageProperties(
      * property names are editable.
      */
     onRenameProperty?(key: string, name: string): void;
-    /** Persists the page's frontmatter tags after a pill is dismissed. Present: Tags pills are dismissable. */
+    /**
+     * Persists the page's complete frontmatter tags (PageOperations
+     * .updateMetadata). Present (and the page not archived): Tags is
+     * editable — add, remove.
+     */
     onCommitTags?(tags: string[]): void;
+    /** Existing-tag autocomplete while typing in the editable Tags (createTagSuggester). */
+    getTagSuggestions?: GetTagSuggestions;
     /**
      * Removes one item from a list custom property
      * (PageOperations.removeCustomPropertyItem). Present: its pills are
@@ -164,18 +171,19 @@ export function buildPageProperties(
   });
 
   return [
-    {
-      name: 'Tags',
-      type: 'tag',
-      value: tags,
-      onOpenTag: actions.onOpenTag,
-      // Dismissable pills (no adding): removes that one tag from this
-      // note's frontmatter `tags`, never an inline #tag in the body.
-      ...(onCommitTags && {
-        onRemoveValue: (index: number) => onCommitTags(tags.filter((_, other) => other !== index)),
-      }),
-      editable: false,
-    },
+    onCommitTags
+      ? {
+          name: 'Tags',
+          type: 'tag',
+          value: tags,
+          onOpenTag: actions.onOpenTag,
+          getSuggestions: actions.getTagSuggestions,
+          // Frontmatter `tags` only, never an inline #tag in the body: the
+          // editor commits the whole new list (add or remove).
+          editable: true,
+          onCommit: onCommitTags,
+        }
+      : { name: 'Tags', type: 'tag', value: tags, onOpenTag: actions.onOpenTag, editable: false },
     aliasActions
       ? {
           name: 'Aliases',

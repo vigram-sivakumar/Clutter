@@ -77,3 +77,7 @@ Reserved custom-property names use the same registry, case-insensitively (`isRes
 ## Amendment — dismissable list pills
 
 Every list Property's pills are dismissable, like Aliases': the system Tags (removing that tag from frontmatter `tags` through `updateMetadata()`; Tags gains no add), and list custom properties through `PageOperations.removeCustomPropertyItem(pageId, key, index, value)`. That method follows `renameCustomProperty()`'s shape — `removeCustomListItem` (`customFrontmatter.ts`) removes only that item's text, every other line byte-identical; the Gate's `'save'` with a metadata patch; this page only — and refuses, with no write, when the item at `index` no longer has `value` (the file changed since it was shown). Custom property values otherwise stay read-only.
+
+## Amendment — Tags is editable
+
+Supersedes "Tags gains no add" above. The system Tags Property is fully editable (add and remove) whenever the host supplies `onCommitTags` and the page isn't archived: `buildPageProperties` marks it `editable: true`, and the existing `TagPropertyValue` editor commits the page's complete frontmatter `tags` through `PageOperations.updateMetadata(pageId, { tags })` — the same Gate-backed write the dismiss button already used, so there is no new write path. Autocomplete is the editor's own `createTagSuggester`. Only frontmatter `tags` change; inline `#tags` in the body are never touched. Editability remains an explicit adapter decision, not inferred from the `tag` type.

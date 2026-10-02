@@ -83,17 +83,34 @@ describe('buildPageProperties', () => {
     expect(aliases.editable).toBe(false);
   });
 
-  it('Tags pills are dismissable when the host can commit tags, removing just that tag', () => {
+  it('Tags is read-only without a host commit, and editable with one — never from its type', () => {
+    expect(buildPageProperties(makePage('note'))[0]!.editable).toBe(false);
+    expect(buildPageProperties(makePage('note'), { onOpenTag: vi.fn() })[0]!.editable).toBe(false);
+    expect(buildPageProperties(makePage('note'), { onCommitTags: vi.fn() })[0]!.editable).toBe(true);
+  });
+
+  it('editable Tags commit the complete tag list and carry the suggester and tag navigation', () => {
     const onCommitTags = vi.fn();
-    const tags = buildPageProperties(makePage('note'), { onCommitTags })[0]!;
+    const getTagSuggestions = vi.fn();
+    const onOpenTag = vi.fn();
+    const tags = buildPageProperties(makePage('note'), { onCommitTags, getTagSuggestions, onOpenTag })[0]!;
 
-    if (tags.type !== 'tag') throw new Error('expected tags');
-    tags.onRemoveValue!(0, 'a');
-    expect(onCommitTags).toHaveBeenCalledExactlyOnceWith(['b']);
-    expect(tags.editable).toBe(false);
+    if (tags.type !== 'tag' || !tags.editable) throw new Error('expected editable tags');
+    expect(tags.getSuggestions).toBe(getTagSuggestions);
+    expect(tags.onOpenTag).toBe(onOpenTag);
+    tags.onCommit(['a', 'b', 'c']);
+    expect(onCommitTags).toHaveBeenCalledExactlyOnceWith(['a', 'b', 'c']);
+    tags.onCommit([]);
+    expect(onCommitTags).toHaveBeenLastCalledWith([]);
+  });
 
-    const archived = buildPageProperties(makePage('note', { status: 'archived' }), { onCommitTags })[0]!;
-    expect(archived.type === 'tag' && archived.onRemoveValue).toBeFalsy();
+  it('Tags stay read-only on an archived page', () => {
+    const archived = buildPageProperties(makePage('note', { status: 'archived' }), {
+      onCommitTags: vi.fn(),
+      getTagSuggestions: vi.fn(),
+    })[0]!;
+    expect(archived.editable).toBe(false);
+    expect(archived.type === 'tag' && archived.getSuggestions).toBeFalsy();
   });
 
   it('a differently-cased system key shows as the system property, never as a custom one', async () => {
