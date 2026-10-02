@@ -146,7 +146,7 @@ export function buildLocationActionMenuItems(
     {
       id: 'copy-path',
       label: 'Copy path',
-      icon: 'copy',
+      icon: 'link',
       submenu,
       disabled: options.disabled,
     },
