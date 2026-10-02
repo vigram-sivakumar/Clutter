@@ -9,8 +9,7 @@
    is dimmed (`.pill__prefix`).
    `--pill-height` is the one size knob: the pill is exactly that tall
    (text vertically centered, so only inline padding), and the dismiss
-   button and its fade below derive their size from it.
-   `position: relative` anchors the hover-revealed dismiss button. The
+   button below derives its size from it. The
    selector specificity beats `.property-list__value .entry__content span`
    (the value cell's clamped-box rule) inside a read-only cell. */
 .pill,
