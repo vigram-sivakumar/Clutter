@@ -138,7 +138,8 @@ interface ValuePillEditorProps {
 
 /**
  * A pill being edited in place: a single-line Input standing where the
- * pill was, its text selected, sized to its content. Same commit rules as
+ * pill was — plain text, no pill surface — its text selected, sized to
+ * its content. Same commit rules as
  * the other Property text editors (EditableText's convention): Enter or
  * blur commits; Escape cancels and restores. Text that is unchanged or
  * empty commits nothing (removing is the dismiss button's job). Text that
@@ -208,7 +209,7 @@ function ValuePillEditor({ value, isTaken, onCommit, onCancel }: ValuePillEditor
   return (
     <Input
       ref={inputRef}
-      className={['property-list__tag property-list__tag--plain property-list__tag-edit-input', shakeClassName]
+      className={['property-list__tag property-list__tag-edit-input', shakeClassName]
         .filter(Boolean)
         .join(' ')}
       hasBackground={false}

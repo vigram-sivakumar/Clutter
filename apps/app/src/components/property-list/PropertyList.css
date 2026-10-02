@@ -418,20 +418,30 @@
   cursor: text;
 }
 
-/* A pill being edited: Input's wrapper takes the pill's own look (the
-   `property-list__tag --plain` classes), with the field unpadded and as
-   wide as its text, so the pill reads as the same pill, now editable. */
+/* A pill being edited reads as plain text, like the add-alias input: no
+   surface or border, the text color of typed text. It keeps the pill's
+   box (height and inline padding, via `property-list__tag`) so the text
+   stays exactly where it was — editing never shifts it. */
 .property-list__tag.property-list__tag-edit-input {
   width: auto;
   min-height: 0;
   font-size: inherit;
   line-height: 1;
-  box-shadow: var(--shadow-inset-default);
+  color: var(--foreground-primary);
+  background: none;
+  box-shadow: none;
 }
+/* The field fills the pill's height with a matching line-height, so its
+   text is centred by line-height — not left to the engine: WebKit (the
+   desktop app) lays out an <input>'s text with at least the font's normal
+   line-height, which pushed it down inside a shorter field. As wide as
+   its text (field-sizing where supported, else Input's `size`). */
 .property-list__tag-edit-input .input__field {
-  padding: 0;
+  height: 100%;
   min-width: 1ch;
+  padding: 0;
   field-sizing: content;
   font: inherit;
+  line-height: var(--tag-pill-height);
   color: inherit;
 }
