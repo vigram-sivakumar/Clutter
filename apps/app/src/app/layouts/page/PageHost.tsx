@@ -57,6 +57,7 @@ import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
@@ -1697,6 +1698,51 @@ export function PageHost({
   // (isRenameable above). Notes have no such constraint.
   const isRenameable = page.type !== 'daily-note';
 
+  // The Properties list: only what the note shows (`properties.visible`),
+  // plus any property being added.
+  const propertyItems = buildPageProperties(page, {
+    // The editor's own inline-#tag click path (createTagResolver's
+    // activate → navigation.openTag), not a second navigation.
+    onOpenTag: (name) => resolveTag(name).activate(),
+    aliases: {
+      // The one write path for page metadata.
+      onCommit: (aliases) =>
+        void application.pageOperations.updateMetadata(page.id, { aliases }),
+      getSuggestions: createAliasSuggester(vault, page.id),
+    },
+    onRenameProperty: (key, name) =>
+      void application.pageOperations.renameCustomProperty(page.id, key, name),
+    onCommitTags: (tags) => void application.pageOperations.updateMetadata(page.id, { tags }),
+    getTagSuggestions,
+    onRemoveListItem: (key, index, value) =>
+      void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
+    onCommitListValue: (key, value) =>
+      void application.pageOperations.setCustomPropertyList(page.id, key, value),
+    onSetScalarValue: (key, type, value) =>
+      void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
+    drafts: {
+      items: propertyDrafts.drafts,
+      // Named: the property is written now (empty, typed), and the
+      // draft row stands in for it until the page shows it.
+      onName: (id, name) => {
+        const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
+
+        if (!draft) {
+          return;
+        }
+
+        propertyDrafts.name(id, name);
+        void application.pageOperations
+          .addCustomProperty(page.id, name, emptyCustomProperty(draft.type))
+          .finally(() => propertyDrafts.remove(id));
+      },
+      onAbandon: propertyDrafts.remove,
+    },
+  });
+  // What Add properties can still show: system Properties and custom
+  // properties that exist but aren't shown.
+  const addableProperties = getAddableProperties(page);
+
   return (
     <Page
       titleKey={activePageId}
@@ -1768,49 +1814,18 @@ export function PageHost({
       onAddCustomProperty={
         page.metadata.status === 'archived' ? undefined : propertyDrafts.add
       }
+      addableSystemProperties={addableProperties.systemProperties}
+      hiddenProperties={addableProperties.hiddenProperties}
+      onShowProperty={
+        page.metadata.status === 'archived'
+          ? undefined
+          : (key) => void application.pageOperations.showProperty(page.id, key)
+      }
       properties={
-        <PropertyList
-          key={activePageId}
-          items={buildPageProperties(page, {
-            // The editor's own inline-#tag click path (createTagResolver's
-            // activate → navigation.openTag), not a second navigation.
-            onOpenTag: (name) => resolveTag(name).activate(),
-            aliases: {
-              // The one write path for page metadata.
-              onCommit: (aliases) =>
-                void application.pageOperations.updateMetadata(page.id, { aliases }),
-              getSuggestions: createAliasSuggester(vault, page.id),
-            },
-            onRenameProperty: (key, name) =>
-              void application.pageOperations.renameCustomProperty(page.id, key, name),
-            onCommitTags: (tags) => void application.pageOperations.updateMetadata(page.id, { tags }),
-            getTagSuggestions,
-            onRemoveListItem: (key, index, value) =>
-              void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
-            onCommitListValue: (key, value) =>
-              void application.pageOperations.setCustomPropertyList(page.id, key, value),
-            onSetScalarValue: (key, type, value) =>
-              void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
-            drafts: {
-              items: propertyDrafts.drafts,
-              // Named: the property is written now (empty, typed), and the
-              // draft row stands in for it until the page shows it.
-              onName: (id, name) => {
-                const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
-
-                if (!draft) {
-                  return;
-                }
-
-                propertyDrafts.name(id, name);
-                void application.pageOperations
-                  .addCustomProperty(page.id, name, emptyCustomProperty(draft.type))
-                  .finally(() => propertyDrafts.remove(id));
-              },
-              onAbandon: propertyDrafts.remove,
-            },
-          })}
-        />
+        // No Properties block at all while nothing is shown.
+        propertyItems.length > 0 ? (
+          <PropertyList key={activePageId} items={propertyItems} />
+        ) : undefined
       }
       body={
         <MarkdownBody>

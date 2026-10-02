@@ -11,6 +11,7 @@ import {
   emptyCustomProperty,
   readCustomProperties,
 } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { addVisibleProperty } from '@core/vault/ingest/frontmatter/propertyVisibility';
 import type { Page } from '@core/vault/models/Page';
 
 import { buildPageProperties } from './buildPageProperties';
@@ -50,7 +51,7 @@ function pageWith(lines: readonly string[], status: 'active' | 'archived' = 'act
  * the same frontmatter write (addCustomProperty) to the page's lines.
  */
 function Harness({
-  initialLines = ['author: Jane', 'Priority: high'],
+  initialLines = ['author: Jane', 'Priority: high', 'properties:', '  visible:', '    - author', '    - Priority'],
   status = 'active',
   persist,
   onLines,
@@ -69,7 +70,9 @@ function Harness({
       onName: (id, name) => {
         const draft = drafts.drafts.find((candidate) => candidate.id === id)!;
         persist(name, draft.type);
-        const next = addCustomProperty(lines, name, emptyCustomProperty(draft.type));
+        // The same composition PageOperations.addCustomProperty writes: the
+        // property, and its key in properties.visible.
+        const next = addVisibleProperty(addCustomProperty(lines, name, emptyCustomProperty(draft.type)), name);
         setLines(next);
         onLines(next);
         drafts.remove(id);
@@ -149,6 +152,8 @@ describe('Add properties — the whole flow', () => {
     const lines = onLines.mock.calls[0]![0] as string[];
     // Unrelated frontmatter is preserved, the new property is appended.
     expect(lines.slice(0, 2)).toEqual(['author: Jane', 'Priority: high']);
+    // ...and the new property is shown: its key joined properties.visible.
+    expect(lines).toContain('    - Due date');
     // Re-read: still that type, never text.
     expect(readCustomProperties(lines).at(-1)).toEqual({ key: 'Due date', type: read, value });
     // The draft is gone and the named property is the only such row.

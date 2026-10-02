@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Page } from '@core/vault/models/Page';
 import { buildPageProperties } from './buildPageProperties';
+import { withAllVisible } from './showAllVisibleLines';
 
 function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata']> = {}): Page {
   return {
@@ -27,6 +28,11 @@ function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata
       tags: ['a', 'b'],
       aliases: ['Alt'],
       ...overrides,
+      // Everything shown, unless the test supplies its own `properties:`
+      // block (the visibility tests do): nothing is shown by default.
+      unownedFrontmatter: overrides.unownedFrontmatter?.some((line) => /^properties\s*:/i.test(line))
+        ? overrides.unownedFrontmatter
+        : withAllVisible(overrides.unownedFrontmatter),
     },
     source: { markdown: '' },
     analysis: {
@@ -116,7 +122,7 @@ describe('buildPageProperties', () => {
   it('a differently-cased system key shows as the system property, never as a custom one', async () => {
     const { FrontmatterParser } = await import('@core/vault/ingest/FrontmatterParser');
     const { PageBuilder } = await import('@core/vault/ingest/PageBuilder');
-    const parsed = new FrontmatterParser().parse('---\nid: p1\nALIASES:\n  - UX\nTags:\n  - work\n---\n');
+    const parsed = new FrontmatterParser().parse('---\nid: p1\nALIASES:\n  - UX\nTags:\n  - work\nproperties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified\n---\n');
     const page = new PageBuilder().build({
       parentId: null,
       page: {
@@ -133,6 +139,8 @@ describe('buildPageProperties', () => {
     expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
     expect(items[0]!.value).toEqual(['work']);
     expect(items[1]!.value).toEqual(['UX']);
+    // `properties` is Clutter's own configuration: never a row of its own.
+    expect(items.map((item) => item.name)).not.toContain('properties');
   });
 
   describe('custom properties', () => {

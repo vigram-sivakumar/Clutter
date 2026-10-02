@@ -6,7 +6,7 @@ import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
 import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty } from './header/AddPropertyMenu';
+import type { AddableSystemProperty, HiddenPropertyOption } from './header/AddPropertyMenu';
 import { PageTitle } from './header/Page.Title';
 import { PageDescription } from './header/Page.Description';
 
@@ -86,7 +86,8 @@ type PageProps = {
   /** Forwarded to PageTitleSection's More-actions "Add properties" item — see PageHeaderMoreActionsMenu's own doc comment. Present only where `properties` is. */
   onAddCustomProperty?: (type: CustomPropertyType) => void;
   addableSystemProperties?: readonly AddableSystemProperty[];
-  onAddSystemProperty?: (id: string) => void;
+  hiddenProperties?: readonly HiddenPropertyOption[];
+  onShowProperty?: (key: string) => void;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -227,7 +228,8 @@ export function Page({
   properties,
   onAddCustomProperty,
   addableSystemProperties,
-  onAddSystemProperty,
+  hiddenProperties,
+  onShowProperty,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -353,7 +355,8 @@ export function Page({
               onEditDescription={onEditDescription}
               onAddCustomProperty={onAddCustomProperty}
               addableSystemProperties={addableSystemProperties}
-              onAddSystemProperty={onAddSystemProperty}
+              hiddenProperties={hiddenProperties}
+              onShowProperty={onShowProperty}
               hasCoverImage={Boolean(coverImage)}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}

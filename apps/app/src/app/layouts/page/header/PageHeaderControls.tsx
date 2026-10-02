@@ -4,7 +4,7 @@ import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicke
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty } from './AddPropertyMenu';
+import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import './PageHeaderControls.css';
 
@@ -63,7 +63,8 @@ export interface PageHeaderControlsProps {
   /** Forwarded to PageHeaderMoreActionsMenu's "Add properties" item — see its own doc comment. */
   onAddCustomProperty?: (type: CustomPropertyType) => void;
   addableSystemProperties?: readonly AddableSystemProperty[];
-  onAddSystemProperty?: (id: string) => void;
+  hiddenProperties?: readonly HiddenPropertyOption[];
+  onShowProperty?: (key: string) => void;
 }
 
 export function PageHeaderControls({
@@ -82,7 +83,8 @@ export function PageHeaderControls({
   onEditDescription,
   onAddCustomProperty,
   addableSystemProperties,
-  onAddSystemProperty,
+  hiddenProperties,
+  onShowProperty,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -147,7 +149,8 @@ export function PageHeaderControls({
           onEditDescription={onEditDescription}
           onAddCustomProperty={onAddCustomProperty}
           addableSystemProperties={addableSystemProperties}
-          onAddSystemProperty={onAddSystemProperty}
+          hiddenProperties={hiddenProperties}
+          onShowProperty={onShowProperty}
         />
       )}
     </div>

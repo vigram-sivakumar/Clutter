@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { PageHeaderControls } from './PageHeaderControls';
 import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty } from './AddPropertyMenu';
+import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import type { SystemIcon } from '@shared/icon';
 import './Page.TitleSection.css';
 
@@ -41,7 +41,8 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls' More-actions "Add properties" item — see PageHeaderMoreActionsMenu's own doc comment. */
   onAddCustomProperty?: (type: CustomPropertyType) => void;
   addableSystemProperties?: readonly AddableSystemProperty[];
-  onAddSystemProperty?: (id: string) => void;
+  hiddenProperties?: readonly HiddenPropertyOption[];
+  onShowProperty?: (key: string) => void;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -77,7 +78,8 @@ export function PageTitleSection({
   onEditDescription,
   onAddCustomProperty,
   addableSystemProperties,
-  onAddSystemProperty,
+  hiddenProperties,
+  onShowProperty,
   actions,
   belowDescription,
   className,
@@ -105,7 +107,8 @@ export function PageTitleSection({
         onEditDescription={onEditDescription}
         onAddCustomProperty={onAddCustomProperty}
         addableSystemProperties={addableSystemProperties}
-        onAddSystemProperty={onAddSystemProperty}
+        hiddenProperties={hiddenProperties}
+        onShowProperty={onShowProperty}
       />
 
       <div className="page-title-section__content">

@@ -104,3 +104,21 @@ The labels are defined once, in the system property definitions (`core/propertie
 
 **Stored identity is the key, never the label.** Anything persisted about a system property — including the per-note show/hide of system properties, once designed — must store the canonical key (`modified`), not its display wording ("Last edited"), so that changing UI copy can never invalidate stored configuration. `Last opened` is defined but not yet a Property on the page's Properties list.
 
+## Amendment — which properties a note shows (`properties.visible`)
+
+Nothing is shown by default. A note shows a Property only when its **canonical key** is listed in its own frontmatter:
+
+```yaml
+properties:
+  visible:
+    - tags
+    - Due date
+```
+
+- **Keys, never labels.** The entries are canonical keys — `tags`, `aliases`, `created`, `modified` for the system Properties (`modified` is shown as "Last edited"; there is no `lastEdited` key) and a custom property's actual frontmatter key. `lastOpened` is a collection-view field, not note metadata, so it is never listed. Renaming UI copy can never invalidate stored configuration.
+- **Absent means none.** No `properties.visible` shows no Properties; there is no migration and no default list. The Properties block is omitted entirely while nothing is shown.
+- **Separate from existence and value.** Visibility only decides what is listed. A property's frontmatter value is untouched whether or not it is shown, and a listed custom key that is not in the frontmatter shows nothing. Rows follow the list's order — the order the properties were added.
+- **Option B: preserved raw lines.** `properties` is a *reserved raw key* (`RESERVED_RAW_FRONTMATTER_KEYS`), deliberately **not** in `OWNED_FRONTMATTER_KEYS`: the flat, line-based `FrontmatterParser` gains no nested-YAML support and keeps capturing its lines, which `FrontmatterSerializer` writes back byte-identical like every other preserved line. `propertyVisibility.ts` reads and writes the `visible` list from `PageMetadata.unownedFrontmatter` — derived on demand, never a second representation, the same as custom properties. Anything else under `properties:` is preserved untouched. `properties` is never listed as a custom property and cannot be used as a custom property name, in any letter case.
+- **Show-only.** The list only grows. `PageOperations.showProperty(pageId, key)` appends a system key or the key of an existing custom property (never reordering the entries already there; already shown is a no-op; a missing custom key or the reserved key is refused). A new custom property's key is appended in the same save that creates it (`addCustomProperty`), and renaming a shown custom property rewrites its entry in place in the same save (`renameCustomProperty`), so it stays shown. All three are the existing `saveCustomFrontmatter` — one Gate `'save'` with a metadata patch, this page only. There is deliberately no way to hide a property yet, and no `setPropertyVisibility`; hiding, and per-note ordering beyond insertion order, are the next design step.
+- **Add properties.** The More actions menu's "Add properties" view lists, in groups: the system Properties not shown (labelled from the system property definitions), the custom properties that exist but are not shown (by their actual key), and the new custom types (from the property type registry). Choosing an existing property shows it (`showProperty`); choosing a type adds a draft row as above, made visible once named.
+

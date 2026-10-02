@@ -333,11 +333,11 @@ describe('PageHeaderMoreActionsMenu — Add properties', () => {
   });
 
   it('lists available system properties first, and choosing one reports its key', () => {
-    const onAddSystemProperty = vi.fn();
+    const onShowProperty = vi.fn();
     const onAddCustomProperty = vi.fn();
     renderMenu({
       onAddCustomProperty,
-      onAddSystemProperty,
+      onShowProperty,
       addableSystemProperties: [{ id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' }],
     });
 
@@ -345,7 +345,25 @@ describe('PageHeaderMoreActionsMenu — Add properties', () => {
     expect(rootItems()[0]).toBe('Last edited');
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Last edited' }));
-    expect(onAddSystemProperty).toHaveBeenCalledExactlyOnceWith('modified');
+    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('modified');
+    expect(onAddCustomProperty).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('lists hidden custom properties, and choosing one shows it by its key and closes the menu', () => {
+    const onShowProperty = vi.fn();
+    const onAddCustomProperty = vi.fn();
+    renderMenu({
+      onAddCustomProperty,
+      onShowProperty,
+      hiddenProperties: [{ key: 'Due date', type: 'date' }],
+    });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    expect(rootItems()[0]).toBe('Due date');
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Due date' }));
+    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('Due date');
     expect(onAddCustomProperty).not.toHaveBeenCalled();
     expect(screen.queryByRole('menu')).toBeNull();
   });

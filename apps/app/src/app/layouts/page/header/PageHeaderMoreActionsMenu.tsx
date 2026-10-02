@@ -8,7 +8,7 @@ import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import { AddPropertyMenu } from './AddPropertyMenu';
-import type { AddableSystemProperty } from './AddPropertyMenu';
+import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
@@ -73,9 +73,10 @@ export interface PageHeaderMoreActionsMenuProps {
    * Properties list (or an archived one).
    */
   onAddCustomProperty?: (type: CustomPropertyType) => void;
-  /** System Properties available to show again, and how — see AddPropertyMenu. Omitted until a system Property can be hidden. */
+  /** The existing properties not shown yet, and how to show one — see AddPropertyMenu. */
   addableSystemProperties?: readonly AddableSystemProperty[];
-  onAddSystemProperty?: (id: string) => void;
+  hiddenProperties?: readonly HiddenPropertyOption[];
+  onShowProperty?: (key: string) => void;
 }
 
 type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
@@ -146,7 +147,8 @@ export function PageHeaderMoreActionsMenu({
   onEditDescription,
   onAddCustomProperty,
   addableSystemProperties,
-  onAddSystemProperty,
+  hiddenProperties,
+  onShowProperty,
 }: PageHeaderMoreActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MenuView>('root');
@@ -284,14 +286,15 @@ export function PageHeaderMoreActionsMenu({
         {view === 'properties' && onAddCustomProperty && (
           <AddPropertyMenu
             systemProperties={addableSystemProperties}
-            onAddSystemProperty={
-              onAddSystemProperty &&
-              ((id) => {
-                // The new row's name field must keep focus — see
-                // suppressReturnFocusRef's doc comment above.
+            hiddenProperties={hiddenProperties}
+            onShowProperty={
+              onShowProperty &&
+              ((key) => {
+                // The shown property's row appears with focus staying put —
+                // see suppressReturnFocusRef's doc comment above.
                 suppressReturnFocusRef.current = true;
                 setOpen(false);
-                onAddSystemProperty(id);
+                onShowProperty(key);
               })
             }
             onAddCustomProperty={(type) => {

@@ -17,15 +17,15 @@ afterEach(() => cleanup());
 
 function renderMenu(overrides: Partial<AddPropertyMenuProps> = {}) {
   const onAddCustomProperty = vi.fn();
-  const onAddSystemProperty = vi.fn();
+  const onShowProperty = vi.fn();
   render(
     <AddPropertyMenu
       onAddCustomProperty={onAddCustomProperty}
-      onAddSystemProperty={onAddSystemProperty}
+      onShowProperty={onShowProperty}
       {...overrides}
     />
   );
-  return { onAddCustomProperty, onAddSystemProperty };
+  return { onAddCustomProperty, onShowProperty };
 }
 
 const itemLabels = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
@@ -51,7 +51,8 @@ describe('AddPropertyMenu', () => {
     renderMenu({ systemProperties: [] });
 
     expect(screen.queryByText('System')).toBeNull();
-    expect(screen.queryByText('Custom')).toBeNull();
+    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(screen.queryByText('New')).toBeNull();
   });
 
   it('lists the available system properties first, then the custom types', () => {
@@ -73,7 +74,8 @@ describe('AddPropertyMenu', () => {
       'Multi-select',
     ]);
     expect(screen.getByText('System')).toBeInTheDocument();
-    expect(screen.getByText('Custom')).toBeInTheDocument();
+    expect(screen.getByText('New')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden')).toBeNull();
   });
 
   it('shows only the system properties it is given: one already displayed is simply not passed', () => {
@@ -87,13 +89,13 @@ describe('AddPropertyMenu', () => {
   });
 
   it('choosing a system property reports its key only', () => {
-    const { onAddSystemProperty, onAddCustomProperty } = renderMenu({
+    const { onShowProperty, onAddCustomProperty } = renderMenu({
       systemProperties: [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }],
     });
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Created' }));
 
-    expect(onAddSystemProperty).toHaveBeenCalledExactlyOnceWith('created');
+    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('created');
     expect(onAddCustomProperty).not.toHaveBeenCalled();
   });
 
@@ -105,11 +107,67 @@ describe('AddPropertyMenu', () => {
     ['Boolean', 'boolean'],
     ['Multi-select', 'multi-select'],
   ])('choosing %s reports the %s type only', (label, type) => {
-    const { onAddCustomProperty, onAddSystemProperty } = renderMenu();
+    const { onAddCustomProperty, onShowProperty } = renderMenu();
 
     fireEvent.click(screen.getByRole('menuitem', { name: label }));
 
     expect(onAddCustomProperty).toHaveBeenCalledExactlyOnceWith(type);
-    expect(onAddSystemProperty).not.toHaveBeenCalled();
+    expect(onShowProperty).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddPropertyMenu — hidden custom properties', () => {
+  const hidden = [
+    { key: 'Due date', type: 'date' as const },
+    { key: 'people', type: 'multi-select' as const },
+  ];
+
+  it('lists hidden custom properties by their actual key, between the system properties and the new types', () => {
+    renderMenu({
+      systemProperties: [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }],
+      hiddenProperties: hidden,
+    });
+
+    expect(itemLabels()).toEqual([
+      'Created',
+      'Due date',
+      'people',
+      'Text',
+      'Date',
+      'URL',
+      'Number',
+      'Boolean',
+      'Multi-select',
+    ]);
+    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.getByText('New')).toBeInTheDocument();
+  });
+
+  it('shows only the group it has, with the new types still offered', () => {
+    renderMenu({ hiddenProperties: hidden });
+
+    expect(screen.queryByText('System')).toBeNull();
+    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(itemLabels().slice(0, 2)).toEqual(['Due date', 'people']);
+  });
+
+  it('choosing a hidden property reports its actual key to show it, and adds no new property', () => {
+    const { onShowProperty, onAddCustomProperty } = renderMenu({ hiddenProperties: hidden });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Due date' }));
+
+    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('Due date');
+    expect(onAddCustomProperty).not.toHaveBeenCalled();
+  });
+
+  it('offers no existing properties at all when it cannot show them', () => {
+    renderMenu({
+      onShowProperty: undefined,
+      systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }],
+      hiddenProperties: hidden,
+    });
+
+    expect(itemLabels()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
   });
 });

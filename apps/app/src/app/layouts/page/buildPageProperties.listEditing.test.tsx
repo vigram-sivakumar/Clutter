@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { PropertyList } from '@components/property-list/PropertyList';
 import type { Page } from '@core/vault/models/Page';
 import { buildPageProperties } from './buildPageProperties';
+import { withAllVisible } from './showAllVisibleLines';
 
 // Overlay positions itself with a ResizeObserver, which jsdom lacks.
 beforeAll(() => {
@@ -38,7 +39,7 @@ function pageWith(status: 'active' | 'archived', unownedFrontmatter = ['people:'
       aliases: [],
       createdAt: null,
       updatedAt: null,
-      unownedFrontmatter,
+      unownedFrontmatter: withAllVisible(unownedFrontmatter),
     },
   } as unknown as Page;
 }

@@ -1,9 +1,11 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import { systemPropertyLabel } from '@core/properties/systemProperties';
+import type { SystemPropertyKey } from '@core/properties/systemProperties';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
+import { readVisibleProperties } from '@core/vault/ingest/frontmatter/propertyVisibility';
 import {
   readCustomProperties,
   toCustomUrl,
@@ -28,7 +30,15 @@ export interface AliasPropertyActions {
  * The page → Properties policy layer: the one place that decides which
  * metadata is a user-facing Property, its label, and how its value is
  * normalized for PropertyList (which stays a dumb presentational
- * component). Same four Properties, same order, for a Note and a Daily Note.
+ * component). The same rules for a Note and a Daily Note.
+ *
+ * Nothing is shown by default. A Property is listed only when its
+ * canonical key — a system key (`tags`, `aliases`, `created`, `modified`)
+ * or a custom property's actual frontmatter key, never a UI label — is in
+ * the note's `properties.visible` (propertyVisibility.ts), and the rows
+ * follow that list's order. Visibility is separate from the property's
+ * existence and value: an unlisted property keeps its frontmatter value,
+ * and a listed custom key that isn't in the frontmatter shows nothing.
  *
  * Being present in frontmatter does not make a field a Property. Excluded
  * on purpose: fields with dedicated UI (favorite, icon, cover*, description),
@@ -46,9 +56,9 @@ export interface AliasPropertyActions {
  * carrying the raw ISO timestamp (formatting is the date type's job),
  * explicitly `editable: false`.
  *
- * Then the custom properties — frontmatter keys Clutter doesn't own,
- * read from the page's preserved raw lines (readCustomProperties), each a
- * Property of its inferred type, with an editable name; read-only values
+ * The custom properties — frontmatter keys Clutter doesn't own (never the
+ * reserved `properties`), read from the page's preserved raw lines
+ * (readCustomProperties), each a Property of its inferred type, with an editable name; read-only values
  * except a list when `onCommitListValue` is supplied.
  *
  * Editability is decided here, per Property — never by PropertyList from a
@@ -267,26 +277,36 @@ export function buildPageProperties(
   // and is renamable — rejected, with no write, by the same rule
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
-  const customItems = readCustomProperties(customLines).map((property): PropertyListItem => {
-    const item = toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue });
+  // Nothing is shown by default: a Property is listed only when its
+  // canonical key — the system key, or a custom property's actual
+  // frontmatter key — is in `properties.visible`. Visibility is separate
+  // from the property's existence and value.
+  const visibleKeys = readVisibleProperties(customLines);
+  const customItems = new Map<string, PropertyListItem>(
+    readCustomProperties(customLines).map((property): [string, PropertyListItem] => {
+      const item = toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue });
 
-    if (!onRenameProperty) {
-      return item;
-    }
+      if (!onRenameProperty) {
+        return [property.key, item];
+      }
 
-    return {
-      ...item,
-      onRename: (name) => {
-        if (validateCustomPropertyName(customLines, property.key, name) !== null) {
-          return false;
-        }
-        if (name.trim() !== property.key) {
-          onRenameProperty(property.key, name.trim());
-        }
-        return true;
-      },
-    };
-  });
+      return [
+        property.key,
+        {
+          ...item,
+          onRename: (name) => {
+            if (validateCustomPropertyName(customLines, property.key, name) !== null) {
+              return false;
+            }
+            if (name.trim() !== property.key) {
+              onRenameProperty(property.key, name.trim());
+            }
+            return true;
+          },
+        },
+      ];
+    })
+  );
 
   // Drafts: an unnamed row asks for its name — checked by the same rule a
   // rename uses, and against the names of drafts already being written — a
@@ -315,33 +335,60 @@ export function buildPageProperties(
     ];
   });
 
-  return [
-    onCommitTags
-      ? {
-          name: systemPropertyLabel('tags'),
-          type: 'tag',
-          value: tags,
-          onOpenTag: actions.onOpenTag,
-          getSuggestions: actions.getTagSuggestions,
-          // Frontmatter `tags` only, never an inline #tag in the body: the
-          // editor commits the whole new list (add or remove).
-          editable: true,
-          onCommit: onCommitTags,
-        }
-      : { name: systemPropertyLabel('tags'), type: 'tag', value: tags, onOpenTag: actions.onOpenTag, editable: false },
-    aliasActions
-      ? {
-          name: systemPropertyLabel('aliases'),
-          type: 'multi-select',
-          value: aliases,
-          getSuggestions: aliasActions.getSuggestions,
-          editable: true,
-          onCommit: aliasActions.onCommit,
-        }
-      : { name: systemPropertyLabel('aliases'), type: 'multi-select', value: aliases, editable: false },
-    { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
-    { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
-    ...customItems,
-    ...draftItems,
+  const systemRows: [SystemPropertyKey, PropertyListItem][] = [
+    [
+      'tags',
+      onCommitTags
+        ? {
+            name: systemPropertyLabel('tags'),
+            type: 'tag',
+            value: tags,
+            onOpenTag: actions.onOpenTag,
+            getSuggestions: actions.getTagSuggestions,
+            // Frontmatter `tags` only, never an inline #tag in the body: the
+            // editor commits the whole new list (add or remove).
+            editable: true,
+            onCommit: onCommitTags,
+          }
+        : {
+            name: systemPropertyLabel('tags'),
+            type: 'tag',
+            value: tags,
+            onOpenTag: actions.onOpenTag,
+            editable: false,
+          },
+    ],
+    [
+      'aliases',
+      aliasActions
+        ? {
+            name: systemPropertyLabel('aliases'),
+            type: 'multi-select',
+            value: aliases,
+            getSuggestions: aliasActions.getSuggestions,
+            editable: true,
+            onCommit: aliasActions.onCommit,
+          }
+        : { name: systemPropertyLabel('aliases'), type: 'multi-select', value: aliases, editable: false },
+    ],
+    [
+      'created',
+      { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
+    ],
+    [
+      'modified',
+      { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
+    ],
   ];
+
+  // Rows follow `properties.visible`, in the order the properties were
+  // added to it: a listed system key, or a listed custom key that exists
+  // in the frontmatter. A listed key that matches neither shows nothing.
+  const rowsByKey = new Map<string, PropertyListItem>([...systemRows, ...customItems]);
+  const shownItems = [...new Set(visibleKeys)].flatMap((key) => {
+    const item = rowsByKey.get(key);
+    return item ? [item] : [];
+  });
+
+  return [...shownItems, ...draftItems];
 }
