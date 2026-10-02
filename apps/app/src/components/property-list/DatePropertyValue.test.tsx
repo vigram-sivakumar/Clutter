@@ -4,6 +4,8 @@ import { act, useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
+
 import { DatePropertyValue } from './DatePropertyValue';
 import { PropertyList } from './PropertyList';
 import { formatDatePropertyValue } from './formatDatePropertyValue';
@@ -233,7 +235,7 @@ describe('DatePropertyValue — typing', () => {
     expect(selectedDay()).toBe('15');
   });
 
-  it('commits a valid typed date and moves the calendar to it, without rewriting the text', () => {
+  it('previews a valid typed date in the calendar without committing it or rewriting the text', () => {
     const onCommit = vi.fn();
     render(
       <DatePropertyValue
@@ -248,8 +250,52 @@ describe('DatePropertyValue — typing', () => {
     fireEvent.click(getField());
     type('1/1/2026');
 
-    expect(onCommit).toHaveBeenLastCalledWith('2026-01-01');
+    expect(onCommit).not.toHaveBeenCalled();
     expect(getField().value).toBe('1/1/2026');
+    expect(calendarMonthYear()).toBe('January 2026');
+    expect(selectedDay()).toBe('1');
+  });
+
+  it('commits a valid typed date when focus leaves the input', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getField().focus());
+    type('1/1/2026');
+    act(() => getField().blur());
+
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('2026-01-01');
+  });
+
+  it('never commits the valid dates passed through while deleting', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2026-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getField().focus());
+    // Backspacing "15 Sep 2026" passes through "15 Sep 20" (a valid 2020 date).
+    for (const text of ['15 Sep 202', '15 Sep 20', '15 Sep 2', '15 Sep ']) {
+      type(text);
+    }
+    act(() => getField().blur());
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(getField().value).toBe(formatDatePropertyValue('2026-09-15'));
   });
 
   it('syncs the calendar month/year and selection to each valid typed date', () => {
@@ -314,6 +360,133 @@ describe('DatePropertyValue — typing', () => {
     fireEvent.click(getField());
     expect(calendarMonthYear()).toBe('January 2026');
     expect(selectedDay()).toBe('20');
+  });
+});
+
+describe('DatePropertyValue — only valid dates commit', () => {
+  function isShaking(): boolean {
+    return getField().parentElement!.classList.contains('editable-text--shake');
+  }
+
+  it('Enter on an invalid date shakes, keeps the text and focus, and commits nothing', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getField().focus());
+    type('31/9/2026');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+
+    expect(isShaking()).toBe(true);
+    expect(getField().value).toBe('31/9/2026');
+    expect(document.activeElement).toBe(getField());
+    expect(isCalendarOpen()).toBe(true);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('Enter on incomplete or emptied text is rejected the same way', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getField().focus());
+    type('1/1/');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+    expect(isShaking()).toBe(true);
+
+    type('');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+    expect(getField().value).toBe('');
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('stops shaking after the shared shake duration', () => {
+    vi.useFakeTimers();
+    try {
+      render(<StatefulDate initial="2025-09-15" />);
+
+      act(() => getField().focus());
+      type('1/1/');
+      fireEvent.keyDown(getField(), { key: 'Enter' });
+      expect(isShaking()).toBe(true);
+
+      act(() => vi.advanceTimersByTime(SHAKE_DURATION_MS));
+      expect(isShaking()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Enter on a valid date commits it, shows it formatted, and closes the calendar', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    act(() => getField().focus());
+    type('1/1/2026');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+
+    expect(isShaking()).toBe(false);
+    expect(getField().value).toBe(formatDatePropertyValue('2026-01-01'));
+    expect(isCalendarOpen()).toBe(false);
+  });
+
+  it('reopens the calendar when typing resumes after Enter closed it', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    act(() => getField().focus());
+    type('1/1/2026');
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+    expect(isCalendarOpen()).toBe(false);
+
+    type('2/1/2026');
+    expect(isCalendarOpen()).toBe(true);
+    expect(selectedDay()).toBe('2');
+  });
+
+  it('leaving with invalid text discards it and restores the last valid date', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getField().focus());
+    type('31/9/2026');
+    act(() => getField().blur());
+
+    expect(getField().value).toBe('15 Sep 2025');
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('keeps the calendar on the last valid typed date, but discards it all if left invalid', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    act(() => getField().focus());
+    type('1/1/2026');
+    type('1/1/2026x');
+    expect(calendarMonthYear()).toBe('January 2026');
+    expect(selectedDay()).toBe('1');
+
+    act(() => getField().blur());
+    expect(getField().value).toBe('15 Sep 2025');
   });
 });
 

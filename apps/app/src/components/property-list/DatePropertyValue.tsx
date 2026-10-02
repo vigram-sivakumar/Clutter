@@ -1,7 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { Button } from '@components/button/Button';
+import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
+// For the shared `editable-text--shake` reject animation.
+import '@components/editable-text/EditableText.css';
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon } from '@shared/icon';
@@ -55,23 +58,31 @@ interface DatePropertyEditorProps {
 /**
  * Editable state. Two entry paths, one canonical value (`value`, owned by
  * the caller):
- * - typing: the text stays exactly as typed while focused (`draft`); each
- *   time it parses to a real date (parseDateInput) that date commits
- *   immediately, so the Calendar — which only ever reads `value` — moves
- *   to it. Incomplete/invalid text commits nothing and resets nothing.
+ * - typing: the text stays exactly as typed while focused (`draft`). Each
+ *   time it parses to a real date (parseDateInput), the Calendar previews
+ *   that date (`previewDate`); incomplete/invalid text leaves the Calendar
+ *   on the last valid one and resets nothing. Nothing commits while
+ *   typing — deleting characters routinely passes through valid dates
+ *   ("15 Sep 20" is 2020), which must never be saved.
+ *   Enter or blur commits the draft if it is a valid date.
  * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
  *   a pick commits and drops the draft, so the input shows the formatted
  *   value; its "Clear" action commits null, emptying the value while the
  *   Calendar stays open.
- * On blur the draft is dropped and the input shows the formatted
- * canonical value again — so any typed form is normalized, and a
- * still-invalid draft simply reverts.
+ * After a commit the input shows the formatted canonical value, so any
+ * typed form is normalized. Blur with an invalid draft discards it and
+ * restores the last committed date; Enter with an invalid draft keeps the
+ * text and focus and plays EditableText's reject shake. Only valid dates
+ * (or null, via Clear) ever reach `onCommit`.
  */
 function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
   const anchorRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<CalendarMode>('month');
   const [draft, setDraft] = useState<string | null>(null);
+  // The last valid date typed in the current draft — what the Calendar
+  // shows while typing. Never committed on its own; dropped with the draft.
+  const [previewDate, setPreviewDate] = useState<string | null>(null);
   // Overlay hands focus back to the Input when it closes; without this,
   // that returning focus would immediately reopen the calendar. Consumed
   // by the next focus, and cleared on blur for a close where the Input
@@ -80,8 +91,41 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   // Set when the calendar closes because focus left the input, so Overlay
   // doesn't pull focus back from wherever the user moved it.
   const suppressReturnFocusRef = useRef(false);
+  // Rejected-Enter feedback only — EditableText's same shake, cleared after
+  // its own duration.
+  const [isShaking, setIsShaking] = useState(false);
 
-  const selectedDate = value ? parseDatePropertyValue(value)?.isoDate : undefined;
+  useEffect(() => {
+    if (!isShaking) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setIsShaking(false), SHAKE_DURATION_MS);
+    return () => clearTimeout(timeout);
+  }, [isShaking]);
+
+  const committedDate = value ? parseDatePropertyValue(value)?.isoDate : undefined;
+  const calendarDate = previewDate ?? committedDate;
+
+  function resetDraft() {
+    setDraft(null);
+    setPreviewDate(null);
+  }
+
+  /** Commits `text` if it is a valid date (and a change); returns whether it was valid. */
+  function commitText(text: string): boolean {
+    const isoDate = parseDateInput(text);
+
+    if (isoDate === null) {
+      return false;
+    }
+
+    if (isoDate !== committedDate) {
+      onCommit(isoDate);
+    }
+
+    return true;
+  }
 
   function close() {
     ignoreNextFocusRef.current = true;
@@ -99,11 +143,14 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
 
   function handleChange(text: string) {
     setDraft(text);
+    // Typing again after Enter closed the Calendar brings it back, so the
+    // preview below stays visible.
+    setOpen(true);
 
     const isoDate = parseDateInput(text);
 
-    if (isoDate !== null && isoDate !== selectedDate) {
-      onCommit(isoDate);
+    if (isoDate !== null) {
+      setPreviewDate(isoDate);
     }
   }
 
@@ -113,13 +160,38 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
       setOpen(true);
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      setDraft(null);
+      submitDraft();
+    }
+  }
+
+  function submitDraft() {
+    if (draft !== null && !commitText(draft)) {
+      setIsShaking(true);
+      return;
+    }
+
+    resetDraft();
+    setOpen(false);
+  }
+
+  function handleBlur() {
+    ignoreNextFocusRef.current = false;
+
+    // A valid draft commits; an invalid one is simply discarded.
+    if (draft !== null) {
+      commitText(draft);
+    }
+
+    resetDraft();
+
+    if (open) {
+      suppressReturnFocusRef.current = true;
       setOpen(false);
     }
   }
 
   function handleSelect(isoDate: string) {
-    setDraft(null);
+    resetDraft();
     onCommit(isoDate);
     close();
   }
@@ -127,7 +199,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   // Stays open: the user can pick another date right away, or dismiss the
   // calendar themselves.
   function handleClear() {
-    setDraft(null);
+    resetDraft();
     onCommit(null);
   }
 
@@ -135,7 +207,12 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     <>
       <Input
         ref={anchorRef}
-        className="property-list__value property-list__input property-list__date-input"
+        className={[
+          'property-list__value property-list__input property-list__date-input',
+          isShaking && 'editable-text--shake',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         hasBackground={open}
         hasBorder={open}
         aria-label={name}
@@ -145,15 +222,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         value={draft ?? display}
         onChange={(event) => handleChange(event.target.value)}
         onFocus={handleFocus}
-        onBlur={() => {
-          ignoreNextFocusRef.current = false;
-          setDraft(null);
-
-          if (open) {
-            suppressReturnFocusRef.current = true;
-            setOpen(false);
-          }
-        }}
+        onBlur={handleBlur}
         onClick={() => setOpen(true)}
         onKeyDown={handleKeyDown}
       />
@@ -176,7 +245,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         <div className="property-date-picker" onMouseDown={(event) => event.preventDefault()}>
           <Calendar
             mode={mode}
-            selectedDate={selectedDate}
+            selectedDate={calendarDate}
             onModeChange={setMode}
             onSelectedDateChange={handleSelect}
           />

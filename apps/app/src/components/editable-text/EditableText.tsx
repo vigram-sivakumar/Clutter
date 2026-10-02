@@ -95,8 +95,13 @@ function placeCaretAtEnd(element: HTMLDivElement | null) {
   element.scrollLeft = element.scrollWidth;
 }
 
-/** How long the reject-shake CSS animation (EditableText.css) plays. */
-const SHAKE_DURATION_MS = 240;
+/**
+ * How long the reject-shake CSS animation (EditableText.css's
+ * `editable-text--shake`) plays. Exported so another field giving the same
+ * "that value isn't accepted" feedback (the date Property input) reuses
+ * this exact animation rather than a second one.
+ */
+export const SHAKE_DURATION_MS = 240;
 
 /**
  * EditableText is a reusable UI primitive for inline text editing.
