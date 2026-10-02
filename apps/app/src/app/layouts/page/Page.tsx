@@ -5,8 +5,6 @@ import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
-import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty, HiddenPropertyOption } from './header/AddPropertyMenu';
 import { PageTitle } from './header/Page.Title';
 import { PageDescription } from './header/Page.Description';
 
@@ -83,11 +81,9 @@ type PageProps = {
    * presentation here; whatever the caller supplies renders as-is.
    */
   properties?: ReactNode;
-  /** Forwarded to PageTitleSection's More-actions "Add properties" item — see PageHeaderMoreActionsMenu's own doc comment. Present only where `properties` is. */
-  onAddCustomProperty?: (type: CustomPropertyType) => void;
-  addableSystemProperties?: readonly AddableSystemProperty[];
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  onShowProperty?: (key: string) => void;
+  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
+  onToggleProperties?: () => void;
+  propertiesShown?: boolean;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -226,10 +222,8 @@ export function Page({
   onSetCoverImage,
   onSetCoverImageFromUpload,
   properties,
-  onAddCustomProperty,
-  addableSystemProperties,
-  hiddenProperties,
-  onShowProperty,
+  onToggleProperties,
+  propertiesShown,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -353,10 +347,8 @@ export function Page({
               onRemoveEmoji={onRemoveEmoji}
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
-              onAddCustomProperty={onAddCustomProperty}
-              addableSystemProperties={addableSystemProperties}
-              hiddenProperties={hiddenProperties}
-              onShowProperty={onShowProperty}
+              onToggleProperties={onToggleProperties}
+              propertiesShown={propertiesShown}
               hasCoverImage={Boolean(coverImage)}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}

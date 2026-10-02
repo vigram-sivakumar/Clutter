@@ -45,9 +45,8 @@ export interface AddPropertyMenuProps {
  * currently shown, the custom properties that exist but aren't shown, then
  * every custom Property type. The custom types come
  * from the property type registry (customPropertyTypeOptions), so this
- * menu holds no list of its own. Hosted as the "Add properties" view of
- * the page header's More actions menu (PageHeaderMoreActionsMenu), which
- * closes itself after a choice.
+ * menu holds no list of its own. Hosted by the Properties section's
+ * "+ Add a property" row (AddPropertyRow), which closes it after a choice.
  *
  * Choosing an existing property just shows it (its key joins the note's
  * `properties.visible`). Choosing a custom type adds its row at once (unnamed, name field

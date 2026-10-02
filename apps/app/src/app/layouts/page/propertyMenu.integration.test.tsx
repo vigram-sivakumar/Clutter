@@ -18,7 +18,7 @@ import type { Page } from '@core/vault/models/Page';
 
 import { getAddableProperties } from './addableProperties';
 import { buildPageProperties } from './buildPageProperties';
-import { PageHeaderMoreActionsMenu } from './header/PageHeaderMoreActionsMenu';
+import { AddPropertyRow } from './AddPropertyRow';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -80,28 +80,31 @@ function Harness({ onLines }: { onLines(lines: readonly string[]): void }) {
   const addable = getAddableProperties(page);
 
   return (
-    <>
-      <PageHeaderMoreActionsMenu
-        hasCoverImage={false}
-        onAddCustomProperty={vi.fn()}
-        addableSystemProperties={addable.systemProperties}
-        hiddenProperties={addable.hiddenProperties}
-        onShowProperty={vi.fn()}
-      />
-      <PropertyList
-        items={buildPageProperties(page, {
-          onCommitTags: setTags,
-          onSetScalarValue: (key, type, value) => setLines(setCustomScalarValue(lines, key, type, value)),
-          onCommitListValue: (key, value) => setLines(setCustomListValue(lines, key, value)),
-          onHideProperty: (key) => setLines(removeVisibleProperty(lines, key)),
-          onDeleteProperty: (key) => setLines(removeVisibleProperty(removeCustomProperty(lines, key), key)),
-        })}
-      />
-    </>
+    <PropertyList
+      items={buildPageProperties(page, {
+        onCommitTags: setTags,
+        onSetScalarValue: (key, type, value) => setLines(setCustomScalarValue(lines, key, type, value)),
+        onCommitListValue: (key, value) => setLines(setCustomListValue(lines, key, value)),
+        onHideProperty: (key) => setLines(removeVisibleProperty(lines, key)),
+        onDeleteProperty: (key) => setLines(removeVisibleProperty(removeCustomProperty(lines, key), key)),
+      })}
+      footer={
+        <AddPropertyRow
+          systemProperties={addable.systemProperties}
+          hiddenProperties={addable.hiddenProperties}
+          onShowProperty={vi.fn()}
+          onAddCustomProperty={vi.fn()}
+        />
+      }
+    />
   );
 }
 
-const names = () => [...document.querySelectorAll('.property-list__name')].map((name) => name.textContent);
+// The properties' names — not the "+ Add a property" row's.
+const names = () =>
+  [...document.querySelectorAll('.property-list__row:not(.property-list__add-row) .property-list__name')].map(
+    (name) => name.textContent
+  );
 // Value pills only: the Tags property's own pills start with `#`.
 const pills = () =>
   [...document.querySelectorAll('.pill')].map((pill) => pill.textContent).filter((text) => !text?.startsWith('#'));
@@ -116,10 +119,8 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     render(<Harness onLines={vi.fn()} />);
 
     expect(names()).toEqual(['Tags', 'Created', 'Due date', 'people', 'priority']);
-    // One menu button per row (More actions is the page header's, not a row's).
-    expect(
-      screen.getAllByRole('button', { name: /actions$/ }).filter((button) => button.getAttribute('aria-label') !== 'More actions')
-    ).toHaveLength(5);
+    // One menu button per property row (the "+ Add a property" row has none).
+    expect(screen.getAllByRole('button', { name: /actions$/ })).toHaveLength(5);
   });
 
   it('Hide removes the row and only its key from properties.visible; the value stays and Add properties offers it again', () => {
@@ -135,8 +136,7 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     expect(lines).toContain('priority: high');
     expect(readCustomProperties(lines).map((property) => property.key)).toContain('priority');
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    fireEvent.click(screen.getByText('Add a property'));
     expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'priority' })).toBeInTheDocument();
   });
@@ -209,8 +209,7 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     expect(lines).toContain('priority: high');
     expect(lines).toContain('Due date: 2026-10-01');
     // Gone altogether: Add properties doesn't offer it as hidden either.
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+    fireEvent.click(screen.getByText('Add a property'));
     expect(screen.queryByRole('menuitem', { name: 'people' })).toBeNull();
   });
 

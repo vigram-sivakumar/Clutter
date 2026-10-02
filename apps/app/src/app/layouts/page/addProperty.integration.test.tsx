@@ -15,7 +15,8 @@ import { addVisibleProperty } from '@core/vault/ingest/frontmatter/propertyVisib
 import type { Page } from '@core/vault/models/Page';
 
 import { buildPageProperties } from './buildPageProperties';
-import { PageHeaderMoreActionsMenu } from './header/PageHeaderMoreActionsMenu';
+import { AddPropertyRow } from './AddPropertyRow';
+import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 
 class ResizeObserverMock {
@@ -81,14 +82,23 @@ function Harness({
     },
   });
 
+  const page = pageWith(lines, status);
+  const addable = getAddableProperties(page);
+
   return (
-    <>
-      <PageHeaderMoreActionsMenu
-        hasCoverImage={false}
-        onAddCustomProperty={status === 'archived' ? undefined : drafts.add}
-      />
-      <PropertyList items={items} />
-    </>
+    <PropertyList
+      items={items}
+      footer={
+        status === 'archived' ? undefined : (
+          <AddPropertyRow
+            systemProperties={addable.systemProperties}
+            hiddenProperties={addable.hiddenProperties}
+            onShowProperty={vi.fn()}
+            onAddCustomProperty={drafts.add}
+          />
+        )
+      }
+    />
   );
 }
 
@@ -99,14 +109,16 @@ function setup(props: Partial<Parameters<typeof Harness>[0]> = {}) {
   return { persist, onLines };
 }
 
+// The properties' names — not the "+ Add a property" row's.
 const names = () =>
-  [...document.querySelectorAll('.property-list__name')].map((name) => name.textContent);
+  [...document.querySelectorAll('.property-list__row:not(.property-list__add-row) .property-list__name')].map(
+    (name) => name.textContent
+  );
 const nameField = () => document.querySelector('.property-list__name .editable-text[data-placeholder]') as HTMLDivElement | null;
 
-/** More actions → Add properties → a type, the way a user reaches it. */
+/** "+ Add a property" → a type, the way a user reaches it. */
 function choose(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+  fireEvent.click(screen.getByText('Add a property'));
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 }
 
@@ -232,11 +244,10 @@ describe('Add properties — the whole flow', () => {
     expect(document.activeElement).toBe(field);
   });
 
-  it('offers no Add properties item on an archived page', () => {
+  it('offers no "+ Add a property" row on an archived page', () => {
     setup({ status: 'archived' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-
-    expect(screen.queryByRole('menuitem', { name: 'Add properties' })).toBeNull();
+    expect(screen.queryByText('Add a property')).toBeNull();
   });
+
 });

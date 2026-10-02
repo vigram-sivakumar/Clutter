@@ -6,9 +6,6 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { EmojiTray } from '@components/emoji-tray/EmojiTray';
 import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
-import type { CustomPropertyType } from '@core/properties/Property.types';
-import { AddPropertyMenu } from './AddPropertyMenu';
-import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
@@ -65,21 +62,20 @@ export interface PageHeaderMoreActionsMenuProps {
   /** Presence (alongside `!hasDescription`) gates "Description", same convention as onSelectEmoji above. */
   onEditDescription?: () => void;
   /**
-   * Presence gates "Add properties" — the item that swaps this menu to the
-   * list of what can be added (AddPropertyMenu): a new, unnamed custom
-   * Property of a chosen type, which the host adds and focuses for
-   * naming. Same "handler presence decides whether the item exists"
-   * convention as the handlers above; omitted for a page with no
-   * Properties list (or an archived one).
+   * Presence gates the Properties section toggle: "Show properties" while
+   * the section is hidden, "Hide properties" while it is shown. It only
+   * shows or hides the whole section (UI state, never frontmatter) — it
+   * opens no picker and changes no individual property; adding properties
+   * is the "+ Add a property" row inside the section. Same "handler
+   * presence decides whether the item exists" convention as the handlers
+   * above.
    */
-  onAddCustomProperty?: (type: CustomPropertyType) => void;
-  /** The existing properties not shown yet, and how to show one — see AddPropertyMenu. */
-  addableSystemProperties?: readonly AddableSystemProperty[];
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  onShowProperty?: (key: string) => void;
+  onToggleProperties?: () => void;
+  /** Whether the Properties section is currently shown — picks the item's label. */
+  propertiesShown?: boolean;
 }
 
-type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
+type MenuView = 'root' | 'emoji' | 'cover';
 
 /**
  * The page header's "More actions" menu. Structurally, this is one
@@ -89,8 +85,7 @@ type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
  *   Overlay
  *   ├── 'root'  → <Menu> (Emoji/Cover image/Description items)
  *   ├── 'emoji' → the existing EmojiTray, unwrapped
- *   ├── 'cover' → the existing ImagePicker, unwrapped
- *   └── 'properties' → AddPropertyMenu (a `<Menu>`: what can be added to the Properties list)
+ *   └── 'cover' → the existing ImagePicker, unwrapped
  *
  * `EmojiTray` and `ImagePicker` are each already a complete, self-styled
  * surface (own background/border-radius/box-shadow/padding — see either
@@ -145,10 +140,8 @@ export function PageHeaderMoreActionsMenu({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  onAddCustomProperty,
-  addableSystemProperties,
-  hiddenProperties,
-  onShowProperty,
+  onToggleProperties,
+  propertiesShown = false,
 }: PageHeaderMoreActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MenuView>('root');
@@ -192,9 +185,9 @@ export function PageHeaderMoreActionsMenu({
   const showShowCoverImageItem = hasCoverImage && Boolean(coverHidden) && Boolean(onShowCoverImage);
   // Same "omit once set" convention as Emoji/Cover image above.
   const showDescriptionItem = Boolean(onEditDescription) && !hasDescription;
-  // Always offered when the page can take Properties: unlike the items
-  // above, adding one doesn't use the item up.
-  const showAddPropertiesItem = Boolean(onAddCustomProperty);
+  // Always offered when the page has a Properties section: unlike the items
+  // above, toggling it doesn't use the item up.
+  const showPropertiesItem = Boolean(onToggleProperties);
 
   return (
     <>
@@ -269,40 +262,19 @@ export function PageHeaderMoreActionsMenu({
                 Description
               </MenuItem>
             )}
-            {showAddPropertiesItem && (
+            {showPropertiesItem && (
               <MenuItem
-                leading={<AppIcon icon="plus" />}
+                leading={<AppIcon icon="table" />}
                 onClick={(event) => {
                   event.stopPropagation();
-                  setView('properties');
+                  setOpen(false);
+                  onToggleProperties?.();
                 }}
               >
-                Add properties
+                {propertiesShown ? 'Hide properties' : 'Show properties'}
               </MenuItem>
             )}
           </Menu>
-        )}
-
-        {view === 'properties' && onAddCustomProperty && (
-          <AddPropertyMenu
-            systemProperties={addableSystemProperties}
-            hiddenProperties={hiddenProperties}
-            onShowProperty={
-              onShowProperty &&
-              ((key) => {
-                // The shown property's row appears with focus staying put —
-                // see suppressReturnFocusRef's doc comment above.
-                suppressReturnFocusRef.current = true;
-                setOpen(false);
-                onShowProperty(key);
-              })
-            }
-            onAddCustomProperty={(type) => {
-              suppressReturnFocusRef.current = true;
-              setOpen(false);
-              onAddCustomProperty(type);
-            }}
-          />
         )}
 
         {view === 'emoji' && (

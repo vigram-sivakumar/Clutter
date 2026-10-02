@@ -489,6 +489,12 @@ export function PageHost({
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
+  // Whether each page's Properties section is shown. Session-only UI state:
+  // not frontmatter, and independent of `properties.visible` (which says
+  // which individual properties the section lists). Hidden by default, so a
+  // page absent from the set has its section hidden.
+  const [pagesShowingProperties, setPagesShowingProperties] = useState<ReadonlySet<string>>(new Set());
+  const arePropertiesShown = activePageId ? pagesShowingProperties.has(activePageId) : false;
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -1825,20 +1831,35 @@ export function PageHost({
       coverKey={activePageId}
       bodyFocusRef={editorRef}
       // An archived page is view-only: nothing can be added to it.
-      onAddCustomProperty={
-        page.metadata.status === 'archived' ? undefined : propertyDrafts.add
-      }
-      addableSystemProperties={addableProperties.systemProperties}
-      hiddenProperties={addableProperties.hiddenProperties}
-      onShowProperty={
-        page.metadata.status === 'archived'
-          ? undefined
-          : (key) => void application.pageOperations.showProperty(page.id, key)
-      }
+      propertiesShown={arePropertiesShown}
+      onToggleProperties={() => {
+        if (!activePageId) {
+          return;
+        }
+
+        if (arePropertiesShown) {
+          // An unnamed draft belongs to the section being hidden: drop it,
+          // so it can't reappear (and grab focus) when the section is shown.
+          propertyDrafts.clear();
+        }
+
+        setPagesShowingProperties((current) => {
+          const next = new Set(current);
+
+          if (next.has(activePageId)) {
+            next.delete(activePageId);
+          } else {
+            next.add(activePageId);
+          }
+
+          return next;
+        });
+      }}
       properties={
-        // No Properties block at all while nothing is shown and nothing can
-        // be added.
-        propertyItems.length > 0 || addPropertyRow ? (
+        // The whole section, hidden by default and toggled from the title
+        // controls. Shown, it lists what `properties.visible` lists, ending
+        // with "+ Add a property"; nothing at all if there is neither.
+        arePropertiesShown && (propertyItems.length > 0 || addPropertyRow) ? (
           <PropertyList key={activePageId} items={propertyItems} footer={addPropertyRow} />
         ) : undefined
       }

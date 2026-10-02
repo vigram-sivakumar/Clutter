@@ -3,8 +3,6 @@ import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
-import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import './PageHeaderControls.css';
 
@@ -60,11 +58,9 @@ export interface PageHeaderControlsProps {
   /** Forwarded to PageHeaderMoreActionsMenu's "Description" gate — see its own doc comment. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to PageHeaderMoreActionsMenu's "Add properties" item — see its own doc comment. */
-  onAddCustomProperty?: (type: CustomPropertyType) => void;
-  addableSystemProperties?: readonly AddableSystemProperty[];
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  onShowProperty?: (key: string) => void;
+  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
+  onToggleProperties?: () => void;
+  propertiesShown?: boolean;
 }
 
 export function PageHeaderControls({
@@ -81,10 +77,8 @@ export function PageHeaderControls({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  onAddCustomProperty,
-  addableSystemProperties,
-  hiddenProperties,
-  onShowProperty,
+  onToggleProperties,
+  propertiesShown,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -147,10 +141,8 @@ export function PageHeaderControls({
           onShowCoverImage={onShowCoverImage}
           hasDescription={hasDescription}
           onEditDescription={onEditDescription}
-          onAddCustomProperty={onAddCustomProperty}
-          addableSystemProperties={addableSystemProperties}
-          hiddenProperties={hiddenProperties}
-          onShowProperty={onShowProperty}
+          onToggleProperties={onToggleProperties}
+          propertiesShown={propertiesShown}
         />
       )}
     </div>

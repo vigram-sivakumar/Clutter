@@ -1,7 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { PageHeaderControls } from './PageHeaderControls';
-import type { CustomPropertyType } from '@core/properties/Property.types';
-import type { AddableSystemProperty, HiddenPropertyOption } from './AddPropertyMenu';
 import type { SystemIcon } from '@shared/icon';
 import './Page.TitleSection.css';
 
@@ -38,11 +36,9 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls' More-actions "Description" gate — see Page.tsx's matching prop. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to PageHeaderControls' More-actions "Add properties" item — see PageHeaderMoreActionsMenu's own doc comment. */
-  onAddCustomProperty?: (type: CustomPropertyType) => void;
-  addableSystemProperties?: readonly AddableSystemProperty[];
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  onShowProperty?: (key: string) => void;
+  /** Forwarded to the More-actions Properties section toggle — see PageHeaderMoreActionsMenu's own doc comment. */
+  onToggleProperties?: () => void;
+  propertiesShown?: boolean;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -76,10 +72,8 @@ export function PageTitleSection({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  onAddCustomProperty,
-  addableSystemProperties,
-  hiddenProperties,
-  onShowProperty,
+  onToggleProperties,
+  propertiesShown,
   actions,
   belowDescription,
   className,
@@ -105,10 +99,8 @@ export function PageTitleSection({
         onShowCoverImage={onShowCoverImage}
         hasDescription={hasDescription}
         onEditDescription={onEditDescription}
-        onAddCustomProperty={onAddCustomProperty}
-        addableSystemProperties={addableSystemProperties}
-        hiddenProperties={hiddenProperties}
-        onShowProperty={onShowProperty}
+        onToggleProperties={onToggleProperties}
+        propertiesShown={propertiesShown}
       />
 
       <div className="page-title-section__content">

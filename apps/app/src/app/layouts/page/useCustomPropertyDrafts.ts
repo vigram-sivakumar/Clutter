@@ -41,5 +41,9 @@ export function useCustomPropertyDrafts(pageId: string | null | undefined) {
     remove(id: number) {
       update((current) => current.filter((draft) => draft.id !== id));
     },
+    /** Drops every draft of this page — e.g. when its Properties section is hidden. */
+    clear() {
+      update(() => []);
+    },
   };
 }

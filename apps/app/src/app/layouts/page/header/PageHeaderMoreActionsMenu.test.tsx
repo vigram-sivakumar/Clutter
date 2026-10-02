@@ -3,7 +3,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { systemPropertyLabel } from '@core/properties/systemProperties';
 
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu';
@@ -271,115 +270,69 @@ describe('PageHeaderMoreActionsMenu — never nests a second Overlay', () => {
   });
 });
 
-describe('PageHeaderMoreActionsMenu — Add properties', () => {
-  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+describe('PageHeaderMoreActionsMenu — Show / Hide properties', () => {
   const rootItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
 
-  it('has no Add properties item without the handler, and there is no separate + button', () => {
+  it('has no properties item without the handler', () => {
     renderMenu();
 
-    expect(screen.queryByRole('menuitem', { name: 'Add properties' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Add properties' })).toBeNull();
+    expect(rootItems()).not.toContain('Show properties');
+    expect(rootItems()).not.toContain('Hide properties');
+    expect(rootItems()).not.toContain('Add properties');
   });
 
-  it('adds an Add properties item to the More actions menu when the handler is given', () => {
-    renderMenu({ onAddCustomProperty: vi.fn() });
+  it('is "Show properties" while the section is hidden (the default)', () => {
+    renderMenu({ onToggleProperties: vi.fn() });
 
-    expect(rootItems()).toContain('Add properties');
-    // Alongside the existing items, which are unchanged.
-    expect(rootItems()).toEqual(expect.arrayContaining(['Emoji', 'Cover image', 'Description']));
-    // It stays offered after Description/Emoji/Cover are used up.
-    expect(screen.queryByRole('button', { name: 'Add properties' })).toBeNull();
+    expect(rootItems()).toContain('Show properties');
+    expect(rootItems()).not.toContain('Hide properties');
   });
 
-  it('stays offered when every one-time item is already set', () => {
-    renderMenu({
-      onAddCustomProperty: vi.fn(),
-      emoji: '🙂',
-      hasCoverImage: true,
-      hasDescription: true,
-    });
+  it('is "Hide properties" while the section is shown', () => {
+    renderMenu({ onToggleProperties: vi.fn(), propertiesShown: true });
 
-    expect(rootItems()).toEqual(['Add properties']);
+    expect(rootItems()).toContain('Hide properties');
+    expect(rootItems()).not.toContain('Show properties');
   });
 
-  it('clicking it swaps the menu, in place, for the property types', () => {
-    renderMenu({ onAddCustomProperty: vi.fn() });
+  it('sits alongside the existing items, which are unchanged, and stays offered when they are all used up', () => {
+    renderMenu({ onToggleProperties: vi.fn() });
+    expect(rootItems()).toEqual(expect.arrayContaining(['Emoji', 'Cover image', 'Description', 'Show properties']));
+    cleanup();
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
-
-    expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
-    expect(rootItems()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
-    // One Overlay, never two menus at once.
-    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    renderMenu({ onToggleProperties: vi.fn(), emoji: '🙂', hasCoverImage: true, hasDescription: true });
+    expect(rootItems()).toEqual(['Show properties']);
   });
 
   it.each([
-    ['Text', 'text'],
-    ['Date', 'date'],
-    ['URL', 'url'],
-    ['Number', 'number'],
-    ['Boolean', 'boolean'],
-    ['Multi-select', 'multi-select'],
-  ])('choosing %s adds a %s property and closes the menu', (label, type) => {
-    const onAddCustomProperty = vi.fn();
-    renderMenu({ onAddCustomProperty });
+    ['Show properties', false],
+    ['Hide properties', true],
+  ])('choosing %s toggles once and closes the menu — it opens no picker', (label, shown) => {
+    const onToggleProperties = vi.fn();
+    renderMenu({ onToggleProperties, propertiesShown: shown });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
     fireEvent.click(screen.getByRole('menuitem', { name: label }));
 
-    expect(onAddCustomProperty).toHaveBeenCalledExactlyOnceWith(type);
+    expect(onToggleProperties).toHaveBeenCalledOnce();
+    // The menu simply closes: no property list, no second view.
     expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menu', { name: 'Add properties' })).toBeNull();
   });
 
-  it('lists available system properties first, and choosing one reports its key', () => {
-    const onShowProperty = vi.fn();
-    const onAddCustomProperty = vi.fn();
-    renderMenu({
-      onAddCustomProperty,
-      onShowProperty,
-      addableSystemProperties: [{ id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' }],
-    });
+  it('the old title-section Add properties pathway is gone: no item, no property list, no extra props', () => {
+    renderMenu({ onToggleProperties: vi.fn() });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
-    expect(rootItems()[0]).toBe('Last edited');
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Last edited' }));
-    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('modified');
-    expect(onAddCustomProperty).not.toHaveBeenCalled();
-    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /add propert/i })).toBeNull();
+    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(screen.queryByText('Type')).toBeNull();
   });
 
-  it('lists hidden custom properties, and choosing one shows it by its key and closes the menu', () => {
-    const onShowProperty = vi.fn();
-    const onAddCustomProperty = vi.fn();
-    renderMenu({
-      onAddCustomProperty,
-      onShowProperty,
-      hiddenProperties: [{ key: 'Due date', type: 'date' }],
-    });
+  it('reopening shows the root menu again', () => {
+    renderMenu({ onToggleProperties: vi.fn() });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
-    expect(rootItems()[0]).toBe('Due date');
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Due date' }));
-    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('Due date');
-    expect(onAddCustomProperty).not.toHaveBeenCalled();
-    expect(screen.queryByRole('menu')).toBeNull();
-  });
-
-  it('reopening starts on the root menu again, not the properties list', () => {
-    renderMenu({ onAddCustomProperty: vi.fn() });
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
-    expect(rootItems()).toContain('Text');
-
-    // Close (the trigger toggles) and open again.
-    openMenu();
-    expect(screen.queryByRole('menu')).toBeNull();
-    openMenu();
-
-    expect(rootItems()).toContain('Add properties');
-    expect(rootItems()).not.toContain('Text');
+    expect(rootItems()).toContain('Show properties');
   });
 });

@@ -17,7 +17,7 @@ import type { Page } from '@core/vault/models/Page';
 
 import { getAddableProperties } from './addableProperties';
 import { buildPageProperties } from './buildPageProperties';
-import { PageHeaderMoreActionsMenu } from './header/PageHeaderMoreActionsMenu';
+import { AddPropertyRow } from './AddPropertyRow';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 
 class ResizeObserverMock {
@@ -72,29 +72,33 @@ function Harness({
   const addable = getAddableProperties(page);
 
   return (
-    <>
-      <PageHeaderMoreActionsMenu
-        hasCoverImage={false}
-        onAddCustomProperty={drafts.add}
-        addableSystemProperties={addable.systemProperties}
-        hiddenProperties={addable.hiddenProperties}
-        onShowProperty={(key) => {
-          const next = addVisibleProperty(lines, key);
-          setLines(next);
-          onLines(next);
-        }}
-      />
-      <PropertyList items={buildPageProperties(page)} />
-    </>
+    <PropertyList
+      items={buildPageProperties(page)}
+      footer={
+        <AddPropertyRow
+          systemProperties={addable.systemProperties}
+          hiddenProperties={addable.hiddenProperties}
+          onShowProperty={(key) => {
+            const next = addVisibleProperty(lines, key);
+            setLines(next);
+            onLines(next);
+          }}
+          onAddCustomProperty={drafts.add}
+        />
+      }
+    />
   );
 }
 
-const names = () => [...document.querySelectorAll('.property-list__name')].map((name) => name.textContent);
+// The properties' names — not the "+ Add a property" row's.
+const names = () =>
+  [...document.querySelectorAll('.property-list__row:not(.property-list__add-row) .property-list__name')].map(
+    (name) => name.textContent
+  );
 const menuItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
 
 function openAddProperties() {
-  fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Add properties' }));
+  fireEvent.click(screen.getByText('Add a property'));
 }
 
 const YAML = 'Due date: 2026-10-01\npeople:\n  - Ana\n  - Bo\npriority: high';
