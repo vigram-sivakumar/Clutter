@@ -132,7 +132,13 @@ export function fencedCodeBackgroundLayer(): Extension {
       return (
         update.docChanged ||
         update.viewportChanged ||
-        update.startState.field(foldState, false) !== update.state.field(foldState, false)
+        update.startState.field(foldState, false) !== update.state.field(foldState, false) ||
+        // Parsing finishes asynchronously (an empty-transaction dispatch,
+        // no doc/viewport/fold change), so a block restored already-folded
+        // on note reopen is first measured against a partial tree: its
+        // `FencedCode` node is missing or truncated and the rectangle is
+        // absent/short until some unrelated update redraws it.
+        syntaxTree(update.startState) !== syntaxTree(update.state)
       );
       // `update.geometryChanged` (scroll/resize) is deliberately not
       // checked here — `LayerView.update()` already triggers its own
