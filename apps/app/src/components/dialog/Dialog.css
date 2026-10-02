@@ -1,11 +1,11 @@
 .dialog--small {
-  width: 240px;
+  width: var(--dialog-width-sm);
 }
 
 .dialog--medium {
-  width: 320px;
+  width: var(--dialog-width-md);
 }
 
 .dialog--large {
-  width: 420px;
+  width: var(--dialog-width-lg);
 }

@@ -18,11 +18,11 @@
 }
 
 .menu--small {
-  width: 180px;
+  width: var(--menu-width-sm);
 }
 
 .menu--medium {
-  width: 220px;
+  width: var(--menu-width-md);
 }
 
 .menu:focus-visible {

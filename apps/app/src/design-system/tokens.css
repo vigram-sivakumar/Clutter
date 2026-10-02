@@ -111,6 +111,15 @@
   --btn-gap-sm: var(--space-4);
   --btn-gap-xs: var(--space-2); /* Use it for icon-only ghost variant buttons */
 
+  /* Menu width */
+  --menu-width-sm: 180px;
+  --menu-width-md: 220px;
+
+  /* Dialog width */
+  --dialog-width-sm: 240px;
+  --dialog-width-md: 320px; /* Default */
+  --dialog-width-lg: 420px;
+
   /* Z-index */
   --z-overlay: 1000;
 
