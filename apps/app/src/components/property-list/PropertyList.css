@@ -243,8 +243,8 @@
   min-height: calc(2 * var(--space-6) + var(--lh-label));
   box-sizing: border-box;
 
-  margin-inline: calc(-1 * (var(--space-6) + 4px));
-  padding: var(--space-4) calc(var(--space-6) + 4px);
+  margin-inline: calc(-1 * (var(--space-6) + 2px));
+  padding: var(--space-4) calc(var(--space-6) + 2px);
   border-radius: var(--radius-lg);
   cursor: text;
 
