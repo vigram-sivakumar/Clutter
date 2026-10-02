@@ -411,3 +411,27 @@
   padding-left: var(--space-6);
   color: var(--foreground-tertiary);
 }
+
+/* An editable value pill (click to edit it in place) shows the text
+   cursor; the dismiss button keeps Button's own. */
+.property-list__tag-editor .property-list__tag--editable {
+  cursor: text;
+}
+
+/* A pill being edited: Input's wrapper takes the pill's own look (the
+   `property-list__tag --plain` classes), with the field unpadded and as
+   wide as its text, so the pill reads as the same pill, now editable. */
+.property-list__tag.property-list__tag-edit-input {
+  width: auto;
+  min-height: 0;
+  font-size: inherit;
+  line-height: 1;
+  box-shadow: var(--shadow-inset-default);
+}
+.property-list__tag-edit-input .input__field {
+  padding: 0;
+  min-width: 1ch;
+  field-sizing: content;
+  font: inherit;
+  color: inherit;
+}

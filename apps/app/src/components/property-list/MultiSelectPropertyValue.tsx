@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 
 import { Button } from '@components/button/Button';
@@ -11,6 +11,7 @@ import { AppIcon } from '@shared/icon';
 
 import type { MultiSelectSuggestion, PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
+import { useRejectShake } from './useRejectShake';
 
 type MultiSelectPropertyValueProps = {
   /** The property's name — used only as the input's accessible label. */
@@ -59,16 +60,53 @@ export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
 /**
  * One value as a pill — the tag pill's shape and hover-dismiss button
  * (`property-list__tag` and its remove button), on a neutral surface
- * (`--plain`) with no `#` prefix, since these aren't tags.
+ * (`--plain`) with no `#` prefix, since these aren't tags. With `onEdit`,
+ * a click (or Enter/Space when focused) on the pill — not its dismiss
+ * button — starts editing it in place.
  */
-function ValuePill({ value, onRemove }: { value: string; onRemove?(): void }) {
+function ValuePill({
+  value,
+  onRemove,
+  onEdit,
+}: {
+  value: string;
+  onRemove?(): void;
+  onEdit?(): void;
+}) {
   function handleRemove(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     onRemove?.();
   }
 
+  function handleEdit(event: MouseEvent<HTMLSpanElement>) {
+    // Never also reaches the editor's "click anywhere to type" handler.
+    event.stopPropagation();
+    onEdit?.();
+  }
+
+  function handleEditKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onEdit?.();
+  }
+
   return (
-    <span className="property-list__tag property-list__tag--plain">
+    <span
+      className={['property-list__tag property-list__tag--plain', onEdit && 'property-list__tag--editable']
+        .filter(Boolean)
+        .join(' ')}
+      // A <span>, not a <button>: it contains the dismiss <button>, and
+      // buttons can't nest.
+      role={onEdit ? 'button' : undefined}
+      tabIndex={onEdit ? 0 : undefined}
+      aria-label={onEdit ? `Edit ${value}` : undefined}
+      onClick={onEdit ? handleEdit : undefined}
+      onKeyDown={onEdit ? handleEditKeyDown : undefined}
+    >
       {value}
       {onRemove && (
         <Button
@@ -84,6 +122,106 @@ function ValuePill({ value, onRemove }: { value: string; onRemove?(): void }) {
         </Button>
       )}
     </span>
+  );
+}
+
+interface ValuePillEditorProps {
+  /** The value being edited — the text the input starts with, and what Escape restores. */
+  value: string;
+  /** Whether `text` (already trimmed) would repeat another value on this list. */
+  isTaken(text: string): boolean;
+  /** Fired with the trimmed new text when it is a real, allowed change. */
+  onCommit(text: string): void;
+  /** Ends editing with the value unchanged. */
+  onCancel(): void;
+}
+
+/**
+ * A pill being edited in place: a single-line Input standing where the
+ * pill was, its text selected, sized to its content. Same commit rules as
+ * the other Property text editors (EditableText's convention): Enter or
+ * blur commits; Escape cancels and restores. Text that is unchanged or
+ * empty commits nothing (removing is the dismiss button's job). Text that
+ * would repeat another value: Enter keeps editing and plays the reject
+ * shake; blur restores the original.
+ */
+function ValuePillEditor({ value, isTaken, onCommit, onCancel }: ValuePillEditorProps) {
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState(value);
+  // Escape/Enter end editing themselves; the blur that follows unmounting
+  // focus must not act a second time.
+  const isDoneRef = useRef(false);
+  const { shakeClassName, shake } = useRejectShake();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  /** Ends editing with the draft; returns false when it was rejected as a repeat. */
+  function finish(): boolean {
+    const text = draft.trim();
+
+    if (text === '' || text === value) {
+      isDoneRef.current = true;
+      onCancel();
+      return true;
+    }
+
+    if (isTaken(text)) {
+      return false;
+    }
+
+    isDoneRef.current = true;
+    onCommit(text);
+    return true;
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!finish()) {
+        shake();
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      isDoneRef.current = true;
+      onCancel();
+    }
+  }
+
+  function handleBlur() {
+    if (isDoneRef.current) {
+      return;
+    }
+
+    if (!finish()) {
+      isDoneRef.current = true;
+      onCancel();
+    }
+  }
+
+  return (
+    <Input
+      ref={inputRef}
+      className={['property-list__tag property-list__tag--plain property-list__tag-edit-input', shakeClassName]
+        .filter(Boolean)
+        .join(' ')}
+      hasBackground={false}
+      hasBorder={false}
+      aria-label={`Edit ${value}`}
+      // Grows with the text (field-sizing where supported, else `size`).
+      size={Math.max(draft.length, 1)}
+      value={draft}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => setDraft(event.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+    />
   );
 }
 
@@ -109,7 +247,9 @@ interface MultiSelectPropertyEditorProps {
  * - whitespace-only text never makes a pill;
  * - a value already present (ignoring case) is dropped, not doubled;
  * - Backspace in an empty input removes the last pill;
- * - leaving the field adds the pending text.
+ * - leaving the field adds the pending text;
+ * - clicking a pill edits it in place (ValuePillEditor) — the change
+ *   replaces that one value, in position, and nothing else.
  *
  * While typing, `getSuggestions`' matches (minus values already present)
  * show in a popover under the value — the same `.menu` surface,
@@ -133,6 +273,8 @@ function MultiSelectPropertyEditor({
   // No preferredActiveId: nothing is highlighted until ArrowUp/Down or hover.
   const keyboard = useMenuKeyboard(listRef);
   const idScope = useId();
+  // The pill being edited in place, by index, or null.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const suggestions = useMemo(
     () =>
@@ -154,6 +296,11 @@ function MultiSelectPropertyEditor({
 
   function removeValue(index: number) {
     onCommit(value.filter((_, existingIndex) => existingIndex !== index));
+  }
+
+  /** Replaces the value at `index` in place, keeping its position. */
+  function replaceValue(index: number, entry: string) {
+    onCommit(value.map((existing, existingIndex) => (existingIndex === index ? entry : existing)));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -186,9 +333,32 @@ function MultiSelectPropertyEditor({
       className="property-list__value property-list__tag-editor"
       onClick={() => inputRef.current?.focus()}
     >
-      {value.map((entry, index) => (
-        <ValuePill key={`${index}-${entry}`} value={entry} onRemove={() => removeValue(index)} />
-      ))}
+      {value.map((entry, index) =>
+        index === editingIndex ? (
+          <ValuePillEditor
+            key={`${index}-${entry}`}
+            value={entry}
+            isTaken={(text) =>
+              hasValue(
+                value.filter((_, otherIndex) => otherIndex !== index),
+                text
+              )
+            }
+            onCommit={(text) => {
+              setEditingIndex(null);
+              replaceValue(index, text);
+            }}
+            onCancel={() => setEditingIndex(null)}
+          />
+        ) : (
+          <ValuePill
+            key={`${index}-${entry}`}
+            value={entry}
+            onRemove={() => removeValue(index)}
+            onEdit={() => setEditingIndex(index)}
+          />
+        )
+      )}
       <Input
         ref={inputRef}
         className="property-list__tag-input"

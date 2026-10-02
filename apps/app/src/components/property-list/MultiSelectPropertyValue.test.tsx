@@ -124,6 +124,111 @@ describe('MultiSelectPropertyValue — editable', () => {
     expect(pills()).toEqual(['One']);
   });
 
+  describe('editing a pill in place', () => {
+    const editField = (value: string) =>
+      screen.getByRole('textbox', { name: `Edit ${value}` }) as HTMLInputElement;
+
+    it('a click on a pill swaps it for an input holding its text, focused', () => {
+      render(<Stateful initial={['UX', 'Design System']} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+
+      expect(editField('UX').value).toBe('UX');
+      expect(document.activeElement).toBe(editField('UX'));
+      expect(pills()).toEqual(['', 'Design System']);
+    });
+
+    it('Enter commits the edit in place, keeping the order', () => {
+      const onCommit = vi.fn();
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={['UX', 'Design System']}
+          editable
+          onCommit={onCommit}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.change(editField('UX'), { target: { value: ' User Experience ' } });
+      fireEvent.keyDown(editField('UX'), { key: 'Enter' });
+
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith(['User Experience', 'Design System']);
+    });
+
+    it('blur commits the edit', () => {
+      render(<Stateful initial={['UX', 'Design System']} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.change(editField('UX'), { target: { value: 'User Experience' } });
+      fireEvent.blur(editField('UX'));
+
+      expect(pills()).toEqual(['User Experience', 'Design System']);
+    });
+
+    it('Escape cancels and restores the previous value, committing nothing', () => {
+      const onCommit = vi.fn();
+      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.change(editField('UX'), { target: { value: 'Discarded' } });
+      fireEvent.keyDown(editField('UX'), { key: 'Escape' });
+
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(pills()).toEqual(['UX']);
+      expect(screen.queryByRole('textbox', { name: 'Edit UX' })).toBeNull();
+    });
+
+    it('an unchanged or emptied edit commits nothing and restores the pill', () => {
+      const onCommit = vi.fn();
+      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.keyDown(editField('UX'), { key: 'Enter' });
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.change(editField('UX'), { target: { value: '   ' } });
+      fireEvent.blur(editField('UX'));
+
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(pills()).toEqual(['UX']);
+    });
+
+    it('an edit that would repeat another value on this note: Enter keeps editing, blur restores', () => {
+      const onCommit = vi.fn();
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={['UX', 'Design System']}
+          editable
+          onCommit={onCommit}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
+      fireEvent.change(editField('UX'), { target: { value: 'design system' } });
+      fireEvent.keyDown(editField('UX'), { key: 'Enter' });
+      expect(editField('UX').value).toBe('design system');
+
+      fireEvent.blur(editField('UX'));
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(pills()).toEqual(['UX', 'Design System']);
+    });
+
+    it('the dismiss button still removes only that value, without starting an edit', () => {
+      render(<Stateful initial={['UX', 'Design System']} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove UX' }));
+
+      expect(pills()).toEqual(['Design System']);
+      expect(screen.queryByRole('textbox', { name: /^Edit/ })).toBeNull();
+    });
+
+    it('read-only pills are not editable', () => {
+      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable={false} />);
+      expect(screen.queryByRole('button', { name: 'Edit UX' })).toBeNull();
+    });
+  });
+
   describe('suggestions', () => {
     const suggestions: MultiSelectSuggestion[] = [
       { key: 'g:UX', value: 'UX', label: 'UX', detail: 'User Experience Guidelines' },

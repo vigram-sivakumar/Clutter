@@ -504,6 +504,27 @@ describe('PageOperations.updateMetadata(): aliases', () => {
     expect(await fileSystem.readFile(page.path)).toContain('  - Keep Me\n  - "And: me"');
   });
 
+  it("editing an alias rewrites only this page's aliases; other pages and their files are untouched", async () => {
+    const { page, vault, fileSystem, pageOperations } = setupPair(['UX', 'Design System'], ['UX']);
+    const otherPath = vault.getPage('page-2')!.path;
+    const otherBefore = await fileSystem.readFile(otherPath);
+
+    await pageOperations.updateMetadata(page.id, { aliases: ['User Experience', 'Design System'] });
+
+    expect(await fileSystem.readFile(page.path)).toContain(
+      'aliases:\n  - User Experience\n  - Design System'
+    );
+    expect(await fileSystem.readFile(page.path)).not.toContain('  - UX');
+    // The renamed alias resolves to this page right away (analysis.aliases
+    // is rebuilt from the saved file — what WikiLink resolution reads).
+    expect(vault.getPage(page.id)!.analysis.aliases.map((alias) => alias.value)).toEqual([
+      'User Experience',
+      'Design System',
+    ]);
+    expect(await fileSystem.readFile(otherPath)).toBe(otherBefore);
+    expect(vault.getPage('page-2')!.metadata.aliases).toEqual(['UX']);
+  });
+
   it('allows the same alias on more than one page — aliases are not unique', async () => {
     const { page, vault, pageOperations } = setupPair([], ['Shared']);
 
