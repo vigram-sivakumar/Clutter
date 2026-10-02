@@ -56,3 +56,16 @@
   font-size: inherit;
   line-height: inherit;
 }
+
+/* A native <textarea> caret spans the full line box on an empty line but
+   only the font's height on a line with text, so the 24px list
+   line-height (on 14px text) made the caret visibly tall and uneven.
+   20px keeps the two close. The block padding centers that first 20px
+   line in a --height-lg row, exactly as the property name is centered. */
+.property-list__text-input {
+  padding-block: calc((var(--height-lg) - var(--lh-label)) / 2);
+}
+.property-list__text-input .input__field {
+  padding: 0;
+  line-height: var(--lh-label);
+}
