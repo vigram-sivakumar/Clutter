@@ -83,7 +83,7 @@ function Harness({
       onAbandon: drafts.remove,
     },
   });
-  const addRow = drafts.drafts.some((draft) => draft.name === undefined) ? undefined : (
+  const addRow = (
     <AddPropertyRow
       systemProperties={addable.systemProperties}
       hiddenProperties={addable.hiddenProperties}
@@ -106,43 +106,42 @@ const nameField = () =>
 const svgOf = (element: Element | null) => element?.querySelector('svg')?.outerHTML;
 const iconMarkup = (icon: 'calendar' | 'plus') => render(<AppIcon icon={icon} />).container.querySelector('svg')!.outerHTML;
 
-const start = () => fireEvent.click(screen.getByText('Add properties'));
+const start = () => fireEvent.click(screen.getByText('Add a property'));
 
-describe('the "+ Add properties" row — the whole interaction', () => {
-  it('starts as the row "+ Add properties", even when nothing is shown yet', () => {
+describe('the "+ Add a property" row — the whole interaction', () => {
+  it('always ends the list, even when nothing is shown yet', () => {
     render(<Harness onLines={vi.fn()} />);
 
-    expect(rows()).toEqual(['Add properties']);
+    expect(rows()).toEqual(['Add a property']);
   });
 
-  it('click → a blank "New property" row with no icon, the menu open, and nothing focused', () => {
+  it('click → the menu opens and the row stays exactly as it was: no blank row, no input, nothing focused', () => {
     render(<Harness onLines={vi.fn()} />);
+    const before = document.querySelector('.property-list__add-row')!.outerHTML;
 
     start();
 
-    expect(rows()).toEqual(['New property']);
-    const blank = document.querySelector('.property-list__add-row')!;
-    // No icon shown — but the slot is reserved, so the name doesn't shift.
-    expect(blank.querySelector('.property__icon:not(.property__icon--reserved)')).toBeNull();
-    expect(blank.querySelectorAll('.entry__leading .property__icon--reserved')).toHaveLength(1);
     expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
+    expect(rows()).toEqual(['Add a property']);
+    expect(document.querySelector('.property-list__add-row')!.outerHTML).toBe(before);
+    expect(screen.queryByText('New property')).toBeNull();
     expect(nameField()).toBeNull();
-    expect(blank.contains(document.activeElement)).toBe(false);
+    expect(document.activeElement?.classList.contains('editable-text')).toBe(false);
   });
 
-  it('selecting a new type → a draft row with that type’s icon and a focused "Property name" field', () => {
+  it('selecting a new type → a draft row with that type’s icon and a focused "Property name" field, above the + row', () => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
 
     start();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Date' }));
 
-    // The blank row and the + row are gone; the draft row stands in their place.
-    expect(rows()).toEqual(['']);
+    // The draft row is added; the + row is still last and unchanged.
+    expect(rows()).toEqual(['', 'Add a property']);
     const field = nameField()!;
     expect(field.getAttribute('data-placeholder')).toBe('Property name');
     expect(document.activeElement).toBe(field);
-    // The type's icon, not the plus: this is the Date type's (calendar) icon.
+    // The type's icon: this is the Date type's (calendar) icon.
     const draftRow = field.closest('.property-list__row')!;
     expect(svgOf(draftRow.querySelector('.property__icon--type'))).toBe(iconMarkup('calendar'));
     // The caret is at the start of the (empty) name, and nothing is written yet.
@@ -152,7 +151,7 @@ describe('the "+ Add properties" row — the whole interaction', () => {
     expect(onLines).not.toHaveBeenCalled();
   });
 
-  it('the user can type the name straight away; a valid name persists it as a normal row and restores the + row', () => {
+  it('the user can type the name straight away; a valid name persists it as a normal row, above the + row', () => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
 
@@ -167,11 +166,11 @@ describe('the "+ Add properties" row — the whole interaction', () => {
     expect(lines).toContain('Deadline: # date');
     expect(readVisibleProperties(lines)).toEqual(['Deadline']);
     expect(readCustomProperties(lines).at(-1)).toEqual({ key: 'Deadline', type: 'date', value: null });
-    expect(rows()).toEqual(['Deadline', 'Add properties']);
+    expect(rows()).toEqual(['Deadline', 'Add a property']);
     expect(nameField()).toBeNull();
   });
 
-  it('Escape in the draft row abandons it and restores the + row, writing nothing', () => {
+  it('Escape in the draft row abandons it, writing nothing; the + row is still there', () => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
 
@@ -179,19 +178,19 @@ describe('the "+ Add properties" row — the whole interaction', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
     fireEvent.keyDown(nameField()!, { key: 'Escape' });
 
-    expect(rows()).toEqual(['Add properties']);
+    expect(rows()).toEqual(['Add a property']);
     expect(onLines).not.toHaveBeenCalled();
     expect(document.activeElement?.classList.contains('editable-text')).toBe(false);
   });
 
-  it('selecting an existing property shows it (no name to type) and restores the + row', () => {
+  it('selecting an existing property shows it (no name to type), above the unchanged + row', () => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
 
     start();
     fireEvent.click(screen.getByRole('menuitem', { name: 'Due date' }));
 
-    expect(rows()).toEqual(['Due date', 'Add properties']);
+    expect(rows()).toEqual(['Due date', 'Add a property']);
     expect(nameField()).toBeNull();
     expect(readVisibleProperties(onLines.mock.calls[0]![0])).toEqual(['Due date']);
     // Shown, not duplicated or rewritten: the original lines are intact.
@@ -201,30 +200,30 @@ describe('the "+ Add properties" row — the whole interaction', () => {
   it.each([
     ['Escape', () => fireEvent.keyDown(document, { key: 'Escape' })],
     ['a click outside', () => fireEvent.click(document.querySelector('.overlay__backdrop')!)],
-  ])('dismissing the menu with %s restores the + row and persists nothing', (_label, dismiss) => {
+  ])('dismissing the menu with %s changes nothing and persists nothing', (_label, dismiss) => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
+    const before = document.querySelector('.property-list__add-row')!.outerHTML;
 
     start();
     act(() => dismiss());
 
-    expect(rows()).toEqual(['Add properties']);
+    expect(rows()).toEqual(['Add a property']);
     expect(screen.queryByRole('menu')).toBeNull();
     expect(nameField()).toBeNull();
     expect(onLines).not.toHaveBeenCalled();
-    // The + row shows its plus icon again.
+    expect(document.querySelector('.property-list__add-row')!.outerHTML).toBe(before);
     expect(svgOf(document.querySelector('.property-list__add-row .property__icon'))).toBe(iconMarkup('plus'));
-    expect(document.querySelector('.property__icon--reserved')).toBeNull();
   });
 
-  it('the + row follows the shown properties, and a shown property is no longer offered', () => {
+  it('a shown property is no longer offered next time', () => {
     render(<Harness onLines={vi.fn()} />);
 
     start();
     fireEvent.click(screen.getByRole('menuitem', { name: 'priority' }));
     start();
 
-    expect(rows()).toEqual(['priority', 'New property']);
+    expect(rows()).toEqual(['priority', 'Add a property']);
     expect(screen.queryByRole('menuitem', { name: 'priority' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Due date' })).toBeInTheDocument();
   });

@@ -21,23 +21,20 @@ interface AddPropertyRowProps {
 }
 
 /**
- * The Properties list's "+ Add properties" row, and the first step of
- * adding one:
+ * The Properties list's "+ Add a property" row: it always ends the list,
+ * and clicking it opens the Add properties menu (AddPropertyMenu) anchored
+ * to it. The row itself never changes — no replaced label, no blank or
+ * draft row, no input — so it stays visually stable at all times.
  *
- * - at rest it is the row `+ Add properties`;
- * - clicking it swaps it for a blank row — no visible icon (its slot stays
- *   reserved, so the text doesn't move), the placeholder "New property",
- *   nothing focused — and opens the Add properties menu
- *   (AddPropertyMenu) anchored to that row;
- * - choosing an existing property shows it, and choosing a new custom type
- *   hands over to the draft row (a typed icon and a focused "Property
- *   name" field — see PropertyList's not-yet-named rows); either way this
- *   row goes back to rest, and the menu closing never takes focus back;
- * - dismissing the menu (Escape, a click outside) removes the blank row and
- *   restores `+ Add properties`, writing nothing.
+ * - Choosing an existing property (a system one, or a hidden custom one)
+ *   shows it.
+ * - Choosing a new custom type starts the draft custom property: its row
+ *   appears above this one with the type's icon and a focused "Property
+ *   name" field (see PropertyList's not-yet-named rows).
+ * - Dismissing the menu (Escape, a click outside) changes nothing.
  *
- * The blank row exists only here, as UI state: nothing is persisted until
- * a property is actually chosen (and, for a new one, named).
+ * The menu closing after a choice never returns focus to this row, so a
+ * draft's name field keeps the focus it just took.
  */
 export function AddPropertyRow({
   systemProperties,
@@ -45,33 +42,14 @@ export function AddPropertyRow({
   onShowProperty,
   onAddCustomProperty,
 }: AddPropertyRowProps) {
-  const [isPending, setIsPending] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
-  // Set for the one closing that follows a choice: the row that appears (a
-  // shown property, or the draft's name field) must keep focus, not have
-  // it returned to this row.
+  // Set for the one closing that follows a choice (see the doc comment).
   const suppressReturnFocusRef = useRef(false);
 
   function finishWithChoice() {
     suppressReturnFocusRef.current = true;
-    setIsPending(false);
-  }
-
-  if (!isPending) {
-    return (
-      <div className="property-list__row property-list__add-row">
-        <Entry
-          className="property-list__name"
-          leading={<AppIcon className="property__icon" icon="plus" />}
-          onClick={() => {
-            suppressReturnFocusRef.current = false;
-            setIsPending(true);
-          }}
-        >
-          <span>Add properties</span>
-        </Entry>
-      </div>
-    );
+    setIsOpen(false);
   }
 
   return (
@@ -79,17 +57,18 @@ export function AddPropertyRow({
       <div ref={rowRef} className="property-list__row property-list__add-row">
         <Entry
           className="property-list__name"
-          // The "+" icon's own slot, kept but invisible: the same icon in the
-          // same leading slot, so the text starts exactly where it did at
-          // rest and where the draft's type icon will put it.
-          leading={<AppIcon className="property__icon property__icon--reserved" icon="plus" />}
+          leading={<AppIcon className="property__icon" icon="plus" />}
+          onClick={() => {
+            suppressReturnFocusRef.current = false;
+            setIsOpen(true);
+          }}
         >
-          <span className="property-list__name-placeholder">New property</span>
+          <span>Add a property</span>
         </Entry>
       </div>
       <Overlay
-        open
-        onClose={() => setIsPending(false)}
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
         anchorRef={rowRef}
         side="bottom"
         alignment="start"

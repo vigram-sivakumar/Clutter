@@ -131,15 +131,14 @@ Hovering a Property's name replaces its type icon with a horizontal-dots button 
 - **Delete** (custom properties only): `PageOperations.deleteCustomProperty(pageId, key)` removes the property's lines (`removeCustomProperty`) and its `properties.visible` entry in the same single save. A system Property, a key that isn't a custom property, and the reserved `properties` key are refused with no write. It takes effect immediately, with no confirmation or undo (the architecture has no undo; a hidden property can be shown again, a deleted one cannot).
 - **Drafts and archived pages:** an unnamed draft row has no menu (nothing exists yet), and an archived page offers no actions.
 
-## Amendment — the "+ Add properties" row
+## Amendment — the "+ Add a property" row
 
-The Properties list ends with a `+ Add properties` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent on an archived page, and while a new property is waiting for its name. The More actions "Add properties" item remains and uses the same menu (`AddPropertyMenu`, unchanged).
+The Properties list always ends with a `+ Add a property` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent only on an archived page. The More actions "Add properties" item remains and uses the same menu (`AddPropertyMenu`, unchanged).
 
-The interaction:
+The interaction is deliberately minimal — there is no intermediate draft state:
 
-1. **Click the row.** It is replaced by a blank row — no visible icon, the placeholder "New property", nothing focused (there is no name input yet). The `+` icon's slot is kept (the same icon in the same leading slot, made invisible), so the name sits at exactly the same x-position at rest, while blank, and as the draft's typed icon appears in that slot — no per-state margins — and the Add properties menu opens, anchored to that row.
-2. **Choose a property.** An existing property (a system one, or a hidden custom one) is shown (`showProperty`), and the `+ Add properties` row returns. A new custom type hands over to the draft row: that type's icon and a focused "Property name" field with the caret at the start, ready to type. Naming it persists it as before (typed empty, key added to `properties.visible` in the same save).
-3. **Dismiss the menu** (Escape, a click outside) without choosing: the blank row is removed, `+ Add properties` is restored, and nothing is written. Nothing is left focused.
+1. **Click the row.** The Add properties menu opens, anchored to it. The row itself never changes: no replaced label, no blank or placeholder row, no input, nothing focused. It is visually stable at all times.
+2. **Choose a property.** An existing property (a system one, or a hidden custom one) is shown (`showProperty`). A new custom type starts the draft custom property: its row appears above the `+ Add a property` row with that type's icon and a focused "Property name" field, caret at the start, ready to type. Naming it persists it as before (typed empty, key added to `properties.visible` in the same save); Escape or an empty/rejected name abandons it with nothing written.
+3. **Dismiss the menu** (Escape, a click outside) without choosing: nothing changes and nothing is written.
 
-The blank row exists only as UI state of the row component; like every draft it is transient and never persisted. The menu closing after a choice never returns focus to the row, so the shown property or the draft's name field keeps it. This amendment adds no write and no persistence path, and no Hide behavior.
-
+The menu closing after a choice never returns focus to the row, so a draft's name field keeps the focus it just took. This amendment adds no write and no persistence path, and no Hide behavior.

@@ -1745,11 +1745,10 @@ export function PageHost({
   // What Add properties can still show: system Properties and custom
   // properties that exist but aren't shown.
   const addableProperties = getAddableProperties(page);
-  // The "+ Add properties" row ends the list — except on an archived page
-  // (view-only), and while a new property is waiting for its name (the
-  // draft row takes its place).
+  // The "+ Add properties" row always ends the list — except on an archived
+  // page, which is view-only.
   const addPropertyRow =
-    page.metadata.status === 'archived' || propertyDrafts.drafts.some((draft) => draft.name === undefined) ? undefined : (
+    page.metadata.status === 'archived' ? undefined : (
       <AddPropertyRow
         systemProperties={addableProperties.systemProperties}
         hiddenProperties={addableProperties.hiddenProperties}
