@@ -31,6 +31,23 @@ describe('TextPropertyValue', () => {
     expect(getField().placeholder).toBe('Empty');
   });
 
+  it('shows Input background and border only while focused', () => {
+    render(<TextPropertyValue name="Description" value="text" onCommit={() => {}} />);
+
+    const field = getField();
+    const wrapper = field.parentElement!;
+    expect(wrapper.classList.contains('input--background')).toBe(false);
+    expect(wrapper.classList.contains('input--border')).toBe(false);
+
+    fireEvent.focus(field);
+    expect(wrapper.classList.contains('input--background')).toBe(true);
+    expect(wrapper.classList.contains('input--border')).toBe(true);
+
+    fireEvent.blur(field);
+    expect(wrapper.classList.contains('input--background')).toBe(false);
+    expect(wrapper.classList.contains('input--border')).toBe(false);
+  });
+
   it('commits a changed multi-line value on blur', () => {
     const onCommit = vi.fn();
     render(<TextPropertyValue name="Description" value="before" onCommit={onCommit} />);

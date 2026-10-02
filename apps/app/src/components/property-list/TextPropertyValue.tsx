@@ -53,13 +53,17 @@ export function TextPropertyValue({ name, value, onCommit }: TextPropertyValuePr
     onCommit(committedValue);
   }
 
+  const isEditing = draft !== null;
+
   return (
     <Input
       className="property-list__value property-list__text-input"
       multiline
       rows={1}
-      hasBackground={false}
-      hasBorder={false}
+      // Input's own background/border, shown only while editing — at rest
+      // the value reads as plain text like every other Property value.
+      hasBackground={isEditing}
+      hasBorder={isEditing}
       aria-label={name}
       placeholder="Empty"
       value={draft ?? value}
