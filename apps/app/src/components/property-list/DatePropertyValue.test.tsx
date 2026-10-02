@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { useState } from 'react';
+import { act, useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -40,6 +40,20 @@ function getDay(day: number): HTMLElement {
   );
   expect(cells).toHaveLength(1);
   return cells[0]!;
+}
+
+function calendarMonthYear(): string {
+  const month = document.querySelector('.property-date-picker .calendar-month')?.textContent;
+  const year = document.querySelector('.property-date-picker .calendar-year')?.textContent;
+  return `${month} ${year}`;
+}
+
+function selectedDay(): string | null {
+  return document.querySelector('.property-date-picker .calendar-cell--selected')?.textContent ?? null;
+}
+
+function type(text: string) {
+  fireEvent.change(getField(), { target: { value: text } });
 }
 
 function isCalendarOpen(): boolean {
@@ -144,7 +158,7 @@ describe('DatePropertyValue — editable', () => {
     expect(isCalendarOpen()).toBe(false);
   });
 
-  it('shows the "Empty" placeholder when there is no value', () => {
+  it('shows the expected-format placeholder when there is no value', () => {
     render(
       <DatePropertyValue
         name="Due"
@@ -156,7 +170,152 @@ describe('DatePropertyValue — editable', () => {
     );
 
     expect(getField().value).toBe('');
-    expect(getField().placeholder).toBe('Empty');
+    expect(getField().placeholder).toBe('DD/MM/YYYY');
+  });
+});
+
+describe('DatePropertyValue — typing', () => {
+  it('keeps incomplete input exactly as typed and commits nothing', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    fireEvent.click(getField());
+    for (const text of ['1', '1/', '1/1', '1/1/']) {
+      type(text);
+      expect(getField().value).toBe(text);
+    }
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(calendarMonthYear()).toBe('September 2025');
+    expect(selectedDay()).toBe('15');
+  });
+
+  it('does not reset invalid input while typing', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('31/9/2026');
+
+    expect(getField().value).toBe('31/9/2026');
+    expect(calendarMonthYear()).toBe('September 2025');
+    expect(selectedDay()).toBe('15');
+  });
+
+  it('commits a valid typed date and moves the calendar to it, without rewriting the text', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    fireEvent.click(getField());
+    type('1/1/2026');
+
+    expect(onCommit).toHaveBeenLastCalledWith('2026-01-01');
+    expect(getField().value).toBe('1/1/2026');
+  });
+
+  it('syncs the calendar month/year and selection to each valid typed date', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1/1/2026');
+    expect(calendarMonthYear()).toBe('January 2026');
+    expect(selectedDay()).toBe('1');
+
+    type('15.03.2027');
+    expect(calendarMonthYear()).toBe('March 2027');
+    expect(selectedDay()).toBe('15');
+
+    type('20 Sep 2026');
+    expect(calendarMonthYear()).toBe('September 2026');
+    expect(selectedDay()).toBe('20');
+  });
+
+  it('interprets a two-digit year with the POSIX rule', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1/1/29');
+
+    expect(calendarMonthYear()).toBe('January 2029');
+  });
+
+  it('shows the formatted value once editing ends', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('01-09-2026');
+    fireEvent.blur(getField());
+
+    expect(getField().value).toBe(formatDatePropertyValue('2026-09-01'));
+  });
+
+  it('reverts a still-invalid draft to the formatted value on blur', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1/1/');
+    fireEvent.blur(getField());
+
+    expect(getField().value).toBe('15 Sep 2025');
+  });
+
+  it('keeps input and calendar in sync across typing then picking', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1/1/2026');
+    fireEvent.click(getDay(20));
+
+    expect(getField().value).toBe(formatDatePropertyValue('2026-01-20'));
+
+    fireEvent.click(getField());
+    expect(calendarMonthYear()).toBe('January 2026');
+    expect(selectedDay()).toBe('20');
+  });
+});
+
+describe('DatePropertyValue — calendar dismissal', () => {
+  it('keeps focus in the input when pressing inside the calendar', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    act(() => getField().focus());
+    const notCancelled = fireEvent.mouseDown(document.querySelector('.property-date-picker')!);
+
+    expect(notCancelled).toBe(false);
+    expect(isCalendarOpen()).toBe(true);
+  });
+
+  it('closes the calendar when the input loses focus, without pulling focus back', () => {
+    render(
+      <>
+        <StatefulDate initial="2025-09-15" />
+        <button type="button">elsewhere</button>
+      </>
+    );
+
+    act(() => getField().focus());
+    expect(isCalendarOpen()).toBe(true);
+
+    const elsewhere = screen.getByRole('button', { name: 'elsewhere' });
+    act(() => elsewhere.focus());
+
+    expect(isCalendarOpen()).toBe(false);
+    expect(document.activeElement).toBe(elsewhere);
   });
 });
 

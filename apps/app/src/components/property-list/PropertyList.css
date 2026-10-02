@@ -81,11 +81,6 @@
   padding-inline: 0;
 }
 
-/* A read-only Input that opens the Calendar — a click target, not a text field. */
-.property-list__date-input .input__field {
-  cursor: pointer;
-}
-
 /* Same surface as TaskDatePicker's Calendar overlay. */
 .property-date-picker {
   width: 280px;

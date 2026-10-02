@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
+import { parseDateInput } from '@shared/helpers/time/parseDateInput';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { CalendarMode } from '@features/daily-notes/calendar/models/CalendarMode';
 
@@ -22,8 +23,8 @@ type DatePropertyValueProps = {
 /**
  * The `date` Property's value. `editable` (supplied by the adapter, never
  * inferred here) picks the state: read-only renders the formatted value as
- * plain text; editable renders it in a single-line Input that opens the
- * shared Calendar as an anchored overlay.
+ * plain text; editable renders a single-line Input that accepts a typed
+ * date and opens the shared Calendar as an anchored overlay.
  */
 export function DatePropertyValue(props: DatePropertyValueProps) {
   const display = props.value ? props.format(props.value) : '';
@@ -46,24 +47,39 @@ interface DatePropertyEditorProps {
   name: string;
   value: string | null;
   display: string;
-  /** Fired with the picked day as a local `YYYY-MM-DD` — the Calendar's own representation. */
+  /** Fired with a local `YYYY-MM-DD` — from a typed valid date or a Calendar pick. */
   onCommit(value: string): void;
 }
 
+/** Tells the user which numeric order the input expects (day first — see parseDateInput). */
+const DATE_INPUT_PLACEHOLDER = 'DD/MM/YYYY';
+
 /**
- * Editable state. The Input is read-only text — the value is changed only
- * through the Calendar, the same Calendar + Overlay pairing TaskDatePicker
- * uses, so no second date picker or date format is introduced.
+ * Editable state. Two entry paths, one canonical value (`value`, owned by
+ * the caller):
+ * - typing: the text stays exactly as typed while focused (`draft`); each
+ *   time it parses to a real date (parseDateInput) that date commits
+ *   immediately, so the Calendar — which only ever reads `value` — moves
+ *   to it. Incomplete/invalid text commits nothing and resets nothing.
+ * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
+ *   a pick commits and drops the draft, so the input shows the formatted
+ *   value.
+ * On blur the draft is dropped and the input shows the formatted
+ * canonical value again — a still-invalid draft simply reverts.
  */
 function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
   const anchorRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<CalendarMode>('month');
+  const [draft, setDraft] = useState<string | null>(null);
   // Overlay hands focus back to the Input when it closes; without this,
   // that returning focus would immediately reopen the calendar. Consumed
   // by the next focus, and cleared on blur for a close where the Input
   // already had focus (no focus event follows).
   const ignoreNextFocusRef = useRef(false);
+  // Set when the calendar closes because focus left the input, so Overlay
+  // doesn't pull focus back from wherever the user moved it.
+  const suppressReturnFocusRef = useRef(false);
 
   const selectedDate = value ? parseDatePropertyValue(value)?.isoDate : undefined;
 
@@ -81,14 +97,29 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     setOpen(true);
   }
 
+  function handleChange(text: string) {
+    setDraft(text);
+
+    const isoDate = parseDateInput(text);
+
+    if (isoDate !== null && isoDate !== selectedDate) {
+      onCommit(isoDate);
+    }
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+    if (event.key === 'ArrowDown') {
       event.preventDefault();
       setOpen(true);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      setDraft(null);
+      setOpen(false);
     }
   }
 
   function handleSelect(isoDate: string) {
+    setDraft(null);
     onCommit(isoDate);
     close();
   }
@@ -98,23 +129,44 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
       <Input
         ref={anchorRef}
         className="property-list__value property-list__input property-list__date-input"
-        readOnly
         hasBackground={open}
         hasBorder={open}
         aria-label={name}
         aria-haspopup="dialog"
         aria-expanded={open}
-        placeholder="Empty"
-        value={display}
+        placeholder={DATE_INPUT_PLACEHOLDER}
+        value={draft ?? display}
+        onChange={(event) => handleChange(event.target.value)}
         onFocus={handleFocus}
         onBlur={() => {
           ignoreNextFocusRef.current = false;
+          setDraft(null);
+
+          if (open) {
+            suppressReturnFocusRef.current = true;
+            setOpen(false);
+          }
         }}
         onClick={() => setOpen(true)}
         onKeyDown={handleKeyDown}
       />
-      <Overlay open={open} onClose={close} anchorRef={anchorRef} side="bottom" alignment="start">
-        <div className="property-date-picker">
+      {/*
+        No backdrop: a backdrop would cover the input and swallow a click
+        meant to place the caret (same reason as TableHandleMenu). The
+        input's blur closes the calendar instead, and mouse-down inside the
+        calendar is kept from taking focus, so the input stays focused (and
+        typeable) while the user browses months or picks a day.
+      */}
+      <Overlay
+        open={open}
+        onClose={close}
+        anchorRef={anchorRef}
+        side="bottom"
+        alignment="start"
+        backdrop={false}
+        suppressReturnFocusRef={suppressReturnFocusRef}
+      >
+        <div className="property-date-picker" onMouseDown={(event) => event.preventDefault()}>
           <Calendar
             mode={mode}
             selectedDate={selectedDate}

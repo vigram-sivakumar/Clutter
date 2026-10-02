@@ -69,7 +69,8 @@ export type DateDisplayMode =
   | 'shortWeekday'
   | 'contextual';
 
-const MONTH_LABELS = [
+/** Also read by `parseDateInput` so typed month names match the displayed ones. */
+export const MONTH_LABELS = [
   'January',
   'February',
   'March',
