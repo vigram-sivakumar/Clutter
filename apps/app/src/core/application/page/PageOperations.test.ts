@@ -11,6 +11,7 @@ import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBui
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
+import { readCustomProperties } from '../../vault/ingest/frontmatter/customFrontmatter';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
@@ -646,23 +647,33 @@ describe('PageOperations.renameCustomProperty()', () => {
     expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
   });
 
-  it.each([
-    ['removeCustomPropertyItem', (ops: any, id: string) => ops.removeCustomPropertyItem(id, 'people', 0, 'Ana')],
-    ['setCustomPropertyList', (ops: any, id: string) => ops.setCustomPropertyList(id, 'people', [])],
-  ])('%s: removing the last value removes the whole property', async (_name, removeLast) => {
+  it('[Ana, Bob] → [Ana] → []: the property stays as `people: []`, a list that takes a value again', async () => {
     const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-      'author: Jane\npeople:\n  - Ana\npriority: high'
+      'author: Jane\npeople:\n  - Ana\n  - Bob\npriority: high'
     );
 
-    await removeLast(pageOperations, page.id);
+    await pageOperations.removeCustomPropertyItem(page.id, 'people', 1, 'Bob');
+    expect(await fileSystem.readFile(page.path)).toContain('author: Jane\npeople:\n  - Ana\npriority: high');
+
+    await pageOperations.removeCustomPropertyItem(page.id, 'people', 0, 'Ana');
 
     const content = await fileSystem.readFile(page.path);
-    expect(content).toContain('author: Jane\npriority: high');
-    expect(content).not.toContain('people');
-    expect(content).not.toContain('[]');
+    expect(content).toContain('author: Jane\npeople: []\npriority: high');
     expect(content).toContain('Body text');
-    // Reread: the key is gone from the preserved lines, not text.
-    expect(vault.getPage(page.id)!.metadata.unownedFrontmatter).toEqual(['author: Jane', 'priority: high']);
+    const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter!;
+    expect(lines).toEqual(['author: Jane', 'people: []', 'priority: high']);
+    expect(readCustomProperties(lines)[1]).toEqual({ key: 'people', type: 'list', value: [] });
+
+    await pageOperations.setCustomPropertyList(page.id, 'people', ['Cy']);
+    expect(await fileSystem.readFile(page.path)).toContain('author: Jane\npeople:\n  - Cy\npriority: high');
+  });
+
+  it('setCustomPropertyList with no values leaves `people: []`, not a removed property', async () => {
+    const { page, fileSystem, pageOperations } = await setupWithFrontmatter('people:\n  - Ana\npriority: high');
+
+    await pageOperations.setCustomPropertyList(page.id, 'people', []);
+
+    expect(await fileSystem.readFile(page.path)).toContain('people: []\npriority: high');
   });
 
   it('setCustomPropertyList writes through the coordinator, and consecutive commits land in order', async () => {

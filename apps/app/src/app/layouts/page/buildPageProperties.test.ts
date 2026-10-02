@@ -201,6 +201,17 @@ describe('buildPageProperties', () => {
       expect(aliases.editable).toBe(false);
     });
 
+    it('an emptied list (`key: []`) is still an editable multi-select with no values', () => {
+      const onCommitListValue = vi.fn();
+      const page = custom({ unownedFrontmatter: ['people: []'] });
+      const people = buildPageProperties(page, { onCommitListValue })[4]!;
+
+      expect(people).toMatchObject({ name: 'people', type: 'multi-select', value: [], editable: true });
+      if (people.type !== 'multi-select' || !people.editable) throw new Error('expected an editable list');
+      people.onCommit(['Cy']);
+      expect(onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', ['Cy']);
+    });
+
     it('a list stays non-editable on an archived page', () => {
       const people = buildPageProperties(custom({ status: 'archived' }), { onCommitListValue: vi.fn() })[6]!;
       expect(people.editable).toBe(false);

@@ -25,7 +25,7 @@ afterAll(() => {
 
 afterEach(() => cleanup());
 
-function pageWith(status: 'active' | 'archived'): Page {
+function pageWith(status: 'active' | 'archived', unownedFrontmatter = ['people:', '  - Ana', '  - Bo']): Page {
   return {
     id: 'p1',
     type: 'note',
@@ -38,7 +38,7 @@ function pageWith(status: 'active' | 'archived'): Page {
       aliases: [],
       createdAt: null,
       updatedAt: null,
-      unownedFrontmatter: ['people:', '  - Ana', '  - Bo'],
+      unownedFrontmatter,
     },
   } as unknown as Page;
 }
@@ -81,6 +81,32 @@ describe('custom list property editing through buildPageProperties', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove Ana' }));
 
     expect(onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', ['Bo']);
+  });
+
+  it('an emptied list stays visible and editable, and accepts a new value', () => {
+    const onCommitListValue = vi.fn();
+    render(
+      <PropertyList
+        items={buildPageProperties(pageWith('active', ['people: []']), { onCommitListValue })}
+      />
+    );
+
+    expect(pills()).toEqual([]);
+    const input = screen.getByRole('textbox', { name: 'people' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Cy' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', ['Cy']);
+  });
+
+  it('removing the last pill commits an empty list', () => {
+    const onCommitListValue = renderPeople('active');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Ana' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bo' }));
+
+    expect(onCommitListValue).toHaveBeenLastCalledWith('people', ['Ana']);
   });
 
   it('an archived page shows the pills with no editor and no commit', () => {

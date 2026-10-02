@@ -222,22 +222,12 @@ describe('removeCustomListItem', () => {
     expect(removeCustomListItem(lines, 'labels', 0, 'a')).toEqual(['labels: ["b, c", \'d\']']);
   });
 
-  it('removing the last item removes the whole property, never writing `key: []`', () => {
-    expect(removeCustomListItem(customLines('people:\n  - Ana'), 'people', 0, 'Ana')).toEqual([]);
-    expect(removeCustomListItem(customLines('labels: [a]'), 'labels', 0, 'a')).toEqual([]);
+  it('removing the last item empties the list: the key stays as `key: []`', () => {
+    expect(removeCustomListItem(customLines('people:\n  - Ana'), 'people', 0, 'Ana')).toEqual(['people: []']);
+    expect(removeCustomListItem(customLines('labels: [a]'), 'labels', 0, 'a')).toEqual(['labels: []']);
 
     const lines = customLines('author: Jane\npeople:\n  - Ana\nx: 1');
-    expect(removeCustomListItem(lines, 'people', 0, 'Ana')).toEqual(['author: Jane', 'x: 1']);
-  });
-
-  it('one → zero values: the key is gone and does not come back as text when reread', () => {
-    for (const yaml of ['author: Jane\npeople:\n  - Ana\nx: 1', 'author: Jane\npeople: [Ana]\nx: 1']) {
-      const removed = removeCustomListItem(customLines(yaml), 'people', 0, 'Ana');
-
-      expect(removed).toEqual(['author: Jane', 'x: 1']);
-      expect(removed.join('\n')).not.toContain('people');
-      expect(readCustomProperties(removed).map((property) => property.key)).toEqual(['author', 'x']);
-    }
+    expect(removeCustomListItem(lines, 'people', 0, 'Ana')).toEqual(['author: Jane', 'people: []', 'x: 1']);
   });
 
   it('refuses when the item there is no longer the one shown, or the property is not a list', () => {
@@ -248,13 +238,27 @@ describe('removeCustomListItem', () => {
 });
 
 describe('setCustomListValue', () => {
-  it('emptying a list removes the property; it does not reappear as text when reread', () => {
-    for (const yaml of ['x: 1\npeople:\n  - Ana\ny: 2', 'x: 1\npeople: [Ana]\ny: 2']) {
-      const emptied = setCustomListValue(customLines(yaml), 'people', []);
+  it.each([
+    ['block', 'x: 1\npeople:\n  - Ana\n  - Bob\ny: 2', ['x: 1', 'people:', '  - Ana', 'y: 2']],
+    ['flow', 'x: 1\npeople: [Ana, Bob]\ny: 2', ['x: 1', 'people: [Ana]', 'y: 2']],
+  ])('[Ana, Bob] → [Ana] → [] (%s): the key stays, serialized `[]`, read back as an empty list', (_form, yaml, oneLeft) => {
+    const one = removeCustomListItem(customLines(yaml), 'people', 1, 'Bob');
+    expect(one).toEqual(oneLeft);
 
-      expect(emptied).toEqual(['x: 1', 'y: 2']);
-      expect(readCustomProperties(emptied).map((property) => property.key)).toEqual(['x', 'y']);
-    }
+    const none = removeCustomListItem(one, 'people', 0, 'Ana');
+    expect(none).toEqual(['x: 1', 'people: []', 'y: 2']);
+    expect(readCustomProperties(none)).toEqual([
+      { key: 'x', type: 'number', value: 1 },
+      { key: 'people', type: 'list', value: [] },
+      { key: 'y', type: 'number', value: 2 },
+    ]);
+
+    // And it can take a value again.
+    expect(readCustomProperties(setCustomListValue(none, 'people', ['Cy']))[1]).toEqual({
+      key: 'people',
+      type: 'list',
+      value: ['Cy'],
+    });
   });
 
   it('adds a value to a block list, keeping its indentation and every other line', () => {
@@ -282,12 +286,12 @@ describe('setCustomListValue', () => {
     expect(setCustomListValue(lines, 'people', ['Ana', 'Bo, Jr', 'Cy'])).toEqual(lines);
   });
 
-  it('removes values from a block list; removing all removes the property', () => {
+  it('removes values from a block list; removing all empties it', () => {
     const lines = customLines('people:\n  - Ana\n  - Bo\npriority: high');
 
     expect(setCustomListValue(lines, 'people', ['Bo'])).toEqual(['people:', '  - Bo', 'priority: high']);
-    expect(setCustomListValue(lines, 'people', [])).toEqual(['priority: high']);
-    expect(setCustomListValue(lines, 'people', ['  '])).toEqual(['priority: high']);
+    expect(setCustomListValue(lines, 'people', [])).toEqual(['people: []', 'priority: high']);
+    expect(setCustomListValue(lines, 'people', ['  '])).toEqual(['people: []', 'priority: high']);
   });
 
   it('rewrites a flow list as a flow list, keeping unchanged items as written and quoting only when needed', () => {
@@ -297,7 +301,7 @@ describe('setCustomListValue', () => {
       'labels: [a, "b, c", \'d\', e, "true"]',
     ]);
     expect(setCustomListValue(lines, 'labels', ['x', 'b, c'])).toEqual(['labels: [x, "b, c"]']);
-    expect(setCustomListValue(lines, 'labels', [])).toEqual([]);
+    expect(setCustomListValue(lines, 'labels', [])).toEqual(['labels: []']);
   });
 
   it('trims values and drops empty ones', () => {
