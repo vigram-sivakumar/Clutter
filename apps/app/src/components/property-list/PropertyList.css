@@ -269,7 +269,7 @@
 .property-list__tag-suggestion {
   color: var(--md-tag-foreground);
 }
-.entry__content .property-list__tag-suggestion .property-list__tag-prefix {
+.entry__content .property-list__tag-suggestion .pill__prefix {
   overflow: visible;
   opacity: var(--opacity-medium);
   padding-right: 2px;

@@ -53,7 +53,7 @@ function Stateful({
 }
 
 const pills = () =>
-  Array.from(document.querySelectorAll('.property-list__tag')).map((pill) => pill.textContent);
+  Array.from(document.querySelectorAll('.pill')).map((pill) => pill.textContent);
 
 describe('MultiSelectPropertyValue — read-only', () => {
   it('renders each value as a pill, with no input or remove buttons', () => {

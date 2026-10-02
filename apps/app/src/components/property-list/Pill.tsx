@@ -7,10 +7,8 @@ import './Pill.css';
 
 /**
  * What a click (or Enter/Space when focused) on the pill does — never both:
- * - `navigate`: goes somewhere else (a tag opens its Tag Collection); shows
- *   the pointer cursor.
- * - `edit`: starts editing the value in place (aliases, multi-select);
- *   shows the text cursor.
+ * - `navigate`: goes somewhere else (a tag opens its Tag Collection);
+ * - `edit`: starts editing the value in place (aliases, multi-select).
  * Omit both for a pill that isn't clickable.
  */
 type PillClickAction =
@@ -18,8 +16,6 @@ type PillClickAction =
   | { onEdit?(): void; onNavigate?: undefined };
 
 type PillProps = {
-  /** `tag` is the editor's inline tag look; `plain` a neutral surface for non-tag values. */
-  tone?: 'tag' | 'plain';
   /** The pill's content (a tag's `#` prefix and label, or a plain value). */
   children: ReactNode;
   /** Accessible name of the pill-as-button; used only when it is clickable. */
@@ -36,14 +32,13 @@ type PillProps = {
  * dismiss button absolutely positioned over its right end so showing it
  * never shifts the row. Owning both here is what keeps the dismiss button
  * in the same place on every pill; the geometry itself lives in
- * `.property-list__tag` / `.property-list__tag-remove` (Pill.css).
+ * `.pill` / `.pill__remove` (Pill.css).
  *
  * Neither the click action nor the dismiss click reaches the editor's
  * "click anywhere to type" handler, and the dismiss click never reaches
  * the pill's own.
  */
 export function Pill({
-  tone = 'tag',
   children,
   label,
   onNavigate,
@@ -75,14 +70,7 @@ export function Pill({
 
   return (
     <span
-      className={[
-        'property-list__tag',
-        tone === 'plain' && 'property-list__tag--plain',
-        onNavigate && 'property-list__tag--link',
-        onEdit && 'property-list__tag--editable',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className="pill"
       // A <span>, not a <button>: it contains the dismiss <button>, and
       // buttons can't nest.
       role={onActivate ? 'button' : undefined}
@@ -94,7 +82,7 @@ export function Pill({
       {children}
       {onRemove && (
         <Button
-          className="property-list__tag-remove"
+          className="pill__remove"
           isIconOnly
           variant="ghost"
           size="small"

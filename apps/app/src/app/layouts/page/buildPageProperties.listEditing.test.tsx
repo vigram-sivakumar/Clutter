@@ -44,7 +44,7 @@ function pageWith(status: 'active' | 'archived', unownedFrontmatter = ['people:'
 }
 
 const pills = () =>
-  Array.from(document.querySelectorAll('.property-list__tag')).map((pill) => pill.textContent);
+  Array.from(document.querySelectorAll('.pill')).map((pill) => pill.textContent);
 
 /** The real PropertyList over the real adapter, as PageHost composes them. */
 function renderPeople(status: 'active' | 'archived', onCommitListValue = vi.fn()) {

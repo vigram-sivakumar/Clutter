@@ -80,7 +80,6 @@ function ValuePill({
 }) {
   return (
     <Pill
-      tone="plain"
       onEdit={onEdit}
       label={`Edit ${value}`}
       onRemove={onRemove}
@@ -175,7 +174,7 @@ function ValuePillEditor({ value, isTaken, onCommit, onCancel }: ValuePillEditor
   return (
     <Input
       ref={inputRef}
-      className={['property-list__tag property-list__tag-edit-input', shakeClassName]
+      className={['pill pill--editing', shakeClassName]
         .filter(Boolean)
         .join(' ')}
       hasBackground={false}

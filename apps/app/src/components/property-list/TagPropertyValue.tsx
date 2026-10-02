@@ -104,7 +104,7 @@ function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
       onRemove={onRemove}
       removeLabel={`Remove tag ${tag}`}
     >
-      <span className="property-list__tag-prefix">#</span>
+      <span className="pill__prefix">#</span>
       {formatTagDisplayLabel(tag)}
     </Pill>
   );
@@ -325,7 +325,7 @@ function TagPropertyEditor({
               return (
                 <MenuItem key={id} id={id} tabIndex={-1} onClick={() => addTag(tag)}>
                   <span className="property-list__tag-suggestion">
-                    <span className="property-list__tag-prefix">#</span>
+                    <span className="pill__prefix">#</span>
                     {formatTagDisplayLabel(tag)}
                   </span>
                 </MenuItem>

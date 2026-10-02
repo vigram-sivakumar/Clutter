@@ -32,7 +32,7 @@ function getInput(): HTMLInputElement {
 }
 
 function pillLabels(container: HTMLElement = document.body): string[] {
-  return [...container.querySelectorAll('.property-list__tag')].map(
+  return [...container.querySelectorAll('.pill')].map(
     (pill) => pill.firstChild!.textContent! + pill.childNodes[1]!.textContent!
   );
 }
@@ -134,7 +134,7 @@ describe('TagPropertyValue — editable', () => {
   it('dismisses a tag via its pill button, without focusing the input', () => {
     render(<StatefulTags initial={['design', 'product', 'ui']} />);
 
-    const productPill = [...document.querySelectorAll<HTMLElement>('.property-list__tag')][1]!;
+    const productPill = [...document.querySelectorAll<HTMLElement>('.pill')][1]!;
     fireEvent.click(within(productPill).getByRole('button', { name: 'Remove tag product' }));
 
     expect(storedValue()).toEqual(['design', 'ui']);
