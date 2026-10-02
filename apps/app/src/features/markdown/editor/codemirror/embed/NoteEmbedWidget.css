@@ -350,11 +350,30 @@
 }
 
 /*
- * Collapsed background — top-level only. Reuses `--surface-secondary`,
- * the exact token `mediaPresentation/invalidEmbedCard.css`'s own
- * `.cm-invalid-embed__row` already uses, rather than a second background
- * token invented for this one state. Nested embeds (inside another
+ * Collapsed card — top-level only. Reuses `--md-embed-surface`, the exact
+ * token `mediaPresentation/invalidEmbedCard.css`'s own
+ * `.cm-invalid-embed__row` uses, rather than a second background token
+ * invented for this one state. Nested embeds (inside another
  * embed's own read-only view) reset back to no background, same
  * `.cm-content[contenteditable='false']` nested signal every other
  * top-level-only rule in this file already keys off.
  */
+/*
+ * Surface matches the broken-embed card (`--md-embed-surface`, radius
+ * `--md-embed-radius`, `--space-6` padding) and the inset hairline + soft
+ * shadow a folded fenced-code card gets (`fencedCodeBackgroundLayer`'s
+ * `--folded` modifier: `--shadow-inset-thin`, `--shadow-sm`). `padding`,
+ * never `margin`, per the codebase's permanent CM6 rule.
+ */
+.cm-note-embed--collapsed {
+  padding: var(--space-6);
+  border-radius: var(--md-embed-radius);
+  background: var(--md-embed-surface);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
+}
+
+.cm-content[contenteditable='false'] .cm-note-embed--collapsed {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
