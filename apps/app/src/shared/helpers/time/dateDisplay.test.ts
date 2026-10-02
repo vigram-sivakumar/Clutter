@@ -273,13 +273,3 @@ describe("formatDateDisplay — 'condensedFullYear'", () => {
     expect(formatDateDisplay('2027-11-11', 'condensedFullYear', REF)).toBe('11 Nov 2027');
   });
 });
-
-describe("formatDateDisplay — 'numericDotted'", () => {
-  const REF = new Date(2026, 9, 2, 12);
-
-  it('formats the absolute date as zero-padded DD.MM.YYYY, never a relative label', () => {
-    expect(formatDateDisplay('2026-10-02', 'numericDotted', REF)).toBe('02.10.2026');
-    expect(formatDateDisplay('2026-11-11', 'numericDotted', REF)).toBe('11.11.2026');
-    expect(formatDateDisplay('2029-01-01', 'numericDotted', REF)).toBe('01.01.2029');
-  });
-});

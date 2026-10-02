@@ -8,14 +8,12 @@ import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
 import { TextPropertyValue } from './TextPropertyValue';
-import { formatDatePropertyEditValue, formatDatePropertyValue } from './formatDatePropertyValue';
+import { formatDatePropertyValue } from './formatDatePropertyValue';
 
 interface PropertyTypeDefinition<Type extends PropertyType> {
   icon: keyof typeof iconRegistry;
   /** Display formatting for a raw stored value, for types whose display differs from the stored value. */
   format?(value: string): string;
-  /** Formatting for the value while it's editable in place, when that differs from `format`. */
-  editFormat?(value: string): string;
   /** Renders the value cell — the type's value component, which reads the item's own `editable`. */
   renderValue(item: PropertyListItemOf<Type>): ReactNode;
 }
@@ -34,14 +32,7 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   date: {
     icon: 'calendar',
     format: formatDatePropertyValue,
-    editFormat: formatDatePropertyEditValue,
-    renderValue: (item) => (
-      <DatePropertyValue
-        {...item}
-        format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
-      />
-    ),
+    renderValue: (item) => <DatePropertyValue {...item} format={formatDatePropertyValue} />,
   },
   boolean: {
     icon: 'check',

@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatDatePropertyEditValue,
-  formatDatePropertyValue,
-  parseDatePropertyValue,
-} from './formatDatePropertyValue';
+import { formatDatePropertyValue, parseDatePropertyValue } from './formatDatePropertyValue';
 
 // Thursday, 2 Oct 2026 — local time, so assertions hold in any timezone.
 const NOW = new Date(2026, 9, 2, 12, 0);
@@ -49,16 +45,5 @@ describe('formatDatePropertyValue', () => {
 
   it('shows an unparseable value raw rather than hiding it', () => {
     expect(formatDatePropertyValue('not-a-date', NOW)).toBe('not-a-date');
-  });
-});
-
-describe('formatDatePropertyEditValue', () => {
-  it('formats as DD.MM.YYYY, including for today', () => {
-    expect(formatDatePropertyEditValue('2026-09-15')).toBe('15.09.2026');
-    expect(formatDatePropertyEditValue('2026-01-01')).toBe('01.01.2026');
-  });
-
-  it('shows an unparseable value raw', () => {
-    expect(formatDatePropertyEditValue('not-a-date')).toBe('not-a-date');
   });
 });

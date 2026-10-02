@@ -60,15 +60,11 @@ import type { ISODate } from './types';
  *   other mode; every other date — even one within the current week — is
  *   `'condensed'`'s abbreviated-month date with the year always shown,
  *   `"11 Nov 2026"`, never a weekday name.
- * - `'numericDotted'` — the editable date Property's input value: the
- *   absolute date as zero-padded `DD.MM.YYYY` (`"02.10.2026"`), never a
- *   relative label — a value meant to be read *and* edited in place.
  */
 export type DateDisplayMode =
   | 'compact'
   | 'condensed'
   | 'condensedFullYear'
-  | 'numericDotted'
   | 'full'
   | 'shortWeekday'
   | 'contextual';
@@ -235,12 +231,6 @@ export function formatDateDisplay(
       : MONTH_LABELS;
   const monthLabel = monthLabels[relation.month - 1]!;
   const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
-
-  if (mode === 'numericDotted') {
-    const day = String(relation.day).padStart(2, '0');
-    const month = String(relation.month).padStart(2, '0');
-    return `${day}.${month}.${relation.year}`;
-  }
 
   if (mode === 'condensedFullYear') {
     if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {

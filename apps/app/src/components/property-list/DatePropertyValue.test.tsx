@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { DatePropertyValue } from './DatePropertyValue';
 import { PropertyList } from './PropertyList';
-import { formatDatePropertyEditValue, formatDatePropertyValue } from './formatDatePropertyValue';
+import { formatDatePropertyValue } from './formatDatePropertyValue';
 
 // Overlay positions itself with a ResizeObserver, which jsdom lacks —
 // same local stub as Overlay.test.tsx.
@@ -68,7 +68,6 @@ function StatefulDate({ initial }: { initial: string | null }) {
       name="Due"
       value={value}
       format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
       editable
       onCommit={setValue}
     />
@@ -82,7 +81,6 @@ describe('DatePropertyValue — read-only', () => {
         name="Due"
         value="2025-09-15"
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable={false}
       />
     );
@@ -94,13 +92,13 @@ describe('DatePropertyValue — read-only', () => {
 });
 
 describe('DatePropertyValue — editable', () => {
-  it('displays the current value in a single-line input as DD.MM.YYYY via the edit format helper', () => {
+  it('displays the current value in a single-line input via the format helper', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     const field = getField();
     expect(field.tagName).toBe('INPUT');
-    expect(field.value).toBe(formatDatePropertyEditValue('2025-09-15'));
-    expect(field.value).toBe('15.09.2025');
+    expect(field.value).toBe(formatDatePropertyValue('2025-09-15'));
+    expect(field.value).toBe('15 Sep 2025');
     expect(isCalendarOpen()).toBe(false);
   });
 
@@ -128,7 +126,6 @@ describe('DatePropertyValue — editable', () => {
         name="Due"
         value="2025-09-15"
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={onCommit}
       />
@@ -147,7 +144,7 @@ describe('DatePropertyValue — editable', () => {
     fireEvent.click(getField());
     fireEvent.click(getDay(20));
 
-    expect(getField().value).toBe('20.09.2025');
+    expect(getField().value).toBe('20 Sep 2025');
   });
 
   it('does not reopen the calendar when focus returns to the input after selecting', () => {
@@ -167,7 +164,6 @@ describe('DatePropertyValue — editable', () => {
         name="Due"
         value={null}
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={() => {}}
       />
@@ -184,7 +180,6 @@ describe('DatePropertyValue — editable', () => {
         name="Due"
         value={null}
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={onCommit}
       />
@@ -211,7 +206,6 @@ describe('DatePropertyValue — typing', () => {
         name="Due"
         value="2025-09-15"
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={onCommit}
       />
@@ -246,7 +240,6 @@ describe('DatePropertyValue — typing', () => {
         name="Due"
         value="2025-09-15"
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={onCommit}
       />
@@ -285,18 +278,18 @@ describe('DatePropertyValue — typing', () => {
     expect(calendarMonthYear()).toBe('January 2029');
   });
 
-  it('normalizes any typed form to DD.MM.YYYY once editing ends', () => {
+  it('normalizes any typed form to the formatted value once editing ends', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     fireEvent.click(getField());
     type('1-9-2026');
     fireEvent.blur(getField());
-    expect(getField().value).toBe('01.09.2026');
+    expect(getField().value).toBe(formatDatePropertyValue('2026-09-01'));
 
     fireEvent.click(getField());
     type('15 September 2026');
     fireEvent.blur(getField());
-    expect(getField().value).toBe('15.09.2026');
+    expect(getField().value).toBe(formatDatePropertyValue('2026-09-15'));
   });
 
   it('reverts a still-invalid draft to the formatted value on blur', () => {
@@ -306,7 +299,7 @@ describe('DatePropertyValue — typing', () => {
     type('1/1/');
     fireEvent.blur(getField());
 
-    expect(getField().value).toBe('15.09.2025');
+    expect(getField().value).toBe('15 Sep 2025');
   });
 
   it('keeps input and calendar in sync across typing then picking', () => {
@@ -316,7 +309,7 @@ describe('DatePropertyValue — typing', () => {
     type('1/1/2026');
     fireEvent.click(getDay(20));
 
-    expect(getField().value).toBe('20.01.2026');
+    expect(getField().value).toBe(formatDatePropertyValue('2026-01-20'));
 
     fireEvent.click(getField());
     expect(calendarMonthYear()).toBe('January 2026');
@@ -340,7 +333,6 @@ describe('DatePropertyValue — Clear', () => {
         name="Due"
         value="2025-09-15"
         format={formatDatePropertyValue}
-        editFormat={formatDatePropertyEditValue}
         editable
         onCommit={onCommit}
       />
@@ -372,7 +364,7 @@ describe('DatePropertyValue — Clear', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     fireEvent.click(getDay(20));
 
-    expect(getField().value).toBe('20.09.2025');
+    expect(getField().value).toBe('20 Sep 2025');
   });
 
   it('shows the dismiss icon on the Clear button', () => {
@@ -453,6 +445,6 @@ describe('PropertyList date Property', () => {
       />
     );
 
-    expect(getField().value).toBe('15.09.2025');
+    expect(getField().value).toBe('15 Sep 2025');
   });
 });
