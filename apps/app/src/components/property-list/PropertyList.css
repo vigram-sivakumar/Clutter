@@ -1,4 +1,8 @@
 .property-list {
+  /* Property rows are 32px — Entry's and Input's height and every value
+     cell's minimum read this, for this list only. */
+  --height-lg: 32px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
