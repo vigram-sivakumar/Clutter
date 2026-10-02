@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { Button } from '@components/button/Button';
@@ -74,7 +74,15 @@ interface DatePropertyEditorProps {
  * (or null, via Clear) ever reach `onCommit`.
  */
 function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
-  const anchorRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  // The native field — where focus returns when the calendar closes.
+  const fieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  // Input's wrapper — the element that draws the border — so the calendar
+  // aligns to the field's outer edge, not to the text inside its padding.
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const setFieldRef = useCallback((node: HTMLInputElement | HTMLTextAreaElement | null) => {
+    fieldRef.current = node;
+    anchorRef.current = node?.parentElement ?? null;
+  }, []);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<CalendarMode>('month');
   const [draft, setDraft] = useState<string | null>(null);
@@ -194,7 +202,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   return (
     <>
       <Input
-        ref={anchorRef}
+        ref={setFieldRef}
         className={[
           'property-list__value property-list__input property-list__date-input',
           shakeClassName,
@@ -225,6 +233,7 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         open={open}
         onClose={close}
         anchorRef={anchorRef}
+        returnFocusRef={fieldRef}
         side="bottom"
         alignment="start"
         backdrop={false}
