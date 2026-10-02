@@ -3,3 +3,9 @@
 .property-list__row.property-list__add-row {
   justify-content: flex-start;
 }
+
+/* The row's clickable area (and its hover surface) hugs the icon and label
+   instead of stretching across the whole name cell. */
+.property-list__row.property-list__add-row .property-list__name {
+  width: fit-content;
+}
