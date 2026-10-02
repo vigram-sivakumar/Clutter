@@ -28,7 +28,7 @@ export interface WikiLinkCompletion extends Completion {
  * discriminant, already `'page' | 'create'`, never `'resource'`) is what
  * actually distinguishes them, not just possessing the property.
  */
-export function isWikiLinkCompletion(completion: Completion): completion is WikiLinkCompletion {
+function isWikiLinkCompletion(completion: Completion): completion is WikiLinkCompletion {
   if (!('suggestion' in completion)) {
     return false;
   }

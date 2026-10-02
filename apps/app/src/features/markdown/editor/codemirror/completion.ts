@@ -1,4 +1,4 @@
-import { autocompletion, currentCompletions } from '@codemirror/autocomplete';
+import { autocompletion } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 
 import { dateCompletionSource } from './date/dateCompletionSource';
@@ -12,8 +12,8 @@ import type {
 import { tagCompletionSource } from './tag/tagCompletionSource';
 import { renderTagCompletion } from './tag/tagCompletionRenderer';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
-import { isWikiLinkCompletion, renderWikiLinkCompletion } from './wikilink/wikiLinkCompletionRenderer';
-import { WIKILINK_TOOLTIP_CLASS, wikiLinkAutocompleteTheme } from './wikilink/wikiLinkAutocomplete';
+import { renderWikiLinkCompletion } from './wikilink/wikiLinkCompletionRenderer';
+import { wikiLinkAutocompleteTheme } from './wikilink/wikiLinkAutocomplete';
 import { wikiLinkCompletionSource } from './wikilink/wikiLinkCompletionSource';
 import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
 
@@ -71,12 +71,6 @@ export function semanticCompletion(
       icons: false,
       defaultKeymap: true,
       closeOnBlur: false,
-      // Marks the popup while it lists `[[` suggestions, so
-      // wikiLinkAutocompleteTheme can widen just that one (page titles plus
-      // breadcrumbs and aliases need the room) — every other source keeps
-      // CM6's content-sized popup. Re-evaluated on every update.
-      tooltipClass: (state) =>
-        currentCompletions(state).some(isWikiLinkCompletion) ? WIKILINK_TOOLTIP_CLASS : '',
       addToOptions: [
         { render: renderEmbedCompletion, position: 50 },
         { render: renderWikiLinkCompletion, position: 50 },
