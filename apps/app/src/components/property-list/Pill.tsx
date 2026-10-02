@@ -59,7 +59,10 @@ export function Pill({
   }
 
   function handleActivateKeyDown(event: KeyboardEvent<HTMLSpanElement>) {
-    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) {
+    if (
+      event.target !== event.currentTarget ||
+      (event.key !== 'Enter' && event.key !== ' ')
+    ) {
       return;
     }
 
@@ -85,6 +88,7 @@ export function Pill({
           className="pill__remove"
           isIconOnly
           variant="ghost"
+          interaction="subtle"
           size="small"
           aria-label={removeLabel}
           onMouseDown={(event) => event.preventDefault()}

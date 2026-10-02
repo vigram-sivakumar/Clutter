@@ -8,8 +8,7 @@
 /* One pill: neutral surface and text, badge radius; a tag's `#` prefix
    is dimmed (`.pill__prefix`).
    `--pill-height` is the one size knob: the pill is exactly that tall
-   (text vertically centered, so only inline padding), and the dismiss
-   button below derives its size from it. The
+   (text vertically centered, so only inline padding). The
    selector specificity beats `.property-list__value .entry__content span`
    (the value cell's clamped-box rule) inside a read-only cell. */
 .pill,
@@ -43,29 +42,11 @@
   padding-right: 2px;
 }
 
-/* The dismiss button: the pill's last flex item, flush with its right edge
-   (the negative margin cancels the pill's inline padding) and as tall as
-   the pill. It takes no space and isn't shown until its editor has focus
-   (`.property-list__tag-editor:focus-within`, below); showing it widens
-   the pill. */
+/* The dismiss button is the pill's last in-flow item, shown only while
+   its editor has focus. */
 .pill .pill__remove {
-  position: relative;
   display: none;
-  align-self: stretch;
-  height: auto;
-  width: var(--pill-height);
-  min-width: 0;
-  margin-inline: 0.2em -0.4em;
-  padding: 0;
-  /* The pill's own radius on the right, so hover never pokes past it. */
-  border-radius: 0 var(--md-badge-radius) var(--md-badge-radius) 0;
 }
-.pill .pill__remove svg {
-  width: 13px;
-  height: 13px;
-}
-/* Dismiss buttons appear on every pill while the editor's input (or a
-   pill being edited in place) has focus. */
 .property-list__tag-editor:focus-within .pill .pill__remove {
   display: inline-flex;
 }
