@@ -34,6 +34,7 @@ export function PagePropertiesWithExamples({
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
   const [exampleTags, setExampleTags] = useState<string[]>(['design', 'product']);
   const [exampleChecked, setExampleChecked] = useState(true);
+  const [exampleNumber, setExampleNumber] = useState<number | null>(1234.5);
   const [exampleUrl, setExampleUrl] = useState<string | null>(
     'https://example.com/docs/guides/getting-started/installation/configuration-and-advanced-options?ref=properties'
   );
@@ -71,6 +72,13 @@ export function PagePropertiesWithExamples({
           value: exampleChecked,
           editable: true,
           onCommit: setExampleChecked,
+        },
+        {
+          name: 'Example number',
+          type: 'number',
+          value: exampleNumber,
+          editable: true,
+          onCommit: setExampleNumber,
         },
         {
           name: 'Example URL',

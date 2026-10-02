@@ -45,6 +45,12 @@ export type PropertyListItem =
       /** The URL exactly as entered (a bare domain stays bare), or null when absent. */
       value: string | null;
     } & PropertyEditability<string | null>)
+  | ({
+      name: string;
+      type: 'number';
+      /** The numeric value itself (formatting is display only), or null when absent. */
+      value: number | null;
+    } & PropertyEditability<number | null>)
   | ({ name: string; type: 'multi-select'; value: readonly string[] } & ReadOnlyProperty)
   | ({ name: string; type: 'boolean'; value: boolean } & PropertyEditability<boolean>);
 

@@ -6,6 +6,7 @@ import type { iconRegistry } from '@shared/icon/iconRegistry';
 import { CheckboxPropertyValue } from './CheckboxPropertyValue';
 import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
+import { NumberPropertyValue } from './NumberPropertyValue';
 import { PropertyValueCell } from './PropertyValueCell';
 import { TagPropertyValue } from './TagPropertyValue';
 import { TextPropertyValue } from './TextPropertyValue';
@@ -47,6 +48,10 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   url: {
     icon: 'link',
     renderValue: (item) => <UrlPropertyValue {...item} />,
+  },
+  number: {
+    icon: 'hash',
+    renderValue: (item) => <NumberPropertyValue {...item} />,
   },
   'multi-select': {
     icon: 'multiLine',

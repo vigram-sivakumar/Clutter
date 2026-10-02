@@ -1,11 +1,13 @@
-export type PropertyType = 'text' | 'date' | 'tag' | 'boolean' | 'url' | 'multi-select';
+export type PropertyType = 'text' | 'date' | 'tag' | 'boolean' | 'url' | 'number' | 'multi-select';
 
 /**
  * A `date` Property's value is the raw stored string, never a formatted
  * one: a local `YYYY-MM-DD` date (what the Calendar picks) or a full ISO
  * timestamp (the system-maintained `created`/`modified`).
+ *
+ * A `number` Property's value is a real number, never a formatted string.
  */
-export type PropertyValue = string | boolean | string[];
+export type PropertyValue = string | number | boolean | string[];
 
 /*
  * A `tag` Property's value is the tag names without their `#` — exactly as
