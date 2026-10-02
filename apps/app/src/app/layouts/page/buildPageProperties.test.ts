@@ -44,8 +44,18 @@ describe('buildPageProperties', () => {
   it('exposes exactly Tags, Aliases, Created, Modified, in order', () => {
     const items = buildPageProperties(makePage('note'));
     expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
-    expect(items[0]).toEqual({ name: 'Tags', type: 'multi-select', value: ['a', 'b'] });
-    expect(items[1]).toEqual({ name: 'Aliases', type: 'multi-select', value: ['Alt'] });
+    expect(items[0]).toEqual({
+      name: 'Tags',
+      type: 'multi-select',
+      value: ['a', 'b'],
+      editable: false,
+    });
+    expect(items[1]).toEqual({
+      name: 'Aliases',
+      type: 'multi-select',
+      value: ['Alt'],
+      editable: false,
+    });
   });
 
   it('uses the same properties for Notes and Daily Notes', () => {
@@ -54,13 +64,16 @@ describe('buildPageProperties', () => {
     );
   });
 
-  it('formats timestamps, falls back to raw text, and blanks missing ones', () => {
+  it('exposes Created/Modified as read-only date Properties carrying the raw timestamp', () => {
     const items = buildPageProperties(makePage('note', { createdAt: null }));
-    expect(items[2]!.value).toBe('');
-    expect(items[3]!.value).toBe('not-a-date');
-    const ok = buildPageProperties(makePage('note'));
-    expect(ok[2]!.value).not.toBe('2026-01-02T03:04:05.000Z');
-    expect(ok[2]!.value).not.toBe('');
+    expect(items[2]).toEqual({ name: 'Created', type: 'date', value: null, editable: false });
+    expect(items[3]).toEqual({
+      name: 'Modified',
+      type: 'date',
+      value: 'not-a-date',
+      editable: false,
+    });
+    expect(buildPageProperties(makePage('note'))[2]!.value).toBe('2026-01-02T03:04:05.000Z');
   });
 
   it('treats a missing tags array as empty', () => {

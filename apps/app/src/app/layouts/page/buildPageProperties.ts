@@ -14,27 +14,23 @@ import type { Page } from '@core/vault/models/Page';
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
  * inline `#tags`. `Aliases` come from the page's parsed analysis. `Created`
- * and `Modified` are system-maintained timestamps, display-only.
+ * and `Modified` are system-maintained timestamps: `date` Properties
+ * carrying the raw ISO timestamp (formatting is the date type's job),
+ * explicitly `editable: false`.
+ *
+ * Editability is decided here, per Property — never by PropertyList from a
+ * type or name. None of these four is editable yet.
  */
 export function buildPageProperties(page: Page): PropertyListItem[] {
   return [
-    { name: 'Tags', type: 'multi-select', value: page.metadata.tags ?? [] },
+    { name: 'Tags', type: 'multi-select', value: page.metadata.tags ?? [], editable: false },
     {
       name: 'Aliases',
       type: 'multi-select',
       value: page.analysis.aliases.map((alias) => alias.value),
+      editable: false,
     },
-    { name: 'Created', type: 'text', value: formatTimestamp(page.metadata.createdAt) },
-    { name: 'Modified', type: 'text', value: formatTimestamp(page.metadata.updatedAt) },
+    { name: 'Created', type: 'date', value: page.metadata.createdAt, editable: false },
+    { name: 'Modified', type: 'date', value: page.metadata.updatedAt, editable: false },
   ];
-}
-
-function formatTimestamp(iso: string | null): string {
-  if (!iso) {
-    return '';
-  }
-
-  const date = new Date(iso);
-
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }

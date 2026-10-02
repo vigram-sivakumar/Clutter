@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDateDisplay } from './dateDisplay';
+import { formatDateDisplay, formatTimeDisplay } from './dateDisplay';
 
 // Thursday, 2026-08-20 — same fixed reference date the Date-autocomplete
 // tests use, for consistency across the codebase's date-related suites.
@@ -244,5 +244,14 @@ describe('formatDateDisplay', () => {
 
   it('never derives "today" via UTC-shifted math — classification matches the reference date\'s local calendar day', () => {
     expect(formatDateDisplay('2026-08-20', 'compact', REFERENCE)).toBe('Today');
+  });
+});
+
+describe('formatTimeDisplay', () => {
+  it('formats the local time as a 12-hour H:MM AM/PM label', () => {
+    expect(formatTimeDisplay(new Date(2026, 8, 15, 9, 36))).toBe('9:36 AM');
+    expect(formatTimeDisplay(new Date(2026, 8, 15, 0, 5))).toBe('12:05 AM');
+    expect(formatTimeDisplay(new Date(2026, 8, 15, 12, 0))).toBe('12:00 PM');
+    expect(formatTimeDisplay(new Date(2026, 8, 15, 23, 59))).toBe('11:59 PM');
   });
 });

@@ -1,9 +1,20 @@
-export type PropertyType = 'text' | 'boolean' | 'url' | 'multi-select';
+export type PropertyType = 'text' | 'date' | 'boolean' | 'url' | 'multi-select';
 
+/**
+ * A `date` Property's value is the raw stored string, never a formatted
+ * one: a local `YYYY-MM-DD` date (what the Calendar picks) or a full ISO
+ * timestamp (the system-maintained `created`/`modified`).
+ */
 export type PropertyValue = string | boolean | string[];
 
 export interface Property {
   name: string;
   type: PropertyType;
   value: PropertyValue;
+  /**
+   * Whether the user may change the value — decided by whoever produces the
+   * Property (system metadata vs. a user-created Property), never inferred
+   * from `type` or `name`.
+   */
+  editable: boolean;
 }

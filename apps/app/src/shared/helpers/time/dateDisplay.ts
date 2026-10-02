@@ -243,3 +243,16 @@ export function formatDateDisplay(
 
   return fullDate;
 }
+
+/**
+ * Formats the local time of day of `date` as a 12-hour label — `9:36 AM`,
+ * `12:05 PM` — the companion to `formatDateDisplay` for a value that carries
+ * a time (e.g. a page's `created`/`modified` timestamp). Same `H:MM AM/PM`
+ * shape the Date autocomplete's time suggestions already show.
+ */
+export function formatTimeDisplay(date: Date): string {
+  const hours = date.getHours();
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+}

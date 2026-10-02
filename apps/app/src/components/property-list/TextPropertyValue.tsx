@@ -3,8 +3,29 @@ import type { KeyboardEvent } from 'react';
 
 import { Input } from '@components/input/Input';
 
-interface TextPropertyValueProps {
+import type { PropertyEditability } from './PropertyList.types';
+import { PropertyValueCell } from './PropertyValueCell';
+
+type TextPropertyValueProps = {
   /** The property's name — used only as the field's accessible label. */
+  name: string;
+  value: string;
+} & PropertyEditability<string>;
+
+/**
+ * The `text` Property's value. `editable` (supplied by the adapter, never
+ * inferred here) picks the state: read-only renders the plain value;
+ * editable renders the in-place multiline editor.
+ */
+export function TextPropertyValue(props: TextPropertyValueProps) {
+  if (!props.editable) {
+    return <PropertyValueCell>{props.value}</PropertyValueCell>;
+  }
+
+  return <TextPropertyEditor name={props.name} value={props.value} onCommit={props.onCommit} />;
+}
+
+interface TextPropertyEditorProps {
   name: string;
   value: string;
   /**
@@ -16,9 +37,9 @@ interface TextPropertyValueProps {
 }
 
 /**
- * The `text` Property's value editor — a multiline value, not a
- * title-style single-line field. Reuses Input's `multiline` mode (which
- * already wraps and auto-grows) rather than a second textarea.
+ * Editable state — a multiline value, not a title-style single-line field.
+ * Reuses Input's `multiline` mode (which already wraps and auto-grows)
+ * rather than a second textarea.
  *
  * Follows EditableText's established editing convention: React owns the
  * committed `value`; the field owns the draft only while focused. A
@@ -26,7 +47,7 @@ interface TextPropertyValueProps {
  * difference is Enter: it inserts a newline (native textarea behavior)
  * instead of submitting.
  */
-export function TextPropertyValue({ name, value, onCommit }: TextPropertyValueProps) {
+function TextPropertyEditor({ name, value, onCommit }: TextPropertyEditorProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const isEscapingRef = useRef(false);
 
@@ -57,7 +78,7 @@ export function TextPropertyValue({ name, value, onCommit }: TextPropertyValuePr
 
   return (
     <Input
-      className="property-list__value property-list__text-input"
+      className="property-list__value property-list__input property-list__text-input"
       multiline
       rows={1}
       // Input's own background/border, shown only while editing — at rest

@@ -49,12 +49,12 @@
   margin-right: var(--space-4);
 }
 
-/* The editable text value: Input's multiline wrapper doubles as the value
+/* An editable value (text, date): Input's wrapper doubles as the value
    cell. Input's own (icon-less) inline padding is cancelled by an equal
    negative margin, so the text lines up with read-only values while the
    focused background/border extends outward around it instead of
    shifting the text. */
-.property-list__text-input {
+.property-list__input {
   flex: 1;
   width: auto;
   margin-inline: calc(-1 * (var(--space-6) + 4px));
@@ -73,4 +73,27 @@
 .property-list__text-input .input__field {
   padding: 0;
   line-height: var(--lh-label);
+}
+
+/* Drops the native field's own UA inline padding (2px on <input>), so the
+   value starts exactly where read-only values do. */
+.property-list__input .input__field {
+  padding-inline: 0;
+}
+
+/* A read-only Input that opens the Calendar — a click target, not a text field. */
+.property-list__date-input .input__field {
+  cursor: pointer;
+}
+
+/* Same surface as TaskDatePicker's Calendar overlay. */
+.property-date-picker {
+  width: 280px;
+  padding: var(--space-12);
+  border-radius: var(--radius-xxl);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+}
+.property-date-picker .calendar-toggle {
+  display: none;
 }
