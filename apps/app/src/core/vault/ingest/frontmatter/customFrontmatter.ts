@@ -11,13 +11,21 @@ import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
  * stay their one source of truth: a custom property is derived here on
  * demand, never stored. Its type is inferred from how its value is
  * written, so a rename (which never touches the value) keeps it.
+ *
+ * An empty value has nothing to infer from, so the types that can be
+ * empty and aren't text carry theirs as a trailing YAML comment on the
+ * key line — `due: # date`, `estimate: # number`, `site: # url` (a null
+ * to any other YAML reader, and kept byte-identical on every save). An
+ * empty list is `key: []`, and an empty text value is `key:`. No other
+ * schema exists: this is the whole of how a typed property stays typed
+ * while it is empty.
  */
 export type CustomFrontmatterProperty =
   | { readonly key: string; readonly type: 'text'; readonly value: string }
-  | { readonly key: string; readonly type: 'number'; readonly value: number }
+  | { readonly key: string; readonly type: 'number'; readonly value: number | null }
   | { readonly key: string; readonly type: 'boolean'; readonly value: boolean }
-  | { readonly key: string; readonly type: 'date'; readonly value: string }
-  | { readonly key: string; readonly type: 'url'; readonly value: string }
+  | { readonly key: string; readonly type: 'date'; readonly value: string | null }
+  | { readonly key: string; readonly type: 'url'; readonly value: string | null }
   | { readonly key: string; readonly type: 'list'; readonly value: readonly string[] };
 
 interface KeyBlock {
@@ -38,6 +46,9 @@ const BOOLEAN = /^(?:true|True|TRUE|false|False|FALSE)$/;
 // Decimal only, no leading zeros on the integer part (`007` is an id, not
 // 7), no YAML-only forms (`1_000`, `0x1F`, `.inf`).
 const NUMBER = /^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+// A comment-only value naming the type of an empty property (see the
+// module doc): `# date`, `# number`, `# url`.
+const TYPED_EMPTY = /^#\s*(number|date|url)\s*$/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
 
@@ -160,6 +171,12 @@ function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmat
     return asText();
   }
 
+  const emptyType = TYPED_EMPTY.exec(inlineValue)?.[1] as 'number' | 'date' | 'url' | undefined;
+
+  if (emptyType) {
+    return { key, type: emptyType, value: null };
+  }
+
   const flowItems = splitFlowSequence(inlineValue);
 
   if (flowItems) {
@@ -207,21 +224,27 @@ export function isReservedPropertyName(name: string): boolean {
 export type CustomPropertyNameProblem = 'empty' | 'reserved' | 'unsupported' | 'taken';
 
 /**
- * Why `name` can't become the new name of custom property `currentKey` on
- * a page with these raw lines, or null when it can. Names are trimmed (the
- * same normalization the parser applies to keys). Rejected:
+ * Why `name` can't be the name of custom property `currentKey` on a page
+ * with these raw lines (`currentKey` is '' for a property that doesn't
+ * exist yet), or null when it can — the one rule both adding and renaming
+ * use. Names are trimmed (the same normalization the parser applies to
+ * keys). Rejected:
  * - `empty`: nothing but whitespace;
  * - `reserved`: a system property's canonical key, case-insensitively;
  * - `unsupported`: text the frontmatter reader can't read back as this
  *   key — a `:` (the key/value separator), a line break, or a leading YAML
  *   indicator (`#` would make it a comment, `-` a list item, …);
- * - `taken`: another custom key on this page already has that exact name
- *   (YAML keys are case-sensitive; two equal keys would lose a value).
+ * - `taken`: another custom key on this page — or one of `otherNames`,
+ *   names the UI holds that aren't in the lines yet — already has that
+ *   name, ignoring letter case (`Priority` and `priority` can't coexist).
+ *   The property's own key never conflicts with itself, so changing only
+ *   its letter case is allowed.
  */
 export function validateCustomPropertyName(
   lines: readonly string[],
   currentKey: string,
-  name: string
+  name: string,
+  otherNames: readonly string[] = []
 ): CustomPropertyNameProblem | null {
   const trimmed = name.trim();
 
@@ -237,11 +260,15 @@ export function validateCustomPropertyName(
     return 'unsupported';
   }
 
-  if (trimmed !== currentKey && splitKeyBlocks(lines).some((block) => block.key === trimmed)) {
-    return 'taken';
-  }
+  const lower = trimmed.toLowerCase();
+  const taken = [
+    ...splitKeyBlocks(lines)
+      .map((block) => block.key)
+      .filter((key) => key !== currentKey),
+    ...otherNames,
+  ];
 
-  return null;
+  return taken.some((existing) => existing.trim().toLowerCase() === lower) ? 'taken' : null;
 }
 
 /**
@@ -441,4 +468,177 @@ export function setCustomListValue(
   }
   result.splice(first, 0, ...itemLines);
   return result;
+}
+
+/** The custom property types whose value is one scalar (everything but a list). */
+export type CustomScalarType = 'text' | 'number' | 'boolean' | 'date' | 'url';
+export type CustomScalarValue = string | number | boolean;
+
+/**
+ * The raw YAML spelling of `value` as a `type` custom property — the text
+ * after `key: `. A custom property's type is inferred from how its value
+ * is written (readBlock), so a value is only written when it reads back
+ * as exactly `type`; anything else throws, never a silently different
+ * type. `null` is the empty value: `# number` / `# date` / `# url` for
+ * those types, '' for text. Text is written plain when safe, else double-quoted (a quoted
+ * value is always a string, whatever it looks like); a value with a line
+ * break is refused, since a scalar is one line.
+ */
+export function formatCustomScalar(
+  type: CustomScalarType,
+  value: CustomScalarValue | null
+): string {
+  const fail = (): never => {
+    throw new Error(`"${String(value)}" is not a valid ${type} value.`);
+  };
+  let raw: string;
+
+  // Empty: nothing for the type to be inferred from, so a number, date or
+  // url keeps it as a comment (see the module doc); an empty text value is
+  // just no value. A boolean has no empty state — unchecked is `false`.
+  if (value === null) {
+    if (type === 'boolean') {
+      return fail();
+    }
+
+    raw = type === 'text' ? '' : `# ${type}`;
+
+    if (readValue(raw).type !== type) {
+      fail();
+    }
+
+    return raw;
+  }
+
+  switch (type) {
+    case 'number':
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        fail();
+      }
+      raw = String(value);
+      break;
+    case 'boolean':
+      if (typeof value !== 'boolean') {
+        fail();
+      }
+      raw = String(value);
+      break;
+    case 'date':
+    case 'url':
+      if (typeof value !== 'string') {
+        fail();
+      }
+      raw = (value as string).trim();
+      break;
+    case 'text': {
+      if (typeof value !== 'string' || /[\n\r]/.test(value)) {
+        fail();
+      }
+      const text = (value as string).trim();
+      raw = quoteFrontmatterString(text);
+      // Plain text that would read as another type (`42`, a date, a URL)
+      // must be quoted to stay text.
+      if (readValue(raw).type !== 'text') {
+        raw = `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+      }
+      break;
+    }
+  }
+
+  if (readValue(raw).type !== type) {
+    fail();
+  }
+
+  return raw;
+}
+
+/** How `raw` (the text after `key:`) would be read back — what a value's type is judged by. */
+function readValue(raw: string): CustomFrontmatterProperty {
+  return readBlock({ key: 'k', start: 0, inlineValue: raw, continuation: [] });
+}
+
+/**
+ * The raw lines with scalar custom property `key`'s value replaced by
+ * `value` (spelled by formatCustomScalar as `type`), or emptied when
+ * `value` is null — written so it keeps its type (`key: # date`, or just
+ * `key:` for text), never falling back to text. Only that property's own
+ * lines change (a block scalar's continuation lines go with its value);
+ * every other line stays byte-identical. Throws when `key` isn't a
+ * scalar property or the value is refused.
+ */
+export function setCustomScalarValue(
+  lines: readonly string[],
+  key: string,
+  type: CustomScalarType,
+  value: CustomScalarValue | null
+): string[] {
+  const block = splitKeyBlocks(lines).find((candidate) => candidate.key === key);
+  const property = block && readBlock(block);
+
+  if (!block || !property || property.type === 'list') {
+    throw new Error(`No scalar property "${key}".`);
+  }
+
+  const raw = formatCustomScalar(type, value);
+  const keyLine = lines[block.start]!;
+  const prefix = keyLine.slice(0, keyLine.indexOf(':'));
+
+  let last = block.start;
+  block.continuation.forEach((line, offset) => {
+    if (line.trim() !== '') {
+      last = block.start + 1 + offset;
+    }
+  });
+
+  return [
+    ...lines.slice(0, block.start),
+    raw === '' ? `${prefix}:` : `${prefix}: ${raw}`,
+    ...lines.slice(last + 1),
+  ];
+}
+
+/** A custom property to add: its type, and the value it starts with. */
+export type NewCustomProperty =
+  | { readonly type: CustomScalarType; readonly value: CustomScalarValue | null }
+  | { readonly type: 'multi-select'; readonly value: readonly string[] };
+
+/**
+ * The raw lines with custom property `name` appended after every existing
+ * line (so every other line stays byte-identical). The name is validated
+ * (validateCustomPropertyName) and the value must read back as the
+ * given type, else it throws. A scalar is one `name: value` line; a list
+ * is a block list, or `name: []` when empty — which reads back as an
+ * (empty) list, so a multi-select can exist before it has any value.
+ */
+export function addCustomProperty(
+  lines: readonly string[],
+  name: string,
+  property: NewCustomProperty
+): string[] {
+  const problem = validateCustomPropertyName(lines, '', name);
+
+  if (problem) {
+    throw new Error(`Cannot add property "${name}": ${problem}.`);
+  }
+
+  const key = name.trim();
+
+  if (property.type === 'multi-select') {
+    const items = property.value.map((item) => item.trim()).filter((item) => item !== '');
+
+    if (property.value.some((item) => /[\n\r]/.test(item))) {
+      throw new Error(`List property "${key}" cannot hold a value with a line break.`);
+    }
+
+    return [
+      ...lines,
+      ...(items.length === 0
+        ? [`${key}: []`]
+        : [`${key}:`, ...items.map((item) => `  - ${quoteFrontmatterString(item)}`)]),
+    ];
+  }
+
+  const raw = formatCustomScalar(property.type, property.value);
+
+  return [...lines, raw === '' ? `${key}:` : `${key}: ${raw}`];
 }

@@ -711,6 +711,131 @@ describe('PageOperations.renameCustomProperty()', () => {
     expect(enqueue).not.toHaveBeenCalled();
   });
 
+  describe('adding and setting custom properties', () => {
+    it.each([
+      ['text', { type: 'text', value: null }, 'fresh:'],
+      ['number', { type: 'number', value: null }, 'fresh: # number'],
+      ['date', { type: 'date', value: null }, 'fresh: # date'],
+      ['url', { type: 'url', value: null }, 'fresh: # url'],
+      ['boolean', { type: 'boolean', value: false }, 'fresh: false'],
+      ['multi-select', { type: 'multi-select', value: [] }, 'fresh: []'],
+    ] as const)(
+      'addCustomProperty writes an empty %s through the Gate, typed, keeping every other line',
+      async (type, property, written) => {
+        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\npeople:\n  - Ana\npriority: high'
+        );
+        const otherBefore = await fileSystem.readFile(other.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.addCustomProperty(page.id, 'fresh', property);
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain(`author: Jane\npeople:\n  - Ana\npriority: high\n${written}`);
+        expect(content).toContain('Body text');
+        // Reread from what the Gate wrote: still that type, never text.
+        const read = readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!);
+        expect(read.find((p) => p.key === 'fresh')!.type).toBe(type === 'multi-select' ? 'list' : type);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+      }
+    );
+
+    it.each([['Due'], ['PRIORITY'], ['priority'], ['tags'], ['Created'], ['  ']])(
+      'addCustomProperty rejects %j (case-insensitive duplicate, reserved, or empty) and writes nothing',
+      async (name) => {
+        const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'Priority: high\ndue: 2026-01-01'
+        );
+        const before = await fileSystem.readFile(page.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await expect(
+          pageOperations.addCustomProperty(page.id, name, { type: 'text', value: null })
+        ).rejects.toThrow();
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(await fileSystem.readFile(page.path)).toBe(before);
+      }
+    );
+
+    it('renameCustomProperty uses the same case-insensitive rule', async () => {
+      const { page, fileSystem, pageOperations } = await setupWithFrontmatter('Priority: high\nowner: Jane');
+      const before = await fileSystem.readFile(page.path);
+
+      await expect(pageOperations.renameCustomProperty(page.id, 'owner', 'priority')).rejects.toThrow(/taken/);
+      expect(await fileSystem.readFile(page.path)).toBe(before);
+
+      // Changing only its own letter case is fine.
+      await pageOperations.renameCustomProperty(page.id, 'owner', 'Owner');
+      expect(await fileSystem.readFile(page.path)).toContain('Owner: Jane');
+    });
+
+    it('addCustomProperty and setCustomPropertyValue reject for an archived page, writing nothing', async () => {
+      const { page, coordinator, pageOperations } = await setupWithFrontmatter('priority: high');
+      await archiveDirectly(coordinator, page.id);
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      await expect(
+        pageOperations.addCustomProperty(page.id, 'fresh', { type: 'text', value: null })
+      ).rejects.toThrow(/Cannot edit archived page/);
+      await expect(
+        pageOperations.setCustomPropertyValue(page.id, 'priority', 'text', 'low')
+      ).rejects.toThrow(/Cannot edit archived page/);
+      expect(enqueue).not.toHaveBeenCalled();
+    });
+
+    it('setCustomPropertyValue sets a value through the Gate and keeps every other line', async () => {
+      const { page, other, vault, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter(
+        'author: Jane\ndue: 2026-01-01\npriority: high',
+        'due: 2026-01-01'
+      );
+      const otherBefore = await fileSystem.readFile(other.path);
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      await pageOperations.setCustomPropertyValue(page.id, 'due', 'date', '2026-10-02');
+
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      expect(await fileSystem.readFile(page.path)).toContain('author: Jane\ndue: 2026-10-02\npriority: high');
+      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)[1]).toEqual({
+        key: 'due',
+        type: 'date',
+        value: '2026-10-02',
+      });
+      expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+    });
+
+    it('clearing a typed value keeps its type after the Gate rewrites the page', async () => {
+      const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+        'est: 3\ndue: 2026-01-01\nsite: https://a.example'
+      );
+
+      await pageOperations.setCustomPropertyValue(page.id, 'est', 'number', null);
+      await pageOperations.setCustomPropertyValue(page.id, 'due', 'date', null);
+      await pageOperations.setCustomPropertyValue(page.id, 'site', 'url', null);
+
+      const content = await fileSystem.readFile(page.path);
+      expect(content).toContain('est: # number\ndue: # date\nsite: # url');
+      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)).toEqual([
+        { key: 'est', type: 'number', value: null },
+        { key: 'due', type: 'date', value: null },
+        { key: 'site', type: 'url', value: null },
+      ]);
+    });
+
+    it('setCustomPropertyValue writes nothing for a list, a missing key, or a bad value', async () => {
+      const { page, fileSystem, pageOperations } = await setupWithFrontmatter('people: [Ana]\nest: 3');
+      const before = await fileSystem.readFile(page.path);
+
+      await expect(pageOperations.setCustomPropertyValue(page.id, 'people', 'text', 'x')).rejects.toThrow();
+      await expect(pageOperations.setCustomPropertyValue(page.id, 'missing', 'text', 'x')).rejects.toThrow();
+      await expect(
+        pageOperations.setCustomPropertyValue(page.id, 'est', 'number', Number.NaN)
+      ).rejects.toThrow();
+      expect(await fileSystem.readFile(page.path)).toBe(before);
+    });
+  });
+
   it('an unchanged name is a no-op', async () => {
     const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
     const before = await fileSystem.readFile(page.path);

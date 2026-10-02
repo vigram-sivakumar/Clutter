@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { FrontmatterParser } from '../FrontmatterParser';
 import {
+  addCustomProperty,
+  formatCustomScalar,
   isReservedPropertyName,
   removeCustomListItem,
   readCustomProperties,
   renameCustomProperty,
   setCustomListValue,
+  setCustomScalarValue,
   validateCustomPropertyName,
 } from './customFrontmatter';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
@@ -168,6 +171,8 @@ describe('validateCustomPropertyName', () => {
     ['# note', 'unsupported'],
     ['- item', 'unsupported'],
     ['owner', 'taken'],
+    ['OWNER', 'taken'],
+    ['Owner', 'taken'],
   ])('%j → %s', (name, problem) => {
     expect(validateCustomPropertyName(lines, 'priority', name)).toBe(problem);
   });
@@ -325,5 +330,187 @@ describe('setCustomListValue', () => {
     expect(() => setCustomListValue(lines, 'priority', ['x'])).toThrow(/No list property/);
     expect(() => setCustomListValue(lines, 'missing', ['x'])).toThrow(/No list property/);
     expect(() => setCustomListValue(lines, 'people', ['a\nb'])).toThrow(/line break/);
+  });
+});
+
+describe('case-insensitive name uniqueness — add and rename use one rule', () => {
+  const lines = customLines('Priority: high\nowner: Jane');
+
+  it('rejects a name that differs from another custom key only by case, for a new property', () => {
+    expect(validateCustomPropertyName(lines, '', 'priority')).toBe('taken');
+    expect(validateCustomPropertyName(lines, '', 'PRIORITY')).toBe('taken');
+    expect(validateCustomPropertyName(lines, '', 'Owner')).toBe('taken');
+    expect(validateCustomPropertyName(lines, '', 'due')).toBeNull();
+  });
+
+  it('rejects the same for a rename, but lets a property change only its own letter case', () => {
+    expect(validateCustomPropertyName(lines, 'owner', 'priority')).toBe('taken');
+    expect(validateCustomPropertyName(lines, 'owner', 'PRIORITY')).toBe('taken');
+    expect(validateCustomPropertyName(lines, 'Priority', 'priority')).toBeNull();
+  });
+
+  it('also rejects names the UI holds that are not in the lines yet', () => {
+    expect(validateCustomPropertyName(lines, '', 'Draft', ['draft'])).toBe('taken');
+  });
+
+  it('reserved system names are rejected in any case, for a new property too', () => {
+    expect(validateCustomPropertyName(lines, '', 'tags')).toBe('reserved');
+    expect(validateCustomPropertyName(lines, '', 'MODIFIED')).toBe('reserved');
+  });
+
+  it('renameCustomProperty throws on a case-variant duplicate', () => {
+    expect(() => renameCustomProperty(lines, 'owner', 'priority')).toThrow(/taken/);
+  });
+});
+
+describe('typed empty values keep their type', () => {
+  it.each([
+    ['number', 'estimate: # number'],
+    ['date', 'due: # date'],
+    ['url', 'site: # url'],
+  ] as const)('a comment-only value reads as an empty %s', (type, yaml) => {
+    expect(readCustomProperties(customLines(yaml))).toEqual([
+      { key: yaml.split(':')[0], type, value: null },
+    ]);
+  });
+
+  it('a comment that is not a type hint stays text', () => {
+    expect(readCustomProperties(customLines('x: # note'))[0]).toMatchObject({ type: 'text' });
+  });
+
+  it('formatCustomScalar writes the empty value of each type, and refuses it for a boolean', () => {
+    expect(formatCustomScalar('number', null)).toBe('# number');
+    expect(formatCustomScalar('date', null)).toBe('# date');
+    expect(formatCustomScalar('url', null)).toBe('# url');
+    expect(formatCustomScalar('text', null)).toBe('');
+    expect(() => formatCustomScalar('boolean', null)).toThrow();
+  });
+});
+
+describe('formatCustomScalar', () => {
+  it('writes each type so it reads back as that type', () => {
+    expect(formatCustomScalar('number', 3.5)).toBe('3.5');
+    expect(formatCustomScalar('boolean', false)).toBe('false');
+    expect(formatCustomScalar('date', ' 2026-10-02 ')).toBe('2026-10-02');
+    expect(formatCustomScalar('url', 'https://example.com/a')).toBe('https://example.com/a');
+    expect(formatCustomScalar('text', 'high')).toBe('high');
+  });
+
+  it('quotes text that would read as another type, so it stays text', () => {
+    expect(formatCustomScalar('text', '42')).toBe('"42"');
+    expect(formatCustomScalar('text', '2026-10-02')).toBe('"2026-10-02"');
+    expect(formatCustomScalar('text', 'https://example.com')).toBe('"https://example.com"');
+    expect(formatCustomScalar('text', 'a: b')).toBe('"a: b"');
+  });
+
+  it('refuses a value that would not read back as the type, or a line break', () => {
+    expect(() => formatCustomScalar('number', Number.NaN)).toThrow();
+    expect(() => formatCustomScalar('number', 'x' as never)).toThrow();
+    expect(() => formatCustomScalar('date', '2026-02-30')).toThrow();
+    expect(() => formatCustomScalar('url', 'example.com')).toThrow();
+    expect(() => formatCustomScalar('text', 'a\nb')).toThrow();
+  });
+});
+
+describe('setCustomScalarValue', () => {
+  const lines = customLines('author: Jane\ndue: 2026-01-01\nnote: |\n  one\n  two\nx: 1');
+
+  it('replaces only that property, keeping every other line byte-identical', () => {
+    expect(setCustomScalarValue(lines, 'due', 'date', '2026-10-02')).toEqual([
+      'author: Jane',
+      'due: 2026-10-02',
+      'note: |',
+      '  one',
+      '  two',
+      'x: 1',
+    ]);
+  });
+
+  it('replaces a whole block scalar with the new single line', () => {
+    expect(setCustomScalarValue(lines, 'note', 'text', 'short')).toEqual([
+      'author: Jane',
+      'due: 2026-01-01',
+      'note: short',
+      'x: 1',
+    ]);
+  });
+
+  it('clearing keeps the type: the key stays, the value reads back empty and typed', () => {
+    const cleared = setCustomScalarValue(lines, 'due', 'date', null);
+
+    expect(cleared[1]).toBe('due: # date');
+    expect(readCustomProperties(cleared).find((p) => p.key === 'due')).toEqual({
+      key: 'due',
+      type: 'date',
+      value: null,
+    });
+    // ...and it can be set again.
+    expect(
+      readCustomProperties(setCustomScalarValue(cleared, 'due', 'date', '2026-11-01')).find(
+        (p) => p.key === 'due'
+      )
+    ).toEqual({ key: 'due', type: 'date', value: '2026-11-01' });
+  });
+
+  it('clearing a number or url keeps its type too; clearing text leaves an empty text value', () => {
+    const typed = customLines('n: 3\nu: https://a.example\nt: hi');
+
+    expect(readCustomProperties(setCustomScalarValue(typed, 'n', 'number', null))[0]).toEqual({
+      key: 'n',
+      type: 'number',
+      value: null,
+    });
+    expect(readCustomProperties(setCustomScalarValue(typed, 'u', 'url', null))[1]).toEqual({
+      key: 'u',
+      type: 'url',
+      value: null,
+    });
+    expect(setCustomScalarValue(typed, 't', 'text', null)[2]).toBe('t:');
+  });
+
+  it('refuses a list or a missing key', () => {
+    const withList = customLines('people:\n  - Ana');
+    expect(() => setCustomScalarValue(withList, 'people', 'text', 'x')).toThrow(/No scalar property/);
+    expect(() => setCustomScalarValue(lines, 'missing', 'text', 'x')).toThrow(/No scalar property/);
+  });
+});
+
+describe('addCustomProperty', () => {
+  const lines = customLines('author: Jane\nPriority: high');
+
+  it('appends the property after every existing line, which stay byte-identical', () => {
+    expect(addCustomProperty(lines, ' Due date ', { type: 'date', value: null })).toEqual([
+      ...lines,
+      'Due date: # date',
+    ]);
+  });
+
+  it.each([
+    ['text', { type: 'text', value: null }, 'k:', { type: 'text', value: '' }],
+    ['number', { type: 'number', value: null }, 'k: # number', { type: 'number', value: null }],
+    ['date', { type: 'date', value: null }, 'k: # date', { type: 'date', value: null }],
+    ['url', { type: 'url', value: null }, 'k: # url', { type: 'url', value: null }],
+    ['boolean', { type: 'boolean', value: false }, 'k: false', { type: 'boolean', value: false }],
+    ['multi-select', { type: 'multi-select', value: [] }, 'k: []', { type: 'list', value: [] }],
+  ] as const)('a new empty %s property is written typed and reads back as that type', (_label, property, written, read) => {
+    const result = addCustomProperty([], 'k', property);
+
+    expect(result).toEqual([written]);
+    expect(readCustomProperties(result)).toEqual([{ key: 'k', ...read }]);
+  });
+
+  it('writes a list with values as a block list', () => {
+    expect(addCustomProperty([], 'people', { type: 'multi-select', value: ['Ana', 'Bo'] })).toEqual([
+      'people:',
+      '  - Ana',
+      '  - Bo',
+    ]);
+  });
+
+  it('rejects an empty, reserved, or case-insensitively duplicate name', () => {
+    expect(() => addCustomProperty(lines, '  ', { type: 'text', value: 'x' })).toThrow(/empty/);
+    expect(() => addCustomProperty(lines, 'Tags', { type: 'text', value: 'x' })).toThrow(/reserved/);
+    expect(() => addCustomProperty(lines, 'priority', { type: 'text', value: 'x' })).toThrow(/taken/);
+    expect(() => addCustomProperty(lines, 'AUTHOR', { type: 'text', value: 'x' })).toThrow(/taken/);
   });
 });
