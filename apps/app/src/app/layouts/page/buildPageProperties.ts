@@ -4,8 +4,11 @@ import type { MultiSelectSuggestion } from '@components/property-list/PropertyLi
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 import {
   readCustomProperties,
+  toCustomUrl,
   validateCustomPropertyName,
   type CustomFrontmatterProperty,
+  type CustomScalarType,
+  type CustomScalarValue,
 } from '@core/vault/ingest/frontmatter/customFrontmatter';
 
 /**
@@ -54,49 +57,110 @@ export interface AliasPropertyActions {
  * out of `page` so this stays a pure policy function. `onOpenTag` makes the
  * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
+/** The writes a custom property's value can be given — each present only when the host can perform it. */
+interface CustomPropertyValueActions {
+  onRemoveListItem?(key: string, index: number, value: string): void;
+  onCommitListValue?(key: string, value: string[]): void;
+  /** Sets (or, with null, clears) a scalar's value, written as `type`. */
+  onSetScalarValue?(key: string, type: CustomScalarType, value: CustomScalarValue | null): void;
+}
+
 /**
  * A custom property as a Property of the type its value implies (a list
- * renders as multi-select pills). Everything is read-only except a list
- * when the host supplies `onCommitListValue`: that — never the type —
- * makes it editable. Without it the pills are only dismissable.
+ * renders as multi-select pills). A value is editable only when the host
+ * supplies the write for it — `onCommitListValue` for a list,
+ * `onSetScalarValue` for the rest — never because of its type. Without
+ * it a scalar is read-only, and a list's pills are only dismissable.
  */
 function toCustomPropertyItem(
   property: CustomFrontmatterProperty,
-  onRemoveListItem?: (key: string, index: number, value: string) => void,
-  onCommitListValue?: (key: string, value: string[]) => void
+  { onRemoveListItem, onCommitListValue, onSetScalarValue }: CustomPropertyValueActions
 ): PropertyListItem {
+  const { key } = property;
+  const set = onSetScalarValue && ((type: CustomScalarType, value: CustomScalarValue | null) =>
+    onSetScalarValue(key, type, value));
+
   switch (property.type) {
     case 'list':
       if (onCommitListValue) {
         return {
-          name: property.key,
+          name: key,
           type: 'multi-select',
           value: property.value,
           editable: true,
-          onCommit: (value) => onCommitListValue(property.key, value),
+          onCommit: (value) => onCommitListValue(key, value),
         };
       }
 
       return {
-        name: property.key,
+        name: key,
         type: 'multi-select',
         value: property.value,
         // Pills are dismissable, like Tags' and Aliases'; adding isn't.
         ...(onRemoveListItem && {
-          onRemoveValue: (index: number, value: string) => onRemoveListItem(property.key, index, value),
+          onRemoveValue: (index: number, value: string) => onRemoveListItem(key, index, value),
         }),
         editable: false,
       };
     case 'text':
-      return { name: property.key, type: 'text', value: property.value, editable: false };
+      return set
+        ? {
+            name: key,
+            type: 'text',
+            value: property.value,
+            editable: true,
+            // An emptied text value is no value (`key:`).
+            onCommit: (value) => set('text', value.trim() === '' ? null : value),
+          }
+        : { name: key, type: 'text', value: property.value, editable: false };
     case 'number':
-      return { name: property.key, type: 'number', value: property.value, editable: false };
+      return set
+        ? {
+            name: key,
+            type: 'number',
+            value: property.value,
+            editable: true,
+            onCommit: (value) => set('number', value),
+          }
+        : { name: key, type: 'number', value: property.value, editable: false };
     case 'boolean':
-      return { name: property.key, type: 'boolean', value: property.value, editable: false };
+      return set
+        ? {
+            name: key,
+            type: 'boolean',
+            value: property.value,
+            editable: true,
+            onCommit: (value) => set('boolean', value),
+          }
+        : { name: key, type: 'boolean', value: property.value, editable: false };
     case 'date':
-      return { name: property.key, type: 'date', value: property.value, editable: false };
+      return set
+        ? {
+            name: key,
+            type: 'date',
+            value: property.value,
+            editable: true,
+            onCommit: (value) => set('date', value),
+          }
+        : { name: key, type: 'date', value: property.value, editable: false };
     case 'url':
-      return { name: property.key, type: 'url', value: property.value, editable: false };
+      return set
+        ? {
+            name: key,
+            type: 'url',
+            value: property.value,
+            editable: true,
+            onCommit: (value) => {
+              // Cleared, or a URL a stored value can be read back as one;
+              // anything else is dropped (the value stays as it was).
+              const stored = value === null ? null : toCustomUrl(value);
+
+              if (value === null || stored !== null) {
+                set('url', stored);
+              }
+            },
+          }
+        : { name: key, type: 'url', value: property.value, editable: false };
   }
 }
 
@@ -131,6 +195,13 @@ export function buildPageProperties(
      * archived): list custom properties are editable — add, edit, remove.
      */
     onCommitListValue?(key: string, value: string[]): void;
+    /**
+     * Persists a scalar custom property's value (PageOperations
+     * .setCustomPropertyValue); null clears it, keeping its type. Present
+     * (and the page not archived): text, number, boolean, date and url
+     * custom properties are editable.
+     */
+    onSetScalarValue?(key: string, type: CustomScalarType, value: CustomScalarValue | null): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -140,6 +211,7 @@ export function buildPageProperties(
   const onCommitTags = isArchived ? undefined : actions.onCommitTags;
   const onRemoveListItem = isArchived ? undefined : actions.onRemoveListItem;
   const onCommitListValue = isArchived ? undefined : actions.onCommitListValue;
+  const onSetScalarValue = isArchived ? undefined : actions.onSetScalarValue;
   const tags = page.metadata.tags ?? [];
   const customLines = page.metadata.unownedFrontmatter ?? [];
 
@@ -150,7 +222,7 @@ export function buildPageProperties(
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
   const customItems = readCustomProperties(customLines).map((property): PropertyListItem => {
-    const item = toCustomPropertyItem(property, onRemoveListItem, onCommitListValue);
+    const item = toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue });
 
     if (!onRenameProperty) {
       return item;

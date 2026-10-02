@@ -475,6 +475,26 @@ export type CustomScalarType = 'text' | 'number' | 'boolean' | 'date' | 'url';
 export type CustomScalarValue = string | number | boolean;
 
 /**
+ * What a typed URL becomes as a custom property's value: the text itself
+ * when it is an absolute `http(s)` URL (all that a stored value is read
+ * back as a url by), `https://` + the text for a bare domain
+ * (`example.com`, `www.example.com/a`), else null — so `mailto:` links,
+ * emails and plain words aren't stored as a url they would read back as
+ * text instead of.
+ */
+export function toCustomUrl(text: string): string | null {
+  const trimmed = text.trim();
+
+  if (isWebUrl(trimmed)) {
+    return trimmed;
+  }
+
+  const withScheme = `https://${trimmed}`;
+
+  return /^[^\s/:@]+\.[^\s/:@]+/.test(trimmed) && isWebUrl(withScheme) ? withScheme : null;
+}
+
+/**
  * The raw YAML spelling of `value` as a `type` custom property — the text
  * after `key: `. A custom property's type is inferred from how its value
  * is written (readBlock), so a value is only written when it reads back

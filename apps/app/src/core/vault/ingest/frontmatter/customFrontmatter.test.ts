@@ -10,6 +10,7 @@ import {
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
+  toCustomUrl,
   validateCustomPropertyName,
 } from './customFrontmatter';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
@@ -513,4 +514,24 @@ describe('addCustomProperty', () => {
     expect(() => addCustomProperty(lines, 'priority', { type: 'text', value: 'x' })).toThrow(/taken/);
     expect(() => addCustomProperty(lines, 'AUTHOR', { type: 'text', value: 'x' })).toThrow(/taken/);
   });
+});
+
+describe('toCustomUrl', () => {
+  it.each([
+    ['https://example.com/a', 'https://example.com/a'],
+    ['  http://localhost:3000  ', 'http://localhost:3000'],
+    ['example.com', 'https://example.com'],
+    ['www.example.co.uk/path?q=1', 'https://www.example.co.uk/path?q=1'],
+  ])('%j → %s', (text, stored) => {
+    expect(toCustomUrl(text)).toBe(stored);
+    // What is stored reads back as a url.
+    expect(readCustomProperties(customLines(`u: ${stored}`))[0]).toMatchObject({ type: 'url' });
+  });
+
+  it.each(['', '   ', 'plain words', 'mailto:a@b.co', 'a@b.co', 'readme', 'see example.com'])(
+    '%j is not storable as a url',
+    (text) => {
+      expect(toCustomUrl(text)).toBeNull();
+    }
+  );
 });

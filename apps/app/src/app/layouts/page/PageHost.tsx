@@ -1782,6 +1782,8 @@ export function PageHost({
               void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
             onCommitListValue: (key, value) =>
               void application.pageOperations.setCustomPropertyList(page.id, key, value),
+            onSetScalarValue: (key, type, value) =>
+              void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
           })}
         />
       }
