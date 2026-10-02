@@ -67,9 +67,9 @@
    line-height (on 14px text) made the caret visibly tall and uneven.
    20px keeps the two close. The block padding centers that first 20px
    line in a --height-lg row, exactly as the property name is centered. */
-.property-list__text-input {
+/* .property-list__text-input {
   padding-block: calc((var(--height-lg) - var(--lh-label)) / 2);
-}
+} */
 .property-list__text-input .input__field {
   padding: 0;
   line-height: var(--lh-label);
@@ -227,7 +227,7 @@
    (the value cell's clamped-box rule) inside a read-only cell. */
 .property-list__tag,
 .property-list__value .entry__content .property-list__tag {
-  --tag-pill-height: 22px;
+  --tag-pill-height: 24px;
   /* The pill's background, shared by the dismiss button and its fade so
      all three always match — including on hover, below. */
   --tag-pill-surface: var(--md-tag-surface);
@@ -292,8 +292,8 @@
   pointer-events: none;
 }
 .property-list__tag .property-list__tag-remove svg {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
+  width: 13px;
+  height: 13px;
 }
 /* Button's own hover swaps in a translucent background, which would let
    the text show through and break the fade — keep the solid pill surface
@@ -309,7 +309,11 @@
    one above declares --tag-pill-surface at higher specificity. */
 .property-list__tag:hover,
 .property-list__value .entry__content .property-list__tag:hover {
-  --tag-pill-surface: color-mix(in srgb, var(--md-tag-surface) 98%, rgb(var(--state-base)) 2%);
+  --tag-pill-surface: color-mix(
+    in srgb,
+    var(--md-tag-surface) 97%,
+    rgb(var(--state-base)) 3%
+  );
 }
 .property-list__tag:hover .property-list__tag-remove {
   opacity: 1;

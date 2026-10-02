@@ -45,6 +45,9 @@ select,
 button {
   font: inherit;
 }
+input {
+  padding: 0;
+}
 button {
   appearance: none;
   background: none;
