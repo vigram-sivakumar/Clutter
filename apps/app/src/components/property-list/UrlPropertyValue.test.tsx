@@ -41,21 +41,43 @@ function StatefulUrl({ initial }: { initial: string | null }) {
   return <UrlPropertyValue name="Site" value={value} editable onCommit={setValue} />;
 }
 
-describe('parseUrlPropertyInput', () => {
-  it('accepts http(s) URLs and bare domains, keeping the text as typed (trimmed)', () => {
-    expect(parseUrlPropertyInput('https://example.com/a')).toBe('https://example.com/a');
-    expect(parseUrlPropertyInput('  http://example.com  ')).toBe('http://example.com');
-    expect(parseUrlPropertyInput('example.com')).toBe('example.com');
-    expect(parseUrlPropertyInput('docs.example.com/path?q=1')).toBe('docs.example.com/path?q=1');
+describe('parseUrlPropertyInput — the Markdown URL formats', () => {
+  it.each([
+    'https://example.com',
+    'http://example.com/a/b?q=1#frag',
+    'https://example.com:8080/path',
+    'www.example.com',
+    'www.example.com/docs',
+    'example.com',
+    'example.co.uk/path?q=1',
+    'docs.example.dev',
+    'mailto:someone@example.com',
+    'someone@example.com',
+  ])('accepts %s, stored as typed', (text) => {
+    expect(parseUrlPropertyInput(text)).toBe(text);
   });
 
-  it('rejects text that is not a web URL', () => {
-    expect(parseUrlPropertyInput('')).toBeNull();
-    expect(parseUrlPropertyInput('hello')).toBeNull();
-    expect(parseUrlPropertyInput('hello world')).toBeNull();
-    expect(parseUrlPropertyInput('javascript:alert(1)')).toBeNull();
-    expect(parseUrlPropertyInput('mailto:a@b.com')).toBeNull();
-    expect(parseUrlPropertyInput('https://')).toBeNull();
+  it('trims surrounding whitespace', () => {
+    expect(parseUrlPropertyInput('  example.com  ')).toBe('example.com');
+  });
+
+  it('also accepts explicit http(s) URLs Markdown does not link (no dotted domain)', () => {
+    expect(parseUrlPropertyInput('http://localhost:3000')).toBe('http://localhost:3000');
+    expect(parseUrlPropertyInput('http://192.168.0.1/admin')).toBe('http://192.168.0.1/admin');
+  });
+
+  it.each([
+    '',
+    'hello',
+    'hello world',
+    'see example.com',
+    'readme.md',
+    'hello.world',
+    'javascript:alert(1)',
+    'https://',
+    '[label](https://example.com)',
+  ])('rejects %j', (text) => {
+    expect(parseUrlPropertyInput(text)).toBeNull();
   });
 });
 

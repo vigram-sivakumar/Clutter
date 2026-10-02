@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { Input } from '@components/input/Input';
 import { openExternalUrl, resolveNavigationUrl } from '@shared/helpers/openExternalUrl';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
+import { sharedMarkdownParser } from '@features/markdown/render/sharedMarkdownParser';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
@@ -17,15 +18,45 @@ type UrlPropertyValueProps = {
 } & PropertyEditability<string | null>;
 
 /**
- * Reads typed text as a URL Property value: the trimmed text itself when it
- * is a web URL — explicitly `http(s)://…`, or a bare domain like
- * `example.com`, which `resolveNavigationUrl` (the same rule Markdown links
- * navigate by) resolves to `https://` — else null. The value is stored as
- * typed; only navigation adds the scheme.
+ * Whether `text`, as a whole, is a URL to the Markdown grammar — parsed
+ * with `sharedMarkdownParser` (the editor's exact grammar, CM6-free), so a
+ * URL Property accepts precisely what the editor would link: `Autolink`'s
+ * `http(s)://` / `www.` URLs (with port and path), `mailto:`/`xmpp:`, and
+ * email addresses, plus the bare-domain rule (`example.com`,
+ * `example.co.uk/path`, curated TLDs). The whole text must be one `URL`
+ * node — `see example.com` or `readme.md` is not a URL.
+ */
+function isMarkdownUrl(text: string): boolean {
+  let matched = false;
+
+  sharedMarkdownParser.parse(text).iterate({
+    enter(node) {
+      if (node.name === 'URL' && node.from === 0 && node.to === text.length) {
+        matched = true;
+      }
+      return !matched;
+    },
+  });
+
+  return matched;
+}
+
+/**
+ * Reads typed text as a URL Property value: the trimmed text itself when
+ * the Markdown grammar recognizes it as a URL (isMarkdownUrl), or when it
+ * is an explicit `http(s)://` URL the platform parser accepts — so
+ * `http://localhost:3000` or an IP address, which Markdown doesn't link
+ * (no dotted domain), still counts. Else null. The value is stored as
+ * typed; only navigation adds a scheme to a bare domain.
  */
 export function parseUrlPropertyInput(text: string): string | null {
   const trimmed = text.trim();
-  return trimmed !== '' && parseWebUrl(resolveNavigationUrl(trimmed)) ? trimmed : null;
+
+  if (trimmed === '') {
+    return null;
+  }
+
+  return isMarkdownUrl(trimmed) || parseWebUrl(trimmed) ? trimmed : null;
 }
 
 /**
