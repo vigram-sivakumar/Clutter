@@ -159,3 +159,14 @@ A `url` custom property is stored as an **absolute `http(s)` URL**, the only spe
 ### Consequences
 
 The model is smaller: one set (`visible`, system keys only), one override (`show: false`), one derived UI state and one pure module of frontmatter changes. Notes written under the earlier models keep working and are normalized on the first write to their `properties:` block. Behavior that changed from the earlier amendments: Tags/Aliases Remove no longer clears the value; a custom property no longer needs listing; rows no longer follow insertion order; `show: true` is never written.
+
+## Amendment — Aliases autocomplete suggests aliases, not pages
+
+The Aliases editor's autocomplete (`createAliasSuggester`, `aliasSuggestions.ts`) offers the **aliases that already exist in the vault**, the counterpart to Tags' autocomplete of existing tags. It had been reusing WikiLink's page discovery (`findPageMatches`: page titles, then aliases), which suggested note titles for an Aliases value; that is a different concern and the two sources are intentionally separate.
+
+- **Source:** `Vault.pages()` and each page's `metadata.aliases` — the value the property shows and edits — flattened and trimmed, empty values dropped. No second index or scanner, no new Vault API, and nothing about alias storage changes.
+- **Suggestions are values, not relationships.** A row is the alias text alone (no page is named); another note having `Dashboard` only makes `Dashboard` a known alias, and picking it adds that text through the existing Aliases commit (`updateMetadata`) and links nothing.
+- **Deduplicated case-insensitively** into one suggestion, in the spelling used most across the vault (ties: natural order, then exact text), so the display is stable. Aliases already on the current page (any letter case) are not offered again.
+- **Matching** is case-insensitive by word start — the alias, or any word in it, begins with the typed text (`h` finds "Heyo" and "Hello world" but not "UI architecture"); no fuzzy matching; an empty query suggests nothing; results are in natural, case-insensitive order.
+- **Unchanged:** WikiLink autocomplete still searches titles, paths and aliases exactly as before (`wikiLinkSuggestions.ts`), and the pill add/remove behavior is untouched.
+

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { PropertyList } from '@components/property-list/PropertyList';
+import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import {
   emptyCustomProperty,
@@ -45,12 +46,15 @@ export function PropertiesHarness({
   tags: initialTags = ['work', 'home'],
   aliases: initialAliases = ['Alt'],
   status = 'active',
+  aliasSuggestions,
   onLines,
 }: {
   initial?: readonly string[];
   tags?: string[];
   aliases?: string[];
   status?: 'active' | 'archived';
+  /** The Aliases editor's autocomplete source (PageHost passes createAliasSuggester). */
+  aliasSuggestions?(query: string): readonly MultiSelectSuggestion[];
   onLines?(lines: readonly string[]): void;
 }) {
   const [lines, setLinesState] = useState<readonly string[]>(initial);
@@ -93,7 +97,7 @@ export function PropertiesHarness({
 
   const items = buildPageProperties(page, {
     onCommitTags: setTags,
-    aliases: { onCommit: setAliases },
+    aliases: { onCommit: setAliases, getSuggestions: aliasSuggestions },
     onRenameProperty: (key, name) => write(renameCustomProperty(lines, key, name)),
     onRemoveListItem: (key, index, value) => write(removeCustomListItem(lines, key, index, value)),
     onCommitListValue: (key, value) => write(setCustomListValue(lines, key, value)),

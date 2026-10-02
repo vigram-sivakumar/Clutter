@@ -22,7 +22,7 @@ import {
 export interface AliasPropertyActions {
   /** Persists the page's whole new alias list. */
   onCommit(aliases: string[]): void;
-  /** Autocomplete: pages matching the typed text (createAliasSuggester). */
+  /** Autocomplete: aliases that already exist in the vault, matching the typed text (createAliasSuggester) — values, never pages. */
   getSuggestions?(query: string): readonly MultiSelectSuggestion[];
 }
 
