@@ -166,13 +166,26 @@
   text-overflow: ellipsis;
 }
 
-/* A URL's Open/Copy pair, in the Entry/Input trailing slot — vertically
-   centered by that slot; a compact group like the top bar's buttons. */
+/* A URL's Open/Copy pair, in the Entry/Input trailing slot (which centers
+   it vertically): a compact button group in the same style as the top
+   bar's `.button-group` — subtle surface, small inner padding — with the
+   group's radius = the buttons' radius + that padding, so the corners nest. */
 .property-list__url-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+
+  padding: var(--space-2);
+  border-radius: calc(var(--radius-sm) + var(--space-2));
+  background: var(--surface-subtle);
+}
+
+/* Same 20px square in both states: Input.css already sizes `.input .button`
+   this way; this matches it inside a read-only Entry too. */
+.property-list__url-actions .button {
+  height: 20px;
+  aspect-ratio: 1;
 }
 
 /* With trailing content, Input's icon-aware padding leaves the trailing
