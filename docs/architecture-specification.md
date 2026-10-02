@@ -150,6 +150,7 @@ Stateless. Every class is either constructed once at the Composition Root and re
 ### Invariants
 - `PageBuilder` and `PageRebuilder` both route through the same `PageAnalysisMapper` — there is exactly one mapping from extractor DTOs to domain occurrence types, never two.
 - Identity resolution is deterministic: same frontmatter `id` (or same path, if no `id`) always resolves to the same id, across both the initial scan and any later rebuild.
+- [ADR-036](./adr/036-frontmatter-properties-aliases-and-custom-keys.md): `OWNED_FRONTMATTER_KEYS` (`ingest/frontmatter/ownedFrontmatterKeys.ts`) is the one canonical set of system frontmatter keys — parsed into `PageFrontmatter` and written by `FrontmatterSerializer`, `aliases` included. Every other key is preserved as raw lines (`PageMetadata.unownedFrontmatter`) and written back byte-identical; custom properties are derived from those lines on demand (`ingest/frontmatter/customFrontmatter.ts`), never stored as a second representation. The same set is the reserved-name set for renaming a custom property, compared case-insensitively.
 - Ingest never calls `Vault` mutation methods and never calls `VaultFileSystem.writeFile`/`deleteFile`/`moveFile` — read-only with respect to disk (`readFile`/`readDirectory` only). The one named exception is `VaultBuilder`, whose sole job is assembling the one authoritative `Vault` instance at startup from Ingest's own outputs (built `Page`/`Folder` objects, extracted tags/tasks/etc.) — it constructs and returns a `Vault`, but never mutates one afterward and holds no reference beyond that single construction call. No other file in Ingest references a `Vault` instance at all.
 
 ### Concurrency model
@@ -400,6 +401,10 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     rename(pageId: string, title: string): Promise<void>;
     getSession(pageId: string): DocumentSession | undefined;
     mutateBody(pageId: string, transform: (markdown: string) => string): Promise<void>;
+    updateMetadata(pageId: string, patch: Partial<EditablePageMetadata>): Promise<void>;
+      // description, icon, cover*, favorite, tags, aliases — Gate 'save' + metadata patch; may promote a draft (ADR-017)
+    renameCustomProperty(pageId: string, key: string, name: string): Promise<void>;
+      // ADR-036 — renames one custom frontmatter key on this page only
   }
 ```
 
@@ -420,6 +425,7 @@ Constructed once at the Composition Root. No internal state of its own beyond it
 - `delete()`/`close()` have no existence check of their own ([ADR-017](./adr/017-draft-page-lifecycle.md) §5/§7): `delete()` enqueues `{kind:'delete'}` unconditionally, relying on the Gate's own abandon-if-missing guard, so a delete for a draft that was never persisted resolves harmlessly instead of racing an in-flight, not-yet-executed `create` for the same id.
 - `delete()` and `close()` on the same page never race — `delete()` closes the session (via `DocumentRegistry`) before enqueuing the disk delete, so no save can complete against a page mid-deletion.
 - No method here ever calls `VaultFileSystem` directly.
+- [ADR-036](./adr/036-frontmatter-properties-aliases-and-custom-keys.md): `renameCustomProperty()` changes only the renamed key's text in this page's preserved frontmatter — its value lines and every other line stay byte-identical, and no other page is read or written. It rejects, with no write, an empty name, a canonical system key in any letter case (`OWNED_FRONTMATTER_KEYS`), a name the frontmatter reader can't read back as a key, or another key on the same page — the same `validateCustomPropertyName` rule the Properties UI checks for feedback. Aliases are never unique-checked anywhere.
 - [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` never writes to `Vault`/the Gate when a `DocumentSession` is open for `pageId` — a `DocumentSession`, while open, is the exclusive owner of that page's current content, and every app-initiated body mutation must resolve through it rather than around it.
 
 ### Concurrency model
