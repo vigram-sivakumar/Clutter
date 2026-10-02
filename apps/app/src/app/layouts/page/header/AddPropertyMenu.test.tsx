@@ -50,9 +50,9 @@ describe('AddPropertyMenu', () => {
   it('has no system section when no system property is available', () => {
     renderMenu({ systemProperties: [] });
 
-    expect(screen.queryByText('System')).toBeNull();
+    expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.queryByText('New')).toBeNull();
+    expect(screen.queryByText('Type')).toBeNull();
   });
 
   it('lists the available system properties first, then the custom types', () => {
@@ -73,8 +73,8 @@ describe('AddPropertyMenu', () => {
       'Boolean',
       'Multi-select',
     ]);
-    expect(screen.getByText('System')).toBeInTheDocument();
-    expect(screen.getByText('New')).toBeInTheDocument();
+    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.queryByText('Hidden')).toBeNull();
   });
 
@@ -139,15 +139,16 @@ describe('AddPropertyMenu — hidden custom properties', () => {
       'Boolean',
       'Multi-select',
     ]);
-    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Properties')).toBeInTheDocument();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
-    expect(screen.getByText('New')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
   it('shows only the group it has, with the new types still offered', () => {
     renderMenu({ hiddenProperties: hidden });
 
-    expect(screen.queryByText('System')).toBeNull();
+    // No system group, so no Properties title; Hidden still leads.
+    expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(itemLabels().slice(0, 2)).toEqual(['Due date', 'people']);
   });

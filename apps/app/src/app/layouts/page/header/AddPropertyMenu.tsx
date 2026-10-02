@@ -29,7 +29,7 @@ export interface AddPropertyMenuProps {
   /**
    * System Properties not currently shown — computed by the host from the
    * system property definitions (never listed here), minus those the page
-   * shows. Omitted or empty: no System group.
+   * shows. Omitted or empty: no Properties group.
    */
   systemProperties?: readonly AddableSystemProperty[];
   /** Custom properties in the frontmatter that aren't shown. Omitted or empty: no Hidden group. */
@@ -70,7 +70,7 @@ export function AddPropertyMenu({
     <Menu size="medium" aria-label="Add properties">
       {showSystem && (
         <>
-          <MenuGroupTitle>System</MenuGroupTitle>
+          <MenuGroupTitle>Properties</MenuGroupTitle>
           {systemProperties.map((property) => (
             <MenuItem
               key={property.id}
@@ -102,7 +102,7 @@ export function AddPropertyMenu({
           ))}
         </>
       )}
-      {hasTitles && <MenuGroupTitle>New</MenuGroupTitle>}
+      {hasTitles && <MenuGroupTitle>Type</MenuGroupTitle>}
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}
