@@ -124,6 +124,8 @@ properties:
 
 ## Amendment — a property's menu: Hide, Clear, Delete
 
+> **Superseded in part** by "Amendment — the final Properties UX" below: the per-property **Hide** action was removed, and **Remove** was added for system properties. Clear and Delete are as described here.
+
 Hovering a Property's name replaces its type icon with a horizontal-dots button that opens a menu of **Hide**, **Clear**, a divider, and **Delete**. Each action is offered only where it applies, and each is supplied by the adapter (`buildPageProperties`) — never inferred from a type or name:
 
 - **Hide** (every listed Property, system or custom): `PageOperations.hideProperty(pageId, key)` removes only that canonical key from `properties.visible` (`removeVisibleProperty`). The rest of the list keeps its order, the `visible:` line stays (empty if that was the last entry), every other line is byte-identical, and the Property's value is untouched — so it comes back, under "Hidden", in Add properties. Hiding something not listed is a no-op.
@@ -132,6 +134,8 @@ Hovering a Property's name replaces its type icon with a horizontal-dots button 
 - **Drafts and archived pages:** an unnamed draft row has no menu (nothing exists yet), and an archived page offers no actions.
 
 ## Amendment — the "+ Add a property" row
+
+> **Superseded in part** by "Amendment — the final Properties UX" below: the row is now a button that turns into an empty property while its menu is open, and the menu is one list with two actions at its foot.
 
 The Properties list always ends with a `+ Add a property` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent only on an archived page. Once any property is listed it is the only way to add more; before the first one, the title control's "Add a property" opens the same menu (see "Amendment — the Properties section: `properties.show`").
 
@@ -159,5 +163,38 @@ properties:
 - **`properties.visible`** keeps its meaning: which individual properties the section lists. The two never affect each other: toggling the section leaves `visible` byte-identical, and adding, hiding, renaming or deleting properties leaves `show` alone. Here the section is shown and lists only Tags and Created.
 - **Same Option B storage.** `show` is read and written by `propertyVisibility.ts` (`readPropertiesSectionVisibility`, `setPropertiesSectionVisibility`) from the preserved raw lines — the flat `FrontmatterParser` is unchanged, `properties` stays a reserved raw key, and anything else under `properties:` is preserved byte-identically. Only a direct child `show` counts. An existing `show:` line is rewritten in place (spelling, indentation and any trailing comment kept); showing with none adds `show: true` as the block's first entry (creating the block if needed); hiding with none changes nothing. `show` and `visible` are never listed as custom properties (they live inside the reserved block), though a custom property of the same name remains possible.
 - **The write.** `PageOperations.setPropertiesSectionVisibility(pageId, show)` — the existing `saveCustomFrontmatter` (one Gate `'save'` with a metadata patch, this page only, an archived page refused). Setting what it already is writes nothing.
-- **The title control.** The page header's More actions item has a lifecycle: with no property listed it is **Add a property** and opens the same Add properties menu as the row (choosing a property lists it and sets `show: true` in the same save; a new type shows its draft row, with no "+" row until it is named). From the first listed property on it is only the section toggle — **Hide properties** while the section is shown, **Show properties** while hidden — and never again "Add a property". The toggle changes only `properties.show` and never touches `properties.visible`; adding more is the section's "+ Add a property" row. The state is derived in `propertiesSectionState.ts`. Hiding the section also drops any unnamed property draft, so it cannot reappear when the section is shown again. An archived page has no control (it still shows if its file says `show: true`).
+- **The title control.** (*Superseded in part — see "Amendment — the final Properties UX": the title no longer offers Hide properties.*) The page header's More actions item has a lifecycle: with no property listed it is **Add a property** and opens the same Add properties menu as the row (choosing a property lists it and sets `show: true` in the same save; a new type shows its draft row, with no "+" row until it is named). From the first listed property on it is only the section toggle — **Hide properties** while the section is shown, **Show properties** while hidden — and never again "Add a property". The toggle changes only `properties.show` and never touches `properties.visible`; adding more is the section's "+ Add a property" row. The state is derived in `propertiesSectionState.ts`. Hiding the section also drops any unnamed property draft, so it cannot reappear when the section is shown again. An archived page has no control (it still shows if its file says `show: true`).
+
+## Amendment — the final Properties UX
+
+This amendment records where the Properties UX ended up and supersedes the parts of the amendments above that it names. No schema, store, Gate operation kind or write path is added: every write below is the existing `saveCustomFrontmatter` (one Gate `'save'` carrying a metadata patch, this page only, an archived page refused), or — where a system value changes with the list — the same `'save'` carrying both fields.
+
+**State model of the page header's More actions item** (derived in `propertiesSectionState.ts`; the label is **Properties**, with the `info` icon):
+
+```text
+No property listed, section not shown   → "Properties"   (starts the first property)
+Section displayed                       → no item at all
+Section hidden, properties still listed → "Show properties"
+Last property removed / Delete all      → the listing is reset → "Properties" again
+```
+
+- **Hide properties is not in the title.** It lives only in the Properties section's own menu (below). Hiding sets `properties.show` to false and nothing else: `visible` is byte-identical, so **Show properties** (the title item that appears only for a hidden section) restores exactly what was listed. Hiding also drops any unnamed draft.
+- **Starting a property.** "Properties" closes the menu and shows the section with the **empty property row**: an `info` icon, a "New property" label and an empty, inert value field, all in placeholder colours, with the Add properties menu open on it. Nothing is written; dismissing the menu removes the row and the section again.
+
+**The section's add affordance.** A **button** ("+ Add a property", in a wrapper as tall as a property row) ends the list. Clicking it turns it into the same empty property row with the same menu open; dismissing restores the button. Choosing an existing property shows it (`showProperty`); choosing a type starts the draft custom property as before.
+
+**The Add properties menu** is one list under a single **Type** title — the system properties not listed, the custom properties in the frontmatter not listed (no "Hidden" group: "not listed" is not a state a property is put into, only the absence of its key from `visible`), then the custom types — followed by a divider and two actions: **Hide Properties** (as above) and **Delete all**. The actions are offered only for a note that already has Properties configuration.
+
+**A property's menu.** **Hide** is gone. What remains:
+
+- **Clear** — as in "a property's menu" above (custom properties, Tags, Aliases).
+- **Remove** (system properties only) — `PageOperations.removeSystemProperty(pageId, key)`. `created` / `modified`: only the key leaves `properties.visible`; the note's timestamps are never written. `tags` / `aliases`: the frontmatter value is also cleared (an empty list is not written, so the line goes) in the **same single save**, so value and list cannot disagree; body `#tags` are independent of the frontmatter value and untouched. No confirmation. The key stays available to add again. Any other key is refused with no write.
+- **Delete** (custom properties only) — `deleteCustomProperty`, unchanged apart from the last-property rule below.
+- A system property with none of these has no menu button.
+
+**Removing the last listed property.** When `removeSystemProperty` or `deleteCustomProperty` takes the *last* listed key, the same save returns the note to the never-configured state (`removePropertiesListing`): `visible` and `show` are removed — no empty `visible`, no `show: false` — and the whole `properties:` block goes unless something else is configured under it (then only those two entries go and the rest is byte-identical). The section disappears and the title says "Properties" again, exactly as for a note that never had Properties. Removing a property that was not listed, or while others remain listed, only touches that entry.
+
+**Delete all.** `PageOperations.removeAllProperties(pageId)` — behind a confirmation — deletes every custom property from the frontmatter (keys and values; none is kept as a hidden property) and removes the whole `properties:` block (`removePropertiesBlock`), in one save. System values (tags, aliases, created, modified) are untouched; none is listed afterwards and the section is hidden. A note already in that state writes nothing. This is distinct from Hide properties, which preserves everything.
+
+**`hideProperty` is retained but has no UI caller.** Removing a single property from the list is **Remove**; the method stays in §6 as the facade's way to unlist one key without clearing a value. Removing it is a separate, explicitly scoped decision.
 

@@ -418,9 +418,13 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     setPropertiesSectionVisibility(pageId: string, show: boolean): Promise<void>;
       // ADR-036 amendment — sets properties.show (the whole Properties section); hidden is the default, and properties.visible is untouched
     hideProperty(pageId: string, key: string): Promise<void>;
-      // ADR-036 amendment — removes only that key from properties.visible; the property and its value stay
+      // ADR-036 amendment — removes only that key from properties.visible; the property and its value stay (no UI caller since the final Properties UX amendment)
     deleteCustomProperty(pageId: string, key: string): Promise<void>;
-      // ADR-036 amendment — removes a custom property's lines and its visible entry in one save; system properties cannot be deleted
+      // ADR-036 amendment — removes a custom property's lines and its visible entry in one save (the last listed one also resets the Properties listing); system properties cannot be deleted
+    removeSystemProperty(pageId: string, key: SystemPropertyKey): Promise<void>;
+      // ADR-036 final-UX amendment — unlists a system property; tags/aliases also clear their value in the same single save; the last listed one resets the Properties listing; any other key is refused
+    removeAllProperties(pageId: string): Promise<void>;
+      // ADR-036 final-UX amendment — deletes every custom property and the whole `properties:` block in one save; system values untouched
   }
 ```
 
