@@ -81,6 +81,8 @@ type PageProps = {
    * presentation here; whatever the caller supplies renders as-is.
    */
   properties?: ReactNode;
+  /** The "Add properties" control, forwarded to PageTitleSection (beside More actions). Present only where `properties` is. */
+  addProperty?: ReactNode;
   body?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
@@ -219,6 +221,7 @@ export function Page({
   onSetCoverImage,
   onSetCoverImageFromUpload,
   properties,
+  addProperty,
   body,
   coverImage,
   onRemoveCoverImage,
@@ -342,6 +345,7 @@ export function Page({
               onRemoveEmoji={onRemoveEmoji}
               hasDescription={Boolean(description)}
               onEditDescription={onEditDescription}
+              addProperty={addProperty}
               hasCoverImage={Boolean(coverImage)}
               coverHidden={coverHidden}
               onSetCoverImage={onSetCoverImage}

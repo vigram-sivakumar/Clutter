@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { AppIcon } from '@shared/icon';
@@ -58,6 +59,12 @@ export interface PageHeaderControlsProps {
   /** Forwarded to PageHeaderMoreActionsMenu's "Description" gate — see its own doc comment. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
+  /**
+   * The "Add properties" control (PageHeaderAddPropertyMenu), rendered
+   * beside More actions. Built by the caller, which owns what can be added
+   * and the writes — omitted for a page with no Properties list.
+   */
+  addProperty?: ReactNode;
 }
 
 export function PageHeaderControls({
@@ -74,6 +81,7 @@ export function PageHeaderControls({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
+  addProperty,
 }: PageHeaderControlsProps) {
   // The one already-set-emoji entry point — "Clicking the visible emoji
   // opens the picker directly, without opening More Actions first." Same
@@ -138,6 +146,7 @@ export function PageHeaderControls({
           onEditDescription={onEditDescription}
         />
       )}
+      {addProperty}
     </div>
   );
 }

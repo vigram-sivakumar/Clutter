@@ -36,6 +36,8 @@ interface PageTitleSectionProps extends Omit<
   /** Forwarded to PageHeaderControls' More-actions "Description" gate — see Page.tsx's matching prop. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
+  /** Forwarded to PageHeaderControls' `addProperty` — the "Add properties" control, beside More actions. */
+  addProperty?: ReactNode;
   /**
    * Trailing slot beside the title — same `actions?: ReactNode` pattern as
    * PageTopBar's own `actions` prop. Generic (not collection-specific);
@@ -69,6 +71,7 @@ export function PageTitleSection({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
+  addProperty,
   actions,
   belowDescription,
   className,
@@ -94,6 +97,7 @@ export function PageTitleSection({
         onShowCoverImage={onShowCoverImage}
         hasDescription={hasDescription}
         onEditDescription={onEditDescription}
+        addProperty={addProperty}
       />
 
       <div className="page-title-section__content">
