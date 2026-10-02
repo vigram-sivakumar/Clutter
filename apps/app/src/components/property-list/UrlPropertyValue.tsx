@@ -4,7 +4,10 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
-import { openExternalUrl, resolveNavigationUrl } from '@shared/helpers/openExternalUrl';
+import {
+  openExternalUrl,
+  resolveNavigationUrl,
+} from '@shared/helpers/openExternalUrl';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import { sharedMarkdownParser } from '@features/markdown/render/sharedMarkdownParser';
 import { AppIcon } from '@shared/icon';
@@ -70,13 +73,22 @@ export function parseUrlPropertyInput(text: string): string | null {
 export function UrlPropertyValue(props: UrlPropertyValueProps) {
   if (!props.editable) {
     return (
-      <PropertyValueCell truncate trailing={props.value && <UrlActions url={props.value} />}>
+      <PropertyValueCell
+        truncate
+        trailing={props.value && <UrlActions url={props.value} />}
+      >
         {props.value && <UrlLink url={props.value} />}
       </PropertyValueCell>
     );
   }
 
-  return <UrlPropertyEditor name={props.name} value={props.value} onCommit={props.onCommit} />;
+  return (
+    <UrlPropertyEditor
+      name={props.name}
+      value={props.value}
+      onCommit={props.onCommit}
+    />
+  );
 }
 
 /**
@@ -130,7 +142,6 @@ function UrlActions({ url }: { url: string }) {
       <Button
         isIconOnly
         variant="ghost"
-        interaction="subtle"
         size="small"
         aria-label="Open link"
         title="Open link"
@@ -141,7 +152,6 @@ function UrlActions({ url }: { url: string }) {
       <Button
         isIconOnly
         variant="ghost"
-        interaction="subtle"
         size="small"
         aria-label={copied ? 'Copied' : 'Copy link'}
         title={copied ? 'Copied' : 'Copy link'}

@@ -177,15 +177,15 @@
   flex-shrink: 0;
 
   padding: var(--space-2);
-  border-radius: calc(var(--radius-sm) + var(--space-2));
+  border-radius: var(--radius-sm);
   background: var(--surface-subtle);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
 }
 
 /* Same 20px square in both states: Input.css already sizes `.input .button`
    this way; this matches it inside a read-only Entry too. */
 .property-list__url-actions .button {
-  height: 20px;
-  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
 }
 
 /* With trailing content, Input's icon-aware padding leaves the trailing
