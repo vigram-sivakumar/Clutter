@@ -35,5 +35,8 @@ export function resolvePageMetadata(frontmatter: PageFrontmatter): PageMetadata 
     ...(frontmatter.unownedLines && {
       unownedFrontmatter: frontmatter.unownedLines,
     }),
+    ...(frontmatter.keySpellings && {
+      frontmatterKeySpellings: frontmatter.keySpellings,
+    }),
   };
 }

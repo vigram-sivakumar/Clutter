@@ -3,7 +3,7 @@ import type { ScannedPageAnalysis } from './analysis';
 import { MarkdownAnalyzer } from './analysis';
 import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
 import { parseFlowSequence, unquoteFrontmatterString } from './frontmatter/frontmatterStringValue';
-import { OWNED_FRONTMATTER_KEYS } from './frontmatter/ownedFrontmatterKeys';
+import { matchSystemKey } from './frontmatter/ownedFrontmatterKeys';
 
 export type ParsedFrontmatter = Record<string, unknown>;
 
@@ -71,6 +71,8 @@ export class FrontmatterParser {
     // blank lines seen inside such a block, flushed only if the block
     // continues, so trailing blanks never accumulate.
     const unownedLines: string[] = [];
+    // Canonical system key → the differently-cased spelling the file uses.
+    const keySpellings: Record<string, string> = {};
     let capturingUnowned = false;
     let pendingBlankLines: string[] = [];
 
@@ -112,12 +114,21 @@ export class FrontmatterParser {
       const sepIdx = trimmed.indexOf(':');
       if (sepIdx === -1) continue;
 
-      const key = trimmed.slice(0, sepIdx).trim();
+      const rawKey = trimmed.slice(0, sepIdx).trim();
       const value = trimmed.slice(sepIdx + 1).trim();
+      // System keys are recognized case-insensitively (matchSystemKey) and
+      // handled under their canonical name; the spelling the file uses is
+      // recorded when it differs, so FrontmatterSerializer keeps writing it
+      // until that property is actually edited (see keySpellings).
+      const key = matchSystemKey(rawKey) ?? rawKey;
 
-      if (!OWNED_FRONTMATTER_KEYS.has(key)) {
-        unownedLines.push(line);
-        capturingUnowned = true;
+      if (key === rawKey) {
+        if (matchSystemKey(rawKey) === null) {
+          unownedLines.push(line);
+          capturingUnowned = true;
+        }
+      } else if (keySpellings[key] === undefined) {
+        keySpellings[key] = rawKey;
       }
       const scalar = this.parseScalar(value);
 
@@ -235,6 +246,10 @@ export class FrontmatterParser {
 
     if (unownedLines.length > 0) {
       frontmatter.unownedLines = unownedLines;
+    }
+
+    if (Object.keys(keySpellings).length > 0) {
+      frontmatter.keySpellings = keySpellings;
     }
 
     return frontmatter;

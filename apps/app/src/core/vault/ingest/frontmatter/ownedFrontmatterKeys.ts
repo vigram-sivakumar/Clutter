@@ -31,3 +31,28 @@ export const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
   // FrontmatterSerializer, so it must not also be captured verbatim.
   'aliases',
 ]);
+
+/** Every owned key by its comparison form (trimmed, lower-cased). */
+const OWNED_KEY_BY_LOWER: ReadonlyMap<string, string> = new Map(
+  [...OWNED_FRONTMATTER_KEYS].map((key) => [key.toLowerCase(), key])
+);
+
+/**
+ * The canonical system key `rawKey` denotes, or null for a custom key.
+ * An exact normalized comparison — trimmed, case-insensitive (`Aliases`,
+ * `ALIASES` and `aLiAsEs` are all `aliases`) — never fuzzy or semantic
+ * (`Date Created` is not `created`). One exception: the retired `type` key
+ * matches only exactly, since FrontmatterParser recognizes it solely to
+ * drop it on save — a user's own `Type:` stays a preserved custom key
+ * rather than being silently deleted.
+ */
+export function matchSystemKey(rawKey: string): string | null {
+  const trimmed = rawKey.trim();
+  const canonical = OWNED_KEY_BY_LOWER.get(trimmed.toLowerCase()) ?? null;
+
+  if (canonical === 'type' && trimmed !== 'type') {
+    return null;
+  }
+
+  return canonical;
+}

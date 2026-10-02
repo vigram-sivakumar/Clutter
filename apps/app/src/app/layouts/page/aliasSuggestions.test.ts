@@ -86,3 +86,28 @@ describe('createAliasSuggester', () => {
     expect(suggesterFor([current, guidelines], 'me')('  ')).toEqual([]);
   });
 });
+
+describe('differently-cased aliases in WikiLink resolution', () => {
+  it('a page whose file says `ALIASES:` is found by its alias in [[ autocomplete and resolution', async () => {
+    const { FrontmatterParser } = await import('@core/vault/ingest/FrontmatterParser');
+    const { PageBuilder } = await import('@core/vault/ingest/PageBuilder');
+    const { findPagesByAlias } = await import('./resolveWikiLink');
+    const { findPageMatches } = await import('./wikiLinkSuggestions');
+    const parsed = new FrontmatterParser().parse('---\nid: g\nALIASES:\n  - UX\n---\n');
+    const page = new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: '/vault/Design/User Experience Guidelines.md',
+        directoryPath: '/vault/Design',
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+    const vault = new Vault('/vault', [page], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+
+    expect(findPagesByAlias(vault, 'UX').map((match) => match.id)).toEqual(['g']);
+    expect(findPageMatches(vault.pages(), 'ux')).toEqual([{ page, alias: 'UX' }]);
+  });
+});

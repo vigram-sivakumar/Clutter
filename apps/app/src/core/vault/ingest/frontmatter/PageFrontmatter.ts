@@ -35,4 +35,11 @@ export interface PageFrontmatter {
    * back unchanged. Never set when constructing a new page.
    */
   unownedLines?: readonly string[];
+  /**
+   * Canonical system key → the spelling this file uses for it, only for
+   * keys the file spells differently (`Aliases:` → { aliases: 'Aliases' }).
+   * Carried through PageMetadata.frontmatterKeySpellings. Never set when
+   * constructing a new page.
+   */
+  keySpellings?: Readonly<Record<string, string>>;
 }

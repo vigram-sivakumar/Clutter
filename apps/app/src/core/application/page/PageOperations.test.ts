@@ -613,6 +613,55 @@ describe('PageOperations.renameCustomProperty()', () => {
   });
 });
 
+describe('PageOperations: differently-cased system keys are preserved until edited', () => {
+  function setupFromFile(yaml: string) {
+    const parsed = new FrontmatterParser().parse(`---\nid: page-1\n${yaml}\n---\nBody`);
+    const page = new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: `${ROOT}/Note.md`,
+        directoryPath: ROOT,
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+    return { page, ...setup(page) };
+  }
+
+  it('an unrelated edit keeps `Aliases:`; editing Aliases writes `aliases:` (other spellings kept)', async () => {
+    const { page, fileSystem, pageOperations } = setupFromFile('Aliases:\n  - UX\nFavorite: true');
+
+    // Unrelated metadata edit, then an unrelated body edit.
+    await pageOperations.updateMetadata(page.id, { description: 'Notes' });
+    await pageOperations.mutateBody(page.id, (markdown) => `${markdown}\nMore`);
+
+    let content = await fileSystem.readFile(page.path);
+    expect(content).toContain('Aliases:\n  - UX');
+    expect(content).toContain('Favorite: true');
+    expect(content).not.toMatch(/^aliases:/m);
+
+    // The first intentional edit of Aliases canonicalizes only that key.
+    await pageOperations.updateMetadata(page.id, { aliases: ['UX', 'User Experience'] });
+
+    content = await fileSystem.readFile(page.path);
+    expect(content).toContain('aliases:\n  - UX\n  - User Experience');
+    expect(content).not.toMatch(/^Aliases:/m);
+    expect(content).toContain('Favorite: true');
+  });
+
+  it('editing one differently-cased property canonicalizes it even when its value is unchanged in kind', async () => {
+    const { page, fileSystem, pageOperations } = setupFromFile('FAVORITE: false');
+
+    await pageOperations.updateMetadata(page.id, { favorite: true });
+
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toContain('favorite: true');
+    expect(content).not.toContain('FAVORITE');
+  });
+});
+
 describe('PageOperations.save(): round-trip and failure behavior', () => {
   it('preserves the page id and updates the markdown body on disk and in the vault', async () => {
     const page = buildPage();

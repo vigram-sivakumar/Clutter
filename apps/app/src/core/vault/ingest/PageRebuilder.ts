@@ -69,6 +69,11 @@ export class PageRebuilder {
         ...(frontmatter.unownedLines && {
           unownedFrontmatter: frontmatter.unownedLines,
         }),
+        // Also straight from the reparsed document: the file's own
+        // spelling of each system key (see PageMetadata.frontmatterKeySpellings).
+        ...(frontmatter.keySpellings && {
+          frontmatterKeySpellings: frontmatter.keySpellings,
+        }),
       },
       source: {
         markdown: body,

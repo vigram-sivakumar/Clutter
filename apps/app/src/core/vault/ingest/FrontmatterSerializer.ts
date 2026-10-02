@@ -72,6 +72,13 @@ export class FrontmatterSerializer {
    */
   serializePage(page: Page): string {
     const lines = ['---'];
+    // A system key is written under the spelling the file already uses
+    // (`Aliases:`), when it differs from canonical — so a save never
+    // rewrites frontmatter the user didn't edit. An edit of that property
+    // drops its spelling (PageOperations.updateMetadata), writing the
+    // canonical key from then on.
+    const spellings = page.metadata.frontmatterKeySpellings ?? {};
+    const keyFor = (key: string): string => spellings[key] ?? key;
 
     // Metadata is serialized in a deterministic order so identical Page models
     // always produce identical persisted output.
@@ -123,7 +130,7 @@ export class FrontmatterSerializer {
 
     for (const [key, value] of entries) {
       if (value !== undefined && value !== null) {
-        lines.push(`${key}: ${value}`);
+        lines.push(`${keyFor(key)}: ${value}`);
       }
     }
 
@@ -133,7 +140,7 @@ export class FrontmatterSerializer {
     // omit-on-default convention as coverHidden/coverLayout above, so a
     // note with no tags never grows a bare `tags:` line.
     if (page.metadata.tags && page.metadata.tags.length > 0) {
-      lines.push('tags:');
+      lines.push(`${keyFor('tags')}:`);
       for (const tag of page.metadata.tags) {
         lines.push(`  - ${tag}`);
       }
@@ -144,7 +151,7 @@ export class FrontmatterSerializer {
     // deduplicated or re-cased here — quoted only where a plain value
     // would be misread.
     if (page.metadata.aliases && page.metadata.aliases.length > 0) {
-      lines.push('aliases:');
+      lines.push(`${keyFor('aliases')}:`);
       for (const alias of page.metadata.aliases) {
         lines.push(formatListItem('aliases', alias));
       }

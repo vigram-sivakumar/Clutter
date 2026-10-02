@@ -83,6 +83,28 @@ describe('buildPageProperties', () => {
     expect(aliases.editable).toBe(false);
   });
 
+  it('a differently-cased system key shows as the system property, never as a custom one', async () => {
+    const { FrontmatterParser } = await import('@core/vault/ingest/FrontmatterParser');
+    const { PageBuilder } = await import('@core/vault/ingest/PageBuilder');
+    const parsed = new FrontmatterParser().parse('---\nid: p1\nALIASES:\n  - UX\nTags:\n  - work\n---\n');
+    const page = new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: '/v/x.md',
+        directoryPath: '/v',
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+
+    const items = buildPageProperties(page);
+    expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
+    expect(items[0]!.value).toEqual(['work']);
+    expect(items[1]!.value).toEqual(['UX']);
+  });
+
   describe('custom properties', () => {
     const custom = (overrides: Partial<Page['metadata']> = {}) =>
       makePage('note', {

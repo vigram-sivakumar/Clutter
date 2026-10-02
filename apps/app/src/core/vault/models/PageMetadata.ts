@@ -95,4 +95,16 @@ export interface PageMetadata {
    * to preserve, for the same fixture-churn reason as `tags`.
    */
   readonly unownedFrontmatter?: readonly string[];
+
+  /**
+   * Canonical system key → the differently-cased spelling the file uses
+   * for it (`{ aliases: 'Aliases' }`). System keys are recognized
+   * case-insensitively, but a file's own spelling is kept on every save
+   * until that property is actually edited — PageOperations.updateMetadata
+   * drops a key's entry when its patch changes that property, so the
+   * serializer then writes the canonical key. Like `unownedFrontmatter`,
+   * always taken from the reparsed file. Optional, absent when every key
+   * is spelled canonically.
+   */
+  readonly frontmatterKeySpellings?: Readonly<Record<string, string>>;
 }

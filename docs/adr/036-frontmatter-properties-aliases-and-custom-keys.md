@@ -63,3 +63,13 @@ A dedicated facade method, not a widening of `updateMetadata()`:
 ## Why the chosen approach is preferred
 
 It adds no new subsystem, no new `PersistenceOperation` kind, and no second representation of any frontmatter data. Every write still lands through the one Gate (`'save'` + metadata patch), every business rule sits in `PageOperations` with the UI only previewing it, and the one shared reserved-key set guarantees that "what the parser owns" and "what a custom property may not be renamed to" can never disagree.
+
+## Amendment — case-insensitive system keys, preserved until edited
+
+Frontmatter written outside Clutter often capitalizes keys (`Aliases:`, `Created:`). These are now recognized as the system property they name, with three distinct pieces of state:
+
+1. **Identity** — `matchSystemKey(rawKey)` (`ownedFrontmatterKeys.ts`) maps a key to its canonical system key by an exact normalized comparison: trimmed, case-insensitive (`Aliases`, `ALIASES`, `aLiAsEs` → `aliases`). Never fuzzy or semantic: `Date Created` stays a custom property. The parser handles the key under its canonical name, so it is never surfaced as a custom property, and differently-cased aliases take part in link resolution. One exception: the retired `type` key matches only exactly, because the parser recognizes it solely to drop it — a user's own `Type:` stays a preserved custom key rather than being deleted on save.
+2. **Original spelling** — `PageMetadata.frontmatterKeySpellings` (canonical key → the file's spelling, only for keys spelled differently), taken from the reparsed file like `unownedFrontmatter`. `FrontmatterSerializer.serializePage` writes each system key under that spelling, so opening a note or saving an unrelated change never rewrites it.
+3. **Edited** — `PageOperations.updateMetadata()` drops the spelling entries for exactly the properties in its patch, so the first intentional edit of a property writes its canonical key; other properties keep their spelling.
+
+Reserved custom-property names use the same registry, case-insensitively (`isReservedPropertyName`). Clutter has no `lastEdited` key — its system key for that is `modified`.

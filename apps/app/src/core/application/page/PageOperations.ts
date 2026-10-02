@@ -1543,7 +1543,7 @@ export class PageOperations {
       const result = await this.coordinator.enqueue(pageId, {
         kind: 'save',
         content: page.source.markdown,
-        metadata: patch,
+        metadata: this.withEditedKeysCanonicalized(page, patch),
       });
 
       if (result.status === 'abandoned') {
@@ -1571,6 +1571,32 @@ export class PageOperations {
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body, patch);
+  }
+
+  /**
+   * `patch` plus, when the file spells any of the patched properties'
+   * keys differently from canonical (`Aliases:`), the page's key
+   * spellings without those entries — so this, the first intentional edit
+   * of that property, writes its canonical key (`aliases:`). Spellings of
+   * properties the patch doesn't touch are kept, so an unrelated edit
+   * never rewrites them. EditablePageMetadata's field names are their
+   * canonical frontmatter keys.
+   */
+  private withEditedKeysCanonicalized(
+    page: Page,
+    patch: Partial<EditablePageMetadata>
+  ): Partial<PageMetadata> {
+    const spellings = page.metadata.frontmatterKeySpellings;
+
+    if (!spellings || !Object.keys(patch).some((key) => key in spellings)) {
+      return patch;
+    }
+
+    const kept = Object.fromEntries(
+      Object.entries(spellings).filter(([key]) => !(key in patch))
+    );
+
+    return { ...patch, frontmatterKeySpellings: kept };
   }
 
   /**
