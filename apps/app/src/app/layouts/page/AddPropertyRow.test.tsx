@@ -168,3 +168,25 @@ describe('AddPropertyRow — dismissing without a choice', () => {
     expect(rowText()).toEqual(['Add a property']);
   });
 });
+
+describe('AddPropertyRow — the More actions button', () => {
+  it('sits beside the row, and opens an empty menu that does nothing else', () => {
+    const { onShowProperty, onAddCustomProperty } = setup();
+    const more = screen.getByRole('button', { name: 'More property actions' });
+
+    expect(more.closest('.property-list__add-row')).not.toBeNull();
+    expect(rowText()).toEqual(['Add a property']);
+
+    fireEvent.click(more);
+    const menu = screen.getByRole('menu', { name: 'More property actions' });
+    expect(menu).toBeInTheDocument();
+    expect(menu.querySelectorAll('[role=menuitem]')).toHaveLength(0);
+    // It is not the Add properties menu.
+    expect(screen.queryByRole('menu', { name: 'Add properties' })).toBeNull();
+
+    fireEvent.click(more);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onShowProperty).not.toHaveBeenCalled();
+    expect(onAddCustomProperty).not.toHaveBeenCalled();
+  });
+});

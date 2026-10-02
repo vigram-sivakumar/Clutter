@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 
+import { Button } from '@components/button/Button';
 import { Entry } from '@components/entry/Entry';
+import { Menu } from '@components/menu/Menu';
 import { Overlay } from '@components/overlay/Overlay';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import { AppIcon } from '@shared/icon';
@@ -35,6 +37,9 @@ interface AddPropertyRowProps {
  *
  * The menu closing after a choice never returns focus to this row, so a
  * draft's name field keeps the focus it just took.
+ *
+ * Beside it sits a "…" More actions button that opens an empty menu — a
+ * placeholder for actions to come; it does nothing else.
  */
 export function AddPropertyRow({
   systemProperties,
@@ -44,6 +49,9 @@ export function AddPropertyRow({
 }: AddPropertyRowProps) {
   const [isOpen, setIsOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  // The "…" button's own, still empty, menu.
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLButtonElement>(null);
   // Set for the one closing that follows a choice (see the doc comment).
   const suppressReturnFocusRef = useRef(false);
 
@@ -65,7 +73,30 @@ export function AddPropertyRow({
         >
           <span>Add a property</span>
         </Entry>
+        <Button
+          className="property-list__add-row-more"
+          ref={moreRef}
+          variant="ghost"
+          size="small"
+          isIconOnly
+          aria-haspopup="menu"
+          aria-expanded={isMoreOpen}
+          aria-label="More property actions"
+          onClick={() => setIsMoreOpen((value) => !value)}
+        >
+          <AppIcon icon="moreHorizontal" />
+        </Button>
       </div>
+      <Overlay
+        open={isMoreOpen}
+        onClose={() => setIsMoreOpen(false)}
+        anchorRef={moreRef}
+        side="bottom"
+        alignment="start"
+      >
+        {/* No actions yet: the menu is deliberately empty. */}
+        <Menu size="medium" aria-label="More property actions">{null}</Menu>
+      </Overlay>
       <Overlay
         open={isOpen}
         onClose={() => setIsOpen(false)}

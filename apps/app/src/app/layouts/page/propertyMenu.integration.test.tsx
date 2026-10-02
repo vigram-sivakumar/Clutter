@@ -119,8 +119,11 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     render(<Harness onLines={vi.fn()} />);
 
     expect(names()).toEqual(['Tags', 'Created', 'Due date', 'people', 'priority']);
-    // One menu button per property row (the "+ Add a property" row has none).
-    expect(screen.getAllByRole('button', { name: /actions$/ })).toHaveLength(5);
+    // One menu button per property row (the "+ Add a property" row's own
+    // "More property actions" button is not a property's).
+    expect(
+      screen.getAllByRole('button', { name: /actions$/ }).filter((b) => b.getAttribute('aria-label') !== 'More property actions')
+    ).toHaveLength(5);
   });
 
   it('Hide removes the row and only its key from properties.visible; the value stays and Add properties offers it again', () => {
