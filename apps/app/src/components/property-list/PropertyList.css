@@ -99,3 +99,12 @@
   align-self: flex-end;
   margin-top: var(--space-8);
 }
+
+/* A disabled <button> gets no mousedown/click at all (only pointerdown),
+   so the picker's own mousedown handler — which keeps focus in the date
+   input — never runs, and the click blurs the input and closes the
+   calendar. Letting the click fall through to the picker surface keeps
+   a click on the disabled Clear as inert as a click on the padding. */
+.property-date-picker__clear:disabled {
+  pointer-events: none;
+}
