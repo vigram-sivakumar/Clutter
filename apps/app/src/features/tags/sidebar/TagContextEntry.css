@@ -5,3 +5,43 @@
 .tag-context-entry__text {
   color: inherit;
 }
+
+/*
+ * Two-line row: the line wraps once, then clamps with an ellipsis.
+ * Undoes Entry's single-line defaults (fixed height, nowrap, centered
+ * content) for this row only. The block padding keeps a one-line row
+ * exactly --height-lg tall, same as every other sidebar row.
+ */
+.tag-context-entry {
+  align-items: flex-start;
+  height: auto;
+  min-height: var(--height-lg);
+  padding-block: calc((var(--height-lg) - var(--lh-label)) / 2);
+}
+
+/* Pin the icon to the first text line instead of the row's center. */
+.tag-context-entry .entry__leading {
+  height: var(--lh-label);
+}
+
+.tag-context-entry .entry__content {
+  height: auto;
+  white-space: normal;
+}
+
+/* Specificity beats Entry's own `.entry__content span` nowrap/ellipsis. */
+.tag-context-entry .entry__content .tag-context-entry__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* The compact-Markdown spans inside (emphasis, links, tags…) would
+   otherwise each inherit Entry's nowrap and refuse to break. */
+.tag-context-entry .entry__content .tag-context-entry__text span {
+  white-space: normal;
+}
