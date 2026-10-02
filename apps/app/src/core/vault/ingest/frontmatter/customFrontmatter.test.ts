@@ -17,7 +17,7 @@ function customLines(yaml: string): readonly string[] {
 }
 
 describe('readCustomProperties', () => {
-  it('reads an empty flow list as an empty list, not text', () => {
+  it('a YAML sequence is a list whatever its length: `[]` is not text', () => {
     expect(readCustomProperties(customLines('people: []'))).toEqual([
       { key: 'people', type: 'list', value: [] },
     ]);
@@ -222,9 +222,22 @@ describe('removeCustomListItem', () => {
     expect(removeCustomListItem(lines, 'labels', 0, 'a')).toEqual(['labels: ["b, c", \'d\']']);
   });
 
-  it('removing the last item leaves an empty list', () => {
-    expect(removeCustomListItem(customLines('people:\n  - Ana'), 'people', 0, 'Ana')).toEqual(['people: []']);
-    expect(removeCustomListItem(customLines('labels: [a]'), 'labels', 0, 'a')).toEqual(['labels: []']);
+  it('removing the last item removes the whole property, never writing `key: []`', () => {
+    expect(removeCustomListItem(customLines('people:\n  - Ana'), 'people', 0, 'Ana')).toEqual([]);
+    expect(removeCustomListItem(customLines('labels: [a]'), 'labels', 0, 'a')).toEqual([]);
+
+    const lines = customLines('author: Jane\npeople:\n  - Ana\nx: 1');
+    expect(removeCustomListItem(lines, 'people', 0, 'Ana')).toEqual(['author: Jane', 'x: 1']);
+  });
+
+  it('one → zero values: the key is gone and does not come back as text when reread', () => {
+    for (const yaml of ['author: Jane\npeople:\n  - Ana\nx: 1', 'author: Jane\npeople: [Ana]\nx: 1']) {
+      const removed = removeCustomListItem(customLines(yaml), 'people', 0, 'Ana');
+
+      expect(removed).toEqual(['author: Jane', 'x: 1']);
+      expect(removed.join('\n')).not.toContain('people');
+      expect(readCustomProperties(removed).map((property) => property.key)).toEqual(['author', 'x']);
+    }
   });
 
   it('refuses when the item there is no longer the one shown, or the property is not a list', () => {
@@ -235,14 +248,12 @@ describe('removeCustomListItem', () => {
 });
 
 describe('setCustomListValue', () => {
-  it('an emptied list is still a list, and can be filled again', () => {
-    for (const yaml of ['people:\n  - Ana', 'people: [Ana]']) {
+  it('emptying a list removes the property; it does not reappear as text when reread', () => {
+    for (const yaml of ['x: 1\npeople:\n  - Ana\ny: 2', 'x: 1\npeople: [Ana]\ny: 2']) {
       const emptied = setCustomListValue(customLines(yaml), 'people', []);
 
-      expect(readCustomProperties(emptied)).toEqual([{ key: 'people', type: 'list', value: [] }]);
-      expect(readCustomProperties(setCustomListValue(emptied, 'people', ['Bo']))).toEqual([
-        { key: 'people', type: 'list', value: ['Bo'] },
-      ]);
+      expect(emptied).toEqual(['x: 1', 'y: 2']);
+      expect(readCustomProperties(emptied).map((property) => property.key)).toEqual(['x', 'y']);
     }
   });
 
@@ -271,11 +282,12 @@ describe('setCustomListValue', () => {
     expect(setCustomListValue(lines, 'people', ['Ana', 'Bo, Jr', 'Cy'])).toEqual(lines);
   });
 
-  it('removes values from a block list; removing all leaves an empty list', () => {
+  it('removes values from a block list; removing all removes the property', () => {
     const lines = customLines('people:\n  - Ana\n  - Bo\npriority: high');
 
     expect(setCustomListValue(lines, 'people', ['Bo'])).toEqual(['people:', '  - Bo', 'priority: high']);
-    expect(setCustomListValue(lines, 'people', [])).toEqual(['people: []', 'priority: high']);
+    expect(setCustomListValue(lines, 'people', [])).toEqual(['priority: high']);
+    expect(setCustomListValue(lines, 'people', ['  '])).toEqual(['priority: high']);
   });
 
   it('rewrites a flow list as a flow list, keeping unchanged items as written and quoting only when needed', () => {
@@ -285,7 +297,7 @@ describe('setCustomListValue', () => {
       'labels: [a, "b, c", \'d\', e, "true"]',
     ]);
     expect(setCustomListValue(lines, 'labels', ['x', 'b, c'])).toEqual(['labels: [x, "b, c"]']);
-    expect(setCustomListValue(lines, 'labels', [])).toEqual(['labels: []']);
+    expect(setCustomListValue(lines, 'labels', [])).toEqual([]);
   });
 
   it('trims values and drops empty ones', () => {

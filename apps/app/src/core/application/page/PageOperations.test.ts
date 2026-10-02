@@ -646,6 +646,25 @@ describe('PageOperations.renameCustomProperty()', () => {
     expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
   });
 
+  it.each([
+    ['removeCustomPropertyItem', (ops: any, id: string) => ops.removeCustomPropertyItem(id, 'people', 0, 'Ana')],
+    ['setCustomPropertyList', (ops: any, id: string) => ops.setCustomPropertyList(id, 'people', [])],
+  ])('%s: removing the last value removes the whole property', async (_name, removeLast) => {
+    const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+      'author: Jane\npeople:\n  - Ana\npriority: high'
+    );
+
+    await removeLast(pageOperations, page.id);
+
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toContain('author: Jane\npriority: high');
+    expect(content).not.toContain('people');
+    expect(content).not.toContain('[]');
+    expect(content).toContain('Body text');
+    // Reread: the key is gone from the preserved lines, not text.
+    expect(vault.getPage(page.id)!.metadata.unownedFrontmatter).toEqual(['author: Jane', 'priority: high']);
+  });
+
   it('setCustomPropertyList writes through the coordinator, and consecutive commits land in order', async () => {
     const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter('labels: [a]');
     const enqueue = vi.spyOn(coordinator, 'enqueue');

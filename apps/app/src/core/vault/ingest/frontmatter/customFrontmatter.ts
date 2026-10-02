@@ -163,9 +163,8 @@ function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmat
   const flowItems = splitFlowSequence(inlineValue);
 
   if (flowItems) {
-    // An empty `[]` is an empty list — what emptying a list's last pill
-    // writes — so it stays a list (and its editor) rather than becoming
-    // text. A nested `[`/`{` item fails stringArray (ambiguous): text.
+    // `[]` is a YAML sequence too: a list whatever its length, never text
+    // because it has no items. A nested `[`/`{` item fails stringArray (ambiguous): text.
     const items = flowItems.length === 1 && flowItems[0] === '' ? [] : stringArray(flowItems);
     return items ? { key, type: 'list', value: items } : asText();
   }
@@ -276,6 +275,22 @@ export function renameCustomProperty(
 }
 
 /**
+ * The raw lines without custom property block `block` — its `key:` line and
+ * every continuation line up to its last non-blank one. Blank lines after
+ * that, and every other line, are untouched.
+ */
+function withoutKeyBlock(lines: readonly string[], block: KeyBlock): string[] {
+  let last = block.start;
+  block.continuation.forEach((line, offset) => {
+    if (line.trim() !== '') {
+      last = block.start + 1 + offset;
+    }
+  });
+
+  return [...lines.slice(0, block.start), ...lines.slice(last + 1)];
+}
+
+/**
  * The raw lines with item `index` removed from list custom property
  * `key` — the pill being dismissed. `expected` is that item's value as
  * shown; the removal is refused (throws) unless the item there still has
@@ -284,7 +299,7 @@ export function renameCustomProperty(
  * Only that item's text goes: a block list drops its `- item` line; a
  * flow list (`[a, b]`) is rewritten from its remaining items exactly as
  * written (quoting kept). Every other line stays byte-identical. Removing
- * the last item leaves the key with an empty list (`key: []`).
+ * the last item removes the whole property (never `key: []`).
  */
 export function removeCustomListItem(
   lines: readonly string[],
@@ -303,6 +318,10 @@ export function removeCustomListItem(
     throw new Error(`List property "${key}" has no item "${expected}" at ${index}.`);
   }
 
+  if (property.value.length === 1) {
+    return withoutKeyBlock(lines, block);
+  }
+
   const result = [...lines];
 
   if (block.inlineValue !== '') {
@@ -317,10 +336,6 @@ export function removeCustomListItem(
   for (let lineIndex = block.start + 1; lineIndex < lines.length; lineIndex++) {
     if (/^\s*-(?:\s|$)/.test(lines[lineIndex]!) && ++seen === index) {
       result.splice(lineIndex, 1);
-      if (property.value.length === 1) {
-        const keyLine = lines[block.start]!;
-        result[block.start] = `${keyLine.slice(0, keyLine.indexOf(':'))}: []`;
-      }
       return result;
     }
   }
@@ -352,7 +367,8 @@ function flowListItem(value: string): string {
  * included); a new or changed one is written by quoteFrontmatterString,
  * plain unless that would be misread (a flow list also quotes
  * `,` `[` `]` `{` `}`). Every other line stays
- * byte-identical. An empty list is written as `key: []`.
+ * byte-identical. An empty `values` removes the whole property (never
+ * `key: []`), as removing a list's last item does.
  */
 export function setCustomListValue(
   lines: readonly string[],
@@ -371,6 +387,10 @@ export function setCustomListValue(
   }
 
   const next = values.map((value) => value.trim()).filter((value) => value !== '');
+  if (next.length === 0) {
+    return withoutKeyBlock(lines, block);
+  }
+
   const keyLine = lines[block.start]!;
   const keyPrefix = keyLine.slice(0, keyLine.indexOf(':'));
   const result = [...lines];
@@ -392,10 +412,6 @@ export function setCustomListValue(
     if (/^\s*-(?:\s|$)/.test(lines[lineIndex]!)) {
       itemLineIndexes.push(lineIndex);
     }
-  }
-
-  if (next.length === 0) {
-    result[block.start] = `${keyPrefix}: []`;
   }
 
   const indent = /^\s*/.exec(lines[itemLineIndexes[0]!]!)![0];
