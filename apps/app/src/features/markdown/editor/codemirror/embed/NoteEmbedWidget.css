@@ -52,9 +52,27 @@
   box-shadow: var(--md-card-inset-border), var(--shadow-md);
   isolation: isolate; */
 }
+/*
+ * Hover cue — the same `--md-reveal-highlight-surface` colour and 400ms
+ * background fade the editor-reveal line flash uses (`MarkdownEditor.css`'s
+ * `.cm-reveal-line`), so "this is the embed you're pointing at" reads like
+ * the "you've landed here" cue elsewhere. Pure CSS on the widget's own
+ * element: no decoration state or timer is needed for a hover, and
+ * `background-color`/`border-radius` never affect CM6 layout (no margin,
+ * per this codebase's permanent CM6 rule).
+ */
+.cm-media-block.cm-note-embed {
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  transition: background-color 400ms ease;
+}
+
+.cm-media-block.cm-note-embed:hover {
+  background-color: var(--md-reveal-highlight-surface);
+}
+
 .cm-content[contenteditable='false'] .cm-note-embed {
   padding: 0;
-  background: transparent;
   border-radius: var(--radius-sm);
   box-shadow: none;
 }
