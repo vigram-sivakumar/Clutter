@@ -257,6 +257,16 @@
   font-size: inherit;
   line-height: inherit;
 }
+/* Unfocused with pills, the input has nothing to show, so it takes no
+   room (the negative margin cancels the flex gap before it): it never
+   wraps onto a blank line of its own, and the editor is only as tall as
+   its pills. Still focusable — focusing the editor restores it above. */
+.property-list__tag-editor:not(:focus-within):has(.pill) .property-list__tag-input {
+  flex: 0 0 0;
+  min-width: 0;
+  width: 0;
+  margin-inline-start: calc(-1 * var(--space-4));
+}
 .property-list__tag-input .input__field {
   padding: 0;
 }
