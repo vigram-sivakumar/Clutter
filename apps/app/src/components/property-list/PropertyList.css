@@ -138,3 +138,30 @@
   text-decoration-color: var(--md-link-underline);
   text-underline-offset: var(--md-underline-offset);
 }
+
+/* A truncating value cell (PropertyValueCell `truncate`, used by URLs):
+   one line, overflow cut with an ellipsis — undoing the wrapping the
+   default `.property-list__value` rules above apply. The ellipsis itself
+   is drawn by the link (below), so it takes the link color. */
+.property-list__value--truncate .entry__content > span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.property-list__value--truncate .property-list__link {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.property-list__value--truncate .entry__content .property-list__link-title {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* An editable URL at rest truncates the same way; once focused the field
+   scrolls normally so the whole URL can be edited. */
+.property-list__url-input--link .input__field {
+  text-overflow: ellipsis;
+}

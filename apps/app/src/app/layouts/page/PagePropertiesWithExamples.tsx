@@ -23,7 +23,9 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
   const [exampleEmptyText, setExampleEmptyText] = useState('');
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
   const [exampleEmptyDate, setExampleEmptyDate] = useState<string | null>(null);
-  const [exampleUrl, setExampleUrl] = useState<string | null>('https://example.com/docs');
+  const [exampleUrl, setExampleUrl] = useState<string | null>(
+    'https://example.com/docs/guides/getting-started/installation/configuration-and-advanced-options?ref=properties'
+  );
   const [exampleEmptyUrl, setExampleEmptyUrl] = useState<string | null>(null);
 
   return (
@@ -75,7 +77,7 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
         {
           name: 'Example read-only URL',
           type: 'url',
-          value: 'example.com',
+          value: 'example.com/a/very/long/read-only/path/that/should/truncate/with/an/ellipsis/at/the/end',
           editable: false,
         },
       ]}

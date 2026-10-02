@@ -66,7 +66,9 @@ export function parseUrlPropertyInput(text: string): string | null {
  */
 export function UrlPropertyValue(props: UrlPropertyValueProps) {
   if (!props.editable) {
-    return <PropertyValueCell>{props.value && <UrlLink url={props.value} />}</PropertyValueCell>;
+    return (
+      <PropertyValueCell truncate>{props.value && <UrlLink url={props.value} />}</PropertyValueCell>
+    );
   }
 
   return <UrlPropertyEditor name={props.name} value={props.value} onCommit={props.onCommit} />;
@@ -87,6 +89,7 @@ function UrlLink({ url }: { url: string }) {
   return (
     <a
       className="property-list__link"
+      title={url}
       href={resolveNavigationUrl(url)}
       rel="noopener noreferrer"
       onClick={handleClick}
@@ -174,6 +177,7 @@ function UrlPropertyEditor({ name, value, onCommit }: UrlPropertyEditorProps) {
       hasBackground={isEditing}
       hasBorder={isEditing}
       aria-label={name}
+      title={isEditing ? undefined : (value ?? undefined)}
       placeholder="Empty"
       value={draft ?? value ?? ''}
       onFocus={() => setDraft(value ?? '')}

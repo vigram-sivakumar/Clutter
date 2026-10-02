@@ -100,6 +100,15 @@ describe('UrlPropertyValue — read-only', () => {
     expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith('https://example.com/a');
   });
 
+  it('renders in a truncating cell, with the full URL as a tooltip', () => {
+    const url = 'https://example.com/a/very/long/path/that/overflows';
+    render(<UrlPropertyValue name="Site" value={url} editable={false} />);
+
+    const link = screen.getByRole('link');
+    expect(link.getAttribute('title')).toBe(url);
+    expect(link.closest('.property-list__value--truncate')).not.toBeNull();
+  });
+
   it('renders nothing for an absent value', () => {
     render(<UrlPropertyValue name="Site" value={null} editable={false} />);
 
@@ -115,6 +124,15 @@ describe('UrlPropertyValue — editable', () => {
     expect(field.tagName).toBe('INPUT');
     expect(field.value).toBe('https://example.com');
     expect(field.parentElement!.classList.contains('property-list__url-input--link')).toBe(true);
+  });
+
+  it('has the full URL as a tooltip at rest, but not while editing', () => {
+    render(<StatefulUrl initial="https://example.com/long/path" />);
+
+    expect(getField().title).toBe('https://example.com/long/path');
+
+    fireEvent.focus(getField());
+    expect(getField().title).toBe('');
   });
 
   it('shows the "Empty" placeholder when there is no value', () => {
