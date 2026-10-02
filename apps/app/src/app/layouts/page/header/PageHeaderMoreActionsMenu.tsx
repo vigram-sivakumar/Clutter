@@ -6,8 +6,6 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { EmojiTray } from '@components/emoji-tray/EmojiTray';
 import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
-import { AddPropertyMenu } from './AddPropertyMenu';
-import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
@@ -63,18 +61,9 @@ export interface PageHeaderMoreActionsMenuProps {
   hasDescription?: boolean;
   /** Presence (alongside `!hasDescription`) gates "Description", same convention as onSelectEmoji above. */
   onEditDescription?: () => void;
-  /**
-   * The Properties control item — see PropertiesControl. Presence gates the
-   * item (same "handler presence decides whether the item exists"
-   * convention as the handlers above); omitted for a page with no
-   * Properties section, or an archived one. In `add` mode choosing it swaps
-   * this menu, in place, for the Add properties menu; in `toggle` mode it
-   * shows or hides the whole section and closes the menu.
-   */
-  propertiesControl?: PropertiesControl;
 }
 
-type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
+type MenuView = 'root' | 'emoji' | 'cover';
 
 /**
  * The page header's "More actions" menu. Structurally, this is one
@@ -84,8 +73,7 @@ type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
  *   Overlay
  *   ├── 'root'  → <Menu> (Emoji/Cover image/Description items)
  *   ├── 'emoji' → the existing EmojiTray, unwrapped
- *   ├── 'cover' → the existing ImagePicker, unwrapped
- *   └── 'properties' → AddPropertyMenu (a `<Menu>`; only in the Properties control's `add` mode)
+ *   └── 'cover' → the existing ImagePicker, unwrapped
  *
  * `EmojiTray` and `ImagePicker` are each already a complete, self-styled
  * surface (own background/border-radius/box-shadow/padding — see either
@@ -140,7 +128,6 @@ export function PageHeaderMoreActionsMenu({
   onShowCoverImage,
   hasDescription,
   onEditDescription,
-  propertiesControl,
 }: PageHeaderMoreActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MenuView>('root');
@@ -257,53 +244,7 @@ export function PageHeaderMoreActionsMenu({
                 Description
               </MenuItem>
             )}
-            {propertiesControl && (
-              <MenuItem
-                leading={<AppIcon icon={propertiesControl.mode === 'add' ? 'plus' : 'table'} />}
-                onClick={(event) => {
-                  event.stopPropagation();
-
-                  if (propertiesControl.mode === 'add') {
-                    setView('properties');
-                    return;
-                  }
-
-                  setOpen(false);
-                  propertiesControl.onToggle();
-                }}
-              >
-                {propertiesControl.mode === 'add'
-                  ? 'Add a property'
-                  : propertiesControl.shown
-                    ? 'Hide properties'
-                    : 'Show properties'}
-              </MenuItem>
-            )}
           </Menu>
-        )}
-
-        {view === 'properties' && propertiesControl?.mode === 'add' && (
-          <AddPropertyMenu
-            systemProperties={propertiesControl.menu.systemProperties}
-            hiddenProperties={propertiesControl.menu.hiddenProperties}
-            onShowProperty={
-              propertiesControl.menu.onShowProperty &&
-              ((key) => {
-                // The shown property's row appears with focus staying put —
-                // see suppressReturnFocusRef's doc comment above.
-                suppressReturnFocusRef.current = true;
-                setOpen(false);
-                propertiesControl.menu.onShowProperty?.(key);
-              })
-            }
-            onAddCustomProperty={(type) => {
-              // The draft's name field takes focus: the closing menu must not
-              // return it to this button.
-              suppressReturnFocusRef.current = true;
-              setOpen(false);
-              propertiesControl.menu.onAddCustomProperty(type);
-            }}
-          />
         )}
 
         {view === 'emoji' && (

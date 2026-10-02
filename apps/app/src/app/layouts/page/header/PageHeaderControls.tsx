@@ -5,6 +5,7 @@ import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicke
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
+import { PageHeaderPropertiesControl } from './PageHeaderPropertiesControl';
 import './PageHeaderControls.css';
 
 export interface PageHeaderControlsProps {
@@ -59,7 +60,7 @@ export interface PageHeaderControlsProps {
   /** Forwarded to PageHeaderMoreActionsMenu's "Description" gate — see its own doc comment. */
   hasDescription?: boolean;
   onEditDescription?: () => void;
-  /** Forwarded to the More-actions Properties control — see PropertiesControl. */
+  /** The Properties control beside More actions — see PropertiesControl. Omitted for a page with no Properties section. */
   propertiesControl?: PropertiesControl;
 }
 
@@ -140,9 +141,9 @@ export function PageHeaderControls({
           onShowCoverImage={onShowCoverImage}
           hasDescription={hasDescription}
           onEditDescription={onEditDescription}
-          propertiesControl={propertiesControl}
         />
       )}
+      {propertiesControl && <PageHeaderPropertiesControl control={propertiesControl} />}
     </div>
   );
 }

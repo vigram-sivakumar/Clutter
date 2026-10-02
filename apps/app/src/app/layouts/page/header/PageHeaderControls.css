@@ -44,9 +44,8 @@
   width: 72px;
 }
 
-.page-header-controls__menu {
-  height: 16px;
-  width: var(--height-sm);
+.page-header-controls__menu,
+.page-header-controls__properties {
 
   /* Hidden at rest, revealed by the containing PageTitleSection's own
      :hover rule (Page.TitleSection.css) — stays mounted throughout so
@@ -68,6 +67,13 @@
   will-change: opacity;
 }
 
+/* The icon-only More actions button keeps its small square footprint; the
+   Properties control is a text button and sizes to its label. */
+.page-header-controls__menu {
+  height: 16px;
+  width: var(--height-sm);
+}
+
 /* Stays visible while its own menu is open, independent of hover — the
    menu itself (PageHeaderMoreActionsMenu's Overlay) portals to
    document.body, outside .page-title-section, so moving the mouse onto
@@ -75,7 +81,8 @@
    otherwise fade this trigger out from under its own open popup.
    aria-expanded is already set by the button itself (open state), not a
    class added just for this. */
-.page-header-controls__menu[aria-expanded='true'] {
+.page-header-controls__menu[aria-expanded='true'],
+.page-header-controls__properties[aria-expanded='true'] {
   opacity: 1;
   pointer-events: auto;
 }

@@ -23,7 +23,7 @@ import type { Page } from '@core/vault/models/Page';
 import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableProperties } from './addableProperties';
 import { buildPageProperties } from './buildPageProperties';
-import { PageHeaderMoreActionsMenu } from './header/PageHeaderMoreActionsMenu';
+import { PageHeaderControls } from './header/PageHeaderControls';
 import type { PropertiesControl } from './header/propertiesControl';
 import { derivePropertiesSectionState } from './propertiesSectionState';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
@@ -122,7 +122,7 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
   return (
     <>
       <span data-testid="mode">{section.control}</span>
-      <PageHeaderMoreActionsMenu hasCoverImage={false} propertiesControl={control} />
+      <PageHeaderControls propertiesControl={control} />
       {section.isDisplayed && (
         <PropertyList
           items={items}
@@ -139,23 +139,18 @@ const rows = () =>
   );
 const nameField = () => document.querySelector('.property-list__name .editable-text[data-placeholder]') as HTMLDivElement | null;
 
-/** Opens the More actions menu and returns its Properties item's label. */
-function openMenu() {
-  fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-  return screen.getAllByRole('menuitem').map((item) => item.textContent);
-}
-/** The title control's mode, read without opening the menu (which would move focus out of an open draft, abandoning it). */
+/** The title section's Properties button (not the section's own "+ Add a property" row). */
+const titleButton = () =>
+  document.querySelector('.page-header-controls__properties') as HTMLButtonElement;
+/** The title control's mode, read from the harness's state (reading the button would not move focus either, but this is the source). */
 const mode = () => screen.getByTestId('mode').textContent;
-const closeMenu = () => fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-const titleControl = () => {
-  const items = openMenu().filter((label) => /propert/i.test(label ?? ''));
-  closeMenu();
-  return items;
-};
+const titleControl = () => [titleButton().textContent];
+/** Clicks the title button, which must currently carry `label`. */
 const clickTitle = (label: string) => {
-  openMenu();
-  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+  expect(titleButton().textContent).toBe(label);
+  fireEvent.click(titleButton());
 };
+const closeMenu = () => fireEvent.click(titleButton());
 
 describe('the Properties lifecycle, through the title control and the section', () => {
   it('State 1 → 2 → 3 → 2, with `show` and `visible` independent', () => {
