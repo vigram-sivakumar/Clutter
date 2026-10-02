@@ -60,11 +60,14 @@ type RemovableValues = { onRemoveValue?(index: number, value: string): void };
  * - `onHide`: stops showing the Property; its value is untouched.
  * - `onClear`: empties its value (keeping its type).
  * - `onDelete`: removes the Property altogether.
+ * - `onRemove`: takes a system Property off the list, clearing its value
+ *   (it can be shown again; unlike `onDelete`, it is not gone for good).
  */
 export type PropertyActions = {
   onHide?(): void;
   onClear?(): void;
   onDelete?(): void;
+  onRemove?(): void;
 };
 
 export type PropertyListItem = PropertyNameEditability & PropertyActions & PropertyListItemByType;

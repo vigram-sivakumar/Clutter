@@ -107,13 +107,13 @@ describe('AddPropertyRow — clicking it', () => {
     expect(document.activeElement?.closest('.property-list__new-row')).toBeNull();
   });
 
-  it('opens the existing Add properties menu: the hidden (system and custom) properties under "Hidden", then the new types under "Type"', () => {
+  it('opens the existing Add properties menu: one list under "Type": the existing (system and custom) properties, then the new types', () => {
     setup();
 
     start();
 
     expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden')).toBeNull();
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Created',

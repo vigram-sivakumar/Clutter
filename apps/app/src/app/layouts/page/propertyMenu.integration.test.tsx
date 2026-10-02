@@ -85,8 +85,11 @@ function Harness({ onLines }: { onLines(lines: readonly string[]): void }) {
         onCommitTags: setTags,
         onSetScalarValue: (key, type, value) => setLines(setCustomScalarValue(lines, key, type, value)),
         onCommitListValue: (key, value) => setLines(setCustomListValue(lines, key, value)),
-        onHideProperty: (key) => setLines(removeVisibleProperty(lines, key)),
         onDeleteProperty: (key) => setLines(removeVisibleProperty(removeCustomProperty(lines, key), key)),
+        onRemoveSystemProperty: (key) => {
+          if (key === 'tags') setTags([]);
+          setLines(removeVisibleProperty(lines, key));
+        },
       })}
       footer={
         <AddPropertyRow
@@ -123,32 +126,18 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     expect(screen.getAllByRole('button', { name: /actions$/ })).toHaveLength(5);
   });
 
-  it('Hide removes the row and only its key from properties.visible; the value stays and Add properties offers it again', () => {
+  it('Remove on Created only unlists it: the row goes, nothing else changes, and it can be added again', () => {
     const onLines = vi.fn();
     render(<Harness onLines={onLines} />);
 
-    choose('priority', 'Hide');
+    choose('Created', 'Remove');
 
-    expect(names()).toEqual(['Tags', 'Created', 'Due date', 'people']);
+    expect(names()).toEqual(['Tags', 'Due date', 'people', 'priority']);
     const lines = onLines.mock.calls[0]![0] as string[];
-    expect(readVisibleProperties(lines)).toEqual(['tags', 'created', 'Due date', 'people']);
-    // Hidden, not removed: the frontmatter value is still there.
+    expect(readVisibleProperties(lines)).toEqual(['tags', 'Due date', 'people', 'priority']);
     expect(lines).toContain('priority: high');
-    expect(readCustomProperties(lines).map((property) => property.key)).toContain('priority');
-
     fireEvent.click(screen.getByText('Add a property'));
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'priority' })).toBeInTheDocument();
-  });
-
-  it('Hide works on a system property too, by its canonical key', () => {
-    const onLines = vi.fn();
-    render(<Harness onLines={onLines} />);
-
-    choose('Created', 'Hide');
-
-    expect(names()).not.toContain('Created');
-    expect(readVisibleProperties(onLines.mock.calls[0]![0])).toEqual(['tags', 'Due date', 'people', 'priority']);
+    expect(screen.getByRole('menuitem', { name: 'Created' })).toBeInTheDocument();
   });
 
   it('Clear on a list empties it and keeps the property', () => {
@@ -184,15 +173,16 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     });
   });
 
-  it('Clear on Tags empties the note’s tags; Created offers no Clear', () => {
+  it('Clear on Tags empties the note’s tags; Created offers no Clear, only Remove', () => {
     render(<Harness onLines={vi.fn()} />);
     expect([...document.querySelectorAll('.pill')].map((pill) => pill.textContent)).toContain('#work');
 
     choose('Tags', 'Clear');
     expect([...document.querySelectorAll('.pill')].filter((pill) => pill.textContent?.startsWith('#'))).toEqual([]);
 
+    // Created can't be cleared: its menu is only Remove.
     fireEvent.click(screen.getByRole('button', { name: 'Created actions' }));
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Hide']);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Remove']);
   });
 
   it('Delete removes the property from the frontmatter and from properties.visible, and keeps everything else', () => {
@@ -213,17 +203,17 @@ describe("a property's menu — Hide, Clear, Delete", () => {
     expect(screen.queryByRole('menuitem', { name: 'people' })).toBeNull();
   });
 
-  it('a system property has no Delete, and a custom one has all three, Delete after a divider', () => {
+  it('a system property has no Delete, and a custom one has Clear and Delete, Delete after a divider', () => {
     render(<Harness onLines={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Tags actions' }));
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Hide', 'Clear']);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Clear', 'Remove']);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     cleanup();
 
     render(<Harness onLines={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'priority actions' }));
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Hide', 'Clear', 'Delete']);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Clear', 'Delete']);
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
   });
 });

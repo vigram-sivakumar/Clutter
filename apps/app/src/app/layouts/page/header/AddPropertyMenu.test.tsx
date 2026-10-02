@@ -75,7 +75,7 @@ describe('AddPropertyMenu', () => {
     ]);
     expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden')).toBeNull();
   });
 
   it('shows only the system properties it is given: one already displayed is simply not passed', () => {
@@ -140,7 +140,7 @@ describe('AddPropertyMenu — hidden custom properties', () => {
       'Multi-select',
     ]);
     expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden')).toBeNull();
     expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
@@ -149,7 +149,7 @@ describe('AddPropertyMenu — hidden custom properties', () => {
 
     // The hidden properties lead, under their own title.
     expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    expect(screen.queryByText('Hidden')).toBeNull();
     expect(itemLabels().slice(0, 2)).toEqual(['Due date', 'people']);
   });
 
@@ -214,18 +214,18 @@ describe('AddPropertyMenu — actions', () => {
 describe('AddPropertyMenu — sections', () => {
   const hidden = [{ key: 'Due date', type: 'date' }, { key: 'people', type: 'multi-select' }] as const;
 
-  it('titles the existing-but-hidden properties "Hidden" and the new types "Type", in that order', () => {
+  it('is one list under a single "Type" title: the existing properties, then the new types', () => {
     renderMenu({ systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }], hiddenProperties: hidden });
 
     const menu = screen.getByRole('menu', { name: 'Add properties' });
     const titles = [...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent);
-    expect(titles).toEqual(['Hidden', 'Type']);
-    // Neither list is under the other's title: the hidden ones precede "Type".
+    expect(titles).toEqual(['Type']);
+    // The title leads, and the existing properties flow straight into the types.
     const labels = [...menu.querySelectorAll('.menu__group-title, [role=menuitem]')].map((node) => node.textContent);
-    expect(labels.indexOf('Type')).toBe(labels.indexOf('people') + 1);
+    expect(labels.slice(0, 5)).toEqual(['Type', 'Created', 'Due date', 'people', 'Text']);
   });
 
-  it('has no "Hidden" title when nothing is hidden', () => {
+  it('never has a "Hidden" title', () => {
     renderMenu();
 
     expect(screen.queryByText('Hidden')).toBeNull();

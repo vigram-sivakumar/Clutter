@@ -48,10 +48,10 @@ export function PropertyList({ items, className, footer }: PropertyListProps) {
                 />
                 {/* Replaces the type icon while the name is hovered
                     (PropertyList.css) — only when there is something to do. */}
-                {(item.onHide || item.onClear || item.onDelete) && (
+                {(item.onHide || item.onClear || item.onRemove || item.onDelete) && (
                   <PropertyMenu
                     name={item.name}
-                    actions={{ onHide: item.onHide, onClear: item.onClear, onDelete: item.onDelete }}
+                    actions={{ onHide: item.onHide, onClear: item.onClear, onRemove: item.onRemove, onDelete: item.onDelete }}
                   />
                 )}
               </>

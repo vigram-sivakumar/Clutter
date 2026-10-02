@@ -1733,8 +1733,8 @@ export function PageHost({
       void application.pageOperations.setCustomPropertyList(page.id, key, value),
     onSetScalarValue: (key, type, value) =>
       void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
-    onHideProperty: (key) => void application.pageOperations.hideProperty(page.id, key),
     onDeleteProperty: (key) => void application.pageOperations.deleteCustomProperty(page.id, key),
+    onRemoveSystemProperty: (key) => void application.pageOperations.removeSystemProperty(page.id, key),
     drafts: {
       items: propertyDrafts.drafts,
       // Named: the property is written now (empty, typed), and the
@@ -1818,30 +1818,24 @@ export function PageHost({
         onRemoveAll={hasPropertiesConfig ? requestRemoveAllProperties : undefined}
       />
     ) : undefined;
-  // The title's control: "Add a property" until the first property exists,
-  // then only the section toggle (Hide / Show properties) — it changes
-  // `properties.show` and never `properties.visible`.
+  // The title's control: "Properties" (start the first property) while
+  // nothing is listed and the section isn't shown, "Show properties" while
+  // it was hidden with properties still listed, and nothing while it is
+  // displayed — Hide properties is in the section's own menu.
   const propertiesControl: PropertiesControl | undefined =
-    sectionState.control === null
-      ? undefined
-      : sectionState.control === 'hide'
+    sectionState.control === 'add'
+      ? {
+          mode: 'add',
+          // Shows the (empty) section and opens its "+ Add a property"
+          // menu there, so the first property is chosen in place.
+          onStart: () => setStartingPropertyPageId(page.id),
+        }
+      : sectionState.control === 'show'
         ? {
-            mode: 'toggle',
-            shown: true,
-            onToggle: hidePropertiesSection,
+            mode: 'show',
+            onShow: () => void application.pageOperations.setPropertiesSectionVisibility(page.id, true),
           }
-        : sectionState.control === 'add'
-          ? {
-              mode: 'add',
-              // Shows the (empty) section and opens its "+ Add a property"
-              // menu there, so the first property is chosen in place.
-              onStart: () => setStartingPropertyPageId(page.id),
-            }
-          : {
-              mode: 'toggle',
-              shown: false,
-              onToggle: () => void application.pageOperations.setPropertiesSectionVisibility(page.id, true),
-            };
+        : undefined;
 
   return (
     <>

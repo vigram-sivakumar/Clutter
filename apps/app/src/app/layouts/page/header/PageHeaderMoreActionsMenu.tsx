@@ -262,7 +262,7 @@ export function PageHeaderMoreActionsMenu({
                   event.stopPropagation();
 
                   // The section's own "+ Add a property" menu takes over (add
-                  // mode), or the section is toggled; either way this menu
+                  // mode), or the section is shown again; either way this menu
                   // closes without taking focus back from what follows.
                   suppressReturnFocusRef.current = true;
                   setOpen(false);
@@ -272,14 +272,10 @@ export function PageHeaderMoreActionsMenu({
                     return;
                   }
 
-                  propertiesControl.onToggle();
+                  propertiesControl.onShow();
                 }}
               >
-                {propertiesControl.mode === 'add'
-                  ? 'Properties'
-                  : propertiesControl.shown
-                    ? 'Hide properties'
-                    : 'Show properties'}
+                {propertiesControl.mode === 'add' ? 'Properties' : 'Show properties'}
               </MenuItem>
             )}
           </Menu>

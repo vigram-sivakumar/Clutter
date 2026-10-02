@@ -272,8 +272,7 @@ describe('PageHeaderMoreActionsMenu — never nests a second Overlay', () => {
 
 describe('PageHeaderMoreActionsMenu — the Properties control', () => {
   const rootItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
-  const toggle = (shown: boolean, onToggle = vi.fn()) =>
-    ({ mode: 'toggle', shown, onToggle }) as const;
+  const show = (onShow = vi.fn()) => ({ mode: 'show', onShow }) as const;
   const add = () => {
     const onStart = vi.fn();
     return { onStart, control: { mode: 'add', onStart } as const };
@@ -287,43 +286,47 @@ describe('PageHeaderMoreActionsMenu — the Properties control', () => {
     }
   });
 
-  describe('toggle mode (once a property exists)', () => {
-    it('is "Show properties" while the section is hidden, "Hide properties" while it is shown', () => {
-      renderMenu({ propertiesControl: toggle(false) });
+  describe('show mode (the section was hidden)', () => {
+    it('is "Show properties", with the info icon', () => {
+      renderMenu({ propertiesControl: show() });
+
       expect(rootItems()).toContain('Show properties');
-      expect(rootItems()).not.toContain('Hide properties');
-      cleanup();
-
-      renderMenu({ propertiesControl: toggle(true) });
-      expect(rootItems()).toContain('Hide properties');
-      expect(rootItems()).not.toContain('Show properties');
-    });
-
-    it('is never "Properties": that is only for before the first property', () => {
-      renderMenu({ propertiesControl: toggle(false) });
       expect(rootItems()).not.toContain('Properties');
     });
 
-    it.each([
-      ['Show properties', false],
-      ['Hide properties', true],
-    ])('choosing %s toggles once and closes the menu — it opens no picker', (label, shown) => {
-      const onToggle = vi.fn();
-      renderMenu({ propertiesControl: toggle(shown, onToggle) });
+    it('never offers Hide properties — that belongs to the section itself', () => {
+      renderMenu({ propertiesControl: show() });
 
-      fireEvent.click(screen.getByRole('menuitem', { name: label }));
+      expect(rootItems()).not.toContain('Hide properties');
+    });
 
-      expect(onToggle).toHaveBeenCalledOnce();
+    it('choosing Show properties shows the section once and closes the menu — it opens no picker', () => {
+      const onShow = vi.fn();
+      renderMenu({ propertiesControl: show(onShow) });
+
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Show properties' }));
+
+      expect(onShow).toHaveBeenCalledOnce();
       expect(screen.queryByRole('menu')).toBeNull();
     });
 
     it('sits alongside the existing items, and stays offered when they are all used up', () => {
-      renderMenu({ propertiesControl: toggle(false) });
+      renderMenu({ propertiesControl: show() });
       expect(rootItems()).toEqual(expect.arrayContaining(['Emoji', 'Cover image', 'Description', 'Show properties']));
       cleanup();
 
-      renderMenu({ propertiesControl: toggle(false), emoji: '🙂', hasCoverImage: true, hasDescription: true });
+      renderMenu({ propertiesControl: show(), emoji: '🙂', hasCoverImage: true, hasDescription: true });
       expect(rootItems()).toEqual(['Show properties']);
+    });
+  });
+
+  describe('no control (the section is displayed)', () => {
+    it('offers no Properties, Show properties or Hide properties item at all', () => {
+      renderMenu({ propertiesControl: undefined });
+
+      for (const label of ['Properties', 'Show properties', 'Hide properties']) {
+        expect(rootItems()).not.toContain(label);
+      }
     });
   });
 

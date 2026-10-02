@@ -10,12 +10,14 @@ import {
   addCustomProperty,
   emptyCustomProperty,
   readCustomProperties,
+  removeCustomProperty,
 } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
 import {
   addVisibleProperty,
   readPropertiesSectionVisibility,
   readVisibleProperties,
+  removePropertiesBlock,
   setPropertiesSectionVisibility,
 } from '@core/vault/ingest/frontmatter/propertyVisibility';
 import type { CustomPropertyType } from '@core/properties/Property.types';
@@ -69,7 +71,8 @@ function pageWith(lines: readonly string[]): Page {
  * The real title menu, section and "+ Add a property" row, wired the way
  * PageHost wires them; each write applies the same pure frontmatter change
  * the PageOperations method makes (showProperty and addCustomProperty also
- * show the section; the toggle changes only `properties.show`).
+ * show the section; Hide properties — in the section's own menu — changes
+ * only `properties.show`; Delete all resets the listing).
  */
 function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lines: readonly string[]): void }) {
   const [lines, setLinesState] = useState<readonly string[]>(initial);
@@ -111,21 +114,27 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
       setIsStarting(false);
     },
   };
+  // Hide properties is the section's own action (its menu), not the title's.
+  const hideSection = () => {
+    drafts.clear();
+    setIsStarting(false);
+    setLines(setPropertiesSectionVisibility(lines, false));
+  };
+  const removeAll = () => {
+    drafts.clear();
+    setIsStarting(false);
+    setLines(
+      removePropertiesBlock(
+        readCustomProperties(lines).reduce((current, property) => removeCustomProperty(current, property.key), [...lines])
+      )
+    );
+  };
   const control: PropertiesControl | undefined =
     section.control === 'add'
       ? { mode: 'add', onStart: () => setIsStarting(true) }
-      : section.control === 'hide'
-        ? {
-            mode: 'toggle',
-            shown: true,
-            onToggle: () => {
-              drafts.clear();
-              setLines(setPropertiesSectionVisibility(lines, false));
-            },
-          }
-        : section.control === 'show'
-          ? { mode: 'toggle', shown: false, onToggle: () => setLines(setPropertiesSectionVisibility(lines, true)) }
-          : undefined;
+      : section.control === 'show'
+        ? { mode: 'show', onShow: () => setLines(setPropertiesSectionVisibility(lines, true)) }
+        : undefined;
 
   return (
     <>
@@ -134,7 +143,17 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
       {section.isDisplayed && (
         <PropertyList
           items={items}
-          footer={section.showsAddRow ? <AddPropertyRow {...menu} autoOpen={isStarting} onDismiss={() => setIsStarting(false)} /> : undefined}
+          footer={
+            section.showsAddRow ? (
+              <AddPropertyRow
+                {...menu}
+                autoOpen={isStarting}
+                onDismiss={() => setIsStarting(false)}
+                onHideProperties={hideSection}
+                onRemoveAll={removeAll}
+              />
+            ) : undefined
+          }
         />
       )}
     </>
@@ -152,7 +171,8 @@ const nameField = () => document.querySelector('.property-list__name .editable-t
 /** Opens the More actions menu and returns its Properties item's label. */
 function openMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-  return screen.getAllByRole('menuitem').map((item) => item.textContent);
+  // (No items at all when the title has nothing to offer.)
+  return screen.queryAllByRole('menuitem').map((item) => item.textContent);
 }
 /** The title control's mode, read without opening the menu (which would move focus out of an open draft, abandoning it). */
 const mode = () => screen.getByTestId('mode').textContent;
@@ -164,6 +184,11 @@ const titleControl = () => {
 };
 const clickTitle = (label: string) => {
   openMenu();
+  fireEvent.click(screen.getByRole('menuitem', { name: label }));
+};
+/** An action in the section's own menu — the one "+ Add a property" opens. */
+const clickSectionAction = (label: string) => {
+  fireEvent.click(screen.getByText('Add a property'));
   fireEvent.click(screen.getByRole('menuitem', { name: label }));
 };
 
@@ -182,9 +207,9 @@ describe('the Properties lifecycle, through the title control and the section', 
     expect(rows()).toEqual(['New property']);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Tags' }));
 
-    // ---- State 2: the property, then "+ Add a property"; the title is the toggle.
+    // ---- State 2: the property, then "+ Add a property"; the title offers no Show/Hide item.
     expect(rows()).toEqual(['Tags', 'Add a property']);
-    expect(titleControl()).toEqual(['Hide properties']);
+    expect(titleControl()).toEqual([]);
     let current = onLines.mock.calls.at(-1)![0] as string[];
     expect(readVisibleProperties(current)).toEqual(['tags']);
     expect(readPropertiesSectionVisibility(current)).toBe(true);
@@ -196,8 +221,8 @@ describe('the Properties lifecycle, through the title control and the section', 
     current = onLines.mock.calls.at(-1)![0] as string[];
     expect(readVisibleProperties(current)).toEqual(['tags', 'created']);
 
-    // ---- State 3: hide — only `show` changes; nothing leaves `visible`.
-    clickTitle('Hide properties');
+    // ---- State 3: Hide properties (from the section) — only `show` changes; nothing leaves `visible`.
+    clickSectionAction('Hide Properties');
     expect(rows()).toEqual([]);
     expect(titleControl()).toEqual(['Show properties']);
     current = onLines.mock.calls.at(-1)![0] as string[];
@@ -207,13 +232,13 @@ describe('the Properties lifecycle, through the title control and the section', 
     // Show: the same properties come back, in order, with the row below them.
     clickTitle('Show properties');
     expect(rows()).toEqual(['Tags', 'Created', 'Add a property']);
-    expect(titleControl()).toEqual(['Hide properties']);
+    expect(titleControl()).toEqual([]);
     current = onLines.mock.calls.at(-1)![0] as string[];
     expect(readPropertiesSectionVisibility(current)).toBe(true);
     expect(readVisibleProperties(current)).toEqual(['tags', 'created']);
   });
 
-  it('State 1 with a new type: the draft shows in the section, without a "+" row, and the title is "Hide properties"', () => {
+  it('State 1 with a new type: the draft shows in the section, without a "+" row, and the title offers nothing', () => {
     const onLines = vi.fn();
     render(<Harness initial={parse('priority: high')} onLines={onLines} />);
 
@@ -223,8 +248,8 @@ describe('the Properties lifecycle, through the title control and the section', 
     expect(rows()).toEqual(['(draft)']);
     expect(document.querySelector('.property-list__add-row')).toBeNull();
     expect(document.activeElement).toBe(nameField());
-    // The title is already the toggle — "Hide properties".
-    expect(mode()).toBe('hide');
+    // The section is displayed, so the title offers no item.
+    expect(mode()).toBe('');
     // Nothing has been written yet.
     expect(onLines).not.toHaveBeenCalled();
 
@@ -264,7 +289,7 @@ describe('the Properties lifecycle, through the title control and the section', 
 
     // (Opening the menu moves focus out of the unnamed draft's name field,
     // which abandons it, exactly as in the app.)
-    clickTitle('Hide properties');
+    clickSectionAction('Hide Properties');
     expect(rows()).toEqual([]);
 
     clickTitle('Show properties');
@@ -285,13 +310,51 @@ describe('the Properties lifecycle, through the title control and the section', 
     expect(onLines).not.toHaveBeenCalled();
   });
 
-  it('once a property is listed, the title is never "Add a property" again — whether the section is shown or hidden', () => {
+  it('once a property is listed, the title is never "Add a property" again: Show properties while hidden, nothing while shown', () => {
     render(<Harness initial={parse('properties:\n  visible:\n    - tags')} onLines={vi.fn()} />);
 
     expect(titleControl()).toEqual(['Show properties']);
     clickTitle('Show properties');
-    expect(titleControl()).toEqual(['Hide properties']);
-    clickTitle('Hide properties');
+    expect(titleControl()).toEqual([]);
+    clickSectionAction('Hide Properties');
     expect(titleControl()).toEqual(['Show properties']);
+  });
+
+  it('Hide properties lives only in the section: the shown section\'s title menu never lists it, and the section menu does', () => {
+    render(<Harness initial={parse('properties:\n  show: true\n  visible:\n    - tags')} onLines={vi.fn()} />);
+
+    expect(openMenu()).not.toContain('Hide properties');
+    closeMenu();
+    fireEvent.click(screen.getByText('Add a property'));
+    expect(screen.getByRole('menuitem', { name: 'Hide Properties' })).toBeInTheDocument();
+  });
+
+  it('Delete all resets the note: no section, nothing written under properties, and the title is Add a property again', () => {
+    const onLines = vi.fn();
+    render(
+      <Harness
+        initial={parse('priority: high\nproperties:\n  show: true\n  visible:\n    - tags\n    - priority')}
+        onLines={onLines}
+      />
+    );
+
+    clickSectionAction('Delete all');
+
+    expect(rows()).toEqual([]);
+    expect(titleControl()).toEqual(['Properties']);
+    const written = onLines.mock.calls.at(-1)![0] as string[];
+    expect(written).toEqual([]);
+  });
+
+  it('a hidden section keeps its listing: Show properties restores it exactly', () => {
+    const onLines = vi.fn();
+    render(<Harness initial={parse('properties:\n  show: true\n  visible:\n    - tags\n    - created')} onLines={onLines} />);
+
+    clickSectionAction('Hide Properties');
+    expect(readVisibleProperties(onLines.mock.calls.at(-1)![0])).toEqual(['tags', 'created']);
+    expect(titleControl()).toEqual(['Show properties']);
+
+    clickTitle('Show properties');
+    expect(rows()).toEqual(['Tags', 'Created', 'Add a property']);
   });
 });

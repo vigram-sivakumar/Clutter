@@ -116,6 +116,21 @@ describe('PropertyList — a property’s menu', () => {
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
   });
 
+  it('Remove sits after a divider, calls only onRemove, and closes the menu', () => {
+    const onRemove = vi.fn();
+    const onClear = vi.fn();
+    renderWith({ onHide: undefined, onDelete: undefined, onClear, onRemove });
+
+    fireEvent.click(trigger('priority')!);
+    expect(itemLabels()).toEqual(['Clear', 'Remove']);
+    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }));
+    expect(onRemove).toHaveBeenCalledOnce();
+    expect(onClear).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('a property with no actions has no menu button at all', () => {
     renderWith({ onHide: undefined, onClear: undefined, onDelete: undefined });
 

@@ -31,6 +31,7 @@ function setup(yaml: string, status: 'active' | 'archived' = 'active') {
   const handlers = {
     onHideProperty: vi.fn(),
     onDeleteProperty: vi.fn(),
+    onRemoveSystemProperty: vi.fn(),
     onCommitTags: vi.fn(),
     aliases: { onCommit: vi.fn() },
     onSetScalarValue: vi.fn(),
@@ -108,6 +109,18 @@ describe('buildPageProperties — each property’s menu actions', () => {
     expect(handlers.onCommitListValue).toHaveBeenCalledExactlyOnceWith('people', []);
   });
 
+  it('every system property can be removed by its canonical key; custom properties offer no Remove', () => {
+    const { handlers, row } = setup(`priority: high\n${ALL}\n    - priority`);
+
+    row('Tags').onRemove!();
+    row('Aliases').onRemove!();
+    row('Created').onRemove!();
+    row('Last edited').onRemove!();
+
+    expect(handlers.onRemoveSystemProperty.mock.calls).toEqual([['tags'], ['aliases'], ['created'], ['modified']]);
+    expect(row('priority').onRemove).toBeUndefined();
+  });
+
   it('an action is offered only when the host supplies its write', () => {
     const items = buildPageProperties(pageFrom(`priority: high\n${ALL}\n  - priority`), {});
 
@@ -115,6 +128,7 @@ describe('buildPageProperties — each property’s menu actions', () => {
       expect(item.onHide).toBeUndefined();
       expect(item.onClear).toBeUndefined();
       expect(item.onDelete).toBeUndefined();
+      expect(item.onRemove).toBeUndefined();
     }
   });
 

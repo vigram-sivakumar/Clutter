@@ -114,6 +114,7 @@ function withActions(item: PropertyListItem, actions: PropertyActions): Property
     ...item,
     ...(actions.onHide && { onHide: actions.onHide }),
     ...(actions.onClear && { onClear: actions.onClear }),
+    ...(actions.onRemove && { onRemove: actions.onRemove }),
     ...(actions.onDelete && { onDelete: actions.onDelete }),
   };
 }
@@ -282,6 +283,14 @@ export function buildPageProperties(
      * System Properties are never deletable.
      */
     onDeleteProperty?(key: string): void;
+    /**
+     * Removes a system property from the list
+     * (PageOperations.removeSystemProperty), by canonical key. Present (and
+     * the page not archived): every system row's menu offers Remove. Tags
+     * and Aliases also lose their value; Created and Last edited are only
+     * unlisted.
+     */
+    onRemoveSystemProperty?(key: SystemPropertyKey): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -294,6 +303,7 @@ export function buildPageProperties(
   const onSetScalarValue = isArchived ? undefined : actions.onSetScalarValue;
   const onHideProperty = isArchived ? undefined : actions.onHideProperty;
   const onDeleteProperty = isArchived ? undefined : actions.onDeleteProperty;
+  const onRemoveSystemProperty = isArchived ? undefined : actions.onRemoveSystemProperty;
   const tags = page.metadata.tags ?? [];
   const customLines = page.metadata.unownedFrontmatter ?? [];
 
@@ -424,9 +434,9 @@ export function buildPageProperties(
   // Rows follow `properties.visible`, in the order the properties were
   // added to it: a listed system key, or a listed custom key that exists
   // in the frontmatter. A listed key that matches neither shows nothing.
-  // Every system row can be hidden; Tags and Aliases can also be cleared.
-  // Created and Last edited are system-maintained, so they can't be
-  // cleared, and no system property can be deleted.
+  // Every system row can be removed from the list; Tags and Aliases can also
+  // be cleared. Created and Last edited are system-maintained, so they can't
+  // be cleared, and no system property can be deleted.
   const systemClear: Partial<Record<SystemPropertyKey, () => void>> = {
     tags: onCommitTags && (() => onCommitTags([])),
     aliases: aliasActions && (() => aliasActions.onCommit([])),
@@ -436,6 +446,7 @@ export function buildPageProperties(
     withActions(item, {
       onHide: onHideProperty && (() => onHideProperty(key)),
       onClear: systemClear[key],
+      onRemove: onRemoveSystemProperty && (() => onRemoveSystemProperty(key)),
     }),
   ]);
   const rowsByKey = new Map<string, PropertyListItem>([...systemItems, ...customItems]);

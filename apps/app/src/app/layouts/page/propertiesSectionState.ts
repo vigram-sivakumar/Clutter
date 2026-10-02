@@ -4,7 +4,7 @@ import {
 } from '@core/vault/ingest/frontmatter/propertyVisibility';
 
 /** What the title's Properties control currently is — see PropertiesControl. */
-export type PropertiesControlMode = 'add' | 'hide' | 'show';
+export type PropertiesControlMode = 'add' | 'show';
 
 export interface PropertiesSectionState {
   /** Whether the Properties section is on screen. */
@@ -12,10 +12,12 @@ export interface PropertiesSectionState {
   /** Whether the section ends with its "+ Add a property" row. */
   readonly showsAddRow: boolean;
   /**
-   * The title control: `add` ("Add a property" — before the first property
-   * exists), `hide` ("Hide properties" — the section is displayed), `show`
-   * ("Show properties" — it is hidden), or null for an archived page, which
-   * is view-only.
+   * The title control: `add` (the item that starts the first property —
+   * nothing is listed and the section isn't shown), `show` ("Show
+   * properties" — the section was hidden with properties still listed), or
+   * null: nothing at all — while the section is displayed (Hide properties
+   * belongs to the section itself, not the title) and for an archived page,
+   * which is view-only.
    */
   readonly control: PropertiesControlMode | null;
 }
@@ -32,16 +34,21 @@ export interface PropertiesSectionState {
  * ```text
  * nothing added     title: Add a property        (no section)
  *   ↓ choose one       — shows the section and the property
- * property exists  title: Hide properties       section + "+ Add a property"
- *   ↓ hide             — only `show` changes; `visible` is untouched
+ * property exists  title: (no Show/Hide item)   section + "+ Add a property"
+ *   ↓ Hide properties   — in the section's own menu; only `show` changes,
+ *                         `visible` is untouched
  * hidden           title: Show properties
  *   ↓ show
- * property exists  title: Hide properties       …as before
+ * property exists  title: (no Show/Hide item)   …as before
+ *
+ * last property removed / Delete all
+ *   → the listing is reset: no section, and the title is Add a property again
  * ```
  *
  * While the first property's draft is being named the section is displayed
  * (the draft row lives in it) without anything written, but without its
- * "+ Add a property" row: the title's "Add a property" is still the way in.
+ * "+ Add a property" row: the title's "Add a property" item is not offered while the section is
+ * displayed, so the section's own add row is the way in.
  * An archived page is view-only: it displays what its file says and offers
  * no control and no add row.
  */
@@ -70,6 +77,6 @@ export function derivePropertiesSectionState({
     isDisplayed,
     // Once the section holds, or may hold, a property.
     showsAddRow: isDisplayed && (isFlagged || hasListedProperty || isStarting),
-    control: isDisplayed ? 'hide' : hasListedProperty ? 'show' : 'add',
+    control: isDisplayed ? null : hasListedProperty ? 'show' : 'add',
   };
 }

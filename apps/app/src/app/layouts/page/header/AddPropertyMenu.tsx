@@ -45,11 +45,11 @@ export interface AddPropertyMenuProps {
 }
 
 /**
- * What can be added to the page's Properties: the properties that exist but
- * aren't shown, under a "Hidden" title, then every custom type under a "Type"
- * title, then a divider and the optional actions (Hide Properties, Delete all).
- * Under "Hidden": the system Properties not currently shown, then the custom
- * properties that exist but aren't shown. The custom types come from the
+ * What can be added to the page's Properties, as one list under a single
+ * "Type" title: the existing properties the note doesn't list (the system
+ * Properties not listed, then the custom properties in the frontmatter that
+ * aren't listed), then every custom type — then a divider and the optional
+ * actions (Hide Properties, Delete all). The custom types come from the
  * property type registry (customPropertyTypeOptions), so this
  * menu holds no list of its own. Hosted by the Properties section's
  * "+ Add a property" row (AddPropertyRow), which closes it after a choice.
@@ -74,7 +74,7 @@ export function AddPropertyMenu({
 
   return (
     <Menu size="medium" aria-label="Add properties">
-      {(showSystem || showHidden) && <MenuGroupTitle>Hidden</MenuGroupTitle>}
+      <MenuGroupTitle>Type</MenuGroupTitle>
       {showSystem && (
         <>
           {systemProperties.map((property) => (
@@ -107,7 +107,6 @@ export function AddPropertyMenu({
           ))}
         </>
       )}
-      <MenuGroupTitle>Type</MenuGroupTitle>
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}
