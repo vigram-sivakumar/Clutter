@@ -68,6 +68,13 @@
   transition: background-color 400ms ease;
 }
 
+/* Clicking the content opens the source note (NoteEmbedWidget.ts) — the
+ * nested read-only view's own text cursor would say "editable", so show the
+ * pointer instead. Links/tags/etc. inside keep their own cursors. */
+.cm-note-embed > .cm-note-embed__content .cm-content {
+  cursor: pointer;
+}
+
 .cm-note-embed:hover > .cm-note-embed__content {
   background-color: var(--md-reveal-highlight-surface);
 }
@@ -199,6 +206,7 @@
   padding-inline-start: var(--content-padding);
   padding-inline-end: var(--content-padding);
   padding-block-end: var(--content-padding);
+  padding-block-start: var(--space-12);
 }
 
 /* Extra indent — nested note embeds only (a note embed rendered *inside*

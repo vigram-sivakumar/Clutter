@@ -91,6 +91,20 @@ export interface OpenNoteEmbedMenuParams {
   readonly to: number;
 }
 
+/** Elements inside an embed's nested content that own their own click behavior — a click on (or inside) any of them must not also open the source note. */
+const NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR = [
+  'a',
+  'button',
+  'input',
+  '.tok-link',
+  '.tok-wikilink',
+  '.tok-tag',
+  '.tok-date',
+  '.cm-task-checkbox',
+  '.cm-media-block',
+  '.cm-fold-toggle',
+].join(',');
+
 export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
 
 /**
@@ -172,8 +186,10 @@ export interface FoldStatePersistence {
  *    a `<span>`, never a `<button>`) — an earlier revision made it a
  *    clickable "open source note" affordance; that behavior is now the
  *    dedicated Expand control instead, matching Image/PDF's own
- *    convention of a separate, explicit Expand action rather than
- *    overloading the title/content with navigation.
+ *    convention of a separate, explicit Expand action. The title stays
+ *    non-clickable; a plain click on the embedded *content* (not on
+ *    anything interactive inside it, and not a text selection) also opens
+ *    the source note, matching the content's hover highlight.
  * 2. **The action-button row reuses the truly shared
  *    `.cm-media-control` chrome** (`MediaFloatingControls.css`, the same
  *    button appearance `ImageWidget.ts`'s working-state controls and
@@ -461,6 +477,30 @@ export class NoteEmbedWidget extends WidgetType {
     content.classList.add('cm-note-embed__content');
     content.hidden = this.ui.collapsed;
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
+
+    // Clicking the embedded content opens the source note — the same
+    // `getOnOpenPage` navigation the Expand button uses. Never fires for a
+    // drag/selection gesture (a text selection exists), or when the click
+    // lands on something the content already makes interactive (links,
+    // tags, dates, checkboxes, media, fold toggles, buttons) — only a plain
+    // click on the passage itself navigates. A nested embed inside this
+    // one matches `.cm-media-block` *within* `content`, so the outer embed
+    // ignores it and the inner one (whose own container is outside its own
+    // `content`) handles its own click.
+    content.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
+        return;
+      }
+      if (window.getSelection()?.toString()) {
+        return;
+      }
+      const interactive = target.closest(NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR);
+      if (interactive && interactive !== content && content.contains(interactive)) {
+        return;
+      }
+      this.getOnOpenPage()?.(resolution.pageId);
+    });
 
     // See this class's own "Collapse/expand" doc comment — direct DOM
     // mutation (`content.hidden`, this button's own icon/label/aria-label/

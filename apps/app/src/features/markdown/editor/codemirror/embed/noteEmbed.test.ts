@@ -153,6 +153,46 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(onOpenPage).toHaveBeenCalledWith('page-other');
   });
 
+  it('clicking the embedded content opens the source note; clicking an interactive element inside it does not', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body #tag', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    const line = view.dom.querySelector<HTMLElement>('.cm-note-embed__content .cm-line')!;
+    line.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPage).toHaveBeenCalledTimes(1);
+    expect(onOpenPage).toHaveBeenCalledWith('page-other');
+
+    // A link-like element inside the content owns its own click.
+    const link = document.createElement('a');
+    line.appendChild(link);
+    link.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('a click that ends a text selection inside the embedded content does not open the note', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    const line = view.dom.querySelector<HTMLElement>('.cm-note-embed__content .cm-line')!;
+    const selection = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => 'Bod' } as Selection);
+    line.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    selection.mockRestore();
+
+    expect(onOpenPage).not.toHaveBeenCalled();
+  });
+
   it('Edit source reveals the raw ![[Note]] Markdown alongside the rendered card, and Hide source collapses it again', () => {
     const view = mountView(
       '![[Other Note]]',
