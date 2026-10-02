@@ -31,6 +31,9 @@ import {
  * wholesale as the one shared completion-popup theme for every `@`/`[[`
  * source rather than duplicating it.
  */
+/** Set on the popup while it lists WikiLink suggestions (completion.ts's `tooltipClass`). */
+export const WIKILINK_TOOLTIP_CLASS = 'cm-tooltip-autocomplete--wikilink';
+
 export function wikiLinkAutocompleteTheme(): Extension {
   return EditorView.theme({
     '.cm-tooltip.cm-tooltip-autocomplete': {
@@ -51,6 +54,11 @@ export function wikiLinkAutocompleteTheme(): Extension {
       // the one place to add breathing room on either axis.
       marginTop: 'var(--space-6)',
       boxShadow: 'var(--shadow-inset-default), var(--shadow-md)',
+    },
+    // A fixed width for WikiLink suggestions only, capped to the viewport.
+    [`.cm-tooltip.cm-tooltip-autocomplete.${WIKILINK_TOOLTIP_CLASS}`]: {
+      width: 'var(--wikilink-autocomplete-width)',
+      maxWidth: 'calc(100dvw - 16px)',
     },
     // CM6's own baseTheme rule for this element (`.cm-tooltip.cm-tooltip-
     // autocomplete > ul { maxHeight: '10em', ... }`) has higher raw CSS
