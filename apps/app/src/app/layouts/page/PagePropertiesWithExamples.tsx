@@ -23,6 +23,7 @@ export function PagePropertiesWithExamples({
   getTagSuggestions,
   onOpenTag,
   aliasActions,
+  onRenameProperty,
 }: {
   page: Page;
   /** The page's existing-tag search (createTagSuggester), for tag autocomplete. */
@@ -31,6 +32,8 @@ export function PagePropertiesWithExamples({
   onOpenTag?(name: string): void;
   /** Makes the real Aliases Property editable (see buildPageProperties). */
   aliasActions?: AliasPropertyActions;
+  /** Makes custom property names editable (see buildPageProperties). */
+  onRenameProperty?(key: string, name: string): void;
 }) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
@@ -46,7 +49,7 @@ export function PagePropertiesWithExamples({
   return (
     <PropertyList
       items={[
-        ...buildPageProperties(page, { onOpenTag, aliases: aliasActions }),
+        ...buildPageProperties(page, { onOpenTag, aliases: aliasActions, onRenameProperty }),
         {
           name: 'Example text',
           type: 'text',

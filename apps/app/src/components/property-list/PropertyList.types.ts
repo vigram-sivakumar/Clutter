@@ -22,7 +22,20 @@ export type PropertyEditability<Value> =
   | { editable: false }
   | { editable: true; onCommit(value: Value): void };
 
-export type PropertyListItem =
+/**
+ * A Property's name editability, orthogonal to its type and value, and
+ * like value editability decided by the adapter — never inferred here.
+ * Present: the name is inline-editable text (EditableText); `onRename`
+ * receives the edited name and returns false to reject it (the field then
+ * keeps editing with EditableText's reject shake on Enter, or restores
+ * the name on blur). Absent: the name is plain text — every system
+ * Property's.
+ */
+export type PropertyNameEditability = { onRename?(name: string): boolean };
+
+export type PropertyListItem = PropertyNameEditability & PropertyListItemByType;
+
+type PropertyListItemByType =
   | ({ name: string; type: 'text'; value: string } & PropertyEditability<string>)
   | ({
       name: string;

@@ -14,6 +14,10 @@ import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
+import {
+  renameCustomProperty,
+  validateCustomPropertyName,
+} from '../../vault/ingest/frontmatter/customFrontmatter';
 import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { DailyNoteService } from '../daily-notes/DailyNoteService';
@@ -1567,6 +1571,53 @@ export class PageOperations {
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body, patch);
+  }
+
+  /**
+   * Renames one of a page's custom properties (a frontmatter key Clutter
+   * doesn't own) to `name`, in this page's frontmatter only — never across
+   * other pages. Only the key changes: its value lines, and every other
+   * line of preserved frontmatter, are written back byte-identical
+   * (renameCustomProperty), so its value and inferred type are kept.
+   *
+   * Rejects (no write) when the name is empty, a system property's
+   * canonical key in any letter case, unreadable as a key, or already
+   * another custom key on this page — validateCustomPropertyName, the same
+   * rule the property-name field checks first for feedback. An unchanged
+   * name is a no-op. Same archived-page guard as updateMetadata(); the
+   * write is the Gate's 'save' with a metadata patch, exactly like it.
+   */
+  public async renameCustomProperty(pageId: string, key: string, name: string): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
+    }
+
+    if (name.trim() === key) {
+      return;
+    }
+
+    const lines = page.metadata.unownedFrontmatter ?? [];
+    const problem = validateCustomPropertyName(lines, key, name);
+
+    if (problem) {
+      throw new Error(`Cannot rename property "${key}" to "${name}": ${problem}.`);
+    }
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: page.source.markdown,
+      metadata: { unownedFrontmatter: renameCustomProperty(lines, key, name) },
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
   }
 
   /**

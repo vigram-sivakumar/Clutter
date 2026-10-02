@@ -3,38 +3,9 @@ import type { ScannedPageAnalysis } from './analysis';
 import { MarkdownAnalyzer } from './analysis';
 import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
 import { parseFlowSequence, unquoteFrontmatterString } from './frontmatter/frontmatterStringValue';
+import { OWNED_FRONTMATTER_KEYS } from './frontmatter/ownedFrontmatterKeys';
 
 export type ParsedFrontmatter = Record<string, unknown>;
-
-// Every frontmatter key Clutter itself reads into PageFrontmatter (and
-// writes back via FrontmatterSerializer). Any other key is not Clutter's
-// to rewrite: its raw lines are captured verbatim into `unownedLines` so a
-// save round-trips them instead of dropping them.
-// `type` stays here deliberately: it is a retired, inert legacy key that
-// is parsed but intentionally NOT preserved (see FrontmatterSerializer).
-const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
-  'id',
-  'type',
-  'icon',
-  'cover',
-  'coverHidden',
-  'coverLayout',
-  'coverPositionAbove',
-  'coverPositionSide',
-  'description',
-  'favorite',
-  'status',
-  'archivedAt',
-  'originalParentId',
-  'originalPath',
-  'created',
-  'modified',
-  'tags',
-  // Owned since the Aliases Property made it editable: parsed into
-  // PageFrontmatter.aliases (every form below) and written back by
-  // FrontmatterSerializer, so it must not also be captured verbatim.
-  'aliases',
-]);
 
 export interface ParsedMarkdown {
   frontmatter: ParsedFrontmatter & PageFrontmatter;

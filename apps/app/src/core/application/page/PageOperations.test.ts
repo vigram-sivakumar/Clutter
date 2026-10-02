@@ -535,6 +535,84 @@ describe('PageOperations.updateMetadata(): aliases', () => {
   });
 });
 
+describe('PageOperations.renameCustomProperty()', () => {
+  async function setupWithFrontmatter(yaml: string, otherYaml = 'priority: low') {
+    const parser = new FrontmatterParser();
+    const build = (id: string, path: string, frontmatterYaml: string) => {
+      const parsed = parser.parse(`---\nid: ${id}\n${frontmatterYaml}\n---\nBody text`);
+      return new PageBuilder().build({
+        parentId: null,
+        page: {
+          path,
+          directoryPath: ROOT,
+          frontmatter: parsed.frontmatter,
+          frontmatterAnalysis: parsed.frontmatterAnalysis,
+          content: parsed.body,
+          analysis: parsed.analysis,
+        },
+      });
+    };
+    const page = build('page-1', `${ROOT}/Note.md`, yaml);
+    const other = build('page-2', `${ROOT}/Other.md`, otherYaml);
+    return { page, other, ...setup(page, undefined, undefined, undefined, [other]) };
+  }
+
+  it("renames only this note's frontmatter key, keeping the value, other keys, and other notes", async () => {
+    const { page, other, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+      'author: Jane\npriority: high\nmeta:\n  nested: yes\ntags:\n  - work'
+    );
+    const otherBefore = await fileSystem.readFile(other.path);
+
+    await pageOperations.renameCustomProperty(page.id, 'priority', 'importance');
+
+    const content = await fileSystem.readFile(page.path);
+    expect(content).toContain('importance: high');
+    expect(content).not.toContain('priority');
+    expect(content).toContain('author: Jane\nimportance: high\nmeta:\n  nested: yes');
+    expect(content).toContain('tags:\n  - work');
+    expect(content).toContain('Body text');
+    expect(vault.getPage(page.id)!.metadata.unownedFrontmatter).toEqual([
+      'author: Jane',
+      'importance: high',
+      'meta:',
+      '  nested: yes',
+    ]);
+    // Never across other notes.
+    expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+  });
+
+  it.each(['tags', 'Tags', 'CREATED', 'coverLayout', '', '   '])(
+    'rejects %j without writing anything',
+    async (name) => {
+      const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
+      const before = await fileSystem.readFile(page.path);
+
+      await expect(pageOperations.renameCustomProperty(page.id, 'priority', name)).rejects.toThrow(
+        /Cannot rename property/
+      );
+      expect(await fileSystem.readFile(page.path)).toBe(before);
+    }
+  );
+
+  it('an unchanged name is a no-op', async () => {
+    const { page, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
+    const before = await fileSystem.readFile(page.path);
+
+    await pageOperations.renameCustomProperty(page.id, 'priority', ' priority ');
+
+    expect(await fileSystem.readFile(page.path)).toBe(before);
+  });
+
+  it('rejects for an archived page', async () => {
+    const { page, coordinator, pageOperations } = await setupWithFrontmatter('priority: high');
+    await archiveDirectly(coordinator, page.id);
+
+    await expect(pageOperations.renameCustomProperty(page.id, 'priority', 'importance')).rejects.toThrow(
+      /Cannot edit archived page/
+    );
+  });
+});
+
 describe('PageOperations.save(): round-trip and failure behavior', () => {
   it('preserves the page id and updates the markdown body on disk and in the vault', async () => {
     const page = buildPage();

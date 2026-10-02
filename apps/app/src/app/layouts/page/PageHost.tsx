@@ -1775,6 +1775,9 @@ export function PageHost({
               void application.pageOperations.updateMetadata(page.id, { aliases }),
             getSuggestions: createAliasSuggester(vault, page.id),
           }}
+          onRenameProperty={(key, name) =>
+            void application.pageOperations.renameCustomProperty(page.id, key, name)
+          }
         />
       }
       body={

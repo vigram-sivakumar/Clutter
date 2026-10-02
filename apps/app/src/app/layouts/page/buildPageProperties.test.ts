@@ -83,6 +83,50 @@ describe('buildPageProperties', () => {
     expect(aliases.editable).toBe(false);
   });
 
+  describe('custom properties', () => {
+    const custom = (overrides: Partial<Page['metadata']> = {}) =>
+      makePage('note', {
+        unownedFrontmatter: ['priority: high', 'estimate: 3', 'people:', '  - Ana'],
+        ...overrides,
+      });
+
+    it('follow the system Properties, as read-only Properties of their inferred type', () => {
+      const items = buildPageProperties(custom());
+      expect(items.slice(4)).toEqual([
+        { name: 'priority', type: 'text', value: 'high', editable: false },
+        { name: 'estimate', type: 'number', value: 3, editable: false },
+        { name: 'people', type: 'multi-select', value: ['Ana'], editable: false },
+      ]);
+    });
+
+    it('get an editable name only when the host can rename; system names never do', () => {
+      expect(buildPageProperties(custom()).every((item) => item.onRename === undefined)).toBe(true);
+
+      const items = buildPageProperties(custom(), { onRenameProperty: vi.fn() });
+      expect(items.slice(0, 4).every((item) => item.onRename === undefined)).toBe(true);
+      expect(items.slice(4).every((item) => typeof item.onRename === 'function')).toBe(true);
+    });
+
+    it('a rename commits trimmed through the host, and is rejected (no call) for reserved, empty, or taken names', () => {
+      const onRenameProperty = vi.fn();
+      const priority = buildPageProperties(custom(), { onRenameProperty })[4]!;
+
+      expect(priority.onRename!('Tags')).toBe(false);
+      expect(priority.onRename!('MODIFIED')).toBe(false);
+      expect(priority.onRename!('  ')).toBe(false);
+      expect(priority.onRename!('estimate')).toBe(false);
+      expect(onRenameProperty).not.toHaveBeenCalled();
+
+      expect(priority.onRename!(' importance ')).toBe(true);
+      expect(onRenameProperty).toHaveBeenCalledExactlyOnceWith('priority', 'importance');
+    });
+
+    it('are not renamable on an archived page', () => {
+      const items = buildPageProperties(custom({ status: 'archived' }), { onRenameProperty: vi.fn() });
+      expect(items[4]!.onRename).toBeUndefined();
+    });
+  });
+
   it('uses the same properties for Notes and Daily Notes', () => {
     expect(buildPageProperties(makePage('daily-note'))).toEqual(
       buildPageProperties(makePage('note'))

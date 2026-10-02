@@ -1,3 +1,4 @@
+import { EditableText } from '@components/editable-text/EditableText';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 
@@ -22,8 +23,10 @@ export function PropertyList({ items, className }: PropertyListProps) {
 
   return (
     <div className={classes}>
-      {items.map((item) => (
-        <div key={item.name} className="property-list__row">
+      {items.map((item, index) => (
+        // Index too: a custom property may share a system Property's
+        // label (a `Tags` key next to the system Tags).
+        <div key={`${index}-${item.name}`} className="property-list__row">
           <Entry
             className="property-list__name"
             leading={
@@ -33,7 +36,15 @@ export function PropertyList({ items, className }: PropertyListProps) {
               />
             }
           >
-            <span>{item.name}</span>
+            {item.onRename ? (
+              <EditableText
+                className="editable-text--nowrap property-list__name-input"
+                value={item.name}
+                onCommit={item.onRename}
+              />
+            ) : (
+              <span>{item.name}</span>
+            )}
           </Entry>
 
           {renderPropertyValue(item)}
