@@ -123,7 +123,7 @@ const COPIED_FEEDBACK_MS = 1500;
  * The URL's trailing actions: open it (the same `openExternalUrl` path
  * as the link) and copy it to the clipboard (`copyTextToClipboard`, the
  * app's one clipboard-write helper). Copy briefly swaps to a check so
- * the click visibly did something.
+ * the click visibly did something (the `tick` icon).
  */
 function UrlActions({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -159,7 +159,7 @@ function UrlActions({ url }: { url: string }) {
           void copyTextToClipboard(url).then(() => setCopied(true));
         }}
       >
-        <AppIcon icon={copied ? 'check' : 'copy'} />
+        <AppIcon icon={copied ? 'tick' : 'copy'} />
       </Button>
     </div>
   );

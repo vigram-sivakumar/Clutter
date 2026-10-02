@@ -293,7 +293,10 @@ describe('UrlPropertyValue — Open / Copy actions', () => {
     });
 
     expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith('example.com/docs');
-    expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy();
+    const copiedButton = screen.getByRole('button', { name: 'Copied' });
+    // The plain `tick` icon (its single stroke path), not the boxed `check`.
+    const paths = copiedButton.querySelectorAll('svg path');
+    expect(paths).toHaveLength(1);
   });
 });
 
