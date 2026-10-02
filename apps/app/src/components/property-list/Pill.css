@@ -53,12 +53,12 @@
 .pill .pill__remove {
   display: none;
 }
-.property-list__tag-editor:focus-within .pill .pill__remove {
+.pill-list-editor:focus-within .pill .pill__remove {
   display: inline-flex;
 }
 /* The visible dismiss button sits at the pill's right edge, so the pill
    drops its own right padding. */
-.property-list__tag-editor:focus-within .pill:has(.pill__remove) {
+.pill-list-editor:focus-within .pill:has(.pill__remove) {
   padding-inline-end: 0;
 }
 
@@ -99,4 +99,13 @@
   font: inherit;
   line-height: var(--pill-height);
   color: inherit;
+}
+
+/* A read-only list: the pills, wrapping. */
+.property-list__value .entry__content .pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  overflow: visible;
 }

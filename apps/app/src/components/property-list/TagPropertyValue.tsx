@@ -1,17 +1,14 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import { Input } from '@components/input/Input';
-import { MenuContext } from '@components/menu/Menu.context';
 import { MenuItem } from '@components/menu/MenuItem';
-import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
-import { Popover } from '@components/popover/Popover';
 import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
 import { scanTag } from '@features/markdown/editor/codemirror/tag/tagScanner';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import type { PropertyEditability } from './PropertyList.types';
 import { Pill } from './Pill';
+import { PillListEditor, usePillListEditor } from './PillListEditor';
 import { PropertyValueCell } from './PropertyValueCell';
 import { useRejectShake } from './useRejectShake';
 
@@ -58,7 +55,7 @@ export function TagPropertyValue(props: TagPropertyValueProps) {
   if (!props.editable) {
     return (
       <PropertyValueCell>
-        <span className="property-list__tags">
+        <span className="pill-list">
           {props.value.map((tag, index) => (
             <TagPill
               key={tag}
@@ -175,15 +172,9 @@ function TagPropertyEditor({
   onOpenTag,
   onCommit,
 }: TagPropertyEditorProps) {
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+  const editor = usePillListEditor();
+  const { draft, setDraft, isFocused, isDismissed, keyboard, idScope } = editor;
   const { shakeClassName, shake } = useRejectShake();
-  // No preferredActiveId: nothing is highlighted until ArrowUp/Down or hover.
-  const keyboard = useMenuKeyboard(listRef);
-  const idScope = useId();
 
   const suggestions = useMemo(
     () => findSuggestions(getSuggestions, draft, value),
@@ -254,86 +245,35 @@ function TagPropertyEditor({
   }
 
   function handleBlur() {
-    setIsFocused(false);
-
     if (!commitDraft()) {
       setDraft('');
     }
   }
 
   return (
-    <div
-      className={['property-list__value property-list__tag-editor', shakeClassName]
-        .filter(Boolean)
-        .join(' ')}
-      onClick={() => inputRef.current?.focus()}
-    >
-      {value.map((tag) => (
+    <PillListEditor
+      name={name}
+      editor={editor}
+      isEmpty={value.length === 0}
+      isSuggesting={isSuggesting}
+      className={shakeClassName}
+      menuLabel="Tag suggestions"
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      pills={value.map((tag) => (
         <TagPill key={tag} tag={tag} onOpen={onOpenTag} onRemove={() => removeTag(tag)} />
       ))}
-      <Input
-        ref={inputRef}
-        className="property-list__tag-input"
-        hasBackground={false}
-        hasBorder={false}
-        aria-label={name}
-        placeholder={value.length === 0 ? 'Empty' : undefined}
-        aria-autocomplete="list"
-        aria-expanded={isSuggesting}
-        aria-activedescendant={isSuggesting ? keyboard.activeId : undefined}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setIsDismissed(false);
-          // A new query is a new list — don't carry a highlight over to it.
-          keyboard.setActiveId(undefined);
-        }}
-        onFocus={() => setIsFocused(true)}
-        onKeyDown={handleKeyDown}
-        onBlur={handleBlur}
-      />
-      {/*
-        No backdrop: it would cover the input and swallow caret clicks (the
-        date calendar's same reason); the input's blur ends the session
-        instead, and mouse-down in the list never takes focus from it.
-      */}
-      <Popover
-        open={isSuggesting}
-        onClose={() => setIsDismissed(true)}
-        // Anchored to the inline input, not the whole value: the current
-        // token always starts at the input's left edge (it clears after
-        // each commit and sits right after the last pill), so this is the
-        // token's start — fixed while typing (the text scrolls inside the
-        // input; the input itself doesn't move), and a fresh position once
-        // a commit adds a pill before it.
-        anchorRef={inputRef}
-        side="bottom"
-        alignment="start"
-        size="fit-content"
-        backdrop={false}
-      >
-        <MenuContext.Provider value={keyboard}>
-          <div
-            ref={listRef}
-            role="menu"
-            className="menu menu--small property-list__tag-suggestions"
-            aria-label="Tag suggestions"
-            onMouseDown={(event) => event.preventDefault()}
-          >
-            {suggestions.map((tag) => {
-              const id = suggestionId(idScope, tag);
-              return (
-                <MenuItem key={id} id={id} tabIndex={-1} onClick={() => addTag(tag)}>
-                  <span className="property-list__tag-suggestion">
-                    <span className="pill__prefix">#</span>
-                    {formatTagDisplayLabel(tag)}
-                  </span>
-                </MenuItem>
-              );
-            })}
-          </div>
-        </MenuContext.Provider>
-      </Popover>
-    </div>
+      suggestionRows={suggestions.map((tag) => {
+        const id = suggestionId(idScope, tag);
+        return (
+          <MenuItem key={id} id={id} tabIndex={-1} onClick={() => addTag(tag)}>
+            <span className="property-list__tag-suggestion">
+              <span className="pill__prefix">#</span>
+              {formatTagDisplayLabel(tag)}
+            </span>
+          </MenuItem>
+        );
+      })}
+    />
   );
 }

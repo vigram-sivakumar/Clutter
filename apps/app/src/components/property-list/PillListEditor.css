@@ -1,0 +1,64 @@
+/* ---- Pill list editor ------------------------------------------- */
+/* The editable state of a list Property (tags, multi-select values): the
+   pills and an inline input in one wrapping row, with the focused surface
+   on the wrapper — see PillListEditor.tsx. The pill itself is Pill.css. */
+
+/* Editable: pills and the inline input in one wrapping row. Same
+   alignment trick as the other editable values (inline padding cancelled
+   by an equal negative margin), and the same focused look as Input. */
+.pill-list-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+  /* The focused surface is as tall as a text property's (Input's block
+     padding around one --lh-label line), so both read as the same
+     control: the 24px pills sit in --space-4 of padding, and the inline
+     input below stays one --lh-label line — the editor's padding-block
+     is surface only and never makes the input taller. */
+  min-height: calc(2 * var(--space-6) + var(--lh-label));
+  box-sizing: border-box;
+
+  margin-inline: calc(-1 * (var(--space-6) + 2px));
+  padding: var(--space-4) calc(var(--space-6) + 2px);
+  border-radius: var(--radius-lg);
+  cursor: text;
+
+  transition: background-color 120ms ease;
+}
+.pill-list-editor:focus-within {
+  background: var(--surface-subtle);
+  box-shadow: var(--shadow-inset-default);
+}
+
+/* The inline input takes the rest of the line (wrapping below the pills
+   when there's no room), unpadded so typed text sits like the pills. */
+.pill-list-editor__input {
+  flex: 1;
+  min-width: 80px;
+  width: auto;
+  min-height: 0;
+  padding-inline: 0;
+  font-size: inherit;
+  line-height: var(--lh-label);
+}
+/* Unfocused with pills, the input has nothing to show, so it takes no
+   room (the negative margin cancels the flex gap before it): it never
+   wraps onto a blank line of its own, and the editor is only as tall as
+   its pills. Still focusable — focusing the editor restores it above. */
+.pill-list-editor:not(:focus-within):has(.pill) .pill-list-editor__input {
+  flex: 0 0 0;
+  min-width: 0;
+  width: 0;
+  margin-inline-start: calc(-1 * var(--space-4));
+}
+.pill-list-editor__input .input__field {
+  padding: 0;
+}
+
+/* Autocomplete: the `.menu` surface (same as every other menu). */
+.pill-list-editor__suggestions {
+  max-height: 240px;
+}

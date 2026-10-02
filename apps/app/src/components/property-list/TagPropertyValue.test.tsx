@@ -46,7 +46,7 @@ function press(key: string) {
 }
 
 function isShaking(): boolean {
-  return document.querySelector('.property-list__tag-editor')!.classList.contains('editable-text--shake');
+  return document.querySelector('.pill-list-editor')!.classList.contains('editable-text--shake');
 }
 
 function StatefulTags({ initial }: { initial: string[] }) {
@@ -126,7 +126,7 @@ describe('TagPropertyValue — editable', () => {
   it('focuses the input when the value area is clicked', () => {
     render(<StatefulTags initial={['design']} />);
 
-    fireEvent.click(document.querySelector('.property-list__tag-editor')!);
+    fireEvent.click(document.querySelector('.pill-list-editor')!);
 
     expect(document.activeElement).toBe(getInput());
   });
@@ -271,7 +271,7 @@ describe('TagPropertyValue — autocomplete', () => {
   }
 
   function suggestionLabels(): string[] {
-    return [...document.querySelectorAll('.property-list__tag-suggestions [role="menuitem"]')].map(
+    return [...document.querySelectorAll('.pill-list-editor__suggestions [role="menuitem"]')].map(
       (row) => row.textContent!
     );
   }
@@ -288,7 +288,7 @@ describe('TagPropertyValue — autocomplete', () => {
     type('#pro');
 
     expect(suggestionLabels()).toEqual(['#product', '#product design', '#prototype']);
-    expect(document.querySelector('.property-list__tag-suggestions')!.classList.contains('menu')).toBe(true);
+    expect(document.querySelector('.pill-list-editor__suggestions')!.classList.contains('menu')).toBe(true);
     expect(activeSuggestion()).toBeNull();
   });
 

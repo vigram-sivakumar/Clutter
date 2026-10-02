@@ -1,14 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { Input } from '@components/input/Input';
-import { MenuContext } from '@components/menu/Menu.context';
 import { MenuItem } from '@components/menu/MenuItem';
-import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
-import { Popover } from '@components/popover/Popover';
 
 import type { MultiSelectSuggestion, PropertyEditability } from './PropertyList.types';
 import { Pill } from './Pill';
+import { PillListEditor, usePillListEditor } from './PillListEditor';
 import { PropertyValueCell } from './PropertyValueCell';
 import { useRejectShake } from './useRejectShake';
 
@@ -40,7 +38,7 @@ export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
   if (!props.editable) {
     return (
       <PropertyValueCell>
-        <span className="property-list__tags">
+        <span className="pill-list">
           {props.value.map((entry, index) => (
             <ValuePill
               key={`${index}-${entry}`}
@@ -231,14 +229,8 @@ function MultiSelectPropertyEditor({
   getSuggestions,
   onCommit,
 }: MultiSelectPropertyEditorProps) {
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
-  // No preferredActiveId: nothing is highlighted until ArrowUp/Down or hover.
-  const keyboard = useMenuKeyboard(listRef);
-  const idScope = useId();
+  const editor = usePillListEditor();
+  const { draft, setDraft, isFocused, isDismissed, keyboard, idScope } = editor;
   // The pill being edited in place, by index, or null.
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -295,11 +287,15 @@ function MultiSelectPropertyEditor({
   }
 
   return (
-    <div
-      className="property-list__value property-list__tag-editor"
-      onClick={() => inputRef.current?.focus()}
-    >
-      {value.map((entry, index) =>
+    <PillListEditor
+      name={name}
+      editor={editor}
+      isEmpty={value.length === 0}
+      isSuggesting={isSuggesting}
+      menuLabel={`${name} suggestions`}
+      onKeyDown={handleKeyDown}
+      onBlur={() => addValue(draft)}
+      pills={value.map((entry, index) =>
         index === editingIndex ? (
           <ValuePillEditor
             key={`${index}-${entry}`}
@@ -325,69 +321,24 @@ function MultiSelectPropertyEditor({
           />
         )
       )}
-      <Input
-        ref={inputRef}
-        className="property-list__tag-input"
-        hasBackground={false}
-        hasBorder={false}
-        aria-label={name}
-        placeholder={value.length === 0 ? 'Empty' : undefined}
-        aria-autocomplete="list"
-        aria-expanded={isSuggesting}
-        aria-activedescendant={isSuggesting ? keyboard.activeId : undefined}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setIsDismissed(false);
-          // A new query is a new list — don't carry a highlight over to it.
-          keyboard.setActiveId(undefined);
-        }}
-        onFocus={() => setIsFocused(true)}
-        onKeyDown={handleKeyDown}
-        onBlur={() => {
-          setIsFocused(false);
-          addValue(draft);
-        }}
-      />
-      {/* No backdrop, anchored to the inline input — the tag editor's same reasons. */}
-      <Popover
-        open={isSuggesting}
-        onClose={() => setIsDismissed(true)}
-        anchorRef={inputRef}
-        side="bottom"
-        alignment="start"
-        size="fit-content"
-        backdrop={false}
-      >
-        <MenuContext.Provider value={keyboard}>
-          <div
-            ref={listRef}
-            role="menu"
-            className="menu menu--small property-list__tag-suggestions"
-            aria-label={`${name} suggestions`}
-            onMouseDown={(event) => event.preventDefault()}
+      suggestionRows={suggestions.map((suggestion, index) => {
+        const id = suggestionId(idScope, index);
+        return (
+          <MenuItem
+            key={suggestion.key}
+            id={id}
+            tabIndex={-1}
+            onClick={() => addValue(suggestion.value)}
           >
-            {suggestions.map((suggestion, index) => {
-              const id = suggestionId(idScope, index);
-              return (
-                <MenuItem
-                  key={suggestion.key}
-                  id={id}
-                  tabIndex={-1}
-                  onClick={() => addValue(suggestion.value)}
-                >
-                  <span className="property-list__suggestion">
-                    {suggestion.label}
-                    {suggestion.detail && (
-                      <span className="property-list__suggestion-detail">{suggestion.detail}</span>
-                    )}
-                  </span>
-                </MenuItem>
-              );
-            })}
-          </div>
-        </MenuContext.Provider>
-      </Popover>
-    </div>
+            <span className="property-list__suggestion">
+              {suggestion.label}
+              {suggestion.detail && (
+                <span className="property-list__suggestion-detail">{suggestion.detail}</span>
+              )}
+            </span>
+          </MenuItem>
+        );
+      })}
+    />
   );
 }
