@@ -23,6 +23,12 @@ export type PropertyListItem =
     } & PropertyEditability<string | null>)
   | ({
       name: string;
+      type: 'tag';
+      /** Tag names without their `#`, in order — as frontmatter `tags` stores them. */
+      value: readonly string[];
+    } & PropertyEditability<string[]>)
+  | ({
+      name: string;
       type: 'url';
       /** The URL exactly as entered (a bare domain stays bare), or null when absent. */
       value: string | null;

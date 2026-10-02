@@ -1,4 +1,4 @@
-export type PropertyType = 'text' | 'date' | 'boolean' | 'url' | 'multi-select';
+export type PropertyType = 'text' | 'date' | 'tag' | 'boolean' | 'url' | 'multi-select';
 
 /**
  * A `date` Property's value is the raw stored string, never a formatted
@@ -6,6 +6,11 @@ export type PropertyType = 'text' | 'date' | 'boolean' | 'url' | 'multi-select';
  * timestamp (the system-maintained `created`/`modified`).
  */
 export type PropertyValue = string | boolean | string[];
+
+/*
+ * A `tag` Property's value is the tag names without their `#` — exactly as
+ * frontmatter `tags` stores them; the `#` is presentation only.
+ */
 
 export interface Property {
   name: string;

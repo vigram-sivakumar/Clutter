@@ -46,7 +46,7 @@ describe('buildPageProperties', () => {
     expect(items.map((i) => i.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified']);
     expect(items[0]).toEqual({
       name: 'Tags',
-      type: 'multi-select',
+      type: 'tag',
       value: ['a', 'b'],
       editable: false,
     });

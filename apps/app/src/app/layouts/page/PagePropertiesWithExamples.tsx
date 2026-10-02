@@ -21,6 +21,7 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
   );
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
+  const [exampleTags, setExampleTags] = useState<string[]>(['design', 'product']);
   const [exampleUrl, setExampleUrl] = useState<string | null>(
     'https://example.com/docs/guides/getting-started/installation/configuration-and-advanced-options?ref=properties'
   );
@@ -42,6 +43,13 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           value: exampleDate,
           editable: true,
           onCommit: setExampleDate,
+        },
+        {
+          name: 'Example tags',
+          type: 'tag',
+          value: exampleTags,
+          editable: true,
+          onCommit: setExampleTags,
         },
         {
           name: 'Example URL',

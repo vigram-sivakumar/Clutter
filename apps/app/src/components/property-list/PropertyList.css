@@ -214,3 +214,111 @@
 .property-list__url-input:hover .property-list__url-actions {
   display: flex;
 }
+
+/* ---- Tags (`tag` Property) ---------------------------------------- */
+
+/* One tag pill — the editor's inline tag look (`.tok-tag`'s own tokens:
+   tag foreground/surface, badge radius/padding, a dimmed `#` prefix).
+   `position: relative` anchors the hover-revealed dismiss button. The
+   selector specificity beats `.property-list__value .entry__content span`
+   (the value cell's clamped-box rule) inside a read-only cell. */
+.property-list__tag,
+.property-list__value .entry__content .property-list__tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: visible;
+
+  color: var(--md-tag-foreground);
+  background-color: var(--md-tag-surface);
+  border-radius: var(--md-badge-radius);
+  padding: var(--md-badge-padding);
+  font-size: 0.9em;
+  line-height: var(--lh-label);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.property-list__tag-prefix,
+.property-list__value .entry__content .property-list__tag-prefix {
+  display: inline;
+  opacity: var(--opacity-medium);
+  padding-right: 2px;
+}
+
+/* The dismiss button: absolutely positioned over the pill's top-right
+   corner, so showing it never changes the row layout; revealed only while
+   the pill is hovered. */
+.property-list__tag .property-list__tag-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.property-list__tag .property-list__tag-remove svg {
+  width: 10px;
+  height: 10px;
+}
+.property-list__tag:hover .property-list__tag-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Read-only: the pills, wrapping. */
+.property-list__value .entry__content .property-list__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  overflow: visible;
+}
+
+/* Editable: pills and the inline input in one wrapping row. Same
+   alignment trick as the other editable values (inline padding cancelled
+   by an equal negative margin), and the same focused look as Input. */
+.property-list__tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+  min-height: var(--height-lg);
+  box-sizing: border-box;
+
+  margin-inline: calc(-1 * (var(--space-6) + 4px));
+  padding: var(--space-2) calc(var(--space-6) + 4px);
+  border-radius: var(--radius-lg);
+  cursor: text;
+
+  transition: background-color 120ms ease;
+}
+.property-list__tag-editor:focus-within {
+  background: var(--surface-subtle);
+  box-shadow: var(--shadow-inset-default);
+}
+
+/* The inline input takes the rest of the line (wrapping below the pills
+   when there's no room), unpadded so typed text sits like the pills. */
+.property-list__tag-input {
+  flex: 1;
+  min-width: 80px;
+  width: auto;
+  min-height: 0;
+  padding-inline: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+.property-list__tag-input .input__field {
+  padding: 0;
+}

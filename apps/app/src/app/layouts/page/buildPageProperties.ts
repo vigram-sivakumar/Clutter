@@ -13,7 +13,8 @@ import type { Page } from '@core/vault/models/Page';
  * date (already the title).
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
- * inline `#tags`. `Aliases` come from the page's parsed analysis. `Created`
+ * inline `#tags` — a `tag` Property (pills), read-only until a frontmatter
+ * tags write path exists. `Aliases` come from the page's parsed analysis. `Created`
  * and `Modified` are system-maintained timestamps: `date` Properties
  * carrying the raw ISO timestamp (formatting is the date type's job),
  * explicitly `editable: false`.
@@ -23,7 +24,7 @@ import type { Page } from '@core/vault/models/Page';
  */
 export function buildPageProperties(page: Page): PropertyListItem[] {
   return [
-    { name: 'Tags', type: 'multi-select', value: page.metadata.tags ?? [], editable: false },
+    { name: 'Tags', type: 'tag', value: page.metadata.tags ?? [], editable: false },
     {
       name: 'Aliases',
       type: 'multi-select',

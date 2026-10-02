@@ -7,6 +7,7 @@ import type { iconRegistry } from '@shared/icon/iconRegistry';
 import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
 import { PropertyValueCell } from './PropertyValueCell';
+import { TagPropertyValue } from './TagPropertyValue';
 import { TextPropertyValue } from './TextPropertyValue';
 import { UrlPropertyValue } from './UrlPropertyValue';
 import { formatDatePropertyValue } from './formatDatePropertyValue';
@@ -34,6 +35,10 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
     icon: 'calendar',
     format: formatDatePropertyValue,
     renderValue: (item) => <DatePropertyValue {...item} format={formatDatePropertyValue} />,
+  },
+  tag: {
+    icon: 'tag',
+    renderValue: (item) => <TagPropertyValue {...item} />,
   },
   boolean: {
     icon: 'check',
