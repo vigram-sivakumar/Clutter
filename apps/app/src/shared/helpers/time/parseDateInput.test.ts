@@ -17,11 +17,12 @@ describe('parseDateInput — numeric D/M/Y', () => {
     expect(parseDateInput('01/09/2026', REF)).toBe('2026-09-01');
   });
 
-  it('accepts / - and . as separators', () => {
-    expect(parseDateInput('15-9-2026', REF)).toBe('2026-09-15');
-    expect(parseDateInput('15.9.2026', REF)).toBe('2026-09-15');
-    expect(parseDateInput('15/9-2026', REF)).toBe('2026-09-15');
-  });
+  it.each(['01.02.26', '01/02/26', '01-02-26', '01 02 26', '1/2-26', '1, 2, 2026', '01  02  2026'])(
+    'treats separators as interchangeable: %j',
+    (text) => {
+      expect(parseDateInput(text, REF)).toBe('2026-02-01');
+    }
+  );
 
   it('rejects dates that do not exist', () => {
     expect(parseDateInput('31/9/2026', REF)).toBeNull();
@@ -57,9 +58,27 @@ describe('parseDateInput — other forms', () => {
     expect(parseDateInput('15 sep 26', REF)).toBe('2026-09-15');
   });
 
-  it('rejects month words that are too short or unknown', () => {
-    expect(parseDateInput('15 Se 2026', REF)).toBeNull();
-    expect(parseDateInput('15 Foo 2026', REF)).toBeNull();
+  it.each(['1 feb 26', '01/feb/2026', '01.feb.2026', '1-february-2026', '1 FEB 2026'])(
+    'accepts a month name with any separator: %j',
+    (text) => {
+      expect(parseDateInput(text, REF)).toBe('2026-02-01');
+    }
+  );
+
+  it('accepts any month prefix unique to one month, and rejects ambiguous or unknown ones', () => {
+    expect(parseDateInput('1 f 2026', REF)).toBe('2026-02-01');
+    expect(parseDateInput('15 se 2026', REF)).toBe('2026-09-15');
+    expect(parseDateInput('15 ma 2026', REF)).toBeNull();
+    expect(parseDateInput('15 ju 2026', REF)).toBeNull();
+    expect(parseDateInput('15 jun 2026', REF)).toBe('2026-06-15');
+    expect(parseDateInput('15 foo 2026', REF)).toBeNull();
+  });
+
+  it('accepts a month name first', () => {
+    expect(parseDateInput('feb 1', REF)).toBe('2026-02-01');
+    expect(parseDateInput('feb 1 2026', REF)).toBe('2026-02-01');
+    expect(parseDateInput('feb 1, 27', REF)).toBe('2027-02-01');
+    expect(parseDateInput('feb 2027', REF)).toBe('2027-02-01');
   });
 
   it('accepts ISO YYYY-MM-DD', () => {
@@ -73,8 +92,30 @@ describe('parseDateInput — other forms', () => {
   });
 });
 
-describe('parseDateInput — incomplete input', () => {
-  it.each(['', '1', '1/', '1/1', '1/1/', '1/1/2', '1/1/202', '15 Sep', 'abc'])(
+describe('parseDateInput — partial dates fill in from the reference date', () => {
+  it('reads a day alone as that day of the current month', () => {
+    expect(parseDateInput('01', REF)).toBe('2026-10-01');
+    expect(parseDateInput('1', REF)).toBe('2026-10-01');
+    expect(parseDateInput('15/', REF)).toBe('2026-10-15');
+  });
+
+  it('reads a day and month as that date this year', () => {
+    expect(parseDateInput('01.02', REF)).toBe('2026-02-01');
+    expect(parseDateInput('01/02', REF)).toBe('2026-02-01');
+    expect(parseDateInput('01-02', REF)).toBe('2026-02-01');
+    expect(parseDateInput('01 02', REF)).toBe('2026-02-01');
+    expect(parseDateInput('1 feb', REF)).toBe('2026-02-01');
+    expect(parseDateInput('1/1/', REF)).toBe('2026-01-01');
+  });
+
+  it('reads a month name alone as its 1st, this year', () => {
+    expect(parseDateInput('feb', REF)).toBe('2026-02-01');
+    expect(parseDateInput('february', REF)).toBe('2026-02-01');
+  });
+});
+
+describe('parseDateInput — not (yet) a date', () => {
+  it.each(['', '/', '0', '32', '31/9', '1/13', '1/1/2', '1/1/202', 'ma', 'abc', '2026', '2026-02', '1 2 3 4'])(
     'returns null for %j',
     (text) => {
       expect(parseDateInput(text, REF)).toBeNull();

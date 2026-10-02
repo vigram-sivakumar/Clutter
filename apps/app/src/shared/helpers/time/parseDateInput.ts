@@ -3,9 +3,8 @@ import { isValidCalendarDate } from './helpers/isValidCalendarDate';
 import { toISODate } from './helpers/toISODate';
 import type { ISODate } from './types';
 
-const NUMERIC_DMY = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/;
-const ISO_YMD = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
-const TEXTUAL_DMY = /^(\d{1,2})\s+([a-z]+)\.?,?\s+(\d{2}|\d{4})$/;
+/** Separators are not significant: any run of these splits the input into parts. */
+const SEPARATORS = /[\s./,-]+/;
 
 const RELATIVE_DAY_OFFSETS: Readonly<Record<string, number>> = {
   today: 0,
@@ -22,19 +21,37 @@ export function expandTwoDigitYear(year: number): number {
   return year <= 68 ? 2000 + year : 1900 + year;
 }
 
-function toYear(token: string): number {
-  const year = Number(token);
-  return token.length === 2 ? expandTwoDigitYear(year) : year;
+const isDayOrMonthNumber = (part: string) => /^\d{1,2}$/.test(part);
+const isWord = (part: string) => /^[a-z]+$/.test(part);
+
+/** A 2- or 4-digit year; anything else (`2`, `202`) is still being typed. */
+function toYear(part: string): number | null {
+  if (/^\d{4}$/.test(part)) {
+    return Number(part);
+  }
+  if (/^\d{2}$/.test(part)) {
+    return expandTwoDigitYear(Number(part));
+  }
+  return null;
 }
 
-/** A full month name, or an unambiguous prefix of one (≥ 3 letters): `sep`, `sept`, `september`. */
+/**
+ * A full month name or any prefix of one that matches only that month —
+ * `feb`, `f`, `sept`, `september` — else null (`ma` could be March or May).
+ */
 function monthFromWord(word: string): number | null {
-  if (word.length < 3) {
-    return null;
-  }
+  const matches = MONTH_LABELS.flatMap((label, index) =>
+    label.toLowerCase().startsWith(word) ? [index + 1] : []
+  );
+  return matches.length === 1 ? matches[0]! : null;
+}
 
-  const index = MONTH_LABELS.findIndex((label) => label.toLowerCase().startsWith(word));
-  return index === -1 ? null : index + 1;
+/** A month part: a 1–2 digit number or a month word. */
+function toMonth(part: string): number | null {
+  if (isDayOrMonthNumber(part)) {
+    return Number(part);
+  }
+  return isWord(part) ? monthFromWord(part) : null;
 }
 
 function buildISODate(year: number, month: number, day: number): ISODate | null {
@@ -43,17 +60,71 @@ function buildISODate(year: number, month: number, day: number): ISODate | null 
 }
 
 /**
- * Parses a typed date into a local `YYYY-MM-DD`, or null when the text
- * isn't (yet) a complete, real date — the caller keeps the text as typed.
- * Deliberately closed grammar, day-before-month (the app's `en-IN`
- * convention):
- * - numeric `D/M/Y` with `/`, `-` or `.`, unpadded or zero-padded, and a
- *   2- or 4-digit year (`1/9/26`, `01-09-2026`, `15.9.2026`);
+ * Day-first: `D`, `D M`, `D M Y`. A missing month/year comes from
+ * `referenceDate` — `01` is the 1st of the current month, `01 02` is
+ * 1 February this year.
+ */
+function parseDayFirst(parts: readonly string[], referenceDate: Date): ISODate | null {
+  const [dayPart, monthPart, yearPart] = parts;
+
+  if (!dayPart || !isDayOrMonthNumber(dayPart)) {
+    return null;
+  }
+
+  const month = monthPart === undefined ? referenceDate.getMonth() + 1 : toMonth(monthPart);
+  const year = yearPart === undefined ? referenceDate.getFullYear() : toYear(yearPart);
+
+  if (month === null || year === null) {
+    return null;
+  }
+
+  return buildISODate(year, month, Number(dayPart));
+}
+
+/**
+ * Month-name-first: `Mon`, `Mon D`, `Mon Y`, `Mon D Y`. A month alone means
+ * its 1st; a 4-digit number straight after the month is a year, a 1–2
+ * digit one is a day.
+ */
+function parseMonthFirst(parts: readonly string[], referenceDate: Date): ISODate | null {
+  const [monthPart, second, third] = parts;
+  const month = monthPart ? monthFromWord(monthPart) : null;
+
+  if (month === null) {
+    return null;
+  }
+
+  if (second === undefined) {
+    return buildISODate(referenceDate.getFullYear(), month, 1);
+  }
+
+  if (/^\d{4}$/.test(second) && third === undefined) {
+    return buildISODate(Number(second), month, 1);
+  }
+
+  if (!isDayOrMonthNumber(second)) {
+    return null;
+  }
+
+  const year = third === undefined ? referenceDate.getFullYear() : toYear(third);
+  return year === null ? null : buildISODate(year, month, Number(second));
+}
+
+/**
+ * Interprets typed date text as a local `YYYY-MM-DD` whenever it can be
+ * read as one — complete or partial — else null (the caller keeps the
+ * text as typed and leaves the calendar where it was). Separators are not
+ * significant: `.`, `/`, `-`, `,` and whitespace are interchangeable.
+ * Accepted, day before month (the app's `en-IN` convention):
+ * - `D` → that day of `referenceDate`'s month; `D M` → this year;
+ *   `D M Y` with a 2- or 4-digit year — the month as a number or a name
+ *   (`1 feb 26`, `01.feb.2026`, `15/09/2026`);
+ * - a month name first: `feb` (its 1st, this year), `feb 1`, `feb 2026`,
+ *   `feb 1 2026`;
  * - ISO `YYYY-MM-DD`;
- * - `D Month Y` with a full or abbreviated month name (`15 Sep 2026`,
- *   `15 September 2026`);
- * - `Today` / `Tomorrow` / `Yesterday`, relative to `referenceDate` — so
- *   every label the Property date formatter displays parses back.
+ * - `Today` / `Tomorrow` / `Yesterday` — so every label the Property date
+ *   formatter displays parses back.
+ * Month names may be full or any prefix unique to one month.
  */
 export function parseDateInput(input: string, referenceDate: Date = new Date()): ISODate | null {
   const text = input.trim().toLowerCase();
@@ -64,21 +135,21 @@ export function parseDateInput(input: string, referenceDate: Date = new Date()):
     return toISODate(date);
   }
 
-  const iso = ISO_YMD.exec(text);
-  if (iso) {
-    return buildISODate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const parts = text.split(SEPARATORS).filter((part) => part !== '');
+
+  if (parts.length === 0 || parts.length > 3) {
+    return null;
   }
 
-  const numeric = NUMERIC_DMY.exec(text);
-  if (numeric) {
-    return buildISODate(toYear(numeric[3]!), Number(numeric[2]), Number(numeric[1]));
+  const [first] = parts;
+
+  if (/^\d{4}$/.test(first!)) {
+    // ISO, year first: only the complete Y M D form.
+    const [, monthPart, dayPart] = parts;
+    return parts.length === 3 && isDayOrMonthNumber(monthPart!) && isDayOrMonthNumber(dayPart!)
+      ? buildISODate(Number(first), Number(monthPart), Number(dayPart))
+      : null;
   }
 
-  const textual = TEXTUAL_DMY.exec(text);
-  if (textual) {
-    const month = monthFromWord(textual[2]!);
-    return month === null ? null : buildISODate(toYear(textual[3]!), month, Number(textual[1]));
-  }
-
-  return null;
+  return isWord(first!) ? parseMonthFirst(parts, referenceDate) : parseDayFirst(parts, referenceDate);
 }

@@ -201,7 +201,7 @@ describe('DatePropertyValue — editable', () => {
 });
 
 describe('DatePropertyValue — typing', () => {
-  it('keeps incomplete input exactly as typed and commits nothing', () => {
+  it('keeps the typed text exactly as typed and commits nothing while typing', () => {
     const onCommit = vi.fn();
     render(
       <DatePropertyValue
@@ -214,14 +214,66 @@ describe('DatePropertyValue — typing', () => {
     );
 
     fireEvent.click(getField());
-    for (const text of ['1', '1/', '1/1', '1/1/']) {
+    for (const text of ['1', '1/', '1/1', '1/1/', '1/1/2', '1 f', '01.feb']) {
       type(text);
       expect(getField().value).toBe(text);
     }
 
     expect(onCommit).not.toHaveBeenCalled();
-    expect(calendarMonthYear()).toBe('September 2025');
-    expect(selectedDay()).toBe('15');
+  });
+
+  it('progressively syncs the calendar to partial dates, whatever the separator', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+    const year = new Date().getFullYear();
+    const thisMonth = new Date().toLocaleString('en', { month: 'long' });
+
+    fireEvent.click(getField());
+
+    type('01');
+    expect(calendarMonthYear()).toBe(`${thisMonth} ${year}`);
+    expect(selectedDay()).toBe('1');
+
+    for (const text of ['01.02', '01/02', '01-02', '01 02']) {
+      type(text);
+      expect(calendarMonthYear()).toBe(`February ${year}`);
+      expect(selectedDay()).toBe('1');
+    }
+
+    type('01-02-27');
+    expect(calendarMonthYear()).toBe('February 2027');
+  });
+
+  it('progressively syncs the calendar to month names', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+    const year = new Date().getFullYear();
+
+    fireEvent.click(getField());
+
+    type('mar');
+    expect(calendarMonthYear()).toBe(`March ${year}`);
+
+    type('1 feb');
+    expect(calendarMonthYear()).toBe(`February ${year}`);
+    expect(selectedDay()).toBe('1');
+
+    type('1 feb 27');
+    expect(calendarMonthYear()).toBe('February 2027');
+
+    type('20.dec.2028');
+    expect(calendarMonthYear()).toBe('December 2028');
+    expect(selectedDay()).toBe('20');
+  });
+
+  it('leaves the calendar on its last valid state while the text cannot be read', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1 feb 27');
+    type('1 feb 2');
+    type('1 ma');
+
+    expect(calendarMonthYear()).toBe('February 2027');
+    expect(selectedDay()).toBe('1');
   });
 
   it('does not reset invalid input while typing', () => {
@@ -342,7 +394,7 @@ describe('DatePropertyValue — typing', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     fireEvent.click(getField());
-    type('1/1/');
+    type('1/1/2');
     fireEvent.blur(getField());
 
     expect(getField().value).toBe('15 Sep 2025');
@@ -404,7 +456,7 @@ describe('DatePropertyValue — only valid dates commit', () => {
     );
 
     act(() => getField().focus());
-    type('1/1/');
+    type('1/1/2');
     fireEvent.keyDown(getField(), { key: 'Enter' });
     expect(isShaking()).toBe(true);
 
@@ -420,7 +472,7 @@ describe('DatePropertyValue — only valid dates commit', () => {
       render(<StatefulDate initial="2025-09-15" />);
 
       act(() => getField().focus());
-      type('1/1/');
+      type('1/1/2');
       fireEvent.keyDown(getField(), { key: 'Enter' });
       expect(isShaking()).toBe(true);
 
