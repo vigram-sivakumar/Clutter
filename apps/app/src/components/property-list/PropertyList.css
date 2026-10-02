@@ -261,3 +261,11 @@
   min-width: 1ch;
   color: inherit;
 }
+/* A new property's empty name field shows its placeholder ("Name"): it
+   fills the cell meanwhile, or it would shrink to one character and clip
+   the placeholder. Typing the first character returns it to its content
+   width, like every other name. Only a field with a placeholder (a new
+   property's) is affected, never an existing name cleared while renaming. */
+.property-list__name .property-list__name-input[data-placeholder][data-empty='true'] {
+  width: 100%;
+}
