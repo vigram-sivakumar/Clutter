@@ -380,3 +380,20 @@ export function setPropertiesSectionVisibility(lines: readonly string[], show: b
 
   return [...lines.slice(0, block.start + 1), `${indent}${SHOW_KEY}: true`, ...lines.slice(block.start + 1)];
 }
+
+/**
+ * The raw lines with the whole `properties:` block removed — `show`,
+ * `visible` and anything else under it — back to the never-configured
+ * state (hidden, nothing listed). The block's key line and its content
+ * lines go; blank lines after its last content line and every other line
+ * stay byte-identical. No block: nothing changes.
+ */
+export function removePropertiesBlock(lines: readonly string[]): string[] {
+  const block = findProperties(lines);
+
+  if (!block) {
+    return [...lines];
+  }
+
+  return [...lines.slice(0, block.start), ...lines.slice(lastContentLine(block) + 1)];
+}

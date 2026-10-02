@@ -60,7 +60,14 @@ import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
 import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
-import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { emptyCustomProperty, readCustomProperties } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import {
+  readPropertiesSectionVisibility,
+  readVisibleProperties,
+} from '@core/vault/ingest/frontmatter/propertyVisibility';
+import { Confirmation } from '@components/confirmation/Confirmation';
+import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
+import { Dialog } from '@components/dialog/Dialog';
 import type { PropertiesControl } from './header/propertiesControl';
 import { derivePropertiesSectionState } from './propertiesSectionState';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
@@ -491,6 +498,9 @@ export function PageHost({
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
+  const propertiesConfirmation = useConfirmationSurface();
+  // The page whose title "Properties" was just chosen, before its first property.
+  const [startingPropertyPageId, setStartingPropertyPageId] = useState<string | null>(null);
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -1756,15 +1766,56 @@ export function PageHost({
     lines: page.metadata.unownedFrontmatter ?? [],
     isArchived,
     hasDraft: propertyDrafts.drafts.length > 0,
+    isStarting: startingPropertyPageId === page.id,
   });
   const isSectionDisplayed = sectionState.isDisplayed;
+  const pageLines = page.metadata.unownedFrontmatter ?? [];
+  const hasPropertiesConfig =
+    readPropertiesSectionVisibility(pageLines) ||
+    readVisibleProperties(pageLines).length > 0 ||
+    readCustomProperties(pageLines).length > 0;
+  // An unnamed draft belongs to the section being hidden: drop it, so it
+  // can't reappear (and grab focus) when shown again.
+  const hidePropertiesSection = (): void => {
+    propertyDrafts.clear();
+    setStartingPropertyPageId(null);
+    void application.pageOperations.setPropertiesSectionVisibility(page.id, false);
+  };
+  const requestRemoveAllProperties = (): void =>
+    propertiesConfirmation.request({
+      title: 'Remove all properties?',
+      message:
+        "This deletes every custom property and its value from this note's frontmatter, and hides its system properties and the Properties section. Tags, aliases and the other system values are kept.",
+      confirmLabel: 'Remove all',
+      onConfirm: () => {
+        propertyDrafts.clear();
+        setStartingPropertyPageId(null);
+        void application.pageOperations.removeAllProperties(page.id);
+      },
+    });
   const addPropertyRow =
     sectionState.showsAddRow ? (
       <AddPropertyRow
         systemProperties={addableProperties.systemProperties}
         hiddenProperties={addableProperties.hiddenProperties}
-        onShowProperty={(key) => void application.pageOperations.showProperty(page.id, key)}
-        onAddCustomProperty={propertyDrafts.add}
+        // The title's "Properties" opens this row's menu; once it is used or
+        // dismissed the transient start is over (a choice has then either
+        // written the property or begun a draft, which keep the section).
+        autoOpen={startingPropertyPageId === page.id}
+        onDismiss={() => setStartingPropertyPageId(null)}
+        onShowProperty={(key) =>
+          void application.pageOperations
+            .showProperty(page.id, key)
+            .finally(() => setStartingPropertyPageId(null))
+        }
+        onAddCustomProperty={(type) => {
+          propertyDrafts.add(type);
+          setStartingPropertyPageId(null);
+        }}
+        // Only for a note that has something to hide or reset: not while the
+        // first property is only being started.
+        onHideProperties={hasPropertiesConfig ? hidePropertiesSection : undefined}
+        onRemoveAll={hasPropertiesConfig ? requestRemoveAllProperties : undefined}
       />
     ) : undefined;
   // The title's control: "Add a property" until the first property exists,
@@ -1777,23 +1828,14 @@ export function PageHost({
         ? {
             mode: 'toggle',
             shown: true,
-            onToggle: () => {
-              // An unnamed draft belongs to the section being hidden: drop it,
-              // so it can't reappear (and grab focus) when shown again.
-              propertyDrafts.clear();
-              void application.pageOperations.setPropertiesSectionVisibility(page.id, false);
-            },
+            onToggle: hidePropertiesSection,
           }
         : sectionState.control === 'add'
           ? {
               mode: 'add',
-              menu: {
-                systemProperties: addableProperties.systemProperties,
-                hiddenProperties: addableProperties.hiddenProperties,
-                // Shows the property and the section in one save.
-                onShowProperty: (key) => void application.pageOperations.showProperty(page.id, key),
-                onAddCustomProperty: propertyDrafts.add,
-              },
+              // Shows the (empty) section and opens its "+ Add a property"
+              // menu there, so the first property is chosen in place.
+              onStart: () => setStartingPropertyPageId(page.id),
             }
           : {
               mode: 'toggle',
@@ -1802,6 +1844,7 @@ export function PageHost({
             };
 
   return (
+    <>
     <Page
       titleKey={activePageId}
       descriptionKey={activePageId}
@@ -1931,5 +1974,21 @@ export function PageHost({
         </MarkdownBody>
       }
     />
+    <Dialog
+      open={propertiesConfirmation.pending !== null}
+      onClose={propertiesConfirmation.cancel}
+      size="medium"
+    >
+      {propertiesConfirmation.pending && (
+        <Confirmation
+          title={propertiesConfirmation.pending.title}
+          description={propertiesConfirmation.pending.message}
+          confirmLabel={propertiesConfirmation.pending.confirmLabel}
+          onConfirm={propertiesConfirmation.confirm}
+          onCancel={propertiesConfirmation.cancel}
+        />
+      )}
+    </Dialog>
+    </>
   );
 }

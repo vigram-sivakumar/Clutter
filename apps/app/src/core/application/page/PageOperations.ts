@@ -19,6 +19,7 @@ import {
   addVisibleProperty,
   readPropertiesSectionVisibility,
   readVisibleProperties,
+  removePropertiesBlock,
   removeVisibleProperty,
   renameVisibleProperty,
   setPropertiesSectionVisibility,
@@ -1811,6 +1812,29 @@ export class PageOperations {
     await this.saveCustomFrontmatter(pageId, (lines) =>
       removeVisibleProperty(removeCustomProperty(lines, key), key)
     );
+  }
+
+  /**
+   * Resets this page's properties: every custom property goes from its
+   * frontmatter (removeCustomProperty — keys and values, none kept as a
+   * hidden property) and the whole `properties:` block goes with them
+   * (removePropertiesBlock), so no system property is listed and the
+   * section is hidden — the never-configured state, in one save. The
+   * system values themselves (tags, aliases, created, modified) are owned
+   * fields and untouched. Every other line stays byte-identical; a page
+   * that is already in that state writes nothing. Same guard and Gate
+   * `save` as deleteCustomProperty().
+   */
+  public async removeAllProperties(pageId: string): Promise<void> {
+    await this.saveCustomFrontmatter(pageId, (lines) => {
+      const withoutCustom = readCustomProperties(lines).reduce(
+        (current, property) => removeCustomProperty(current, property.key),
+        [...lines]
+      );
+      const reset = removePropertiesBlock(withoutCustom);
+
+      return reset.length === lines.length ? null : reset;
+    });
   }
 
   /**

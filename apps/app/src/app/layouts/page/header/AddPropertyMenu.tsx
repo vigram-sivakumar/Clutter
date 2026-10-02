@@ -29,22 +29,28 @@ export interface AddPropertyMenuProps {
   /**
    * System Properties not currently shown — computed by the host from the
    * system property definitions (never listed here), minus those the page
-   * shows. Omitted or empty: no Properties group.
+   * shows. Omitted or empty: none listed.
    */
   systemProperties?: readonly AddableSystemProperty[];
-  /** Custom properties in the frontmatter that aren't shown. Omitted or empty: no Hidden group. */
+  /** Custom properties in the frontmatter that aren't shown. Omitted or empty: none listed. */
   hiddenProperties?: readonly HiddenPropertyOption[];
   /** Shows an existing property: a system Property's canonical key, or a custom property's actual key. */
   onShowProperty?(key: string): void;
   /** Adds a new, unnamed custom Property of the chosen type; the user names it next. */
   onAddCustomProperty(type: CustomPropertyType): void;
+  /** Hides the whole Properties section (its properties are kept). Omitted: no "Hide Properties" action. */
+  onHideProperties?(): void;
+  /** Starts removing every property from the note (the host confirms first). Omitted: no "Delete all" action. */
+  onRemoveAll?(): void;
 }
 
 /**
- * What can be added to the page's Properties: the system Properties not
- * currently shown, the custom properties that exist but aren't shown, then
- * every custom Property type. The custom types come
- * from the property type registry (customPropertyTypeOptions), so this
+ * What can be added to the page's Properties: the properties that exist but
+ * aren't shown, under a "Hidden" title, then every custom type under a "Type"
+ * title, then a divider and the optional actions (Hide Properties, Delete all).
+ * Under "Hidden": the system Properties not currently shown, then the custom
+ * properties that exist but aren't shown. The custom types come from the
+ * property type registry (customPropertyTypeOptions), so this
  * menu holds no list of its own. Hosted by the Properties section's
  * "+ Add a property" row (AddPropertyRow), which closes it after a choice.
  *
@@ -58,18 +64,19 @@ export function AddPropertyMenu({
   hiddenProperties = [],
   onShowProperty,
   onAddCustomProperty,
+  onHideProperties,
+  onRemoveAll,
 }: AddPropertyMenuProps) {
   const canShow = Boolean(onShowProperty);
   const showSystem = canShow && systemProperties.length > 0;
   const showHidden = canShow && hiddenProperties.length > 0;
-  // Group titles only help when there is more than one group to tell apart.
-  const hasTitles = showSystem || showHidden;
+  const hasActions = Boolean(onHideProperties || onRemoveAll);
 
   return (
     <Menu size="medium" aria-label="Add properties">
+      {(showSystem || showHidden) && <MenuGroupTitle>Hidden</MenuGroupTitle>}
       {showSystem && (
         <>
-          <MenuGroupTitle>Properties</MenuGroupTitle>
           {systemProperties.map((property) => (
             <MenuItem
               key={property.id}
@@ -86,7 +93,6 @@ export function AddPropertyMenu({
       )}
       {showHidden && (
         <>
-          <MenuGroupTitle>Hidden</MenuGroupTitle>
           {hiddenProperties.map((property) => (
             <MenuItem
               key={property.key}
@@ -101,7 +107,7 @@ export function AddPropertyMenu({
           ))}
         </>
       )}
-      {hasTitles && <MenuGroupTitle>Type</MenuGroupTitle>}
+      <MenuGroupTitle>Type</MenuGroupTitle>
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}
@@ -114,6 +120,29 @@ export function AddPropertyMenu({
           {option.label}
         </MenuItem>
       ))}
+      {hasActions && <div className="menu__divider" role="separator" />}
+      {onHideProperties && (
+        <MenuItem
+          leading={<AppIcon icon="hide" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            onHideProperties();
+          }}
+        >
+          Hide Properties
+        </MenuItem>
+      )}
+      {onRemoveAll && (
+        <MenuItem
+          leading={<AppIcon icon="trash" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemoveAll();
+          }}
+        >
+          Delete all
+        </MenuItem>
+      )}
     </Menu>
   );
 }

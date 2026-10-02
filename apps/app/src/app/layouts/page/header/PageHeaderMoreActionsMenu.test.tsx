@@ -6,7 +6,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { PageHeaderMoreActionsMenu } from './PageHeaderMoreActionsMenu';
 import type { PageHeaderMoreActionsMenuProps } from './PageHeaderMoreActionsMenu';
-import type { AddPropertyMenuProps } from './AddPropertyMenu';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -275,29 +274,15 @@ describe('PageHeaderMoreActionsMenu — the Properties control', () => {
   const rootItems = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
   const toggle = (shown: boolean, onToggle = vi.fn()) =>
     ({ mode: 'toggle', shown, onToggle }) as const;
-  const add = (overrides: Partial<AddPropertyMenuProps> = {}) => {
-    const onShowProperty = vi.fn();
-    const onAddCustomProperty = vi.fn();
-    return {
-      onShowProperty,
-      onAddCustomProperty,
-      control: {
-        mode: 'add',
-        menu: {
-          systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }],
-          hiddenProperties: [{ key: 'Due date', type: 'date' }],
-          onShowProperty,
-          onAddCustomProperty,
-          ...overrides,
-        },
-      } as const,
-    };
+  const add = () => {
+    const onStart = vi.fn();
+    return { onStart, control: { mode: 'add', onStart } as const };
   };
 
   it('has no Properties item without a control', () => {
     renderMenu();
 
-    for (const label of ['Show properties', 'Hide properties', 'Add a property']) {
+    for (const label of ['Show properties', 'Hide properties', 'Properties']) {
       expect(rootItems()).not.toContain(label);
     }
   });
@@ -314,9 +299,9 @@ describe('PageHeaderMoreActionsMenu — the Properties control', () => {
       expect(rootItems()).not.toContain('Show properties');
     });
 
-    it('is never "Add a property": that is only for before the first property', () => {
+    it('is never "Properties": that is only for before the first property', () => {
       renderMenu({ propertiesControl: toggle(false) });
-      expect(rootItems()).not.toContain('Add a property');
+      expect(rootItems()).not.toContain('Properties');
     });
 
     it.each([
@@ -343,88 +328,22 @@ describe('PageHeaderMoreActionsMenu — the Properties control', () => {
   });
 
   describe('add mode (before the first property)', () => {
-    it('shows "Add a property" with a plus icon, and no toggle', () => {
+    it('shows "Properties" with an info icon, and no toggle', () => {
       renderMenu({ propertiesControl: add().control });
 
-      expect(rootItems()).toContain('Add a property');
+      expect(rootItems()).toContain('Properties');
       expect(rootItems()).not.toContain('Show properties');
       expect(rootItems()).not.toContain('Hide properties');
     });
 
-    it('opens the existing Add properties menu in place: system, hidden and new types', () => {
-      renderMenu({ propertiesControl: add().control });
-
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Add a property' }));
-
-      expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
-      expect(screen.getAllByRole('menu')).toHaveLength(1);
-      expect(screen.getByText('Properties')).toBeInTheDocument();
-      expect(screen.getByText('Hidden')).toBeInTheDocument();
-      expect(screen.getByText('Type')).toBeInTheDocument();
-      expect(rootItems()).toEqual([
-        'Created',
-        'Due date',
-        'Text',
-        'Date',
-        'URL',
-        'Number',
-        'Boolean',
-        'Multi-select',
-      ]);
-    });
-
-    it.each([
-      ['a system property', 'Created', 'created'],
-      ['a hidden custom property', 'Due date', 'Due date'],
-    ])('choosing %s shows it by its canonical key and closes the menu', (_label, item, key) => {
-      const { control, onShowProperty, onAddCustomProperty } = add();
+    it('starts the first property and closes the menu — the type menu opens in the section, not here', () => {
+      const { control, onStart } = add();
       renderMenu({ propertiesControl: control });
 
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Add a property' }));
-      fireEvent.click(screen.getByRole('menuitem', { name: item }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Properties' }));
 
-      expect(onShowProperty).toHaveBeenCalledExactlyOnceWith(key);
-      expect(onAddCustomProperty).not.toHaveBeenCalled();
+      expect(onStart).toHaveBeenCalledOnce();
       expect(screen.queryByRole('menu')).toBeNull();
-    });
-
-    it.each(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select'])(
-      'choosing the new type %s starts a draft and closes the menu',
-      (label) => {
-        const { control, onShowProperty, onAddCustomProperty } = add();
-        renderMenu({ propertiesControl: control });
-
-        fireEvent.click(screen.getByRole('menuitem', { name: 'Add a property' }));
-        fireEvent.click(screen.getByRole('menuitem', { name: label }));
-
-        expect(onAddCustomProperty).toHaveBeenCalledOnce();
-        expect(onShowProperty).not.toHaveBeenCalled();
-        expect(screen.queryByRole('menu')).toBeNull();
-      }
-    );
-
-    it('closing the menu without choosing changes nothing', () => {
-      const { control, onShowProperty, onAddCustomProperty } = add();
-      renderMenu({ propertiesControl: control });
-
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Add a property' }));
-      fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-
-      expect(screen.queryByRole('menu')).toBeNull();
-      expect(onShowProperty).not.toHaveBeenCalled();
-      expect(onAddCustomProperty).not.toHaveBeenCalled();
-    });
-
-    it('reopening starts on the root menu again, not the property list', () => {
-      renderMenu({ propertiesControl: add().control });
-
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Add a property' }));
-      expect(rootItems()).toContain('Text');
-      fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-      fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-
-      expect(rootItems()).toContain('Add a property');
-      expect(rootItems()).not.toContain('Text');
     });
   });
 });

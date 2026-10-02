@@ -1058,6 +1058,42 @@ describe('PageOperations.renameCustomProperty()', () => {
       await expect(pageOperations.deleteCustomProperty(page.id, 'x')).rejects.toThrow(/Cannot edit archived page/);
     });
 
+    it('removeAllProperties deletes every custom property and the whole properties block in one save, keeping the body and other pages', async () => {
+      const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+        'author: Jane\npeople:\n  - Ana\npriority: high\nproperties:\n  show: true\n  visible:\n    - tags\n    - people',
+        'people:\n  - Zed'
+      );
+      const otherBefore = await fileSystem.readFile(other.path);
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      await pageOperations.removeAllProperties(page.id);
+
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+      const content = await fileSystem.readFile(page.path);
+      for (const gone of ['author', 'people', 'Ana', 'priority', 'properties', 'show:', 'visible']) {
+        expect(content).not.toContain(gone);
+      }
+      expect(content).toContain('Body text');
+      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
+      expect(readCustomProperties(lines)).toEqual([]);
+      expect(readPropertiesSectionVisibility(lines)).toBe(false);
+      expect(visibleOf(vault, page.id)).toEqual([]);
+      expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+    });
+
+    it('removeAllProperties on a page already without properties writes nothing, and rejects an archived or unknown page', async () => {
+      const { page, coordinator, pageOperations } = await setupWithFrontmatter('');
+      const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+      await pageOperations.removeAllProperties(page.id);
+      expect(enqueue).not.toHaveBeenCalled();
+
+      await expect(pageOperations.removeAllProperties('nope')).rejects.toThrow(/Page not found/);
+      await archiveDirectly(coordinator, page.id);
+      await expect(pageOperations.removeAllProperties(page.id)).rejects.toThrow(/Cannot edit archived page/);
+    });
+
     describe('the Properties section (properties.show)', () => {
       const sectionShown = (vault: any, id: string) =>
         readPropertiesSectionVisibility(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);

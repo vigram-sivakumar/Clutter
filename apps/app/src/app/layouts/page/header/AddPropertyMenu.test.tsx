@@ -47,12 +47,12 @@ describe('AddPropertyMenu', () => {
     expect(itemLabels()).not.toContain('Tags');
   });
 
-  it('has no system section when no system property is available', () => {
+  it('lists no system properties when none is available', () => {
     renderMenu({ systemProperties: [] });
 
     expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.queryByText('Type')).toBeNull();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
   it('lists the available system properties first, then the custom types', () => {
@@ -73,9 +73,9 @@ describe('AddPropertyMenu', () => {
       'Boolean',
       'Multi-select',
     ]);
-    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(screen.getByText('Hidden')).toBeInTheDocument();
   });
 
   it('shows only the system properties it is given: one already displayed is simply not passed', () => {
@@ -139,15 +139,15 @@ describe('AddPropertyMenu — hidden custom properties', () => {
       'Boolean',
       'Multi-select',
     ]);
-    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
-  it('shows only the group it has, with the new types still offered', () => {
+  it('lists only what it has, with the new types still offered', () => {
     renderMenu({ hiddenProperties: hidden });
 
-    // No system group, so no Properties title; Hidden still leads.
+    // The hidden properties lead, under their own title.
     expect(screen.queryByText('Properties')).toBeNull();
     expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(itemLabels().slice(0, 2)).toEqual(['Due date', 'people']);
@@ -170,5 +170,65 @@ describe('AddPropertyMenu — hidden custom properties', () => {
     });
 
     expect(itemLabels()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
+  });
+});
+
+describe('AddPropertyMenu — actions', () => {
+  it('without the actions, the menu is only the "Type" title and the list', () => {
+    renderMenu();
+
+    expect(screen.queryByRole('separator')).toBeNull();
+    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(itemLabels()).not.toContain('Hide Properties');
+    expect(itemLabels()).not.toContain('Delete all');
+  });
+
+  it('puts the "Type" title and the list first, then a divider, then Hide Properties and Delete all', () => {
+    renderMenu({ onHideProperties: vi.fn(), onRemoveAll: vi.fn() });
+
+    expect(itemLabels().slice(-3)).toEqual(['Multi-select', 'Hide Properties', 'Delete all']);
+    const menu = screen.getByRole('menu', { name: 'Add properties' });
+    const order = [...menu.querySelectorAll('[role=menuitem], [role=separator], .menu__group-title')].map(
+      (node) => node.getAttribute('role') ?? node.textContent
+    );
+    expect(order[0]).toBe('Type');
+    expect(order.slice(-3)).toEqual(['separator', 'menuitem', 'menuitem']);
+  });
+
+  it('each action reports itself only, and adds or shows nothing', () => {
+    const onHideProperties = vi.fn();
+    const onRemoveAll = vi.fn();
+    const { onAddCustomProperty, onShowProperty } = renderMenu({ onHideProperties, onRemoveAll });
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
+    expect(onHideProperties).toHaveBeenCalledOnce();
+    expect(onRemoveAll).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all' }));
+    expect(onRemoveAll).toHaveBeenCalledOnce();
+    expect(onAddCustomProperty).not.toHaveBeenCalled();
+    expect(onShowProperty).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddPropertyMenu — sections', () => {
+  const hidden = [{ key: 'Due date', type: 'date' }, { key: 'people', type: 'multi-select' }] as const;
+
+  it('titles the existing-but-hidden properties "Hidden" and the new types "Type", in that order', () => {
+    renderMenu({ systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }], hiddenProperties: hidden });
+
+    const menu = screen.getByRole('menu', { name: 'Add properties' });
+    const titles = [...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent);
+    expect(titles).toEqual(['Hidden', 'Type']);
+    // Neither list is under the other's title: the hidden ones precede "Type".
+    const labels = [...menu.querySelectorAll('.menu__group-title, [role=menuitem]')].map((node) => node.textContent);
+    expect(labels.indexOf('Type')).toBe(labels.indexOf('people') + 1);
+  });
+
+  it('has no "Hidden" title when nothing is hidden', () => {
+    renderMenu();
+
+    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 });

@@ -11,6 +11,7 @@ import {
   addVisibleProperty,
   readPropertiesSectionVisibility,
   readVisibleProperties,
+  removePropertiesBlock,
   removeVisibleProperty,
   renameVisibleProperty,
   setPropertiesSectionVisibility,
@@ -414,5 +415,27 @@ describe('`properties` is a reserved Clutter key, never a custom property', () =
     expect(matchSystemKey('properties')).toBeNull();
     // ...and so the parser preserves it verbatim.
     expect(lines).toEqual(['author: Jane', 'properties:', '  visible:', '    - tags', 'priority: high']);
+  });
+});
+
+describe('removePropertiesBlock', () => {
+  it('removes the whole block — show, visible and anything else under it — and nothing else', () => {
+    const lines = customLines('priority: high\nproperties:\n  show: true\n  visible:\n    - tags\n    - Due date\n  other: 1\nmood: ok');
+
+    expect(removePropertiesBlock(lines)).toEqual(['priority: high', 'mood: ok']);
+  });
+
+  it('leaves no properties key behind, so the section is hidden and nothing is listed', () => {
+    const result = removePropertiesBlock(customLines('properties:\n  show: true\n  visible:\n    - tags'));
+
+    expect(result).toEqual([]);
+    expect(readPropertiesSectionVisibility(result)).toBe(false);
+    expect(readVisibleProperties(result)).toEqual([]);
+  });
+
+  it('changes nothing when there is no block', () => {
+    const lines = customLines('priority: high');
+
+    expect(removePropertiesBlock(lines)).toEqual(lines);
   });
 });

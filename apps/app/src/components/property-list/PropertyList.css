@@ -2,7 +2,6 @@
   /* Property rows are 32px — Entry's and Input's height and every value
      cell's minimum read this, for this list only. */
   --height-lg: 32px;
-  margin-left: -6px;
 
   display: flex;
   flex-direction: column;
@@ -18,7 +17,7 @@
 }
 .property-list__name {
   max-width: 160px;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-secondary);
 }
 /* The name's icon is the property's type. For a Property with a menu,
    hovering the name (or keeping its menu open) swaps it for the menu's
@@ -64,6 +63,7 @@
   overflow-wrap: anywhere;
 }
 .property-list .entry {
+  padding-inline: 0;
   font-size: inherit;
 }
 

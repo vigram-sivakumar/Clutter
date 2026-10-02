@@ -200,6 +200,7 @@ describe('Add properties — showing existing properties', () => {
 
     openAddProperties();
     expect(menuItems()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
-    expect(names()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'priority']);
+    // (The open menu's own row is the empty placeholder.)
+    expect(names()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'priority', 'New property']);
   });
 });

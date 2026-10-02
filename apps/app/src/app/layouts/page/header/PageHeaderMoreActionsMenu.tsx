@@ -6,7 +6,6 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { EmojiTray } from '@components/emoji-tray/EmojiTray';
 import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
-import { AddPropertyMenu } from './AddPropertyMenu';
 import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
 
@@ -74,7 +73,7 @@ export interface PageHeaderMoreActionsMenuProps {
   propertiesControl?: PropertiesControl;
 }
 
-type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
+type MenuView = 'root' | 'emoji' | 'cover';
 
 /**
  * The page header's "More actions" menu. Structurally, this is one
@@ -84,8 +83,7 @@ type MenuView = 'root' | 'emoji' | 'cover' | 'properties';
  *   Overlay
  *   ├── 'root'  → <Menu> (Emoji/Cover image/Description items)
  *   ├── 'emoji' → the existing EmojiTray, unwrapped
- *   ├── 'cover' → the existing ImagePicker, unwrapped
- *   └── 'properties' → AddPropertyMenu (a `<Menu>`; only in the Properties control's `add` mode)
+ *   └── 'cover' → the existing ImagePicker, unwrapped
  *
  * `EmojiTray` and `ImagePicker` are each already a complete, self-styled
  * surface (own background/border-radius/box-shadow/padding — see either
@@ -259,51 +257,32 @@ export function PageHeaderMoreActionsMenu({
             )}
             {propertiesControl && (
               <MenuItem
-                leading={<AppIcon icon={propertiesControl.mode === 'add' ? 'plus' : 'table'} />}
+                leading={<AppIcon icon="info" />}
                 onClick={(event) => {
                   event.stopPropagation();
 
+                  // The section's own "+ Add a property" menu takes over (add
+                  // mode), or the section is toggled; either way this menu
+                  // closes without taking focus back from what follows.
+                  suppressReturnFocusRef.current = true;
+                  setOpen(false);
+
                   if (propertiesControl.mode === 'add') {
-                    setView('properties');
+                    propertiesControl.onStart();
                     return;
                   }
 
-                  setOpen(false);
                   propertiesControl.onToggle();
                 }}
               >
                 {propertiesControl.mode === 'add'
-                  ? 'Add a property'
+                  ? 'Properties'
                   : propertiesControl.shown
                     ? 'Hide properties'
                     : 'Show properties'}
               </MenuItem>
             )}
           </Menu>
-        )}
-
-        {view === 'properties' && propertiesControl?.mode === 'add' && (
-          <AddPropertyMenu
-            systemProperties={propertiesControl.menu.systemProperties}
-            hiddenProperties={propertiesControl.menu.hiddenProperties}
-            onShowProperty={
-              propertiesControl.menu.onShowProperty &&
-              ((key) => {
-                // The shown property's row appears with focus staying put —
-                // see suppressReturnFocusRef's doc comment above.
-                suppressReturnFocusRef.current = true;
-                setOpen(false);
-                propertiesControl.menu.onShowProperty?.(key);
-              })
-            }
-            onAddCustomProperty={(type) => {
-              // The draft's name field takes focus: the closing menu must not
-              // return it to this button.
-              suppressReturnFocusRef.current = true;
-              setOpen(false);
-              propertiesControl.menu.onAddCustomProperty(type);
-            }}
-          />
         )}
 
         {view === 'emoji' && (

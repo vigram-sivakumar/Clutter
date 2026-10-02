@@ -1,27 +1,20 @@
-/* Property rows centre their name and value; this row has only a name, so
-   it starts at the left like every other name. */
-.property-list__row.property-list__add-row {
-  justify-content: flex-start;
+/* Pulls the "+ Add a property" button's left edge in line with the rows'
+   content. The wrapper is also the type menu's anchor, so the menu moves
+   with it. */
+.property-list__add-row {
+  margin-left: -6px;
+
+  /* As tall as a property row (the list's --height-lg), with the button
+     centred in it, so swapping between this and the placeholder row while
+     the menu opens and closes doesn't move anything below. */
+  display: flex;
+  align-items: center;
+  height: var(--height-lg);
 }
 
-/* The row's clickable area (and its hover surface) hugs the icon and label
-   instead of stretching across the whole name cell. */
-.property-list__row.property-list__add-row .property-list__name {
-  width: fit-content;
-  /* Entry's own 6px plus 4px, so the label isn't tight against the edge. */
-  padding-right: calc(var(--space-6) + 4px);
-}
-
-/* The More actions "…" button beside the row's label: shown while the row is
-   hovered or its menu is open, and never moves the label. */
-.property-list__add-row-more {
-  align-self: center;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.property-list__add-row:hover .property-list__add-row-more,
-.property-list__add-row-more[aria-expanded='true'],
-.property-list__add-row-more:focus-visible {
-  opacity: 1;
+/* The empty property the title's Properties (or the add row) starts: its
+   icon and name label are coloured as placeholders; its value field is empty. */
+.property-list__new-row .property__icon,
+.property-list__new-row .property-list__placeholder {
+  color: var(--foreground-placeholder);
 }

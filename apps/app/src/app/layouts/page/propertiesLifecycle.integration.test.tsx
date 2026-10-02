@@ -18,6 +18,7 @@ import {
   readVisibleProperties,
   setPropertiesSectionVisibility,
 } from '@core/vault/ingest/frontmatter/propertyVisibility';
+import type { CustomPropertyType } from '@core/properties/Property.types';
 import type { Page } from '@core/vault/models/Page';
 
 import { AddPropertyRow } from './AddPropertyRow';
@@ -73,13 +74,14 @@ function pageWith(lines: readonly string[]): Page {
 function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lines: readonly string[]): void }) {
   const [lines, setLinesState] = useState<readonly string[]>(initial);
   const drafts = useCustomPropertyDrafts('p1');
+  const [isStarting, setIsStarting] = useState(false);
   const setLines = (next: readonly string[]) => {
     setLinesState(next);
     onLines(next);
   };
   const page = pageWith(lines);
   const addable = getAddableProperties(page);
-  const section = derivePropertiesSectionState({ lines, isArchived: false, hasDraft: drafts.drafts.length > 0 });
+  const section = derivePropertiesSectionState({ lines, isArchived: false, hasDraft: drafts.drafts.length > 0, isStarting });
   const showProperty = (key: string) => setLines(setPropertiesSectionVisibility(addVisibleProperty(lines, key), true));
   const items = buildPageProperties(page, {
     drafts: {
@@ -100,12 +102,18 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
   const menu = {
     systemProperties: addable.systemProperties,
     hiddenProperties: addable.hiddenProperties,
-    onShowProperty: showProperty,
-    onAddCustomProperty: drafts.add,
+    onAddCustomProperty: (type: CustomPropertyType) => {
+      drafts.add(type);
+      setIsStarting(false);
+    },
+    onShowProperty: (key: string) => {
+      showProperty(key);
+      setIsStarting(false);
+    },
   };
   const control: PropertiesControl | undefined =
     section.control === 'add'
-      ? { mode: 'add', menu }
+      ? { mode: 'add', onStart: () => setIsStarting(true) }
       : section.control === 'hide'
         ? {
             mode: 'toggle',
@@ -126,7 +134,7 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
       {section.isDisplayed && (
         <PropertyList
           items={items}
-          footer={section.showsAddRow ? <AddPropertyRow {...menu} /> : undefined}
+          footer={section.showsAddRow ? <AddPropertyRow {...menu} autoOpen={isStarting} onDismiss={() => setIsStarting(false)} /> : undefined}
         />
       )}
     </>
@@ -134,8 +142,10 @@ function Harness({ initial, onLines }: { initial: readonly string[]; onLines(lin
 }
 
 const rows = () =>
-  [...document.querySelectorAll('.property-list__row')].map(
-    (row) => row.querySelector('.property-list__name')?.textContent || '(draft)'
+  [...document.querySelectorAll('.property-list__row, .property-list__add-row')].map((row) =>
+    row.classList.contains('property-list__add-row')
+      ? row.textContent
+      : row.querySelector('.property-list__name')?.textContent || '(draft)'
   );
 const nameField = () => document.querySelector('.property-list__name .editable-text[data-placeholder]') as HTMLDivElement | null;
 
@@ -163,11 +173,13 @@ describe('the Properties lifecycle, through the title control and the section', 
     render(<Harness initial={parse('priority: high')} onLines={onLines} />);
 
     // ---- State 1: nothing added.
-    expect(titleControl()).toEqual(['Add a property']);
+    expect(titleControl()).toEqual(['Properties']);
     expect(rows()).toEqual([]);
 
-    // Choosing a property from the title's menu adds it, shows it, and shows the section.
-    clickTitle('Add a property');
+    // The title's Properties shows the section and opens its type menu there;
+    // choosing a property adds it, shows it, and shows the section.
+    clickTitle('Properties');
+    expect(rows()).toEqual(['New property']);
     fireEvent.click(screen.getByRole('menuitem', { name: 'Tags' }));
 
     // ---- State 2: the property, then "+ Add a property"; the title is the toggle.
@@ -205,7 +217,7 @@ describe('the Properties lifecycle, through the title control and the section', 
     const onLines = vi.fn();
     render(<Harness initial={parse('priority: high')} onLines={onLines} />);
 
-    clickTitle('Add a property');
+    clickTitle('Properties');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Date' }));
 
     expect(rows()).toEqual(['(draft)']);
@@ -233,12 +245,12 @@ describe('the Properties lifecycle, through the title control and the section', 
     const onLines = vi.fn();
     render(<Harness initial={parse('priority: high')} onLines={onLines} />);
 
-    clickTitle('Add a property');
+    clickTitle('Properties');
     fireEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
     fireEvent.keyDown(nameField()!, { key: 'Escape' });
 
     expect(rows()).toEqual([]);
-    expect(titleControl()).toEqual(['Add a property']);
+    expect(titleControl()).toEqual(['Properties']);
     expect(onLines).not.toHaveBeenCalled();
   });
 
@@ -259,15 +271,17 @@ describe('the Properties lifecycle, through the title control and the section', 
     expect(rows()).toEqual(['Tags', 'Add a property']);
   });
 
-  it('dismissing the title\'s Add a property menu changes nothing', () => {
+  it('dismissing the menu the title\'s Properties opened changes nothing', () => {
     const onLines = vi.fn();
     render(<Harness initial={parse('priority: high')} onLines={onLines} />);
 
-    clickTitle('Add a property');
-    closeMenu();
+    clickTitle('Properties');
+    expect(rows()).toEqual(['New property']);
+    fireEvent.keyDown(screen.getByRole('menu', { name: 'Add properties' }), { key: 'Escape' });
 
+    expect(screen.queryByRole('menu')).toBeNull();
     expect(rows()).toEqual([]);
-    expect(titleControl()).toEqual(['Add a property']);
+    expect(titleControl()).toEqual(['Properties']);
     expect(onLines).not.toHaveBeenCalled();
   });
 

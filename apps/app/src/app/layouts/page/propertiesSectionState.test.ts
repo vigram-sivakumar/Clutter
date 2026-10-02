@@ -7,7 +7,7 @@ import { derivePropertiesSectionState } from './propertiesSectionState';
 const lines = (yaml: string): readonly string[] =>
   new FrontmatterParser().parse(`---\nid: a\n${yaml}\n---\nbody`).frontmatter.unownedLines ?? [];
 
-const state = (yaml: string, options: { isArchived?: boolean; hasDraft?: boolean } = {}) =>
+const state = (yaml: string, options: { isArchived?: boolean; hasDraft?: boolean; isStarting?: boolean } = {}) =>
   derivePropertiesSectionState({ lines: lines(yaml), isArchived: false, hasDraft: false, ...options });
 
 describe('derivePropertiesSectionState — the lifecycle', () => {
@@ -21,6 +21,14 @@ describe('derivePropertiesSectionState — the lifecycle', () => {
     expect(state('priority: high', { hasDraft: true })).toEqual({
       isDisplayed: true,
       showsAddRow: false,
+      control: 'hide',
+    });
+  });
+
+  it('State 1, just started from the title: the (empty) section shows with its "+ Add a property" row, which hosts the type menu', () => {
+    expect(state('priority: high', { isStarting: true })).toEqual({
+      isDisplayed: true,
+      showsAddRow: true,
       control: 'hide',
     });
   });

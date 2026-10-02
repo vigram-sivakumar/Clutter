@@ -100,11 +100,13 @@ function Harness({
 }
 
 const rows = () =>
-  [...document.querySelectorAll('.property-list__row')].map((row) => row.querySelector('.property-list__name')?.textContent);
+  [...document.querySelectorAll('.property-list__row, .property-list__add-row')].map((row) =>
+    row.classList.contains('property-list__add-row') ? row.textContent : row.querySelector('.property-list__name')?.textContent
+  );
 const nameField = () =>
   document.querySelector('.property-list__name .editable-text[data-placeholder]') as HTMLDivElement | null;
 const svgOf = (element: Element | null) => element?.querySelector('svg')?.outerHTML;
-const iconMarkup = (icon: 'calendar' | 'plus') => render(<AppIcon icon={icon} />).container.querySelector('svg')!.outerHTML;
+const iconMarkup = (icon: 'calendar' | 'plus' | 'info') => render(<AppIcon icon={icon} />).container.querySelector('svg')!.outerHTML;
 
 const start = () => fireEvent.click(screen.getByText('Add a property'));
 
@@ -115,17 +117,15 @@ describe('the "+ Add a property" row — the whole interaction', () => {
     expect(rows()).toEqual(['Add a property']);
   });
 
-  it('click → the menu opens and the row stays exactly as it was: no blank row, no input, nothing focused', () => {
+  it('click → the row becomes an empty property ("New property", empty value) with the menu open: inert, nothing focused', () => {
     render(<Harness onLines={vi.fn()} />);
-    const before = document.querySelector('.property-list__add-row')!.outerHTML;
 
     start();
 
     expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
-    expect(rows()).toEqual(['Add a property']);
-    expect(document.querySelector('.property-list__add-row')!.outerHTML).toBe(before);
-    expect(screen.queryByText('New property')).toBeNull();
-    expect(nameField()).toBeNull();
+    expect(rows()).toEqual(['New property']);
+    expect(svgOf(document.querySelector('.property-list__new-row .property__icon'))).toBe(iconMarkup('info'));
+    // Inert: not the focused "Property name" field a draft has.
     expect(document.activeElement?.classList.contains('editable-text')).toBe(false);
   });
 
@@ -213,7 +213,7 @@ describe('the "+ Add a property" row — the whole interaction', () => {
     expect(nameField()).toBeNull();
     expect(onLines).not.toHaveBeenCalled();
     expect(document.querySelector('.property-list__add-row')!.outerHTML).toBe(before);
-    expect(svgOf(document.querySelector('.property-list__add-row .property__icon'))).toBe(iconMarkup('plus'));
+    expect(svgOf(document.querySelector('.property-list__add-row'))).toBe(iconMarkup('plus'));
   });
 
   it('a shown property is no longer offered next time', () => {
@@ -223,7 +223,7 @@ describe('the "+ Add a property" row — the whole interaction', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'priority' }));
     start();
 
-    expect(rows()).toEqual(['priority', 'Add a property']);
+    expect(rows()).toEqual(['priority', 'New property']);
     expect(screen.queryByRole('menuitem', { name: 'priority' })).toBeNull();
     expect(screen.getByRole('menuitem', { name: 'Due date' })).toBeInTheDocument();
   });
