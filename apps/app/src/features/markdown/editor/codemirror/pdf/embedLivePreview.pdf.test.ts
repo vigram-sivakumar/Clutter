@@ -506,6 +506,21 @@ describe('embedLivePreview — PDF embeds, edit-source reveal/hide lifecycle', (
     expect(getPdfEmbed(view)).not.toBeNull();
   });
 
+  it('regression: Edit source on a missing-PDF broken card reveals the raw Markdown (the card used to stay unchanged)', () => {
+    const view = mountView(
+      'x ![[missing.pdf]]',
+      imageResolverFor({}),
+      pdfResolverFor({ 'missing.pdf': { status: 'unresolved', title: 'missing' } })
+    );
+
+    expect(view.dom.textContent).not.toContain('![[missing.pdf]]');
+    const edit = view.dom.querySelector<HTMLButtonElement>('.cm-invalid-embed button[aria-label="Edit source"]');
+    edit?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(view.dom.textContent).toContain('![[missing.pdf]]');
+    expect(view.dom.querySelector('.cm-invalid-embed button[aria-label="Hide source"]')).not.toBeNull();
+  });
+
   it('regression (2026-09 edit-source flicker fix): reveal/hide toggles never re-fetch an already-loaded PDF document', async () => {
     pdfjsMock.state.getDocumentUrls.length = 0;
     const view = mountView(

@@ -389,9 +389,18 @@ function buildDecorations(
               pdfDocumentCache,
               resolvePdfPresentation(resolveEmbedAliasFields(match.alias).tokens)
             );
-            const range = Decoration.replace({ widget: pdfWidget }).range(node.from, node.to);
-            ranges.push(range);
-            atomicRanges.push(range);
+            // Same reveal contract as the working-PDF branch above and
+            // every other broken card here: "Edit source" sets
+            // `revealed`, which must show the raw text with the card
+            // moved to a trailing widget, not keep replacing it.
+            if (baseUi.revealed) {
+              ranges.push(...markerRanges);
+              ranges.push(Decoration.widget({ widget: pdfWidget, side: 1 }).range(node.to));
+            } else {
+              const range = Decoration.replace({ widget: pdfWidget }).range(node.from, node.to);
+              ranges.push(range);
+              atomicRanges.push(range);
+            }
             return;
           }
 
