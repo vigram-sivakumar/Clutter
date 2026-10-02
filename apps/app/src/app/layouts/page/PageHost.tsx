@@ -89,8 +89,8 @@ import {
 } from '@features/markdown/editor/MarkdownEditor';
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
-import { PropertyList } from '@components/property-list/PropertyList';
-import { buildPageProperties } from './buildPageProperties';
+// TEMPORARY — see PagePropertiesWithExamples.
+import { PagePropertiesWithExamples } from './PagePropertiesWithExamples';
 
 interface PageHostProps {
   application: Application;
@@ -1760,7 +1760,7 @@ export function PageHost({
       onSaveCoverPosition={onSaveCoverPosition}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
-      properties={<PropertyList items={buildPageProperties(page)} />}
+      properties={<PagePropertiesWithExamples key={activePageId} page={page} />}
       body={
         <MarkdownBody>
           <MarkdownEditor
