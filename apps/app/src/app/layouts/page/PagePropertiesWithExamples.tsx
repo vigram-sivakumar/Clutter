@@ -20,13 +20,10 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
   );
-  const [exampleEmptyText, setExampleEmptyText] = useState('');
   const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
-  const [exampleEmptyDate, setExampleEmptyDate] = useState<string | null>(null);
   const [exampleUrl, setExampleUrl] = useState<string | null>(
     'https://example.com/docs/guides/getting-started/installation/configuration-and-advanced-options?ref=properties'
   );
-  const [exampleEmptyUrl, setExampleEmptyUrl] = useState<string | null>(null);
 
   return (
     <PropertyList
@@ -40,13 +37,6 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           onCommit: setExampleText,
         },
         {
-          name: 'Example empty text',
-          type: 'text',
-          value: exampleEmptyText,
-          editable: true,
-          onCommit: setExampleEmptyText,
-        },
-        {
           name: 'Example date',
           type: 'date',
           value: exampleDate,
@@ -54,31 +44,11 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           onCommit: setExampleDate,
         },
         {
-          name: 'Example empty date',
-          type: 'date',
-          value: exampleEmptyDate,
-          editable: true,
-          onCommit: setExampleEmptyDate,
-        },
-        {
           name: 'Example URL',
           type: 'url',
           value: exampleUrl,
           editable: true,
           onCommit: setExampleUrl,
-        },
-        {
-          name: 'Example empty URL',
-          type: 'url',
-          value: exampleEmptyUrl,
-          editable: true,
-          onCommit: setExampleEmptyUrl,
-        },
-        {
-          name: 'Example read-only URL',
-          type: 'url',
-          value: 'example.com/a/very/long/read-only/path/that/should/truncate/with/an/ellipsis/at/the/end',
-          editable: false,
         },
       ]}
     />
