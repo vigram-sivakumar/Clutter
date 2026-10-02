@@ -120,6 +120,9 @@
   --dialog-width-md: 320px; /* Default */
   --dialog-width-lg: 420px;
 
+  /* Autocomplete width */
+  --wikilink-autocomplete-min-width: 320px;
+
   /* Z-index */
   --z-overlay: 1000;
 
