@@ -324,6 +324,64 @@ describe('DatePropertyValue — typing', () => {
   });
 });
 
+describe('DatePropertyValue — Clear', () => {
+  it('shows a "Clear" action under the calendar', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeTruthy();
+  });
+
+  it('clears the value: commits null, empties the input, closes the calendar', () => {
+    const onCommit = vi.fn();
+    render(
+      <DatePropertyValue
+        name="Due"
+        value="2025-09-15"
+        format={formatDatePropertyValue}
+        editFormat={formatDatePropertyEditValue}
+        editable
+        onCommit={onCommit}
+      />
+    );
+
+    fireEvent.click(getField());
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(null);
+    expect(isCalendarOpen()).toBe(false);
+  });
+
+  it('leaves the input empty with the placeholder after clearing', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(getField().value).toBe('');
+    expect(getField().placeholder).toBe('Empty');
+  });
+
+  it('also discards a typed draft', () => {
+    render(<StatefulDate initial="2025-09-15" />);
+
+    fireEvent.click(getField());
+    type('1/1/');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(getField().value).toBe('');
+  });
+
+  it('is disabled when there is no date', () => {
+    render(<StatefulDate initial={null} />);
+
+    fireEvent.click(getField());
+
+    expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 describe('DatePropertyValue — calendar dismissal', () => {
   it('keeps focus in the input when pressing inside the calendar', () => {
     render(<StatefulDate initial="2025-09-15" />);

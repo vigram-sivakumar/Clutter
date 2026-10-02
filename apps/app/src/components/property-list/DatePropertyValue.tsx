@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
+import { Button } from '@components/button/Button';
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
 import { parseDateInput } from '@shared/helpers/time/parseDateInput';
@@ -20,7 +21,7 @@ type DatePropertyValueProps = {
   format(value: string): string;
   /** Editable-input formatting for a raw value (`DD.MM.YYYY`) — supplied by the property type registry. */
   editFormat(value: string): string;
-} & PropertyEditability<string>;
+} & PropertyEditability<string | null>;
 
 /**
  * The `date` Property's value. `editable` (supplied by the adapter, never
@@ -47,8 +48,8 @@ interface DatePropertyEditorProps {
   name: string;
   value: string | null;
   display: string;
-  /** Fired with a local `YYYY-MM-DD` — from a typed valid date or a Calendar pick. */
-  onCommit(value: string): void;
+  /** Fired with a local `YYYY-MM-DD` — from a typed valid date or a Calendar pick — or null when cleared. */
+  onCommit(value: string | null): void;
 }
 
 
@@ -61,7 +62,7 @@ interface DatePropertyEditorProps {
  *   to it. Incomplete/invalid text commits nothing and resets nothing.
  * - the Calendar (same Calendar + Overlay pairing TaskDatePicker uses):
  *   a pick commits and drops the draft, so the input shows the formatted
- *   value.
+ *   value; its "Clear" action commits null, emptying the value.
  * On blur the draft is dropped and the input shows the canonical value in
  * `DD.MM.YYYY` again — so any typed form is normalized, and a
  * still-invalid draft simply reverts.
@@ -123,6 +124,12 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
     close();
   }
 
+  function handleClear() {
+    setDraft(null);
+    onCommit(null);
+    close();
+  }
+
   return (
     <>
       <Input
@@ -172,6 +179,17 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
             onModeChange={setMode}
             onSelectedDateChange={handleSelect}
           />
+          {/* Same footer action as TaskDatePicker's, labelled "Clear" — it empties the value, nothing is deleted. */}
+          <Button
+            className="property-date-picker__clear"
+            variant="ghost"
+            interaction="subtle"
+            size="small"
+            disabled={value === null}
+            onClick={handleClear}
+          >
+            Clear
+          </Button>
         </div>
       </Overlay>
     </>

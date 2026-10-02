@@ -21,7 +21,7 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
   );
   const [exampleEmptyText, setExampleEmptyText] = useState('');
-  const [exampleDate, setExampleDate] = useState('2026-09-15');
+  const [exampleDate, setExampleDate] = useState<string | null>('2026-09-15');
   const [exampleEmptyDate, setExampleEmptyDate] = useState<string | null>(null);
 
   return (

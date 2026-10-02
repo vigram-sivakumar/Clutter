@@ -81,8 +81,10 @@
   padding-inline: 0;
 }
 
-/* Same surface as TaskDatePicker's Calendar overlay. */
+/* Same surface and layout as TaskDatePicker's Calendar overlay. */
 .property-date-picker {
+  display: flex;
+  flex-direction: column;
   width: 280px;
   padding: var(--space-12);
   border-radius: var(--radius-xxl);
@@ -91,4 +93,9 @@
 }
 .property-date-picker .calendar-toggle {
   display: none;
+}
+
+.property-date-picker__clear {
+  align-self: flex-end;
+  margin-top: var(--space-8);
 }
