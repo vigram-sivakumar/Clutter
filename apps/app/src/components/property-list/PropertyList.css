@@ -366,3 +366,10 @@
   opacity: var(--opacity-medium);
   padding-right: 2px;
 }
+
+/* A clickable tag pill (opens its Tag Collection) shows the pointer, not
+   the tag editor's text cursor it would otherwise inherit. */
+.property-list__tag--link,
+.property-list__tag-editor .property-list__tag--link {
+  cursor: pointer;
+}
