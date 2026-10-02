@@ -135,6 +135,7 @@ export function PillListEditor({
         anchorRef={inputRef}
         side="bottom"
         alignment="start"
+        offset={12}
         size="fit-content"
         backdrop={false}
       >
