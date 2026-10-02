@@ -25,12 +25,21 @@ import type { GetWikiLinkSuggestions, WikiLinkSuggestion } from './wikiLinkSugge
  */
 export const WIKILINK_TRIGGER_PATTERN = /\[\[[^\]|\n]*$/;
 
-function toCompletion(suggestion: WikiLinkSuggestion, insertText: (path: string) => string): Completion {
+/** Turns an accepted suggestion's target path (and matched alias, if any) into the text to insert. */
+type InsertText = (path: string, alias: string | null) => string;
+
+function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): Completion {
+  const alias = suggestion.kind === 'page' ? (suggestion.alias ?? null) : null;
   const completion: WikiLinkCompletion = {
-    label: suggestion.kind === 'create' ? `Create "${suggestion.path}"` : suggestion.title,
+    label:
+      suggestion.kind === 'create'
+        ? `Create "${suggestion.path}"`
+        : alias !== null
+          ? `${suggestion.title} (${alias})`
+          : suggestion.title,
     suggestion,
     apply(view, _completion, from, to) {
-      const insert = insertText(suggestion.path);
+      const insert = insertText(suggestion.path, alias);
 
       // Reactivating completion inside an ALREADY-CLOSED reference (see
       // `referenceZoneAt`) replaces only the bare reference text —
@@ -100,7 +109,7 @@ function buildResult(
   to: number,
   query: string,
   suggestions: GetWikiLinkSuggestions,
-  insertText: (path: string) => string
+  insertText: InsertText
 ): CompletionResult | null {
   const items = suggestions(query);
   if (items.length === 0) {
@@ -130,7 +139,8 @@ function buildResult(
  *
  * - A fresh, not-yet-closed `[[query` (no `findWikiLinkAt` match at all):
  *   the historical/default case. Accepting inserts the full canonical
- *   `[[path]]`.
+ *   `[[path]]` — or `[[path|alias]]` for a page found by one of its
+ *   aliases (the alias is display text; the path stays the target).
  * - The cursor sits inside the REFERENCE portion of an ALREADY-CLOSED
  *   `[[reference|alias]]` (or `[[reference]]`) — reactivates completion
  *   scoped to just that portion. The query is the reference text from the
@@ -192,7 +202,15 @@ export function wikiLinkCompletionSource(
       const visibleFrom = slashOffset === null ? zone.from : zone.from + slashOffset + 1;
       const query = splitAtFirstUnescapedPipe(context.state.sliceDoc(visibleFrom, zone.to)).reference;
 
-      return buildResult(zone.from, zone.to, query, suggestions, (path) => path);
+      // An alias match adds `|alias` only when the link has no display
+      // text yet — an existing one is the user's, and stays untouched.
+      // Serialized through serializeWikiLink (minus its brackets) so the
+      // path and alias are escaped exactly as a fresh link's are.
+      const hasDisplayText = zone.to < findWikiLinkAt(context.state, zone.from)!.to - 2;
+
+      return buildResult(zone.from, zone.to, query, suggestions, (path, alias) =>
+        alias !== null && !hasDisplayText ? serializeWikiLink(path, alias).slice(2, -2) : path
+      );
     }
 
     // `referenceZoneAt` returning `null` covers two different cases the
@@ -225,6 +243,8 @@ export function wikiLinkCompletionSource(
 
     const query = match.text.slice(2);
 
-    return buildResult(match.from, context.pos, query, suggestions, (path) => serializeWikiLink(path, null));
+    return buildResult(match.from, context.pos, query, suggestions, (path, alias) =>
+      serializeWikiLink(path, alias)
+    );
   };
 }

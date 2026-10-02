@@ -6,12 +6,21 @@ import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag
  * consumes it, and never infers it from `type` or `name`. An editable item
  * always carries the commit callback that makes the edit go somewhere.
  */
+/** One `multi-select` autocomplete row. */
+export interface MultiSelectSuggestion {
+  /** Stable React key for the row. */
+  readonly key: string;
+  /** The text added as a value when the row is picked. */
+  readonly value: string;
+  /** The row's primary text. */
+  readonly label: string;
+  /** Secondary text after the label (e.g. the page it came from), or null. */
+  readonly detail: string | null;
+}
+
 export type PropertyEditability<Value> =
   | { editable: false }
   | { editable: true; onCommit(value: Value): void };
-
-/** For types whose value editor doesn't exist yet — only read-only is allowed until it does. */
-type ReadOnlyProperty = { editable: false };
 
 export type PropertyListItem =
   | ({ name: string; type: 'text'; value: string } & PropertyEditability<string>)
@@ -51,7 +60,19 @@ export type PropertyListItem =
       /** The numeric value itself (formatting is display only), or null when absent. */
       value: number | null;
     } & PropertyEditability<number | null>)
-  | ({ name: string; type: 'multi-select'; value: readonly string[] } & ReadOnlyProperty)
+  | ({
+      name: string;
+      type: 'multi-select';
+      /** Free-text values in order, shown as pills (e.g. Aliases). */
+      value: readonly string[];
+      /**
+       * Autocomplete while typing — matches for the typed text (already
+       * trimmed, non-empty), injected by the adapter (e.g. Aliases: pages
+       * found by title or alias). Omitted: no suggestions, typing still
+       * adds values.
+       */
+      getSuggestions?(query: string): readonly MultiSelectSuggestion[];
+    } & PropertyEditability<string[]>)
   | ({ name: string; type: 'boolean'; value: boolean } & PropertyEditability<boolean>);
 
 export type PropertyListItemOf<Type extends PropertyListItem['type']> = Extract<

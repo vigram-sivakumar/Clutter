@@ -6,8 +6,8 @@ import type { iconRegistry } from '@shared/icon/iconRegistry';
 import { CheckboxPropertyValue } from './CheckboxPropertyValue';
 import { DatePropertyValue } from './DatePropertyValue';
 import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
+import { MultiSelectPropertyValue } from './MultiSelectPropertyValue';
 import { NumberPropertyValue } from './NumberPropertyValue';
-import { PropertyValueCell } from './PropertyValueCell';
 import { TagPropertyValue } from './TagPropertyValue';
 import { TextPropertyValue } from './TextPropertyValue';
 import { UrlPropertyValue } from './UrlPropertyValue';
@@ -55,15 +55,7 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   },
   'multi-select': {
     icon: 'multiLine',
-    renderValue: (item) => (
-      <PropertyValueCell>
-        {item.value.map((entry) => (
-          <span key={entry} className="property-list__chip">
-            {entry}
-          </span>
-        ))}
-      </PropertyValueCell>
-    ),
+    renderValue: (item) => <MultiSelectPropertyValue {...item} />,
   },
 };
 

@@ -5,6 +5,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import { buildPageProperties } from './buildPageProperties';
+import type { AliasPropertyActions } from './buildPageProperties';
 
 /**
  * TEMPORARY — testing scaffold for the Property value editors while they're
@@ -21,12 +22,15 @@ export function PagePropertiesWithExamples({
   page,
   getTagSuggestions,
   onOpenTag,
+  aliasActions,
 }: {
   page: Page;
   /** The page's existing-tag search (createTagSuggester), for tag autocomplete. */
   getTagSuggestions?: GetTagSuggestions;
   /** Opens a tag's Tag Collection — the editor's own inline-#tag navigation. */
   onOpenTag?(name: string): void;
+  /** Makes the real Aliases Property editable (see buildPageProperties). */
+  aliasActions?: AliasPropertyActions;
 }) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
@@ -42,7 +46,7 @@ export function PagePropertiesWithExamples({
   return (
     <PropertyList
       items={[
-        ...buildPageProperties(page, { onOpenTag }),
+        ...buildPageProperties(page, { onOpenTag, aliases: aliasActions }),
         {
           name: 'Example text',
           type: 'text',

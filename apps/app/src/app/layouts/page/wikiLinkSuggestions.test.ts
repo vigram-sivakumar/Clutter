@@ -194,6 +194,76 @@ describe('createWikiLinkSuggester', () => {
     expect(results[0]).toMatchObject({ kind: 'page', path: 'Real Title' });
   });
 
+  it('a page found by an alias carries that alias; a title match carries none', () => {
+    const withAliases = (id: string, path: string, name: string, aliases: string[]) =>
+      makePage({
+        id,
+        path,
+        name,
+        analysis: {
+          headings: [],
+          aliases: aliases.map((value) => ({ value })),
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      });
+    const guidelines = withAliases(
+      'p1',
+      '/vault/Design/User Experience Guidelines.md',
+      'User Experience Guidelines',
+      ['UX writing', 'UX']
+    );
+    const research = withAliases('p2', '/vault/UX Research.md', 'UX Research', []);
+    const suggest = createWikiLinkSuggester(
+      makeVault([guidelines, research]),
+      fakePageOperations(),
+      fakeFolderOperations()
+    );
+
+    expect(suggest('UX')).toEqual([
+      {
+        kind: 'page',
+        path: 'Design/User Experience Guidelines',
+        title: 'User Experience Guidelines',
+        breadcrumb: 'Design',
+        // The exact alias, not the first one that merely contains the query.
+        alias: 'UX',
+      },
+      { kind: 'page', path: 'UX Research', title: 'UX Research', breadcrumb: null },
+    ]);
+  });
+
+  it('shows every page sharing an alias — aliases are not unique', () => {
+    const shared = (id: string, path: string, name: string) =>
+      makePage({
+        id,
+        path,
+        name,
+        analysis: {
+          headings: [],
+          aliases: [{ value: 'Spec' }],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      });
+    const suggest = createWikiLinkSuggester(
+      makeVault([shared('p1', '/vault/A/One.md', 'One'), shared('p2', '/vault/B/Two.md', 'Two')]),
+      fakePageOperations(),
+      fakeFolderOperations()
+    );
+
+    expect(suggest('spec').map((r) => (r.kind === 'page' ? [r.path, r.alias] : r.path))).toEqual([
+      ['A/One', 'Spec'],
+      ['B/Two', 'Spec'],
+    ]);
+  });
+
   it('a root-level page has no breadcrumb', () => {
     const page = makePage({ id: 'p1', path: '/vault/Root Page.md', name: 'Root Page' });
     const vault = makeVault([page]);

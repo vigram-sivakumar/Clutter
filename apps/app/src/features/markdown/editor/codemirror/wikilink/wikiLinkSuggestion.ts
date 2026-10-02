@@ -20,6 +20,12 @@ export interface WikiLinkPageSuggestion {
   readonly title: string;
   /** The page's parent path for display (e.g. "Projects / Work"), or null for a root-level page. */
   readonly breadcrumb: string | null;
+  /**
+   * The page's alias the query matched, when it was found by an alias
+   * rather than its title (absent then). Accepting inserts it as the
+   * link's display text — `[[path|alias]]` — never as the target.
+   */
+  readonly alias?: string;
 }
 
 export interface WikiLinkCreateSuggestion {

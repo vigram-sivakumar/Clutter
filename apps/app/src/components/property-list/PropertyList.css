@@ -44,11 +44,6 @@
   font-size: inherit;
 }
 
-.property-list__chip {
-  display: inline-block;
-  margin-right: var(--space-4);
-}
-
 /* An editable value (text, date): Input's wrapper doubles as the value
    cell. Input's own (icon-less) inline padding is cancelled by an equal
    negative margin, so the text lines up with read-only values while the
@@ -388,4 +383,31 @@
 .property-list__tag--link,
 .property-list__tag-editor .property-list__tag--link {
   cursor: pointer;
+}
+
+/* A value pill that isn't a tag: the tag pill's shape and dismiss button
+   on a neutral surface. Overriding --tag-pill-surface (not background)
+   carries it to the dismiss button and its fade, as the tag hover does. */
+.property-list__tag.property-list__tag--plain,
+.property-list__value .entry__content .property-list__tag.property-list__tag--plain {
+  --tag-pill-surface: var(--surface-tertiary);
+  color: var(--foreground-primary);
+}
+.property-list__tag.property-list__tag--plain:hover,
+.property-list__value .entry__content .property-list__tag.property-list__tag--plain:hover {
+  --tag-pill-surface: color-mix(
+    in srgb,
+    var(--surface-tertiary) 97%,
+    rgb(var(--state-base)) 3%
+  );
+}
+
+/* A multi-select suggestion row: the label, then dimmed detail (e.g. the
+   page an alias belongs to). */
+.entry__content .property-list__suggestion {
+  overflow-wrap: anywhere;
+}
+.entry__content .property-list__suggestion .property-list__suggestion-detail {
+  padding-left: var(--space-6);
+  color: var(--foreground-tertiary);
 }

@@ -63,3 +63,10 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* The alias a page was found by, after its title — secondary, like the
+   breadcrumb, so the page's own title stays the primary label. */
+.wikilink-completion__alias {
+  padding-left: var(--space-6);
+  color: var(--foreground-tertiary);
+}

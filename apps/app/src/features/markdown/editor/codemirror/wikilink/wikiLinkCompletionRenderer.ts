@@ -130,6 +130,15 @@ export function renderWikiLinkCompletion(
   }
   content.appendChild(title);
 
+  // A page found by an alias shows which one — the text that will become
+  // the link's display name — next to its title.
+  if (suggestion.kind === 'page' && suggestion.alias !== undefined) {
+    const alias = document.createElement('span');
+    alias.className = 'wikilink-completion__alias';
+    alias.textContent = suggestion.alias;
+    title.appendChild(alias);
+  }
+
   if (breadcrumb) {
     const path = document.createElement('span');
     path.className = 'wikilink-completion__path';

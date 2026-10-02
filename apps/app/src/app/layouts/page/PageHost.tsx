@@ -57,6 +57,7 @@ import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import {
   getCollectionPageTitleProps,
@@ -1768,6 +1769,12 @@ export function PageHost({
           // The editor's own inline-#tag click path (createTagResolver's
           // activate → navigation.openTag), not a second navigation.
           onOpenTag={(name) => resolveTag(name).activate()}
+          aliasActions={{
+            // The one write path for page metadata.
+            onCommit: (aliases) =>
+              void application.pageOperations.updateMetadata(page.id, { aliases }),
+            getSuggestions: createAliasSuggester(vault, page.id),
+          }}
         />
       }
       body={

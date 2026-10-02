@@ -7,7 +7,6 @@ import { FieldEditState } from '../../engine/FieldEditState';
 import { Vault } from '../../vault/models/Vault';
 import type { Page, PageType } from '../../vault/models/Page';
 import type { PageMetadata } from '../../vault/models/PageMetadata';
-import { findAliasOwner, hasAlias } from '../../vault/models/Alias';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
@@ -1530,10 +1529,6 @@ export class PageOperations {
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
-    if (patch.aliases) {
-      this.assertAddedAliasesAllowed(pageId, page?.metadata.aliases ?? [], patch.aliases);
-    }
-
     if (page) {
       if (page.metadata.status === 'archived') {
         throw new Error(
@@ -1572,50 +1567,6 @@ export class PageOperations {
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body, patch);
-  }
-
-  /**
-   * The alias rules, for the aliases a patch adds (ones not already on the
-   * page): each must be non-empty, must not repeat another alias in the
-   * same list, and must not already belong to another page — all under
-   * the one alias identity rule (normalizeAliasIdentity: trimmed,
-   * case-insensitive). Entries the page already had, exactly, are never
-   * re-checked, so removing one alias from a page whose file already
-   * carries a conflict (an external edit) still saves. The Aliases Property checks
-   * the same rules first to show feedback; this is the guard that holds
-   * for every caller.
-   */
-  private assertAddedAliasesAllowed(
-    pageId: string,
-    current: readonly string[],
-    next: readonly string[]
-  ): void {
-    // Exact entries the page already had (matched one-for-one, so a
-    // second copy of an existing alias counts as added).
-    const unmatched = [...current];
-
-    next.forEach((alias, index) => {
-      const existingIndex = unmatched.indexOf(alias);
-
-      if (existingIndex !== -1) {
-        unmatched.splice(existingIndex, 1);
-        return;
-      }
-
-      if (alias.trim() === '') {
-        throw new Error('An alias cannot be empty.');
-      }
-
-      if (hasAlias([...next.slice(0, index), ...next.slice(index + 1)], alias)) {
-        throw new Error(`Duplicate alias on page ${pageId}: ${alias}`);
-      }
-
-      const owner = findAliasOwner(this.vault.pages(), alias, pageId);
-
-      if (owner) {
-        throw new Error(`Alias "${alias}" is already used by page ${owner.id}.`);
-      }
-    });
   }
 
   /**

@@ -21,11 +21,14 @@ import { createReferencedPage } from './resolveWikiLink';
  *
  * Matching is deliberately the simplest thing that already has a precedent
  * in this codebase: plain case-insensitive substring match against a
- * page's title and its `analysis.aliases` — the exact algorithm
+ * page's title and its `analysis.aliases` (findPageMatches) — the exact algorithm
  * `FolderPicker.tsx` already uses for folder names
  * (`item.title.toLowerCase().includes(normalizedQuery)`), extended only to
  * also check aliases, since WikiLinks (unlike folder names) already
- * resolve through them (`resolveWikiLink.ts`'s `findPagesByAlias`). No
+ * resolve through them (`resolveWikiLink.ts`'s `findPagesByAlias`). A
+ * page found by an alias carries it, so accepting inserts
+ * `[[full/path|Alias]]` — the canonical path stays the target, the alias
+ * is only the display text. No
  * fuzzy matching, no ranking beyond a fixed deterministic order — this
  * codebase has no existing search/fuzzy-match implementation to build on
  * (confirmed: `features/search/SearchPanel.tsx` is an unimplemented stub),
@@ -58,9 +61,8 @@ export function createWikiLinkSuggester(
       return Array.from(vault.pages()).map((page) => toPageSuggestion(vault, page)).sort(byTitle);
     }
 
-    const matches = Array.from(vault.pages())
-      .filter((page) => matchesQuery(page, normalizedQuery))
-      .map((page) => toPageSuggestion(vault, page))
+    const matches = findPageMatches(vault.pages(), normalizedQuery)
+      .map(({ page, alias }) => toPageSuggestion(vault, page, alias))
       .sort(byTitle);
 
     if (matches.length > 0) {
@@ -86,13 +88,43 @@ export function createWikiLinkSuggester(
   };
 }
 
-function matchesQuery(page: Page, normalizedQuery: string): boolean {
-  const title = VaultPath.pageName(page.path).toLowerCase();
-  if (title.includes(normalizedQuery)) {
-    return true;
+/** A page matching a search, and the alias it matched by (null when its title matched). */
+export interface PageMatch {
+  readonly page: Page;
+  readonly alias: string | null;
+}
+
+/**
+ * The one page search shared by WikiLink autocomplete and the Aliases
+ * Property's suggestions: case-insensitive substring match against a
+ * page's title, else its aliases. A title match wins (alias null); else
+ * the alias that matched — an exact (case-insensitive) alias over a
+ * merely containing one, then the first declared — so `[[UX` offers the
+ * page as "UX", never a longer alias that happens to contain it. Every
+ * matching page is returned: aliases aren't unique, so several pages can
+ * match by the same alias. `normalizedQuery` is already trimmed and
+ * lower-cased, and must be non-empty.
+ */
+export function findPageMatches(pages: Iterable<Page>, normalizedQuery: string): PageMatch[] {
+  const matches: PageMatch[] = [];
+
+  for (const page of pages) {
+    if (VaultPath.pageName(page.path).toLowerCase().includes(normalizedQuery)) {
+      matches.push({ page, alias: null });
+      continue;
+    }
+
+    const aliases = page.analysis.aliases.map((alias) => alias.value);
+    const alias =
+      aliases.find((value) => value.toLowerCase() === normalizedQuery) ??
+      aliases.find((value) => value.toLowerCase().includes(normalizedQuery));
+
+    if (alias !== undefined) {
+      matches.push({ page, alias });
+    }
   }
 
-  return page.analysis.aliases.some((alias) => alias.value.toLowerCase().includes(normalizedQuery));
+  return matches;
 }
 
 /**
@@ -104,7 +136,11 @@ function matchesQuery(page: Page, normalizedQuery: string): boolean {
  * "never stored that way, only computed at the boundary" reasoning
  * applied in the opposite direction.
  */
-function toPageSuggestion(vault: Vault, page: Page): WikiLinkPageSuggestion {
+export function toPageSuggestion(
+  vault: Vault,
+  page: Page,
+  alias: string | null = null
+): WikiLinkPageSuggestion {
   const withoutRoot = page.path.startsWith(`${vault.root}/`)
     ? page.path.slice(vault.root.length + 1)
     : page.path;
@@ -115,5 +151,7 @@ function toPageSuggestion(vault: Vault, page: Page): WikiLinkPageSuggestion {
     path,
     title: VaultPath.pageName(page.path),
     breadcrumb: VaultPath.parentDirectory(path) || null,
+    // Only on an alias match, so a title match's shape is unchanged.
+    ...(alias !== null && { alias }),
   };
 }

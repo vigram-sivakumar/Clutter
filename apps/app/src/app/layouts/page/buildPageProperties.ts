@@ -1,5 +1,17 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
 import type { Page } from '@core/vault/models/Page';
+import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
+
+/**
+ * What the Aliases Property needs to be editable — supplied by the host,
+ * which owns the write (PageOperations.updateMetadata) and the vault read.
+ */
+export interface AliasPropertyActions {
+  /** Persists the page's whole new alias list. */
+  onCommit(aliases: string[]): void;
+  /** Autocomplete: pages matching the typed text (createAliasSuggester). */
+  getSuggestions?(query: string): readonly MultiSelectSuggestion[];
+}
 
 /**
  * The page → Properties policy layer: the one place that decides which
@@ -14,22 +26,29 @@ import type { Page } from '@core/vault/models/Page';
  *
  * `Tags` is note-level frontmatter membership (`tags`), independent of
  * inline `#tags` — a `tag` Property (pills), read-only until a frontmatter
- * tags write path exists. `Aliases` come from the page's parsed analysis. `Created`
+ * tags write path exists. `Aliases` is the page's frontmatter `aliases`
+ * (PageMetadata.aliases) — a `multi-select` Property (pills), editable when
+ * the host supplies `aliases` actions and the page isn't archived (an
+ * archived page is view-only). Plain text, never unique-checked: several
+ * pages may share an alias. `Created`
  * and `Modified` are system-maintained timestamps: `date` Properties
  * carrying the raw ISO timestamp (formatting is the date type's job),
  * explicitly `editable: false`.
  *
  * Editability is decided here, per Property — never by PropertyList from a
- * type or name. None of these four is editable yet.
+ * type or name. Only Aliases is editable so far.
  *
  * `actions` carries the page-level behaviors a Property can trigger — kept
  * out of `page` so this stays a pure policy function. `onOpenTag` makes the
- * Tags pills open their Tag Collection.
+ * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
 export function buildPageProperties(
   page: Page,
-  actions: { onOpenTag?(name: string): void } = {}
+  actions: { onOpenTag?(name: string): void; aliases?: AliasPropertyActions } = {}
 ): PropertyListItem[] {
+  const aliases = page.metadata.aliases ?? [];
+  const aliasActions = page.metadata.status === 'archived' ? undefined : actions.aliases;
+
   return [
     {
       name: 'Tags',
@@ -38,12 +57,16 @@ export function buildPageProperties(
       onOpenTag: actions.onOpenTag,
       editable: false,
     },
-    {
-      name: 'Aliases',
-      type: 'multi-select',
-      value: page.analysis.aliases.map((alias) => alias.value),
-      editable: false,
-    },
+    aliasActions
+      ? {
+          name: 'Aliases',
+          type: 'multi-select',
+          value: aliases,
+          getSuggestions: aliasActions.getSuggestions,
+          editable: true,
+          onCommit: aliasActions.onCommit,
+        }
+      : { name: 'Aliases', type: 'multi-select', value: aliases, editable: false },
     { name: 'Created', type: 'date', value: page.metadata.createdAt, editable: false },
     { name: 'Modified', type: 'date', value: page.metadata.updatedAt, editable: false },
   ];

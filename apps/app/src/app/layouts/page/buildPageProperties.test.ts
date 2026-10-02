@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Page } from '@core/vault/models/Page';
 import { buildPageProperties } from './buildPageProperties';
 
@@ -25,6 +25,7 @@ function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata
       createdAt: '2026-01-02T03:04:05.000Z',
       updatedAt: 'not-a-date',
       tags: ['a', 'b'],
+      aliases: ['Alt'],
       ...overrides,
     },
     source: { markdown: '' },
@@ -57,6 +58,29 @@ describe('buildPageProperties', () => {
       value: ['Alt'],
       editable: false,
     });
+  });
+
+  it('reads Aliases from frontmatter metadata, not the derived analysis', () => {
+    const page = makePage('note', { aliases: ['From frontmatter'] });
+    expect(buildPageProperties(page)[1]!.value).toEqual(['From frontmatter']);
+  });
+
+  it('makes Aliases editable with the host actions, wiring commit and suggestions', () => {
+    const onCommit = vi.fn();
+    const getSuggestions = vi.fn(() => []);
+    const aliases = buildPageProperties(makePage('note'), { aliases: { onCommit, getSuggestions } })[1]!;
+
+    expect(aliases).toMatchObject({ name: 'Aliases', type: 'multi-select', value: ['Alt'], editable: true });
+    if (aliases.type !== 'multi-select' || !aliases.editable) throw new Error('expected editable');
+    aliases.onCommit(['Alt', 'New']);
+    expect(onCommit).toHaveBeenCalledWith(['Alt', 'New']);
+    expect(aliases.getSuggestions).toBe(getSuggestions);
+  });
+
+  it('keeps Aliases read-only on an archived page even with host actions', () => {
+    const page = makePage('note', { status: 'archived' });
+    const aliases = buildPageProperties(page, { aliases: { onCommit: vi.fn() } })[1]!;
+    expect(aliases.editable).toBe(false);
   });
 
   it('uses the same properties for Notes and Daily Notes', () => {

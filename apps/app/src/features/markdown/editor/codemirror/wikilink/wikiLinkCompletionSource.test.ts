@@ -425,3 +425,46 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
     expect(getSuggestions).toHaveBeenCalledWith('A|B');
   });
 });
+
+describe('wikiLinkCompletionSource — a page found by an alias', () => {
+  const uxSuggestion = {
+    kind: 'page' as const,
+    path: 'Design/User Experience Guidelines',
+    title: 'User Experience Guidelines',
+    breadcrumb: 'Design',
+    alias: 'UX',
+  };
+
+  function accept(view: EditorView, pos: number) {
+    const source = wikiLinkCompletionSource(() => () => [uxSuggestion]);
+    const result = call(source, contextAt(view, pos));
+    const option = result?.options[0];
+    if (typeof option?.apply !== 'function') throw new Error('expected an applicable option');
+    option.apply(view, option, result!.from, result!.to ?? pos);
+  }
+
+  it('[[UX accepts as the canonical full path with the alias as display text', () => {
+    const view = mountView('x [[UX');
+    accept(view, 6);
+    expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|UX]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('labels the option with the page title and the matched alias', () => {
+    const view = mountView('x [[UX');
+    const result = call(wikiLinkCompletionSource(() => () => [uxSuggestion]), contextAt(view, 6));
+    expect(result?.options[0]?.label).toBe('User Experience Guidelines (UX)');
+  });
+
+  it('inside a closed link with no display text, adds the alias as display text', () => {
+    const view = mountView('x [[UX]] y');
+    accept(view, 6);
+    expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|UX]] y');
+  });
+
+  it("inside a closed link that already has display text, keeps the user's display text", () => {
+    const view = mountView('x [[UX|my label]] y');
+    accept(view, 6);
+    expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|my label]] y');
+  });
+});
