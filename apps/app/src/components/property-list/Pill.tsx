@@ -3,6 +3,8 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 
+import './Pill.css';
+
 /**
  * What a click (or Enter/Space when focused) on the pill does — never both:
  * - `navigate`: goes somewhere else (a tag opens its Tag Collection); shows
@@ -34,7 +36,7 @@ type PillProps = {
  * dismiss button absolutely positioned over its right end so showing it
  * never shifts the row. Owning both here is what keeps the dismiss button
  * in the same place on every pill; the geometry itself lives in
- * `.property-list__tag` / `.property-list__tag-remove` (PropertyList.css).
+ * `.property-list__tag` / `.property-list__tag-remove` (Pill.css).
  *
  * Neither the click action nor the dismiss click reaches the editor's
  * "click anywhere to type" handler, and the dismiss click never reaches
