@@ -623,6 +623,22 @@ export type NewCustomProperty =
   | { readonly type: 'multi-select'; readonly value: readonly string[] };
 
 /**
+ * The value a newly added custom property of `type` starts with: empty,
+ * and written so it keeps its type — a boolean is unchecked (`false`, its
+ * only empty state), a list is `[]`, and the rest are an empty value
+ * (a number, date or url as a `# type` comment; text as no value).
+ */
+export function emptyCustomProperty(
+  type: CustomScalarType | 'multi-select'
+): NewCustomProperty {
+  if (type === 'multi-select') {
+    return { type, value: [] };
+  }
+
+  return type === 'boolean' ? { type, value: false } : { type, value: null };
+}
+
+/**
  * The raw lines with custom property `name` appended after every existing
  * line (so every other line stays byte-identical). The name is validated
  * (validateCustomPropertyName) and the value must read back as the

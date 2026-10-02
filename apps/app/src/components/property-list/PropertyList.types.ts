@@ -30,8 +30,18 @@ export type PropertyEditability<Value> =
  * keeps editing with EditableText's reject shake on Enter, or restores
  * the name on blur). Absent: the name is plain text — every system
  * Property's.
+ *
+ * `onAbandon` marks a Property that doesn't exist yet and is waiting for
+ * its name (with `onRename` carrying the commit): its name field is
+ * focused as soon as the row appears, and when that editing session ends
+ * without a valid name committed — Escape, an empty name, or a rejected
+ * one when focus leaves — `onAbandon` is called so the adapter removes
+ * the row. Nothing unnamed is left behind.
  */
-export type PropertyNameEditability = { onRename?(name: string): boolean };
+export type PropertyNameEditability = {
+  onRename?(name: string): boolean;
+  onAbandon?(): void;
+};
 
 /**
  * For a read-only list Property (tag, multi-select): makes each pill

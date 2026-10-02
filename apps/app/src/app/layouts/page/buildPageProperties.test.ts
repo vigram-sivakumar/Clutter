@@ -351,6 +351,96 @@ describe('buildPageProperties', () => {
       });
     });
 
+    describe('drafts (properties being added)', () => {
+      const customPage = (overrides: Partial<Page['metadata']> = {}) =>
+        makePage('note', { unownedFrontmatter: ['Priority: high'], ...overrides });
+      const drafts = (items: { id: number; type: never; name?: string }[], over: object = {}) => ({
+        items,
+        onName: vi.fn(),
+        onAbandon: vi.fn(),
+        ...over,
+      });
+
+      it('an unnamed draft is an empty, read-only row after the custom properties, asking for its name', () => {
+        const actions = drafts([{ id: 1, type: 'date' as never }]);
+        const items = buildPageProperties(customPage(), { drafts: actions });
+
+        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified', 'Priority', '']);
+        expect(items[5]).toMatchObject({ name: '', type: 'date', value: null, editable: false });
+        expect(typeof items[5]!.onRename).toBe('function');
+        items[5]!.onAbandon!();
+        expect(actions.onAbandon).toHaveBeenCalledExactlyOnceWith(1);
+      });
+
+      it.each([
+        ['text', ''],
+        ['number', null],
+        ['date', null],
+        ['url', null],
+        ['boolean', false],
+        ['multi-select', []],
+      ])('an unnamed %s draft shows an empty value of its own type', (type, value) => {
+        const items = buildPageProperties(customPage(), { drafts: drafts([{ id: 1, type: type as never }]) });
+        expect(items[5]).toMatchObject({ type, value });
+      });
+
+      it('a valid, unique name is committed through the host, trimmed', () => {
+        const actions = drafts([{ id: 7, type: 'text' as never }]);
+        const draft = buildPageProperties(customPage(), { drafts: actions })[5]!;
+
+        expect(draft.onRename!('  Due date  ')).toBe(true);
+        expect(actions.onName).toHaveBeenCalledExactlyOnceWith(7, 'Due date');
+      });
+
+      it.each([
+        ['an empty name', ''],
+        ['whitespace', '   '],
+        ['a duplicate', 'Priority'],
+        ['a duplicate in another case', 'priority'],
+        ['a duplicate in upper case', 'PRIORITY'],
+        ['a reserved system name', 'tags'],
+        ['a reserved system name in another case', 'MODIFIED'],
+        ['an unreadable key', 'a: b'],
+      ])('%s is rejected, with no commit', (_label, name) => {
+        const actions = drafts([{ id: 1, type: 'text' as never }]);
+        const draft = buildPageProperties(customPage(), { drafts: actions })[5]!;
+
+        expect(draft.onRename!(name)).toBe(false);
+        expect(actions.onName).not.toHaveBeenCalled();
+      });
+
+      it('a name is also rejected when another draft is already being written under it', () => {
+        const actions = drafts([
+          { id: 1, type: 'text' as never, name: 'Due' },
+          { id: 2, type: 'date' as never },
+        ]);
+        const items = buildPageProperties(customPage(), { drafts: actions });
+
+        expect(items[5]).toMatchObject({ name: 'Due', editable: false });
+        expect(items[5]!.onRename).toBeUndefined();
+        expect(items[6]!.onRename!('due')).toBe(false);
+        expect(actions.onName).not.toHaveBeenCalled();
+      });
+
+      it('a named draft stands in until the page shows the property, then disappears from the list', () => {
+        const actions = drafts([{ id: 1, type: 'text' as never, name: 'Due' }]);
+
+        expect(buildPageProperties(customPage(), { drafts: actions }).map((item) => item.name)).toContain('Due');
+
+        const shown = buildPageProperties(customPage({ unownedFrontmatter: ['Priority: high', 'due:'] }), {
+          drafts: actions,
+        });
+        expect(shown.filter((item) => item.name.toLowerCase() === 'due')).toHaveLength(1);
+      });
+
+      it('an archived page lists no drafts', () => {
+        const items = buildPageProperties(customPage({ status: 'archived' }), {
+          drafts: drafts([{ id: 1, type: 'text' as never }]),
+        });
+        expect(items.map((item) => item.name)).toEqual(['Tags', 'Aliases', 'Created', 'Modified', 'Priority']);
+      });
+    });
+
     it('a list stays non-editable on an archived page', () => {
       const people = buildPageProperties(custom({ status: 'archived' }), { onCommitListValue: vi.fn() })[6]!;
       expect(people.editable).toBe(false);

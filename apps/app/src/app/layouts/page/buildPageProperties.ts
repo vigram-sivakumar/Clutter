@@ -1,4 +1,5 @@
 import type { PropertyListItem } from '@components/property-list/PropertyList';
+import type { CustomPropertyType } from '@core/properties/Property.types';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
@@ -57,6 +58,44 @@ export interface AliasPropertyActions {
  * out of `page` so this stays a pure policy function. `onOpenTag` makes the
  * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
+/**
+ * A custom property being added, held in the UI only: from "Add
+ * properties → <type>" until it has a name. Without a `name` it is an
+ * unnamed row waiting for one; with one, the property is being written
+ * and the row shows it until the page reflects it. Never persisted by
+ * itself — an unnamed draft that is abandoned leaves nothing behind.
+ */
+export interface PropertyDraft {
+  readonly id: number;
+  readonly type: CustomPropertyType;
+  readonly name?: string;
+}
+
+/** The add-property drafts a host manages, and how a draft is named or abandoned. */
+export interface PropertyDraftActions {
+  items: readonly PropertyDraft[];
+  /** The draft got a valid, unique name: the host persists the property and drops the draft. */
+  onName(id: number, name: string): void;
+  /** The draft's naming ended without a valid name: the host drops it. */
+  onAbandon(id: number): void;
+}
+
+/** A read-only, empty row of `type` — a draft's value cell until the property exists. */
+function emptyItem(type: CustomPropertyType, name: string): PropertyListItem {
+  switch (type) {
+    case 'text':
+      return { name, type, value: '', editable: false };
+    case 'number':
+    case 'date':
+    case 'url':
+      return { name, type, value: null, editable: false };
+    case 'boolean':
+      return { name, type, value: false, editable: false };
+    case 'multi-select':
+      return { name, type, value: [], editable: false };
+  }
+}
+
 /** The writes a custom property's value can be given — each present only when the host can perform it. */
 interface CustomPropertyValueActions {
   onRemoveListItem?(key: string, index: number, value: string): void;
@@ -202,6 +241,12 @@ export function buildPageProperties(
      * custom properties are editable.
      */
     onSetScalarValue?(key: string, type: CustomScalarType, value: CustomScalarValue | null): void;
+    /**
+     * The custom properties being added (Add properties → a type), as
+     * unnamed rows waiting for a name. Present (and the page not
+     * archived): they are listed after the existing custom properties.
+     */
+    drafts?: PropertyDraftActions;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -242,6 +287,33 @@ export function buildPageProperties(
     };
   });
 
+  // Drafts: an unnamed row asks for its name — checked by the same rule a
+  // rename uses, and against the names of drafts already being written — a
+  // named one stands in for the property until the page shows it.
+  const drafts = isArchived ? undefined : actions.drafts;
+  const customKeys = new Set(readCustomProperties(customLines).map((property) => property.key.toLowerCase()));
+  const pendingNames = (drafts?.items ?? []).flatMap((draft) => (draft.name === undefined ? [] : [draft.name]));
+  const draftItems = (drafts?.items ?? []).flatMap((draft): PropertyListItem[] => {
+    if (draft.name !== undefined) {
+      return customKeys.has(draft.name.toLowerCase()) ? [] : [emptyItem(draft.type, draft.name)];
+    }
+
+    return [
+      {
+        ...emptyItem(draft.type, ''),
+        onRename: (name) => {
+          if (validateCustomPropertyName(customLines, '', name, pendingNames) !== null) {
+            return false;
+          }
+
+          drafts!.onName(draft.id, name.trim());
+          return true;
+        },
+        onAbandon: () => drafts!.onAbandon(draft.id),
+      },
+    ];
+  });
+
   return [
     onCommitTags
       ? {
@@ -269,5 +341,6 @@ export function buildPageProperties(
     { name: 'Created', type: 'date', value: page.metadata.createdAt, editable: false },
     { name: 'Modified', type: 'date', value: page.metadata.updatedAt, editable: false },
     ...customItems,
+    ...draftItems,
   ];
 }

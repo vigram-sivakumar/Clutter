@@ -57,6 +57,8 @@ import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
+import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { createAliasSuggester } from '@app/layouts/page/aliasSuggestions';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import {
@@ -484,6 +486,7 @@ export function PageHost({
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
+  const propertyDrafts = useCustomPropertyDrafts(activePageId);
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -1784,6 +1787,24 @@ export function PageHost({
               void application.pageOperations.setCustomPropertyList(page.id, key, value),
             onSetScalarValue: (key, type, value) =>
               void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
+            drafts: {
+              items: propertyDrafts.drafts,
+              // Named: the property is written now (empty, typed), and the
+              // draft row stands in for it until the page shows it.
+              onName: (id, name) => {
+                const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
+
+                if (!draft) {
+                  return;
+                }
+
+                propertyDrafts.name(id, name);
+                void application.pageOperations
+                  .addCustomProperty(page.id, name, emptyCustomProperty(draft.type))
+                  .finally(() => propertyDrafts.remove(id));
+              },
+              onAbandon: propertyDrafts.remove,
+            },
           })}
         />
       }

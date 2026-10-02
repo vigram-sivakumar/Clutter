@@ -1,6 +1,12 @@
 export type PropertyType = 'text' | 'date' | 'tag' | 'boolean' | 'url' | 'number' | 'multi-select';
 
 /**
+ * The types a user-created (custom) Property can have: every type but
+ * `tag`, which is the system `tags` Property's.
+ */
+export type CustomPropertyType = Exclude<PropertyType, 'tag'>;
+
+/**
  * A `date` Property's value is the raw stored string, never a formatted
  * one: a local `YYYY-MM-DD` date (what the Calendar picks) or a full ISO
  * timestamp (the system-maintained `created`/`modified`).
