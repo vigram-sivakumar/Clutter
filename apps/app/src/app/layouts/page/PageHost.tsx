@@ -90,8 +90,8 @@ import {
 } from '@features/markdown/editor/MarkdownEditor';
 import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
-// TEMPORARY — see PagePropertiesWithExamples.
-import { PagePropertiesWithExamples } from './PagePropertiesWithExamples';
+import { PropertyList } from '@components/property-list/PropertyList';
+import { buildPageProperties } from './buildPageProperties';
 
 interface PageHostProps {
   application: Application;
@@ -1762,22 +1762,21 @@ export function PageHost({
       coverKey={activePageId}
       bodyFocusRef={editorRef}
       properties={
-        <PagePropertiesWithExamples
+        <PropertyList
           key={activePageId}
-          page={page}
-          getTagSuggestions={getTagSuggestions}
-          // The editor's own inline-#tag click path (createTagResolver's
-          // activate → navigation.openTag), not a second navigation.
-          onOpenTag={(name) => resolveTag(name).activate()}
-          aliasActions={{
-            // The one write path for page metadata.
-            onCommit: (aliases) =>
-              void application.pageOperations.updateMetadata(page.id, { aliases }),
-            getSuggestions: createAliasSuggester(vault, page.id),
-          }}
-          onRenameProperty={(key, name) =>
-            void application.pageOperations.renameCustomProperty(page.id, key, name)
-          }
+          items={buildPageProperties(page, {
+            // The editor's own inline-#tag click path (createTagResolver's
+            // activate → navigation.openTag), not a second navigation.
+            onOpenTag: (name) => resolveTag(name).activate(),
+            aliases: {
+              // The one write path for page metadata.
+              onCommit: (aliases) =>
+                void application.pageOperations.updateMetadata(page.id, { aliases }),
+              getSuggestions: createAliasSuggester(vault, page.id),
+            },
+            onRenameProperty: (key, name) =>
+              void application.pageOperations.renameCustomProperty(page.id, key, name),
+          })}
         />
       }
       body={
