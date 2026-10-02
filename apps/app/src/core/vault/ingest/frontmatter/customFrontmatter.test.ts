@@ -58,6 +58,76 @@ describe('readCustomProperties', () => {
   });
 });
 
+describe('readCustomProperties — conservative type inference', () => {
+  const typeOf = (yamlValue: string) => {
+    const [property] = readCustomProperties(customLines(`field: ${yamlValue}`));
+    return { type: property!.type, value: property!.value };
+  };
+
+  it.each([
+    ['true', 'boolean', true],
+    ['False', 'boolean', false],
+    ['TRUE', 'boolean', true],
+    ['42', 'number', 42],
+    ['-3.5', 'number', -3.5],
+    ['0', 'number', 0],
+    ['1e3', 'number', 1000],
+    ['2026-02-28', 'date', '2026-02-28'],
+    ['2026-10-01T09:30:00Z', 'date', '2026-10-01T09:30:00Z'],
+    ['2026-10-01T09:30+05:30', 'date', '2026-10-01T09:30+05:30'],
+    ['https://example.com/docs?x=1', 'url', 'https://example.com/docs?x=1'],
+    ['http://localhost:3000', 'url', 'http://localhost:3000'],
+    ['[a, "b, c"]', 'list', ['a', 'b, c']],
+    ['plain words', 'text', 'plain words'],
+  ])('%s → %s', (yamlValue, type, value) => {
+    expect(typeOf(yamlValue)).toEqual({ type, value });
+  });
+
+  it.each([
+    // Look-alikes that aren't confidently that type.
+    ['2026-13-45', 'not a real calendar date'],
+    ['2026-02-30', 'not a real calendar date'],
+    ['2026/10/01', 'not ISO'],
+    ['10/01/2026', 'locale-dependent'],
+    ['https://', 'no host'],
+    ['example.com', 'bare domain'],
+    ['mailto:a@b.co', 'not a web URL'],
+    ['007', 'leading zeros — an id, not 7'],
+    ['1_000', 'YAML-only number form'],
+    ['0x1F', 'YAML-only number form'],
+    ['.inf', 'YAML-only number form'],
+    ['yes', 'YAML 1.1 boolean'],
+    ['on', 'YAML 1.1 boolean'],
+    ['"true"', 'quoted → a string'],
+    ['"42"', 'quoted → a string'],
+    ['[1, 2]', 'not a string array'],
+    ['[a, true]', 'not a string array'],
+    ['[a, [b]]', 'nested list'],
+    ['[a, {b: c}]', 'nested mapping'],
+    ['[]', 'empty list'],
+  ])('%s falls back to text (%s)', (yamlValue) => {
+    expect(typeOf(yamlValue).type).toBe('text');
+  });
+
+  it.each([
+    ['a nested mapping', 'meta:\n  owner: Ana'],
+    ['a block scalar', 'notes: |\n  line one\n  line two'],
+    ['a block list of mappings', 'people:\n  - name: Ana\n  - name: Bo'],
+    ['a block list of numbers', 'scores:\n  - 1\n  - 2'],
+    ['an empty value', 'empty:'],
+    ['null', 'gone: null'],
+  ])('%s falls back to text', (_label, yaml) => {
+    expect(readCustomProperties(customLines(yaml))[0]!.type).toBe('text');
+  });
+
+  it('never rewrites the frontmatter — inference only reads the preserved lines', () => {
+    const lines = customLines('due: 2026-10-01\nscore: 007\nlink: https://example.com');
+    const before = [...lines];
+    readCustomProperties(lines);
+    expect(lines).toEqual(before);
+  });
+});
+
 describe('isReservedPropertyName', () => {
   it('matches every canonical system key in any letter case, not just UI labels', () => {
     for (const key of OWNED_FRONTMATTER_KEYS) {

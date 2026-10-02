@@ -45,11 +45,11 @@ export function unquoteFrontmatterString(raw: string): string {
 }
 
 /**
- * The items of a one-line YAML flow sequence (`[a, "b, c", 'd']`) —
- * commas inside quotes don't split — each unquoted. Returns null when
- * `raw` isn't a bracketed sequence.
+ * The raw items of a one-line YAML flow sequence (`[a, "b, c", 'd']`) —
+ * commas inside quotes don't split — each trimmed but still quoted.
+ * Returns null when `raw` isn't a bracketed sequence; `[]` gives [''].
  */
-export function parseFlowSequence(raw: string): string[] | null {
+export function splitFlowSequence(raw: string): string[] | null {
   const value = raw.trim();
 
   if (!value.startsWith('[') || !value.endsWith(']')) {
@@ -75,14 +75,22 @@ export function parseFlowSequence(raw: string): string[] | null {
       quote = char;
       current += char;
     } else if (char === ',') {
-      items.push(current);
+      items.push(current.trim());
       current = '';
     } else {
       current += char;
     }
   }
 
-  items.push(current);
+  items.push(current.trim());
 
-  return items.map(unquoteFrontmatterString);
+  return items;
+}
+
+/**
+ * The items of a one-line YAML flow sequence, each unquoted — see
+ * splitFlowSequence. Returns null when `raw` isn't a bracketed sequence.
+ */
+export function parseFlowSequence(raw: string): string[] | null {
+  return splitFlowSequence(raw)?.map(unquoteFrontmatterString) ?? null;
 }

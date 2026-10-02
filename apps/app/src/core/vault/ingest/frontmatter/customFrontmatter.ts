@@ -1,4 +1,4 @@
-import { parseFlowSequence, unquoteFrontmatterString } from './frontmatterStringValue';
+import { splitFlowSequence, unquoteFrontmatterString } from './frontmatterStringValue';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
 
 /**
@@ -26,9 +26,76 @@ interface KeyBlock {
   readonly continuation: readonly string[];
 }
 
-const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:T[\d:.]+(?:Z|[+-]\d{2}:?\d{2})?)?$/;
-const WEB_URL = /^https?:\/\/\S+$/i;
+/**
+ * Conservative scalar recognizers: each accepts only an unambiguous,
+ * unquoted spelling, so anything doubtful stays `text` (shown as written).
+ */
+const BOOLEAN = /^(?:true|True|TRUE|false|False|FALSE)$/;
+// Decimal only, no leading zeros on the integer part (`007` is an id, not
+// 7), no YAML-only forms (`1_000`, `0x1F`, `.inf`).
+const NUMBER = /^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/;
+
+/** A real calendar date (`2026-02-30` is not), or an ISO date-time that parses. */
+function isValidDate(text: string): boolean {
+  const date = ISO_DATE.exec(text);
+
+  if (date) {
+    const [year, month, day] = [Number(date[1]), Number(date[2]), Number(date[3])];
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return (
+      parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day
+    );
+  }
+
+  return ISO_DATE_TIME.test(text) && Number.isFinite(Date.parse(text));
+}
+
+/** An absolute `http(s)` URL with a host — bare domains and other schemes stay text. */
+function isWebUrl(text: string): boolean {
+  if (!/^https?:\/\/\S+$/i.test(text)) {
+    return false;
+  }
+
+  try {
+    return new URL(text).hostname !== '';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A list item as a string, or null when it isn't one: quoted items are
+ * strings whatever they contain; an unquoted item must not read as another
+ * YAML type (number, boolean, null) or a nested structure.
+ */
+function listItemString(raw: string): string | null {
+  const item = raw.trim();
+
+  if (/^["']/.test(item)) {
+    return unquoteFrontmatterString(item);
+  }
+
+  if (
+    item === '' ||
+    BOOLEAN.test(item) ||
+    NUMBER.test(item) ||
+    /^(?:null|~)$/.test(item) ||
+    /^[[{]/.test(item) ||
+    /: |:$/.test(item)
+  ) {
+    return null;
+  }
+
+  return item;
+}
+
+/** Every item as a string, or null when any isn't (the list then shows as text). */
+function stringArray(items: readonly string[]): string[] | null {
+  const strings = items.map(listItemString);
+  return strings.every((item): item is string => item !== null) ? strings : null;
+}
 
 /**
  * Splits raw frontmatter lines into top-level key blocks — the same
@@ -58,26 +125,44 @@ function splitKeyBlocks(lines: readonly string[]): KeyBlock[] {
   return blocks;
 }
 
+/**
+ * Infers a custom property's type from its parsed value, conservatively:
+ * boolean, number, a valid date/date-time, a valid web URL, or a string
+ * array (→ list) only when the value is unambiguously that; everything
+ * else — strings, quoted values, empty/null, nested mappings, block
+ * scalars, non-string or nested lists — is `text`, shown as written.
+ * Inference only shapes the Property model; the frontmatter is never
+ * rewritten because of it.
+ */
 function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmatterProperty {
   const nonBlank = continuation.filter((line) => line.trim() !== '');
+  const asText = (): CustomFrontmatterProperty => ({
+    key,
+    type: 'text',
+    value: [inlineValue, ...nonBlank.map((line) => line.trim())].filter(Boolean).join('\n'),
+  });
 
-  if (inlineValue === '' || inlineValue === '|' || inlineValue === '>') {
-    if (inlineValue === '' && nonBlank.length > 0 && nonBlank.every((line) => line.trim().startsWith('- '))) {
-      return {
-        key,
-        type: 'list',
-        value: nonBlank.map((line) => unquoteFrontmatterString(line.trim().slice(2))),
-      };
-    }
+  if (inlineValue === '') {
+    const isBlockList =
+      nonBlank.length > 0 && nonBlank.every((line) => /^\s*- /.test(line) || /^\s*-$/.test(line));
+    const items = isBlockList ? stringArray(nonBlank.map((line) => line.trim().slice(1))) : null;
 
-    // No value, a block scalar, or a nested mapping: shown as its text.
-    return { key, type: 'text', value: nonBlank.map((line) => line.trim()).join('\n') };
+    return items ? { key, type: 'list', value: items } : asText();
   }
 
-  const list = parseFlowSequence(inlineValue);
+  // Anything after the value line (a block scalar `|`/`>`, or a value
+  // continued on indented lines) is text.
+  if (nonBlank.length > 0) {
+    return asText();
+  }
 
-  if (list) {
-    return { key, type: 'list', value: list.filter((item) => item !== '') };
+  const flowItems = splitFlowSequence(inlineValue);
+
+  if (flowItems) {
+    // An empty `[]` has nothing to show as pills; a nested `[`/`{` item
+    // fails stringArray (ambiguous) — both text.
+    const items = flowItems.length === 1 && flowItems[0] === '' ? null : stringArray(flowItems);
+    return items ? { key, type: 'list', value: items } : asText();
   }
 
   // A quoted value is a string in YAML, whatever it looks like.
@@ -85,23 +170,23 @@ function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmat
     return { key, type: 'text', value: unquoteFrontmatterString(inlineValue) };
   }
 
-  if (inlineValue === 'true' || inlineValue === 'false') {
-    return { key, type: 'boolean', value: inlineValue === 'true' };
+  if (BOOLEAN.test(inlineValue)) {
+    return { key, type: 'boolean', value: inlineValue.toLowerCase() === 'true' };
   }
 
   if (NUMBER.test(inlineValue) && Number.isFinite(Number(inlineValue))) {
     return { key, type: 'number', value: Number(inlineValue) };
   }
 
-  if (ISO_DATE.test(inlineValue)) {
+  if (isValidDate(inlineValue)) {
     return { key, type: 'date', value: inlineValue };
   }
 
-  if (WEB_URL.test(inlineValue)) {
+  if (isWebUrl(inlineValue)) {
     return { key, type: 'url', value: inlineValue };
   }
 
-  return { key, type: 'text', value: inlineValue === 'null' || inlineValue === '~' ? '' : inlineValue };
+  return { key, type: 'text', value: /^(?:null|~)$/.test(inlineValue) ? '' : inlineValue };
 }
 
 /** The page's custom properties, in file order. */
