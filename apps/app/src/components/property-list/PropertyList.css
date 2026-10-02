@@ -229,12 +229,12 @@
   align-items: center;
   flex-shrink: 0;
   overflow: visible;
+  height: 18px;
 
   color: var(--md-tag-foreground);
   background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
   padding: var(--md-badge-padding);
-  line-height: 18px;
   white-space: nowrap;
 }
 .property-list__tag-prefix,

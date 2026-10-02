@@ -166,7 +166,6 @@ interface TagPropertyEditorProps {
  * existing one matches. Escape closes the popover until typing resumes.
  */
 function TagPropertyEditor({ name, value, getSuggestions, onCommit }: TagPropertyEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -255,7 +254,6 @@ function TagPropertyEditor({ name, value, getSuggestions, onCommit }: TagPropert
 
   return (
     <div
-      ref={editorRef}
       className={['property-list__value property-list__tag-editor', shakeClassName]
         .filter(Boolean)
         .join(' ')}
@@ -293,7 +291,13 @@ function TagPropertyEditor({ name, value, getSuggestions, onCommit }: TagPropert
       <Popover
         open={isSuggesting}
         onClose={() => setIsDismissed(true)}
-        anchorRef={editorRef}
+        // Anchored to the inline input, not the whole value: the current
+        // token always starts at the input's left edge (it clears after
+        // each commit and sits right after the last pill), so this is the
+        // token's start — fixed while typing (the text scrolls inside the
+        // input; the input itself doesn't move), and a fresh position once
+        // a commit adds a pill before it.
+        anchorRef={inputRef}
         side="bottom"
         alignment="start"
         size="fit-content"
