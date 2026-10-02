@@ -16,6 +16,19 @@
     background-color 120ms ease,
     color 120ms ease;
 }
+/* Extra 4px on the side away from a leading/trailing icon, on top of the
+   base padding-inline above — mirrors Button.css. See Input.tsx for the
+   both-icons case this deliberately leaves unmodified. */
+.input--has-leading {
+  padding-inline-end: calc(var(--space-6) + 4px);
+}
+.input--has-trailing {
+  padding-inline-start: calc(var(--space-6) + 4px);
+}
+.input--no-icon {
+  padding-inline: calc(var(--space-6) + 4px);
+}
+
 .input--background {
   background: var(--surface-subtle);
 }

@@ -39,11 +39,23 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
     // Applied to the wrapper, not the native field — pulled out of
     // inputProps so a caller's className can't silently clobber the
     // "input__field" class the inner field needs for its own styling.
+    //
+    // Icon-aware horizontal padding, same rule as Button's: the side away
+    // from a leading/trailing icon — a side where text meets the edge —
+    // gets 4px extra (Input.css). With both icons there's no "side away",
+    // so it keeps the unmodified base padding.
+    const hasLeadingOnly = Boolean(leading) && !trailing;
+    const hasTrailingOnly = Boolean(trailing) && !leading;
+    const hasNoIcon = !leading && !trailing;
+
     const wrapperClassName = [
       'input',
       hasBackground && 'input--background',
       hasBorder && 'input--border',
       multiline && 'input--multiline',
+      hasLeadingOnly && 'input--has-leading',
+      hasTrailingOnly && 'input--has-trailing',
+      hasNoIcon && 'input--no-icon',
       className,
     ]
       .filter(Boolean)

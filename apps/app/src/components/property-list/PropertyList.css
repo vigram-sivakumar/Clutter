@@ -50,14 +50,14 @@
 }
 
 /* The editable text value: Input's multiline wrapper doubles as the value
-   cell. Its inline padding is cancelled by an equal negative margin, so the
-   text lines up with read-only values while the focused background/border
-   extends outward around it instead of shifting the text. */
+   cell. Input's own (icon-less) inline padding is cancelled by an equal
+   negative margin, so the text lines up with read-only values while the
+   focused background/border extends outward around it instead of
+   shifting the text. */
 .property-list__text-input {
   flex: 1;
   width: auto;
-  margin-inline: calc(-1 * var(--space-6));
-  padding-inline: var(--space-6);
+  margin-inline: calc(-1 * (var(--space-6) + 4px));
   font-size: inherit;
   line-height: inherit;
 }
