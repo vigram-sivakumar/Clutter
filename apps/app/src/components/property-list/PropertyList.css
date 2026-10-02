@@ -228,6 +228,9 @@
 .property-list__tag,
 .property-list__value .entry__content .property-list__tag {
   --tag-pill-height: 22px;
+  /* The pill's background, shared by the dismiss button and its fade so
+     all three always match — including on hover, below. */
+  --tag-pill-surface: var(--md-tag-surface);
 
   position: relative;
   display: inline-flex;
@@ -238,7 +241,7 @@
   height: var(--tag-pill-height);
 
   color: var(--md-tag-foreground);
-  background-color: var(--md-tag-surface);
+  background-color: var(--tag-pill-surface);
   border-radius: var(--md-badge-radius);
   padding-block: 0;
   padding-inline: 0.4em;
@@ -266,7 +269,7 @@
   width: var(--tag-pill-height);
   min-width: 0;
   padding: 0;
-  background: var(--md-tag-surface);
+  background: var(--tag-pill-surface);
   /* Square on the left, where the fade below joins it; the pill's own
      radius on the right, so it never pokes past the pill's corners. */
   border-radius: 0 var(--md-badge-radius) var(--md-badge-radius) 0;
@@ -285,7 +288,7 @@
   bottom: 0;
   right: 100%;
   width: calc(var(--tag-pill-height) / 2);
-  background: linear-gradient(to right, transparent, var(--md-tag-surface));
+  background: linear-gradient(to right, transparent, var(--tag-pill-surface));
   pointer-events: none;
 }
 .property-list__tag .property-list__tag-remove svg {
@@ -296,8 +299,17 @@
    the text show through and break the fade — keep the solid pill surface
    and signal hover with the icon color instead. */
 .property-list__tag .property-list__tag-remove:not(:disabled):hover {
-  background: var(--md-tag-surface);
+  background: var(--tag-pill-surface);
   color: var(--foreground-primary);
+}
+
+/* Hovered pill: a slightly lifted surface. Changing the variable (not the
+   background directly) carries it to the dismiss button and its fade too,
+   so the gradient keeps matching. Both selectors, because the read-only
+   one above declares --tag-pill-surface at higher specificity. */
+.property-list__tag:hover,
+.property-list__value .entry__content .property-list__tag:hover {
+  --tag-pill-surface: color-mix(in srgb, var(--md-tag-surface) 98%, rgb(var(--state-base)) 2%);
 }
 .property-list__tag:hover .property-list__tag-remove {
   opacity: 1;
