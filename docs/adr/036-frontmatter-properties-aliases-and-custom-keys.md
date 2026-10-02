@@ -124,7 +124,7 @@ properties:
 
 ## Amendment — a property's menu: Hide, Clear, Delete
 
-Hovering a Property's name replaces its type icon with a vertical-dots button that opens a menu of **Hide**, **Clear**, a divider, and **Delete**. Each action is offered only where it applies, and each is supplied by the adapter (`buildPageProperties`) — never inferred from a type or name:
+Hovering a Property's name replaces its type icon with a horizontal-dots button that opens a menu of **Hide**, **Clear**, a divider, and **Delete**. Each action is offered only where it applies, and each is supplied by the adapter (`buildPageProperties`) — never inferred from a type or name:
 
 - **Hide** (every listed Property, system or custom): `PageOperations.hideProperty(pageId, key)` removes only that canonical key from `properties.visible` (`removeVisibleProperty`). The rest of the list keeps its order, the `visible:` line stays (empty if that was the last entry), every other line is byte-identical, and the Property's value is untouched — so it comes back, under "Hidden", in Add properties. Hiding something not listed is a no-op.
 - **Clear** (custom properties, Tags, Aliases): empties the value and keeps the Property. It reuses the existing writes — a scalar via `setCustomPropertyValue(…, null)` (a typed empty such as `due: # date`, never a fall back to text; a boolean becomes `false`), a list via `setCustomPropertyList(…, [])`, Tags and Aliases via `updateMetadata`. Created and Last edited are system-maintained and cannot be cleared.

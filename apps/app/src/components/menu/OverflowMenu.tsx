@@ -72,6 +72,8 @@ export interface OverflowMenuProps {
   side?: OverlaySide;
   alignment?: OverlayAlignment;
   triggerRef?: RefObject<HTMLButtonElement>;
+  /** The trigger button's icon. Defaults to the vertical dots every other caller uses. */
+  icon?: SystemIcon;
 
   buttonProps?: Omit<
     ButtonProps,
@@ -113,6 +115,7 @@ export function OverflowMenu({
   alignment = 'end',
   buttonProps,
   triggerRef,
+  icon = 'moreVertical',
 }: OverflowMenuProps) {
   // Called unconditionally, before the items.length early return below —
   // a component instance can transition between an empty and non-empty
@@ -147,7 +150,7 @@ export function OverflowMenu({
           onOpenChange(!open);
         }}
       >
-        <AppIcon icon={'moreVertical'} />
+        <AppIcon icon={icon} />
       </Button>
       <Overlay
         open={open}

@@ -6,7 +6,7 @@ import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type { PropertyActions } from './PropertyList.types';
 
 /**
- * A Property's menu: the vertical-dots button shown in its icon's place
+ * A Property's menu: the horizontal-dots button shown in its icon's place
  * while its name is hovered (PropertyList.css), opening Hide and Clear,
  * then — after a divider — Delete. Only the actions the adapter supplies
  * are listed, the divider only when something precedes Delete, and
@@ -45,6 +45,7 @@ export function PropertyMenu({
       onOpenChange={setOpen}
       side="bottom"
       alignment="start"
+      icon="moreHorizontal"
       buttonProps={{ className: 'property__menu-button', 'aria-label': `${name} actions` }}
       onSelect={(id) => {
         if (id === 'hide') {

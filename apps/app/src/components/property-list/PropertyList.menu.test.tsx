@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AppIcon } from '@shared/icon';
+
 import { PropertyList } from './PropertyList';
 import type { PropertyListItem } from './PropertyList.types';
 
@@ -41,7 +43,7 @@ function renderWith(item: Partial<PropertyListItem> = {}) {
 }
 
 describe('PropertyList — a property’s menu', () => {
-  it('has a vertical-dots button in the name, labelled with the property', () => {
+  it('has a horizontal-dots button in the name, labelled with the property', () => {
     renderWith();
 
     const button = trigger('priority')!;
@@ -51,6 +53,17 @@ describe('PropertyList — a property’s menu', () => {
     // It sits beside the type icon, which is still there.
     expect(document.querySelectorAll('.property-list__name .property__icon--type')).toHaveLength(1);
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('shows horizontal dots (not the vertical dots other menus use)', () => {
+    renderWith();
+
+    const icon = trigger('priority')!.querySelector('svg')!.outerHTML;
+    const horizontal = render(<AppIcon icon="moreHorizontal" />).container.querySelector('svg')!.outerHTML;
+    const vertical = render(<AppIcon icon="moreVertical" />).container.querySelector('svg')!.outerHTML;
+
+    expect(icon).toBe(horizontal);
+    expect(icon).not.toBe(vertical);
   });
 
   it('clicking it opens Hide, Clear, a divider, then Delete', () => {

@@ -52,7 +52,7 @@ export type PropertyNameEditability = {
 type RemovableValues = { onRemoveValue?(index: number, value: string): void };
 
 /**
- * What a Property's menu (the vertical-dots button that replaces its icon
+ * What a Property's menu (the horizontal-dots button that replaces its icon
  * while its name is hovered) can do — each action present only when the
  * adapter allows it, never inferred here, and the menu itself absent when
  * none is. The adapter decides which apply: e.g. a system timestamp can be

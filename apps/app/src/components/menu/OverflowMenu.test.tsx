@@ -5,6 +5,8 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AppIcon } from '@shared/icon';
+
 import { OverflowMenu } from './OverflowMenu';
 import type { OverflowMenuItemConfig } from './OverflowMenu';
 
@@ -496,5 +498,31 @@ describe('OverflowMenu', () => {
 
       expect(onSelect).toHaveBeenCalledWith('rename');
     });
+  });
+});
+
+describe('OverflowMenu — trigger icon', () => {
+  const iconMarkup = (container: HTMLElement) => container.querySelector('button svg')?.outerHTML;
+
+  it('defaults to the vertical dots, and an `icon` prop replaces them', () => {
+    const vertical = render(
+      <OverflowMenu items={items} open={false} onOpenChange={vi.fn()} onSelect={vi.fn()} />
+    );
+    const verticalMarkup = iconMarkup(vertical.container);
+    cleanup();
+
+    const reference = render(<AppIcon icon="moreVertical" />);
+    expect(verticalMarkup).toBe(reference.container.querySelector('svg')?.outerHTML);
+    cleanup();
+
+    const horizontal = render(
+      <OverflowMenu items={items} icon="moreHorizontal" open={false} onOpenChange={vi.fn()} onSelect={vi.fn()} />
+    );
+    const horizontalMarkup = iconMarkup(horizontal.container);
+    cleanup();
+
+    const horizontalReference = render(<AppIcon icon="moreHorizontal" />);
+    expect(horizontalMarkup).toBe(horizontalReference.container.querySelector('svg')?.outerHTML);
+    expect(horizontalMarkup).not.toBe(verticalMarkup);
   });
 });

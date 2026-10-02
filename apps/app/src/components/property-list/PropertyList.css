@@ -21,7 +21,7 @@
 }
 /* The name's icon is the property's type. For a Property with a menu,
    hovering the name (or keeping its menu open) swaps it for the menu's
-   vertical-dots button, in the same place and size. */
+   horizontal-dots button, in the same place and size. */
 .property-list__name .property__menu-button {
   display: none;
   height: 20px;
