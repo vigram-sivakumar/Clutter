@@ -3,7 +3,7 @@ import {
   splitFlowSequence,
   unquoteFrontmatterString,
 } from './frontmatterStringValue';
-import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
+import { isReservedRawKey, OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
 
 /**
  * Custom properties — the frontmatter keys Clutter doesn't own — read from
@@ -28,7 +28,7 @@ export type CustomFrontmatterProperty =
   | { readonly key: string; readonly type: 'url'; readonly value: string | null }
   | { readonly key: string; readonly type: 'list'; readonly value: readonly string[] };
 
-interface KeyBlock {
+export interface KeyBlock {
   readonly key: string;
   /** Index of the `key: …` line within the raw lines. */
   readonly start: number;
@@ -118,7 +118,7 @@ function stringArray(items: readonly string[]): string[] | null {
  * unindented `key:` line; indented lines, list items and blank lines
  * belong to it. Comment lines (`# …`) are never keys.
  */
-function splitKeyBlocks(lines: readonly string[]): KeyBlock[] {
+export function splitKeyBlocks(lines: readonly string[]): KeyBlock[] {
   const blocks: { key: string; start: number; inlineValue: string; continuation: string[] }[] = [];
 
   lines.forEach((line, index) => {
@@ -212,13 +212,19 @@ function readBlock({ key, inlineValue, continuation }: KeyBlock): CustomFrontmat
 
 /** The page's custom properties, in file order. */
 export function readCustomProperties(lines: readonly string[]): CustomFrontmatterProperty[] {
-  return splitKeyBlocks(lines).map(readBlock);
+  // A reserved raw key (`properties`) is Clutter's own UI configuration,
+  // never a custom property.
+  return splitKeyBlocks(lines)
+    .filter((block) => !isReservedRawKey(block.key))
+    .map(readBlock);
 }
 
-/** Whether `name` is a system property's canonical key, ignoring case (`Tags`, `CREATED`, …). */
+/** Whether `name` is a system property's canonical key or a reserved raw key (`properties`), ignoring case (`Tags`, `CREATED`, …). */
 export function isReservedPropertyName(name: string): boolean {
   const lower = name.trim().toLowerCase();
-  return [...OWNED_FRONTMATTER_KEYS].some((key) => key.toLowerCase() === lower);
+  return (
+    isReservedRawKey(lower) || [...OWNED_FRONTMATTER_KEYS].some((key) => key.toLowerCase() === lower)
+  );
 }
 
 export type CustomPropertyNameProblem = 'empty' | 'reserved' | 'unsupported' | 'taken';
@@ -378,7 +384,7 @@ export function removeCustomListItem(
  * when it holds a flow indicator (`,` `[` `]` `{` `}`), which would
  * otherwise end the item early.
  */
-function flowListItem(value: string): string {
+export function flowListItem(value: string): string {
   return /[,[\]{}]/.test(value)
     ? `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
     : quoteFrontmatterString(value);

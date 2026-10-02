@@ -14,13 +14,21 @@ import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
+import { isPageSystemPropertyKey } from '../../properties/systemProperties';
+import {
+  addVisibleProperty,
+  readVisibleProperties,
+  renameVisibleProperty,
+} from '../../vault/ingest/frontmatter/propertyVisibility';
 import {
   addCustomProperty,
+  readCustomProperties,
   removeCustomListItem,
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
   validateCustomPropertyName,
+  isReservedPropertyName,
   type CustomScalarType,
   type CustomScalarValue,
   type NewCustomProperty,
@@ -1671,7 +1679,8 @@ export class PageOperations {
         throw new Error(`Cannot rename property "${key}" to "${name}": ${problem}.`);
       }
 
-      return renameCustomProperty(lines, key, name);
+      // A shown property stays shown under its new name, in the same save.
+      return renameVisibleProperty(renameCustomProperty(lines, key, name), key, name.trim());
     });
   }
 
@@ -1693,7 +1702,41 @@ export class PageOperations {
     name: string,
     property: NewCustomProperty
   ): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => addCustomProperty(lines, name, property));
+    // The new property is shown at once: its key joins `properties.visible`
+    // in the same save as the property itself.
+    await this.saveCustomFrontmatter(pageId, (lines) =>
+      addVisibleProperty(addCustomProperty(lines, name, property), name.trim())
+    );
+  }
+
+  /**
+   * Shows a property on this page: adds its canonical key to
+   * `properties.visible` in this page's frontmatter (propertyVisibility.ts)
+   * — a system key (`tags`, `aliases`, `created`, `modified`) or the actual
+   * key of a custom property already in the frontmatter. It only adds: the
+   * list keeps its order (the key goes last), nothing is removed or
+   * reordered, and the property's value is untouched. Already shown is a
+   * no-op. Rejects, with no write, a custom key that isn't in the
+   * frontmatter or a reserved one (`properties`); same guard and Gate
+   * `save` as renameCustomProperty(). There is deliberately no way to hide
+   * a property yet.
+   */
+  public async showProperty(pageId: string, key: string): Promise<void> {
+    const name = key.trim();
+
+    await this.saveCustomFrontmatter(pageId, (lines) => {
+      if (!isPageSystemPropertyKey(name)) {
+        if (isReservedPropertyName(name)) {
+          throw new Error(`"${name}" is not a property that can be shown.`);
+        }
+
+        if (!readCustomProperties(lines).some((property) => property.key === name)) {
+          throw new Error(`No custom property "${name}".`);
+        }
+      }
+
+      return readVisibleProperties(lines).includes(name) ? null : addVisibleProperty(lines, name);
+    });
   }
 
   /**

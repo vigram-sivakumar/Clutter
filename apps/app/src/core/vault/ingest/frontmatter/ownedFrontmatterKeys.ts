@@ -56,3 +56,22 @@ export function matchSystemKey(rawKey: string): string | null {
 
   return canonical;
 }
+
+/**
+ * Frontmatter keys Clutter reserves for its own UI configuration but does
+ * NOT parse: their lines stay in the preserved raw lines
+ * (PageMetadata.unownedFrontmatter), written back byte-identical, and a
+ * dedicated reader/writer handles the part Clutter uses. So they are
+ * deliberately not in OWNED_FRONTMATTER_KEYS — adding one there would make
+ * the flat, line-based FrontmatterParser stop capturing its lines.
+ *
+ * - `properties`: holds `visible`, the canonical keys of the Properties a
+ *   note shows (propertyVisibility.ts). It is never a custom Property: not
+ *   listed as one, and not a name one can be given, in any letter case.
+ */
+export const RESERVED_RAW_FRONTMATTER_KEYS: ReadonlySet<string> = new Set(['properties']);
+
+/** Whether `key` is a reserved raw key, ignoring letter case and surrounding space. */
+export function isReservedRawKey(key: string): boolean {
+  return RESERVED_RAW_FRONTMATTER_KEYS.has(key.trim().toLowerCase());
+}
