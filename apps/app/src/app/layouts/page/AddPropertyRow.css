@@ -1,0 +1,17 @@
+/* The blank row shown while the Add properties menu is open: no icon, and
+   a placeholder where the property's name will go. */
+.property-list__name-placeholder {
+  color: var(--foreground-placeholder);
+}
+
+/* Property rows centre their name and value; this row has only a name, so
+   it starts at the left like every other name. */
+.property-list__row.property-list__add-row {
+  justify-content: flex-start;
+}
+
+/* The blank row's icon: the "+" icon's slot with the glyph hidden, so the
+   row keeps the same leading width and the name never shifts. */
+.property__icon--reserved {
+  visibility: hidden;
+}

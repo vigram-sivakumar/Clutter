@@ -57,6 +57,7 @@ import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
@@ -1744,6 +1745,18 @@ export function PageHost({
   // What Add properties can still show: system Properties and custom
   // properties that exist but aren't shown.
   const addableProperties = getAddableProperties(page);
+  // The "+ Add properties" row ends the list — except on an archived page
+  // (view-only), and while a new property is waiting for its name (the
+  // draft row takes its place).
+  const addPropertyRow =
+    page.metadata.status === 'archived' || propertyDrafts.drafts.some((draft) => draft.name === undefined) ? undefined : (
+      <AddPropertyRow
+        systemProperties={addableProperties.systemProperties}
+        hiddenProperties={addableProperties.hiddenProperties}
+        onShowProperty={(key) => void application.pageOperations.showProperty(page.id, key)}
+        onAddCustomProperty={propertyDrafts.add}
+      />
+    );
 
   return (
     <Page
@@ -1824,9 +1837,10 @@ export function PageHost({
           : (key) => void application.pageOperations.showProperty(page.id, key)
       }
       properties={
-        // No Properties block at all while nothing is shown.
-        propertyItems.length > 0 ? (
-          <PropertyList key={activePageId} items={propertyItems} />
+        // No Properties block at all while nothing is shown and nothing can
+        // be added.
+        propertyItems.length > 0 || addPropertyRow ? (
+          <PropertyList key={activePageId} items={propertyItems} footer={addPropertyRow} />
         ) : undefined
       }
       body={

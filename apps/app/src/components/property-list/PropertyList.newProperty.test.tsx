@@ -35,7 +35,7 @@ describe('PropertyList — a not-yet-named property row', () => {
     renderNew();
 
     expect(document.activeElement).toBe(nameField());
-    expect(nameField().getAttribute('data-placeholder')).toBe('Name');
+    expect(nameField().getAttribute('data-placeholder')).toBe('Property name');
     expect(nameField().textContent).toBe('');
   });
 

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { EditableText } from '@components/editable-text/EditableText';
 import { Entry } from '@components/entry/Entry';
@@ -13,12 +14,19 @@ import './PropertyList.css';
 interface PropertyListProps {
   items: PropertyListItem[];
   className?: string;
+  /**
+   * A row (or rows) after the last Property — the host's "add" affordance.
+   * Rendered in the list's own layout (give it the `property-list__row`
+   * classes), and keeps the list on screen even when there are no
+   * Properties yet.
+   */
+  footer?: ReactNode;
 }
 
 export type { PropertyListItem };
 
-export function PropertyList({ items, className }: PropertyListProps) {
-  if (items.length === 0) {
+export function PropertyList({ items, className, footer }: PropertyListProps) {
+  if (items.length === 0 && !footer) {
     return null;
   }
 
@@ -55,6 +63,7 @@ export function PropertyList({ items, className }: PropertyListProps) {
           {renderPropertyValue(item)}
         </div>
       ))}
+      {footer}
     </div>
   );
 }
@@ -78,7 +87,7 @@ function PropertyName({ item }: { item: PropertyListItem }) {
     <EditableText
       className="editable-text--nowrap property-list__name-input"
       value={item.name}
-      placeholder={isNew ? 'Name' : undefined}
+      placeholder={isNew ? 'Property name' : undefined}
       autoFocus={isNew}
       onCommit={(name) => {
         const isAccepted = item.onRename!(name);
