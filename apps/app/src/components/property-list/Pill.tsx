@@ -20,7 +20,7 @@ type PillProps = {
   children: ReactNode;
   /** Accessible name of the pill-as-button; used only when it is clickable. */
   label?: string;
-  /** Shows the hover dismiss button, which fires this. */
+  /** Adds a dismiss button, shown while the pill's editor has focus, which fires this. */
   onRemove?(): void;
   /** Accessible name of the dismiss button; used only with `onRemove`. */
   removeLabel?: string;
@@ -28,10 +28,10 @@ type PillProps = {
 
 /**
  * The one pill every list Property renders its values with (tags,
- * multi-select values such as aliases) — the pill shape, and the hover
- * dismiss button absolutely positioned over its right end so showing it
- * never shifts the row. Owning both here is what keeps the dismiss button
- * in the same place on every pill; the geometry itself lives in
+ * multi-select values such as aliases) — the pill shape, and the dismiss
+ * button as its last in-flow item, shown only while the pill's editor has
+ * focus. Owning both here is what keeps the dismiss button in the same
+ * place on every pill; the geometry itself lives in
  * `.pill` / `.pill__remove` (Pill.css).
  *
  * Neither the click action nor the dismiss click reaches the editor's

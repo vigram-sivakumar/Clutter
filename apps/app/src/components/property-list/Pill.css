@@ -28,13 +28,14 @@
   box-sizing: border-box;
   height: var(--pill-height);
 
-  color: var(--foreground-primary);
+  color: var(--md-tag-foreground);
   background-color: var(--pill-surface);
   border-radius: var(--md-badge-radius);
   padding-block: 0;
   padding-inline: 0.4em;
   line-height: 1;
   white-space: nowrap;
+  overflow: hidden;
 }
 .pill__prefix,
 .property-list__value .entry__content .pill__prefix {
@@ -43,58 +44,35 @@
   padding-right: 2px;
 }
 
-/* The dismiss button: an absolutely positioned square over the pill's
-   right end, on the pill's own surface (so showing it never changes the
-   row layout); revealed only while the pill is hovered. Full pill height
-   (top/bottom: 0 — `height: auto` overrides Button's own small height,
-   which would otherwise win over top/bottom) and as wide as it is tall. */
+/* The dismiss button: the pill's last flex item, flush with its right edge
+   (the negative margin cancels the pill's inline padding) and as tall as
+   the pill. It takes no space and isn't shown until its editor has focus
+   (`.property-list__tag-editor:focus-within`, below); showing it widens
+   the pill. */
 .pill .pill__remove {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  display: none;
+  align-self: stretch;
   height: auto;
   width: var(--pill-height);
   min-width: 0;
+  margin-inline: 0.2em -0.4em;
   padding: 0;
-  background: var(--pill-surface);
-  /* Square on the left, where the fade below joins it; the pill's own
-     radius on the right, so it never pokes past the pill's corners. */
+  /* The pill's own radius on the right, so hover never pokes past it. */
   border-radius: 0 var(--md-badge-radius) var(--md-badge-radius) 0;
-
-  opacity: 0;
-  pointer-events: none;
-}
-/* A short fade into the button's solid background, so the tag text under
-   it dissolves rather than being cut off by a hard edge — half the pill
-   height wide, so it scales with it. Same color as the pill surface;
-   never intercepts the pointer. */
-.pill .pill__remove::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 100%;
-  width: calc(var(--pill-height) / 2);
-  background: linear-gradient(to right, transparent, var(--pill-surface));
-  pointer-events: none;
 }
 .pill .pill__remove svg {
   width: 13px;
   height: 13px;
 }
-/* Button's own hover swaps in a translucent background, which would let
-   the text show through and break the fade — keep the solid pill surface
-   and signal hover with the icon color instead. */
-.pill .pill__remove:not(:disabled):hover {
-  background: var(--pill-surface);
-  color: var(--foreground-primary);
+/* Dismiss buttons appear on every pill while the editor's input (or a
+   pill being edited in place) has focus. */
+.property-list__tag-editor:focus-within .pill .pill__remove {
+  display: inline-flex;
 }
 
-/* Hovered pill: a slightly lifted surface. Changing the variable (not the
-   background directly) carries it to the dismiss button and its fade too,
-   so the gradient keeps matching. Both selectors, because the read-only
-   one above declares --pill-surface at higher specificity. */
+/* Hovered pill: a slightly lifted surface. Both selectors, because the
+   read-only one above declares --pill-surface at higher specificity. */
 .pill:hover,
 .property-list__value .entry__content .pill:hover {
   --pill-surface: color-mix(
@@ -102,10 +80,6 @@
     var(--surface-tertiary) 97%,
     rgb(var(--state-base)) 3%
   );
-}
-.pill:hover .pill__remove {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 /* A pill being edited reads as plain text, like the add-alias input: no
