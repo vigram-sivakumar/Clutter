@@ -2,14 +2,13 @@ import type { PropertyListItem } from '@components/property-list/PropertyList';
 import type { PropertyActions } from '@components/property-list/PropertyList.types';
 import type { CustomPropertyType } from '@core/properties/Property.types';
 import { systemPropertyLabel } from '@core/properties/systemProperties';
-import type { SystemPropertyKey } from '@core/properties/systemProperties';
+import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
-import { readVisibleProperties } from '@core/vault/ingest/frontmatter/propertyVisibility';
+import { readListedSystemProperties } from '@core/vault/ingest/frontmatter/propertyVisibility';
 import {
   readCustomProperties,
-  toCustomUrl,
   validateCustomPropertyName,
   type CustomFrontmatterProperty,
   type CustomScalarType,
@@ -28,51 +27,8 @@ export interface AliasPropertyActions {
 }
 
 /**
- * The page → Properties policy layer: the one place that decides which
- * metadata is a user-facing Property, its label, and how its value is
- * normalized for PropertyList (which stays a dumb presentational
- * component). The same rules for a Note and a Daily Note.
- *
- * Nothing is shown by default. A Property is listed only when its
- * canonical key — a system key (`tags`, `aliases`, `created`, `modified`)
- * or a custom property's actual frontmatter key, never a UI label — is in
- * the note's `properties.visible` (propertyVisibility.ts), and the rows
- * follow that list's order. Visibility is separate from the property's
- * existence and value: an unlisted property keeps its frontmatter value,
- * and a listed custom key that isn't in the frontmatter shows nothing.
- *
- * Being present in frontmatter does not make a field a Property. Excluded
- * on purpose: fields with dedicated UI (favorite, icon, cover*, description),
- * system metadata (id, type, status, archive fields), and the Daily Note
- * date (already the title).
- *
- * `Tags` is note-level frontmatter membership (`tags`), independent of
- * inline `#tags` — a `tag` Property (pills), editable when the host
- * supplies `onCommitTags` and the page isn't archived. `Aliases` is the page's frontmatter `aliases`
- * (PageMetadata.aliases) — a `multi-select` Property (pills), editable when
- * the host supplies `aliases` actions and the page isn't archived (an
- * archived page is view-only). Plain text, never unique-checked: several
- * pages may share an alias. `Created`
- * and `Last edited` (the `modified` key) are system-maintained timestamps: `date` Properties
- * carrying the raw ISO timestamp (formatting is the date type's job),
- * explicitly `editable: false`.
- *
- * The custom properties — frontmatter keys Clutter doesn't own (never the
- * reserved `properties`), read from the page's preserved raw lines
- * (readCustomProperties), each a Property of its inferred type, with an editable name; read-only values
- * except a list when `onCommitListValue` is supplied.
- *
- * Editability is decided here, per Property — never by PropertyList from a
- * type or name. Only Tags', Aliases' and custom list values, and custom
- * properties' names, are editable so far; system Property names never are.
- *
- * `actions` carries the page-level behaviors a Property can trigger — kept
- * out of `page` so this stays a pure policy function. `onOpenTag` makes the
- * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
- */
-/**
- * A custom property being added, held in the UI only: from "Add
- * properties → <type>" until it has a name. Without a `name` it is an
+ * A custom property being added, held in the UI only: from choosing
+ * a type in the property picker until it has a name. Without a `name` it is an
  * unnamed row waiting for one; with one, the property is being written
  * and the row shows it until the page reflects it. Never persisted by
  * itself — an unnamed draft that is abandoned leaves nothing behind.
@@ -112,7 +68,6 @@ function emptyItem(type: CustomPropertyType, name: string): PropertyListItem {
 function withActions(item: PropertyListItem, actions: PropertyActions): PropertyListItem {
   return {
     ...item,
-    ...(actions.onHide && { onHide: actions.onHide }),
     ...(actions.onClear && { onClear: actions.onClear }),
     ...(actions.onRemove && { onRemove: actions.onRemove }),
     ...(actions.onDelete && { onDelete: actions.onDelete }),
@@ -212,20 +167,56 @@ function toCustomPropertyItem(
             type: 'url',
             value: property.value,
             editable: true,
-            onCommit: (value) => {
-              // Cleared, or a URL a stored value can be read back as one;
-              // anything else is dropped (the value stays as it was).
-              const stored = value === null ? null : toCustomUrl(value);
-
-              if (value === null || stored !== null) {
-                set('url', stored);
-              }
-            },
+            // The editor hands over the stored form (parseUrlPropertyInput) or
+            // null; the write refuses anything that wouldn't read back as a url.
+            onCommit: (value) => set('url', value),
           }
         : { name: key, type: 'url', value: property.value, editable: false };
   }
 }
 
+/**
+ * The page → Properties policy layer: the one place that decides which
+ * metadata is a user-facing Property, its label, and how its value is
+ * normalized for PropertyList (which stays a dumb presentational
+ * component). The same rules for a Note and a Daily Note.
+ *
+ * Which Properties are listed: the system properties (`tags`, `aliases`,
+ * `created`, `modified`) whose canonical key is in the note's
+ * `properties.visible` (propertyVisibility.ts), always in the one canonical
+ * system order; then every custom property — a custom property is listed
+ * because its frontmatter key exists, so it has no visibility of its own — in
+ * frontmatter order. Listing a system property or not never changes its value.
+ *
+ * Being present in frontmatter does not make a field a Property. Excluded
+ * on purpose: fields with dedicated UI (favorite, icon, cover*, description),
+ * system metadata (id, type, status, archive fields), and the Daily Note
+ * date (already the title).
+ *
+ * `Tags` is note-level frontmatter membership (`tags`), independent of
+ * inline `#tags` — a `tag` Property (pills), editable when the host
+ * supplies `onCommitTags` and the page isn't archived. `Aliases` is the page's frontmatter `aliases`
+ * (PageMetadata.aliases) — a `multi-select` Property (pills), editable when
+ * the host supplies `aliases` actions and the page isn't archived (an
+ * archived page is view-only). Plain text, never unique-checked: several
+ * pages may share an alias. `Created`
+ * and `Last edited` (the `modified` key) are system-maintained timestamps: `date` Properties
+ * carrying the raw ISO timestamp (formatting is the date type's job),
+ * explicitly `editable: false`.
+ *
+ * The custom properties — frontmatter keys Clutter doesn't own (never the
+ * reserved `properties`), read from the page's preserved raw lines
+ * (readCustomProperties), each a Property of its inferred type, with an editable name; read-only values
+ * except a list when `onCommitListValue` is supplied.
+ *
+ * Editability is decided here, per Property — never by PropertyList from a
+ * type or name. System Property names are never editable; custom property
+ * names and values are, when the host supplies the write.
+ *
+ * `actions` carries the page-level behaviors a Property can trigger — kept
+ * out of `page` so this stays a pure policy function. `onOpenTag` makes the
+ * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
+ */
 export function buildPageProperties(
   page: Page,
   actions: {
@@ -265,17 +256,11 @@ export function buildPageProperties(
      */
     onSetScalarValue?(key: string, type: CustomScalarType, value: CustomScalarValue | null): void;
     /**
-     * The custom properties being added (Add properties → a type), as
+     * The custom properties being added (a type chosen in the property picker), as
      * unnamed rows waiting for a name. Present (and the page not
      * archived): they are listed after the existing custom properties.
      */
     drafts?: PropertyDraftActions;
-    /**
-     * Stops showing a property (PageOperations.hideProperty), by its
-     * canonical key. Present (and the page not archived): every listed
-     * Property's menu offers Hide. Its value is untouched.
-     */
-    onHideProperty?(key: string): void;
     /**
      * Deletes a custom property from the frontmatter
      * (PageOperations.deleteCustomProperty), by its actual key. Present
@@ -286,11 +271,10 @@ export function buildPageProperties(
     /**
      * Removes a system property from the list
      * (PageOperations.removeSystemProperty), by canonical key. Present (and
-     * the page not archived): every system row's menu offers Remove. Tags
-     * and Aliases also lose their value; Created and Last edited are only
-     * unlisted.
+     * the page not archived): every system row's menu offers Remove, which
+     * only unlists it — its value is kept.
      */
-    onRemoveSystemProperty?(key: SystemPropertyKey): void;
+    onRemoveSystemProperty?(key: PageSystemPropertyKey): void;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
@@ -301,7 +285,6 @@ export function buildPageProperties(
   const onRemoveListItem = isArchived ? undefined : actions.onRemoveListItem;
   const onCommitListValue = isArchived ? undefined : actions.onCommitListValue;
   const onSetScalarValue = isArchived ? undefined : actions.onSetScalarValue;
-  const onHideProperty = isArchived ? undefined : actions.onHideProperty;
   const onDeleteProperty = isArchived ? undefined : actions.onDeleteProperty;
   const onRemoveSystemProperty = isArchived ? undefined : actions.onRemoveSystemProperty;
   const tags = page.metadata.tags ?? [];
@@ -313,11 +296,6 @@ export function buildPageProperties(
   // and is renamable — rejected, with no write, by the same rule
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
-  // Nothing is shown by default: a Property is listed only when its
-  // canonical key — the system key, or a custom property's actual
-  // frontmatter key — is in `properties.visible`. Visibility is separate
-  // from the property's existence and value.
-  const visibleKeys = readVisibleProperties(customLines);
   const customItems = new Map<string, PropertyListItem>(
     readCustomProperties(customLines).map((property): [string, PropertyListItem] => {
       const { key } = property;
@@ -330,7 +308,6 @@ export function buildPageProperties(
       const item = withActions(
         toCustomPropertyItem(property, { onRemoveListItem, onCommitListValue, onSetScalarValue }),
         {
-          onHide: onHideProperty && (() => onHideProperty(key)),
           onClear: clear,
           onDelete: onDeleteProperty && (() => onDeleteProperty(key)),
         }
@@ -385,10 +362,8 @@ export function buildPageProperties(
     ];
   });
 
-  const systemRows: [SystemPropertyKey, PropertyListItem][] = [
-    [
-      'tags',
-      onCommitTags
+  const systemRows: Record<PageSystemPropertyKey, PropertyListItem> = {
+    tags: onCommitTags
         ? {
             name: systemPropertyLabel('tags'),
             type: 'tag',
@@ -407,10 +382,7 @@ export function buildPageProperties(
             onOpenTag: actions.onOpenTag,
             editable: false,
           },
-    ],
-    [
-      'aliases',
-      aliasActions
+    aliases: aliasActions
         ? {
             name: systemPropertyLabel('aliases'),
             type: 'multi-select',
@@ -420,40 +392,27 @@ export function buildPageProperties(
             onCommit: aliasActions.onCommit,
           }
         : { name: systemPropertyLabel('aliases'), type: 'multi-select', value: aliases, editable: false },
-    ],
-    [
-      'created',
-      { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
-    ],
-    [
-      'modified',
-      { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
-    ],
-  ];
+    created: { name: systemPropertyLabel('created'), type: 'date', value: page.metadata.createdAt, editable: false },
+    modified: { name: systemPropertyLabel('modified'), type: 'date', value: page.metadata.updatedAt, editable: false },
+  };
 
-  // Rows follow `properties.visible`, in the order the properties were
-  // added to it: a listed system key, or a listed custom key that exists
-  // in the frontmatter. A listed key that matches neither shows nothing.
-  // Every system row can be removed from the list; Tags and Aliases can also
-  // be cleared. Created and Last edited are system-maintained, so they can't
-  // be cleared, and no system property can be deleted.
-  const systemClear: Partial<Record<SystemPropertyKey, () => void>> = {
+  // What the section lists: the system properties in `properties.visible`, in
+  // the one canonical system order whatever order they are written in; then
+  // every custom property in frontmatter order (a custom property is shown
+  // because its key exists); then any property being added. Every system row
+  // can be removed from the list (its value is kept); Tags and Aliases can
+  // also be cleared. Created and Last edited are system-maintained, so they
+  // can't be cleared, and no system property can be deleted.
+  const systemClear: Partial<Record<PageSystemPropertyKey, () => void>> = {
     tags: onCommitTags && (() => onCommitTags([])),
     aliases: aliasActions && (() => aliasActions.onCommit([])),
   };
-  const systemItems = systemRows.map(([key, item]): [SystemPropertyKey, PropertyListItem] => [
-    key,
-    withActions(item, {
-      onHide: onHideProperty && (() => onHideProperty(key)),
+  const systemItems = readListedSystemProperties(customLines).map((key) =>
+    withActions(systemRows[key], {
       onClear: systemClear[key],
       onRemove: onRemoveSystemProperty && (() => onRemoveSystemProperty(key)),
-    }),
-  ]);
-  const rowsByKey = new Map<string, PropertyListItem>([...systemItems, ...customItems]);
-  const shownItems = [...new Set(visibleKeys)].flatMap((key) => {
-    const item = rowsByKey.get(key);
-    return item ? [item] : [];
-  });
+    })
+  );
 
-  return [...shownItems, ...draftItems];
+  return [...systemItems, ...customItems.values(), ...draftItems];
 }

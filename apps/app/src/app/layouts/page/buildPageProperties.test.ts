@@ -317,17 +317,19 @@ describe('buildPageProperties', () => {
         ]);
       });
 
-      it('a bare domain is stored as an https URL; text that is no web URL is dropped', () => {
+      it('passes the URL editor\'s stored value straight through; the adapter has no URL rule of its own', () => {
         const onSetScalarValue = vi.fn();
         const site = find(buildPageProperties(scalars(), { onSetScalarValue }), 'site') as {
           onCommit(value: string | null): void;
         };
 
-        site.onCommit('example.com/a');
-        site.onCommit('mailto:a@b.co');
-        site.onCommit('not a url');
+        site.onCommit('https://example.com/a');
+        site.onCommit(null);
 
-        expect(onSetScalarValue.mock.calls).toEqual([['site', 'url', 'https://example.com/a']]);
+        expect(onSetScalarValue.mock.calls).toEqual([
+          ['site', 'url', 'https://example.com/a'],
+          ['site', 'url', null],
+        ]);
       });
 
       it('stay read-only on an archived page, and keep their rename', () => {

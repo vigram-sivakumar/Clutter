@@ -1,112 +1,77 @@
 import { Menu } from '@components/menu/Menu';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { MenuItem } from '@components/menu/MenuItem';
-import {
-  customPropertyTypeOptions,
-  propertyTypeRegistry,
-} from '@components/property-list/propertyTypeRegistry';
+import { customPropertyTypeOptions } from '@components/property-list/propertyTypeRegistry';
 import type { CustomPropertyType } from '@core/properties/Property.types';
+import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import { AppIcon } from '@shared/icon';
 import type { iconRegistry } from '@shared/icon/iconRegistry';
 
 /** A system Property that exists but isn't shown on this page, as the menu lists it. */
 export interface AddableSystemProperty {
-  /** The system Property's canonical key — handed back to `onShowProperty`. */
-  id: string;
+  /** The system Property's canonical key — handed back to `onAddSystemProperty`. */
+  id: PageSystemPropertyKey;
   label: string;
   icon: keyof typeof iconRegistry;
 }
 
-/** A custom property that exists in the frontmatter but isn't shown, as the menu lists it. */
-export interface HiddenPropertyOption {
-  /** Its actual frontmatter key — shown as its name, and handed back to `onShowProperty`. */
-  key: string;
-  /** The type its value is read as, for its icon. */
-  type: CustomPropertyType;
-}
-
 export interface AddPropertyMenuProps {
   /**
-   * System Properties not currently shown — computed by the host from the
+   * System Properties not currently listed — computed by the host from the
    * system property definitions (never listed here), minus those the page
-   * shows. Omitted or empty: none listed.
+   * lists. Omitted or empty: none offered.
    */
   systemProperties?: readonly AddableSystemProperty[];
-  /** Custom properties in the frontmatter that aren't shown. Omitted or empty: none listed. */
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  /** Shows an existing property: a system Property's canonical key, or a custom property's actual key. */
-  onShowProperty?(key: string): void;
+  /** Lists a system property by its canonical key (its value is untouched). Omitted: system properties aren't offered. */
+  onAddSystemProperty?(key: PageSystemPropertyKey): void;
   /** Adds a new, unnamed custom Property of the chosen type; the user names it next. */
   onAddCustomProperty(type: CustomPropertyType): void;
   /** Hides the whole Properties section (its properties are kept). Omitted: no "Hide Properties" action. */
   onHideProperties?(): void;
   /** Starts removing every property from the note (the host confirms first). Omitted: no "Delete all" action. */
-  onRemoveAll?(): void;
+  onDeleteAll?(): void;
 }
 
 /**
  * What can be added to the page's Properties, as one list under a single
- * "Type" title: the existing properties the note doesn't list (the system
- * Properties not listed, then the custom properties in the frontmatter that
- * aren't listed), then every custom type — then a divider and the optional
+ * "Type" title: the system properties not currently listed (in the canonical
+ * system order), then every custom type — then a divider and the optional
  * actions (Hide Properties, Delete all). The custom types come from the
- * property type registry (customPropertyTypeOptions), so this
- * menu holds no list of its own. Hosted by the Properties section's
- * "+ Add a property" row (AddPropertyRow), which closes it after a choice.
+ * property type registry (customPropertyTypeOptions), so this menu holds no
+ * list of its own. Hosted by the Properties section's "+ Add a property"
+ * button (AddPropertyRow), which closes it after a choice.
  *
- * Choosing an existing property just shows it (its key joins the note's
- * `properties.visible`). Choosing a custom type adds its row at once (unnamed, name field
- * focused) rather than asking anything else: the type is picked first,
- * then named.
+ * Choosing a system property just lists it (its key joins the note's
+ * `properties.visible`; its value is untouched). Choosing a custom type adds
+ * its row at once (unnamed, name field focused) rather than asking anything
+ * else: the type is picked first, then named.
  */
 export function AddPropertyMenu({
   systemProperties = [],
-  hiddenProperties = [],
-  onShowProperty,
+  onAddSystemProperty,
   onAddCustomProperty,
   onHideProperties,
-  onRemoveAll,
+  onDeleteAll,
 }: AddPropertyMenuProps) {
-  const canShow = Boolean(onShowProperty);
-  const showSystem = canShow && systemProperties.length > 0;
-  const showHidden = canShow && hiddenProperties.length > 0;
-  const hasActions = Boolean(onHideProperties || onRemoveAll);
+  const showSystem = Boolean(onAddSystemProperty) && systemProperties.length > 0;
+  const hasActions = Boolean(onHideProperties || onDeleteAll);
 
   return (
     <Menu size="medium" aria-label="Add properties">
       <MenuGroupTitle>Type</MenuGroupTitle>
-      {showSystem && (
-        <>
-          {systemProperties.map((property) => (
-            <MenuItem
-              key={property.id}
-              leading={<AppIcon icon={property.icon} />}
-              onClick={(event) => {
-                event.stopPropagation();
-                onShowProperty?.(property.id);
-              }}
-            >
-              {property.label}
-            </MenuItem>
-          ))}
-        </>
-      )}
-      {showHidden && (
-        <>
-          {hiddenProperties.map((property) => (
-            <MenuItem
-              key={property.key}
-              leading={<AppIcon icon={propertyTypeRegistry[property.type].icon} />}
-              onClick={(event) => {
-                event.stopPropagation();
-                onShowProperty?.(property.key);
-              }}
-            >
-              {property.key}
-            </MenuItem>
-          ))}
-        </>
-      )}
+      {showSystem &&
+        systemProperties.map((property) => (
+          <MenuItem
+            key={property.id}
+            leading={<AppIcon icon={property.icon} />}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddSystemProperty?.(property.id);
+            }}
+          >
+            {property.label}
+          </MenuItem>
+        ))}
       {customPropertyTypeOptions().map((option) => (
         <MenuItem
           key={option.type}
@@ -131,12 +96,12 @@ export function AddPropertyMenu({
           Hide Properties
         </MenuItem>
       )}
-      {onRemoveAll && (
+      {onDeleteAll && (
         <MenuItem
           leading={<AppIcon icon="trash" />}
           onClick={(event) => {
             event.stopPropagation();
-            onRemoveAll();
+            onDeleteAll();
           }}
         >
           Delete all

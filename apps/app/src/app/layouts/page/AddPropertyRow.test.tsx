@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { systemPropertyLabel } from '@core/properties/systemProperties';
 
 import { AddPropertyRow } from './AddPropertyRow';
-import type { AddableSystemProperty, HiddenPropertyOption } from './header/AddPropertyMenu';
+import type { AddableSystemProperty } from './header/AddPropertyMenu';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -26,20 +26,18 @@ afterAll(() => {
 afterEach(() => cleanup());
 
 const system: AddableSystemProperty[] = [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }];
-const hidden: HiddenPropertyOption[] = [{ key: 'Due date', type: 'date' }];
 
 function setup() {
-  const onShowProperty = vi.fn();
+  const onAddSystemProperty = vi.fn();
   const onAddCustomProperty = vi.fn();
   render(
     <AddPropertyRow
       systemProperties={system}
-      hiddenProperties={hidden}
-      onShowProperty={onShowProperty}
+      onAddSystemProperty={onAddSystemProperty}
       onAddCustomProperty={onAddCustomProperty}
     />
   );
-  return { onShowProperty, onAddCustomProperty };
+  return { onAddSystemProperty, onAddCustomProperty };
 }
 
 const rowText = () => [...document.querySelectorAll('.property-list__add-row')].map((row) => row.textContent);
@@ -107,7 +105,7 @@ describe('AddPropertyRow — clicking it', () => {
     expect(document.activeElement?.closest('.property-list__new-row')).toBeNull();
   });
 
-  it('opens the existing Add properties menu: one list under "Type": the existing (system and custom) properties, then the new types', () => {
+  it('opens the property picker: one list under "Type" — the system properties not listed, then the new types', () => {
     setup();
 
     start();
@@ -117,7 +115,6 @@ describe('AddPropertyRow — clicking it', () => {
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
       'Created',
-      'Due date',
       'Text',
       'Date',
       'URL',
@@ -129,17 +126,14 @@ describe('AddPropertyRow — clicking it', () => {
 });
 
 describe('AddPropertyRow — choosing', () => {
-  it.each([
-    ['a system property', 'Created', 'created'],
-    ['a hidden custom property', 'Due date', 'Due date'],
-  ])('%s shows it by its canonical key and closes the menu', (_label, item, key) => {
-    const { onShowProperty, onAddCustomProperty } = setup();
+  it('a system property is added by its canonical key and the menu closes', () => {
+    const { onAddSystemProperty, onAddCustomProperty } = setup();
     const before = rowMarkup();
 
     start();
-    fireEvent.click(screen.getByRole('menuitem', { name: item }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Created' }));
 
-    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith(key);
+    expect(onAddSystemProperty).toHaveBeenCalledExactlyOnceWith('created');
     expect(onAddCustomProperty).not.toHaveBeenCalled();
     expect(menu()).toBeNull();
     // The placeholder row is "+ Add a property" again.
@@ -149,14 +143,14 @@ describe('AddPropertyRow — choosing', () => {
   it.each(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select'])(
     'a new %s type starts the draft (the host adds it) and the menu closes',
     (label) => {
-      const { onShowProperty, onAddCustomProperty } = setup();
+      const { onAddSystemProperty, onAddCustomProperty } = setup();
       const before = rowMarkup();
 
       start();
       fireEvent.click(screen.getByRole('menuitem', { name: label }));
 
       expect(onAddCustomProperty).toHaveBeenCalledOnce();
-      expect(onShowProperty).not.toHaveBeenCalled();
+      expect(onAddSystemProperty).not.toHaveBeenCalled();
       expect(menu()).toBeNull();
       // The row itself is untouched; it is the host's draft row that appears.
       expect(rowMarkup()).toBe(before);
@@ -169,7 +163,7 @@ describe('AddPropertyRow — dismissing without a choice', () => {
     ['Escape', () => fireEvent.keyDown(document, { key: 'Escape' })],
     ['a click outside the menu', () => fireEvent.click(document.querySelector('.overlay__backdrop')!)],
   ])('%s closes the menu and changes nothing', (_label, dismiss) => {
-    const { onShowProperty, onAddCustomProperty } = setup();
+    const { onAddSystemProperty, onAddCustomProperty } = setup();
     const before = rowMarkup();
 
     start();
@@ -177,7 +171,7 @@ describe('AddPropertyRow — dismissing without a choice', () => {
 
     expect(menu()).toBeNull();
     expect(rowMarkup()).toBe(before);
-    expect(onShowProperty).not.toHaveBeenCalled();
+    expect(onAddSystemProperty).not.toHaveBeenCalled();
     expect(onAddCustomProperty).not.toHaveBeenCalled();
   });
 
@@ -196,7 +190,7 @@ describe('AddPropertyRow — dismissing without a choice', () => {
 describe('AddPropertyRow — the menu actions', () => {
   it.each([
     ['Hide Properties', 'onHideProperties'],
-    ['Delete all', 'onRemoveAll'],
+    ['Delete all', 'onDeleteAll'],
   ] as const)('%s closes the menu and reports it, adding nothing', (label, prop) => {
     const handler = vi.fn();
     const onAddCustomProperty = vi.fn();

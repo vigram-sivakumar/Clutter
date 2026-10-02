@@ -57,14 +57,12 @@ type RemovableValues = { onRemoveValue?(index: number, value: string): void };
  * adapter allows it, never inferred here, and the menu itself absent when
  * none is. The adapter decides which apply: e.g. a system timestamp can be
  * hidden but not cleared or deleted.
- * - `onHide`: stops showing the Property; its value is untouched.
  * - `onClear`: empties its value (keeping its type).
  * - `onDelete`: removes the Property altogether.
- * - `onRemove`: takes a system Property off the list, clearing its value
- *   (it can be shown again; unlike `onDelete`, it is not gone for good).
+ * - `onRemove`: takes a system Property off the list. Its value is kept and
+ *   comes back when it is added again; unlike `onDelete`, nothing is lost.
  */
 export type PropertyActions = {
-  onHide?(): void;
   onClear?(): void;
   onDelete?(): void;
   onRemove?(): void;
@@ -77,7 +75,7 @@ type PropertyListItemByType =
   | ({
       name: string;
       type: 'date';
-      /** Raw stored value (see Property.types' PropertyValue), or null when absent. */
+      /** The raw stored value (see Property.types), or null when absent. */
       value: string | null;
     } & PropertyEditability<string | null>)
   | ({

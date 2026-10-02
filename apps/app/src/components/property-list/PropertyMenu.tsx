@@ -7,10 +7,11 @@ import type { PropertyActions } from './PropertyList.types';
 
 /**
  * A Property's menu: the horizontal-dots button shown in its icon's place
- * while its name is hovered (PropertyList.css), opening Hide and Clear,
- * then — after a divider — Remove (a system Property) or Delete (a custom one). Only the actions the adapter supplies
- * are listed, the divider only when something precedes Delete, and
- * nothing at all renders when there are none.
+ * while its name is hovered (PropertyList.css). It lists the actions the
+ * adapter supplies — Clear, then after a divider Remove (a system
+ * Property, unlisted but kept) or Delete (a custom one, gone for good) —
+ * the divider only when something precedes it, and nothing at all renders
+ * when there are none.
  */
 export function PropertyMenu({
   name,
@@ -23,10 +24,6 @@ export function PropertyMenu({
   const [open, setOpen] = useState(false);
 
   const items: OverflowMenuItemConfig[] = [];
-
-  if (actions.onHide) {
-    items.push({ id: 'hide', label: 'Hide', icon: 'hide' });
-  }
 
   if (actions.onClear) {
     items.push({ id: 'clear', label: 'Clear', icon: 'dismiss' });
@@ -52,9 +49,7 @@ export function PropertyMenu({
       icon="moreHorizontal"
       buttonProps={{ className: 'property__menu-button', 'aria-label': `${name} actions` }}
       onSelect={(id) => {
-        if (id === 'hide') {
-          actions.onHide?.();
-        } else if (id === 'clear') {
+        if (id === 'clear') {
           actions.onClear?.();
         } else if (id === 'remove') {
           actions.onRemove?.();

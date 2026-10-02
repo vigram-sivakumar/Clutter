@@ -11,7 +11,7 @@ import {
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
-  toCustomUrl,
+  isWebUrl,
   validateCustomPropertyName,
 } from './customFrontmatter';
 import { OWNED_FRONTMATTER_KEYS } from './ownedFrontmatterKeys';
@@ -517,22 +517,16 @@ describe('addCustomProperty', () => {
   });
 });
 
-describe('toCustomUrl', () => {
-  it.each([
-    ['https://example.com/a', 'https://example.com/a'],
-    ['  http://localhost:3000  ', 'http://localhost:3000'],
-    ['example.com', 'https://example.com'],
-    ['www.example.co.uk/path?q=1', 'https://www.example.co.uk/path?q=1'],
-  ])('%j → %s', (text, stored) => {
-    expect(toCustomUrl(text)).toBe(stored);
-    // What is stored reads back as a url.
-    expect(readCustomProperties(customLines(`u: ${stored}`))[0]).toMatchObject({ type: 'url' });
+describe('isWebUrl — what a stored value reads back as a url', () => {
+  it.each(['https://example.com/a', 'http://localhost:3000', 'https://www.example.co.uk/path?q=1'])('%s is a url', (text) => {
+    expect(isWebUrl(text)).toBe(true);
+    expect(readCustomProperties(customLines(`u: ${text}`))[0]).toMatchObject({ type: 'url' });
   });
 
-  it.each(['', '   ', 'plain words', 'mailto:a@b.co', 'a@b.co', 'readme', 'see example.com'])(
-    '%j is not storable as a url',
+  it.each(['example.com', 'www.example.com', 'mailto:a@b.co', 'a@b.co', 'plain words', 'https://'])(
+    '%s stays text',
     (text) => {
-      expect(toCustomUrl(text)).toBeNull();
+      expect(isWebUrl(text)).toBe(false);
     }
   );
 });

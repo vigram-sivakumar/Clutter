@@ -12,7 +12,7 @@ import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { readCustomProperties } from '../../vault/ingest/frontmatter/customFrontmatter';
-import { readPropertiesSectionVisibility, readVisibleProperties } from '../../vault/ingest/frontmatter/propertyVisibility';
+import { isPropertiesSectionHidden, readListedSystemProperties } from '../../vault/ingest/frontmatter/propertyVisibility';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
@@ -824,6 +824,23 @@ describe('PageOperations.renameCustomProperty()', () => {
       ]);
     });
 
+    it('a url value written through the Gate reads back as a url, and a value that would read back as text is refused', async () => {
+      const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter('site: # url');
+
+      await pageOperations.setCustomPropertyValue(page.id, 'site', 'url', 'https://example.com/a');
+      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)[0]).toMatchObject({
+        key: 'site',
+        type: 'url',
+        value: 'https://example.com/a',
+      });
+
+      const before = await fileSystem.readFile(page.path);
+      for (const bad of ['example.com', 'mailto:a@b.co', 'not a url']) {
+        await expect(pageOperations.setCustomPropertyValue(page.id, 'site', 'url', bad)).rejects.toThrow();
+      }
+      expect(await fileSystem.readFile(page.path)).toBe(before);
+    });
+
     it('setCustomPropertyValue writes nothing for a list, a missing key, or a bad value', async () => {
       const { page, fileSystem, pageOperations } = await setupWithFrontmatter('people: [Ana]\nest: 3');
       const before = await fileSystem.readFile(page.path);
@@ -837,535 +854,428 @@ describe('PageOperations.renameCustomProperty()', () => {
     });
   });
 
-  describe('showing properties (properties.visible)', () => {
-    const visibleOf = (vault: any, id: string) =>
-      readVisibleProperties(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);
+  describe('the Properties model (system properties, section, custom properties)', () => {
+    const listedOf = (vault: any, id: string) =>
+      readListedSystemProperties(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);
+    const linesOf = (vault: any, id: string) => vault.getPage(id)!.metadata.unownedFrontmatter ?? [];
 
-    it.each(['tags', 'aliases', 'created', 'modified'])(
-      'showProperty adds the system key %s to properties.visible through the Gate, touching nothing else',
-      async (key) => {
-        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-          'author: Jane\npriority: high',
-          'priority: low'
+    describe('addSystemProperty', () => {
+      it.each(['tags', 'aliases', 'created', 'modified'] as const)(
+        'lists %s in properties.visible through the Gate in one save — no `show` is written, nothing else is touched',
+        async (key) => {
+          const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+            'author: Jane\npriority: high',
+            'priority: low'
+          );
+          const otherBefore = await fileSystem.readFile(other.path);
+          const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+          await pageOperations.addSystemProperty(page.id, key);
+
+          expect(enqueue).toHaveBeenCalledTimes(1);
+          expect(enqueue.mock.calls[0]![1].kind).toBe('save');
+          const content = await fileSystem.readFile(page.path);
+          expect(content).toContain(`author: Jane\npriority: high\nproperties:\n  visible:\n    - ${key}`);
+          expect(content).not.toContain('show:');
+          expect(content).toContain('Body text');
+          expect(listedOf(vault, page.id)).toEqual([key]);
+          expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+        }
+      );
+
+      it('never touches the property’s value: a removed property returns with the value it had', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\naliases:\n  - Alt\nproperties:\n  visible:\n    - tags\n    - aliases'
         );
-        const otherBefore = await fileSystem.readFile(other.path);
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+        await pageOperations.removeSystemProperty(page.id, 'aliases');
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        expect(vault.getPage(page.id)!.metadata.aliases).toEqual(['Alt']);
+
+        await pageOperations.addSystemProperty(page.id, 'tags');
+        expect(listedOf(vault, page.id)).toEqual(['tags']);
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+      });
+
+      it('lifts an explicit `show: false`, so choosing a property makes the section appear, in the same save', async () => {
+        const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter(
+          'properties:\n  show: false\n  visible:\n    - tags'
+        );
         const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-        await pageOperations.showProperty(page.id, key);
+        await pageOperations.addSystemProperty(page.id, 'created');
 
         expect(enqueue).toHaveBeenCalledTimes(1);
-        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
-        const content = await fileSystem.readFile(page.path);
-        // The key is listed, and the section is shown with it.
-        expect(content).toContain(`author: Jane\npriority: high\nproperties:\n  show: true\n  visible:\n    - ${key}`);
-        expect(content).toContain('Body text');
-        expect(visibleOf(vault, page.id)).toEqual([key]);
-        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
-      }
-    );
+        expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(false);
+        expect(listedOf(vault, page.id)).toEqual(['tags', 'created']);
+        expect(linesOf(vault, page.id).join('\n')).not.toContain('show:');
+      });
 
-    it('showProperty shows an existing custom property by its actual key; its value is untouched', async () => {
-      const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'Due date: 2026-10-01\npeople:\n  - Ana\n  - Bo'
-      );
+      it('migrates a legacy block the first time it writes it: `show: true`, `visible: []` and custom entries go', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  show: true\n  visible:\n    - priority'
+        );
 
-      await pageOperations.showProperty(page.id, 'Due date');
+        await pageOperations.addSystemProperty(page.id, 'tags');
 
-      const content = await fileSystem.readFile(page.path);
-      expect(content).toContain('Due date: 2026-10-01\npeople:\n  - Ana\n  - Bo\nproperties:');
-      expect(visibleOf(vault, page.id)).toEqual(['Due date']);
-      // The value is exactly as before, and `properties` is not a custom property.
-      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!).map((p) => p.key)).toEqual([
-        'Due date',
-        'people',
-      ]);
-    });
+        expect(linesOf(vault, page.id)).toEqual(['priority: high', 'properties:', '  visible:', '    - tags']);
+      });
 
-    it('showProperty only appends: order is kept and re-showing is a no-op without a write', async () => {
-      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
+      it('already listed in a visible section is a no-op without a write', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('properties:\n  visible:\n    - tags');
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-      await pageOperations.showProperty(page.id, 'modified');
-      await pageOperations.showProperty(page.id, 'tags');
-      await pageOperations.showProperty(page.id, 'priority');
-      const before = await fileSystem.readFile(page.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
+        await pageOperations.addSystemProperty(page.id, 'tags');
 
-      await pageOperations.showProperty(page.id, 'tags');
+        expect(enqueue).not.toHaveBeenCalled();
+      });
 
-      expect(visibleOf(vault, page.id)).toEqual(['modified', 'tags', 'priority']);
-      expect(enqueue).not.toHaveBeenCalled();
-      expect(await fileSystem.readFile(page.path)).toBe(before);
-    });
+      it('recognizes keys case-insensitively, and rejects custom keys, lastOpened, archived and unknown pages with no write', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  visible:\n    - Tags'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-    it('showProperty rejects a missing custom key and the reserved key, writing nothing', async () => {
-      const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter('priority: high');
-      const before = await fileSystem.readFile(page.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
+        await pageOperations.addSystemProperty(page.id, 'tags');
+        expect(enqueue).not.toHaveBeenCalled();
 
-      await expect(pageOperations.showProperty(page.id, 'missing')).rejects.toThrow(/No custom property/);
-      await expect(pageOperations.showProperty(page.id, 'properties')).rejects.toThrow(/not a property/);
-      await expect(pageOperations.showProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
-      expect(enqueue).not.toHaveBeenCalled();
-      expect(await fileSystem.readFile(page.path)).toBe(before);
-    });
+        for (const key of ['priority', 'properties', 'lastOpened']) {
+          await expect(pageOperations.addSystemProperty(page.id, key as 'tags')).rejects.toThrow(/not a system property/);
+        }
+        await expect(pageOperations.addSystemProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
+        expect(enqueue).not.toHaveBeenCalled();
 
-    it('showProperty rejects for an archived page', async () => {
-      const { page, coordinator, pageOperations } = await setupWithFrontmatter('priority: high');
-      await archiveDirectly(coordinator, page.id);
-
-      await expect(pageOperations.showProperty(page.id, 'tags')).rejects.toThrow(/Cannot edit archived page/);
-    });
-
-    it('addCustomProperty makes the new property visible in the same single save', async () => {
-      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\nproperties:\n  visible:\n    - tags'
-      );
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.addCustomProperty(page.id, 'Due date', { type: 'date', value: null });
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      const content = await fileSystem.readFile(page.path);
-      expect(content).toContain(
-        'author: Jane\nproperties:\n  show: true\n  visible:\n    - tags\n    - Due date\nDue date: # date'
-      );
-      expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due date']);
-      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!).at(-1)).toEqual({
-        key: 'Due date',
-        type: 'date',
-        value: null,
+        await archiveDirectly(coordinator, page.id);
+        await expect(pageOperations.addSystemProperty(page.id, 'created')).rejects.toThrow(/Cannot edit archived page/);
       });
     });
 
-    it('renaming a visible custom property rewrites its entry in properties.visible in the same save', async () => {
-      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'priority: high\nowner: Jane\nproperties:\n  visible:\n    - tags\n    - priority\n    - owner'
-      );
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.renameCustomProperty(page.id, 'priority', 'importance');
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      const content = await fileSystem.readFile(page.path);
-      expect(content).toContain('importance: high\nowner: Jane');
-      expect(content).toContain('    - tags\n    - importance\n    - owner');
-      expect(visibleOf(vault, page.id)).toEqual(['tags', 'importance', 'owner']);
-    });
-
-    it('renaming a property that is not shown leaves properties.visible alone', async () => {
-      const { page, vault, pageOperations } = await setupWithFrontmatter(
-        'priority: high\nproperties:\n  visible:\n    - tags'
-      );
-
-      await pageOperations.renameCustomProperty(page.id, 'priority', 'importance');
-
-      expect(visibleOf(vault, page.id)).toEqual(['tags']);
-    });
-
-    it('hideProperty removes only that key from properties.visible, through the Gate; the value stays', async () => {
-      const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\nDue date: 2026-10-01\nproperties:\n  visible:\n    - tags\n    - Due date\n    - created',
-        'priority: low'
-      );
-      const otherBefore = await fileSystem.readFile(other.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.hideProperty(page.id, 'Due date');
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      expect(enqueue.mock.calls[0]![1].kind).toBe('save');
-      const content = await fileSystem.readFile(page.path);
-      // The property is still in the frontmatter, only no longer listed.
-      expect(content).toContain('author: Jane\nDue date: 2026-10-01\nproperties:');
-      expect(content).toContain('    - tags\n    - created');
-      expect(content).not.toContain('    - Due date');
-      expect(visibleOf(vault, page.id)).toEqual(['tags', 'created']);
-      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!).map((p) => p.key)).toEqual([
-        'author',
-        'Due date',
-      ]);
-      expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
-    });
-
-    it('hideProperty on a system key works, hiding then showing again appends it last, and not listed is a no-op', async () => {
-      const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter(
-        'properties:\n  visible:\n    - tags\n    - created'
-      );
-
-      await pageOperations.hideProperty(page.id, 'tags');
-      expect(visibleOf(vault, page.id)).toEqual(['created']);
-
-      await pageOperations.showProperty(page.id, 'tags');
-      expect(visibleOf(vault, page.id)).toEqual(['created', 'tags']);
-
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-      await pageOperations.hideProperty(page.id, 'modified');
-      expect(enqueue).not.toHaveBeenCalled();
-    });
-
-    it('hideProperty rejects for an archived or unknown page, writing nothing', async () => {
-      const { page, coordinator, pageOperations } = await setupWithFrontmatter(
-        'properties:\n  visible:\n    - tags'
-      );
-      await expect(pageOperations.hideProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
-      await archiveDirectly(coordinator, page.id);
-      await expect(pageOperations.hideProperty(page.id, 'tags')).rejects.toThrow(/Cannot edit archived page/);
-    });
-
-    it('deleteCustomProperty removes the property and its visible entry in one save, keeping everything else', async () => {
-      const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\npeople:\n  - Ana\n  - Bo\npriority: high\nproperties:\n  visible:\n    - tags\n    - people\n    - priority',
-        'people:\n  - Zed'
-      );
-      const otherBefore = await fileSystem.readFile(other.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.deleteCustomProperty(page.id, 'people');
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      const content = await fileSystem.readFile(page.path);
-      expect(content).toContain('author: Jane\npriority: high\nproperties:');
-      expect(content).not.toContain('people');
-      expect(content).not.toContain('Ana');
-      expect(content).toContain('Body text');
-      expect(visibleOf(vault, page.id)).toEqual(['tags', 'priority']);
-      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!).map((p) => p.key)).toEqual([
-        'author',
-        'priority',
-      ]);
-      expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
-    });
-
-    it('deleteCustomProperty deletes a hidden property too, and rejects a missing key, a system key, `properties`, or an archived page', async () => {
-      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'priority: high\nproperties:\n  visible:\n    - tags'
-      );
-
-      // Not shown, but it exists: still deletable.
-      await pageOperations.deleteCustomProperty(page.id, 'priority');
-      expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)).toEqual([]);
-      expect(visibleOf(vault, page.id)).toEqual(['tags']);
-
-      const before = await fileSystem.readFile(page.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-      for (const key of ['missing', 'tags', 'created', 'properties']) {
-        await expect(pageOperations.deleteCustomProperty(page.id, key)).rejects.toThrow(/No custom property/);
-      }
-      expect(enqueue).not.toHaveBeenCalled();
-      expect(await fileSystem.readFile(page.path)).toBe(before);
-
-      await archiveDirectly(coordinator, page.id);
-      await expect(pageOperations.deleteCustomProperty(page.id, 'x')).rejects.toThrow(/Cannot edit archived page/);
-    });
-
-    it.each([
-      ['tags', 'tags:\n  - work\n  - home', 'work'],
-      ['aliases', 'aliases:\n  - Alt', 'Alt'],
-    ])(
-      'removeSystemProperty clears %s and unlists it in one save, hiding the section when nothing is left listed',
-      async (key, valueYaml, value) => {
+    describe('removeSystemProperty — unlists, never clears', () => {
+      it.each([
+        ['tags', 'tags:\n  - work\n  - home'],
+        ['aliases', 'aliases:\n  - Alt'],
+      ] as const)('%s: only its key leaves properties.visible; the frontmatter value stays, in one save', async (key, valueYaml) => {
         const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-          `${valueYaml}\nauthor: Jane\nproperties:\n  show: true\n  visible:\n    - ${key}`,
+          `${valueYaml}\nauthor: Jane\nproperties:\n  visible:\n    - ${key}\n    - created`,
           'priority: low'
         );
         const otherBefore = await fileSystem.readFile(other.path);
-        const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-        await pageOperations.removeSystemProperty(page.id, key as 'tags');
-
-        // One atomic save: the value change and the visibility change together.
-        expect(enqueue).toHaveBeenCalledTimes(1);
-        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
-        const content = await fileSystem.readFile(page.path);
-        expect(content).not.toContain(`${key}:`);
-        expect(content).not.toContain(value);
-        expect(content).toContain('author: Jane');
-        expect(content).toContain('Body text');
-        const metadata = vault.getPage(page.id)!.metadata;
-        expect(metadata[key as 'tags' | 'aliases'] ?? []).toEqual([]);
-        expect(readVisibleProperties(metadata.unownedFrontmatter ?? [])).toEqual([]);
-        // The last listed property: the note is back to never-configured — no properties block at all.
-        expect(content).not.toContain('properties');
-        expect(readPropertiesSectionVisibility(metadata.unownedFrontmatter ?? [])).toBe(false);
-        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
-      }
-    );
-
-    it('removeSystemProperty keeps the section shown while other properties are still listed, and leaves the other system value alone', async () => {
-      const { page, vault, pageOperations } = await setupWithFrontmatter(
-        'tags:\n  - work\naliases:\n  - Alt\nproperties:\n  show: true\n  visible:\n    - tags\n    - aliases\n    - created'
-      );
-
-      await pageOperations.removeSystemProperty(page.id, 'tags');
-
-      const metadata = vault.getPage(page.id)!.metadata;
-      expect(metadata.tags ?? []).toEqual([]);
-      expect(metadata.aliases).toEqual(['Alt']);
-      expect(readVisibleProperties(metadata.unownedFrontmatter ?? [])).toEqual(['aliases', 'created']);
-      expect(readPropertiesSectionVisibility(metadata.unownedFrontmatter ?? [])).toBe(true);
-    });
-
-    it.each(['created', 'modified'] as const)(
-      'removeSystemProperty on %s only unlists it, in one save, leaving the frontmatter and other values alone',
-      async (key) => {
-        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-          `tags:\n  - work\nauthor: Jane\nproperties:\n  show: true\n  visible:\n    - ${key}\n    - tags`
-        );
         const before = await fileSystem.readFile(page.path);
         const enqueue = vi.spyOn(coordinator, 'enqueue');
 
         await pageOperations.removeSystemProperty(page.id, key);
 
         expect(enqueue).toHaveBeenCalledTimes(1);
+        expect(enqueue.mock.calls[0]![1].kind).toBe('save');
         const content = await fileSystem.readFile(page.path);
-        expect(visibleOf(vault, page.id)).toEqual(['tags']);
-        // Only the list entry changed: tags and the custom property are intact.
-        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        // The value lines are byte-identical; only the list changed.
+        expect(content).toContain(valueYaml);
         expect(content).toContain('author: Jane');
-        expect(content).toContain('tags:\n  - work');
         expect(content).not.toBe(before);
-        expect(readPropertiesSectionVisibility(vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [])).toBe(true);
-      }
-    );
-
-    it('removeSystemProperty on the last listed created/modified returns the note to the never-configured state', async () => {
-      const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\nproperties:\n  show: true\n  visible:\n    - created'
-      );
-
-      await pageOperations.removeSystemProperty(page.id, 'created');
-
-      expect(await fileSystem.readFile(page.path)).not.toContain('properties');
-      expect(readPropertiesSectionVisibility(vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [])).toBe(false);
-    });
-
-    it('removeSystemProperty rejects custom keys, an archived page and an unknown page, writing nothing', async () => {
-      const { page, coordinator, pageOperations } = await setupWithFrontmatter(
-        'priority: high\nproperties:\n  visible:\n    - created'
-      );
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      for (const key of ['priority', 'properties']) {
-        await expect(pageOperations.removeSystemProperty(page.id, key as 'tags')).rejects.toThrow(/can be removed/);
-      }
-      await expect(pageOperations.removeSystemProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
-      expect(enqueue).not.toHaveBeenCalled();
-
-      await archiveDirectly(coordinator, page.id);
-      await expect(pageOperations.removeSystemProperty(page.id, 'tags')).rejects.toThrow(/Cannot edit archived page/);
-    });
-
-    it('deleteCustomProperty of the last listed property returns the note to the never-configured state in one save', async () => {
-      const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\npriority: high\nproperties:\n  show: true\n  visible:\n    - priority'
-      );
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.deleteCustomProperty(page.id, 'priority');
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      const content = await fileSystem.readFile(page.path);
-      // No properties block at all — not `show: false`, not an empty `visible`.
-      for (const gone of ['properties', 'show:', 'visible', 'priority']) {
-        expect(content).not.toContain(gone);
-      }
-      expect(content).toContain('author: Jane');
-      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
-      expect(readPropertiesSectionVisibility(lines)).toBe(false);
-      expect(visibleOf(vault, page.id)).toEqual([]);
-    });
-
-    it('deleteCustomProperty with other properties still listed leaves the section as it was, and keeps other configuration under properties', async () => {
-      const { page, vault, pageOperations } = await setupWithFrontmatter(
-        'a: 1\nb: 2\nproperties:\n  show: true\n  other: 1\n  visible:\n    - a\n    - b'
-      );
-
-      await pageOperations.deleteCustomProperty(page.id, 'a');
-      let lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
-      expect(visibleOf(vault, page.id)).toEqual(['b']);
-      expect(readPropertiesSectionVisibility(lines)).toBe(true);
-
-      await pageOperations.deleteCustomProperty(page.id, 'b');
-      lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
-      // Last one: listing reset, but the unrelated entry under properties survives.
-      expect(lines).toEqual(['properties:', '  other: 1']);
-    });
-
-    it('deleting an unlisted custom property does not touch the Properties listing', async () => {
-      const { page, vault, pageOperations } = await setupWithFrontmatter(
-        'priority: high\nproperties:\n  show: true\n  visible:'
-      );
-
-      await pageOperations.deleteCustomProperty(page.id, 'priority');
-
-      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
-      expect(readPropertiesSectionVisibility(lines)).toBe(true);
-    });
-
-    it('removeAllProperties deletes every custom property and the whole properties block in one save, keeping the body and other pages', async () => {
-      const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-        'author: Jane\npeople:\n  - Ana\npriority: high\nproperties:\n  show: true\n  visible:\n    - tags\n    - people',
-        'people:\n  - Zed'
-      );
-      const otherBefore = await fileSystem.readFile(other.path);
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.removeAllProperties(page.id);
-
-      expect(enqueue).toHaveBeenCalledTimes(1);
-      expect(enqueue.mock.calls[0]![1].kind).toBe('save');
-      const content = await fileSystem.readFile(page.path);
-      for (const gone of ['author', 'people', 'Ana', 'priority', 'properties', 'show:', 'visible']) {
-        expect(content).not.toContain(gone);
-      }
-      expect(content).toContain('Body text');
-      const lines = vault.getPage(page.id)!.metadata.unownedFrontmatter ?? [];
-      expect(readCustomProperties(lines)).toEqual([]);
-      expect(readPropertiesSectionVisibility(lines)).toBe(false);
-      expect(visibleOf(vault, page.id)).toEqual([]);
-      expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
-    });
-
-    it('removeAllProperties on a page already without properties writes nothing, and rejects an archived or unknown page', async () => {
-      const { page, coordinator, pageOperations } = await setupWithFrontmatter('');
-      const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-      await pageOperations.removeAllProperties(page.id);
-      expect(enqueue).not.toHaveBeenCalled();
-
-      await expect(pageOperations.removeAllProperties('nope')).rejects.toThrow(/Page not found/);
-      await archiveDirectly(coordinator, page.id);
-      await expect(pageOperations.removeAllProperties(page.id)).rejects.toThrow(/Cannot edit archived page/);
-    });
-
-    describe('the Properties section (properties.show)', () => {
-      const sectionShown = (vault: any, id: string) =>
-        readPropertiesSectionVisibility(vault.getPage(id)!.metadata.unownedFrontmatter ?? []);
-
-      it('a page with no properties.show has its section hidden', async () => {
-        const { page, vault } = await setupWithFrontmatter('priority: high');
-        expect(sectionShown(vault, page.id)).toBe(false);
+        expect(listedOf(vault, page.id)).toEqual(['created']);
+        expect(vault.getPage(page.id)!.metadata[key]!.length).toBeGreaterThan(0);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
       });
 
-      it('showing sets properties.show through the Gate, leaving visible, values and other frontmatter untouched', async () => {
+      it.each(['created', 'modified'] as const)('%s: only unlisted — the note’s timestamps are never written', async (key) => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          `tags:\n  - work\nauthor: Jane\nproperties:\n  visible:\n    - ${key}\n    - tags`
+        );
+
+        await pageOperations.removeSystemProperty(page.id, key);
+
+        expect(listedOf(vault, page.id)).toEqual(['tags']);
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        expect(await fileSystem.readFile(page.path)).toContain('author: Jane');
+      });
+
+      it('unlisting the last listed system property leaves no empty visible list, no `show` and no properties block — custom properties are still displayed', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\nauthor: Jane\nproperties:\n  show: true\n  visible:\n    - tags'
+        );
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+
+        const content = await fileSystem.readFile(page.path);
+        for (const gone of ['properties', 'show:', 'visible']) {
+          expect(content).not.toContain(gone);
+        }
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        expect(listedOf(vault, page.id)).toEqual([]);
+      });
+
+      it('with nothing custom either, the listing is reset entirely', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\nproperties:\n  show: false\n  visible:\n    - tags'
+        );
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+
+        expect(await fileSystem.readFile(page.path)).not.toContain('properties');
+        expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(false);
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+      });
+
+      it('other configuration under properties survives; other listed keys keep their place', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'properties:\n  other: 1\n  visible:\n    - tags\n    - aliases\n    - created'
+        );
+
+        await pageOperations.removeSystemProperty(page.id, 'aliases');
+
+        expect(linesOf(vault, page.id)).toEqual(['properties:', '  other: 1', '  visible:', '    - tags', '    - created']);
+      });
+
+      it('not listed is a no-op; custom keys, lastOpened, archived and unknown pages are rejected with no write', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  visible:\n    - created'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+        expect(enqueue).not.toHaveBeenCalled();
+
+        for (const key of ['priority', 'properties', 'lastOpened']) {
+          await expect(pageOperations.removeSystemProperty(page.id, key as 'tags')).rejects.toThrow(/can be removed/);
+        }
+        await expect(pageOperations.removeSystemProperty('nope', 'tags')).rejects.toThrow(/Page not found/);
+        expect(enqueue).not.toHaveBeenCalled();
+
+        await archiveDirectly(coordinator, page.id);
+        await expect(pageOperations.removeSystemProperty(page.id, 'created')).rejects.toThrow(/Cannot edit archived page/);
+      });
+
+      it('keeps the file’s own spelling of the key: a `Tags:` value is not rewritten by unlisting', async () => {
+        const { page, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'Tags:\n  - work\nproperties:\n  visible:\n    - tags\n    - created'
+        );
+
+        await pageOperations.removeSystemProperty(page.id, 'tags');
+
+        expect(await fileSystem.readFile(page.path)).toContain('Tags:\n  - work');
+      });
+    });
+
+    describe('custom properties', () => {
+      it('addCustomProperty is one save: the property appears because its key exists — nothing is listed for it', async () => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter('author: Jane');
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.addCustomProperty(page.id, 'Due date', { type: 'date', value: null });
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('author: Jane\nDue date: # date');
+        expect(content).not.toContain('properties');
+        expect(readCustomProperties(linesOf(vault, page.id)).at(-1)).toEqual({ key: 'Due date', type: 'date', value: null });
+      });
+
+      it('addCustomProperty lifts an explicit hide and migrates a legacy block in the same save', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\nproperties:\n  show: false\n  visible:\n    - tags\n    - author'
+        );
+
+        await pageOperations.addCustomProperty(page.id, 'Due date', { type: 'date', value: null });
+
+        expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(false);
+        // The legacy custom entry (`author`) is dropped; the system key stays.
+        expect(linesOf(vault, page.id)).toEqual(['author: Jane', 'properties:', '  visible:', '    - tags', 'Due date: # date']);
+      });
+
+      it('renameCustomProperty changes only the key; it never reads or writes properties.visible', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  visible:\n    - tags'
+        );
+
+        await pageOperations.renameCustomProperty(page.id, 'priority', 'importance');
+
+        expect(linesOf(vault, page.id)).toEqual(['importance: high', 'properties:', '  visible:', '    - tags']);
+      });
+
+      it('deleteCustomProperty removes the actual frontmatter key and its value in one save, keeping everything else', async () => {
         const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-          'author: Jane\nDue date: 2026-10-01\npeople:\n  - Ana\nproperties:\n  visible:\n    - tags\n    - Due date',
-          'priority: low'
+          'author: Jane\npeople:\n  - Ana\n  - Bo\npriority: high\nproperties:\n  visible:\n    - tags',
+          'people:\n  - Zed'
         );
         const otherBefore = await fileSystem.readFile(other.path);
         const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-        await pageOperations.setPropertiesSectionVisibility(page.id, true);
+        await pageOperations.deleteCustomProperty(page.id, 'people');
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('author: Jane\npriority: high\nproperties:');
+        expect(content).not.toContain('people');
+        expect(content).not.toContain('Ana');
+        expect(content).toContain('Body text');
+        expect(readCustomProperties(linesOf(vault, page.id)).map((p) => p.key)).toEqual(['author', 'priority']);
+        expect(listedOf(vault, page.id)).toEqual(['tags']);
+        expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
+      });
+
+      it('deleting the last thing to show returns the note to the never-configured state in one save', async () => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\nproperties:\n  show: true\n  visible:\n    - priority'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.deleteCustomProperty(page.id, 'author');
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        const content = await fileSystem.readFile(page.path);
+        for (const gone of ['properties', 'show:', 'visible', 'author']) {
+          expect(content).not.toContain(gone);
+        }
+        expect(listedOf(vault, page.id)).toEqual([]);
+      });
+
+      it('with a system property still listed, deleting the last custom property leaves the listing alone', async () => {
+        const { page, vault, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\nproperties:\n  other: 1\n  visible:\n    - tags'
+        );
+
+        await pageOperations.deleteCustomProperty(page.id, 'author');
+
+        expect(linesOf(vault, page.id)).toEqual(['properties:', '  other: 1', '  visible:', '    - tags']);
+      });
+
+      it('rejects a missing key, a system key, `properties`, or an archived page, writing nothing', async () => {
+        const { page, coordinator, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'priority: high\nproperties:\n  visible:\n    - tags'
+        );
+        const before = await fileSystem.readFile(page.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        for (const key of ['missing', 'tags', 'created', 'properties']) {
+          await expect(pageOperations.deleteCustomProperty(page.id, key)).rejects.toThrow(/No custom property/);
+        }
+        expect(enqueue).not.toHaveBeenCalled();
+        expect(await fileSystem.readFile(page.path)).toBe(before);
+
+        await archiveDirectly(coordinator, page.id);
+        await expect(pageOperations.deleteCustomProperty(page.id, 'priority')).rejects.toThrow(/Cannot edit archived page/);
+      });
+    });
+
+    describe('deleteAllProperties', () => {
+      it('deletes every custom property and the whole properties block in one save, keeping the body, system values and other pages', async () => {
+        const { page, other, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\nauthor: Jane\npeople:\n  - Ana\nproperties:\n  show: false\n  visible:\n    - tags\n    - created',
+          'people:\n  - Zed'
+        );
+        const otherBefore = await fileSystem.readFile(other.path);
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.deleteAllProperties(page.id);
 
         expect(enqueue).toHaveBeenCalledTimes(1);
         expect(enqueue.mock.calls[0]![1].kind).toBe('save');
         const content = await fileSystem.readFile(page.path);
-        expect(content).toContain(
-          'author: Jane\nDue date: 2026-10-01\npeople:\n  - Ana\nproperties:\n  show: true\n  visible:\n    - tags\n    - Due date'
-        );
+        for (const gone of ['author', 'people', 'Ana', 'properties', 'show:', 'visible']) {
+          expect(content).not.toContain(gone);
+        }
+        expect(content).not.toMatch(/show:\s*true/);
+        expect(content).not.toContain('visible: []');
         expect(content).toContain('Body text');
-        expect(sectionShown(vault, page.id)).toBe(true);
-        expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due date']);
-        // Values intact, and neither `show` nor `visible` became a custom property.
-        expect(readCustomProperties(vault.getPage(page.id)!.metadata.unownedFrontmatter!)).toEqual([
-          { key: 'author', type: 'text', value: 'Jane' },
-          { key: 'Due date', type: 'date', value: '2026-10-01' },
-          { key: 'people', type: 'list', value: ['Ana'] },
-        ]);
+        // System values are untouched (body #tags too); only the configuration is gone.
+        expect(vault.getPage(page.id)!.metadata.tags).toEqual(['work']);
+        expect(readCustomProperties(linesOf(vault, page.id))).toEqual([]);
+        expect(linesOf(vault, page.id)).toEqual([]);
         expect(await fileSystem.readFile(other.path)).toBe(otherBefore);
       });
 
-      it('hiding sets show: false and leaves visible untouched; hiding a section with no show writes nothing', async () => {
-        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
-          'priority: high\nproperties:\n  visible:\n    - tags\n    - priority'
-        );
+      it('on a page already without properties writes nothing, and rejects an archived or unknown page', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('');
         const enqueue = vi.spyOn(coordinator, 'enqueue');
 
-        // Hidden is the default: nothing to write.
-        await pageOperations.setPropertiesSectionVisibility(page.id, false);
+        await pageOperations.deleteAllProperties(page.id);
         expect(enqueue).not.toHaveBeenCalled();
-        expect(await fileSystem.readFile(page.path)).not.toContain('show');
 
-        await pageOperations.setPropertiesSectionVisibility(page.id, true);
-        await pageOperations.setPropertiesSectionVisibility(page.id, false);
-
-        const content = await fileSystem.readFile(page.path);
-        expect(content).toContain('properties:\n  show: false\n  visible:\n    - tags\n    - priority');
-        expect(content).toContain('priority: high');
-        expect(sectionShown(vault, page.id)).toBe(false);
-        expect(visibleOf(vault, page.id)).toEqual(['tags', 'priority']);
-      });
-
-      it('setting what it already is writes nothing', async () => {
-        const { page, coordinator, pageOperations } = await setupWithFrontmatter('properties:\n  show: true');
-        const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-        await pageOperations.setPropertiesSectionVisibility(page.id, true);
-
-        expect(enqueue).not.toHaveBeenCalled();
-      });
-
-      it('choosing a property shows the section with it, in one save; hiding the section or a property never touches the other', async () => {
-        const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter('priority: high');
-        const enqueue = vi.spyOn(coordinator, 'enqueue');
-
-        // The first property chosen also makes the section appear.
-        await pageOperations.showProperty(page.id, 'priority');
-        expect(enqueue).toHaveBeenCalledTimes(1);
-        expect(sectionShown(vault, page.id)).toBe(true);
-        expect(visibleOf(vault, page.id)).toEqual(['priority']);
-
-        await pageOperations.showProperty(page.id, 'tags');
-        expect(visibleOf(vault, page.id)).toEqual(['priority', 'tags']);
-
-        // Hiding a property leaves the section shown...
-        await pageOperations.hideProperty(page.id, 'priority');
-        expect(sectionShown(vault, page.id)).toBe(true);
-        expect(visibleOf(vault, page.id)).toEqual(['tags']);
-
-        // ...and hiding the section leaves the list alone.
-        await pageOperations.setPropertiesSectionVisibility(page.id, false);
-        expect(sectionShown(vault, page.id)).toBe(false);
-        expect(visibleOf(vault, page.id)).toEqual(['tags']);
-
-        // Choosing a property again brings the section back.
-        await pageOperations.addCustomProperty(page.id, 'Due', { type: 'date', value: null });
-        expect(sectionShown(vault, page.id)).toBe(true);
-        expect(visibleOf(vault, page.id)).toEqual(['tags', 'Due']);
-      });
-
-      it('showing a property that is already listed, while the section is hidden, shows the section; already shown in a shown section writes nothing', async () => {
-        const { page, coordinator, vault, pageOperations } = await setupWithFrontmatter(
-          'properties:\n  show: false\n  visible:\n    - tags'
-        );
-
-        await pageOperations.showProperty(page.id, 'tags');
-        expect(sectionShown(vault, page.id)).toBe(true);
-        expect(visibleOf(vault, page.id)).toEqual(['tags']);
-
-        const enqueue = vi.spyOn(coordinator, 'enqueue');
-        await pageOperations.showProperty(page.id, 'tags');
-        expect(enqueue).not.toHaveBeenCalled();
-      });
-
-      it('rejects for an archived or unknown page, writing nothing', async () => {
-        const { page, coordinator, pageOperations } = await setupWithFrontmatter('priority: high');
-        await expect(pageOperations.setPropertiesSectionVisibility('nope', true)).rejects.toThrow(/Page not found/);
-
+        await expect(pageOperations.deleteAllProperties('nope')).rejects.toThrow(/Page not found/);
         await archiveDirectly(coordinator, page.id);
-        const enqueue = vi.spyOn(coordinator, 'enqueue');
-        await expect(pageOperations.setPropertiesSectionVisibility(page.id, true)).rejects.toThrow(
-          /Cannot edit archived page/
-        );
-        expect(enqueue).not.toHaveBeenCalled();
+        await expect(pageOperations.deleteAllProperties(page.id)).rejects.toThrow(/Cannot edit archived page/);
       });
     });
 
-    it('there is still no visibility setter: hide and show are separate, explicit operations', () => {
+    describe('the Properties section (properties.show)', () => {
+      it('hiding writes only `show: false` — every property, value and the visible list are untouched', async () => {
+        const { page, coordinator, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'tags:\n  - work\nauthor: Jane\nproperties:\n  visible:\n    - tags\n    - created'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.setPropertiesSectionHidden(page.id, true);
+
+        expect(enqueue).toHaveBeenCalledTimes(1);
+        const content = await fileSystem.readFile(page.path);
+        expect(content).toContain('properties:\n  show: false\n  visible:\n    - tags\n    - created');
+        expect(content).toContain('tags:\n  - work\nauthor: Jane');
+        expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(true);
+        expect(listedOf(vault, page.id)).toEqual(['tags', 'created']);
+      });
+
+      it('showing removes the override — `show: true` is never written — and leaves everything else', async () => {
+        const { page, vault, fileSystem, pageOperations } = await setupWithFrontmatter(
+          'author: Jane\nproperties:\n  show: false\n  visible:\n    - tags'
+        );
+
+        await pageOperations.setPropertiesSectionHidden(page.id, false);
+
+        const content = await fileSystem.readFile(page.path);
+        expect(content).not.toContain('show:');
+        expect(content).toContain('properties:\n  visible:\n    - tags');
+        expect(isPropertiesSectionHidden(linesOf(vault, page.id))).toBe(false);
+      });
+
+      it('hide then show round-trips to the original frontmatter', async () => {
+        const yaml = 'author: Jane\nproperties:\n  visible:\n    - tags';
+        const { page, vault, pageOperations } = await setupWithFrontmatter(yaml);
+        const original = [...linesOf(vault, page.id)];
+
+        await pageOperations.setPropertiesSectionHidden(page.id, true);
+        await pageOperations.setPropertiesSectionHidden(page.id, false);
+
+        expect(linesOf(vault, page.id)).toEqual(original);
+      });
+
+      it('setting what it already is writes nothing; a legacy `show: true` counts as shown', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter(
+          'properties:\n  show: true\n  visible:\n    - tags'
+        );
+        const enqueue = vi.spyOn(coordinator, 'enqueue');
+
+        await pageOperations.setPropertiesSectionHidden(page.id, false);
+        // `show: true` is a legacy spelling of "not hidden": showing removes it as part of the write.
+        expect(enqueue).toHaveBeenCalledTimes(1);
+
+        await pageOperations.setPropertiesSectionHidden(page.id, false);
+        expect(enqueue).toHaveBeenCalledTimes(1);
+      });
+
+      it('rejects for an archived or unknown page, writing nothing', async () => {
+        const { page, coordinator, pageOperations } = await setupWithFrontmatter('author: Jane');
+        await expect(pageOperations.setPropertiesSectionHidden('nope', true)).rejects.toThrow(/Page not found/);
+        await archiveDirectly(coordinator, page.id);
+        await expect(pageOperations.setPropertiesSectionHidden(page.id, true)).rejects.toThrow(/Cannot edit archived page/);
+      });
+    });
+
+    it('exposes exactly the current property operations: no per-property hide, no hidden-custom show, no visibility setter', () => {
       const names = Object.getOwnPropertyNames(PageOperations.prototype);
 
-      expect(names).toEqual(expect.arrayContaining(['showProperty', 'hideProperty', 'deleteCustomProperty']));
-      expect(names).not.toContain('setPropertyVisibility');
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'addSystemProperty',
+          'removeSystemProperty',
+          'setPropertiesSectionHidden',
+          'deleteCustomProperty',
+          'deleteAllProperties',
+        ])
+      );
+      for (const gone of ['hideProperty', 'showProperty', 'setPropertiesSectionVisibility', 'setPropertyVisibility']) {
+        expect(names).not.toContain(gone);
+      }
     });
   });
 
@@ -1404,6 +1314,22 @@ describe('PageOperations: differently-cased system keys are preserved until edit
     });
     return { page, ...setup(page) };
   }
+
+  it('an unrelated edit keeps `Tags:`; editing Tags canonicalizes only that key — and unlisting a property never rewrites it', async () => {
+    const { page, fileSystem, pageOperations } = setupFromFile(
+      'Tags:\n  - work\nCREATED: 2026-01-01T00:00:00.000Z\nproperties:\n  visible:\n    - tags\n    - created'
+    );
+
+    await pageOperations.removeSystemProperty(page.id, 'created');
+    let content = await fileSystem.readFile(page.path);
+    expect(content).toContain('Tags:\n  - work');
+    expect(content).not.toMatch(/^tags:/m);
+
+    await pageOperations.updateMetadata(page.id, { tags: ['work', 'home'] });
+    content = await fileSystem.readFile(page.path);
+    expect(content).toMatch(/^tags:\n {2}- work\n {2}- home/m);
+    expect(content).not.toContain('Tags:');
+  });
 
   it('an unrelated edit keeps `Aliases:`; editing Aliases writes `aliases:` (other spellings kept)', async () => {
     const { page, fileSystem, pageOperations } = setupFromFile('Aliases:\n  - UX\nFavorite: true');

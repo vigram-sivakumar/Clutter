@@ -8,6 +8,7 @@ import {
   openExternalUrl,
   resolveNavigationUrl,
 } from '@shared/helpers/openExternalUrl';
+import { isWebUrl } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { parseWebUrl } from '@shared/helpers/parseWebUrl';
 import { sharedMarkdownParser } from '@features/markdown/render/sharedMarkdownParser';
 import { AppIcon } from '@shared/icon';
@@ -47,22 +48,46 @@ function isMarkdownUrl(text: string): boolean {
   return matched;
 }
 
+/** A scheme other than http(s) — `mailto:`, `xmpp:`, `javascript:` … */
+const NON_WEB_SCHEME = /^(?!https?:)[a-z][a-z0-9+.-]*:/i;
+/** A bare domain's start: a dotted host, never an email (`a@b.co`) or `host:port` without a scheme. */
+const BARE_DOMAIN = /^[^\s/:@]+\.[^\s/:@]+/;
+
 /**
- * Reads typed text as a URL Property value: the trimmed text itself when
- * the Markdown grammar recognizes it as a URL (isMarkdownUrl), or when it
- * is an explicit `http(s)://` URL the platform parser accepts — so
- * `http://localhost:3000` or an IP address, which Markdown doesn't link
- * (no dotted domain), still counts. Else null. The value is stored as
- * typed; only navigation adds a scheme to a bare domain.
+ * Reads typed text as a URL Property's **stored** value, or null when it
+ * isn't one — the single rule shared by the editor and the write:
+ *
+ * - Accepted when the Markdown grammar links it as a URL (isMarkdownUrl) or
+ *   it is an explicit `http(s)://` URL the platform parser accepts, so
+ *   `http://localhost:3000` and IP addresses still count.
+ * - Stored as an absolute `http(s)` URL: an explicit one as typed, a bare
+ *   domain (`example.com`, `www.example.com/a`) with `https://` added — the
+ *   only forms a saved value reads back as a `url` (isWebUrl, the
+ *   frontmatter reader's own rule, is the final gate).
+ * - `mailto:`/`xmpp:` links and email addresses are valid Markdown links but
+ *   would read back as text, so they are rejected here rather than silently
+ *   dropped later.
  */
 export function parseUrlPropertyInput(text: string): string | null {
   const trimmed = text.trim();
 
-  if (trimmed === '') {
+  if (trimmed === '' || NON_WEB_SCHEME.test(trimmed)) {
     return null;
   }
 
-  return isMarkdownUrl(trimmed) || parseWebUrl(trimmed) ? trimmed : null;
+  if (!isMarkdownUrl(trimmed) && !parseWebUrl(trimmed)) {
+    return null;
+  }
+
+  const isExplicit = /^https?:\/\//i.test(trimmed);
+
+  if (!isExplicit && !BARE_DOMAIN.test(trimmed)) {
+    return null;
+  }
+
+  const stored = isExplicit ? trimmed : `https://${trimmed}`;
+
+  return isWebUrl(stored) ? stored : null;
 }
 
 /**
@@ -168,7 +193,7 @@ function UrlActions({ url }: { url: string }) {
 interface UrlPropertyEditorProps {
   name: string;
   value: string | null;
-  /** Fired with a valid URL as entered, or null when the text is emptied. */
+  /** Fired with the URL as it is stored (parseUrlPropertyInput), or null when the text is emptied. */
   onCommit(value: string | null): void;
 }
 

@@ -5,8 +5,8 @@ import type { CustomPropertyType } from '@core/properties/Property.types';
 import type { PropertyDraft } from './buildPageProperties';
 
 /**
- * The custom properties being added to the active page ("Add properties →
- * a type", until each is named) — transient UI state, never persisted:
+ * The custom properties being added to the active page (a type chosen in the
+ * property picker, until each is named) — transient UI state, never persisted:
  * switching to another page drops them, so an unnamed draft left behind
  * can't follow the user around or reach a note's frontmatter. The host
  * persists a property when its draft is named (PageOperations

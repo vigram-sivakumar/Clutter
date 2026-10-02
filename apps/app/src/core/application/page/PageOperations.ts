@@ -14,27 +14,21 @@ import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
-import { isPageSystemPropertyKey, type SystemPropertyKey } from '../../properties/systemProperties';
+import { isPageSystemPropertyKey, type PageSystemPropertyKey } from '../../properties/systemProperties';
 import {
-  addVisibleProperty,
-  readPropertiesSectionVisibility,
-  readVisibleProperties,
-  removePropertiesBlock,
-  removePropertiesListing,
-  removeVisibleProperty,
-  renameVisibleProperty,
-  setPropertiesSectionVisibility,
-} from '../../vault/ingest/frontmatter/propertyVisibility';
+  addCustomPropertyLines,
+  addSystemPropertyLines,
+  deleteAllPropertiesLines,
+  deleteCustomPropertyLines,
+  removeSystemPropertyLines,
+  setSectionHiddenLines,
+} from '../../vault/ingest/frontmatter/propertyLines';
 import {
-  addCustomProperty,
-  readCustomProperties,
   removeCustomListItem,
-  removeCustomProperty,
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
   validateCustomPropertyName,
-  isReservedPropertyName,
   type CustomScalarType,
   type CustomScalarValue,
   type NewCustomProperty,
@@ -146,22 +140,6 @@ interface DraftDescriptor {
   readonly type: PageType;
   readonly title?: string;
   readonly deterministicPath?: string;
-}
-
-/**
- * `key` taken out of `properties.visible`. When it was listed and was the
- * last one, the Properties listing is reset too (removePropertiesListing):
- * no empty `visible`, no `show`, and no `properties:` block unless something
- * else is configured under it — the note then behaves like one that never
- * had Properties. Otherwise only that entry goes.
- */
-function unlistProperty(lines: readonly string[], key: string): string[] {
-  const wasListed = readVisibleProperties(lines).includes(key);
-  const unlisted = removeVisibleProperty(lines, key);
-
-  return wasListed && readVisibleProperties(unlisted).length === 0
-    ? removePropertiesListing(unlisted)
-    : unlisted;
 }
 
 /**
@@ -1701,8 +1679,7 @@ export class PageOperations {
         throw new Error(`Cannot rename property "${key}" to "${name}": ${problem}.`);
       }
 
-      // A shown property stays shown under its new name, in the same save.
-      return renameVisibleProperty(renameCustomProperty(lines, key, name), key, name.trim());
+      return renameCustomProperty(lines, key, name);
     });
   }
 
@@ -1724,49 +1701,28 @@ export class PageOperations {
     name: string,
     property: NewCustomProperty
   ): Promise<void> {
-    // The new property is shown at once: its key joins `properties.visible`
-    // — and the Properties section is shown, so a first property makes it
-    // appear — in the same save as the property itself.
-    await this.saveCustomFrontmatter(pageId, (lines) =>
-      setPropertiesSectionVisibility(
-        addVisibleProperty(addCustomProperty(lines, name, property), name.trim()),
-        true
-      )
-    );
+    // A custom property is displayed because its key exists, so there is
+    // nothing to list; adding one also lifts an explicit hide, so a first
+    // property makes the section appear — all in the same save.
+    await this.saveCustomFrontmatter(pageId, (lines) => addCustomPropertyLines(lines, name, property));
   }
 
   /**
-   * Shows a property on this page: adds its canonical key to
-   * `properties.visible` in this page's frontmatter (propertyVisibility.ts)
-   * — a system key (`tags`, `aliases`, `created`, `modified`) or the actual
-   * key of a custom property already in the frontmatter. It only adds: the
-   * list keeps its order (the key goes last), nothing is removed or
-   * reordered, and the property's value is untouched. It also shows the
-   * Properties section (`properties.show: true`) in the same save, so
-   * choosing a property when none is shown yet makes the section appear.
-   * Already shown, in a shown section, is a no-op. Rejects, with no write, a custom key that isn't in the
-   * frontmatter or a reserved one (`properties`); same guard and Gate
-   * `save` as renameCustomProperty(). hideProperty() is its counterpart.
+   * Lists system property `key` (`tags`, `aliases`, `created`, `modified`)
+   * on this page: adds its canonical key to `properties.visible` — and lifts
+   * an explicit `show: false`, so choosing a property when none is shown
+   * makes the section appear — in one save. It never touches the
+   * property's value, so a property removed earlier returns with the value
+   * it had. Already listed in a visible section is a no-op. Any other key
+   * is refused, with no write: a custom property is displayed because its
+   * key exists. Same guard and Gate `save` as renameCustomProperty().
    */
-  public async showProperty(pageId: string, key: string): Promise<void> {
-    const name = key.trim();
+  public async addSystemProperty(pageId: string, key: PageSystemPropertyKey): Promise<void> {
+    if (!isPageSystemPropertyKey(key)) {
+      throw new Error(`"${key}" is not a system property that can be added.`);
+    }
 
-    await this.saveCustomFrontmatter(pageId, (lines) => {
-      if (!isPageSystemPropertyKey(name)) {
-        if (isReservedPropertyName(name)) {
-          throw new Error(`"${name}" is not a property that can be shown.`);
-        }
-
-        if (!readCustomProperties(lines).some((property) => property.key === name)) {
-          throw new Error(`No custom property "${name}".`);
-        }
-      }
-
-      // Showing a property shows the section it lives in, in the same save.
-      return readVisibleProperties(lines).includes(name) && readPropertiesSectionVisibility(lines)
-        ? null
-        : setPropertiesSectionVisibility(addVisibleProperty(lines, name), true);
-    });
+    await this.saveCustomFrontmatter(pageId, (lines) => addSystemPropertyLines(lines, key));
   }
 
   /**
@@ -1787,124 +1743,59 @@ export class PageOperations {
   }
 
   /**
-   * Shows (`true`) or hides (`false`) this page's whole Properties section:
-   * sets `properties.show` in this page's frontmatter (propertyVisibility.ts)
-   * and nothing else — `properties.visible`, every property's value and
-   * every other line stay byte-identical. Hidden is the default, so
-   * hiding a section with no `show` is a no-op and nothing is written;
-   * setting what it already is writes nothing either. Same guard and Gate
-   * `save` as showProperty() — an archived page can't be changed.
+   * Hides or shows the whole Properties section. Hiding writes only
+   * `properties.show: false` — every property and value, and `visible`, stay
+   * as they are; showing removes that override (`show: true` is never
+   * written). Setting what it already is writes nothing. Same guard and Gate
+   * `save` as addSystemProperty().
    */
-  public async setPropertiesSectionVisibility(pageId: string, show: boolean): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) =>
-      readPropertiesSectionVisibility(lines) === show ? null : setPropertiesSectionVisibility(lines, show)
-    );
+  public async setPropertiesSectionHidden(pageId: string, hidden: boolean): Promise<void> {
+    await this.saveCustomFrontmatter(pageId, (lines) => setSectionHiddenLines(lines, hidden));
   }
 
   /**
-   * Hides a property on this page: removes its canonical key from
-   * `properties.visible` in this page's frontmatter — only that entry; the
-   * rest of the list keeps its order, and the property's value is
-   * untouched (it can be shown again, see showProperty()). Not listed is a
-   * no-op. Same guard and Gate `save` as showProperty().
-   */
-  public async hideProperty(pageId: string, key: string): Promise<void> {
-    const name = key.trim();
-
-    await this.saveCustomFrontmatter(pageId, (lines) =>
-      readVisibleProperties(lines).includes(name) ? removeVisibleProperty(lines, name) : null
-    );
-  }
-
-  /**
-   * Deletes custom property `key` from this page's frontmatter: its lines
-   * go (removeCustomProperty), and so does its entry in
-   * `properties.visible`, in the same single save — and when that was the
-   * last listed property, the note returns to its never-configured state
-   * (see unlistProperty). Every other line stays
-   * byte-identical and no other page is touched. Rejects, with no write, a
-   * key that isn't a custom property here — a system Property (`tags`,
+   * Deletes custom property `key` from this page's frontmatter: its lines go
+   * (removeCustomProperty) in a single save. Rejects, with no write, a key
+   * that isn't a custom property here — a system Property (`tags`,
    * `created`, …) or the reserved `properties` cannot be deleted this way.
-   * Same guard and Gate `save` as renameCustomProperty().
+   * When nothing is left to show afterwards the note returns to its
+   * never-configured state (see propertyLines.ts). Same guard and Gate
+   * `save` as renameCustomProperty().
    */
   public async deleteCustomProperty(pageId: string, key: string): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) =>
-      unlistProperty(removeCustomProperty(lines, key), key)
-    );
+    await this.saveCustomFrontmatter(pageId, (lines) => deleteCustomPropertyLines(lines, key));
   }
 
   /**
-   * Removes a system property from this page's Properties list.
-   *
-   * - `created` / `modified`: only unlists the key from `properties.visible`
-   *   — the note's own timestamps are never written or cleared here.
-   * - `tags` / `aliases`: also clears the note's frontmatter value (an empty
-   *   list isn't written, so the line goes), in the same single Gate `save`
-   *   so the value and the list never disagree. Body `#tags` are independent
-   *   of the frontmatter value and untouched.
-   *
-   * When the key was the last listed property, the note returns to its
-   * never-configured state (see unlistProperty). The key stays available to
-   * show again. Any other key is rejected, with no write. Same archived-page
-   * guard as updateMetadata().
+   * Removes a system property from the Properties list: takes its key out of
+   * `properties.visible` and nothing else — the value (tags, aliases, the
+   * note's timestamps) is preserved, and the property can be added again
+   * with that value intact. Body `#tags` are independent of all of this.
+   * When nothing is left to show afterwards the note returns to its
+   * never-configured state (see propertyLines.ts). Not listed is a no-op.
+   * Any other key is refused, with no write. Same guard and Gate `save` as
+   * addSystemProperty().
    */
-  public async removeSystemProperty(pageId: string, key: SystemPropertyKey): Promise<void> {
+  public async removeSystemProperty(pageId: string, key: PageSystemPropertyKey): Promise<void> {
     if (!isPageSystemPropertyKey(key)) {
       throw new Error(`"${key}" is not a property that can be removed.`);
     }
 
-    if (key === 'created' || key === 'modified') {
-      await this.saveCustomFrontmatter(pageId, (lines) => unlistProperty(lines, key));
-      return;
-    }
-
-    const page = this.vault.getPage(pageId);
-
-    if (!page) {
-      throw new Error(`Page not found: ${pageId}`);
-    }
-
-    if (page.metadata.status === 'archived') {
-      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
-    }
-
-    const lines = unlistProperty(page.metadata.unownedFrontmatter ?? [], key);
-
-    const result = await this.coordinator.enqueue(pageId, {
-      kind: 'save',
-      content: page.source.markdown,
-      metadata: {
-        ...this.withEditedKeysCanonicalized(page, key === 'tags' ? { tags: [] } : { aliases: [] }),
-        unownedFrontmatter: lines,
-      },
-    });
-
-    if (result.status === 'abandoned') {
-      throw new Error(`Page not found: ${pageId}`);
-    }
+    await this.saveCustomFrontmatter(pageId, (lines) => removeSystemPropertyLines(lines, key));
   }
 
   /**
    * Resets this page's properties: every custom property goes from its
-   * frontmatter (removeCustomProperty — keys and values, none kept as a
-   * hidden property) and the whole `properties:` block goes with them
-   * (removePropertiesBlock), so no system property is listed and the
-   * section is hidden — the never-configured state, in one save. The
-   * system values themselves (tags, aliases, created, modified) are owned
-   * fields and untouched. Every other line stays byte-identical; a page
-   * that is already in that state writes nothing. Same guard and Gate
-   * `save` as deleteCustomProperty().
+   * frontmatter (removeCustomProperty — keys and values) and the whole
+   * `properties:` block goes with them (removePropertiesBlock), so no system
+   * property is listed and the section is neither hidden nor shown — the
+   * never-configured state, in one save. System values (tags, aliases,
+   * created, modified) are untouched. Every other line stays byte-identical;
+   * a page already in that state writes nothing. Same guard and Gate `save`
+   * as deleteCustomProperty().
    */
-  public async removeAllProperties(pageId: string): Promise<void> {
-    await this.saveCustomFrontmatter(pageId, (lines) => {
-      const withoutCustom = readCustomProperties(lines).reduce(
-        (current, property) => removeCustomProperty(current, property.key),
-        [...lines]
-      );
-      const reset = removePropertiesBlock(withoutCustom);
-
-      return reset.length === lines.length ? null : reset;
-    });
+  public async deleteAllProperties(pageId: string): Promise<void> {
+    await this.saveCustomFrontmatter(pageId, (lines) => deleteAllPropertiesLines(lines));
   }
 
   /**

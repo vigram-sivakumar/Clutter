@@ -3,6 +3,7 @@ import {
   splitKeyBlocks,
   type KeyBlock,
 } from './customFrontmatter';
+import { PAGE_SYSTEM_PROPERTY_KEYS, type PageSystemPropertyKey } from '../../../properties/systemProperties';
 import {
   quoteFrontmatterString,
   splitFlowSequence,
@@ -10,36 +11,33 @@ import {
 } from './frontmatterStringValue';
 
 /**
- * Whether a note shows its Properties section (`show`), and which
- * Properties the section lists (`visible`) — two independent settings under
- * the reserved `properties` key.
+ * The Properties section's configuration — the reserved `properties` key.
+ * It holds two things, both about *system* properties and the section:
  *
  * ```yaml
  * properties:
- *   show: true
- *   visible:
+ *   show: false        # only ever written as false: the section is hidden
+ *   visible:           # which system properties are listed
  *     - tags
- *     - Due date
+ *     - created
  * ```
  *
- * `show` controls the whole section: `true` shows it; `false` or no
- * `show` hides it (hidden is the default, so nothing is written to
- * establish it). It never touches `visible`, and `visible` never touches
- * it.
- *
- * Nothing is shown by default; a Property is shown only when its
- * canonical key is listed — the system key (`tags`, `aliases`, `created`,
- * `modified`) or a custom Property's actual frontmatter key, never a UI
- * label. Visibility is separate from the Property's existence and value:
- * adding a key here changes nothing else.
+ * - `visible` lists, by **canonical key**, the system properties
+ *   (`tags`, `aliases`, `created`, `modified`) a note currently displays.
+ *   It is never a label, never a custom property (a custom property is
+ *   displayed because its frontmatter key exists), and listing or unlisting
+ *   a key never touches the property's value. The list is a set: rows
+ *   always follow the canonical system order, whatever order it is written in.
+ * - `show: false` is the one section-level override: the section is hidden
+ *   while everything stays configured. A missing `show` is the normal state,
+ *   `show: true` is never written, and a legacy `show: true` (or any other
+ *   value) reads as "not hidden" and is dropped the next time the block is
+ *   rewritten (normalizePropertiesConfig).
  *
  * This is internal UI configuration kept as preserved raw lines
- * (PageMetadata.unownedFrontmatter), not parsed into the page model, so
- * the flat FrontmatterParser needs no nested-YAML support and every other
- * line — including anything else under `properties:` — stays
- * byte-identical. The list keeps insertion order: a Property is shown by
- * appending its key, hidden by removing only its key, and renamed by
- * rewriting its entry in place — nothing is ever reordered.
+ * (PageMetadata.unownedFrontmatter), not parsed into the page model, so the
+ * flat FrontmatterParser needs no nested-YAML support and every other line —
+ * including anything else under `properties:` — stays byte-identical.
  */
 const PROPERTIES_KEY = 'properties';
 const VISIBLE_KEY = 'visible';
@@ -120,12 +118,12 @@ function findVisible(lines: readonly string[]): VisibleList | undefined {
 
 const itemText = (line: string): string => unquoteFrontmatterString(line.trim().slice(1)).trim();
 
-/**
- * The canonical keys the note shows, in the order they were added. Reads a
- * block list and a one-line flow list (`visible: [tags, aliases]`);
- * empty entries are skipped. No `properties.visible` means none.
- */
-export function readVisibleProperties(lines: readonly string[]): string[] {
+/** The page system key `entry` spells (any letter case), or null for anything else. */
+const systemKeyOf = (entry: string): PageSystemPropertyKey | null =>
+  PAGE_SYSTEM_PROPERTY_KEYS.find((key) => key === entry.trim().toLowerCase()) ?? null;
+
+/** Every entry of `properties.visible` as written (a block list or a one-line flow list), blanks skipped. */
+function readVisibleEntries(lines: readonly string[]): string[] {
   const visible = findVisible(lines);
 
   if (!visible || visible.line === -1) {
@@ -141,27 +139,34 @@ export function readVisibleProperties(lines: readonly string[]): string[] {
 }
 
 /**
- * The raw lines with `key` appended to `properties.visible` — shown from
- * now on. The list's existing entries keep their order and spelling; the
- * new key goes last. A key already listed changes nothing. If there is no
- * `properties:` block (or no `visible:` in it) one is created; every other
- * line, including other keys under `properties:`, stays byte-identical.
- * Throws when `properties` or `visible` is something other than a mapping
- * or list this can extend (e.g. a scalar), rather than overwrite it.
+ * The system properties the note lists, in the canonical system order
+ * (PAGE_SYSTEM_PROPERTY_KEYS) — not the order they were written in. Keys are
+ * matched ignoring letter case; anything that isn't a page system key
+ * (a legacy custom entry, `lastOpened`) is ignored. No `properties.visible`
+ * means none.
  */
-export function addVisibleProperty(lines: readonly string[], key: string): string[] {
-  const name = key.trim();
+export function readListedSystemProperties(lines: readonly string[]): PageSystemPropertyKey[] {
+  const listed = new Set(readVisibleEntries(lines).map(systemKeyOf));
 
-  if (name === '') {
-    throw new Error('A visible property needs a key.');
-  }
+  return PAGE_SYSTEM_PROPERTY_KEYS.filter((key) => listed.has(key));
+}
 
-  if (readVisibleProperties(lines).includes(name)) {
+/**
+ * The raw lines with system property `key` listed in `properties.visible`.
+ * Already listed changes nothing. The existing entries keep their order and
+ * spelling; the new key goes last. If there is no `properties:` block (or no
+ * `visible:` in it) one is created; every other line, including other keys
+ * under `properties:`, stays byte-identical. Throws when `properties` or
+ * `visible` is something other than a mapping or list this can extend (e.g.
+ * a scalar), rather than overwrite it.
+ */
+export function addVisibleProperty(lines: readonly string[], key: PageSystemPropertyKey): string[] {
+  if (readListedSystemProperties(lines).includes(key)) {
     return [...lines];
   }
 
   const visible = findVisible(lines);
-  const item = (indent: string): string => `${indent}- ${quoteFrontmatterString(name)}`;
+  const item = (indent: string): string => `${indent}- ${quoteFrontmatterString(key)}`;
 
   // No `properties:` block at all: a new one after every existing line.
   if (!visible) {
@@ -196,7 +201,7 @@ export function addVisibleProperty(lines: readonly string[], key: string): strin
 
     const existing = raw.filter((entry) => entry !== '');
     const result = [...lines];
-    result[visible.line] = `${prefix}: [${[...existing, flowListItem(name)].join(', ')}]`;
+    result[visible.line] = `${prefix}: [${[...existing, flowListItem(key)].join(', ')}]`;
     return result;
   }
 
@@ -209,62 +214,17 @@ export function addVisibleProperty(lines: readonly string[], key: string): strin
 }
 
 /**
- * The raw lines with the entry `oldKey` of `properties.visible` rewritten
- * to `newKey`, in place (its position and the rest of the list untouched)
- * — a visible custom Property being renamed must stay visible. Nothing
- * changes when `oldKey` isn't listed.
+ * The raw lines with system property `key` taken out of `properties.visible`
+ * (every spelling of it). Only that entry goes: the rest of the list keeps
+ * its order and spelling, the `visible:` line stays (empty if that was the
+ * last entry), and every other line, including other keys under
+ * `properties:`, stays byte-identical. Nothing changes when `key` isn't
+ * listed. The property's own value is never touched.
  */
-export function renameVisibleProperty(
-  lines: readonly string[],
-  oldKey: string,
-  newKey: string
-): string[] {
+export function removeVisibleProperty(lines: readonly string[], key: PageSystemPropertyKey): string[] {
   const visible = findVisible(lines);
 
-  if (!visible || visible.line === -1) {
-    return [...lines];
-  }
-
-  const result = [...lines];
-  const next = newKey.trim();
-
-  if (visible.inline !== '') {
-    const raw = splitFlowSequence(visible.inline);
-
-    if (!raw) {
-      return result;
-    }
-
-    const visibleLine = lines[visible.line]!;
-    const prefix = visibleLine.slice(0, visibleLine.indexOf(':'));
-    const entries = raw.map((entry) => (unquoteFrontmatterString(entry).trim() === oldKey ? flowListItem(next) : entry));
-
-    result[visible.line] = `${prefix}: [${entries.filter((entry) => entry !== '').join(', ')}]`;
-    return result;
-  }
-
-  for (const index of visible.items) {
-    if (itemText(lines[index]!) === oldKey) {
-      result[index] = `${indentOf(lines[index]!)}- ${quoteFrontmatterString(next)}`;
-    }
-  }
-
-  return result;
-}
-
-/**
- * The raw lines with `key` removed from `properties.visible` — hidden from
- * now on. Only that entry goes: the rest of the list keeps its order and
- * spelling, the `visible:` line stays (empty if that was the last entry),
- * and every other line, including other keys under `properties:`, stays
- * byte-identical. Nothing changes when `key` isn't listed. The property's
- * own value is never touched — visibility is separate from existence.
- */
-export function removeVisibleProperty(lines: readonly string[], key: string): string[] {
-  const visible = findVisible(lines);
-  const name = key.trim();
-
-  if (!visible || visible.line === -1 || !readVisibleProperties(lines).includes(name)) {
+  if (!visible || visible.line === -1 || !readListedSystemProperties(lines).includes(key)) {
     return [...lines];
   }
 
@@ -277,14 +237,14 @@ export function removeVisibleProperty(lines: readonly string[], key: string): st
 
     const visibleLine = lines[visible.line]!;
     const prefix = visibleLine.slice(0, visibleLine.indexOf(':'));
-    const kept = raw.filter((entry) => entry !== '' && unquoteFrontmatterString(entry).trim() !== name);
+    const kept = raw.filter((entry) => entry !== '' && systemKeyOf(unquoteFrontmatterString(entry)) !== key);
     const result = [...lines];
 
     result[visible.line] = `${prefix}: [${kept.join(', ')}]`;
     return result;
   }
 
-  const drop = new Set(visible.items.filter((index) => itemText(lines[index]!) === name));
+  const drop = new Set(visible.items.filter((index) => systemKeyOf(itemText(lines[index]!)) === key));
 
   return lines.filter((_, index) => !drop.has(index));
 }
@@ -315,60 +275,65 @@ function findShow(lines: readonly string[]): { block: KeyBlock; line: number } |
   return { block, line: offset === -1 ? -1 : block.start + 1 + offset };
 }
 
-/**
- * Whether the note shows its Properties section: only an explicit
- * `properties.show: true`. No `properties` block, no `show`, `show: false`,
- * or any other value all mean hidden — the default.
- */
-export function readPropertiesSectionVisibility(lines: readonly string[]): boolean {
-  const found = findShow(lines);
-
-  if (!found || found.line === -1) {
-    return false;
-  }
-
-  const text = lines[found.line]!;
-  const value = text
-    .slice(text.indexOf(':') + 1)
-    .split(/\s#/)[0]!
-    .trim();
-
-  return /^(?:true|True|TRUE)$/.test(unquoteFrontmatterString(value));
+/** The value text of a `show:` line, without a trailing comment or quotes. */
+function showValue(line: string): string {
+  return unquoteFrontmatterString(
+    line
+      .slice(line.indexOf(':') + 1)
+      .split(/\s#/)[0]!
+      .trim()
+  );
 }
 
 /**
- * The raw lines with `properties.show` set so the Properties section is
- * shown (`true`) or hidden (`false`). Only `show` changes: `visible` and
- * everything else under `properties:` — and every other line — stay
- * byte-identical.
- *
- * - An existing `show:` line is rewritten in place (its spelling,
- *   indentation and any trailing comment kept).
- * - Showing with no `show:` adds `show: true` as the block's first entry,
- *   creating the `properties:` block if there is none.
- * - Hiding with no `show:` changes nothing: hidden is already the default,
- *   and `show: false` is never written just to say so.
- *
- * Throws when `properties` is something other than a mapping this can
- * extend (e.g. a scalar), rather than overwrite it.
+ * Whether the note's Properties section is explicitly hidden: only
+ * `properties.show: false`. A missing block or `show`, `show: true` (legacy),
+ * or any other value all mean the normal state — the section follows
+ * whether there is anything to show.
  */
-export function setPropertiesSectionVisibility(lines: readonly string[], show: boolean): string[] {
+export function isPropertiesSectionHidden(lines: readonly string[]): boolean {
   const found = findShow(lines);
 
+  return Boolean(found && found.line !== -1 && /^(?:false|False|FALSE)$/.test(showValue(lines[found.line]!)));
+}
+
+/**
+ * The raw lines with the Properties section explicitly hidden or not.
+ *
+ * - **Hidden:** `show: false` — an existing `show:` line is rewritten in
+ *   place (spelling, indentation and trailing comment kept); with none it is
+ *   added as the block's first entry, creating the block if needed. Only
+ *   `show` changes: `visible` and everything else stay byte-identical.
+ * - **Not hidden:** the `show:` line is removed (`show: true` is never
+ *   written), and the block with it when nothing else is left in it.
+ *
+ * Throws when hiding and `properties` is something other than a mapping this
+ * can extend (e.g. a scalar), rather than overwrite it.
+ */
+export function setPropertiesSectionHidden(lines: readonly string[], hidden: boolean): string[] {
+  const found = findShow(lines);
+
+  if (!hidden) {
+    if (!found || found.line === -1) {
+      return [...lines];
+    }
+
+    const without = lines.filter((_, index) => index !== found.line);
+    const stillHasContent = findProperties(without)?.continuation.some((line) => !isBlank(line));
+
+    return stillHasContent ? without : removePropertiesBlock(without);
+  }
+
   if (!found) {
-    return show ? [...lines, `${PROPERTIES_KEY}:`, `  ${SHOW_KEY}: true`] : [...lines];
+    return [...lines, `${PROPERTIES_KEY}:`, `  ${SHOW_KEY}: false`];
   }
 
   const { block, line } = found;
 
   if (line !== -1) {
     const result = [...lines];
-    result[line] = lines[line]!.replace(/^(\s*show\s*:)\s*[^\s#]*(.*)$/, `$1 ${show}$2`);
+    result[line] = lines[line]!.replace(/^(\s*show\s*:)\s*[^\s#]*(.*)$/, '$1 false$2');
     return result;
-  }
-
-  if (!show) {
-    return [...lines];
   }
 
   if (block.inlineValue !== '') {
@@ -378,13 +343,13 @@ export function setPropertiesSectionVisibility(lines: readonly string[], show: b
   const first = block.continuation.find((candidate) => !isBlank(candidate));
   const indent = first ? indentOf(first) : '  ';
 
-  return [...lines.slice(0, block.start + 1), `${indent}${SHOW_KEY}: true`, ...lines.slice(block.start + 1)];
+  return [...lines.slice(0, block.start + 1), `${indent}${SHOW_KEY}: false`, ...lines.slice(block.start + 1)];
 }
 
 /**
  * The raw lines with the whole `properties:` block removed — `show`,
- * `visible` and anything else under it — back to the never-configured
- * state (hidden, nothing listed). The block's key line and its content
+ * `visible` and anything else under it — back to the never-configured state
+ * (nothing listed, nothing hidden). The block's key line and its content
  * lines go; blank lines after its last content line and every other line
  * stay byte-identical. No block: nothing changes.
  */
@@ -400,11 +365,10 @@ export function removePropertiesBlock(lines: readonly string[]): string[] {
 
 /**
  * The raw lines with the Properties section's listing configuration — its
- * `show` and `visible` entries — removed, back to "never configured": hidden,
- * nothing listed. Anything else under `properties:` stays byte-identical and
- * keeps the block alive; when nothing else is left the whole `properties:`
- * block goes too (removePropertiesBlock), so no empty `visible` list and no
- * `show: false` is left behind. No block: nothing changes.
+ * `show` and `visible` entries — removed. Anything else under `properties:`
+ * stays byte-identical and keeps the block alive; when nothing else is left
+ * the whole `properties:` block goes too (removePropertiesBlock). No block:
+ * nothing changes.
  */
 export function removePropertiesListing(lines: readonly string[]): string[] {
   const block = findProperties(lines);
@@ -426,13 +390,90 @@ export function removePropertiesListing(lines: readonly string[]): string[] {
     visible.items.forEach((index) => drop.add(index));
   }
 
+  return finishBlock(lines, drop);
+}
+
+/** `lines` without `drop`, and without the `properties:` block when nothing but those lines was in it. */
+function finishBlock(lines: readonly string[], drop: ReadonlySet<number>): string[] {
+  const block = findProperties(lines)!;
   const hasOtherConfig = block.continuation.some(
     (line, offset) => !isBlank(line) && !drop.has(block.start + 1 + offset)
   );
 
-  if (!hasOtherConfig) {
-    return removePropertiesBlock(lines);
+  return hasOtherConfig ? lines.filter((_, index) => !drop.has(index)) : removePropertiesBlock(lines);
+}
+
+/**
+ * The raw lines with the `properties:` block brought to the current model —
+ * what every write that touches it ends with, so an older note is migrated
+ * the first time it is edited:
+ *
+ * - a `show` that isn't `false` (the legacy `show: true`) is dropped;
+ * - `visible` keeps only the system keys (once each); a legacy custom key is
+ *   dropped, and an empty `visible` (`visible: []`) goes entirely;
+ * - the block goes when nothing is left in it. Other entries under it are
+ *   untouched.
+ *
+ * Lines without a block, or with a non-mapping `properties`, are returned
+ * unchanged.
+ */
+export function normalizePropertiesConfig(lines: readonly string[]): string[] {
+  const block = findProperties(lines);
+
+  if (!block || block.inlineValue !== '') {
+    return [...lines];
   }
 
-  return lines.filter((_, index) => !drop.has(index));
+  const drop = new Set<number>();
+  const show = findShow(lines);
+  const visible = findVisible(lines);
+
+  if (show && show.line !== -1 && !isPropertiesSectionHidden(lines)) {
+    drop.add(show.line);
+  }
+
+  const result = [...lines];
+
+  if (visible && visible.line !== -1) {
+    const seen = new Set<PageSystemPropertyKey>();
+    const isKept = (entry: string): boolean => {
+      const key = systemKeyOf(entry);
+
+      if (key === null || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    };
+
+    if (visible.inline !== '') {
+      const raw = splitFlowSequence(visible.inline);
+      const kept = raw?.filter((entry) => entry !== '' && isKept(unquoteFrontmatterString(entry))) ?? [];
+
+      if (kept.length === 0) {
+        drop.add(visible.line);
+      } else {
+        const visibleLine = lines[visible.line]!;
+        result[visible.line] = `${visibleLine.slice(0, visibleLine.indexOf(':'))}: [${kept.join(', ')}]`;
+      }
+    } else {
+      const keptItems = visible.items.filter((index) => isKept(itemText(lines[index]!)));
+
+      if (keptItems.length === 0) {
+        drop.add(visible.line);
+        visible.items.forEach((index) => drop.add(index));
+      } else {
+        visible.items.filter((index) => !keptItems.includes(index)).forEach((index) => drop.add(index));
+      }
+    }
+  }
+
+  if (drop.size === 0 && result.every((line, index) => line === lines[index])) {
+    return result;
+  }
+
+  const rewritten = finishBlock(result, drop);
+
+  return rewritten;
 }

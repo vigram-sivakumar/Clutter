@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
 
 import { PropertyList } from './PropertyList';
+import { formatCustomScalar, readCustomProperties } from '@core/vault/ingest/frontmatter/customFrontmatter';
+
 import { UrlPropertyValue, parseUrlPropertyInput } from './UrlPropertyValue';
 
 const openExternalUrl = vi.fn<(url: string) => Promise<void>>(async () => {});
@@ -48,29 +50,31 @@ function StatefulUrl({ initial }: { initial: string | null }) {
   return <UrlPropertyValue name="Site" value={value} editable onCommit={setValue} />;
 }
 
-describe('parseUrlPropertyInput — the Markdown URL formats', () => {
+describe('parseUrlPropertyInput — one rule for the editor and the write', () => {
   it.each([
-    'https://example.com',
-    'http://example.com/a/b?q=1#frag',
-    'https://example.com:8080/path',
-    'www.example.com',
-    'www.example.com/docs',
-    'example.com',
-    'example.co.uk/path?q=1',
-    'docs.example.dev',
-    'mailto:someone@example.com',
-    'someone@example.com',
-  ])('accepts %s, stored as typed', (text) => {
-    expect(parseUrlPropertyInput(text)).toBe(text);
+    ['https://example.com', 'https://example.com'],
+    ['http://example.com/a/b?q=1#frag', 'http://example.com/a/b?q=1#frag'],
+    ['https://example.com:8080/path', 'https://example.com:8080/path'],
+    ['www.example.com', 'https://www.example.com'],
+    ['www.example.com/docs', 'https://www.example.com/docs'],
+    ['example.com', 'https://example.com'],
+    ['example.co.uk/path?q=1', 'https://example.co.uk/path?q=1'],
+    ['docs.example.dev', 'https://docs.example.dev'],
+    ['  example.com  ', 'https://example.com'],
+    ['http://localhost:3000', 'http://localhost:3000'],
+    ['http://192.168.0.1/admin', 'http://192.168.0.1/admin'],
+  ])('accepts %j, stored as %s', (text, stored) => {
+    expect(parseUrlPropertyInput(text)).toBe(stored);
   });
 
-  it('trims surrounding whitespace', () => {
-    expect(parseUrlPropertyInput('  example.com  ')).toBe('example.com');
-  });
+  it('what it accepts always reads back as a url — never silently becomes text', () => {
+    for (const text of ['https://example.com/a', 'www.example.com', 'example.co.uk/p', 'http://localhost:3000']) {
+      const stored = parseUrlPropertyInput(text)!;
+      const written = formatCustomScalar('url', stored);
+      const read = readCustomProperties([`site: ${written}`])[0];
 
-  it('also accepts explicit http(s) URLs Markdown does not link (no dotted domain)', () => {
-    expect(parseUrlPropertyInput('http://localhost:3000')).toBe('http://localhost:3000');
-    expect(parseUrlPropertyInput('http://192.168.0.1/admin')).toBe('http://192.168.0.1/admin');
+      expect(read).toMatchObject({ key: 'site', type: 'url', value: stored });
+    }
   });
 
   it.each([
@@ -83,6 +87,10 @@ describe('parseUrlPropertyInput — the Markdown URL formats', () => {
     'javascript:alert(1)',
     'https://',
     '[label](https://example.com)',
+    // Valid Markdown links, but a stored value like these reads back as text.
+    'mailto:someone@example.com',
+    'someone@example.com',
+    'xmpp:someone@example.com',
   ])('rejects %j', (text) => {
     expect(parseUrlPropertyInput(text)).toBeNull();
   });
@@ -157,7 +165,7 @@ describe('UrlPropertyValue — editable', () => {
     type('example.com/docs');
     fireEvent.keyDown(getField(), { key: 'Enter' });
 
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith('example.com/docs');
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith('https://example.com/docs');
   });
 
   it('commits a valid URL on blur', () => {

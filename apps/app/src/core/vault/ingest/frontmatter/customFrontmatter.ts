@@ -67,8 +67,13 @@ function isValidDate(text: string): boolean {
   return ISO_DATE_TIME.test(text) && Number.isFinite(Date.parse(text));
 }
 
-/** An absolute `http(s)` URL with a host — bare domains and other schemes stay text. */
-function isWebUrl(text: string): boolean {
+/**
+ * An absolute `http(s)` URL with a host — bare domains and other schemes
+ * stay text. This is the one rule for what a stored value reads back as a
+ * `url`: the reader (below) infers with it, and whatever writes a URL
+ * property (the URL editor) must produce a value that passes it.
+ */
+export function isWebUrl(text: string): boolean {
   if (!/^https?:\/\/\S+$/i.test(text)) {
     return false;
   }
@@ -479,26 +484,6 @@ export function setCustomListValue(
 /** The custom property types whose value is one scalar (everything but a list). */
 export type CustomScalarType = 'text' | 'number' | 'boolean' | 'date' | 'url';
 export type CustomScalarValue = string | number | boolean;
-
-/**
- * What a typed URL becomes as a custom property's value: the text itself
- * when it is an absolute `http(s)` URL (all that a stored value is read
- * back as a url by), `https://` + the text for a bare domain
- * (`example.com`, `www.example.com/a`), else null — so `mailto:` links,
- * emails and plain words aren't stored as a url they would read back as
- * text instead of.
- */
-export function toCustomUrl(text: string): string | null {
-  const trimmed = text.trim();
-
-  if (isWebUrl(trimmed)) {
-    return trimmed;
-  }
-
-  const withScheme = `https://${trimmed}`;
-
-  return /^[^\s/:@]+\.[^\s/:@]+/.test(trimmed) && isWebUrl(withScheme) ? withScheme : null;
-}
 
 /**
  * The raw YAML spelling of `value` as a `type` custom property — the text

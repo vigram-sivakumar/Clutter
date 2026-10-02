@@ -58,13 +58,9 @@ import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
 import { AddPropertyRow } from './AddPropertyRow';
-import { getAddableProperties } from './addableProperties';
+import { getAddableSystemProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
-import { emptyCustomProperty, readCustomProperties } from '@core/vault/ingest/frontmatter/customFrontmatter';
-import {
-  readPropertiesSectionVisibility,
-  readVisibleProperties,
-} from '@core/vault/ingest/frontmatter/propertyVisibility';
+import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { Dialog } from '@components/dialog/Dialog';
@@ -1711,8 +1707,8 @@ export function PageHost({
   // (isRenameable above). Notes have no such constraint.
   const isRenameable = page.type !== 'daily-note';
 
-  // The Properties list: only what the note shows (`properties.visible`),
-  // plus any property being added.
+  // The Properties list: the listed system properties, the custom
+  // properties, and any property being added.
   const propertyItems = buildPageProperties(page, {
     // The editor's own inline-#tag click path (createTagResolver's
     // activate → navigation.openTag), not a second navigation.
@@ -1754,13 +1750,8 @@ export function PageHost({
       onAbandon: propertyDrafts.remove,
     },
   });
-  // What Add properties can still show: system Properties and custom
-  // properties that exist but aren't shown.
-  const addableProperties = getAddableProperties(page);
-  // The Properties section. Two independent per-note settings drive it:
-  // `properties.show` (is the section displayed at all) and
-  // `properties.visible` (which properties it lists). Hiding the section
-  // never removes a listed property.
+  // The Properties section — see derivePropertiesSectionState, the one place
+  // its state (displayed, add button, title control) is derived.
   const isArchived = page.metadata.status === 'archived';
   const sectionState = derivePropertiesSectionState({
     lines: page.metadata.unownedFrontmatter ?? [],
@@ -1768,60 +1759,52 @@ export function PageHost({
     hasDraft: propertyDrafts.drafts.length > 0,
     isStarting: startingPropertyPageId === page.id,
   });
-  const isSectionDisplayed = sectionState.isDisplayed;
-  const pageLines = page.metadata.unownedFrontmatter ?? [];
-  const hasPropertiesConfig =
-    readPropertiesSectionVisibility(pageLines) ||
-    readVisibleProperties(pageLines).length > 0 ||
-    readCustomProperties(pageLines).length > 0;
   // An unnamed draft belongs to the section being hidden: drop it, so it
   // can't reappear (and grab focus) when shown again.
   const hidePropertiesSection = (): void => {
     propertyDrafts.clear();
     setStartingPropertyPageId(null);
-    void application.pageOperations.setPropertiesSectionVisibility(page.id, false);
+    void application.pageOperations.setPropertiesSectionHidden(page.id, true);
   };
-  const requestRemoveAllProperties = (): void =>
+  const requestDeleteAllProperties = (): void =>
     propertiesConfirmation.request({
-      title: 'Remove all properties?',
+      title: 'Delete all properties?',
       message:
-        "This deletes every custom property and its value from this note's frontmatter, and hides its system properties and the Properties section. Tags, aliases and the other system values are kept.",
-      confirmLabel: 'Remove all',
+        "This deletes every custom property and its value from this note's frontmatter and removes the Properties section. Tags, aliases and the other system values are kept.",
+      confirmLabel: 'Delete all',
       onConfirm: () => {
         propertyDrafts.clear();
         setStartingPropertyPageId(null);
-        void application.pageOperations.removeAllProperties(page.id);
+        void application.pageOperations.deleteAllProperties(page.id);
       },
     });
   const addPropertyRow =
     sectionState.showsAddRow ? (
       <AddPropertyRow
-        systemProperties={addableProperties.systemProperties}
-        hiddenProperties={addableProperties.hiddenProperties}
-        // The title's "Properties" opens this row's menu; once it is used or
-        // dismissed the transient start is over (a choice has then either
-        // written the property or begun a draft, which keep the section).
+        systemProperties={getAddableSystemProperties(page)}
+        // The title's "Add a property" opens this button's menu; once it is
+        // used or dismissed the transient start is over (a choice has then
+        // either written the property or begun a draft, which keep the section).
         autoOpen={startingPropertyPageId === page.id}
         onDismiss={() => setStartingPropertyPageId(null)}
-        onShowProperty={(key) =>
+        onAddSystemProperty={(key) =>
           void application.pageOperations
-            .showProperty(page.id, key)
+            .addSystemProperty(page.id, key)
             .finally(() => setStartingPropertyPageId(null))
         }
         onAddCustomProperty={(type) => {
           propertyDrafts.add(type);
           setStartingPropertyPageId(null);
         }}
-        // Only for a note that has something to hide or reset: not while the
-        // first property is only being started.
-        onHideProperties={hasPropertiesConfig ? hidePropertiesSection : undefined}
-        onRemoveAll={hasPropertiesConfig ? requestRemoveAllProperties : undefined}
+        // Only when there is something to hide or delete: not while the first
+        // property is only being started.
+        onHideProperties={sectionState.hasProperties ? hidePropertiesSection : undefined}
+        onDeleteAll={sectionState.hasProperties ? requestDeleteAllProperties : undefined}
       />
     ) : undefined;
-  // The title's control: "Properties" (start the first property) while
-  // nothing is listed and the section isn't shown, "Show properties" while
-  // it was hidden with properties still listed, and nothing while it is
-  // displayed — Hide properties is in the section's own menu.
+  // The title's control (derivePropertiesSectionState): "Add a property" to
+  // start the first one, "Show properties" for an explicitly hidden section,
+  // nothing while it is displayed — Hide properties is in the section's menu.
   const propertiesControl: PropertiesControl | undefined =
     sectionState.control === 'add'
       ? {
@@ -1833,7 +1816,7 @@ export function PageHost({
       : sectionState.control === 'show'
         ? {
             mode: 'show',
-            onShow: () => void application.pageOperations.setPropertiesSectionVisibility(page.id, true),
+            onShow: () => void application.pageOperations.setPropertiesSectionHidden(page.id, false),
           }
         : undefined;
 
@@ -1908,10 +1891,10 @@ export function PageHost({
       // An archived page is view-only: nothing can be added to it.
       propertiesControl={propertiesControl}
       properties={
-        // The whole section, hidden by default. Displayed, it lists what
-        // `properties.visible` lists, ending with "+ Add a property" once
-        // there is one; nothing at all if there is neither.
-        isSectionDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
+        // The whole section. Displayed, it lists the properties and ends
+        // with "+ Add a property" once there is one; nothing at all if there
+        // is neither.
+        sectionState.isDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
           <PropertyList key={activePageId} items={propertyItems} footer={addPropertyRow} />
         ) : undefined
       }

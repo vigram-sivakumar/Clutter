@@ -5,19 +5,19 @@ import { Entry } from '@components/entry/Entry';
 import { Input } from '@components/input/Input';
 import { Overlay } from '@components/overlay/Overlay';
 import type { CustomPropertyType } from '@core/properties/Property.types';
+import type { PageSystemPropertyKey } from '@core/properties/systemProperties';
 import { AppIcon } from '@shared/icon';
 
 import { AddPropertyMenu } from './header/AddPropertyMenu';
-import type { AddableSystemProperty, HiddenPropertyOption } from './header/AddPropertyMenu';
+import type { AddableSystemProperty } from './header/AddPropertyMenu';
 
 import './AddPropertyRow.css';
 
 interface AddPropertyRowProps {
   /** What the menu offers besides new types — see AddPropertyMenu. */
   systemProperties?: readonly AddableSystemProperty[];
-  hiddenProperties?: readonly HiddenPropertyOption[];
-  /** Shows an existing property (its canonical key). */
-  onShowProperty?(key: string): void;
+  /** Lists a system property (its canonical key). */
+  onAddSystemProperty?(key: PageSystemPropertyKey): void;
   /** Adds a new, unnamed custom property of the chosen type; its name field takes focus next. */
   onAddCustomProperty(type: CustomPropertyType): void;
   /**
@@ -28,9 +28,9 @@ interface AddPropertyRowProps {
   autoOpen?: boolean;
   /** The menu was dismissed without a choice. */
   onDismiss?(): void;
-  /** The menu's "Hide Properties" and "Remove all" actions — see AddPropertyMenu. Each closes the menu first. */
+  /** The menu's "Hide Properties" and "Delete all" actions — see AddPropertyMenu. Each closes the menu first. */
   onHideProperties?(): void;
-  onRemoveAll?(): void;
+  onDeleteAll?(): void;
 }
 
 /**
@@ -40,8 +40,7 @@ interface AddPropertyRowProps {
  * properties menu (AddPropertyMenu) open on it; the title's "Properties"
  * starts the same experience (`autoOpen`).
  *
- * - Choosing an existing property (a system one, or a hidden custom one)
- *   shows it.
+ * - Choosing a system property lists it.
  * - Choosing a new custom type starts the draft custom property: its row
  *   appears above this one with the type's icon and a focused "Property
  *   name" field (see PropertyList's not-yet-named rows).
@@ -53,13 +52,12 @@ interface AddPropertyRowProps {
  */
 export function AddPropertyRow({
   systemProperties,
-  hiddenProperties,
-  onShowProperty,
+  onAddSystemProperty,
   onAddCustomProperty,
   autoOpen = false,
   onDismiss,
   onHideProperties,
-  onRemoveAll,
+  onDeleteAll,
 }: AddPropertyRowProps) {
   const [isOpen, setIsOpen] = useState(false);
   // After mount, so the menu's anchor (the row) exists.
@@ -89,12 +87,11 @@ export function AddPropertyRow({
     >
       <AddPropertyMenu
         systemProperties={systemProperties}
-        hiddenProperties={hiddenProperties}
-        onShowProperty={
-          onShowProperty &&
+        onAddSystemProperty={
+          onAddSystemProperty &&
           ((key) => {
             finishWithChoice();
-            onShowProperty(key);
+            onAddSystemProperty(key);
           })
         }
         onAddCustomProperty={(type) => {
@@ -108,11 +105,11 @@ export function AddPropertyRow({
             onHideProperties();
           })
         }
-        onRemoveAll={
-          onRemoveAll &&
+        onDeleteAll={
+          onDeleteAll &&
           (() => {
             finishWithChoice();
-            onRemoveAll();
+            onDeleteAll();
           })
         }
       />

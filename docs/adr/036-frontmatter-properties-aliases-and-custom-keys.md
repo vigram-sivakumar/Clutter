@@ -84,7 +84,7 @@ Supersedes "Tags gains no add" above. The system Tags Property is fully editable
 
 ## Amendment — adding custom properties
 
-Users can add a custom property from the Properties section's "+ Add a property" row (see "Amendment — the "+ Add a property" row" below), and every custom value is editable. All of it extends the existing custom-property infrastructure; no schema, store or write path is added.
+Users can add a custom property from the Properties section's "+ Add a property" button (see "Amendment — the Properties model (final)" below), and every custom value is editable. All of it extends the existing custom-property infrastructure; no schema, store or write path is added.
 
 **Typed empties.** A custom property's type is still never stored — it is inferred from how its value is written. An empty value has nothing to infer from, so the types that can be empty and are not text carry theirs as a trailing YAML comment on the key line: `due: # date`, `estimate: # number`, `site: # url` (a null to every other YAML reader, and kept byte-identical on later saves). An empty list is `key: []` and reads as an empty list (so removing the last list item empties the list rather than removing the property), an empty text value is `key:`, and a boolean has no empty state (unchecked is `false`). Clearing a typed scalar therefore never turns it into text. A comment that is not one of these three hints is just text, as before. This is the smallest representation that keeps the type without a parallel definition system: the key line is still the one source of truth.
 
@@ -92,7 +92,7 @@ Users can add a custom property from the Properties section's "+ Add a property"
 
 **One name rule, case-insensitive.** `validateCustomPropertyName` is the single rule for adding and renaming: non-empty, not a system key in any case, readable as a key, and unique among the page's custom keys **ignoring letter case**. A property may change only its own letter case. Existing files that already hold two keys differing only by case are left alone; the rule applies to names being added or changed.
 
-**Draft rows.** "Add properties → a type" adds an unnamed row to the Properties list — transient UI state (`useCustomPropertyDrafts`), dropped when the page changes, never persisted. Its name field takes focus; a valid, unique name persists the property at once through `addCustomProperty` (empty and typed, as above); Escape, an empty name, or a rejected name when focus leaves removes the row. The type is chosen first and never asked for again. The list (`AddPropertyMenu`) shows the custom types from the property type registry (`label`/`custom` on each definition) and any system properties the host reports as available; it holds no list of its own. The item is offered whenever the host supplies `onAddCustomProperty` (not for an archived page), and unlike Emoji, Cover image and Description it is never used up. Which system properties can be available — per-note hiding and showing — is not part of this amendment and is the next design step.
+**Draft rows.** Choosing a type in the property picker adds an unnamed row to the Properties list — transient UI state (`useCustomPropertyDrafts`), dropped when the page changes, never persisted. Its name field takes focus; a valid, unique name persists the property at once through `addCustomProperty` (empty and typed, as above); Escape, an empty name, or a rejected name when focus leaves removes the row. The type is chosen first and never asked for again. The list (`AddPropertyMenu`) shows the custom types from the property type registry (`label`/`custom` on each definition) and any system properties the host reports as available; it holds no list of its own. The item is offered whenever the host supplies `onAddCustomProperty` (not for an archived page), and unlike Emoji, Cover image and Description it is never used up. Which system properties can be available — per-note hiding and showing — is not part of this amendment and is the next design step.
 
 **Editability stays explicit.** Custom text, number, boolean, date and URL values are editable only when the host supplies `onSetScalarValue` and the page is not archived; lists when it supplies `onCommitListValue`; a type never implies editability.
 
@@ -100,101 +100,62 @@ Users can add a custom property from the Properties section's "+ Add a property"
 
 User-facing terminology for the system timestamps is **Created**, **Last edited** and **Last opened**; the older wording ("Modified", "Updated", "Date created", "Date updated") is retired everywhere it was shown. Internal names are unchanged: the frontmatter key stays `modified` (and `created`), the model field stays `updatedAt`, and the collection views keep persisting `lastOpened` / `created` / `updated`.
 
-The labels are defined once, in the system property definitions (`core/properties/systemProperties.ts`, `systemPropertyDefinitions` / `systemPropertyLabel`), keyed by the canonical internal key (`tags`, `aliases`, `created`, `modified`, `lastOpened`). Every user-facing place reads from there rather than writing its own string: `buildPageProperties` (the Properties list rows), the Add properties menu (which is handed system properties labelled from the same definitions), and the collection views (`collectionFieldLabel`, which says that the collection's `updated` field is the `modified` Property) for the Table headers and the Properties and Sort by menus.
+The labels are defined once, in the system property definitions (`core/properties/systemProperties.ts`, `systemPropertyDefinitions` / `systemPropertyLabel`), keyed by the canonical internal key (`tags`, `aliases`, `created`, `modified`, `lastOpened`). Every user-facing place reads from there rather than writing its own string: `buildPageProperties` (the Properties list rows), the property picker (which is handed system properties labelled from the same definitions), and the collection views (`collectionFieldLabel`, which says that the collection's `updated` field is the `modified` Property) for the Table headers and the Properties and Sort by menus.
 
-**Stored identity is the key, never the label.** Anything persisted about a system property — including the per-note show/hide of system properties, once designed — must store the canonical key (`modified`), not its display wording ("Last edited"), so that changing UI copy can never invalidate stored configuration. `Last opened` is defined but not yet a Property on the page's Properties list.
+**Stored identity is the key, never the label.** Anything persisted about a system property — including which system properties a note lists (`properties.visible`) — must store the canonical key (`modified`), not its display wording ("Last edited"), so that changing UI copy can never invalidate stored configuration. `Last opened` is defined but not yet a Property on the page's Properties list.
 
-## Amendment — which properties a note shows (`properties.visible`)
+## Amendment — the Properties model (final)
 
-Nothing is shown by default. A note shows a Property only when its **canonical key** is listed in its own frontmatter:
+This amendment replaces the earlier, iterated descriptions of which properties a note shows, how they are hidden, removed and added, and how the title control behaves. It describes what the code does.
 
-```yaml
-properties:
-  visible:
-    - tags
-    - Due date
-```
+### What exists, and what is displayed
 
-- **Keys, never labels.** The entries are canonical keys — `tags`, `aliases`, `created`, `modified` for the system Properties (`modified` is shown as "Last edited"; there is no `lastEdited` key) and a custom property's actual frontmatter key. `lastOpened` is a collection-view field, not note metadata, so it is never listed. Renaming UI copy can never invalidate stored configuration.
-- **Absent means none.** No `properties.visible` shows no Properties; there is no migration and no default list. The Properties block is omitted entirely while nothing is shown.
-- **Separate from existence and value.** Visibility only decides what is listed. A property's frontmatter value is untouched whether or not it is shown, and a listed custom key that is not in the frontmatter shows nothing. Rows follow the list's order — the order the properties were added.
-- **Option B: preserved raw lines.** `properties` is a *reserved raw key* (`RESERVED_RAW_FRONTMATTER_KEYS`), deliberately **not** in `OWNED_FRONTMATTER_KEYS`: the flat, line-based `FrontmatterParser` gains no nested-YAML support and keeps capturing its lines, which `FrontmatterSerializer` writes back byte-identical like every other preserved line. `propertyVisibility.ts` reads and writes the `visible` list from `PageMetadata.unownedFrontmatter` — derived on demand, never a second representation, the same as custom properties. Anything else under `properties:` is preserved untouched. `properties` is never listed as a custom property and cannot be used as a custom property name, in any letter case.
-- **Show, then hide.** `PageOperations.showProperty(pageId, key)` appends a system key or the key of an existing custom property (never reordering the entries already there; already shown is a no-op; a missing custom key or the reserved key is refused). A new custom property's key is appended in the same save that creates it (`addCustomProperty`), and renaming a shown custom property rewrites its entry in place in the same save (`renameCustomProperty`), so it stays shown. Hiding is `hideProperty` (see "Amendment — a property's menu"). All of them are the existing `saveCustomFrontmatter` — one Gate `'save'` with a metadata patch, this page only. There is no `setPropertyVisibility`: show and hide are separate, explicit operations, and per-note ordering beyond insertion order is the next design step.
-- **Add properties.** The Add properties menu (opened from the section's "+ Add a property" row) lists, in groups: the system Properties not shown (labelled from the system property definitions), the custom properties that exist but are not shown (by their actual key), and the new custom types (from the property type registry). Choosing an existing property shows it (`showProperty`); choosing a type adds a draft row as above, made visible once named.
+- **System properties** — `tags`, `aliases`, `created`, `modified` (labelled Tags, Aliases, Created, Last edited; `lastOpened` is a collection-view field, never a page property, and is excluded by the page-only key type `PageSystemPropertyKey`) — conceptually always exist. A note displays one only when its **canonical key** is listed in `properties.visible`. Listing or unlisting a key never touches the property's value. There is no per-property hidden state.
+- **Custom properties** exist when their frontmatter key exists, and are displayed automatically. There is no visibility representation for them and no hidden-custom state; a legacy custom entry in `visible` is ignored when reading and dropped the next time the block is written.
+- **Order.** System rows always follow the one canonical order — Tags, Aliases, Created, Last edited (`PAGE_SYSTEM_PROPERTY_KEYS`) — whatever order `visible` is written in; custom rows follow, in frontmatter order; a property being added comes last.
 
-## Amendment — a property's menu: Hide, Clear, Delete
-
-> **Superseded in part** by "Amendment — the final Properties UX" below: the per-property **Hide** action was removed, and **Remove** was added for system properties. Clear and Delete are as described here.
-
-Hovering a Property's name replaces its type icon with a horizontal-dots button that opens a menu of **Hide**, **Clear**, a divider, and **Delete**. Each action is offered only where it applies, and each is supplied by the adapter (`buildPageProperties`) — never inferred from a type or name:
-
-- **Hide** (every listed Property, system or custom): `PageOperations.hideProperty(pageId, key)` removes only that canonical key from `properties.visible` (`removeVisibleProperty`). The rest of the list keeps its order, the `visible:` line stays (empty if that was the last entry), every other line is byte-identical, and the Property's value is untouched — so it comes back, under "Hidden", in Add properties. Hiding something not listed is a no-op.
-- **Clear** (custom properties, Tags, Aliases): empties the value and keeps the Property. It reuses the existing writes — a scalar via `setCustomPropertyValue(…, null)` (a typed empty such as `due: # date`, never a fall back to text; a boolean becomes `false`), a list via `setCustomPropertyList(…, [])`, Tags and Aliases via `updateMetadata`. Created and Last edited are system-maintained and cannot be cleared.
-- **Delete** (custom properties only): `PageOperations.deleteCustomProperty(pageId, key)` removes the property's lines (`removeCustomProperty`) and its `properties.visible` entry in the same single save. A system Property, a key that isn't a custom property, and the reserved `properties` key are refused with no write. It takes effect immediately, with no confirmation or undo (the architecture has no undo; a hidden property can be shown again, a deleted one cannot).
-- **Drafts and archived pages:** an unnamed draft row has no menu (nothing exists yet), and an archived page offers no actions.
-
-## Amendment — the "+ Add a property" row
-
-> **Superseded in part** by "Amendment — the final Properties UX" below: the row is now a button that turns into an empty property while its menu is open, and the menu is one list with two actions at its foot.
-
-The Properties list always ends with a `+ Add a property` row (`AddPropertyRow`, passed to `PropertyList` as its `footer`), so adding is possible even when nothing is shown. It is absent only on an archived page. Once any property is listed it is the only way to add more; before the first one, the title control's "Add a property" opens the same menu (see "Amendment — the Properties section: `properties.show`").
-
-The interaction is deliberately minimal — there is no intermediate draft state:
-
-1. **Click the row.** The Add properties menu opens, anchored to it. The row itself never changes: no replaced label, no blank or placeholder row, no input, nothing focused. It is visually stable at all times.
-2. **Choose a property.** An existing property (a system one, or a hidden custom one) is shown (`showProperty`). A new custom type starts the draft custom property: its row appears above the `+ Add a property` row with that type's icon and a focused "Property name" field, caret at the start, ready to type. Naming it persists it as before (typed empty, key added to `properties.visible` in the same save); Escape or an empty/rejected name abandons it with nothing written.
-3. **Dismiss the menu** (Escape, a click outside) without choosing: nothing changes and nothing is written.
-
-The menu closing after a choice never returns focus to the row, so a draft's name field keeps the focus it just took. This amendment adds no write and no persistence path, and no Hide behavior.
-
-## Amendment — the Properties section: `properties.show`
-
-Whether a note shows its Properties section at all is a second, independent setting under the same reserved `properties` key:
+### Storage: preserved raw lines, never a second representation
 
 ```yaml
 properties:
-  show: true
+  show: false      # only ever written as false
   visible:
     - tags
     - created
 ```
 
-- **`properties.show`** controls the whole section. `show: true` shows it; `show: false` or no `show` hides it — hidden is the default, so nothing is written to establish it (a note is never given `show: false` just to say so). The section is the Properties list and its "+ Add a property" row; hidden, neither is rendered.
-- **`properties.visible`** keeps its meaning: which individual properties the section lists. The two never affect each other: toggling the section leaves `visible` byte-identical, and adding, hiding, renaming or deleting properties leaves `show` alone. Here the section is shown and lists only Tags and Created.
-- **Same Option B storage.** `show` is read and written by `propertyVisibility.ts` (`readPropertiesSectionVisibility`, `setPropertiesSectionVisibility`) from the preserved raw lines — the flat `FrontmatterParser` is unchanged, `properties` stays a reserved raw key, and anything else under `properties:` is preserved byte-identically. Only a direct child `show` counts. An existing `show:` line is rewritten in place (spelling, indentation and any trailing comment kept); showing with none adds `show: true` as the block's first entry (creating the block if needed); hiding with none changes nothing. `show` and `visible` are never listed as custom properties (they live inside the reserved block), though a custom property of the same name remains possible.
-- **The write.** `PageOperations.setPropertiesSectionVisibility(pageId, show)` — the existing `saveCustomFrontmatter` (one Gate `'save'` with a metadata patch, this page only, an archived page refused). Setting what it already is writes nothing.
-- **The title control.** (*Superseded in part — see "Amendment — the final Properties UX": the title no longer offers Hide properties.*) The page header's More actions item has a lifecycle: with no property listed it is **Add a property** and opens the same Add properties menu as the row (choosing a property lists it and sets `show: true` in the same save; a new type shows its draft row, with no "+" row until it is named). From the first listed property on it is only the section toggle — **Hide properties** while the section is shown, **Show properties** while hidden — and never again "Add a property". The toggle changes only `properties.show` and never touches `properties.visible`; adding more is the section's "+ Add a property" row. The state is derived in `propertiesSectionState.ts`. Hiding the section also drops any unnamed property draft, so it cannot reappear when the section is shown again. An archived page has no control (it still shows if its file says `show: true`).
+`properties` is a *reserved raw key* (`RESERVED_RAW_FRONTMATTER_KEYS`), deliberately **not** in `OWNED_FRONTMATTER_KEYS`: the flat, line-based `FrontmatterParser` gains no nested-YAML support and keeps capturing its lines, which `FrontmatterSerializer` writes back byte-identical like every other preserved line. `propertyVisibility.ts` is the only code that reads or writes the block, from `PageMetadata.unownedFrontmatter` — derived on demand, the same as custom properties. Anything else under `properties:` is preserved untouched. `properties` is never listed as a custom property and cannot be a custom property name, in any letter case.
 
-## Amendment — the final Properties UX
+- **`visible`** lists system keys only, matched ignoring letter case (`Tags`, `ALIASES`), canonicalized when the block is next written.
+- **`properties.show`** is only an explicit section-level override: `show: false` hides the section while everything stays configured. A missing `show` is the normal state, **`show: true` is never written**, and a legacy `show: true` reads as "not hidden" and is dropped the next time the block is written.
+- **Normalization on write.** Every change to the block ends in `normalizePropertiesConfig`: a `show` that isn't `false` is dropped, `visible` keeps only system keys (once each) and an empty `visible` (`visible: []`) goes, and the block goes when nothing is left in it. An older note is therefore migrated the first time its configuration is edited — with no second parser and no migration pass — and unrelated edits (a value, a rename) never rewrite the block.
+- **The zero-property state.** With nothing to show (no listed system property and no custom property) the note is in the never-configured state: no `properties:` block at all (`removePropertiesListing`). Removing the last property, or Delete all, returns the note to exactly that state.
 
-This amendment records where the Properties UX ended up and supersedes the parts of the amendments above that it names. No schema, store, Gate operation kind or write path is added: every write below is the existing `saveCustomFrontmatter` (one Gate `'save'` carrying a metadata patch, this page only, an archived page refused), or — where a system value changes with the list — the same `'save'` carrying both fields.
+### Operations (all through `saveCustomFrontmatter` — one Gate `'save'` with a metadata patch, this page only, an archived page refused)
 
-**State model of the page header's More actions item** (derived in `propertiesSectionState.ts`; the label is **Properties**, with the `info` icon):
+The pure frontmatter change for each lives in `propertyLines.ts`; `PageOperations` writes the result, and the UI integration tests drive the same functions.
 
-```text
-No property listed, section not shown   → "Properties"   (starts the first property)
-Section displayed                       → no item at all
-Section hidden, properties still listed → "Show properties"
-Last property removed / Delete all      → the listing is reset → "Properties" again
-```
+- `addSystemProperty(pageId, key)` — lists the key and lifts an explicit hide, so choosing a property makes the section appear; the value is untouched, so a removed property returns with it. Refuses any non-page-system key.
+- `removeSystemProperty(pageId, key)` — **unlists only**: the value (tags, aliases, the note's timestamps) is preserved and body `#tags` are untouched. Not listed is a no-op.
+- `addCustomProperty` — appends the typed property, lifts an explicit hide, and lists nothing (one save). `renameCustomProperty` changes only the key and never reads or writes `visible`.
+- `deleteCustomProperty` — removes the actual frontmatter key and its value.
+- `setPropertiesSectionHidden(pageId, hidden)` — hiding writes only `show: false` (every property, value and `visible` stay); showing removes the override. Setting what it already is writes nothing.
+- `deleteAllProperties` — deletes every custom property and removes the whole `properties:` block (no `show`, no `visible: []`), in one save; system values are untouched.
+- The last two removals above — `removeSystemProperty` / `deleteCustomProperty` of the last thing to show — end in the zero-property state in the same save.
+- No operation reorders anything, and there is no per-property hide and no hidden-custom concept: `hideProperty`, `showProperty` (the hidden-custom variant) and `setPropertiesSectionVisibility` no longer exist.
 
-- **Hide properties is not in the title.** It lives only in the Properties section's own menu (below). Hiding sets `properties.show` to false and nothing else: `visible` is byte-identical, so **Show properties** (the title item that appears only for a hidden section) restores exactly what was listed. Hiding also drops any unnamed draft.
-- **Starting a property.** "Properties" closes the menu and shows the section with the **empty property row**: an `info` icon, a "New property" label and an empty, inert value field, all in placeholder colours, with the Add properties menu open on it. Nothing is written; dismissing the menu removes the row and the section again.
+### The UI
 
-**The section's add affordance.** A **button** ("+ Add a property", in a wrapper as tall as a property row) ends the list. Clicking it turns it into the same empty property row with the same menu open; dismissing restores the button. Choosing an existing property shows it (`showProperty`); choosing a type starts the draft custom property as before.
+- **One derived state** — `derivePropertiesSectionState` (`propertiesSectionState.ts`) — gives `{ isDisplayed, showsAddRow, hasProperties, control }` from the frontmatter plus the transient `hasDraft` / `isStarting`; the title menu, the section and its add button all read it.
+- **Title (page header More actions):** **Add a property** (menu item "Properties", `info` icon) when there is nothing to show and the section isn't on screen; **Show properties** only when the section was explicitly hidden while properties still exist; no item at all while the section is displayed. Hide properties is never in the title.
+- **The section.** Rendered only when there is something to show (or an add is under way); with zero properties neither the section nor its "+ Add a property" button renders. The button, in a wrapper as tall as a property row, turns into an empty property row (an `info` icon, "New property", an empty inert value) with the picker open; dismissing restores it and writes nothing. The title's Add a property starts the same row. Choosing a system property lists it; choosing a type starts a focused draft (named → `addCustomProperty`; Escape or an empty/rejected name abandons it).
+- **The picker** is one flat list under a single "Type" title — the system properties not currently in `visible` (canonical order; a removed one is offered again), then the six custom types from the property type registry — followed by a divider and, when the note has properties, **Hide Properties** and **Delete all** (the latter behind a confirmation). There is no "Hidden" group.
+- **A property's menu** (hover the name): **Clear** (custom properties, Tags, Aliases — empties the value, keeps the row; a typed empty keeps its type, a boolean becomes `false`), then after a divider **Remove** (system properties — unlist only) or **Delete** (custom — gone for good). Created and Last edited offer only Remove. There is no per-property Hide.
 
-**The Add properties menu** is one list under a single **Type** title — the system properties not listed, the custom properties in the frontmatter not listed (no "Hidden" group: "not listed" is not a state a property is put into, only the absence of its key from `visible`), then the custom types — followed by a divider and two actions: **Hide Properties** (as above) and **Delete all**. The actions are offered only for a note that already has Properties configuration.
+### One URL rule
 
-**A property's menu.** **Hide** is gone. What remains:
+A `url` custom property is stored as an **absolute `http(s)` URL**, the only spelling the frontmatter reader infers as `url` (`isWebUrl`; a bare domain or `mailto:` stays text). The URL editor and the write share that rule: `parseUrlPropertyInput` accepts what the Markdown grammar links (or an explicit `http(s)://` URL such as `localhost:3000`), returns the **stored** form — a bare domain gets `https://` — and gates on `isWebUrl`. `mailto:`/`xmpp:` links and email addresses are rejected with the editor's reject shake instead of being accepted and silently dropped. The adapter has no URL rule of its own, and `setCustomPropertyValue` still refuses a value that would not read back as a `url`.
 
-- **Clear** — as in "a property's menu" above (custom properties, Tags, Aliases).
-- **Remove** (system properties only) — `PageOperations.removeSystemProperty(pageId, key)`. `created` / `modified`: only the key leaves `properties.visible`; the note's timestamps are never written. `tags` / `aliases`: the frontmatter value is also cleared (an empty list is not written, so the line goes) in the **same single save**, so value and list cannot disagree; body `#tags` are independent of the frontmatter value and untouched. No confirmation. The key stays available to add again. Any other key is refused with no write.
-- **Delete** (custom properties only) — `deleteCustomProperty`, unchanged apart from the last-property rule below.
-- A system property with none of these has no menu button.
+### Consequences
 
-**Removing the last listed property.** When `removeSystemProperty` or `deleteCustomProperty` takes the *last* listed key, the same save returns the note to the never-configured state (`removePropertiesListing`): `visible` and `show` are removed — no empty `visible`, no `show: false` — and the whole `properties:` block goes unless something else is configured under it (then only those two entries go and the rest is byte-identical). The section disappears and the title says "Properties" again, exactly as for a note that never had Properties. Removing a property that was not listed, or while others remain listed, only touches that entry.
-
-**Delete all.** `PageOperations.removeAllProperties(pageId)` — behind a confirmation — deletes every custom property from the frontmatter (keys and values; none is kept as a hidden property) and removes the whole `properties:` block (`removePropertiesBlock`), in one save. System values (tags, aliases, created, modified) are untouched; none is listed afterwards and the section is hidden. A note already in that state writes nothing. This is distinct from Hide properties, which preserves everything.
-
-**`hideProperty` is retained but has no UI caller.** Removing a single property from the list is **Remove**; the method stays in §6 as the facade's way to unlist one key without clearing a value. Removing it is a separate, explicitly scoped decision.
-
+The model is smaller: one set (`visible`, system keys only), one override (`show: false`), one derived UI state and one pure module of frontmatter changes. Notes written under the earlier models keep working and are normalized on the first write to their `properties:` block. Behavior that changed from the earlier amendments: Tags/Aliases Remove no longer clears the value; a custom property no longer needs listing; rows no longer follow insertion order; `show: true` is never written.

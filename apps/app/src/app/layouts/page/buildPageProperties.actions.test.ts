@@ -29,7 +29,6 @@ function pageFrom(yaml: string, status: 'active' | 'archived' = 'active'): Page 
 
 function setup(yaml: string, status: 'active' | 'archived' = 'active') {
   const handlers = {
-    onHideProperty: vi.fn(),
     onDeleteProperty: vi.fn(),
     onRemoveSystemProperty: vi.fn(),
     onCommitTags: vi.fn(),
@@ -43,18 +42,6 @@ function setup(yaml: string, status: 'active' | 'archived' = 'active') {
 }
 
 describe('buildPageProperties — each property’s menu actions', () => {
-  it('system properties can be hidden by their canonical key', () => {
-    const { handlers, row } = setup(ALL);
-
-    row('Tags').onHide!();
-    row('Aliases').onHide!();
-    row('Created').onHide!();
-    row('Last edited').onHide!();
-
-    // Canonical keys, never the labels.
-    expect(handlers.onHideProperty.mock.calls).toEqual([['tags'], ['aliases'], ['created'], ['modified']]);
-  });
-
   it('Tags and Aliases can be cleared; Created and Last edited cannot', () => {
     const { handlers, row } = setup(ALL);
 
@@ -75,14 +62,14 @@ describe('buildPageProperties — each property’s menu actions', () => {
     }
   });
 
-  it('a custom property can be hidden, cleared and deleted, by its actual key', () => {
-    const { handlers, row } = setup('Due date: 2026-10-01\nproperties:\n  visible:\n    - Due date');
+  it('a custom property can be cleared and deleted, by its actual key — and has no Remove', () => {
+    const { handlers, row } = setup('Due date: 2026-10-01');
 
-    row('Due date').onHide!();
     row('Due date').onDelete!();
 
-    expect(handlers.onHideProperty).toHaveBeenCalledExactlyOnceWith('Due date');
     expect(handlers.onDeleteProperty).toHaveBeenCalledExactlyOnceWith('Due date');
+    expect(typeof row('Due date').onClear).toBe('function');
+    expect(row('Due date').onRemove).toBeUndefined();
   });
 
   it.each([
@@ -93,7 +80,7 @@ describe('buildPageProperties — each property’s menu actions', () => {
     ['boolean', 'done: true', 'boolean', false],
   ] as const)('clearing a %s keeps its type: it is emptied, never removed', (_label, yaml, type, emptied) => {
     const key = yaml.split(':')[0]!;
-    const { handlers, row } = setup(`${yaml}\nproperties:\n  visible:\n    - ${key}`);
+    const { handlers, row } = setup(yaml);
 
     row(key).onClear!();
 
@@ -102,7 +89,7 @@ describe('buildPageProperties — each property’s menu actions', () => {
   });
 
   it('clearing a list empties it', () => {
-    const { handlers, row } = setup('people:\n  - Ana\n  - Bo\nproperties:\n  visible:\n    - people');
+    const { handlers, row } = setup('people:\n  - Ana\n  - Bo');
 
     row('people').onClear!();
 
@@ -110,7 +97,7 @@ describe('buildPageProperties — each property’s menu actions', () => {
   });
 
   it('every system property can be removed by its canonical key; custom properties offer no Remove', () => {
-    const { handlers, row } = setup(`priority: high\n${ALL}\n    - priority`);
+    const { handlers, row } = setup(`priority: high\n${ALL}`);
 
     row('Tags').onRemove!();
     row('Aliases').onRemove!();
@@ -122,45 +109,41 @@ describe('buildPageProperties — each property’s menu actions', () => {
   });
 
   it('an action is offered only when the host supplies its write', () => {
-    const items = buildPageProperties(pageFrom(`priority: high\n${ALL}\n  - priority`), {});
+    const items = buildPageProperties(pageFrom(`priority: high\n${ALL}`), {});
 
     for (const item of items) {
-      expect(item.onHide).toBeUndefined();
       expect(item.onClear).toBeUndefined();
       expect(item.onDelete).toBeUndefined();
       expect(item.onRemove).toBeUndefined();
     }
   });
 
-  it('Hide alone is offered when only hiding is supplied', () => {
-    const items = buildPageProperties(pageFrom(`priority: high\n${ALL}\n    - priority`), {
-      onHideProperty: vi.fn(),
-    });
+  it('Remove alone is offered when only unlisting is supplied', () => {
+    const items = buildPageProperties(pageFrom(`priority: high\n${ALL}`), { onRemoveSystemProperty: vi.fn() });
 
-    expect(items.every((item) => typeof item.onHide === 'function')).toBe(true);
+    const system = items.filter((item) => item.name !== 'priority');
+    expect(system.every((item) => typeof item.onRemove === 'function')).toBe(true);
     expect(items.every((item) => item.onClear === undefined && item.onDelete === undefined)).toBe(true);
   });
 
   it('an archived page offers no actions at all', () => {
-    const { items } = setup(`priority: high\n${ALL}\n    - priority`, 'archived');
+    const { items } = setup(`priority: high\n${ALL}`, 'archived');
 
     for (const item of items) {
-      expect(item.onHide).toBeUndefined();
       expect(item.onClear).toBeUndefined();
       expect(item.onDelete).toBeUndefined();
+      expect(item.onRemove).toBeUndefined();
     }
   });
 
-  it('a draft row has no menu: nothing exists to hide, clear or delete yet', () => {
+  it('a draft row has no menu: nothing exists to clear, remove or delete yet', () => {
     const items = buildPageProperties(pageFrom(ALL), {
-      onHideProperty: vi.fn(),
       onDeleteProperty: vi.fn(),
       drafts: { items: [{ id: 1, type: 'text' }], onName: vi.fn(), onAbandon: vi.fn() },
     });
 
     const draft = items.at(-1)!;
     expect(draft.name).toBe('');
-    expect(draft.onHide).toBeUndefined();
     expect(draft.onClear).toBeUndefined();
     expect(draft.onDelete).toBeUndefined();
   });

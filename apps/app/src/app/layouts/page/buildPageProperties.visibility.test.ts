@@ -6,8 +6,9 @@ import type { Page } from '@core/vault/models/Page';
 import { buildPageProperties } from './buildPageProperties';
 
 /**
- * A page whose frontmatter is exactly `yaml` — no default visibility
- * added, unlike the shared fixtures: these tests are about what is shown.
+ * A page whose frontmatter is exactly `yaml` — no system property listed
+ * unless `yaml` lists it, unlike the shared fixtures: these tests are about
+ * what is shown.
  */
 function pageFrom(yaml: string, overrides: Partial<Page['metadata']> = {}): Page {
   const parsed = new FrontmatterParser().parse(`---\nid: p1\n${yaml}\n---\nbody`);
@@ -32,20 +33,21 @@ function pageFrom(yaml: string, overrides: Partial<Page['metadata']> = {}): Page
 
 const names = (page: Page, actions = {}) => buildPageProperties(page, actions).map((item) => item.name);
 
-describe('buildPageProperties — only what the note shows', () => {
-  it('shows nothing when there is no properties.visible, whatever the page holds', () => {
-    const page = pageFrom('Due date: 2026-10-01\npeople:\n  - Ana\npriority: high');
+describe('buildPageProperties — what the note shows', () => {
+  it('shows no system property until its canonical key is listed, however much the page holds', () => {
+    const page = pageFrom('description: hi');
 
     expect(names(page)).toEqual([]);
     // The values are all still there, just not listed.
     expect(page.metadata.tags).toEqual(['work']);
-    expect(page.metadata.unownedFrontmatter).toContain('priority: high');
+    expect(page.metadata.aliases).toEqual(['Alt']);
   });
 
   it('shows nothing for an empty or unrelated properties block', () => {
     expect(names(pageFrom('properties:\n  visible:'))).toEqual([]);
     expect(names(pageFrom('properties:\n  other: 1'))).toEqual([]);
-    expect(names(pageFrom('visible:\n  - tags'))).toEqual([]);
+    // A top-level `visible` is not the Properties configuration: it is an ordinary custom property.
+    expect(names(pageFrom('visible:\n  - tags'))).toEqual(['visible']);
   });
 
   it.each([
@@ -57,40 +59,64 @@ describe('buildPageProperties — only what the note shows', () => {
     expect(names(pageFrom(`properties:\n  visible:\n    - ${key}`))).toEqual([label]);
   });
 
-  it('matches system keys by canonical key, never by the UI label', () => {
-    expect(names(pageFrom('properties:\n  visible:\n    - Last edited\n    - Created\n    - Tags'))).toEqual([]);
+  it('matches system keys by canonical key (in any letter case), never by the UI label', () => {
+    expect(names(pageFrom('properties:\n  visible:\n    - Last edited\n    - Created2'))).toEqual([]);
+    expect(names(pageFrom('properties:\n  visible:\n    - TAGS\n    - Modified'))).toEqual(['Tags', 'Last edited']);
   });
 
-  it('shows a custom property only when its actual frontmatter key is listed', () => {
-    const yaml = 'Due date: 2026-10-01\npriority: high\nproperties:\n  visible:\n    - Due date';
+  it('system rows are always in the one canonical order — Tags, Aliases, Created, Last edited — whatever order is listed', () => {
+    const page = pageFrom('properties:\n  visible:\n    - modified\n    - created\n    - aliases\n    - tags');
 
-    expect(names(pageFrom(yaml))).toEqual(['Due date']);
-  });
-
-  it('a listed custom key that is not in the frontmatter shows nothing', () => {
-    expect(names(pageFrom('priority: high\nproperties:\n  visible:\n    - ghost\n    - priority'))).toEqual([
-      'priority',
-    ]);
-  });
-
-  it('rows follow the order the properties were added to properties.visible, system and custom interleaved', () => {
-    const yaml = 'Due date: 2026-10-01\npriority: high\nproperties:\n  visible:\n    - modified\n    - priority\n    - tags\n    - Due date';
-
-    expect(names(pageFrom(yaml))).toEqual(['Last edited', 'priority', 'Tags', 'Due date']);
+    expect(names(page)).toEqual(['Tags', 'Aliases', 'Created', 'Last edited']);
   });
 
   it('a key listed twice is shown once', () => {
     expect(names(pageFrom('properties:\n  visible:\n    - tags\n    - tags'))).toEqual(['Tags']);
   });
 
+  it('custom properties appear automatically — no listing needed — and keep their frontmatter order', () => {
+    const yaml = 'Due date: 2026-10-01\npriority: high\nmood: ok';
+
+    expect(names(pageFrom(yaml))).toEqual(['Due date', 'priority', 'mood']);
+  });
+
+  it('listed system properties come first (canonical order), then the custom properties in frontmatter order', () => {
+    const yaml = 'zeta: 1\nalpha: 2\nproperties:\n  visible:\n    - modified\n    - tags';
+
+    expect(names(pageFrom(yaml))).toEqual(['Tags', 'Last edited', 'zeta', 'alpha']);
+  });
+
+  it('a legacy custom key in `visible` neither hides nor duplicates a custom property', () => {
+    const yaml = 'priority: high\nDue date: 2026-10-01\nproperties:\n  visible:\n    - Due date\n    - ghost';
+
+    expect(names(pageFrom(yaml))).toEqual(['priority', 'Due date']);
+  });
+
   it('`properties` is never a row, even though it is a frontmatter key', () => {
-    const page = pageFrom('priority: high\nproperties:\n  visible:\n    - tags\n    - properties\n    - priority');
+    const page = pageFrom('priority: high\nproperties:\n  visible:\n    - tags\n    - properties');
 
     expect(names(page)).toEqual(['Tags', 'priority']);
   });
 
+  it('a system property’s menu offers Remove (unlist only); only Tags and Aliases can also be Cleared', () => {
+    const page = pageFrom('properties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified');
+    const items = buildPageProperties(page, {
+      onRemoveSystemProperty: vi.fn(),
+      onCommitTags: vi.fn(),
+      aliases: { onCommit: vi.fn() },
+    });
+
+    expect(items.map((item) => [item.name, typeof item.onRemove, typeof item.onClear])).toEqual([
+      ['Tags', 'function', 'function'],
+      ['Aliases', 'function', 'function'],
+      ['Created', 'function', 'undefined'],
+      ['Last edited', 'function', 'undefined'],
+    ]);
+    expect(items.every((item) => item.onDelete === undefined)).toBe(true);
+  });
+
   it('visibility is separate from editability: a shown property is editable only when the host allows it', () => {
-    const yaml = 'priority: high\nproperties:\n  visible:\n    - tags\n    - priority';
+    const yaml = 'priority: high\nproperties:\n  visible:\n    - tags';
     const readOnly = buildPageProperties(pageFrom(yaml));
     const editable = buildPageProperties(pageFrom(yaml), {
       onCommitTags: vi.fn(),
@@ -101,36 +127,34 @@ describe('buildPageProperties — only what the note shows', () => {
     expect(editable.every((item) => item.editable === true)).toBe(true);
   });
 
-  it('an archived page shows what it lists, read-only, and offers no new property drafts', () => {
-    const page = pageFrom('priority: high\nproperties:\n  visible:\n    - tags\n    - priority', {
-      status: 'archived',
-    });
+  it('an archived page shows what it has, read-only, with no actions and no new property drafts', () => {
+    const page = pageFrom('priority: high\nproperties:\n  visible:\n    - tags', { status: 'archived' });
     const items = buildPageProperties(page, {
       onCommitTags: vi.fn(),
       onSetScalarValue: vi.fn(),
+      onRemoveSystemProperty: vi.fn(),
+      onDeleteProperty: vi.fn(),
       drafts: { items: [{ id: 1, type: 'text' }], onName: vi.fn(), onAbandon: vi.fn() },
     });
 
     expect(items.map((item) => item.name)).toEqual(['Tags', 'priority']);
     expect(items.every((item) => item.editable === false)).toBe(true);
+    expect(items.every((item) => item.onRemove === undefined && item.onDelete === undefined)).toBe(true);
   });
 
-  it('drafts are listed after the shown properties, whatever is shown', () => {
+  it('drafts are listed after the shown properties', () => {
     const drafts = { items: [{ id: 1, type: 'date' as const }], onName: vi.fn(), onAbandon: vi.fn() };
 
-    expect(names(pageFrom('x: 1'), { drafts })).toEqual(['']);
-    expect(names(pageFrom('properties:\n  visible:\n    - tags'), { drafts })).toEqual(['Tags', '']);
+    expect(names(pageFrom('description: hi'), { drafts })).toEqual(['']);
+    expect(names(pageFrom('x: 1\nproperties:\n  visible:\n    - tags'), { drafts })).toEqual(['Tags', 'x', '']);
   });
 
-  it('renaming a shown custom property is still offered and validated', () => {
+  it('renaming a custom property is offered and validated against every custom key', () => {
     const onRenameProperty = vi.fn();
-    const items = buildPageProperties(pageFrom('priority: high\nowner: Jane\nproperties:\n  visible:\n    - priority'), {
-      onRenameProperty,
-    });
+    const items = buildPageProperties(pageFrom('priority: high\nowner: Jane'), { onRenameProperty });
 
     expect(items[0]!.onRename!('importance')).toBe(true);
     expect(onRenameProperty).toHaveBeenCalledExactlyOnceWith('priority', 'importance');
-    // Uniqueness is still checked against every custom key, shown or not.
     expect(items[0]!.onRename!('OWNER')).toBe(false);
   });
 });

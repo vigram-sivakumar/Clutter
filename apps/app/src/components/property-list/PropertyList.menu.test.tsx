@@ -29,17 +29,16 @@ const trigger = (name: string) => screen.queryByRole('button', { name: `${name} 
 const itemLabels = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
 
 function renderWith(item: Partial<PropertyListItem> = {}) {
-  const onHide = vi.fn();
   const onClear = vi.fn();
   const onDelete = vi.fn();
   render(
     <PropertyList
       items={[
-        { name: 'priority', type: 'text', value: 'high', editable: false, onHide, onClear, onDelete, ...item } as PropertyListItem,
+        { name: 'priority', type: 'text', value: 'high', editable: false, onClear, onDelete, ...item } as PropertyListItem,
       ]}
     />
   );
-  return { onHide, onClear, onDelete };
+  return { onClear, onDelete };
 }
 
 describe('PropertyList — a property’s menu', () => {
@@ -66,13 +65,13 @@ describe('PropertyList — a property’s menu', () => {
     expect(icon).not.toBe(vertical);
   });
 
-  it('clicking it opens Hide, Clear, a divider, then Delete', () => {
+  it('clicking it opens Clear, a divider, then Delete', () => {
     renderWith();
 
     fireEvent.click(trigger('priority')!);
 
     expect(trigger('priority')).toHaveAttribute('aria-expanded', 'true');
-    expect(itemLabels()).toEqual(['Hide', 'Clear', 'Delete']);
+    expect(itemLabels()).toEqual(['Clear', 'Delete']);
     // The divider sits immediately above Delete, and nowhere else.
     const dividers = document.querySelectorAll('.menu [role="separator"]');
     expect(dividers).toHaveLength(1);
@@ -80,7 +79,6 @@ describe('PropertyList — a property’s menu', () => {
   });
 
   it.each([
-    ['Hide', 'onHide'],
     ['Clear', 'onClear'],
     ['Delete', 'onDelete'],
   ] as const)('choosing %s calls only %s and closes the menu', (label, handler) => {
@@ -97,29 +95,23 @@ describe('PropertyList — a property’s menu', () => {
   });
 
   it('lists only the actions the adapter supplies, with the divider only when something precedes Delete', () => {
-    renderWith({ onClear: undefined, onDelete: undefined });
+    renderWith({ onDelete: undefined });
     fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Hide']);
-    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(0);
-    cleanup();
-
-    renderWith({ onHide: undefined, onClear: undefined });
-    fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Delete']);
-    // Nothing above Delete, so no stray divider at the top.
+    expect(itemLabels()).toEqual(['Clear']);
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(0);
     cleanup();
 
     renderWith({ onClear: undefined });
     fireEvent.click(trigger('priority')!);
-    expect(itemLabels()).toEqual(['Hide', 'Delete']);
-    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
+    expect(itemLabels()).toEqual(['Delete']);
+    // Nothing above Delete, so no stray divider at the top.
+    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(0);
   });
 
   it('Remove sits after a divider, calls only onRemove, and closes the menu', () => {
     const onRemove = vi.fn();
     const onClear = vi.fn();
-    renderWith({ onHide: undefined, onDelete: undefined, onClear, onRemove });
+    renderWith({ onDelete: undefined, onClear, onRemove });
 
     fireEvent.click(trigger('priority')!);
     expect(itemLabels()).toEqual(['Clear', 'Remove']);
@@ -132,15 +124,15 @@ describe('PropertyList — a property’s menu', () => {
   });
 
   it('a property with no actions has no menu button at all', () => {
-    renderWith({ onHide: undefined, onClear: undefined, onDelete: undefined });
+    renderWith({ onClear: undefined, onDelete: undefined });
 
     expect(trigger('priority')).toBeNull();
     expect(document.querySelectorAll('.property-list__name button')).toHaveLength(0);
   });
 
   it('each row has its own menu, so one row’s action never reaches another', () => {
-    const first = { onHide: vi.fn() };
-    const second = { onHide: vi.fn() };
+    const first = { onClear: vi.fn() };
+    const second = { onClear: vi.fn() };
     render(
       <PropertyList
         items={[
@@ -151,10 +143,10 @@ describe('PropertyList — a property’s menu', () => {
     );
 
     fireEvent.click(trigger('b')!);
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear' }));
 
-    expect(second.onHide).toHaveBeenCalledOnce();
-    expect(first.onHide).not.toHaveBeenCalled();
+    expect(second.onClear).toHaveBeenCalledOnce();
+    expect(first.onClear).not.toHaveBeenCalled();
   });
 
   it('a click on the menu button is not a click on the value or the row', () => {

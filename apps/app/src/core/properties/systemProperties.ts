@@ -5,11 +5,10 @@
  * Each is identified by its canonical internal key: the frontmatter key
  * (`created`, `modified`, `tags`, `aliases`), or `lastOpened`, which the
  * collection views already persist under that name. The key is the
- * identity — what is stored, matched and (once per-note show/hide exists)
- * persisted — and never changes with the wording; the label is display
+ * identity — what is stored, matched and persisted (`properties.visible`
+ * lists these keys) — and never changes with the wording; the label is display
  * copy only, so renaming it can never break stored data. Every place that
- * shows one of these to the user (the Properties list, the Add properties
- * menu, the collection columns, sort and property menus) reads its label
+ * shows one of these to the user (the Properties list, the property picker, the collection columns, sort and property menus) reads its label
  * from here rather than writing its own.
  *
  * `type` is the Property type each is shown as (its icon and value
@@ -22,6 +21,9 @@
 import type { PropertyType } from './Property.types';
 
 export type SystemPropertyKey = 'tags' | 'aliases' | 'created' | 'modified' | 'lastOpened';
+
+/** The system Properties a note itself can list: everything but the collection-only `lastOpened`. */
+export type PageSystemPropertyKey = Exclude<SystemPropertyKey, 'lastOpened'>;
 
 export interface SystemPropertyDefinition {
   /** What the Property is called wherever it is shown. */
@@ -43,7 +45,7 @@ export const systemPropertyDefinitions: Readonly<Record<SystemPropertyKey, Syste
  * it lists them. `lastOpened` is not one: it is a collection-view field,
  * not note metadata.
  */
-export const PAGE_SYSTEM_PROPERTY_KEYS: readonly SystemPropertyKey[] = [
+export const PAGE_SYSTEM_PROPERTY_KEYS: readonly PageSystemPropertyKey[] = [
   'tags',
   'aliases',
   'created',
@@ -51,7 +53,7 @@ export const PAGE_SYSTEM_PROPERTY_KEYS: readonly SystemPropertyKey[] = [
 ];
 
 /** Whether `key` is a system Property a note can show (by its canonical key). */
-export function isPageSystemPropertyKey(key: string): key is SystemPropertyKey {
+export function isPageSystemPropertyKey(key: string): key is PageSystemPropertyKey {
   return (PAGE_SYSTEM_PROPERTY_KEYS as readonly string[]).includes(key);
 }
 

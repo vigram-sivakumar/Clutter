@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
 import type { Page } from '@core/vault/models/Page';
 
-import { getAddableProperties } from './addableProperties';
+import { getAddableSystemProperties } from './addableProperties';
 
 function pageFrom(yaml: string): Page {
   const parsed = new FrontmatterParser().parse(`---\nid: p1\n${yaml}\n---\nbody`);
@@ -14,58 +14,37 @@ function pageFrom(yaml: string): Page {
   } as unknown as Page;
 }
 
-describe('getAddableProperties', () => {
-  it('offers every system property when none is shown, labelled from the system definitions, in the usual order', () => {
-    const { systemProperties } = getAddableProperties(pageFrom('priority: high'));
+const ids = (yaml: string) => getAddableSystemProperties(pageFrom(yaml)).map((property) => property.id);
 
-    expect(systemProperties.map((property) => [property.id, property.label])).toEqual([
+describe('getAddableSystemProperties', () => {
+  it('offers every system property when none is listed, labelled from the system definitions, in the canonical order', () => {
+    const properties = getAddableSystemProperties(pageFrom('priority: high'));
+
+    expect(properties.map((property) => [property.id, property.label])).toEqual([
       ['tags', 'Tags'],
       ['aliases', 'Aliases'],
       ['created', 'Created'],
       ['modified', 'Last edited'],
     ]);
     // Icons come from the property type registry, by each one's type.
-    expect(systemProperties.map((property) => property.icon)).toEqual(['tag', 'multiLine', 'calendar', 'calendar']);
+    expect(properties.map((property) => property.icon)).toEqual(['tag', 'multiLine', 'calendar', 'calendar']);
   });
 
-  it('never offers a system property that is already shown', () => {
-    const { systemProperties } = getAddableProperties(
-      pageFrom('properties:\n  visible:\n    - created\n    - modified')
-    );
-
-    expect(systemProperties.map((property) => property.id)).toEqual(['tags', 'aliases']);
+  it('does not offer a system property already in properties.visible', () => {
+    expect(ids('properties:\n  visible:\n    - tags\n    - created')).toEqual(['aliases', 'modified']);
   });
 
-  it('never offers `lastOpened`: it is a collection field, not note metadata', () => {
-    expect(getAddableProperties(pageFrom('')).systemProperties.map((property) => property.id)).not.toContain(
-      'lastOpened'
-    );
+  it('offers a removed system property again, in its canonical place', () => {
+    expect(ids('properties:\n  visible:\n    - aliases\n    - modified')).toEqual(['tags', 'created']);
   });
 
-  it('offers custom properties that exist but are not shown, by their actual key and read type', () => {
-    const { hiddenProperties } = getAddableProperties(
-      pageFrom('Due date: 2026-10-01\npeople:\n  - Ana\nestimate: # number\nnote: hi\nproperties:\n  visible:\n    - note')
-    );
-
-    expect(hiddenProperties).toEqual([
-      { key: 'Due date', type: 'date' },
-      { key: 'people', type: 'multi-select' },
-      { key: 'estimate', type: 'number' },
-    ]);
+  it('matches listed keys ignoring letter case, and offers nothing once all four are listed', () => {
+    expect(ids('properties:\n  visible: [TAGS, Aliases, created, MODIFIED]')).toEqual([]);
   });
 
-  it('never offers the reserved `properties` key as a hidden property', () => {
-    const { hiddenProperties } = getAddableProperties(pageFrom('priority: high\nproperties:\n  visible:\n    - tags'));
-
-    expect(hiddenProperties.map((property) => property.key)).toEqual(['priority']);
-  });
-
-  it('offers nothing to show once everything is shown', () => {
-    const all = getAddableProperties(
-      pageFrom('priority: high\nproperties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified\n    - priority')
-    );
-
-    expect(all.systemProperties).toEqual([]);
-    expect(all.hiddenProperties).toEqual([]);
+  it('is only ever system properties: custom properties are displayed because their key exists, so none is offered', () => {
+    expect(ids('priority: high\nDue date: 2026-10-01')).toEqual(['tags', 'aliases', 'created', 'modified']);
+    // A legacy custom entry in `visible` changes nothing.
+    expect(ids('priority: high\nproperties:\n  visible:\n    - priority')).toEqual(['tags', 'aliases', 'created', 'modified']);
   });
 });

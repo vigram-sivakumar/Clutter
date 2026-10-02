@@ -3,7 +3,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { systemPropertyLabel } from '@core/properties/systemProperties';
 
 import {
   customPropertyTypeOptions,
@@ -15,27 +14,32 @@ import type { AddPropertyMenuProps } from './AddPropertyMenu';
 
 afterEach(() => cleanup());
 
+const created = { id: 'created', label: 'Created', icon: 'calendar' } as const;
+const lastEdited = { id: 'modified', label: 'Last edited', icon: 'calendar' } as const;
+const aliases = { id: 'aliases', label: 'Aliases', icon: 'multiLine' } as const;
+
 function renderMenu(overrides: Partial<AddPropertyMenuProps> = {}) {
   const onAddCustomProperty = vi.fn();
-  const onShowProperty = vi.fn();
+  const onAddSystemProperty = vi.fn();
   render(
     <AddPropertyMenu
       onAddCustomProperty={onAddCustomProperty}
-      onShowProperty={onShowProperty}
+      onAddSystemProperty={onAddSystemProperty}
       {...overrides}
     />
   );
-  return { onAddCustomProperty, onShowProperty };
+  return { onAddCustomProperty, onAddSystemProperty };
 }
 
 const itemLabels = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
+const customTypeLabels = ['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select'];
 
-describe('AddPropertyMenu', () => {
+describe('AddPropertyMenu — one picker', () => {
   it('is a menu of every custom type, in the registry order and with the registry labels', () => {
     renderMenu();
 
     expect(screen.getByRole('menu', { name: 'Add properties' })).toBeInTheDocument();
-    expect(itemLabels()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
+    expect(itemLabels()).toEqual(customTypeLabels);
     // Derived from the registry, not a second list: same options, same order.
     expect(itemLabels()).toEqual(customPropertyTypeOptions().map((option) => option.label));
   });
@@ -47,130 +51,49 @@ describe('AddPropertyMenu', () => {
     expect(itemLabels()).not.toContain('Tags');
   });
 
-  it('lists no system properties when none is available', () => {
+  it('is one flat list under a single "Type" title: the system properties not listed, then the custom types', () => {
+    renderMenu({ systemProperties: [aliases, created, lastEdited] });
+
+    expect(itemLabels()).toEqual(['Aliases', 'Created', 'Last edited', ...customTypeLabels]);
+    const menu = screen.getByRole('menu', { name: 'Add properties' });
+    expect([...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent)).toEqual(['Type']);
+    // No "Hidden" / "Properties" groups of any kind.
+    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(screen.queryByText('Properties')).toBeNull();
+  });
+
+  it('with no system property left to add, it is just the custom types', () => {
     renderMenu({ systemProperties: [] });
 
-    expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(itemLabels()).toEqual(customTypeLabels);
   });
 
-  it('lists the available system properties first, then the custom types', () => {
-    renderMenu({
-      systemProperties: [
-        { id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' },
-        { id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' },
-      ],
-    });
+  it('offers no system properties when it cannot add them', () => {
+    renderMenu({ onAddSystemProperty: undefined, systemProperties: [created] });
 
-    expect(itemLabels()).toEqual([
-      'Created',
-      'Last edited',
-      'Text',
-      'Date',
-      'URL',
-      'Number',
-      'Boolean',
-      'Multi-select',
-    ]);
-    expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(screen.queryByText('Hidden')).toBeNull();
+    expect(itemLabels()).toEqual(customTypeLabels);
   });
 
-  it('shows only the system properties it is given: one already displayed is simply not passed', () => {
-    // The host computes "available" as the system properties minus those
-    // the page shows, so a shown Created is never handed to the menu.
-    renderMenu({ systemProperties: [{ id: 'modified', label: systemPropertyLabel('modified'), icon: 'calendar' }] });
-
-    expect(itemLabels()).toContain('Last edited');
-    expect(itemLabels()).not.toContain('Created');
-    expect(itemLabels()).not.toContain('Tags');
-  });
-
-  it('choosing a system property reports its key only', () => {
-    const { onShowProperty, onAddCustomProperty } = renderMenu({
-      systemProperties: [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }],
-    });
+  it('choosing a system property reports its canonical key only', () => {
+    const { onAddSystemProperty, onAddCustomProperty } = renderMenu({ systemProperties: [created] });
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Created' }));
 
-    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('created');
+    expect(onAddSystemProperty).toHaveBeenCalledExactlyOnceWith('created');
     expect(onAddCustomProperty).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['Text', 'text'],
-    ['Date', 'date'],
-    ['URL', 'url'],
-    ['Number', 'number'],
-    ['Boolean', 'boolean'],
-    ['Multi-select', 'multi-select'],
-  ])('choosing %s reports the %s type only', (label, type) => {
-    const { onAddCustomProperty, onShowProperty } = renderMenu();
+  it.each(customPropertyTypeOptions().map((option) => [option.label, option.type] as const))(
+    'choosing the type %s reports that type only',
+    (label, type) => {
+      const { onAddSystemProperty, onAddCustomProperty } = renderMenu({ systemProperties: [created] });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+      fireEvent.click(screen.getByRole('menuitem', { name: label }));
 
-    expect(onAddCustomProperty).toHaveBeenCalledExactlyOnceWith(type);
-    expect(onShowProperty).not.toHaveBeenCalled();
-  });
-});
-
-describe('AddPropertyMenu — hidden custom properties', () => {
-  const hidden = [
-    { key: 'Due date', type: 'date' as const },
-    { key: 'people', type: 'multi-select' as const },
-  ];
-
-  it('lists hidden custom properties by their actual key, between the system properties and the new types', () => {
-    renderMenu({
-      systemProperties: [{ id: 'created', label: systemPropertyLabel('created'), icon: 'calendar' }],
-      hiddenProperties: hidden,
-    });
-
-    expect(itemLabels()).toEqual([
-      'Created',
-      'Due date',
-      'people',
-      'Text',
-      'Date',
-      'URL',
-      'Number',
-      'Boolean',
-      'Multi-select',
-    ]);
-    expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
-  });
-
-  it('lists only what it has, with the new types still offered', () => {
-    renderMenu({ hiddenProperties: hidden });
-
-    // The hidden properties lead, under their own title.
-    expect(screen.queryByText('Properties')).toBeNull();
-    expect(screen.queryByText('Hidden')).toBeNull();
-    expect(itemLabels().slice(0, 2)).toEqual(['Due date', 'people']);
-  });
-
-  it('choosing a hidden property reports its actual key to show it, and adds no new property', () => {
-    const { onShowProperty, onAddCustomProperty } = renderMenu({ hiddenProperties: hidden });
-
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Due date' }));
-
-    expect(onShowProperty).toHaveBeenCalledExactlyOnceWith('Due date');
-    expect(onAddCustomProperty).not.toHaveBeenCalled();
-  });
-
-  it('offers no existing properties at all when it cannot show them', () => {
-    renderMenu({
-      onShowProperty: undefined,
-      systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }],
-      hiddenProperties: hidden,
-    });
-
-    expect(itemLabels()).toEqual(['Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
-  });
+      expect(onAddCustomProperty).toHaveBeenCalledExactlyOnceWith(type);
+      expect(onAddSystemProperty).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('AddPropertyMenu — actions', () => {
@@ -184,7 +107,7 @@ describe('AddPropertyMenu — actions', () => {
   });
 
   it('puts the "Type" title and the list first, then a divider, then Hide Properties and Delete all', () => {
-    renderMenu({ onHideProperties: vi.fn(), onRemoveAll: vi.fn() });
+    renderMenu({ onHideProperties: vi.fn(), onDeleteAll: vi.fn() });
 
     expect(itemLabels().slice(-3)).toEqual(['Multi-select', 'Hide Properties', 'Delete all']);
     const menu = screen.getByRole('menu', { name: 'Add properties' });
@@ -195,40 +118,18 @@ describe('AddPropertyMenu — actions', () => {
     expect(order.slice(-3)).toEqual(['separator', 'menuitem', 'menuitem']);
   });
 
-  it('each action reports itself only, and adds or shows nothing', () => {
+  it('each action reports itself only, and adds nothing', () => {
     const onHideProperties = vi.fn();
-    const onRemoveAll = vi.fn();
-    const { onAddCustomProperty, onShowProperty } = renderMenu({ onHideProperties, onRemoveAll });
+    const onDeleteAll = vi.fn();
+    const { onAddCustomProperty, onAddSystemProperty } = renderMenu({ onHideProperties, onDeleteAll });
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
     expect(onHideProperties).toHaveBeenCalledOnce();
-    expect(onRemoveAll).not.toHaveBeenCalled();
+    expect(onDeleteAll).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete all' }));
-    expect(onRemoveAll).toHaveBeenCalledOnce();
+    expect(onDeleteAll).toHaveBeenCalledOnce();
     expect(onAddCustomProperty).not.toHaveBeenCalled();
-    expect(onShowProperty).not.toHaveBeenCalled();
-  });
-});
-
-describe('AddPropertyMenu — sections', () => {
-  const hidden = [{ key: 'Due date', type: 'date' }, { key: 'people', type: 'multi-select' }] as const;
-
-  it('is one list under a single "Type" title: the existing properties, then the new types', () => {
-    renderMenu({ systemProperties: [{ id: 'created', label: 'Created', icon: 'calendar' }], hiddenProperties: hidden });
-
-    const menu = screen.getByRole('menu', { name: 'Add properties' });
-    const titles = [...menu.querySelectorAll('.menu__group-title')].map((node) => node.textContent);
-    expect(titles).toEqual(['Type']);
-    // The title leads, and the existing properties flow straight into the types.
-    const labels = [...menu.querySelectorAll('.menu__group-title, [role=menuitem]')].map((node) => node.textContent);
-    expect(labels.slice(0, 5)).toEqual(['Type', 'Created', 'Due date', 'people', 'Text']);
-  });
-
-  it('never has a "Hidden" title', () => {
-    renderMenu();
-
-    expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.getByText('Type')).toBeInTheDocument();
+    expect(onAddSystemProperty).not.toHaveBeenCalled();
   });
 });

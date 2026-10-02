@@ -65,10 +65,11 @@ export interface PageHeaderMoreActionsMenuProps {
   /**
    * The Properties control item — see PropertiesControl. Presence gates the
    * item (same "handler presence decides whether the item exists"
-   * convention as the handlers above); omitted for a page with no
-   * Properties section, or an archived one. In `add` mode choosing it swaps
-   * this menu, in place, for the Add properties menu; in `toggle` mode it
-   * shows or hides the whole section and closes the menu.
+   * convention as the handlers above); omitted while the section is
+   * displayed (Hide properties lives in the section itself) and for an
+   * archived page. In `add` mode choosing it starts the first property in the
+   * section; in `show` mode it displays the hidden section again. Either way
+   * the menu closes.
    */
   propertiesControl?: PropertiesControl;
 }

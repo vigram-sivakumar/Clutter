@@ -15,27 +15,25 @@ import { formatDatePropertyValue } from './formatDatePropertyValue';
 
 interface PropertyTypeDefinition<Type extends PropertyType> {
   icon: keyof typeof iconRegistry;
-  /** What the type is called where one is chosen (the Add properties menu). */
+  /** What the type is called where one is chosen (the property picker). */
   label: string;
   /**
    * Whether a user can create a Property of this type. Only `tag` is not:
    * it is the system `tags` Property's own type.
    */
   custom: boolean;
-  /** Display formatting for a raw stored value, for types whose display differs from the stored value. */
-  format?(value: string): string;
   /** Renders the value cell — the type's value component, which reads the item's own `editable`. */
   renderValue(item: PropertyListItemOf<Type>): ReactNode;
 }
 
 /**
  * The single source of truth for what each Property type looks like:
- * its icon, its value formatting, and its value component. PropertyList
+ * its icon, its picker label, and its value component. PropertyList
  * reads this instead of branching on `type` itself. Editability is not
  * part of a type's definition — it arrives on each item.
  */
 export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinition<Type> } = {
-  // Order is the order the Add properties menu lists the custom types in.
+  // Order is the order the property picker lists the custom types in.
   text: {
     icon: 'description',
     label: 'Text',
@@ -46,7 +44,6 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
     icon: 'calendar',
     label: 'Date',
     custom: true,
-    format: formatDatePropertyValue,
     renderValue: (item) => <DatePropertyValue {...item} format={formatDatePropertyValue} />,
   },
   url: {
@@ -81,7 +78,7 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
   },
 };
 
-/** One custom Property type a user can add, as the Add properties menu lists it. */
+/** One custom Property type a user can add, as the property picker lists it. */
 export interface CustomPropertyTypeOption {
   type: CustomPropertyType;
   label: string;
