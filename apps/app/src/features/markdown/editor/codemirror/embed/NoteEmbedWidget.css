@@ -55,19 +55,20 @@
 /*
  * Hover cue — the same `--md-reveal-highlight-surface` colour and 400ms
  * background fade the editor-reveal line flash uses (`MarkdownEditor.css`'s
- * `.cm-reveal-line`), so "this is the embed you're pointing at" reads like
- * the "you've landed here" cue elsewhere. Pure CSS on the widget's own
- * element: no decoration state or timer is needed for a hover, and
+ * `.cm-reveal-line`). Hovering anywhere on the embed paints only its
+ * content area (`> .cm-note-embed__content`, direct child so a nested
+ * embed's own content isn't also painted), not the header or dividers.
+ * Pure CSS: no decoration state or timer is needed for a hover, and
  * `background-color`/`border-radius` never affect CM6 layout (no margin,
  * per this codebase's permanent CM6 rule).
  */
-.cm-media-block.cm-note-embed {
+.cm-note-embed > .cm-note-embed__content {
   border-radius: var(--radius-sm);
   background-color: transparent;
   transition: background-color 400ms ease;
 }
 
-.cm-media-block.cm-note-embed:hover {
+.cm-note-embed:hover > .cm-note-embed__content {
   background-color: var(--md-reveal-highlight-surface);
 }
 
