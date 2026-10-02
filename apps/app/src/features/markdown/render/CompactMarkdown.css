@@ -98,7 +98,8 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
 }
 
 .compact-markdown-highlight {
-  background: var(--md-compact-highlight-surface);
+  /* background: var(--md-compact-highlight-surface); */
+  background: none;
   color: inherit;
   padding: 0 0.15em;
 }

@@ -6,7 +6,9 @@
 /* Editable: pills and the inline input in one wrapping row. Same
    alignment trick as the other editable values (inline padding cancelled
    by an equal negative margin), and the same focused look as Input. */
-.pill-list-editor {
+/* Compound selector: the element also carries `.property-list__value`, whose
+   min-height/height would otherwise tie on specificity and win by load order. */
+.property-list__value.pill-list-editor {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -18,7 +20,7 @@
      control: the 24px pills sit in --space-4 of padding, and the inline
      input below stays one --lh-label line — the editor's padding-block
      is surface only and never makes the input taller. */
-  min-height: calc(2 * var(--space-6) + var(--lh-label));
+  min-height: 40px;
   box-sizing: border-box;
 
   margin-inline: calc(-1 * (var(--space-6) + 2px));
