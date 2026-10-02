@@ -234,8 +234,7 @@
   background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
   padding: var(--md-badge-padding);
-  line-height: var(--lh-label);
-  font-weight: var(--fw-medium);
+  line-height: 18px;
   white-space: nowrap;
 }
 .property-list__tag-prefix,
@@ -340,4 +339,18 @@
 }
 .property-list__tag-input .input__field {
   padding: 0;
+}
+
+/* Tag autocomplete: the `.menu` surface (same as every other menu), each
+   row a tag label with the pills' dimmed `#` and tag color. */
+.property-list__tag-suggestions {
+  max-height: 240px;
+}
+.property-list__tag-suggestion {
+  color: var(--md-tag-foreground);
+}
+.entry__content .property-list__tag-suggestion .property-list__tag-prefix {
+  overflow: visible;
+  opacity: var(--opacity-medium);
+  padding-right: 2px;
 }

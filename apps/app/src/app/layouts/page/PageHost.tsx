@@ -1760,7 +1760,13 @@ export function PageHost({
       onSaveCoverPosition={onSaveCoverPosition}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
-      properties={<PagePropertiesWithExamples key={activePageId} page={page} />}
+      properties={
+        <PagePropertiesWithExamples
+          key={activePageId}
+          page={page}
+          getTagSuggestions={getTagSuggestions}
+        />
+      }
       body={
         <MarkdownBody>
           <MarkdownEditor

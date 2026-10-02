@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
+
 /**
  * A Property's editability, orthogonal to its type. Supplied explicitly by
  * the adapter that builds the items (e.g. buildPageProperties) — the UI only
@@ -26,6 +28,12 @@ export type PropertyListItem =
       type: 'tag';
       /** Tag names without their `#`, in order — as frontmatter `tags` stores them. */
       value: readonly string[];
+      /**
+       * Existing-tag search for autocomplete while typing — the editor's own
+       * `GetTagSuggestions` (createTagSuggester over the vault), injected by
+       * the adapter. Omitted: no suggestions, typing still adds tags.
+       */
+      getSuggestions?: GetTagSuggestions;
     } & PropertyEditability<string[]>)
   | ({
       name: string;

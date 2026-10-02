@@ -2,10 +2,26 @@
 
 import { act, useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { PropertyList } from './PropertyList';
 import { TagPropertyValue, parseTagInput } from './TagPropertyValue';
+
+// Overlay (the suggestion popover) positions itself with a ResizeObserver,
+// which jsdom lacks — same local stub as Overlay.test.tsx.
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 afterEach(() => {
   cleanup();
@@ -210,6 +226,176 @@ describe('TagPropertyValue — editable', () => {
     act(() => getInput().blur());
     expect(storedValue()).toEqual(['design', 'ui']);
     expect(getInput().value).toBe('');
+  });
+});
+
+describe('TagPropertyValue — autocomplete', () => {
+  /** A stand-in for createTagSuggester: case-insensitive substring over vault tags, display labels. */
+  const VAULT_TAGS = ['product', 'prototype', 'product-design', 'design', 'research'];
+  const getSuggestions = (query: string) =>
+    VAULT_TAGS.filter((tag) => tag.replace(/-/g, ' ').includes(query.toLowerCase()))
+      .map((tag) => tag.replace(/-/g, ' '))
+      .sort();
+
+  function SuggestingTags({ initial }: { initial: string[] }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <>
+        <TagPropertyValue
+          name="Tags"
+          value={value}
+          editable
+          getSuggestions={getSuggestions}
+          onCommit={setValue}
+        />
+        <output data-testid="value">{JSON.stringify(value)}</output>
+      </>
+    );
+  }
+
+  function suggestionLabels(): string[] {
+    return [...document.querySelectorAll('.property-list__tag-suggestions [role="menuitem"]')].map(
+      (row) => row.textContent!
+    );
+  }
+
+  function activeSuggestion(): string | null {
+    const id = getInput().getAttribute('aria-activedescendant');
+    return id ? document.getElementById(id)!.textContent : null;
+  }
+
+  it('shows matching existing tags in a menu while typing, with nothing highlighted', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+
+    expect(suggestionLabels()).toEqual(['#product', '#product design', '#prototype']);
+    expect(document.querySelector('.property-list__tag-suggestions')!.classList.contains('menu')).toBe(true);
+    expect(activeSuggestion()).toBeNull();
+  });
+
+  it('excludes tags already on the property', () => {
+    render(<SuggestingTags initial={['product']} />);
+
+    act(() => getInput().focus());
+    type('#prod');
+
+    expect(suggestionLabels()).toEqual(['#product design']);
+  });
+
+  it('shows no menu for an empty query or when nothing matches', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#');
+    expect(suggestionLabels()).toEqual([]);
+
+    type('#zzz');
+    expect(suggestionLabels()).toEqual([]);
+  });
+
+  it('clicking a suggestion adds it as a pill (label serialized back to the tag name)', () => {
+    render(<SuggestingTags initial={['design']} />);
+
+    act(() => getInput().focus());
+    type('#prod');
+    fireEvent.click(screen.getByRole('menuitem', { name: '#product design' }));
+
+    expect(storedValue()).toEqual(['design', 'product-design']);
+    expect(getInput().value).toBe('');
+    expect(suggestionLabels()).toEqual([]);
+  });
+
+  it('Enter adds the highlighted suggestion; ArrowDown moves the highlight', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+    press('ArrowDown');
+    expect(activeSuggestion()).toBe('#product');
+    press('ArrowDown');
+    expect(activeSuggestion()).toBe('#product design');
+
+    press('Enter');
+    expect(storedValue()).toEqual(['product-design']);
+  });
+
+  it('with nothing highlighted, Enter adds the typed text', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+    press('Enter');
+
+    expect(storedValue()).toEqual(['pro']);
+  });
+
+  it('clears the highlight when the typed text changes', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+    press('ArrowDown');
+    expect(activeSuggestion()).toBe('#product');
+
+    type('#prod');
+    expect(activeSuggestion()).toBeNull();
+  });
+
+  it('Space adds exactly what was typed — a new tag when nothing matches', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#newtag');
+    press(' ');
+    expect(storedValue()).toEqual(['newtag']);
+
+    type('#pro');
+    press(' ');
+    expect(storedValue()).toEqual(['newtag', 'pro']);
+  });
+
+  it('never adds a duplicate through a suggestion', () => {
+    const onCommit = vi.fn();
+    render(
+      <TagPropertyValue
+        name="Tags"
+        value={['Product']}
+        editable
+        getSuggestions={getSuggestions}
+        onCommit={onCommit}
+      />
+    );
+
+    act(() => getInput().focus());
+    type('#product');
+
+    expect(suggestionLabels()).toEqual(['#product design']);
+    press(' ');
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('Escape closes the menu until typing resumes', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(suggestionLabels()).toEqual([]);
+
+    type('#prot');
+    expect(suggestionLabels()).toEqual(['#prototype']);
+  });
+
+  it('closes the menu when the input loses focus', () => {
+    render(<SuggestingTags initial={[]} />);
+
+    act(() => getInput().focus());
+    type('#pro');
+    act(() => getInput().blur());
+
+    expect(suggestionLabels()).toEqual([]);
   });
 });
 

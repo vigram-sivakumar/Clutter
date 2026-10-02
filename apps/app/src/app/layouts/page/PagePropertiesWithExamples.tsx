@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { PropertyList } from '@components/property-list/PropertyList';
 import type { Page } from '@core/vault/models/Page';
+import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import { buildPageProperties } from './buildPageProperties';
 
@@ -16,7 +17,14 @@ import { buildPageProperties } from './buildPageProperties';
  * `<PropertyList items={buildPageProperties(page)} />`) once the editors
  * are done.
  */
-export function PagePropertiesWithExamples({ page }: { page: Page }) {
+export function PagePropertiesWithExamples({
+  page,
+  getTagSuggestions,
+}: {
+  page: Page;
+  /** The page's existing-tag search (createTagSuggester), for tag autocomplete. */
+  getTagSuggestions?: GetTagSuggestions;
+}) {
   const [exampleText, setExampleText] = useState(
     'This is some text that can wrap naturally onto multiple lines.\n\nPress Enter to create another line.'
   );
@@ -48,6 +56,7 @@ export function PagePropertiesWithExamples({ page }: { page: Page }) {
           name: 'Example tags',
           type: 'tag',
           value: exampleTags,
+          getSuggestions: getTagSuggestions,
           editable: true,
           onCommit: setExampleTags,
         },
