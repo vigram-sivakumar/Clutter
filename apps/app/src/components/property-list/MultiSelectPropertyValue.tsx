@@ -81,9 +81,8 @@ function ValuePill({
   return (
     <Pill
       tone="plain"
-      className={onEdit ? 'property-list__tag--editable' : undefined}
-      onActivate={onEdit}
-      activateLabel={`Edit ${value}`}
+      onEdit={onEdit}
+      label={`Edit ${value}`}
       onRemove={onRemove}
       removeLabel={`Remove ${value}`}
     >

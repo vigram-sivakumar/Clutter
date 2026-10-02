@@ -99,9 +99,8 @@ interface TagPillProps {
 function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
   return (
     <Pill
-      className={onOpen ? 'property-list__tag--link' : undefined}
-      onActivate={onOpen && (() => onOpen(tag))}
-      activateLabel={`Open tag ${tag}`}
+      onNavigate={onOpen && (() => onOpen(tag))}
+      label={`Open tag ${tag}`}
       onRemove={onRemove}
       removeLabel={`Remove tag ${tag}`}
     >

@@ -3,22 +3,30 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 
-interface PillProps {
+/**
+ * What a click (or Enter/Space when focused) on the pill does — never both:
+ * - `navigate`: goes somewhere else (a tag opens its Tag Collection); shows
+ *   the pointer cursor.
+ * - `edit`: starts editing the value in place (aliases, multi-select);
+ *   shows the text cursor.
+ * Omit both for a pill that isn't clickable.
+ */
+type PillClickAction =
+  | { onNavigate?(): void; onEdit?: undefined }
+  | { onEdit?(): void; onNavigate?: undefined };
+
+type PillProps = {
   /** `tag` is the editor's inline tag look; `plain` a neutral surface for non-tag values. */
   tone?: 'tag' | 'plain';
   /** The pill's content (a tag's `#` prefix and label, or a plain value). */
   children: ReactNode;
-  /** Makes the pill a button: click (or Enter/Space when focused) fires this. */
-  onActivate?(): void;
-  /** Accessible name of the pill-as-button; used only with `onActivate`. */
-  activateLabel?: string;
-  /** Extra modifier classes, e.g. `property-list__tag--link`. */
-  className?: string;
+  /** Accessible name of the pill-as-button; used only when it is clickable. */
+  label?: string;
   /** Shows the hover dismiss button, which fires this. */
   onRemove?(): void;
   /** Accessible name of the dismiss button; used only with `onRemove`. */
   removeLabel?: string;
-}
+} & PillClickAction;
 
 /**
  * The one pill every list Property renders its values with (tags,
@@ -28,19 +36,21 @@ interface PillProps {
  * in the same place on every pill; the geometry itself lives in
  * `.property-list__tag` / `.property-list__tag-remove` (PropertyList.css).
  *
- * Neither the activate nor the dismiss click reaches the editor's "click
- * anywhere to type" handler, and the dismiss click never reaches the
- * pill's own.
+ * Neither the click action nor the dismiss click reaches the editor's
+ * "click anywhere to type" handler, and the dismiss click never reaches
+ * the pill's own.
  */
 export function Pill({
   tone = 'tag',
   children,
-  onActivate,
-  activateLabel,
-  className,
+  label,
+  onNavigate,
+  onEdit,
   onRemove,
   removeLabel,
 }: PillProps) {
+  const onActivate = onNavigate ?? onEdit;
+
   function handleRemove(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     onRemove?.();
@@ -63,14 +73,19 @@ export function Pill({
 
   return (
     <span
-      className={['property-list__tag', tone === 'plain' && 'property-list__tag--plain', className]
+      className={[
+        'property-list__tag',
+        tone === 'plain' && 'property-list__tag--plain',
+        onNavigate && 'property-list__tag--link',
+        onEdit && 'property-list__tag--editable',
+      ]
         .filter(Boolean)
         .join(' ')}
       // A <span>, not a <button>: it contains the dismiss <button>, and
       // buttons can't nest.
       role={onActivate ? 'button' : undefined}
       tabIndex={onActivate ? 0 : undefined}
-      aria-label={onActivate ? activateLabel : undefined}
+      aria-label={onActivate ? label : undefined}
       onClick={onActivate ? handleActivate : undefined}
       onKeyDown={onActivate ? handleActivateKeyDown : undefined}
     >
