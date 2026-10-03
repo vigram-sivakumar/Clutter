@@ -13,7 +13,13 @@ import './FolderPicker.css';
 /** DOM id for the "Create ..." row — stable so useMenuKeyboard (which keys off element ids) can address it like any other menuitem. */
 const CREATE_ITEM_ID = 'folder-picker-create';
 
-export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
+export function FolderPicker({
+  items,
+  placeholder = 'Search folders',
+  leadingIcon,
+  onSelect,
+  onCreate,
+}: FolderPickerProps) {
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -141,7 +147,7 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
         // here on the input, since the input (not the list) holds real
         // DOM focus while a row is only ever visually/ARIA-highlighted.
         aria-activedescendant={keyboard.activeId}
-        placeholder="Search folders"
+        placeholder={placeholder}
       />
 
       <div className="folder-picker__list" ref={listRef}>
@@ -173,15 +179,25 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
               className="folder-picker__item"
               level={isSearching ? 0 : item.level}
               leading={
-                <FolderLeading
-                  emoji={item.emoji}
-                  isEmpty={isEmpty}
-                  hasCaret={hasCaret}
-                  isExpanded={!isSearching && expandedIds.has(item.id)}
-                  onExpandToggle={
-                    isSearching ? undefined : () => toggleExpanded(item.id)
-                  }
-                />
+                leadingIcon ? (
+                  <span className="folder__leading">
+                    <AppIcon
+                      className="folder__icon"
+                      icon={leadingIcon}
+                      emoji={item.emoji}
+                    />
+                  </span>
+                ) : (
+                  <FolderLeading
+                    emoji={item.emoji}
+                    isEmpty={isEmpty}
+                    hasCaret={hasCaret}
+                    isExpanded={!isSearching && expandedIds.has(item.id)}
+                    onExpandToggle={
+                      isSearching ? undefined : () => toggleExpanded(item.id)
+                    }
+                  />
+                )
               }
               // forceHover mirrors MenuItem's own "keyboard-active item
               // looks hovered" convention — one visual rule for "this is
@@ -195,7 +211,9 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
                 <div className="folder-picker__title-row">
                   <span className="folder-picker__title">{item.title}</span>
                   {item.secondaryLabel && (
-                    <span className="folder-picker__secondary">{item.secondaryLabel}</span>
+                    <span className="folder-picker__secondary">
+                      {item.secondaryLabel}
+                    </span>
                   )}
                 </div>
                 {!item.secondaryLabel && path && (

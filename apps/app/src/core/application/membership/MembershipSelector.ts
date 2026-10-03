@@ -366,6 +366,20 @@ export class MembershipSelector {
   }
 
   /**
+   * Every page the user can currently see and edit: not dot-hidden, not
+   * archived, not inside an archived folder. The shared visibility rule behind
+   * the Assets catalog's page uses and any picker that offers notes as targets.
+   */
+  public getAllVisiblePages(): Page[] {
+    return Array.from(this.vault.pages()).filter(
+      (page) =>
+        this.isVisiblePage(page) &&
+        !this.isArchivedPage(page) &&
+        !this.isEffectivelyArchived(page.parentId)
+    );
+  }
+
+  /**
    * The Assets collection (ADR-039): every asset Clutter knows about or
    * uses — the visible vault files, plus the remote images referenced from
    * notes and covers — one entry per canonical reference, each carrying every
@@ -379,12 +393,7 @@ export class MembershipSelector {
     return this.assetCatalogBuilder.build({
       root: this.vault.root,
       resources: this.getAllVisibleResources(),
-      pages: Array.from(this.vault.pages()).filter(
-        (page) =>
-          this.isVisiblePage(page) &&
-          !this.isArchivedPage(page) &&
-          !this.isEffectivelyArchived(page.parentId)
-      ),
+      pages: this.getAllVisiblePages(),
       folders: Array.from(this.vault.folders()).filter(
         (folder) => this.isVisibleFolder(folder) && !this.isEffectivelyArchived(folder.id)
       ),

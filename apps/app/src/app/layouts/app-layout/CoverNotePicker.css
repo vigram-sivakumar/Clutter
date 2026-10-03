@@ -1,0 +1,33 @@
+.cover-note-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 360px;
+  height: 480px;
+  padding: var(--space-12);
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-xl);
+}
+.cover-note-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-body-small);
+  color: var(--foreground-secondary);
+  padding-left: var(--space-6);
+}
+/* The inner picker already has its own surface; flatten it into this card.
+   The card has a fixed height, so the picker fills it and only the list scrolls. */
+.cover-note-picker .folder-picker {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.cover-note-picker .folder-picker__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

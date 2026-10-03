@@ -1,3 +1,5 @@
+import type { SystemIcon } from '@shared/icon';
+
 /** One ancestor's own identity, display name, and icon — the breadcrumb-segment shape a search result's path is built from, so each segment can render with the folder it actually represents, not a flattened string. */
 export interface FolderPickerAncestor {
   id: string;
@@ -42,6 +44,14 @@ export const ROOT_DESTINATION_ID = '__vault-root__';
 
 export interface FolderPickerProps {
   items: FolderPickerItem[];
+  /** The search box's placeholder. Default: "Search folders". */
+  placeholder?: string;
+  /**
+   * Renders every row as a flat, non-expandable item led by this icon (or the
+   * item's own emoji) instead of the folder tree's caret/folder leading — for a
+   * list of something other than folders, such as notes.
+   */
+  leadingIcon?: SystemIcon;
   onSelect: (item: FolderPickerItem) => void;
   onCreate?: (name: string) => void;
 }

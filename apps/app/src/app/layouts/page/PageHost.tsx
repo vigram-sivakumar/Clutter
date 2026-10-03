@@ -110,6 +110,7 @@ import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/e
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
+import { newCoverPatch } from '@core/application/page/coverPatch';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 
 interface PageHostProps {
@@ -131,6 +132,12 @@ interface PageHostProps {
    * whose own image-click handler already resolves an optional `resourceId`
    * itself and builds the full `ImageOverlayImage`.
    */
+  /**
+   * An asset's "Set as cover image": asks the user which note gets this cover
+   * reference (a vault-relative path, or a remote URL as is). Owned by
+   * `AppLayout`, which hosts the note picker.
+   */
+  readonly onSetAssetAsCover: (reference: string) => void;
   readonly onOpenImageOverlay: (
     image: ImageOverlayImage,
     options?: { readonly onSetCoverImage?: () => void }
@@ -253,6 +260,7 @@ export function PageHost({
   application,
   onOpenResource,
   onOpenImageOverlay,
+  onSetAssetAsCover,
   tasksViewConfig,
   pendingReveal,
   onRequestReveal,
@@ -941,22 +949,12 @@ export function PageHost({
   const noteCoverActions: NoteCoverActions = {
     resolveUrl: (cover) => application.resolveCoverImageForDisplay(cover),
     onSet: (noteId, url) => {
-      void application.pageOperations.updateMetadata(noteId, {
-        cover: url,
-        coverHidden: false,
-        coverPositionAbove: 50,
-        coverPositionSide: 50,
-      });
+      void application.pageOperations.updateMetadata(noteId, newCoverPatch(url));
     },
     onSetFromUpload: (noteId, sourcePath) => {
       void (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
-        await application.pageOperations.updateMetadata(noteId, {
-          cover: relativePath,
-          coverHidden: false,
-          coverPositionAbove: 50,
-          coverPositionSide: 50,
-        });
+        await application.pageOperations.updateMetadata(noteId, newCoverPatch(relativePath));
       })();
     },
     onRemove: (noteId) => {
@@ -1384,7 +1382,10 @@ export function PageHost({
             onOpenAsset={(asset) =>
               asset.source === 'local'
                 ? onOpenResource(asset.resource)
-                : onOpenImageOverlay({ url: asset.url, alt: getResourceDisplayName(asset) })
+                : onOpenImageOverlay(
+                    { url: asset.url, alt: getResourceDisplayName(asset) },
+                    { onSetCoverImage: () => onSetAssetAsCover(asset.url) }
+                  )
             }
             onUpload={onAddAsset}
             onRenameResource={(id, name) =>

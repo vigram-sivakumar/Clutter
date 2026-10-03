@@ -19,6 +19,9 @@ import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
+import { CoverNotePicker } from './CoverNotePicker';
+import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
+import { newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
@@ -133,6 +136,10 @@ export function AppLayout({ application }: AppLayoutProps) {
             alt: getResourceDisplayName(resource),
             resourceId: actionsEnabled ? resource.id : undefined,
           },
+          onSetCoverImage: actionsEnabled
+            ? () =>
+                askForCoverNote(resource.path.slice(`${application.vault.root}/`.length))
+            : undefined,
         });
         return;
       case 'pdf':
@@ -152,6 +159,26 @@ export function AppLayout({ application }: AppLayoutProps) {
     options?: { readonly onSetCoverImage?: () => void }
   ): void {
     setResourceOverlay({ kind: 'image', image, onSetCoverImage: options?.onSetCoverImage });
+  }
+
+  // "Set as cover image" from an asset's viewer: the asset's cover reference
+  // (a vault-relative path, or the remote URL as is) waits here while the user
+  // picks which note gets it. Only the note's cover metadata changes.
+  const [coverTarget, setCoverTarget] = useState<string | null>(null);
+
+  function askForCoverNote(reference: string): void {
+    setResourceOverlay(null);
+    setCoverTarget(reference);
+  }
+
+  function setNoteCover(noteId: string): void {
+    const reference = coverTarget;
+    setCoverTarget(null);
+    if (reference !== null) {
+      void application.pageOperations
+        .updateMetadata(noteId, newCoverPatch(reference))
+        .catch((error: unknown) => console.error('Could not set the cover image.', error));
+    }
   }
 
   // The cover picker's Asset tab: every image the Assets collection holds
@@ -219,6 +246,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           application={application}
           onOpenResource={openVaultResourceOverlay}
           onOpenImageOverlay={openImageOverlay}
+          onSetAssetAsCover={askForCoverNote}
           tasksViewConfig={tasksViewConfig}
           pendingReveal={pendingReveal}
           onRequestReveal={setPendingReveal}
@@ -257,6 +285,12 @@ export function AppLayout({ application }: AppLayoutProps) {
         onSetCoverImage={
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }
+      />
+      <CoverNotePicker
+        open={coverTarget !== null}
+        notes={coverTarget === null ? [] : buildCoverNoteItems(application.membershipSelector.getAllVisiblePages())}
+        onSelect={setNoteCover}
+        onClose={() => setCoverTarget(null)}
       />
       <PdfOverlay
         resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
