@@ -52,4 +52,23 @@ describe('AssetCard.css', () => {
     expect(rule('.asset-card__meta-label')).toMatch(/flex:\s*none/);
     expect(rule('.asset-card__meta-value')).toMatch(/text-overflow:\s*ellipsis/);
   });
+
+  it('fades the scrim with an eased, monotonic ramp that starts solid and ends at nothing', () => {
+    const header = rules.find((candidate) => candidate.selectors.includes('.asset-card__header'))!.body;
+    const gradient = header.match(/linear-gradient\([^;]*\)/)![0];
+    const alphas = [...gradient.matchAll(/rgb\(0 0 0 \/ ([\d.]+)\)/g)].map(([, alpha]) => Number(alpha));
+
+    // Many stops (a straight 2-3 point ramp shows a hard edge where it ends), strictly easing out.
+    expect(alphas.length).toBeGreaterThanOrEqual(8);
+    expect(alphas[0]).toBeGreaterThan(0.5);
+    expect(alphas[alphas.length - 1]).toBe(0);
+    for (let i = 1; i < alphas.length; i += 1) {
+      expect(alphas[i]!, `stop ${i}`).toBeLessThan(alphas[i - 1]!);
+    }
+    // Eased: the first and last steps are the smallest (no abrupt start or end).
+    const steps = alphas.slice(1).map((alpha, i) => alphas[i]! - alpha);
+    const middle = Math.max(...steps);
+    expect(steps[0]!).toBeLessThan(middle);
+    expect(steps[steps.length - 1]!).toBeLessThan(middle);
+  });
 });
