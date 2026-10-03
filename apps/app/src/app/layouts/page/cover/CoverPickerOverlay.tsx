@@ -13,6 +13,8 @@ export interface CoverPickerOverlayProps {
   readonly onSetCoverImage: (url: string) => void;
   /** An upload: imports the file and sets it as the cover. */
   readonly onSetCoverImageFromUpload: (sourcePath: string) => void;
+  /** The picker's Remove button: clears the cover. */
+  readonly onRemove: () => void;
 }
 
 /**
@@ -31,12 +33,17 @@ export function CoverPickerOverlay({
   anchorRef,
   onSetCoverImage,
   onSetCoverImageFromUpload,
+  onRemove,
 }: CoverPickerOverlayProps) {
   return (
     <Overlay open={open} onClose={onClose} anchorRef={anchorRef} side="left" alignment="center">
       <div className="cover-picker-overlay">
         <ImagePicker
           onClose={onClose}
+          onRemove={() => {
+            onClose();
+            onRemove();
+          }}
           onLinkSubmit={(url) => {
             onClose();
             onSetCoverImage(url);

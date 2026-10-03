@@ -506,6 +506,10 @@ export function PageCover({
         {view === 'picker' && onSetCoverImage && (
           <div className="page__cover__picker">
             <ImagePicker
+              onRemove={() => {
+                setView('menu');
+                handleRemove();
+              }}
               onClose={() => setView('menu')}
               onLinkSubmit={(url) => {
                 setOpen(false);
