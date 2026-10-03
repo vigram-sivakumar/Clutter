@@ -64,14 +64,8 @@ export function ImagePicker({
         Cover
         <span className="image-picker__actions">
           {onRemove && (
-            <Button
-              isIconOnly
-              size="small"
-              interaction="subtle"
-              aria-label="Remove cover"
-              onClick={onRemove}
-            >
-              <AppIcon icon="trash" />
+            <Button size="small" onClick={onRemove}>
+              Remove
             </Button>
           )}
           <Button isIconOnly size="small" interaction="subtle" onClick={onClose}>

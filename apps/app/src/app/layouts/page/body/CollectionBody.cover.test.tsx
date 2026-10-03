@@ -178,7 +178,7 @@ describe('CollectionBody — Table: Cover image column', () => {
     );
 
     fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.collection-table-row__cover button')[1]!);
-    fireEvent.click(screen.getByLabelText('Remove cover'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     expect(noteCover.onRemove).toHaveBeenCalledWith('b');
     expect(document.querySelector('.image-picker')).toBeNull();

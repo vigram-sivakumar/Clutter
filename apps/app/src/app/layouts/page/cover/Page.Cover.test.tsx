@@ -136,7 +136,7 @@ describe('PageCover — More actions menu', () => {
     renderCover();
 
     fireEvent.click(screen.getByText('Change cover image'));
-    fireEvent.click(document.querySelector('.image-picker__header button')!);
+    fireEvent.click(document.querySelector('.image-picker__actions button:last-child')!);
 
     expect(screen.getByText('Change cover image')).toBeInTheDocument();
     expect(document.querySelector('.image-picker')).not.toBeInTheDocument();
