@@ -21,7 +21,6 @@ export function ImagePickerAsset({ onSelect }: ImagePickerAssetProps) {
           key={asset.id}
           type="button"
           className="image-picker-asset__item"
-          title={asset.name}
           aria-label={asset.name}
           onClick={() => onSelect(asset.cover)}
         >
