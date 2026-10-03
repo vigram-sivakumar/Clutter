@@ -1,19 +1,19 @@
 /*
- * The asset-specific part of a card: its media. Card geometry, surface,
- * border, padding, gap and the title section all come from the shared card
- * system (CollectionCard.css, CardTitleSection.css) — nothing here restyles
- * them. Everything is scoped to `.asset-card__…`.
+ * The asset-specific part of a card: its media, and the title section laid
+ * over it. Card geometry, surface and border come from the shared card system
+ * (CollectionCard.css, with its `flush` variant), and the title block's own
+ * typography from CardTitleSection.css — nothing here restyles the card.
+ * Everything is scoped to `.asset-card__…`.
  */
 
-/* The card is flush (no padding), so the title section carries the card's 6px inset itself. */
-.asset-card__header {
-  padding: var(--space-6);
-}
-
-/* The media fills what the title section leaves of the fixed card shape, flush to the card's top and side edges (the card clips it to its rounded corners). */
+/*
+ * The media fills the whole card, edge to edge (the flush card is the
+ * positioned ancestor, and clips it to its rounded corners); the title section
+ * sits over its bottom edge.
+ */
 .asset-card__media {
-  flex: 1 1 0;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -23,7 +23,38 @@
 }
 
 /*
- * The image behaves like a cover image: it fills the whole preview area and
+ * The title section, over the bottom of the media on a dark gradient so its
+ * text stays readable on any image or page. The gradient and the text are
+ * deliberately fixed colors, not theme tokens: the scrim sits over a picture,
+ * so it is dark and the text light in both light and dark mode. The card is
+ * flush (no padding), so this carries the card's 6px inset itself, plus a
+ * fade-in run above the text; it grows with the lines the properties turn on.
+ */
+.asset-card__header {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: var(--space-24) var(--space-6) var(--space-6);
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.72) 0%,
+    rgb(0 0 0 / 0.5) 45%,
+    rgb(0 0 0 / 0) 100%
+  );
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+.asset-card__header .card-title,
+.asset-card__header .card-title-section__leading {
+  color: rgb(255 255 255);
+}
+.asset-card__header .card-description,
+.asset-card__header .card-metadata {
+  color: rgb(255 255 255 / 0.78);
+}
+
+/*
+ * The image behaves like a cover image: it fills the whole card and
  * crops to fit (object-fit: cover, centered) — the area's shape wins, the
  * image's own aspect ratio does not.
  */
@@ -34,7 +65,7 @@
   object-fit: cover;
 }
 
-/* A PDF's first page, top-aligned and clipped by the preview area (the page is taller than it). */
+/* A PDF's first page, top-aligned and clipped by the card (the page is taller than it). */
 .asset-card__pdf {
   align-self: flex-start;
   width: 100%;

@@ -32,4 +32,15 @@ describe('AssetCard.css', () => {
     expect(css).not.toMatch(/\.collection-card/);
     expect(css).not.toMatch(/\.asset-card\s*[{,:.]/);
   });
+
+  it('lays the title section over a media area that fills the whole card, on a dark gradient', () => {
+    const rule = (selector: string) =>
+      rules.find((candidate) => candidate.selectors.includes(selector))?.body ?? '';
+
+    expect(rule('.asset-card__media')).toMatch(/position:\s*absolute/);
+    expect(rule('.asset-card__media')).toMatch(/inset:\s*0/);
+    expect(rule('.asset-card__header')).toMatch(/position:\s*absolute/);
+    expect(rule('.asset-card__header')).toMatch(/bottom:\s*0/);
+    expect(rule('.asset-card__header')).toMatch(/linear-gradient\(\s*to top/);
+  });
 });

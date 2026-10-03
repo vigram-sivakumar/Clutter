@@ -46,8 +46,14 @@
   aspect-ratio: auto;
 }
 
-/* No card padding or gap: a section (e.g. an asset's media) runs flush to the card edge, which clips it to the rounded corners; sections that want inset carry their own padding. */
+/*
+ * No card padding or gap: a section (e.g. an asset's media) runs flush to the
+ * card edge, which clips it to the rounded corners; sections that want inset
+ * carry their own padding. Also the positioned ancestor for a section laid
+ * over the card (an asset's title over its media).
+ */
 .collection-card--flush {
+  position: relative;
   padding: 0;
   gap: 0;
 }

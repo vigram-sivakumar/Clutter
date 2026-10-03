@@ -33,8 +33,9 @@ export interface AssetCardProps {
 /**
  * One asset (image or PDF) as a card: the shared card shell and title section
  * (the Notes Card's geometry and typography — nothing asset-specific restyles
- * them), with the asset-specific media above and the title section at the
- * bottom. The title section is the icon and name,
+ * them), with the asset-specific media filling the whole card and the title
+ * section laid over its bottom edge on a gradient (AssetCard.css) so the text
+ * stays readable. The title section is the icon and name,
  * then the file's size and dates, one per line (`assetCardMetadata`), when the
  * vault knows them — never a kind label, since the media already shows what
  * kind it is. Click opens the asset;
