@@ -5,7 +5,7 @@
  * them. Everything is scoped to `.asset-card__…`.
  */
 
-/* The media fills what the title section leaves of the fixed card shape, inset 4px to line up under the title's icon glyph, like a note's cover and content. */
+/* The media fills what the title section leaves of the fixed card shape, inset 4px to line up with the icon glyph of the title below it. */
 .asset-card__media {
   flex: 1 1 0;
   min-height: 0;

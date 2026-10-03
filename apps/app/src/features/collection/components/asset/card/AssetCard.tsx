@@ -28,8 +28,8 @@ export interface AssetCardProps {
 /**
  * One asset (image or PDF) as a card: the shared card shell and title section
  * (the Notes Card's geometry and typography — nothing asset-specific restyles
- * them), then the asset-specific media. The title section is just the icon and
- * name, since the media already shows what kind it is. Click opens the asset;
+ * them), with the asset-specific media above and the title section at the
+ * bottom. The title section is just the icon and name, since the media already shows what kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
  * actions menu — the asset's actions live in its viewer.
  */
@@ -41,14 +41,14 @@ export function AssetCard({ resource, url, isSelected = false, onClick, titleCon
       isSelected={isSelected}
       onClick={onClick ? () => onClick(resource) : undefined}
     >
+      <AssetMedia kind={resource.kind} url={url} />
+
       <CardTitleSection
         className="asset-card__header"
         icon={getResourceIcon(resource.kind)}
         title={getResourceDisplayName(resource)}
         titleContent={titleContent}
       />
-
-      <AssetMedia kind={resource.kind} url={url} />
     </CollectionCard>
   );
 }

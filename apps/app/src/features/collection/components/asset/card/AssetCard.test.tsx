@@ -94,11 +94,11 @@ describe('AssetCard', () => {
     expect(container.querySelector('.note-card__cover, .document-preview__canvas')).toBeNull();
   });
 
-  it('puts the title section (icon + name) first, as on a note card, and the media below it', () => {
+  it('puts the media first and the title section (icon + name) below it', () => {
     const { container } = render(<AssetCard resource={image()} url="x" />);
 
     const [first, second] = [...container.querySelector('.asset-card')!.children];
-    expect(first).toHaveClass('card-title-section', 'asset-card__header');
-    expect(second).toHaveClass('asset-card__media');
+    expect(first).toHaveClass('asset-card__media');
+    expect(second).toHaveClass('card-title-section', 'asset-card__header');
   });
 });
