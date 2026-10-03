@@ -11,6 +11,7 @@ export * from './Folder';
 export * from './FolderMetadata';
 
 export * from './VaultResource';
+export * from './Asset';
 
 export * from './Tag';
 export * from './Embed';

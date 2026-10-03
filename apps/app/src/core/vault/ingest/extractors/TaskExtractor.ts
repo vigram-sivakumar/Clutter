@@ -1,4 +1,4 @@
-import { parser as bareMarkdownParser } from '@lezer/markdown';
+import { fencedCodeRanges, isInsideAnyRange } from './markdownCodeRanges';
 
 export interface ScannedTask {
   readonly text: string;
@@ -71,34 +71,6 @@ export const METADATA_TOKEN_PATTERN = /@([a-zA-Z]+):(\S+)/g;
  * change introduces — a pre-existing property of this extractor.
  */
 export const BARE_DATE_PATTERN = /(^|\s)@(\d{4}-\d{2}-\d{2})(?![A-Za-z0-9])/;
-
-/**
- * Same "bare `@lezer/markdown` parser, not the editor's
- * `markdownGrammarExtensions`" choice `TagExtractor.ts` (and
- * `headingSemantics.ts`, ADR-032) already made, for the identical reason:
- * this is Vault Ingest, and importing the editor's grammar config here
- * would be an upward dependency from Vault Ingest into UI/Features
- * (ARCHITECTURE_RULES.md rule 7). Consulted only for `FencedCode` node
- * ranges, to exclude a `- [ ]`/`- [x]` line that merely sits inside a code
- * fence's raw text — the task-line grammar itself stays this file's own
- * regex, unchanged. Handles both fence styles (``` and ~~~) because
- * `FencedCode` covers both in this grammar.
- */
-function fencedCodeRanges(content: string): readonly { readonly from: number; readonly to: number }[] {
-  const ranges: { from: number; to: number }[] = [];
-  bareMarkdownParser.parse(content).iterate({
-    enter: (node) => {
-      if (node.name === 'FencedCode') {
-        ranges.push({ from: node.from, to: node.to });
-      }
-    },
-  });
-  return ranges;
-}
-
-function isInsideAnyRange(pos: number, ranges: readonly { readonly from: number; readonly to: number }[]): boolean {
-  return ranges.some((range) => pos >= range.from && pos < range.to);
-}
 
 export class TaskExtractor {
   extract(content: string): readonly ScannedTask[] {

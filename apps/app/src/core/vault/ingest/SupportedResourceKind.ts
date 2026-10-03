@@ -45,3 +45,24 @@ export function classifySupportedResourceFile(filename: string): SupportedResour
 export function supportedResourceFileExtensions(): string[] {
   return [...IMAGE_EXTENSIONS, '.pdf'].map((extension) => extension.slice(1));
 }
+
+const MIME_TYPES: Readonly<Record<string, string>> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+};
+
+/**
+ * The MIME type implied by a file name or URL path's extension, or undefined
+ * when it can't be told (an extensionless URL). Derived, never stored. A
+ * `?query` / `#fragment` is ignored, so a URL works as well as a path.
+ */
+export function mimeTypeForPath(pathOrUrl: string): string | undefined {
+  const withoutSuffix = pathOrUrl.split(/[?#]/)[0] ?? '';
+
+  return MIME_TYPES[VaultPath.extension(withoutSuffix)];
+}

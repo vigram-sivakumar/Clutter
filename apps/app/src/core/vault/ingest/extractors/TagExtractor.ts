@@ -1,4 +1,4 @@
-import { parser as bareMarkdownParser } from '@lezer/markdown';
+import { fencedCodeRanges, isInsideAnyRange } from './markdownCodeRanges';
 
 export interface ScannedTagOccurrence {
   // Exactly as typed in Markdown — never rewritten or case-normalized.
@@ -18,34 +18,6 @@ export interface ScannedTagOccurrence {
   // without re-deriving the match position from `name` and a text search.
   readonly startOffset: number;
   readonly endOffset: number;
-}
-
-/**
- * Same "bare `@lezer/markdown` parser, not the editor's
- * `markdownGrammarExtensions`" choice `headingSemantics.ts` (ADR-032)
- * already made, for the identical reason: this is Vault Ingest, and
- * importing the editor's grammar config here would be an upward
- * dependency from Vault Ingest into UI/Features (ARCHITECTURE_RULES.md
- * rule 7). The bare parser has no `Tag` node at all (that's the editor's
- * own `tagSyntax.ts` inline extension, not part of CommonMark/GFM) — it's
- * only consulted here for `FencedCode` node ranges, to exclude a `#word`
- * match that merely sits inside a code fence's raw text. The `#word`
- * grammar itself stays this file's own regex, unchanged.
- */
-function fencedCodeRanges(content: string): readonly { readonly from: number; readonly to: number }[] {
-  const ranges: { from: number; to: number }[] = [];
-  bareMarkdownParser.parse(content).iterate({
-    enter: (node) => {
-      if (node.name === 'FencedCode') {
-        ranges.push({ from: node.from, to: node.to });
-      }
-    },
-  });
-  return ranges;
-}
-
-function isInsideAnyRange(pos: number, ranges: readonly { readonly from: number; readonly to: number }[]): boolean {
-  return ranges.some((range) => pos >= range.from && pos < range.to);
 }
 
 export class TagExtractor {
