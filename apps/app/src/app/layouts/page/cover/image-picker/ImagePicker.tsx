@@ -24,21 +24,19 @@ interface ImagePickerProps {
    * having to know why.
    */
   onUnsplashSelect: (url: string) => void;
-  /** An existing vault image (or remote asset): sets the cover and closes, like Upload. */
+  /** An existing vault image (or remote asset), offered under Upload: sets the cover and closes, like Upload. */
   onAssetSelect: (cover: string) => void;
 }
 
 type ImagePickerTab = 'hide' | 'image';
-type ImageSource = 'upload' | 'asset' | 'link' | 'unsplash';
+type ImageSource = 'upload' | 'link' | 'unsplash';
 
 const IMAGE_SOURCE_STORAGE_KEY = 'clutter-cover-picker-source';
 
 function readStoredImageSource(): ImageSource {
   const stored = localStorage.getItem(IMAGE_SOURCE_STORAGE_KEY);
 
-  if (stored === 'upload' ||
-    stored === 'asset' ||
-    stored === 'link' || stored === 'unsplash') {
+  if (stored === 'upload' || stored === 'link' || stored === 'unsplash') {
     return stored;
   }
 
@@ -99,35 +97,49 @@ export function ImagePicker({
 
       {activeTab === 'image' && (
         <>
-          <div className="image-picker__tabs">
-            <Tabs
-              value={imageSource}
-              onValueChange={(source) =>
-                handleImageSourceChange(source as ImageSource)
-              }
+          <div className="image-picker__buttons">
+            <button
+              className={`image-picker__button ${
+                imageSource === 'upload' ? 'image-picker__button--selected' : ''
+              }`}
+              type="button"
+              onClick={() => handleImageSourceChange('upload')}
             >
-              <Tab value="upload">
-                <span>Upload</span>
-              </Tab>
-              <Tab value="asset">
-                <span>Asset</span>
-              </Tab>
-              <Tab value="link">
-                <span>Link</span>
-              </Tab>
-              <Tab value="unsplash">
-                <AppIcon icon="unsplash" />
-                <span>Unsplash</span>
-              </Tab>
-            </Tabs>
+              <AppIcon icon="uploadImage" />
+              <span>Upload</span>
+            </button>
+
+            <button
+              className={`image-picker__button ${
+                imageSource === 'link' ? 'image-picker__button--selected' : ''
+              }`}
+              type="button"
+              value="link"
+              onClick={() => handleImageSourceChange('link')}
+            >
+              <AppIcon icon="link" />
+              <span>Link</span>
+            </button>
+
+            <button
+              className={`image-picker__button ${
+                imageSource === 'unsplash'
+                  ? 'image-picker__button--selected'
+                  : ''
+              }`}
+              type="button"
+              onClick={() => handleImageSourceChange('unsplash')}
+            >
+              <AppIcon icon="unsplash" />
+              <span>Unsplash</span>
+            </button>
           </div>
 
           {imageSource === 'upload' && (
-            <ImagePickerUpload onSubmit={onUploadSubmit} />
-          )}
-
-          {imageSource === 'asset' && (
-            <ImagePickerAsset onSelect={onAssetSelect} />
+            <>
+              <ImagePickerUpload onSubmit={onUploadSubmit} />
+              <ImagePickerAsset onSelect={onAssetSelect} />
+            </>
           )}
 
           {imageSource === 'link' && (
