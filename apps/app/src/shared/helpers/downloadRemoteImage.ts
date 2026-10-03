@@ -1,6 +1,7 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
+import { appFetch } from './appFetch';
 
 /**
  * Best-effort filename suggestion for the Save dialog, taken from the
@@ -36,7 +37,7 @@ export async function downloadRemoteImage(url: string): Promise<void> {
     return;
   }
 
-  const response = await fetch(url);
+  const response = await appFetch(url);
   const bytes = new Uint8Array(await response.arrayBuffer());
   await writeFile(destination, bytes);
 }

@@ -13,6 +13,11 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   save: (options?: unknown) => saveMock(options),
 }));
 
+// In the desktop app the download goes through the HTTP plugin (see appFetch).
+vi.mock('@tauri-apps/plugin-http', () => ({
+  fetch: (url: string) => fetchMock(url),
+}));
+
 vi.mock('@tauri-apps/plugin-fs', () => ({
   writeFile: (path: string, bytes: Uint8Array) => writeFileMock(path, bytes),
 }));
