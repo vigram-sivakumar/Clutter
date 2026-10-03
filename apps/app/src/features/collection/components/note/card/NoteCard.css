@@ -17,6 +17,10 @@
 .note-card--new .card-title-section__heading {
   justify-content: center;
 }
+/* Nothing to reserve metadata lines for: drop the header-only min-height. */
+.note-card--new .note-card__header {
+  min-height: 0;
+}
 
 /* The trailing "New Note" card: a normal card whose title reads as an action, like List/Table's "New Note" row. */
 .note-card--new .card-title {
