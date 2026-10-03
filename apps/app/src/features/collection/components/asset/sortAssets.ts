@@ -1,10 +1,10 @@
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { Asset } from '@core/vault/models/Asset';
 
 import { ASSET_KIND_LABEL } from './assetKind';
 
 /**
- * What an asset collection can be ordered by. A resource has only a name and a
+ * What an asset collection can be ordered by. An asset has only a name and a
  * kind, so those are the only two — there are no dates to sort by.
  */
 export type AssetSortKey = 'name' | 'type';
@@ -20,18 +20,18 @@ export interface AssetSort {
 }
 
 /**
- * A sorted copy of `resources` (never mutates its input). Name orders by the
+ * A sorted copy of `assets` (never mutates its input). Name orders by the
  * name shown (extension-free, locale-aware); Type orders by the kind's label
  * (Image before PDF, A→Z) with the name breaking ties. Any other key — one
  * assets don't have — leaves the order exactly as given, rather than inventing
  * a comparison.
  */
-export function sortAssets(resources: readonly VaultResource[], sort: AssetSort): VaultResource[] {
-  const copy = [...resources];
-  const byName = (a: VaultResource, b: VaultResource) =>
+export function sortAssets(assets: readonly Asset[], sort: AssetSort): Asset[] {
+  const copy = [...assets];
+  const byName = (a: Asset, b: Asset) =>
     getResourceDisplayName(a).localeCompare(getResourceDisplayName(b));
 
-  let compare: ((a: VaultResource, b: VaultResource) => number) | null = null;
+  let compare: ((a: Asset, b: Asset) => number) | null = null;
   if (sort.key === 'name') {
     compare = byName;
   } else if (sort.key === 'type') {

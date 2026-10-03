@@ -2,8 +2,8 @@ import type { CollectionTableColumn } from '../../table/collectionTableColumns';
 
 /**
  * The asset table's columns: the name, a small preview (the image, or a PDF's
- * first page) and the kind. A resource carries nothing else (no dates, no
- * description), so there are no more columns to offer.
+ * first page), the kind and where it lives (the vault, or a remote URL). An
+ * asset carries nothing else worth a column (no description).
  */
 export const ASSET_TABLE_COLUMNS: readonly CollectionTableColumn[] = [
   {
@@ -25,5 +25,12 @@ export const ASSET_TABLE_COLUMNS: readonly CollectionTableColumn[] = [
     width: '140px',
     className: 'collection-table__header-cell--type',
     cellClassName: 'collection-table-row__type',
+  },
+  {
+    id: 'source',
+    label: 'Source',
+    width: '140px',
+    className: 'collection-table__header-cell--source',
+    cellClassName: 'collection-table-row__source',
   },
 ];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Folder, Page, VaultResource } from '../models';
+import type { Folder, Page, VaultResource } from '../../vault/models';
 import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
 const ROOT = '/vault';

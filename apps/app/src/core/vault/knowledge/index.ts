@@ -6,4 +6,3 @@ export * from './VaultProjectionBuilder';
 
 export * from './PageIndex';
 export * from './LinkResolver';
-export * from './AssetCatalogBuilder';

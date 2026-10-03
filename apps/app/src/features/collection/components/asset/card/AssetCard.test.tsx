@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { RemoteAsset } from '@core/vault/models/Asset';
+import { localAsset } from '@core/vault/testing/localAsset';
 
 import { AssetCard } from './AssetCard';
 
@@ -26,7 +28,7 @@ const pdf = (): VaultResource => ({ id: 'doc', kind: 'pdf', name: 'manual.pdf', 
 
 describe('AssetCard', () => {
   it('is built on the shared card shell and title section — not on NoteCard', () => {
-    const { container } = render(<AssetCard resource={image()} url="app://house.png" />);
+    const { container } = render(<AssetCard asset={localAsset(image())} url="app://house.png" />);
 
     const card = container.querySelector('.asset-card')!;
     expect(card).toHaveClass('collection-card');
@@ -35,7 +37,7 @@ describe('AssetCard', () => {
   });
 
   it('shows the asset name (extension-free) and no kind/type label — the header is just the icon and name', () => {
-    const { getByText, queryByText, container } = render(<AssetCard resource={image()} url="app://house.png" />);
+    const { getByText, queryByText, container } = render(<AssetCard asset={localAsset(image())} url="app://house.png" />);
 
     expect(getByText('house')).toBeInTheDocument();
     expect(queryByText('Image')).toBeNull();
@@ -43,14 +45,14 @@ describe('AssetCard', () => {
   });
 
   it('a PDF card has no type label either', () => {
-    const { queryByText, container } = render(<AssetCard resource={pdf()} url="app://manual.pdf" />);
+    const { queryByText, container } = render(<AssetCard asset={localAsset(pdf())} url="app://manual.pdf" />);
 
     expect(queryByText('PDF')).toBeNull();
     expect(container.querySelector('.card-metadata')).toBeNull();
   });
 
   it('an image asset renders its image from the url it is given (as a cover-style fill, styled in AssetCard.css), with no alt noise', () => {
-    const { container } = render(<AssetCard resource={image()} url="app://vault/house.png" />);
+    const { container } = render(<AssetCard asset={localAsset(image())} url="app://vault/house.png" />);
 
     const img = container.querySelector<HTMLImageElement>('.asset-card__image')!;
     expect(img).toHaveAttribute('src', 'app://vault/house.png');
@@ -59,28 +61,28 @@ describe('AssetCard', () => {
   });
 
   it('a PDF asset renders the PDF preview (the existing pdf.js pieces), never an <img>', () => {
-    const { container } = render(<AssetCard resource={pdf()} url="app://vault/manual.pdf" />);
+    const { container } = render(<AssetCard asset={localAsset(pdf())} url="app://vault/manual.pdf" />);
 
     expect(container.querySelector('.asset-card__pdf')).not.toBeNull();
     expect(container.querySelector('img')).toBeNull();
   });
 
-  it('clicking opens the asset with the resource — and Enter/Space on the focused card does too', () => {
+  it('clicking opens the asset with the asset — and Enter/Space on the focused card does too', () => {
     const onClick = vi.fn();
-    const resource = image();
-    const { container } = render(<AssetCard resource={resource} url="x" onClick={onClick} />);
+    const asset = localAsset(image());
+    const { container } = render(<AssetCard asset={asset} url="x" onClick={onClick} />);
     const card = container.querySelector('.asset-card')!;
 
     fireEvent.click(card);
     fireEvent.keyDown(card, { key: 'Enter' });
 
     expect(onClick).toHaveBeenCalledTimes(2);
-    expect(onClick).toHaveBeenCalledWith(resource);
+    expect(onClick).toHaveBeenCalledWith(asset);
   });
 
   it('shows the rename editor in place of the title when given one', () => {
     const { container, queryByText } = render(
-      <AssetCard resource={image()} url="x" titleContent={<input aria-label="rename" />} />
+      <AssetCard asset={localAsset(image())} url="x" titleContent={<input aria-label="rename" />} />
     );
 
     expect(container.querySelector('input[aria-label="rename"]')).not.toBeNull();
@@ -88,14 +90,14 @@ describe('AssetCard', () => {
   });
 
   it('has no actions menu and no note-card props (no cover, no markdown, no description)', () => {
-    const { container } = render(<AssetCard resource={image()} url="x" />);
+    const { container } = render(<AssetCard asset={localAsset(image())} url="x" />);
 
     expect(container.querySelector('button, [aria-haspopup]')).toBeNull();
     expect(container.querySelector('.note-card__cover, .document-preview__canvas')).toBeNull();
   });
 
   it('puts the media first and the title section (icon + name) below it', () => {
-    const { container } = render(<AssetCard resource={image()} url="x" />);
+    const { container } = render(<AssetCard asset={localAsset(image())} url="x" />);
 
     const [first, second] = [...container.querySelector('.asset-card')!.children];
     expect(first).toHaveClass('asset-card__media');
@@ -103,7 +105,7 @@ describe('AssetCard', () => {
   });
 
   it('showTitle={false} drops the title section and leaves the media', () => {
-    const { container } = render(<AssetCard resource={image()} url="x" showTitle={false} />);
+    const { container } = render(<AssetCard asset={localAsset(image())} url="x" showTitle={false} />);
 
     const card = container.querySelector('.asset-card')!;
     expect(card.querySelector('.card-title-section')).toBeNull();
@@ -114,7 +116,7 @@ describe('AssetCard', () => {
   it('stacks the size and dates from the resource metadata under the name, one per line, and nothing when there is none', () => {
     const withMetadata = render(
       <AssetCard
-        resource={image({ metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' } })}
+        asset={localAsset(image({ metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' } }))}
         url="x"
       />
     );
@@ -127,7 +129,43 @@ describe('AssetCard', () => {
     expect(items[2]).toMatch(/^Edited /);
     withMetadata.unmount();
 
-    const without = render(<AssetCard resource={image()} url="x" />);
+    const without = render(<AssetCard asset={localAsset(image())} url="x" />);
     expect(without.container.querySelector('.card-metadata')).toBeNull();
+  });
+
+  describe('a remote asset', () => {
+    const remote: RemoteAsset = {
+      id: 'remote:https://example.com/mountain.jpg',
+      source: 'remote',
+      kind: 'image',
+      name: 'mountain.jpg',
+      url: 'https://example.com/mountain.jpg',
+      references: [],
+    };
+
+    it('shows the image from its URL under its extension-free name, with no file metadata line', () => {
+      const { container, getByText } = render(
+        <AssetCard
+          asset={remote}
+          url={remote.url}
+          metadataVisibility={{ size: true, created: true, updated: true }}
+        />
+      );
+
+      expect(container.querySelector('img')).toHaveAttribute('src', remote.url);
+      expect(getByText('mountain')).toBeInTheDocument();
+      // A URL has no file size or timestamps to show, however the properties are set.
+      expect(container.querySelector('.card-metadata')).toBeNull();
+    });
+
+    it('is not a rename target (no data-resource-id) and opens with the asset on click', () => {
+      const onClick = vi.fn();
+      const { container } = render(<AssetCard asset={remote} url={remote.url} onClick={onClick} />);
+      const card = container.querySelector('.asset-card')!;
+
+      expect(card.hasAttribute('data-resource-id')).toBe(false);
+      fireEvent.click(card);
+      expect(onClick).toHaveBeenCalledWith(remote);
+    });
   });
 });

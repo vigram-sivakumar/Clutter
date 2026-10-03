@@ -992,3 +992,66 @@ describe('MembershipSelector.getArchivedResources', () => {
     expect(membershipSelector.getArchivedResources()).toEqual([]);
   });
 });
+
+describe('MembershipSelector.getAllAssets (ADR-039)', () => {
+  const remote = 'https://example.com/mountain.jpg';
+  const pageWith = (overrides: Partial<Page>): Page =>
+    makePage({ id: 'page-1', name: 'Trip', ...overrides });
+
+  it('lists the vault files and the remote images notes use, one entry each, with every use', () => {
+    const hero = makeResource({ id: 'hero', name: 'hero.jpg', path: `${ROOT}/Assets/hero.jpg` });
+    const trip = pageWith({
+      source: { markdown: `![](Assets/hero.jpg)\n\n![](${remote})` },
+      metadata: { ...defaultPageMetadata, cover: 'Assets/hero.jpg' },
+    });
+    const { membershipSelector } = setup([], [trip], [hero]);
+
+    const assets = membershipSelector.getAllAssets();
+
+    expect(assets.map((asset) => [asset.id, asset.source])).toEqual([
+      ['hero', 'local'],
+      [`remote:${remote}`, 'remote'],
+    ]);
+    expect(assets[0]!.references.map((reference) => reference.usage)).toEqual(['embed', 'cover']);
+  });
+
+  it('keeps listing a local file nothing references', () => {
+    const { membershipSelector } = setup([], [], [makeResource({ id: 'lonely' })]);
+
+    expect(membershipSelector.getAllAssets().map((asset) => asset.id)).toEqual(['lonely']);
+  });
+
+  it('does not count a use from an archived note, a dot-hidden note, or a note in an archived folder', () => {
+    const archivedFolder = makeFolder({
+      id: 'old',
+      path: `${ROOT}/Archive/Old`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const pages = [
+      pageWith({ id: 'archived', metadata: { ...defaultPageMetadata, status: 'archived' }, source: { markdown: `![](${remote})` } }),
+      pageWith({ id: 'hidden', name: '.Secret', source: { markdown: '![](https://example.com/hidden.png)' } }),
+      pageWith({ id: 'nested', parentId: 'old', source: { markdown: '![](https://example.com/nested.png)' } }),
+    ];
+    const { membershipSelector } = setup([archivedFolder], pages);
+
+    expect(membershipSelector.getAllAssets()).toEqual([]);
+  });
+
+  it('includes a folder cover, local or remote', () => {
+    const folder = makeFolder({ id: 'trips', metadata: { ...defaultFolderMetadata, cover: remote } });
+    const { membershipSelector } = setup([folder]);
+
+    const [asset] = membershipSelector.getAllAssets();
+
+    expect(asset).toMatchObject({ source: 'remote' });
+    expect(asset!.references).toEqual([{ usage: 'cover', referrer: { kind: 'folder', id: 'trips' } }]);
+  });
+
+  it('does not list an archived or hidden local file', () => {
+    const archived = makeResource({ id: 'archived', path: `${ROOT}/Archive/a.png`, parentId: null });
+    const hidden = makeResource({ id: 'hidden', name: '.hidden.png', path: `${ROOT}/.hidden.png` });
+    const { membershipSelector } = setup([makeFolder({ id: 'archive', name: 'Archive', path: `${ROOT}/Archive` })], [], [archived, hidden]);
+
+    expect(membershipSelector.getAllAssets()).toEqual([]);
+  });
+});

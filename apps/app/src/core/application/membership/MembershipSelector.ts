@@ -1,11 +1,13 @@
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
+import type { Asset } from '../../vault/models/Asset';
 import type { VaultResource } from '../../vault/models/VaultResource';
 import type { Vault } from '../../vault/models/Vault';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
 import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
 /**
  * ADR-023: for a page or folder plus a named product concept, answers
@@ -26,6 +28,9 @@ import { VaultPath } from '../../vault/ingest/VaultPath';
  * rendering (React components). See ADR-023 §5.
  */
 export class MembershipSelector {
+  /** Derives the Assets catalog (ADR-039); its only state is a per-page memo of parsed image sources, so every answer is still a pure function of the vault. */
+  private readonly assetCatalogBuilder = new AssetCatalogBuilder();
+
   constructor(
     private readonly vault: Vault,
     private readonly query: VaultQuery,
@@ -358,6 +363,32 @@ export class MembershipSelector {
           !this.isEffectivelyArchived(resource.parentId) &&
           !this.isResourceArchived(resource)
       );
+  }
+
+  /**
+   * The Assets collection (ADR-039): every asset Clutter knows about or
+   * uses — the visible vault files, plus the remote images referenced from
+   * notes and covers — one entry per canonical reference, each carrying every
+   * use of it. A use only counts from a page or folder the user can see (not
+   * dot-hidden, not archived, not inside an archived folder), the same
+   * visibility every other collection applies, so archiving a note stops its
+   * remote images from appearing; a local file stays listed regardless, since
+   * it exists. Derived on every call from Vault; nothing is stored.
+   */
+  public getAllAssets(): Asset[] {
+    return this.assetCatalogBuilder.build({
+      root: this.vault.root,
+      resources: this.getAllVisibleResources(),
+      pages: Array.from(this.vault.pages()).filter(
+        (page) =>
+          this.isVisiblePage(page) &&
+          !this.isArchivedPage(page) &&
+          !this.isEffectivelyArchived(page.parentId)
+      ),
+      folders: Array.from(this.vault.folders()).filter(
+        (folder) => this.isVisibleFolder(folder) && !this.isEffectivelyArchived(folder.id)
+      ),
+    });
   }
 
   /**

@@ -259,6 +259,15 @@ interface VaultResource {
 
 Identity is always path-derived (there is no frontmatter to carry a persisted id, unlike `Page`/`Folder`). Built once per scan by `ResourceBuilder`, alongside `PageBuilder`/`FolderBuilder`, and registered on `Vault` at construction — read-only today, with no `addResource`/`removeResource`/move mutation methods, since nothing yet needs to change a resource after the initial scan.
 
+### 3c. Asset catalog
+The Assets collection is not `Vault.resources()`: it is the **catalog of every asset Clutter knows about or uses** ([ADR-039](./adr/039-asset-catalog.md)), derived on demand by `AssetCatalogBuilder` (pure; no `Vault` state, no persistence) and exposed as `MembershipSelector.getAllAssets()`.
+```ts
+type Asset = LocalAsset | RemoteAsset;            // source: 'local' (a VaultResource) | 'remote' (a URL)
+interface AssetBase { id: string; kind: 'image' | 'pdf'; name: string; mimeType?: string; references: AssetReference[] }
+interface AssetReference { usage: 'embed' | 'cover' | 'attachment'; referrer: { kind: 'page' | 'folder'; id: string } }
+```
+Source and usage are independent — there is no "cover asset" type. An asset's identity is its canonical reference (resource id, or `remote:` + URL), so many uses of one file or URL are one asset with many references. References come from `analysis.embeds`, standard Markdown images (`ImageReferenceExtractor`, over the page body) and page/folder covers; only uses from visible, non-archived pages and folders count. `attachment` is reserved vocabulary — nothing produces it yet.
+
 ### Concurrency model
 Single-threaded JS, mutated synchronously by exactly two callers (Persistence Gate, Sync) — both of which serialize their own calls per-page/per-path before they ever reach `Vault`. `Vault` itself assumes it is never called reentrantly for the same page from two different mutation calls; this assumption is enforced upstream, not inside `Vault`.
 

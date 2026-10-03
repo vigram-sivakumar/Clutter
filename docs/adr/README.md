@@ -36,3 +36,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [036](./036-frontmatter-properties-aliases-and-custom-keys.md) | Frontmatter Properties — owned `aliases`, derived custom properties, and `renameCustomProperty()` | Accepted |
 | [037](./037-single-global-draft.md) | One global draft — `PageOperations` holds at most one unsaved draft | Accepted |
 | [038](./038-resource-filesystem-metadata.md) | Resource filesystem metadata — `VaultResource.metadata`, read once by Ingest/Sync via `VaultFileSystem.stat` | Accepted |
+| [039](./039-asset-catalog.md) | The Assets catalog — every asset Clutter knows about or uses, derived from vault files and page/folder references | Accepted |

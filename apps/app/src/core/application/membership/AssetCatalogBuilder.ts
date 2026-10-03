@@ -26,9 +26,9 @@ import type {
   Page,
   RemoteAsset,
   VaultResource,
-} from '../models';
-import { ImageReferenceExtractor } from '../ingest/extractors/ImageReferenceExtractor';
-import { mimeTypeForPath } from '../ingest/SupportedResourceKind';
+} from '../../vault/models';
+import { ImageReferenceExtractor } from '../../vault/ingest/extractors/ImageReferenceExtractor';
+import { mimeTypeForPath } from '../../vault/ingest/SupportedResourceKind';
 
 export interface AssetCatalogInput {
   /** The vault root — local references are vault-relative paths under it. */

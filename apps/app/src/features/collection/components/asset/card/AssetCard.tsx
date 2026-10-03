@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { getResourceIcon } from '@core/presentation/getResourceIcon';
-import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { Asset } from '@core/vault/models/Asset';
 
 import { CollectionCard } from '../../card/CollectionCard';
 import { CardTitleSection } from '../../card/CardTitleSection';
@@ -11,12 +11,12 @@ import { AssetMedia } from './AssetMedia';
 import './AssetCard.css';
 
 export interface AssetCardProps {
-  readonly resource: VaultResource;
+  readonly asset: Asset;
   /**
-   * The resource's loadable URL (`Application.resolveResourceImageUrl(path)` —
-   * the existing resolver, injected by the collection body; this card never
-   * resolves anything itself). An image is shown with it; a PDF is rendered
-   * from it.
+   * The asset's loadable URL — a vault file's `Application.resolveResourceImageUrl(path)`
+   * (the existing resolver, injected by the collection body; this card never
+   * resolves anything itself), a remote asset's own URL. An image is shown
+   * with it; a PDF is rendered from it.
    */
   readonly url: string;
   /** The Title property: whether the title section (icon and name) is shown. */
@@ -24,8 +24,8 @@ export interface AssetCardProps {
   /** The File size / Created / Last edited properties (the card's lines read size, Created, Edited): which metadata lines the title section shows (all, by default). */
   readonly metadataVisibility?: AssetMetadataVisibility;
   readonly isSelected?: boolean;
-  /** Opens the asset — the same handler the list row gets (`onOpenResource`): the caller routes by kind (image overlay / PDF viewer). */
-  readonly onClick?: (resource: VaultResource) => void;
+  /** Opens the asset — the same handler the list row gets (`onOpenAsset`): the caller routes by kind (image overlay / PDF viewer). */
+  readonly onClick?: (asset: Asset) => void;
   /** The inline rename editor, while renaming. */
   readonly titleContent?: ReactNode;
 }
@@ -42,24 +42,25 @@ export interface AssetCardProps {
  * actions menu — the asset's actions live in its viewer. The title section can
  * be hidden (`showTitle`), leaving the media to fill the whole card.
  */
-export function AssetCard({ resource, url, showTitle = true, metadataVisibility, isSelected = false, onClick, titleContent }: AssetCardProps) {
-  const metadata = assetCardMetadata(resource, metadataVisibility);
+export function AssetCard({ asset, url, showTitle = true, metadataVisibility, isSelected = false, onClick, titleContent }: AssetCardProps) {
+  // File facts come from the vault file's own metadata; a remote asset has none.
+  const metadata = asset.source === 'local' ? assetCardMetadata(asset.resource, metadataVisibility) : [];
 
   return (
     <CollectionCard
-      data-resource-id={resource.id}
+      data-resource-id={asset.source === 'local' ? asset.resource.id : undefined}
       className="asset-card"
       flush
       isSelected={isSelected}
-      onClick={onClick ? () => onClick(resource) : undefined}
+      onClick={onClick ? () => onClick(asset) : undefined}
     >
-      <AssetMedia kind={resource.kind} url={url} />
+      <AssetMedia kind={asset.kind} url={url} />
 
       {showTitle && (
         <CardTitleSection
           className="asset-card__header"
-          icon={getResourceIcon(resource.kind)}
-          title={getResourceDisplayName(resource)}
+          icon={getResourceIcon(asset.kind)}
+          title={getResourceDisplayName(asset)}
           titleContent={titleContent}
           metadata={metadata.length > 0 && metadata.map((item) => <span key={item}>{item}</span>)}
           metadataLayout="vertical"

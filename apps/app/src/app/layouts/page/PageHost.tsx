@@ -110,6 +110,7 @@ import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/e
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 
 interface PageHostProps {
   application: Application;
@@ -1334,7 +1335,8 @@ export function PageHost({
     workspace.activeView?.type === 'filtered-view' &&
     workspace.activeView.view.kind === 'assets'
   ) {
-    const resources = application.membershipSelector.getAllVisibleResources();
+    // Every asset Clutter knows about or uses: the vault's files plus the remote images notes and covers reference.
+    const assets = application.membershipSelector.getAllAssets();
 
     // The collection's standard Add action, for assets: pick files, copy them
     // into the vault's Assets folder via the same import the cover upload uses
@@ -1373,12 +1375,17 @@ export function PageHost({
         })}
         body={
           <AssetsCollectionBody
-            resources={resources}
+            assets={assets}
             viewMode={collectionViewMode}
             properties={collectionProperties}
             sort={collectionSort}
             resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
-            onOpenResource={onOpenResource}
+            // A vault file opens in its viewer (with its actions); a remote image in the plain image overlay.
+            onOpenAsset={(asset) =>
+              asset.source === 'local'
+                ? onOpenResource(asset.resource)
+                : onOpenImageOverlay({ url: asset.url, alt: getResourceDisplayName(asset) })
+            }
             onRenameResource={(id, name) =>
               void application.resourceOperations.renameResource(id, name)
             }

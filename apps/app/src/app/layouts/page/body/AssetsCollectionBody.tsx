@@ -19,10 +19,11 @@ import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table
 import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
 import { AssetRenameField } from '@features/collection/components/asset/AssetRenameField';
 import { sortAssets } from '@features/collection/components/asset/sortAssets';
-import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { Asset } from '@core/vault/models/Asset';
 
 export interface AssetsCollectionBodyProps {
-  readonly resources: readonly VaultResource[];
+  /** The collection's assets (`MembershipSelector.getAllAssets`): vault files and the remote images Clutter uses. */
+  readonly assets: readonly Asset[];
   /**
    * The collection's selected layout (the standard view-mode control, owned by
    * PageHost): the shared List, Table or Card of asset items.
@@ -36,18 +37,20 @@ export interface AssetsCollectionBodyProps {
    * the order given.
    */
   readonly sort?: CollectionSortState;
-  /** `Application.resolveResourceImageUrl` — turns a resource's path into a loadable URL, for the Card view's previews and the Table's Preview column. */
+  /** `Application.resolveResourceImageUrl` — turns a vault file's path into a loadable URL, for the Card view's previews and the Table's Preview column. A remote asset's own URL is used as is. */
   readonly resolveResourceUrl?: (path: string) => string;
   /**
-   * Opens the asset, for every layout alike — the caller routes by kind: the
-   * image overlay for an image, the PDF viewer for a PDF (and an asset's other
-   * actions — archive, move, download, reveal — live in those viewers).
+   * Opens the asset, for every layout alike — the caller routes by source and
+   * kind: a vault file to the image overlay or the PDF viewer (where its other
+   * actions — archive, move, download, reveal — live), a remote image to the
+   * plain image overlay.
    */
-  readonly onOpenResource?: (resource: VaultResource) => void;
+  readonly onOpenAsset?: (asset: Asset) => void;
   /**
    * `ResourceOperations.renameResource(resourceId, name)` — a single
    * collision-free write, committed once, so this body feeds it the final
-   * name only (no per-keystroke channel).
+   * name only (no per-keystroke channel). Only a vault file can be renamed; a
+   * remote asset has no file to rename.
    */
   readonly onRenameResource: (resourceId: string, name: string) => void;
 }
@@ -62,18 +65,21 @@ export interface AssetsCollectionBodyProps {
  * standard collection header actions (PageHost -> CollectionHeaderActions).
  */
 export function AssetsCollectionBody({
-  resources: unsorted,
+  assets: unsorted,
   viewMode = 'list',
   properties = resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES),
   sort,
   resolveResourceUrl,
-  onOpenResource,
+  onOpenAsset,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !properties.title;
-  const resources = sort ? sortAssets(unsorted, sort) : unsorted;
+  const assets = sort ? sortAssets(unsorted, sort) : unsorted;
+  // A vault file's preview URL comes from the resolver, a remote asset's is itself.
+  const urlFor = (asset: Asset): string | undefined =>
+    asset.source === 'remote' ? asset.url : resolveResourceUrl?.(asset.resource.path);
 
   // F2 on a focused item renames it — the items carry `data-resource-id`, so one
   // handler on the layout container serves every layout. (A double-click would
@@ -90,14 +96,14 @@ export function AssetsCollectionBody({
   };
 
   // While an item is renaming, clicks (in the editor) must not open it.
-  const clickFor = (resource: VaultResource) =>
-    editingId === resource.id ? undefined : onOpenResource;
+  const clickFor = (asset: Asset) =>
+    asset.source === 'local' && editingId === asset.resource.id ? undefined : onOpenAsset;
 
-  const titleContentFor = (resource: VaultResource): ReactNode =>
-    editingId === resource.id ? (
+  const titleContentFor = (asset: Asset): ReactNode =>
+    asset.source === 'local' && editingId === asset.resource.id ? (
       <AssetRenameField
-        resource={resource}
-        onCommit={(name) => onRenameResource(resource.id, name)}
+        resource={asset.resource}
+        onCommit={(name) => onRenameResource(asset.resource.id, name)}
         onEditingEnd={() => setEditingId(null)}
       />
     ) : undefined;
@@ -106,19 +112,19 @@ export function AssetsCollectionBody({
   if (viewMode === 'card' && resolveResourceUrl) {
     layout = (
       <CollectionCardGrid onKeyDown={handleKeyDown}>
-        {resources.map((resource) => (
+        {assets.map((asset) => (
           <AssetCard
-            key={resource.id}
-            resource={resource}
-            url={resolveResourceUrl(resource.path)}
+            key={asset.id}
+            asset={asset}
+            url={urlFor(asset)!}
             showTitle={properties.title}
             metadataVisibility={{
               size: properties.size,
               created: properties.created,
               updated: properties.updated,
             }}
-            onClick={clickFor(resource)}
-            titleContent={titleContentFor(resource)}
+            onClick={clickFor(asset)}
+            titleContent={titleContentFor(asset)}
           />
         ))}
       </CollectionCardGrid>
@@ -127,11 +133,11 @@ export function AssetsCollectionBody({
     layout = (
       <CollectionDataTable
         columns={ASSET_TABLE_COLUMNS}
-        rows={resources.map((resource) =>
-          toAssetTableRow(resource, {
-            url: resolveResourceUrl?.(resource.path),
-            onClick: clickFor(resource),
-            titleContent: titleContentFor(resource),
+        rows={assets.map((asset) =>
+          toAssetTableRow(asset, {
+            url: urlFor(asset),
+            onClick: clickFor(asset),
+            titleContent: titleContentFor(asset),
           })
         )}
         onKeyDown={handleKeyDown}
@@ -140,11 +146,11 @@ export function AssetsCollectionBody({
   } else {
     layout = (
       <CollectionDataList
-        items={resources.map((resource) =>
-          toAssetListItem(resource, {
-            url: resolveResourceUrl?.(resource.path),
-            onClick: clickFor(resource),
-            titleContent: titleContentFor(resource),
+        items={assets.map((asset) =>
+          toAssetListItem(asset, {
+            url: urlFor(asset),
+            onClick: clickFor(asset),
+            titleContent: titleContentFor(asset),
           })
         )}
         onKeyDown={handleKeyDown}

@@ -6,7 +6,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { AssetsCollectionBody } from './AssetsCollectionBody';
 import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type CollectionViewMode } from './CollectionBody';
+import type { Asset, RemoteAsset } from '@core/vault/models/Asset';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import { localAsset } from '@core/vault/testing/localAsset';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -40,12 +42,27 @@ function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
 }
 
 function renderAssets(
-  props: Partial<Omit<Parameters<typeof AssetsCollectionBody>[0], 'resources'>> & {
-    resources: VaultResource[];
+  props: Partial<Omit<Parameters<typeof AssetsCollectionBody>[0], 'assets' | 'onOpenAsset'>> & {
+    /** Vault files, listed as local assets (the common case). */
+    resources?: VaultResource[];
+    assets?: Asset[];
+    onOpenResource?: (resource: VaultResource) => void;
+    onOpenAsset?: (asset: Asset) => void;
   }
 ) {
+  const { resources = [], assets, onOpenResource, onOpenAsset, ...rest } = props;
+
   return render(
-    <AssetsCollectionBody onRenameResource={vi.fn()} resolveResourceUrl={resolveResourceUrl} {...props} />
+    <AssetsCollectionBody
+      onRenameResource={vi.fn()}
+      resolveResourceUrl={resolveResourceUrl}
+      {...rest}
+      assets={assets ?? resources.map((resource) => localAsset(resource))}
+      onOpenAsset={
+        onOpenAsset ??
+        (onOpenResource ? (asset) => asset.source === 'local' && onOpenResource(asset.resource) : undefined)
+      }
+    />
   );
 }
 
@@ -234,13 +251,14 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table, .collection-card-grid')).toBeNull();
   });
 
-  it('Table uses the generic table with Name, Preview and Type columns', () => {
+  it('Table uses the generic table with Name, Preview, Type and Source columns', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'table' });
 
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Preview',
       'Type',
+      'Source',
     ]);
     expect(container.querySelector('.collection-table__body > .collection-table-row')).not.toBeNull();
     // No "new item" footer row: an asset has no "New" row of its own (Add lives in the header).
@@ -275,10 +293,11 @@ describe('AssetsCollectionBody — which layout renders', () => {
 
     const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-table-row')];
     for (const row of [imageRow!, pdfRow!]) {
-      expect(row.children).toHaveLength(3);
+      expect(row.children).toHaveLength(4);
       expect(row.children[0]).toHaveClass('collection-table-cell--header');
       expect(row.children[1]).toHaveClass('collection-table-cell--media', 'collection-table-row__preview');
       expect(row.children[2]).toHaveClass('collection-table-cell--text', 'collection-table-row__type');
+      expect(row.children[3]).toHaveClass('collection-table-cell--text', 'collection-table-row__source');
     }
 
     // The thumbnail is the image itself / a PDF's first page, inside the generic frame.
@@ -449,5 +468,55 @@ describe('AssetsCollectionBody — metadata properties', () => {
     cleanup();
     const noEdited = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('updated') }).container);
     expect(noEdited.some((line) => line.startsWith('Edited'))).toBe(false);
+  });
+});
+
+describe('AssetsCollectionBody — remote assets', () => {
+  const remote: RemoteAsset = {
+    id: 'remote:https://example.com/mountain.jpg',
+    source: 'remote',
+    kind: 'image',
+    name: 'mountain.jpg',
+    url: 'https://example.com/mountain.jpg',
+    references: [],
+  };
+
+  it.each(LAYOUTS)('%s lists a remote asset beside a vault file, previewed from its own URL', (viewMode) => {
+    const { container } = renderAssets({ resources: [makeResource()], assets: [localAsset(makeResource()), remote], viewMode });
+
+    expect(container.querySelectorAll(ITEM_SELECTOR[viewMode])).toHaveLength(2);
+    expect(container.textContent).toContain('mountain');
+    expect(container.querySelector(`img[src="${remote.url}"]`)).not.toBeNull();
+  });
+
+  it.each(LAYOUTS)('%s opens a remote asset with the asset itself', (viewMode) => {
+    const onOpenAsset = vi.fn();
+    const { container } = renderAssets({ assets: [remote], viewMode, onOpenAsset });
+
+    fireEvent.click(itemFor(container, viewMode));
+
+    expect(onOpenAsset).toHaveBeenCalledWith(remote);
+  });
+
+  it.each(LAYOUTS)('%s: F2 on a remote asset renames nothing (there is no file)', (viewMode) => {
+    const { container } = renderAssets({ assets: [remote], viewMode });
+    const item = itemFor(container, viewMode);
+
+    item.focus();
+    fireEvent.keyDown(item, { key: 'F2' });
+
+    expect(container.querySelector('input')).toBeNull();
+  });
+
+  it('says where an asset lives: the list marks a remote one, the table has a Source column', () => {
+    const list = renderAssets({ assets: [remote, localAsset(makeResource())], viewMode: 'list' });
+    expect(list.container.textContent).toContain('Remote');
+    list.unmount();
+
+    const table = renderAssets({ assets: [remote, localAsset(makeResource())], viewMode: 'table' });
+    expect(screen.getByText('Source')).toBeInTheDocument();
+    expect(screen.getByText('Remote')).toBeInTheDocument();
+    expect(screen.getByText('Vault')).toBeInTheDocument();
+    table.unmount();
   });
 });

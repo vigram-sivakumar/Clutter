@@ -1,10 +1,10 @@
-import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { AssetKind } from '@core/vault/models/Asset';
 
 import { AssetPdfPreview } from './AssetPdfPreview';
 
 export interface AssetMediaProps {
-  readonly kind: VaultResource['kind'];
-  /** The resource's loadable URL (injected by the collection body; nothing is resolved here). */
+  readonly kind: AssetKind;
+  /** The asset's loadable URL (injected by the collection body; nothing is resolved here). */
   readonly url: string;
 }
 

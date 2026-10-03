@@ -1,23 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Asset } from '@core/vault/models/Asset';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import { localAsset } from '@core/vault/testing/localAsset';
 
 import { sortAssets } from './sortAssets';
 
-const r = (id: string, name: string, kind: VaultResource['kind']): VaultResource => ({
-  id,
-  kind,
-  name,
-  path: `/vault/${name}`,
-  parentId: null,
-});
+const r = (id: string, name: string, kind: VaultResource['kind']): Asset =>
+  localAsset({ id, kind, name, path: `/vault/${name}`, parentId: null });
 const resources = () => [
   r('1', 'zebra.png', 'image'),
   r('2', 'apple.pdf', 'pdf'),
   r('3', 'mango.png', 'image'),
   r('4', 'banana.pdf', 'pdf'),
 ];
-const ids = (list: VaultResource[]) => list.map((x) => x.id);
+const ids = (list: Asset[]) => list.map((x) => x.id);
 
 describe('sortAssets', () => {
   it('Name down is A→Z by the name shown (extension-free)', () => {
