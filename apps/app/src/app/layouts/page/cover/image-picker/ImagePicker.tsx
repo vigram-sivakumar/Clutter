@@ -137,8 +137,8 @@ export function ImagePicker({
 
           {imageSource === 'upload' && (
             <>
-              <ImagePickerUpload onSubmit={onUploadSubmit} />
               <ImagePickerAsset onSelect={onAssetSelect} />
+              <ImagePickerUpload onSubmit={onUploadSubmit} />
             </>
           )}
 
