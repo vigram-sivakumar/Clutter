@@ -34,8 +34,8 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
       title,
       icon = 'folder',
       emoji,
-      subfolderCount = 0,
-      noteCount = 0,
+      subfolderCount,
+      noteCount,
       isSelected = false,
       isSelectable = false,
       onSelectedChange,
@@ -46,20 +46,23 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
     },
     ref
   ) {
+    // Counts present = a real folder (stacked card with a metadata row); absent = the create card (icon + title only).
+    const hasCounts = subfolderCount !== undefined || noteCount !== undefined;
+
     return (
       <CollectionEntry
         {...props}
         ref={ref}
         className={['folder-card', className].filter(Boolean).join(' ')}
-        stacked={Boolean(title)}
+        stacked={Boolean(title) && hasCounts}
         icon={icon}
         emoji={emoji}
         title={title}
         metadata={
-          title ? (
+          title && hasCounts ? (
             <>
-              <span>{subfolderCount} Subfolders</span>
-              <span>{noteCount} Notes</span>
+              <span>{subfolderCount ?? 0} Subfolders</span>
+              <span>{noteCount ?? 0} Notes</span>
             </>
           ) : undefined
         }

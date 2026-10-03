@@ -8,9 +8,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
 }
 
-.folder-card--create > .collection-entry__content {
-  display: none;
+/* Styled like the New Note card (NoteCard.css): half the surface tint, lifting to a regular card's tint on hover, with a quieter tertiary icon and title in regular weight. */
+.folder-card.folder-card--create {
+  background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+  border: 1px solid var(--border-subtle);
+}
+.folder-card.folder-card--create:hover {
+  background: var(--surface-subtle);
+}
+.folder-card--create .collection-entry__title {
+  color: var(--foreground-tertiary);
+  font-weight: var(--fw-regular);
+}
+.folder-card--create .collection-entry__leading,
+.folder-card--create .card-title-section__leading {
+  color: var(--foreground-tertiary);
 }

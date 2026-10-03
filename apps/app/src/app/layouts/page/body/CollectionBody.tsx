@@ -249,10 +249,10 @@ export function renderFolderCard(entry: CollectionEntryModel, actions?: ReactNod
 /**
  * The permanent "Create folder" grid card — always the last item in the
  * folders grid (CollectionBody appends it after every real FolderCard).
- * Reuses FolderCard itself (icon="plus", no title so its metadata row
- * never renders — see FolderCard's own doc comments) rather than a
+ * Reuses FolderCard itself (icon="plus", title "New folder", no counts so its
+ * metadata row never renders — see FolderCard's own doc comments) rather than a
  * second card component; `folder-card--create` is the one thing that
- * distinguishes it, so its width can be tuned independently later without
+ * distinguishes it, so it can be styled independently without
  * touching every other FolderCard.
  */
 function renderCreateFolderCard(onCreateFolder: () => void) {
@@ -260,6 +260,7 @@ function renderCreateFolderCard(onCreateFolder: () => void) {
     <FolderCard
       key="create-folder"
       icon="plus"
+      title="New folder"
       className="folder-card--create"
       aria-label="Create folder"
       onClick={onCreateFolder}

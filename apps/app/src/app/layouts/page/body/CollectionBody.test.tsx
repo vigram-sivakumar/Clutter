@@ -290,7 +290,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       expect(renderCard().querySelector('.note-card')).not.toHaveClass('note-card--header-only');
     });
 
-    it('Content preview off with Cover image on puts every card, the New Note card too, in cover-fill mode (not header-only)', () => {
+    it('Content preview off with Cover image on puts every note card in cover-fill mode (not header-only); the bodiless New Note card is unaffected', () => {
       const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false };
       const container = render(
         <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} previewResolvers={resolvers} />
@@ -300,12 +300,13 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       expect(cards).toHaveLength(2);
       expect(cards[0]!.querySelector('.note-card__cover')).toBeInTheDocument();
       expect(cards[1]!.querySelector('.note-card__cover')).toBeNull();
-      for (const card of cards) {
-        expect(card).toHaveClass('note-card--cover-only');
-        expect(card).not.toHaveClass('note-card--header-only');
-        // No content section; the cover (when the card has one) is what fills the card.
-        expect(card.querySelector('.document-preview')).toBeNull();
-      }
+      expect(cards[0]).toHaveClass('note-card--cover-only');
+      expect(cards[0]).not.toHaveClass('note-card--header-only');
+      // No content section; the cover is what fills the card.
+      expect(cards[0]!.querySelector('.document-preview')).toBeNull();
+      // The New Note card has no body whatever the properties are.
+      expect(cards[1]).toHaveClass('note-card--new');
+      expect(cards[1]!.querySelector('.document-preview')).toBeNull();
     });
 
     it('both off: every card, the New Note card included, is header-only with no preview region', () => {
@@ -373,10 +374,10 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     const newCard = getByText('New Note').closest('.note-card');
     expect(newCard).toBeInTheDocument();
     expect(newCard).toHaveClass('note-card--new');
-    // Same shell as every other card, including the preview-sized blank page.
+    // Same shell as every other card, but no body: just the title section.
     expect(newCard!.querySelector('.note-card__header')).toBeInTheDocument();
-    expect(newCard!.querySelector('.document-preview')).toBeInTheDocument();
-    expect(newCard!.querySelector('.document-preview')!.textContent).toBe('');
+    expect(newCard!.querySelector('.document-preview')).not.toBeInTheDocument();
+    expect(newCard!.querySelector('.note-card__cover')).not.toBeInTheDocument();
 
     fireEvent.click(getByText('New Note'));
     expect(onCreateNote).toHaveBeenCalledTimes(1);
