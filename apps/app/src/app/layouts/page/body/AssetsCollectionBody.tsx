@@ -1,124 +1,141 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { PageBody } from './Page.Body';
-import { CollectionRowList } from './CollectionRowList';
-import { Resource } from '@features/notes/sidebar/Resource';
-import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
+import type { CollectionSortState, CollectionViewMode } from './CollectionBody';
+import { CollectionListGrid } from '@features/collection/components/list/CollectionListGrid';
+import { CollectionTable } from '@features/collection/components/table/CollectionTable';
+import { CollectionCardGrid } from '@features/collection/components/card/CollectionCardGrid';
+import { AssetList } from '@features/collection/components/asset/list/AssetList';
+import { AssetTableRow } from '@features/collection/components/asset/table/AssetTableRow';
+import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table/assetTableColumns';
+import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
+import { AssetRenameField } from '@features/collection/components/asset/AssetRenameField';
+import { sortAssets } from '@features/collection/components/asset/sortAssets';
 import type { VaultResource } from '@core/vault/models/VaultResource';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 
 export interface AssetsCollectionBodyProps {
   readonly resources: readonly VaultResource[];
-  /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
+  /**
+   * The collection's selected layout (the standard view-mode control, owned by
+   * PageHost): the shared List, Table or Card of asset items.
+   */
+  readonly viewMode?: CollectionViewMode;
+  /**
+   * The collection's Sort by (the standard control, owned by PageHost) —
+   * Name or Type; the same order in every layout. Absent, the resources keep
+   * the order given.
+   */
+  readonly sort?: CollectionSortState;
+  /** `Application.resolveResourceImageUrl` — turns a resource's path into a loadable URL, for the Card view's previews. */
+  readonly resolveResourceUrl?: (path: string) => string;
+  /**
+   * Opens the asset, for every layout alike — the caller routes by kind: the
+   * image overlay for an image, the PDF viewer for a PDF (and an asset's other
+   * actions — archive, move, download, reveal — live in those viewers).
+   */
   readonly onOpenResource?: (resource: VaultResource) => void;
   /**
-   * ResourceOperations.renameResource(resourceId, name) — the caller's
-   * job, not this component's, per rule 11 (UI never imports a concrete
-   * application-layer class directly). `name` is the extension-free stem
-   * Resource.tsx's own EditableText already produces; the resource's
-   * current parent is preserved automatically by the Gate/MoveService,
-   * never recomputed here.
+   * `ResourceOperations.renameResource(resourceId, name)` — a single
+   * collision-free write, committed once, so this body feeds it the final
+   * name only (no per-keystroke channel).
    */
   readonly onRenameResource: (resourceId: string, name: string) => void;
-  /** ResourceOperations.archiveResource(resourceId) — same reasoning. */
-  readonly onArchiveResource: (resourceId: string) => void;
-  /**
-   * Exports a copy of an image resource's original file via the native Save
-   * dialog (`downloadResource.ts`) — same read-only-from-the-Vault's-
-   * perspective reasoning as the sidebar's own SidebarRowActions.
-   * onDownloadResource (FolderTree.tsx). Only ever dispatched for an image
-   * resource — buildResourceSidebarMenu only renders the item for
-   * `resource.kind === 'image'`.
-   */
-  readonly onDownloadResource: (resourceId: string) => void;
-  /**
-   * The same shared destination list the sidebar's own resource row uses
-   * (buildResourceMoveDestinationItems), computed by the caller — this
-   * component never builds its own list, same reasoning onRenameResource/
-   * onArchiveResource above already establish.
-   */
-  readonly resourceMoveDestinations: FolderPickerItem[];
-  /** ResourceOperations.moveResource(resourceId, destinationFolderId) — same reasoning. */
-  readonly onMoveResource: (resourceId: string, destinationFolderId: string | null) => void;
-  /** FolderOperations.create(name, null) — the Move picker's own "Create ..." row. */
-  readonly onCreateFolder: (name: string) => Promise<string>;
 }
 
 /**
- * The page-body rendering for the Assets collection view — deliberately
- * not a CollectionBody variant, the same reasoning TasksCollectionBody
- * already established: CollectionEntryModel is folder/note-shaped, with no
- * room for `kind` (image vs. pdf), so forcing resources through it would
- * repeat the mistake ADR-022 already rejected one layer over. Instead this
- * reuses the sidebar's own Resource row component directly, the same way
- * CollectionBody reuses Note/Folder — one row rendering per resource
- * shape, never two.
- *
- * Assets is the logical collection (every visible, non-archived
- * VaultResource anywhere in the vault — MembershipSelector.
- * getAllVisibleResources(), computed by the caller, never here), not "files
- * physically inside Assets/" — this component has no opinion about where a
- * resource lives and never filters by path itself.
- *
- * Rename/Move/Archive reuse the exact same menu (buildResourceSidebarMenu)
- * and rename-editing/Move-picker wiring (Resource's isEditing/onTitleCommit/
- * onTitleEditingEnd/moveDestinations/onMove) the sidebar's own ResourceRow
- * (FolderTree.tsx) already uses — this component owns only its own local
- * "which row's menu/rename session is active" state (mirroring
- * Sidebar.Notes.tsx's openMenuId/editingId, scoped to this list the same
- * way FavoriteList's favoriteOpenMenuId is scoped to its own), never a
- * second implementation of the menu/rename/Move mechanism itself. No
- * Restore/Delete/Favorites here — those are Archive-only
- * (ArchiveCollectionBody), never reachable from a normal, non-archived
- * resource row.
+ * The Assets collection's body: the shared List, Table and Card layouts filled
+ * with asset items (`AssetList` / `AssetTableRow` / `AssetCard`). The same
+ * items open the same way in every layout, and rename the same way: press F2
+ * on a focused item and its name becomes an inline editor. The collection's
+ * header controls (Settings, view mode, Add) are not here — they come from the
+ * standard collection header actions (PageHost -> CollectionHeaderActions).
  */
 export function AssetsCollectionBody({
-  resources,
+  resources: unsorted,
+  viewMode = 'list',
+  sort,
+  resolveResourceUrl,
   onOpenResource,
   onRenameResource,
-  onArchiveResource,
-  onDownloadResource,
-  resourceMoveDestinations,
-  onMoveResource,
-  onCreateFolder,
 }: AssetsCollectionBodyProps) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const resources = sort ? sortAssets(unsorted, sort) : unsorted;
+
+  // F2 on a focused item renames it — the items carry `data-resource-id`, so one
+  // handler on the layout container serves every layout. (A double-click would
+  // collide with the single click that opens the asset.)
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'F2' || editingId !== null) {
+      return;
+    }
+    const item = (event.target as HTMLElement).closest<HTMLElement>('[data-resource-id]');
+    if (item?.dataset.resourceId) {
+      event.preventDefault();
+      setEditingId(item.dataset.resourceId);
+    }
+  };
+
+  // While an item is renaming, clicks (in the editor) must not open it.
+  const clickFor = (resource: VaultResource) =>
+    editingId === resource.id ? undefined : onOpenResource;
+
+  const titleContentFor = (resource: VaultResource): ReactNode =>
+    editingId === resource.id ? (
+      <AssetRenameField
+        resource={resource}
+        onCommit={(name) => onRenameResource(resource.id, name)}
+        onEditingEnd={() => setEditingId(null)}
+      />
+    ) : undefined;
+
+  let layout: ReactNode;
+  if (viewMode === 'card' && resolveResourceUrl) {
+    layout = (
+      <CollectionCardGrid onKeyDown={handleKeyDown}>
+        {resources.map((resource) => (
+          <AssetCard
+            key={resource.id}
+            resource={resource}
+            url={resolveResourceUrl(resource.path)}
+            onClick={clickFor(resource)}
+            titleContent={titleContentFor(resource)}
+          />
+        ))}
+      </CollectionCardGrid>
+    );
+  } else if (viewMode === 'table') {
+    layout = (
+      <CollectionTable columns={ASSET_TABLE_COLUMNS} onKeyDown={handleKeyDown}>
+        {resources.map((resource) => (
+          <AssetTableRow
+            key={resource.id}
+            resource={resource}
+            onClick={clickFor(resource)}
+            titleContent={titleContentFor(resource)}
+          />
+        ))}
+      </CollectionTable>
+    );
+  } else {
+    layout = (
+      <CollectionListGrid onKeyDown={handleKeyDown}>
+        {resources.map((resource) => (
+          <AssetList
+            key={resource.id}
+            resource={resource}
+            onClick={clickFor(resource)}
+            titleContent={titleContentFor(resource)}
+          />
+        ))}
+      </CollectionListGrid>
+    );
+  }
 
   return (
     <PageBody className="collection__content">
-      <CollectionRowList>
-        {resources.map((resource) => {
-          const isEditing = editingId === resource.id;
-
-          return (
-            <Resource
-              key={resource.id}
-              resource={resource}
-              onClick={isEditing ? undefined : onOpenResource}
-              isEditing={isEditing}
-              onTitleCommit={(value) => onRenameResource(resource.id, value)}
-              onTitleEditingEnd={() => setEditingId(null)}
-              menuItems={buildResourceSidebarMenu(resource.kind)}
-              menuOpen={openMenuId === resource.id}
-              onMenuOpenChange={(open) => setOpenMenuId(open ? resource.id : null)}
-              onMenuSelect={(id) => {
-                if (id === 'rename') {
-                  setOpenMenuId(null);
-                  setEditingId(resource.id);
-                } else if (id === 'archive') {
-                  onArchiveResource(resource.id);
-                } else if (id === 'download') {
-                  onDownloadResource(resource.id);
-                }
-              }}
-              moveDestinations={resourceMoveDestinations}
-              onMove={(destinationFolderId) => onMoveResource(resource.id, destinationFolderId)}
-              onCreateFolder={onCreateFolder}
-            />
-          );
-        })}
-      </CollectionRowList>
+      {layout}
+      {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
+      <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
   );
 }

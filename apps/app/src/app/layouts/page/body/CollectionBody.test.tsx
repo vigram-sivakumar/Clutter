@@ -47,9 +47,9 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
     );
 
-    expect(container.querySelector('.note-list-grid')).toBeInTheDocument();
+    expect(container.querySelector('.collection-list-grid')).toBeInTheDocument();
     expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
-    expect(getByText('My note').closest('.note-list')).toBeInTheDocument();
+    expect(getByText('My note').closest('.collection-list-row')).toBeInTheDocument();
   });
 
   it('renders a note title verbatim — no Markdown resolution (NoteList has no such slot)', () => {
@@ -66,7 +66,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody notes={[noteEntry({ onClick })]} viewMode="list" />
     );
 
-    fireEvent.click(getByText('My note').closest('.note-list')!);
+    fireEvent.click(getByText('My note').closest('.collection-list-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -97,7 +97,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
   it('renders an empty collection with no rows and no crash', () => {
     const { container } = render(<CollectionBody folders={[]} notes={[]} viewMode="list" />);
 
-    expect(container.querySelectorAll('.note-list')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-list-row')).toHaveLength(0);
     expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
   });
 });
@@ -106,8 +106,8 @@ describe('CollectionBody — Table mode (the default)', () => {
   it('defaults to Table when viewMode is omitted', () => {
     const { container } = render(<CollectionBody notes={[noteEntry()]} />);
 
-    expect(container.querySelector('.note-table')).toBeInTheDocument();
-    expect(container.querySelector('.note-list-grid')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-table')).toBeInTheDocument();
+    expect(container.querySelector('.collection-list-grid')).not.toBeInTheDocument();
   });
 
   it('renders notes as NoteTableRow rows inside a NoteTable, folders still as FolderCard', () => {
@@ -115,8 +115,8 @@ describe('CollectionBody — Table mode (the default)', () => {
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="table" />
     );
 
-    expect(container.querySelector('.note-table')).toBeInTheDocument();
-    expect(getByText('My note').closest('.note-table-row')).toBeInTheDocument();
+    expect(container.querySelector('.collection-table')).toBeInTheDocument();
+    expect(getByText('My note').closest('.collection-table-row')).toBeInTheDocument();
     // Folders don't switch with viewMode — no folder-specific table row
     // component exists, and FolderCard's row shape doesn't fit NoteTable's
     // grid-column header, so folders stay on FolderGrid/FolderCard.
@@ -130,7 +130,7 @@ describe('CollectionBody — Table mode (the default)', () => {
       <CollectionBody notes={[noteEntry({ onClick })]} viewMode="table" />
     );
 
-    fireEvent.click(getByText('My note').closest('.note-table-row')!);
+    fireEvent.click(getByText('My note').closest('.collection-table-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -155,8 +155,8 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     );
 
     expect(container.querySelector('.note-card-grid')).toBeInTheDocument();
-    expect(container.querySelector('.note-list-grid')).not.toBeInTheDocument();
-    expect(container.querySelector('.note-table')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-list-grid')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-table')).not.toBeInTheDocument();
     expect(getByText('My note').closest('.note-card')).toBeInTheDocument();
     expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
   });
@@ -266,7 +266,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       expect(renderCard().querySelector('.note-card')).not.toHaveClass('note-card--header-only');
     });
 
-    it('Content preview off with Cover image on leaves header + cover cards — the New Note card too — not the full page shape', () => {
+    it('Content preview off with Cover image on puts every card, the New Note card too, in cover-fill mode (not header-only)', () => {
       const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false };
       const container = render(
         <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} previewResolvers={resolvers} />
@@ -274,11 +274,12 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
 
       const cards = [...container.querySelectorAll('.note-card')];
       expect(cards).toHaveLength(2);
+      expect(cards[0]!.querySelector('.note-card__cover')).toBeInTheDocument();
+      expect(cards[1]!.querySelector('.note-card__cover')).toBeNull();
       for (const card of cards) {
         expect(card).toHaveClass('note-card--cover-only');
         expect(card).not.toHaveClass('note-card--header-only');
-        // Cover section only (an empty slot for the New Note card / a note without a cover) — no content section.
-        expect(card.querySelector('.note-card__cover')).toBeInTheDocument();
+        // No content section; the cover (when the card has one) is what fills the card.
         expect(card.querySelector('.document-preview')).toBeNull();
       }
     });
@@ -458,8 +459,8 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    const header = container.querySelector('.note-table__header') as HTMLElement;
-    const row = container.querySelector('.note-table-row') as HTMLElement;
+    const header = container.querySelector('.collection-table__header') as HTMLElement;
+    const row = container.querySelector('.collection-table-row') as HTMLElement;
 
     // Name + only the one visible optional column (Last edited) — Last
     // opened/Created contribute no track at all, so the remaining
@@ -477,12 +478,12 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    const header = container.querySelector('.note-table__header') as HTMLElement;
-    const row = container.querySelector('.note-table-row') as HTMLElement;
+    const header = container.querySelector('.collection-table__header') as HTMLElement;
+    const row = container.querySelector('.collection-table-row') as HTMLElement;
 
     expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
     expect(row.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
-    expect(header.querySelectorAll('.note-table__header-cell')).toHaveLength(1);
+    expect(header.querySelectorAll('.collection-table__header-cell')).toHaveLength(1);
   });
 });
 
@@ -546,7 +547,7 @@ describe('sortCollectionEntries', () => {
       />
     );
 
-    const titles = [...container.querySelectorAll('.note-table-row__entry .collection-entry__title')].map(
+    const titles = [...container.querySelectorAll('.collection-table-row__entry .collection-entry__title')].map(
       (el) => el.textContent
     );
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
@@ -563,6 +564,6 @@ describe('CollectionBody: Archived column is Archive-only', () => {
       />
     );
 
-    expect(container.querySelector('.note-table__header-cell--archived')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();
   });
 });

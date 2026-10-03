@@ -1,80 +1,44 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { CollectionEntry } from '@features/collection/CollectionEntry';
-import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
-import './NoteTable.css';
+import { CollectionTable } from '../../table/CollectionTable';
 import {
-  buildNoteTableGridTemplateColumns,
+  buildNoteTableColumns,
   DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
   type NoteTableColumnVisibility,
 } from './noteTableColumns';
 
 export interface NoteTableProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
-  /** Defaults to all three optional columns visible — the original, unconditional-header behavior. See noteTableColumns.ts's own doc comment. */
   columns?: NoteTableColumnVisibility;
-  /**
-   * Wires the always-rendered trailing "New Note" row's click. Absent
-   * (the default) keeps that row exactly as it's always been — present
-   * but inert (no onClick, so CollectionEntry never gives it `role`/
-   * `tabIndex` either) — e.g. ArchiveCollectionBody's own NoteTable,
-   * which has no "create a note here" concept and so never passes this.
-   */
+  /** Wires the trailing "New Note" row — always rendered in table mode, whatever the note count. */
   onCreateNote?: () => void;
 }
 
+/**
+ * The notes table: the shared CollectionTable with the notes' columns (Name +
+ * the visible date columns) and a trailing "New Note" row. Everything about
+ * how a table looks and scrolls lives in CollectionTable.
+ */
 export function NoteTable({
   children,
-  className,
   columns = DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
   onCreateNote,
   ...props
 }: NoteTableProps) {
-  const gridTemplateColumns = buildNoteTableGridTemplateColumns(columns);
-
   return (
-    <div
+    <CollectionTable
       {...props}
-      className={['note-table', className].filter(Boolean).join(' ')}
-    >
-      <div className="note-table__header" style={{ gridTemplateColumns }}>
-        <div className="note-table__header-cell note-table__header-cell--name">
-          Name
-        </div>
-
-        {columns.lastOpened && (
-          <div className="note-table__header-cell note-table__header-cell--last-opened">
-            {collectionFieldLabel('lastOpened')}
-          </div>
-        )}
-
-        {columns.created && (
-          <div className="note-table__header-cell note-table__header-cell--created">
-            {collectionFieldLabel('created')}
-          </div>
-        )}
-
-        {columns.updated && (
-          <div className="note-table__header-cell note-table__header-cell--updated">
-            {collectionFieldLabel('updated')}
-          </div>
-        )}
-
-        {columns.archived && (
-          <div className="note-table__header-cell note-table__header-cell--archived">
-            {collectionFieldLabel('archived')}
-          </div>
-        )}
-      </div>
-
-      <div className="note-table__body">
-        {children}{' '}
+      columns={buildNoteTableColumns(columns)}
+      footer={
         <CollectionEntry
-          className="note-table__new-note"
+          className="collection-table__new-item"
           icon="plus"
           title="New Note"
           onClick={onCreateNote}
         />
-      </div>
-    </div>
+      }
+    >
+      {children}
+    </CollectionTable>
   );
 }

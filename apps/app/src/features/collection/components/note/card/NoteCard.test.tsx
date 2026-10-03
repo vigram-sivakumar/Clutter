@@ -256,12 +256,21 @@ describe('NoteCard — the sections: header, cover, content', () => {
     expect(neither.container.querySelector('.note-card')).toHaveClass('note-card--header-only');
   });
 
-  it('with content off, a note WITHOUT a cover still gets an empty cover slot, so every card is the same height', () => {
+  it('with content off, a note WITHOUT a cover has no cover section — the card keeps its shape (the cover fills it when there is one)', () => {
     const { container } = render(<NoteCard title="T" markdown="x" showContent={false} previewResolvers={resolvers} />);
 
+    expect(sections(container)).toEqual(['header']);
+    expect(container.querySelector('.note-card')).toHaveClass('note-card--cover-only');
+    expect(container.querySelector('.note-card')).not.toHaveClass('note-card--header-only');
+  });
+
+  it('with content off and a cover, the cover is the second section and the card is in cover-fill mode', () => {
+    const { container } = render(
+      <NoteCard title="T" markdown="x" cover="Assets/hero.png" showContent={false} previewResolvers={resolvers} />
+    );
+
     expect(sections(container)).toEqual(['header', 'cover']);
-    expect(container.querySelector('.note-card__cover')).toBeInTheDocument();
-    expect(container.querySelector('.note-card__cover-image')).toBeNull();
+    expect(container.querySelector('.note-card')).toHaveClass('note-card--cover-only');
   });
 
   it('never renders the content (or its blocks) while Content preview is off', () => {

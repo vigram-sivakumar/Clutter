@@ -1,0 +1,45 @@
+/*
+ * The asset-specific part of a card; the shell (surface, border, padding, gap,
+ * fixed shape) and the stacked header are shared (CollectionCard.css,
+ * CollectionEntry.css). The preview fills what the header leaves, so every
+ * card is the same height.
+ */
+.asset-card__preview {
+  flex: 1 1 0;
+  min-height: 0;
+  /* Same 4px inline inset as the note card's sections: lines the preview up under the header icon glyph. */
+  margin-inline: var(--space-4);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The image, fitted into the area with its aspect ratio preserved (never cropped, never stretched). */
+.asset-card__image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* A PDF's first page, top-aligned and clipped by the preview area (the page is taller than it). */
+.asset-card__pdf {
+  align-self: flex-start;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.asset-card__pdf .pdf-viewer__page {
+  /* The viewer's own page chrome (margins/shadow) is unwanted in a thumbnail. */
+  margin: 0;
+}
+.asset-card__fallback-icon {
+  color: var(--foreground-tertiary);
+}

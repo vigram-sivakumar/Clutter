@@ -1,6 +1,5 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
-import { CollectionEntry } from '@features/collection/CollectionEntry';
-import './NoteList.css';
+import { CollectionListRow } from '../../list/CollectionListRow';
 
 export interface NoteListProps extends HTMLAttributes<HTMLDivElement> {
   title: string;
@@ -52,10 +51,10 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
     const hasMetadata = Boolean(lastOpened || created || updated || archived);
 
     return (
-      <CollectionEntry
+      <CollectionListRow
         {...props}
         ref={ref}
-        className={['note-list', className].filter(Boolean).join(' ')}
+        className={className}
 
         icon="note"
         emoji={emoji}

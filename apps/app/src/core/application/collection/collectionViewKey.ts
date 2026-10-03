@@ -30,7 +30,7 @@ export function collectionViewKeyForFolder(folderId: string): CollectionViewKey 
 }
 
 export function collectionViewKeyForFilteredView(
-  kind: 'workspace' | 'favorites'
+  kind: 'workspace' | 'favorites' | 'assets'
 ): CollectionViewKey {
   return `${COLLECTION_VIEW_KEY_PREFIX.filteredView}${kind}`;
 }
@@ -67,7 +67,7 @@ export function deriveCollectionViewKey(
   if (activeView.type === 'filtered-view') {
     const { view } = activeView;
 
-    if (view.kind === 'workspace' || view.kind === 'favorites') {
+    if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets') {
       return collectionViewKeyForFilteredView(view.kind);
     }
 

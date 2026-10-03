@@ -1,3 +1,9 @@
+import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
+import {
+  buildCollectionTableGridTemplateColumns,
+  type CollectionTableColumn,
+} from '../../table/collectionTableColumns';
+
 /**
  * Which of NoteTable's optional columns (beyond the always-present Name
  * column) are currently visible. The single source `NoteTable`'s header
@@ -25,23 +31,62 @@ export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
  * column reserves no grid space at all — the remaining columns reflow
  * into the space it would have used.
  */
+/**
+ * The notes table's columns for a given visibility — Name always, then each
+ * date column that is on. The single source of both the header (CollectionTable)
+ * and every row's grid (`buildNoteTableGridTemplateColumns`), so they can't
+ * drift apart.
+ */
+export function buildNoteTableColumns(
+  visibility: NoteTableColumnVisibility
+): CollectionTableColumn[] {
+  const columns: CollectionTableColumn[] = [
+    {
+      id: 'name',
+      label: 'Name',
+      width: 'minmax(400px, 1fr)',
+      className: 'collection-table__header-cell--name',
+    },
+  ];
+
+  if (visibility.lastOpened) {
+    columns.push({
+      id: 'lastOpened',
+      label: collectionFieldLabel('lastOpened'),
+      width: '140px',
+      className: 'collection-table__header-cell--last-opened',
+    });
+  }
+  if (visibility.created) {
+    columns.push({
+      id: 'created',
+      label: collectionFieldLabel('created'),
+      width: '140px',
+      className: 'collection-table__header-cell--created',
+    });
+  }
+  if (visibility.updated) {
+    columns.push({
+      id: 'updated',
+      label: collectionFieldLabel('updated'),
+      width: '140px',
+      className: 'collection-table__header-cell--updated',
+    });
+  }
+  if (visibility.archived) {
+    columns.push({
+      id: 'archived',
+      label: collectionFieldLabel('archived'),
+      width: '140px',
+      className: 'collection-table__header-cell--archived',
+    });
+  }
+
+  return columns;
+}
+
 export function buildNoteTableGridTemplateColumns(
   visibility: NoteTableColumnVisibility
 ): string {
-  const columns = ['minmax(400px, 1fr)'];
-
-  if (visibility.lastOpened) {
-    columns.push('140px');
-  }
-  if (visibility.created) {
-    columns.push('140px');
-  }
-  if (visibility.updated) {
-    columns.push('140px');
-  }
-  if (visibility.archived) {
-    columns.push('140px');
-  }
-
-  return columns.join(' ');
+  return buildCollectionTableGridTemplateColumns(buildNoteTableColumns(visibility));
 }

@@ -45,7 +45,12 @@ describe('deriveCollectionViewKey', () => {
     expect(deriveCollectionViewKey(null)).toBeUndefined();
   });
 
-  it('out-of-scope filtered views (tasks-*, assets) — undefined, since they render TasksCollectionBody/AssetsCollectionBody, never CollectionViewMenu', () => {
+  it("the Assets collection has its own persisted key, 'view:assets' — it is a collection like any other", () => {
+    expect(deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'assets' } })).toBe('view:assets');
+    expect(collectionViewKeyForFilteredView('assets')).toBe('view:assets');
+  });
+
+  it('out-of-scope filtered views (tasks-*) — undefined, since they render TasksCollectionBody, never CollectionViewMenu', () => {
     const kinds: ActiveView[] = [
       { type: 'filtered-view', view: { kind: 'tasks-today' } },
       { type: 'filtered-view', view: { kind: 'tasks-overdue' } },
@@ -53,7 +58,6 @@ describe('deriveCollectionViewKey', () => {
       { type: 'filtered-view', view: { kind: 'tasks-completed' } },
       { type: 'filtered-view', view: { kind: 'tasks-all' } },
       { type: 'filtered-view', view: { kind: 'tasks-unscheduled' } },
-      { type: 'filtered-view', view: { kind: 'assets' } },
     ];
 
     for (const activeView of kinds) {

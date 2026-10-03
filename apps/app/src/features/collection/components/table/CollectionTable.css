@@ -1,8 +1,8 @@
-.note-table {
+.collection-table {
   width: 100%;
 
   /* The table is the horizontal-scroll container, not the page: its own
-     header/rows (.note-table__header, .note-table-row) are allowed to
+     header/rows (.collection-table__header, .collection-table-row) are allowed to
      grow past 100% via `width: fit-content; min-width: 100%` on their own
      --collection-table-column grid, and this is what contains that
      overflow locally instead of it escaping to .page-content/.page__body
@@ -25,7 +25,7 @@
      harmless here since there's no horizontal scroll container above
      this one to chain to anyway (.page__content is overflow-x: hidden). */
   overscroll-behavior-y: auto;
-  /* .note-table is itself a flex item along .page-content's (column)
+  /* .collection-table is itself a flex item along .page-content's (column)
      main axis. Giving it any overflow other than `visible` changes its
      automatic minimum size from "auto" (floored at its own content
      height) to 0 per the flexbox spec, which would let flex-shrink
@@ -38,7 +38,7 @@
   flex-shrink: 0;
 }
 
-.note-table__header {
+.collection-table__header {
   position: relative;
   display: grid;
   grid-template-columns: var(--collection-table-column);
@@ -53,7 +53,7 @@
   color: var(--foreground-tertiary);
 }
 
-.note-table__header-cell {
+.collection-table__header-cell {
   padding-block: var(--space-8);
   padding-inline: var(--space-6);
 }

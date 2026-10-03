@@ -8,6 +8,12 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
   emoji?: string;
 
   title?: string;
+  /**
+   * Replaces the plain-text `title` with arbitrary content — an inline editor
+   * (rename), most commonly. The title row and its styling are unchanged; only
+   * what's inside it differs. Absent, `title` renders exactly as before.
+   */
+  titleContent?: ReactNode;
   description?: string;
   descriptionClassName?: string;
   metadata?: ReactNode;
@@ -43,6 +49,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       icon,
       emoji,
       title,
+      titleContent,
       description,
       descriptionClassName,
       metadata,
@@ -119,7 +126,9 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
 
     const primary = (
       <div className="collection-entry__primary">
-            {title && <div className="collection-entry__title">{title}</div>}
+            {(titleContent !== undefined || title) && (
+              <div className="collection-entry__title">{titleContent ?? title}</div>
+            )}
 
             {description && (
               <div

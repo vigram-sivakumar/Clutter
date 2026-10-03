@@ -1,4 +1,4 @@
-.note-table-row {
+.collection-table-row {
   position: relative;
   display: grid;
   align-items: center;
@@ -9,12 +9,12 @@
   /* border-radius: var(--radius-lg); */
   grid-template-columns: var(--collection-table-column);
 }
-.note-table-row:hover,
-.note-table__new-note:hover {
+.collection-table-row:hover,
+.collection-table__new-item:hover {
   background: var(--state-hover-medium);
 }
-.note-table-row::after,
-.note-table__new-note::after {
+.collection-table-row::after,
+.collection-table__new-item::after {
   content: '';
   position: absolute;
   top: 0;
@@ -24,50 +24,50 @@
   background: var(--border-default);
 }
 
-/* .note-table-row:not(:has(.collection-entry--selected)):hover::after,
-.note-table-row:not(:has(.collection-entry--selected)):hover
-  + .note-table-row:not(:has(.collection-entry--selected))::after,
-.note-table__new-note:hover::after {
+/* .collection-table-row:not(:has(.collection-entry--selected)):hover::after,
+.collection-table-row:not(:has(.collection-entry--selected)):hover
+  + .collection-table-row:not(:has(.collection-entry--selected))::after,
+.collection-table__new-item:hover::after {
   opacity: 0;
 } */
 
-.note-table__new-note {
+.collection-table__new-item {
   padding-block: var(--space-8);
 }
-.note-table__new-note .collection-entry__title {
+.collection-table__new-item .collection-entry__title {
   color: var(--foreground-tertiary);
   font-weight: var(--fw-regular);
 }
-.note-table__new-note .collection-entry__leading {
+.collection-table__new-item .collection-entry__leading {
   color: var(--foreground-secondary);
 }
 
-.note-table-row__description-empty {
+.collection-table-row__description-empty {
   color: var(--foreground-placeholder);
 }
 
 /* Show the checkbox when hovering anywhere on the row */
-.note-table-row:hover
-  .note-table-row__entry.collection-entry--selectable
+.collection-table-row:hover
+  .collection-table-row__entry.collection-entry--selectable
   .collection-entry__icon,
-.note-table-row:hover
-  .note-table-row__entry.collection-entry--selectable
+.collection-table-row:hover
+  .collection-table-row__entry.collection-entry--selectable
   .collection-entry__emoji {
   display: none;
 }
 
-.note-table-row:hover
-  .note-table-row__entry.collection-entry--selectable
+.collection-table-row:hover
+  .collection-table-row__entry.collection-entry--selectable
   .collection-entry__leading
   .checkbox {
   display: flex;
 }
 
 /* Selection background */
-.note-table-row:has(.collection-entry--selected) {
+.collection-table-row:has(.collection-entry--selected) {
   background: rgba(35, 131, 226, 0.15);
 }
-.note-table-row .collection-entry--selected {
+.collection-table-row .collection-entry--selected {
   background: transparent;
 }
 
@@ -77,7 +77,7 @@
  * column, so it never disturbs `--collection-table-column`'s 4-column
  * layout (which NoteTable's header also relies on).
  */
-.note-table-row__actions {
+.collection-table-row__actions {
   position: absolute;
   right: var(--space-12);
   top: 50%;
@@ -92,8 +92,8 @@
   transition: opacity 150ms ease;
 }
 
-.note-table-row:hover .note-table-row__actions,
-.note-table-row:focus-within .note-table-row__actions {
+.collection-table-row:hover .collection-table-row__actions,
+.collection-table-row:focus-within .collection-table-row__actions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;

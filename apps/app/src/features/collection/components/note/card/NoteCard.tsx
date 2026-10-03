@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 
 import { CollectionEntry } from '@features/collection/CollectionEntry';
+import { CollectionCard } from '../../card/CollectionCard';
 import type { SystemIcon } from '@shared/icon';
 import {
   DocumentPreview,
@@ -39,7 +40,8 @@ export interface NoteCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
  * content. The card owns the padding around them and a single `gap` between
  * them (NoteCard.css); the sections have none of their own beyond the 4px
  * inline inset that lines the cover and content up under the header's icon.
- * Hiding any section removes it and its gap. The content is a fixed document
+ * Hiding any section removes it and its gap; with the content hidden the cover
+ * grows to fill the card, so the card shrinks only when both are hidden. The content is a fixed document
  * canvas scaled to fit (see DocumentPreview); the cover is outside it. The
  * whole card is the single open-note target — the sections are inert — with
  * the same role/keyboard activation CollectionEntry gives a row (Enter/Space
@@ -67,38 +69,30 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(
     },
     ref
   ) {
-    // The cover section: shown when the note has a visible cover — and, when
-    // there's no content section (so the card isn't the fixed page shape),
-    // as an empty slot even for a note without one, so every card is the
-    // same height.
+    // The cover section: shown when the note has a visible cover. With the
+    // content hidden it fills the card's remaining height (below), so the card
+    // keeps its shape; a note without a cover just has nothing under the header.
     const coverUrl =
       showCover && cover && !coverHidden
         ? (previewResolvers?.resolveCoverImage?.(cover) ?? null)
         : null;
-    const reserveCoverSlot = showCover && !showContent;
-
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-      if (event.target !== event.currentTarget) {
-        return;
-      }
-      event.preventDefault();
-      event.currentTarget.click();
-    };
 
     return (
-      <div
+      <CollectionCard
         {...props}
         ref={ref}
-        className={['note-card', !showContent && !showCover && 'note-card--header-only', !showContent && showCover && 'note-card--cover-only', isSelected && 'note-card--selected', className]
+        className={[
+          'note-card',
+          !showContent && !showCover && 'note-card--header-only',
+          !showContent && showCover && 'note-card--cover-only',
+          className,
+        ]
           .filter(Boolean)
           .join(' ')}
-        role="button"
-        tabIndex={0}
+        // Header-only (nothing fills the fixed card shape): just the header's height.
+        compact={!showContent && !showCover}
+        isSelected={isSelected}
         onClick={onClick}
-        onKeyDown={handleKeyDown}
       >
         {/* The shared collection entry in its stacked layout (icon + title,
             metadata below) — same header FolderCard uses. No onClick, so
@@ -122,32 +116,32 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(
           }
         />
 
-        {(coverUrl || reserveCoverSlot) && (
+        {coverUrl && (
           // Always the top of the note, whatever layout the note's own cover
           // uses (`coverLayout` is deliberately not an input): normalized to
           // the "above" crop, using the saved *above* focal position — the
           // value that describes a full-width banner (the side position is
           // a horizontal focus). Its own section, outside the content
-          // canvas: real pixels, not scaled with the document. Nothing about
-          // the note's stored cover is read for writing or changed.
+          // canvas: real pixels, not scaled with the document — a fixed-height
+          // banner above the content, or the whole remaining height when the
+          // content is hidden. Nothing about the note's stored cover is read
+          // for writing or changed.
           <div className="note-card__cover" aria-hidden="true">
-            {coverUrl && (
-              <img
-                className="note-card__cover-image"
-                src={coverUrl}
-                alt=""
-                draggable={false}
-                loading="lazy"
-                style={{ objectPosition: `50% ${coverPositionAbove ?? 50}%` }}
-              />
-            )}
+            <img
+              className="note-card__cover-image"
+              src={coverUrl}
+              alt=""
+              draggable={false}
+              loading="lazy"
+              style={{ objectPosition: `50% ${coverPositionAbove ?? 50}%` }}
+            />
           </div>
         )}
 
         {showContent && (
           <DocumentPreview markdown={markdown} resolvers={previewResolvers} />
         )}
-      </div>
+      </CollectionCard>
     );
   }
 );

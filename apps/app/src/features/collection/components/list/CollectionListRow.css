@@ -1,10 +1,10 @@
-.note-list {
+.collection-list-row {
   align-items: center;
   border-radius: var(--radius-lg);
   width: 100%;
   padding-inline-end: var(--space-12);
 }
-.note-list .collection-entry__primary {
+.collection-list-row .collection-entry__primary {
   display: flex;
   flex: 1 1 auto;
   flex-direction: row;
@@ -13,15 +13,15 @@
 
   min-width: 0;
 }
-/* .note-list .collection-entry__title, */
-.note-list .collection-entry__description {
+/* .collection-list-row .collection-entry__title, */
+.collection-list-row .collection-entry__description {
   overflow: hidden;
   min-width: 0;
 
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.note-list .collection-entry__content {
+.collection-list-row .collection-entry__content {
   display: flex;
   flex: 1;
   flex-direction: row;
@@ -30,33 +30,33 @@
   gap: var(--space-12);
   min-width: 0;
 }
-.note-list .collection-entry__metadata {
+.collection-list-row .collection-entry__metadata {
   height: var(--height-sm);
   flex-shrink: 0;
 }
 
-.note-list:hover,
-.note-table__new-note:hover {
+.collection-list-row:hover,
+.collection-table__new-item:hover {
   background: var(--state-hover-medium);
 }
 
 /* Show the checkbox when hovering anywhere on the row */
-.note-list:hover
-  .note-list__entry.collection-entry--selectable
+.collection-list-row:hover
+  .collection-list-row__entry.collection-entry--selectable
   .collection-entry__icon,
-.note-list:hover
-  .note-list__entry.collection-entry--selectable
+.collection-list-row:hover
+  .collection-list-row__entry.collection-entry--selectable
   .collection-entry__emoji {
   display: none;
 }
 
-.note-list:hover
-  .note-list__entry.collection-entry--selectable
+.collection-list-row:hover
+  .collection-list-row__entry.collection-entry--selectable
   .collection-entry__leading
   .checkbox {
   display: flex;
 }
 
-.note-list:has(.collection-entry--selected) {
+.collection-list-row:has(.collection-entry--selected) {
   background: rgba(35, 131, 226, 0.15);
 }

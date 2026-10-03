@@ -35,3 +35,13 @@ export function classifySupportedResourceFile(filename: string): SupportedResour
 
   return null;
 }
+
+/**
+ * Every file extension (no leading dot) the vault ingests as a resource —
+ * exactly the set `classifySupportedResourceFile` accepts, derived from it so a
+ * file picker's filter (the Assets collection's Add action) can never drift from
+ * what ingest will actually pick up.
+ */
+export function supportedResourceFileExtensions(): string[] {
+  return [...IMAGE_EXTENSIONS, '.pdf'].map((extension) => extension.slice(1));
+}

@@ -8,6 +8,10 @@ import { collectionFieldLabel } from '@features/collection/collectionFieldLabels
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
+import {
+  NOTE_COLLECTION_VIEW_CAPABILITIES,
+  type CollectionViewCapabilities,
+} from './collectionViewCapabilities';
 import type {
   CollectionViewMode,
   CollectionPropertyVisibility,
@@ -24,6 +28,8 @@ export interface CollectionViewMenuProps {
   onSortChange: (next: CollectionSortState) => void;
   /** Archive collection only — adds the Archived property and sort option, absent everywhere else. */
   showArchived?: boolean;
+  /** Which standard controls this collection offers (see collectionViewCapabilities.ts); notes' by default. */
+  capabilities?: CollectionViewCapabilities;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{
@@ -69,6 +75,7 @@ const ARCHIVED_PROPERTY_ITEM = {
 // not "Last Viewed"/"Date Created"/"Date Updated".
 const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
   { key: 'name', label: 'Name' },
+  { key: 'type', label: 'Type' },
   { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
   { key: 'created', label: collectionFieldLabel('created') },
   { key: 'updated', label: collectionFieldLabel('updated') },
@@ -122,6 +129,7 @@ export function CollectionViewMenu({
   sort,
   onSortChange,
   showArchived = false,
+  capabilities = NOTE_COLLECTION_VIEW_CAPABILITIES,
 }: CollectionViewMenuProps) {
   const propertyItems = [
     DESCRIPTION_PROPERTY_ITEM,
@@ -132,7 +140,12 @@ export function CollectionViewMenu({
     ),
     ...(showArchived ? [ARCHIVED_PROPERTY_ITEM] : []),
   ];
-  const sortItems = showArchived ? [...SORT_ITEMS, ARCHIVED_SORT_ITEM] : SORT_ITEMS;
+  // Only the keys this collection offers, in the canonical order; Archived joins them in the Archive collection only.
+  const sortItems = [
+    ...SORT_ITEMS.filter(({ key }) => capabilities.sortKeys.includes(key)),
+    ...(showArchived ? [ARCHIVED_SORT_ITEM] : []),
+  ];
+  const showSort = capabilities.sortKeys.length > 0;
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<ConfigureMenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -175,7 +188,7 @@ export function CollectionViewMenu({
           {view === 'root' ? (
             <>
               <MenuGroupTitle>Layout</MenuGroupTitle>
-              {VIEW_ITEMS.map(({ mode, label, icon }) => (
+              {VIEW_ITEMS.filter(({ mode }) => capabilities.layouts.includes(mode)).map(({ mode, label, icon }) => (
                 <MenuItem
                   key={mode}
                   selected={mode === viewMode}
@@ -189,19 +202,27 @@ export function CollectionViewMenu({
                   {label}
                 </MenuItem>
               ))}
-              <div className="menu__divider" role="separator" />
-              <MenuItem
-                trailing={<AppIcon icon="chevronRight" />}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setView('properties');
-                }}
-              >
-                Properties
-              </MenuItem>
-              <div className="menu__divider" role="separator" />
-              <MenuGroupTitle>Sort by</MenuGroupTitle>
-              {sortItems.map(({ key, label }) => {
+              {capabilities.properties && (
+                <>
+                  <div className="menu__divider" role="separator" />
+                  <MenuItem
+                    trailing={<AppIcon icon="chevronRight" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setView('properties');
+                    }}
+                  >
+                    Properties
+                  </MenuItem>
+                </>
+              )}
+              {showSort && (
+                <>
+                  <div className="menu__divider" role="separator" />
+                  <MenuGroupTitle>Sort by</MenuGroupTitle>
+                </>
+              )}
+              {(showSort ? sortItems : []).map(({ key, label }) => {
                 const isActive = sort.key === key;
 
                 return (

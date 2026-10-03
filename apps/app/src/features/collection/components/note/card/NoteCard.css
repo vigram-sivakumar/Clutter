@@ -1,51 +1,9 @@
-.note-card {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  /* One shape for every card (see NoteCardGrid.css); the content section absorbs the other sections' differences. */
-  aspect-ratio: var(--note-card-aspect-ratio);
-  overflow: hidden;
-
-  /*
-   * The card owns all the padding, and a single gap between its sections
-   * (header, cover, content). The sections have none of their own, so hiding
-   * one removes it and its gap and everything else stays consistent.
-   * 6px matches CollectionEntry's own padding, i.e. FolderCard's.
-   */
-  padding: var(--space-6);
-  gap: var(--note-card-gap);
-
-  background: var(--surface-subtle);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-default);
-  cursor: pointer;
-  transition: background-color 120ms ease;
-}
-
-.note-card:hover {
-  background: color-mix(
-    in srgb,
-    var(--surface-subtle) 99%,
-    rgb(var(--state-base)) 1%
-  );
-}
-
-.note-card:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 1px;
-}
-
-.note-card--selected {
-  background: rgba(35, 131, 226, 0.15);
-}
-
-/* The New Note card is quieter than a real note: half the surface tint, and the subtler border token. It lifts to a regular card's tint on hover. */
-.note-card--new {
+/* (`.note-card.` raises these above the shared `.collection-card` shell rules regardless of stylesheet order.) The New Note card is quieter than a real note: half the surface tint, and the subtler border token. It lifts to a regular card's tint on hover. */
+.note-card.note-card--new {
   background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
   border-color: var(--border-subtle);
 }
-.note-card--new:hover {
+.note-card.note-card--new:hover {
   background: var(--surface-subtle);
 }
 
@@ -72,24 +30,18 @@
   white-space: nowrap;
 }
 
-/* No preview region (Cover image and Content preview both off): just the header's height, not the card shape. */
-.note-card--header-only,
-.note-card--cover-only {
-  aspect-ratio: auto;
-}
 /* The header is a stacked CollectionEntry; its own padding is zeroed — the card provides it. */
 .note-card .note-card__header {
   padding: 0;
 }
 
 /*
- * Cards without the page-shaped content must still all be the same height,
- * whichever notes have a description or a date: the header reserves one line
- * (16 + 2 gap) per metadata Property that is on (--note-card-header-lines,
- * from NoteCardGrid) on top of the title row (24).
+ * Header-only cards (the only cards that are not the fixed page shape) must
+ * still all be the same height, whichever notes have a description or a date:
+ * the header reserves one line (16 + 2 gap) per metadata Property that is on
+ * (--note-card-header-lines, from NoteCardGrid) on top of the title row (24).
  */
-.note-card--header-only .note-card__header,
-.note-card--cover-only .note-card__header {
+.note-card--header-only .note-card__header {
   min-height: calc(
     var(--lh-body-small) +
       var(--note-card-header-lines, 0) * (var(--lh-label-small) + var(--space-2))
@@ -97,7 +49,8 @@
 }
 
 /*
- * The cover section: a fixed-height banner in real pixels — outside the
+ * The cover section: a fixed-height banner in real pixels (with the content
+ * hidden it grows to fill the rest of the card — see below) — outside the
  * scaled content canvas, so it does not scale with it. Its only padding is the
  * 4px inline inset that lines it up under the header's icon glyph (the glyph
  * sits 4px inside its 24px box), the same inset the metadata line and the
@@ -108,6 +61,22 @@
   flex: none;
   height: var(--note-card-cover-height);
   padding-inline: var(--space-4);
+}
+/* Content hidden, cover shown: the cover runs to the bottom of the card, so it gets 4px more bottom padding than any other layout (6px + 4px). */
+.note-card.note-card--cover-only {
+  padding-bottom: calc(var(--space-6) + var(--space-4));
+}
+
+/*
+ * Content hidden, cover shown: the cover takes all the height the header
+ * leaves, so the card keeps its shape and is the same height as every other
+ * card. The image crops to it (object-fit: cover, at the note's saved focal
+ * position).
+ */
+.note-card--cover-only .note-card__cover {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
 }
 .note-card__cover-image {
   display: block;

@@ -55,6 +55,8 @@ import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
 import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { supportedResourceFileExtensions } from '@core/vault/ingest/SupportedResourceKind';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
@@ -82,11 +84,16 @@ import {
   type CollectionPropertyVisibility,
   type CollectionSortState,
 } from '@app/layouts/page/body/CollectionBody';
-import { CollectionViewMenu } from '@app/layouts/page/body/CollectionViewMenu';
+import { CollectionHeaderActions } from '@app/layouts/page/body/CollectionHeaderActions';
+import {
+  ASSET_COLLECTION_VIEW_CAPABILITIES,
+  NOTE_COLLECTION_VIEW_CAPABILITIES,
+  resolveSupportedLayout,
+  resolveSupportedSort,
+  type CollectionViewCapabilities,
+} from '@app/layouts/page/body/collectionViewCapabilities';
 import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
-import { Button } from '@components/button/Button';
-import { AppIcon } from '@shared/icon';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
@@ -212,16 +219,19 @@ interface CollectionViewState {
  */
 function resolveCollectionViewState(
   store: CollectionViewConfigStore,
-  collectionViewKey: string | undefined
+  collectionViewKey: string | undefined,
+  capabilities: CollectionViewCapabilities
 ): CollectionViewState {
   const persisted = collectionViewKey
     ? store.get(collectionViewKey)
     : undefined;
 
   return {
-    viewMode: persisted?.layout ?? 'table',
+    // A persisted layout the collection doesn't support (e.g. 'table' for Assets) falls back to its default.
+    viewMode: resolveSupportedLayout(persisted?.layout, capabilities),
     properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, ...persisted?.properties },
-    sort: persisted?.sort ?? DEFAULT_COLLECTION_SORT,
+    // A persisted sort key the collection doesn't offer falls back to the default (Name).
+    sort: resolveSupportedSort(persisted?.sort, capabilities, DEFAULT_COLLECTION_SORT),
   };
 }
 
@@ -294,6 +304,13 @@ export function PageHost({
   // beside the page title (Page's titleActions prop), not the top bar —
   // see CollectionViewMenu's own doc comment.
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
+  // Which standard controls this collection offers — a collection type
+  // declares it here; the header actions/menu below are the same for all.
+  const collectionCapabilities: CollectionViewCapabilities =
+    workspace.activeView?.type === 'filtered-view' &&
+    workspace.activeView.view.kind === 'assets'
+      ? ASSET_COLLECTION_VIEW_CAPABILITIES
+      : NOTE_COLLECTION_VIEW_CAPABILITIES;
 
   // Render-phase reset when the collection identity changes (navigating
   // from collection A to collection B, or back) — the same "compare during
@@ -307,7 +324,8 @@ export function PageHost({
     useState<CollectionViewState>(() =>
       resolveCollectionViewState(
         application.collectionViewConfigStore,
-        collectionViewKey
+        collectionViewKey,
+        collectionCapabilities
       )
     );
   if (collectionViewKey !== lastCollectionViewKey) {
@@ -315,7 +333,8 @@ export function PageHost({
     setCollectionViewState(
       resolveCollectionViewState(
         application.collectionViewConfigStore,
-        collectionViewKey
+        collectionViewKey,
+        collectionCapabilities
       )
     );
   }
@@ -361,15 +380,30 @@ export function PageHost({
     }
   };
 
-  const renderCollectionViewMenu = (showArchived = false) => (
-    <CollectionViewMenu
-      viewMode={collectionViewMode}
-      onChange={setCollectionViewMode}
-      properties={collectionProperties}
-      onPropertiesChange={setCollectionProperties}
-      sort={collectionSort}
-      onSortChange={setCollectionSort}
-      showArchived={showArchived}
+  // The collection's standard header actions (Settings / view mode + Add):
+  // one component for every collection type — see CollectionHeaderActions.
+  const renderCollectionHeaderActions = ({
+    showArchived = false,
+    onAdd,
+    addLabel,
+  }: {
+    showArchived?: boolean;
+    onAdd?: () => void;
+    addLabel?: string;
+  } = {}) => (
+    <CollectionHeaderActions
+      menu={{
+        viewMode: collectionViewMode,
+        onChange: setCollectionViewMode,
+        properties: collectionProperties,
+        onPropertiesChange: setCollectionProperties,
+        sort: collectionSort,
+        onSortChange: setCollectionSort,
+        showArchived,
+        capabilities: collectionCapabilities,
+      }}
+      onAdd={onAdd}
+      addLabel={addLabel}
     />
   );
 
@@ -1087,19 +1121,9 @@ export function PageHost({
       : undefined;
     // Title-adjacent (PageTitleSection's `actions` slot, after the
     // Configure/CollectionViewMenu button, at the far right).
-    const newNoteAction = onCreateNote ? (
-      <Button
-        isIconOnly
-        variant="primary"
-        aria-label="New"
-        onClick={onCreateNote}
-      >
-        <AppIcon icon="plus" />
-      </Button>
-    ) : undefined;
     // Folders grid's "Create folder" card handler (CollectionBody's
     // onCreateFolder) — same `!folderSystemLocationId` gate as
-    // newNoteAction above (no established "create a folder here" for a
+    // onCreateNote above (no established "create a folder here" for a
     // reserved one), reusing FolderOperations.create()/open() via
     // createAndOpenFolder.ts, the same create-then-open shape
     // duplicateAndOpenPage.ts already established for Duplicate. Creates
@@ -1168,12 +1192,10 @@ export function PageHost({
           }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
-          titleActions={
-            <>
-              {renderCollectionViewMenu(isArchiveView)}
-              {newNoteAction}
-            </>
-          }
+          titleActions={renderCollectionHeaderActions({
+            showArchived: isArchiveView,
+            onAdd: onCreateNote,
+          })}
           emoji={
             folderSystemLocationId
               ? undefined
@@ -1274,6 +1296,26 @@ export function PageHost({
   ) {
     const resources = application.membershipSelector.getAllVisibleResources();
 
+    // The collection's standard Add action, for assets: pick files, copy them
+    // into the vault's Assets folder via the same import the cover upload uses
+    // (`importCoverAsset` -> `importAsset`; collision-free naming), and let the
+    // vault's normal ingest/watch pick them up as resources.
+    const onAddAsset = (): void => {
+      void (async () => {
+        const selected = await openFileDialog({
+          multiple: true,
+          directory: false,
+          filters: [
+            { name: 'Images and PDFs', extensions: supportedResourceFileExtensions() },
+          ],
+        });
+        const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+        for (const sourcePath of paths) {
+          await application.importCoverAsset(sourcePath);
+        }
+      })();
+    };
+
     return (
       <Page
         canNavigateBack={workspace.canNavigateBack}
@@ -1285,29 +1327,19 @@ export function PageHost({
         breadcrumbs={<Breadcrumbs items={[]} />}
         icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
+        titleActions={renderCollectionHeaderActions({
+          onAdd: onAddAsset,
+          addLabel: 'Add asset',
+        })}
         body={
           <AssetsCollectionBody
             resources={resources}
+            viewMode={collectionViewMode}
+            sort={collectionSort}
+            resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
             onOpenResource={onOpenResource}
             onRenameResource={(id, name) =>
               void application.resourceOperations.renameResource(id, name)
-            }
-            onArchiveResource={(id) =>
-              void application.resourceOperations.archiveResource(id)
-            }
-            onDownloadResource={downloadResourceById}
-            resourceMoveDestinations={buildResourceMoveDestinationItems(
-              application.membershipSelector,
-              application.query
-            )}
-            onMoveResource={(id, destinationFolderId) =>
-              void application.resourceOperations.moveResource(
-                id,
-                destinationFolderId
-              )
-            }
-            onCreateFolder={(name) =>
-              application.folderOperations.create(name, null)
             }
           />
         }
@@ -1435,18 +1467,8 @@ export function PageHost({
               )
           : undefined;
     // Title-adjacent "New" action.
-    const newNoteAction = onCreateNote ? (
-      <Button
-        isIconOnly
-        variant="primary"
-        aria-label="New"
-        onClick={onCreateNote}
-      >
-        <AppIcon icon="plus" />
-      </Button>
-    ) : undefined;
     // Folders grid's "Create folder" card handler — same `view.kind ===
-    // 'workspace'` gate as newNoteAction above, reusing
+    // 'workspace'` gate as onCreateNote above, reusing
     // FolderOperations.create()/open() via createAndOpenFolder.ts.
     // Creates at the vault root (parentId: null), the same root scope
     // Workspace-root's own folder listing already shows.
@@ -1471,12 +1493,7 @@ export function PageHost({
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        titleActions={
-          <>
-            {renderCollectionViewMenu()}
-            {newNoteAction}
-          </>
-        }
+        titleActions={renderCollectionHeaderActions({ onAdd: onCreateNote })}
         icon={
           getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')
             .icon

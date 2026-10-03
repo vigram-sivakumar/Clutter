@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AssetsCollectionBody } from './AssetsCollectionBody';
+import type { CollectionViewMode } from './CollectionBody';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
 class ResizeObserverMock {
@@ -26,6 +26,8 @@ afterEach(() => {
   cleanup();
 });
 
+const resolveResourceUrl = (path: string) => `app://vault${path.replace('/vault', '')}`;
+
 function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
   return {
     id: 'resource-1',
@@ -43,336 +45,274 @@ function renderAssets(
   }
 ) {
   return render(
-    <AssetsCollectionBody
-      onRenameResource={vi.fn()}
-      onArchiveResource={vi.fn()}
-      onDownloadResource={vi.fn()}
-      resourceMoveDestinations={[]}
-      onMoveResource={vi.fn()}
-      onCreateFolder={vi.fn(async () => 'created-folder')}
-      {...props}
-    />
+    <AssetsCollectionBody onRenameResource={vi.fn()} resolveResourceUrl={resolveResourceUrl} {...props} />
   );
 }
 
-function openMenuFor(rowTitle: string) {
-  const row = screen.getByText(rowTitle).closest('.entry')!;
-  fireEvent.click(row.querySelector('button[aria-haspopup="menu"]')!);
-}
+/** The item element for each layout — the shared layer's own row/card class. */
+const ITEM_SELECTOR: Record<CollectionViewMode, string> = {
+  list: '.collection-list-row',
+  table: '.collection-table-row',
+  card: '.asset-card',
+};
+const LAYOUTS: CollectionViewMode[] = ['list', 'table', 'card'];
 
-describe('AssetsCollectionBody: membership', () => {
-  it('renders every resource in the collection', () => {
+const itemFor = (container: HTMLElement, viewMode: CollectionViewMode, index = 0) =>
+  container.querySelectorAll<HTMLElement>(ITEM_SELECTOR[viewMode])[index]!;
+
+describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
+  it('renders one item per resource it is given, nothing filtered or added', () => {
     const resources = [
       makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
       makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' }),
       makeResource({ id: 'floorplan', name: 'floorplan.png', kind: 'image', parentId: null }),
     ];
 
-    renderAssets({ resources });
+    const { container } = renderAssets({ resources, viewMode });
 
+    expect(container.querySelectorAll(ITEM_SELECTOR[viewMode])).toHaveLength(3);
     expect(screen.getByText('house')).toBeInTheDocument();
     expect(screen.getByText('manual')).toBeInTheDocument();
     expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
-  it('renders a resource physically inside Assets/', () => {
-    const resource = makeResource({ path: '/vault/Assets/house.png', parentId: 'assets-folder' });
+  it('renders correctly with an empty collection', () => {
+    const { container } = renderAssets({ resources: [], viewMode });
 
-    renderAssets({ resources: [resource] });
-
-    expect(screen.getByText('house')).toBeInTheDocument();
+    expect(container.querySelectorAll(ITEM_SELECTOR[viewMode])).toHaveLength(0);
   });
 
-  it('renders a resource physically outside Assets/ — membership is not location-scoped', () => {
-    const resource = makeResource({
-      name: 'floorplan.png',
-      path: '/vault/Projects/floorplan.png',
-      parentId: 'projects-folder',
+  it('labels each item by kind', () => {
+    renderAssets({
+      resources: [
+        makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
+        makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' }),
+      ],
+      viewMode,
     });
 
-    renderAssets({ resources: [resource] });
-
-    expect(screen.getByText('floorplan')).toBeInTheDocument();
+    expect(screen.getByText('Image')).toBeInTheDocument();
+    expect(screen.getByText('PDF')).toBeInTheDocument();
   });
 
-  it('distinguishes image and pdf resources by icon', () => {
-    const resources = [
-      makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
-      makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' }),
-    ];
+  it('distinguishes image and pdf items by icon', () => {
+    const { container } = renderAssets({
+      resources: [
+        makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
+        makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' }),
+      ],
+      viewMode,
+    });
 
-    renderAssets({ resources });
-
-    const imageIcon = screen.getByText('house').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
-    const pdfIcon = screen.getByText('manual').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
-
-    expect(imageIcon).toBeTruthy();
-    expect(pdfIcon).toBeTruthy();
-    expect(imageIcon).not.toBe(pdfIcon);
+    const icon = (index: number) =>
+      itemFor(container, viewMode, index).querySelector('.collection-entry__icon svg')?.outerHTML;
+    expect(icon(0)).toBeTruthy();
+    expect(icon(1)).toBeTruthy();
+    expect(icon(0)).not.toBe(icon(1));
   });
 
-  it('renders correctly with an empty collection — the physical Assets/ folder itself is never treated as content', () => {
-    const { container } = renderAssets({ resources: [] });
-
-    expect(container.querySelectorAll('.entry')).toHaveLength(0);
-  });
-
-  // Markdown/unsupported-file exclusion is a type-level guarantee, not
-  // something this component (or MembershipSelector.getAllVisibleResources,
-  // its real data source) could violate: a Page and a VaultResource are
-  // disjoint Vault collections (ResourceBuilder never routes a .md file
-  // through DocumentLoader — see VaultResource's own doc comment), so a
-  // Page can structurally never appear in `resources` here. This test
-  // documents that guarantee rather than exercising a filter this
-  // component doesn't own — exactly the resources given are exactly the
-  // rows rendered, nothing more, nothing filtered further.
-  it('renders exactly the resources it is given, only image/pdf kinds ever being possible', () => {
-    const resources = [
-      makeResource({ id: 'r1', kind: 'image', name: 'a.png' }),
-      makeResource({ id: 'r2', kind: 'pdf', name: 'b.pdf' }),
-    ];
-
-    const { container } = renderAssets({ resources });
-
-    expect(container.querySelectorAll('.entry')).toHaveLength(2);
-  });
-});
-
-describe('AssetsCollectionBody: image/pdf click behavior', () => {
-  it('clicking an image resource invokes onOpenResource with the resource, reaching the existing image overlay', () => {
+  it('clicking an image invokes onOpenResource with the resource — the existing image overlay', () => {
     const onOpenResource = vi.fn();
     const resource = makeResource({ id: 'house', name: 'house.png', kind: 'image' });
+    const { container } = renderAssets({ resources: [resource], viewMode, onOpenResource });
 
-    renderAssets({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByText('house').closest('.entry')!);
+    fireEvent.click(itemFor(container, viewMode));
 
     expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 
-  it('clicking a pdf resource invokes onOpenResource with the resource, reaching PdfOverlay', () => {
+  it('clicking a pdf invokes onOpenResource with the resource — the existing PDF viewer', () => {
     const onOpenResource = vi.fn();
     const resource = makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' });
+    const { container } = renderAssets({ resources: [resource], viewMode, onOpenResource });
 
-    renderAssets({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByText('manual').closest('.entry')!);
+    fireEvent.click(itemFor(container, viewMode));
 
     expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
-});
 
-describe('AssetsCollectionBody: actions menu', () => {
-  it('shows the overflow menu with exactly Rename, Move to, and Archive, nothing else', () => {
-    const resource = makeResource();
-
-    renderAssets({ resources: [resource] });
-
-    openMenuFor('house');
-
-    expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Move to…')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.queryByText('Add to Favorites')).toBeNull();
-    expect(screen.queryByText('Remove from Favorites')).toBeNull();
-    expect(screen.queryByText('Restore')).toBeNull();
-    expect(screen.queryByText('Delete permanently')).toBeNull();
-  });
-
-  it('a pdf resource shows the same base menu as an image resource, minus Download', () => {
-    const resource = makeResource({ kind: 'pdf', name: 'manual.pdf' });
-
-    renderAssets({ resources: [resource] });
-
-    openMenuFor('manual');
-
-    expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Move to…')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.queryByText('Download')).not.toBeInTheDocument();
-  });
-
-  it('an image resource additionally shows Download', () => {
-    const resource = makeResource({ kind: 'image', name: 'house.png' });
-
-    renderAssets({ resources: [resource] });
-
-    openMenuFor('house');
-
-    expect(screen.getByText('Download')).toBeInTheDocument();
-  });
-
-  it('selecting Download calls onDownloadResource with the resource id', () => {
-    const onDownloadResource = vi.fn();
-    const resource = makeResource({ kind: 'image', name: 'house.png' });
-
-    renderAssets({ resources: [resource], onDownloadResource });
-
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Download'));
-
-    expect(onDownloadResource).toHaveBeenCalledWith('resource-1');
-  });
-});
-
-describe('AssetsCollectionBody: move', () => {
-  it('selecting Move to… opens the destination picker, and choosing a destination calls onMoveResource', () => {
-    const onMoveResource = vi.fn();
-    const resource = makeResource();
-
-    renderAssets({
-      resources: [resource],
-      onMoveResource,
-      resourceMoveDestinations: [
-        { id: 'folder-1', title: 'Projects', level: 0, parentId: null },
-      ],
+  it('has no three-dot / actions menu on its items, and adds no header controls of its own', () => {
+    const { container } = renderAssets({
+      resources: [makeResource(), makeResource({ id: 'r2', name: 'b.pdf', kind: 'pdf' })],
+      viewMode,
     });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Move to…'));
-    fireEvent.click(screen.getByText('Projects'));
-
-    expect(onMoveResource).toHaveBeenCalledWith('resource-1', 'folder-1');
-  });
-});
-
-describe('AssetsCollectionBody: rename', () => {
-  it('selecting Rename enters the editing state, seeded with the extension-free name', () => {
-    const resource = makeResource({ name: 'house.png' });
-
-    renderAssets({ resources: [resource] });
-
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Rename'));
-
-    expect(screen.getByRole('textbox')).toHaveTextContent('house');
+    expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Add asset"], button[aria-label="New"]')).toBeNull();
   });
 
-  it('committing a rename calls onRenameResource with the resource id and the extension-free typed value', () => {
-    const onRenameResource = vi.fn();
-    const resource = makeResource({ name: 'house.png' });
+  describe('rename (F2 on a focused item)', () => {
+    const startRename = (container: HTMLElement) => {
+      const item = itemFor(container, viewMode);
+      item.focus();
+      fireEvent.keyDown(item, { key: 'F2' });
+    };
 
-    renderAssets({ resources: [resource], onRenameResource });
+    it('F2 turns the name into an inline editor seeded with the extension-free name', () => {
+      const { container } = renderAssets({ resources: [makeResource({ name: 'house.png' })], viewMode });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Rename'));
-    const field = screen.getByRole('textbox');
-    fireEvent.input(field, { target: { textContent: 'cottage' } });
-    fireEvent.blur(field);
+      startRename(container);
 
-    expect(onRenameResource).toHaveBeenCalledWith('resource-1', 'cottage');
-  });
-
-  it('does not pass a destination/parentId — the resource keeps its current parent, Rename never moves it into Assets/', () => {
-    // ResourceOperations.renameResource(resourceId, name) is a two-argument
-    // call; this component has no parentId/path concept of its own to pass
-    // — the Gate/MoveService (Step 3/4) are what preserve the resource's
-    // existing parentId, not this component. Asserting the exact call
-    // signature is the correct-altitude test here.
-    const onRenameResource = vi.fn();
-    const resource = makeResource({
-      name: 'house.png',
-      path: '/vault/Projects/house.png',
-      parentId: 'projects-folder',
+      expect(screen.getByRole('textbox')).toHaveTextContent('house');
     });
 
-    renderAssets({ resources: [resource], onRenameResource });
+    it('committing calls onRenameResource with the resource id and the extension-free typed value — two arguments only', () => {
+      const onRenameResource = vi.fn();
+      const { container } = renderAssets({
+        resources: [makeResource({ name: 'house.png', path: '/vault/Projects/house.png', parentId: 'projects' })],
+        viewMode,
+        onRenameResource,
+      });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Rename'));
-    const field = screen.getByRole('textbox');
-    fireEvent.input(field, { target: { textContent: 'cottage' } });
-    fireEvent.blur(field);
+      startRename(container);
+      const field = screen.getByRole('textbox');
+      fireEvent.input(field, { target: { textContent: 'cottage' } });
+      fireEvent.blur(field);
 
-    expect(onRenameResource).toHaveBeenCalledWith('resource-1', 'cottage');
-    expect(onRenameResource.mock.calls[0]).toHaveLength(2);
-  });
+      expect(onRenameResource).toHaveBeenCalledWith('resource-1', 'cottage');
+      expect(onRenameResource.mock.calls[0]).toHaveLength(2);
+    });
 
-  it('preserves the extension — the typed value never includes it', () => {
-    const onRenameResource = vi.fn();
-    const resource = makeResource({ kind: 'pdf', name: 'manual.pdf' });
+    it('preserves the extension — the typed value never includes it', () => {
+      const onRenameResource = vi.fn();
+      const { container } = renderAssets({
+        resources: [makeResource({ kind: 'pdf', name: 'manual.pdf' })],
+        viewMode,
+        onRenameResource,
+      });
 
-    renderAssets({ resources: [resource], onRenameResource });
+      startRename(container);
+      const field = screen.getByRole('textbox');
+      fireEvent.input(field, { target: { textContent: 'guide' } });
+      fireEvent.blur(field);
 
-    openMenuFor('manual');
-    fireEvent.click(screen.getByText('Rename'));
-    const field = screen.getByRole('textbox');
-    fireEvent.input(field, { target: { textContent: 'guide' } });
-    fireEvent.blur(field);
+      expect(onRenameResource).toHaveBeenCalledWith('resource-1', 'guide');
+    });
 
-    expect(onRenameResource).toHaveBeenCalledWith('resource-1', 'guide');
-  });
+    it('an item mid-rename does not open the asset on click', () => {
+      const onOpenResource = vi.fn();
+      const { container } = renderAssets({ resources: [makeResource()], viewMode, onOpenResource });
 
-  it('a row mid-rename does not open the image overlay on click', () => {
-    const onOpenResource = vi.fn();
-    const resource = makeResource({ kind: 'image', name: 'house.png' });
+      startRename(container);
+      fireEvent.click(screen.getByRole('textbox'));
 
-    renderAssets({ resources: [resource], onOpenResource });
+      expect(onOpenResource).not.toHaveBeenCalled();
+    });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Rename'));
-    fireEvent.click(screen.getByRole('textbox'));
+    it('only the focused item enters rename, and other keys do nothing', () => {
+      const { container } = renderAssets({
+        resources: [makeResource({ id: 'a', name: 'a.png' }), makeResource({ id: 'b', name: 'b.png' })],
+        viewMode,
+      });
 
-    expect(onOpenResource).not.toHaveBeenCalled();
+      const second = itemFor(container, viewMode, 1);
+      fireEvent.keyDown(second, { key: 'Enter' });
+      expect(screen.queryByRole('textbox')).toBeNull();
+
+      fireEvent.keyDown(second, { key: 'F2' });
+      expect(screen.getAllByRole('textbox')).toHaveLength(1);
+      expect(itemFor(container, viewMode, 1).querySelector('[role="textbox"]')).not.toBeNull();
+      expect(itemFor(container, viewMode, 0).querySelector('[role="textbox"]')).toBeNull();
+    });
   });
 });
 
-describe('AssetsCollectionBody: archive', () => {
-  it('selecting Archive calls onArchiveResource with the resource id, no confirmation dialog', () => {
-    const onArchiveResource = vi.fn();
-    const resource = makeResource();
+describe('AssetsCollectionBody — which layout renders', () => {
+  const resources = () => [makeResource({ id: 'house', name: 'house.png', kind: 'image' })];
 
-    renderAssets({ resources: [resource], onArchiveResource });
+  it('List uses the shared list grid + list rows (the same ones notes use)', () => {
+    const { container } = renderAssets({ resources: resources(), viewMode: 'list' });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Archive'));
-
-    expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(container.querySelector('.collection-list-grid > .collection-list-row')).not.toBeNull();
+    expect(container.querySelector('.collection-table, .collection-card-grid')).toBeNull();
   });
 
-  it('works identically for a pdf resource', () => {
-    const onArchiveResource = vi.fn();
-    const resource = makeResource({ kind: 'pdf', name: 'manual.pdf' });
+  it('Table uses the shared table with a Name and a Type column', () => {
+    const { container } = renderAssets({ resources: resources(), viewMode: 'table' });
 
-    renderAssets({ resources: [resource], onArchiveResource });
-
-    openMenuFor('manual');
-    fireEvent.click(screen.getByText('Archive'));
-
-    expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
+    expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+      'Name',
+      'Type',
+    ]);
+    expect(container.querySelector('.collection-table__body > .collection-table-row')).not.toBeNull();
+    // No "new item" footer row: an asset has no "New" row of its own (Add lives in the header).
+    expect(container.querySelector('.collection-table__new-item')).toBeNull();
   });
 
-  // The component itself never removes a row — this proves it re-renders
-  // correctly (row gone) once the caller supplies an updated `resources`
-  // list, the same "state update, not manual list manipulation" contract
-  // the real app fulfills via Vault's subscribe/notify -> re-render.
-  it('the archived resource disappears once the caller re-renders with an updated resources list', () => {
-    const resource = makeResource();
+  it('Card uses the shared card grid with a dedicated AssetCard per asset', () => {
+    const { container } = renderAssets({ resources: resources(), viewMode: 'card' });
 
-    function Harness() {
-      const [resources, setResources] = useState([resource]);
+    const card = container.querySelector('.collection-card-grid > .asset-card');
+    expect(card).not.toBeNull();
+    expect(card).toHaveClass('collection-card');
+    expect(container.querySelector('.note-card, .document-preview')).toBeNull();
+  });
 
-      return (
-        <AssetsCollectionBody
-          resources={resources}
-          onRenameResource={vi.fn()}
-          onArchiveResource={() => setResources([])}
-          onDownloadResource={vi.fn()}
-          resourceMoveDestinations={[]}
-          onMoveResource={vi.fn()}
-          onCreateFolder={vi.fn(async () => 'created-folder')}
-        />
-      );
-    }
+  it('defaults to List when no layout is given', () => {
+    const { container } = renderAssets({ resources: resources() });
 
-    render(<Harness />);
+    expect(container.querySelector('.collection-list-grid')).not.toBeNull();
+  });
+});
 
-    expect(screen.getByText('house')).toBeInTheDocument();
+describe('AssetsCollectionBody — Card previews', () => {
+  it('an image card shows the resolved image (existing resolver) fitted in its area', () => {
+    const { container } = renderAssets({
+      resources: [makeResource({ id: 'house', name: 'house.png', path: '/vault/house.png' })],
+      viewMode: 'card',
+    });
 
-    openMenuFor('house');
-    fireEvent.click(screen.getByText('Archive'));
+    expect(container.querySelector('.asset-card__image')).toHaveAttribute('src', 'app://vault/house.png');
+  });
 
-    expect(screen.queryByText('house')).toBeNull();
+  it('a pdf card gets the PDF preview slot, not an image', () => {
+    const { container } = renderAssets({
+      resources: [makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf', path: '/vault/manual.pdf' })],
+      viewMode: 'card',
+    });
+
+    expect(container.querySelector('.asset-card__pdf')).not.toBeNull();
+    expect(container.querySelector('.asset-card__image')).toBeNull();
+  });
+});
+
+describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) => {
+  const resources = () => [
+    makeResource({ id: 'z', name: 'zebra.png', kind: 'image', path: '/vault/zebra.png' }),
+    makeResource({ id: 'a', name: 'apple.pdf', kind: 'pdf', path: '/vault/apple.pdf' }),
+    makeResource({ id: 'm', name: 'mango.png', kind: 'image', path: '/vault/mango.png' }),
+  ];
+  const order = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>(ITEM_SELECTOR[viewMode])].map((item) => item.dataset.resourceId);
+
+  it('keeps the given order when there is no sort', () => {
+    const { container } = renderAssets({ resources: resources(), viewMode });
+
+    expect(order(container)).toEqual(['z', 'a', 'm']);
+  });
+
+  it('sorts by Name A→Z (down) and Z→A (up)', () => {
+    const down = renderAssets({ resources: resources(), viewMode, sort: { key: 'name', direction: 'down' } });
+    expect(order(down.container)).toEqual(['a', 'm', 'z']);
+    cleanup();
+
+    const up = renderAssets({ resources: resources(), viewMode, sort: { key: 'name', direction: 'up' } });
+    expect(order(up.container)).toEqual(['z', 'm', 'a']);
+  });
+
+  it('sorts by Type: images first (names A→Z within), then PDFs; up reverses', () => {
+    const down = renderAssets({ resources: resources(), viewMode, sort: { key: 'type', direction: 'down' } });
+    expect(order(down.container)).toEqual(['m', 'z', 'a']);
+    cleanup();
+
+    const up = renderAssets({ resources: resources(), viewMode, sort: { key: 'type', direction: 'up' } });
+    expect(order(up.container)).toEqual(['a', 'z', 'm']);
+  });
+
+  it('does not reorder the caller’s array', () => {
+    const input = Object.freeze(resources());
+
+    expect(() => renderAssets({ resources: input as VaultResource[], viewMode, sort: { key: 'name', direction: 'down' } })).not.toThrow();
   });
 });

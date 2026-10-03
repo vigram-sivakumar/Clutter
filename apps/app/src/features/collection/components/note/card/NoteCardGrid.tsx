@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
+import { CollectionCardGrid } from '../../card/CollectionCardGrid';
 import { NoteCard } from './NoteCard';
 import './NoteCardGrid.css';
 
@@ -23,7 +24,7 @@ export interface NoteCardGridProps extends HTMLAttributes<HTMLDivElement> {
   headerLines?: number;
 }
 
-/** The Card view's container — owns the card dimensions every NoteCard inherits (NoteCardGrid.css). */
+/** The Notes Card view's container: the shared CollectionCardGrid plus what only note cards need (NoteCardGrid.css: canvas width, cover height, the New Note card). */
 export function NoteCardGrid({
   children,
   onCreateNote,
@@ -35,7 +36,7 @@ export function NoteCardGrid({
   ...props
 }: NoteCardGridProps) {
   return (
-    <div
+    <CollectionCardGrid
       {...props}
       className={['note-card-grid', className].filter(Boolean).join(' ')}
       style={{ ...style, ['--note-card-header-lines' as string]: headerLines }}
@@ -55,6 +56,6 @@ export function NoteCardGrid({
           onClick={onCreateNote}
         />
       )}
-    </div>
+    </CollectionCardGrid>
   );
 }

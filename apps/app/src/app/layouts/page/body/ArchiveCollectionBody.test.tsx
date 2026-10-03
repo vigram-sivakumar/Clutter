@@ -115,7 +115,7 @@ function renderArchive(
     <ArchiveCollectionBody
       vault={makeVault()}
       // Most of this file's assertions target List-mode selectors
-      // ('.note-list', per actionButtonsFor's own comment below) —
+      // ('.collection-list-row', per actionButtonsFor's own comment below) —
       // ArchiveCollectionBody itself now defaults to Table (matching
       // CollectionBody's own new default), so tests are pinned to List
       // here explicitly rather than relying on a default that changed
@@ -133,11 +133,11 @@ function renderArchive(
 }
 
 // A folder row renders via FolderCard ('.folder-card'), a note row via
-// NoteList ('.note-list') — List mode, the default every test below
+// NoteList ('.collection-list-row') — List mode, the default every test below
 // renders with; neither is '.entry' (that's still Resource's own row,
-// unchanged). Table-mode tests below use '.note-table-row'/'.folder-card' directly.
+// unchanged). Table-mode tests below use '.collection-table-row'/'.folder-card' directly.
 function actionButtonsFor(rowTitle: string): { restore: HTMLElement; deleteBtn: HTMLElement } {
-  const row = screen.getByText(rowTitle).closest('.folder-card, .note-list')!;
+  const row = screen.getByText(rowTitle).closest('.folder-card, .collection-list-row')!;
   const buttons = Array.from(row.querySelectorAll('button'));
   const restore = buttons.find((b) => b.getAttribute('aria-label') === 'Restore')!;
   const deleteBtn = buttons.find((b) => b.getAttribute('aria-label') === 'Delete permanently')!;
@@ -176,7 +176,7 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
 
     renderArchive({ notes: [note], resources: [] });
 
-    fireEvent.click(screen.getByText('Old Note').closest('.note-list')!);
+    fireEvent.click(screen.getByText('Old Note').closest('.collection-list-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -184,7 +184,7 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
   it('renders correctly with no folders, notes, or resources', () => {
     const { container } = renderArchive({ resources: [] });
 
-    expect(container.querySelectorAll('.note-list')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-list-row')).toHaveLength(0);
     expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
     expect(container.querySelectorAll('.entry')).toHaveLength(0);
   });
@@ -200,8 +200,8 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
       viewMode: 'table',
     });
 
-    expect(container.querySelector('.note-table')).toBeInTheDocument();
-    expect(screen.getByText('Old Note').closest('.note-table-row')).toBeInTheDocument();
+    expect(container.querySelector('.collection-table')).toBeInTheDocument();
+    expect(screen.getByText('Old Note').closest('.collection-table-row')).toBeInTheDocument();
     expect(screen.getByText('Old Project').closest('.folder-card')).toBeInTheDocument();
     expect(container.querySelector('.folder-grid')).toBeInTheDocument();
   });
@@ -212,7 +212,7 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
 
     renderArchive({ notes: [note], resources: [], viewMode: 'table' });
 
-    fireEvent.click(screen.getByText('Old Note').closest('.note-table-row')!);
+    fireEvent.click(screen.getByText('Old Note').closest('.collection-table-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -563,10 +563,10 @@ describe('ArchiveCollectionBody: Archived column', () => {
       viewMode: 'table',
     });
 
-    expect(container.querySelector('.note-table__header-cell--archived')).toHaveTextContent(
+    expect(container.querySelector('.collection-table__header-cell--archived')).toHaveTextContent(
       'Archived'
     );
-    expect(screen.getByText('35 minutes ago').closest('.note-table-row__archived')).toBeInTheDocument();
+    expect(screen.getByText('35 minutes ago').closest('.collection-table-row__archived')).toBeInTheDocument();
   });
 
   it('table mode hides the column when the Archived property is unchecked', () => {
@@ -577,7 +577,7 @@ describe('ArchiveCollectionBody: Archived column', () => {
       properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, archived: false },
     });
 
-    expect(container.querySelector('.note-table__header-cell--archived')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();
     expect(screen.queryByText('35 minutes ago')).not.toBeInTheDocument();
   });
 
@@ -602,7 +602,7 @@ describe('ArchiveCollectionBody: Archived column', () => {
       sort: { key: 'archived', direction: 'down' },
     });
 
-    const titles = [...document.querySelectorAll('.note-list')].map((el) => el.textContent);
+    const titles = [...document.querySelectorAll('.collection-list-row')].map((el) => el.textContent);
     expect(titles[0]).toContain('Newer');
     expect(titles[1]).toContain('Older');
   });

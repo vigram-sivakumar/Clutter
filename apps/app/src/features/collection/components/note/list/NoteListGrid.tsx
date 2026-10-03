@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import { CollectionEntry } from '@features/collection/CollectionEntry';
-import './NoteListGrid.css';
+import { CollectionListGrid } from '../../list/CollectionListGrid';
+import { CollectionListRow } from '../../list/CollectionListRow';
 
 export interface NoteListGridProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -22,20 +22,17 @@ export function NoteListGrid({
   ...props
 }: NoteListGridProps) {
   return (
-    <div
-      {...props}
-      className={['note-list-grid', className].filter(Boolean).join(' ')}
-    >
+    <CollectionListGrid {...props} className={className}>
       {children}
 
       {onCreateNote && (
-        <CollectionEntry
-          className="note-list note-list-grid__new-note"
+        <CollectionListRow
+          className="collection-list-grid__new-item"
           icon="plus"
           title="New Note"
           onClick={onCreateNote}
         />
       )}
-    </div>
+    </CollectionListGrid>
   );
 }

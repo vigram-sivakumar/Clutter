@@ -31,6 +31,7 @@ export interface PersistedCollectionProperties {
 
 export type PersistedCollectionSortKey =
   | 'name'
+  | 'type'
   | 'lastOpened'
   | 'created'
   | 'updated'
@@ -73,6 +74,7 @@ export interface PersistedCollectionViewConfig {
 
 const VALID_SORT_KEYS: ReadonlySet<string> = new Set([
   'name',
+  'type',
   'lastOpened',
   'created',
   'updated',

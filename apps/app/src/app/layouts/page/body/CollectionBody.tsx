@@ -98,7 +98,7 @@ export function toTableColumns(
  * is the one place that translates `direction` into an actual comparison
  * for each key.
  */
-export type CollectionSortKey = 'name' | 'lastOpened' | 'created' | 'updated' | 'archived';
+export type CollectionSortKey = 'name' | 'type' | 'lastOpened' | 'created' | 'updated' | 'archived';
 export type CollectionSortDirection = 'down' | 'up';
 
 export interface CollectionSortState {

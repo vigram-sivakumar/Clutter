@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { CollectionViewMenu } from './CollectionViewMenu';
+import { ASSET_COLLECTION_VIEW_CAPABILITIES } from './collectionViewCapabilities';
 import {
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
@@ -333,5 +334,67 @@ describe('CollectionViewMenu — Properties order', () => {
     openPropertiesSubmenu(getByText);
 
     expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Content preview', 'Last edited']);
+  });
+});
+
+describe('CollectionViewMenu — Sort by follows the collection', () => {
+  const labels = () => [...document.querySelectorAll('[role="menu"] [role="menuitem"], [role="menu"] *')]
+    .filter((el) => el.children.length === 0)
+    .map((el) => el.textContent?.trim());
+
+  it('notes keep their Sort by options: Name, Last opened, Created, Last edited — and no Type', () => {
+    const { getByText, queryByText } = renderMenu({ viewMode: 'table' });
+
+    for (const label of ['Name', 'Last opened', 'Created', 'Last edited']) {
+      expect(getByText(label)).toBeInTheDocument();
+    }
+    expect(queryByText('Type')).not.toBeInTheDocument();
+  });
+
+  it('assets get Sort by with Name and Type only, no Properties, and the same active-row direction toggle', () => {
+    const onSortChange = vi.fn();
+    const utils = render(
+      <CollectionViewMenu
+        viewMode="list"
+        onChange={vi.fn()}
+        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
+        onPropertiesChange={vi.fn()}
+        sort={DEFAULT_COLLECTION_SORT}
+        onSortChange={onSortChange}
+        capabilities={ASSET_COLLECTION_VIEW_CAPABILITIES}
+      />
+    );
+    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+
+    expect(utils.getByText('Sort by')).toBeInTheDocument();
+    expect(utils.getByText('Name')).toBeInTheDocument();
+    expect(utils.getByText('Type')).toBeInTheDocument();
+    for (const absent of ['Last opened', 'Created', 'Last edited', 'Properties']) {
+      expect(utils.queryByText(absent)).not.toBeInTheDocument();
+    }
+
+    // Re-clicking the active key (Name, down) flips it; picking Type activates it at 'down'.
+    fireEvent.click(utils.getByText('Name'));
+    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'name', direction: 'up' });
+    fireEvent.click(utils.getByText('Type'));
+    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'type', direction: 'down' });
+    void labels;
+  });
+
+  it('a collection that offers no sort keys shows no Sort by at all', () => {
+    const utils = render(
+      <CollectionViewMenu
+        viewMode="list"
+        onChange={vi.fn()}
+        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
+        onPropertiesChange={vi.fn()}
+        sort={DEFAULT_COLLECTION_SORT}
+        onSortChange={vi.fn()}
+        capabilities={{ ...ASSET_COLLECTION_VIEW_CAPABILITIES, sortKeys: [] }}
+      />
+    );
+    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+
+    expect(utils.queryByText('Sort by')).not.toBeInTheDocument();
   });
 });
