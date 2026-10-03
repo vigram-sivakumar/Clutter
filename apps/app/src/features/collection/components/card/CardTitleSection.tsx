@@ -51,7 +51,8 @@ export interface CardTitleSectionProps extends Omit<HTMLAttributes<HTMLDivElemen
  * an optional description and metadata. Domain-agnostic: it knows nothing about
  * notes, assets or folders, only about how a card's text is laid out and
  * styled. It owns no padding (the card does); a slot that isn't supplied
- * renders nothing, so a bare title is just the title row.
+ * renders nothing, so a bare title is just the title row, and metadata with
+ * no title is just the metadata.
  */
 export function CardTitleSection({
   title,
@@ -80,10 +81,12 @@ export function CardTitleSection({
 
   return (
     <div {...props} className={join('card-title-section', className)}>
-      <div className="card-title-section__heading">
-        {leadingNode}
-        {hasTitle && <CardTitle>{titleContent ?? title}</CardTitle>}
-      </div>
+      {(leadingNode || hasTitle) && (
+        <div className="card-title-section__heading">
+          {leadingNode}
+          {hasTitle && <CardTitle>{titleContent ?? title}</CardTitle>}
+        </div>
+      )}
       {description && <CardDescription>{description}</CardDescription>}
       {metadata && <CardMetadata layout={metadataLayout}>{metadata}</CardMetadata>}
     </div>

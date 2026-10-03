@@ -19,7 +19,7 @@ export interface AssetCardProps {
    * with it; a PDF is rendered from it.
    */
   readonly url: string;
-  /** The Title property: whether the title section (icon and name) is shown. */
+  /** The Title property: whether the icon and name are shown. The metadata lines are their own properties and stay when it is off. */
   readonly showTitle?: boolean;
   /** The File size / Created / Last edited properties (the card's lines read Size, Created, Edited): which metadata lines the title section shows (all, by default). */
   readonly metadataVisibility?: AssetMetadataVisibility;
@@ -41,7 +41,8 @@ export interface AssetCardProps {
  * what kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
  * actions menu — the asset's actions live in its viewer. The title section can
- * be hidden (`showTitle`), leaving the media to fill the whole card.
+ * be hidden (`showTitle`) — only the icon and name go; any metadata lines the
+ * Properties leave on stay, and with none the media fills the whole card bare.
  */
 export function AssetCard({ asset, url, showTitle = true, metadataVisibility, isSelected = false, onClick, titleContent }: AssetCardProps) {
   // File facts come from the vault file's own metadata; a remote asset has none.
@@ -57,12 +58,12 @@ export function AssetCard({ asset, url, showTitle = true, metadataVisibility, is
     >
       <AssetMedia kind={asset.kind} url={url} />
 
-      {showTitle && (
+      {(showTitle || metadata.length > 0) && (
         <CardTitleSection
           className="asset-card__header"
-          icon={getResourceIcon(asset.kind)}
-          title={getResourceDisplayName(asset)}
-          titleContent={titleContent}
+          icon={showTitle ? getResourceIcon(asset.kind) : undefined}
+          title={showTitle ? getResourceDisplayName(asset) : undefined}
+          titleContent={showTitle ? titleContent : undefined}
           metadata={
             metadata.length > 0 &&
             metadata.map(({ label, value }) => (

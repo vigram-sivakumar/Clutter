@@ -168,4 +168,30 @@ describe('AssetCard', () => {
       expect(onClick).toHaveBeenCalledWith(remote);
     });
   });
+
+  it('hiding the title keeps the metadata lines — they are their own properties', () => {
+    const metadata = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
+    const { container, queryByText } = render(
+      <AssetCard asset={localAsset(image({ metadata }))} url="x" showTitle={false} metadataVisibility={{ size: true, created: true, updated: true }} />
+    );
+
+    const header = container.querySelector('.asset-card__header')!;
+    expect([...header.querySelectorAll('.asset-card__meta-label')].map((node) => node.textContent)).toEqual([
+      'Size',
+      'Created',
+      'Edited',
+    ]);
+    // Only the icon and name are gone — not even an empty name row is left behind.
+    expect(queryByText('house')).toBeNull();
+    expect(header.querySelector('.card-title-section__heading, .card-title, svg')).toBeNull();
+  });
+
+  it('with the title and every metadata line off, nothing is laid over the media', () => {
+    const metadata = { size: 1, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
+    const { container } = render(
+      <AssetCard asset={localAsset(image({ metadata }))} url="x" showTitle={false} metadataVisibility={{ size: false, created: false, updated: false }} />
+    );
+
+    expect(container.querySelector('.asset-card__header')).toBeNull();
+  });
 });
