@@ -1,0 +1,31 @@
+/*
+ * The asset thumbnail inside the generic table's asset cell. The cell owns
+ * the square frame (border, radius, clipping); these rules only size the
+ * content to fill it. No `margin` (CLAUDE.md) except the explicit PDF-chrome
+ * override below, which removes — not adds — spacing.
+ */
+.asset-thumbnail__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A PDF's first page, fit to the thumbnail's width, top-aligned and clipped. */
+.asset-thumbnail__pdf {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.asset-thumbnail__pdf .pdf-viewer__page {
+  /* Drops the viewer's own page chrome — an override of PdfViewer.css. */
+  margin: 0;
+  box-shadow: none;
+}
+
+.asset-thumbnail__icon {
+  color: var(--foreground-tertiary);
+}

@@ -1,8 +1,9 @@
 /*
- * The generic table cells (CollectionTableHeaderCell / DateCell / AssetCell).
- * Header and Date cells are CollectionEntry and inherit its styling; only the
- * asset thumbnail needs rules of its own. Per CLAUDE.md, no `margin` here —
- * spacing is padding only.
+ * The generic table cells (CollectionTableHeaderCell / DateCell / TextCell /
+ * AssetCell). Header, Date and Text cells are CollectionEntry and inherit its
+ * styling; only the asset thumbnail frame needs rules of its own (what goes
+ * inside it is styled by the asset layer — AssetThumbnail.css). Per
+ * CLAUDE.md, no `margin` here — spacing is padding only.
  */
 :root {
   --collection-table-thumbnail-size: var(--height-lg);
@@ -28,28 +29,6 @@
   border-radius: var(--radius-sm);
   pointer-events: none;
   user-select: none;
-}
-
-.collection-table-cell__thumbnail-image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* A PDF's first page, fit to the thumbnail's width, top-aligned and clipped. */
-.collection-table-cell__thumbnail-pdf {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
-.collection-table-cell__thumbnail-pdf .pdf-viewer__page {
-  /* Drops the viewer's page chrome — an override of PdfViewer.css, not new spacing. */
-  margin: 0;
-  box-shadow: none;
 }
 
 .collection-table-cell__thumbnail-icon {

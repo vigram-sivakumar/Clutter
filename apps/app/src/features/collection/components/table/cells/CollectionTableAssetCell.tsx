@@ -1,58 +1,46 @@
-import { useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { AppIcon } from '@shared/icon';
-import { getResourceIcon } from '@core/presentation/getResourceIcon';
-import type { VaultResourceKind } from '@core/vault/models/VaultResource';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 
-import { AssetPdfPreview } from '../../asset/card/AssetPdfPreview';
 import './CollectionTableCells.css';
 
 export interface CollectionTableAssetCellProps {
-  /** What the asset is — decides how the thumbnail is drawn. */
-  readonly kind: VaultResourceKind;
   /**
-   * The asset's loadable URL (`Application.resolveResourceImageUrl(path)`,
-   * injected by the collection body — this cell never resolves anything).
-   * Absent, the kind's icon is shown instead of a preview.
+   * The thumbnail's content — an image, a rendered PDF page, anything that
+   * fills a small square. The cell draws only the frame around it; what is
+   * shown (and how a failed load degrades) is the caller's concern, so this
+   * cell knows no asset kinds.
    */
-  readonly url?: string;
+  readonly children?: ReactNode;
+  /** Shown inside the frame when there is no `children` (nothing to preview). */
+  readonly fallbackIcon?: SystemIcon;
   /** A column hook, e.g. `collection-table-row__preview`. */
   readonly className?: string;
 }
 
 /**
- * A small, row-height thumbnail of an asset: the image itself (cropped to a
- * square, like a cover), or a PDF's first page through the same lazy pdf.js
- * rendering the asset card uses (`AssetPdfPreview`). Falls back to the kind's
- * icon when there's no URL or the image fails to load. Purely visual
- * (`aria-hidden`) — the row's header cell carries the accessible name.
+ * An asset column's cell: a small, row-height square frame (border, radius,
+ * clipping) holding a thumbnail the caller supplies. Generic — it imports
+ * nothing about images, PDFs or any collection; the asset layer fills the
+ * frame (`AssetThumbnail`). Purely visual (`aria-hidden`) — the row's header
+ * cell carries the accessible name.
  */
-export function CollectionTableAssetCell({ kind, url, className }: CollectionTableAssetCellProps) {
-  const [failed, setFailed] = useState(false);
-  const showsFallback = !url || (kind === 'image' && failed);
-
+export function CollectionTableAssetCell({
+  children,
+  fallbackIcon,
+  className,
+}: CollectionTableAssetCellProps) {
   return (
     <div
       className={['collection-table-cell', 'collection-table-cell--asset', className]
         .filter(Boolean)
         .join(' ')}
-      data-asset-kind={kind}
     >
       <div className="collection-table-cell__thumbnail" aria-hidden="true">
-        {showsFallback ? (
-          <AppIcon className="collection-table-cell__thumbnail-icon" icon={getResourceIcon(kind)} />
-        ) : kind === 'image' ? (
-          <img
-            className="collection-table-cell__thumbnail-image"
-            src={url}
-            alt=""
-            draggable={false}
-            loading="lazy"
-            onError={() => setFailed(true)}
-          />
-        ) : (
-          <AssetPdfPreview url={url} className="collection-table-cell__thumbnail-pdf" />
-        )}
+        {children ??
+          (fallbackIcon && (
+            <AppIcon className="collection-table-cell__thumbnail-icon" icon={fallbackIcon} />
+          ))}
       </div>
     </div>
   );

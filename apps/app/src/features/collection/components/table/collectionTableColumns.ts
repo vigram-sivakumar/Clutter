@@ -11,6 +11,8 @@ export interface CollectionTableColumn {
   readonly width: string;
   /** Extra class(es) for the header cell — a collection's hook for column-specific styling/tests. */
   readonly className?: string;
+  /** Extra class(es) for this column's cell in every row (`CollectionDataTable` applies it) — e.g. `collection-table-row__created`. */
+  readonly cellClassName?: string;
 }
 
 /** The `grid-template-columns` value for a set of columns — what the header and each row apply. */

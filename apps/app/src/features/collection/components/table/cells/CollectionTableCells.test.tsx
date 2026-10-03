@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CollectionTableAssetCell } from './CollectionTableAssetCell';
 import { CollectionTableDateCell } from './CollectionTableDateCell';
 import { CollectionTableHeaderCell } from './CollectionTableHeaderCell';
-
-vi.mock('@features/pdf/usePdfDocument', () => ({
-  usePdfDocument: vi.fn(() => ({ status: 'loading' as const })),
-}));
+import { CollectionTableTextCell } from './CollectionTableTextCell';
 
 afterEach(cleanup);
 
@@ -80,30 +77,48 @@ describe('CollectionTableDateCell', () => {
   });
 });
 
+describe('CollectionTableTextCell', () => {
+  it('renders the value as one muted metadata line, with the column hook', () => {
+    const { container, getByText } = render(
+      <CollectionTableTextCell value="PDF" className="collection-table-row__type" />
+    );
+
+    const cell = container.querySelector('.collection-table-cell--text')!;
+    expect(cell).toHaveClass('collection-entry', 'collection-table-row__type');
+    expect(getByText('PDF').closest('.collection-entry__metadata')).not.toBeNull();
+  });
+
+  it('keeps an empty cell without a value', () => {
+    const { container } = render(<CollectionTableTextCell />);
+    expect(container.querySelector('.collection-table-cell--text .collection-entry__metadata')).toBeNull();
+  });
+});
+
 describe('CollectionTableAssetCell', () => {
-  it('shows an image thumbnail, and falls back to the kind icon when it fails to load', () => {
-    const { container } = render(<CollectionTableAssetCell kind="image" url="app://house.png" />);
+  it('draws a square, aria-hidden frame around whatever thumbnail it is given — and knows no asset kinds', () => {
+    const { container, getByTestId } = render(
+      <CollectionTableAssetCell className="collection-table-row__preview">
+        <img data-testid="thumb" alt="" src="app://x.png" />
+      </CollectionTableAssetCell>
+    );
 
-    const img = container.querySelector('img.collection-table-cell__thumbnail-image')!;
-    expect(img).toHaveAttribute('src', 'app://house.png');
-    expect(container.querySelector('.collection-table-cell__thumbnail')).toHaveAttribute('aria-hidden', 'true');
-
-    fireEvent.error(img);
-    expect(container.querySelector('img')).toBeNull();
-    expect(container.querySelector('.collection-table-cell__thumbnail-icon')).not.toBeNull();
+    const cell = container.querySelector('.collection-table-cell--asset')!;
+    expect(cell).toHaveClass('collection-table-row__preview');
+    const frame = cell.querySelector('.collection-table-cell__thumbnail')!;
+    expect(frame).toHaveAttribute('aria-hidden', 'true');
+    expect(frame).toContainElement(getByTestId('thumb'));
   });
 
-  it('renders a PDF through the shared first-page preview, in the thumbnail wrapper (not the card one)', () => {
-    const { container } = render(<CollectionTableAssetCell kind="pdf" url="app://manual.pdf" />);
+  it('shows the fallback icon only when there is nothing to preview', () => {
+    const empty = render(<CollectionTableAssetCell fallbackIcon="pdf" />);
+    expect(empty.container.querySelector('.collection-table-cell__thumbnail-icon')).not.toBeNull();
+    cleanup();
 
-    expect(container.querySelector('.collection-table-cell__thumbnail-pdf')).not.toBeNull();
-    expect(container.querySelector('.asset-card__pdf')).toBeNull();
-    expect(container.querySelector('[data-asset-kind="pdf"]')).not.toBeNull();
-  });
-
-  it('shows the kind icon when there is no URL', () => {
-    const { container } = render(<CollectionTableAssetCell kind="pdf" />);
-    expect(container.querySelector('.collection-table-cell__thumbnail-icon')).not.toBeNull();
-    expect(container.querySelector('.collection-table-cell__thumbnail-pdf')).toBeNull();
+    const filled = render(
+      <CollectionTableAssetCell fallbackIcon="pdf">
+        <span>preview</span>
+      </CollectionTableAssetCell>
+    );
+    expect(filled.container.querySelector('.collection-table-cell__thumbnail-icon')).toBeNull();
   });
 });
