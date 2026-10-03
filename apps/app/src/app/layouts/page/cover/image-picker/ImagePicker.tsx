@@ -107,15 +107,12 @@ export function ImagePicker({
               }
             >
               <Tab value="upload">
-                <AppIcon icon="uploadImage" />
                 <span>Upload</span>
               </Tab>
               <Tab value="asset">
-                <AppIcon icon="folder" />
                 <span>Asset</span>
               </Tab>
               <Tab value="link">
-                <AppIcon icon="link" />
                 <span>Link</span>
               </Tab>
               <Tab value="unsplash">
