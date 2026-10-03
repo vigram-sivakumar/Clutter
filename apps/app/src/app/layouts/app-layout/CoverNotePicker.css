@@ -3,7 +3,8 @@
   flex-direction: column;
   gap: var(--space-8);
   width: 360px;
-  height: 480px;
+  --cover-note-row: 32px;
+  --cover-note-rows: 8;
   padding: var(--space-12);
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
@@ -17,17 +18,25 @@
   color: var(--foreground-secondary);
   padding-left: var(--space-6);
 }
-/* The inner picker already has its own surface; flatten it into this card.
-   The card has a fixed height, so the picker fills it and only the list scrolls. */
+/* The inner picker already has its own surface; flatten it into this card. */
 .cover-note-picker .folder-picker {
-  flex: 1;
-  min-height: 0;
   padding: 0;
   box-shadow: none;
   background: transparent;
 }
+/* Every row has one fixed height and the list is exactly N rows (plus the gaps
+   between them) tall, so it scrolls in whole rows and never cuts one at the
+   bottom edge. The height is fixed, not a max, so filtering doesn't resize the card. */
+.cover-note-picker .folder-picker__item {
+  box-sizing: border-box;
+  height: var(--cover-note-row);
+  padding-block: 0;
+  align-items: center;
+}
 .cover-note-picker .folder-picker__list {
-  flex: 1;
-  min-height: 0;
+  flex: none;
+  height: calc(
+    var(--cover-note-rows) * var(--cover-note-row) + (var(--cover-note-rows) - 1) * var(--space-1)
+  );
   overflow-y: auto;
 }
