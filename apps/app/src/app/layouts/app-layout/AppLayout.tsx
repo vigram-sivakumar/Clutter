@@ -233,7 +233,10 @@ export function AppLayout({ application }: AppLayoutProps) {
       <ImageOverlay
         image={resourceOverlay?.kind === 'image' ? resourceOverlay.image : null}
         onClose={closeResourceOverlay}
-        onArchiveResource={(id) => void application.resourceOperations.archiveResource(id)}
+        onArchiveResource={(id) => {
+          closeResourceOverlay();
+          void application.resourceOperations.archiveResource(id);
+        }}
         onRevealResourceInFinder={revealResourceInFinder}
         onCopyResourcePath={copyResourcePath}
         onDownloadResource={downloadResourceById}
@@ -261,7 +264,10 @@ export function AppLayout({ application }: AppLayoutProps) {
         resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
         onArchiveResource={
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled
-            ? (id) => void application.resourceOperations.archiveResource(id)
+            ? (id) => {
+                closeResourceOverlay();
+                void application.resourceOperations.archiveResource(id);
+              }
             : undefined
         }
         onRevealResourceInFinder={
