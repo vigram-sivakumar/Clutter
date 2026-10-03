@@ -35,6 +35,8 @@
   inset-inline: 0;
   bottom: 0;
   z-index: 1;
+  /* Reversed: the name (icon + title) is the last line, at the very bottom, under the metadata. The metadata lines keep their own order. */
+  flex-direction: column-reverse;
   padding: var(--space-32) var(--space-6) var(--space-6);
   /*
    * An eased scrim, not a straight two-point ramp: the alpha follows a

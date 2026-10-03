@@ -35,10 +35,10 @@ export interface AssetCardProps {
  * (the Notes Card's geometry and typography — nothing asset-specific restyles
  * them), with the asset-specific media filling the whole card and the title
  * section laid over its bottom edge on a gradient (AssetCard.css) so the text
- * stays readable. The title section is the icon and name,
- * then the file's size and dates, one per line (`assetCardMetadata`), when the
- * vault knows them — never a kind label, since the media already shows what
- * kind it is. Click opens the asset;
+ * stays readable. Its last line is the icon and name; above it, when the
+ * vault knows them, the file's size and dates, one per line
+ * (`assetCardMetadata`) — never a kind label, since the media already shows
+ * what kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
  * actions menu — the asset's actions live in its viewer. The title section can
  * be hidden (`showTitle`), leaving the media to fill the whole card.

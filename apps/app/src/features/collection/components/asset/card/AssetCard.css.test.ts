@@ -71,4 +71,10 @@ describe('AssetCard.css', () => {
     expect(steps[0]!).toBeLessThan(middle);
     expect(steps[steps.length - 1]!).toBeLessThan(middle);
   });
+
+  it('puts the name (the title row) below the metadata', () => {
+    const header = rules.find((candidate) => candidate.selectors.includes('.asset-card__header'))!.body;
+
+    expect(header).toMatch(/flex-direction:\s*column-reverse/);
+  });
 });
