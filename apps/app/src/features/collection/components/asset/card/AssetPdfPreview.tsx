@@ -11,6 +11,12 @@ import { useHasBeenNearViewport } from '../../card/useHasBeenNearViewport';
 export interface AssetPdfPreviewProps {
   /** The resolved, loadable PDF URL (`Application.resolveResourceImageUrl`, the same one the PDF viewer opens). */
   readonly url: string;
+  /**
+   * The wrapper's class — defaults to the card's own `asset-card__pdf`. The
+   * table's asset cell passes its own so the same first-page rendering can be
+   * sized as a thumbnail without inheriting the card's layout.
+   */
+  readonly className?: string;
 }
 
 /** Page 1, fit to the preview's width, through the existing PDF viewer pieces. Mounted only once the card is near the screen. */
@@ -61,7 +67,7 @@ function noop(): void {
  * near the viewport (the shared `useHasBeenNearViewport`). Shows the PDF icon
  * while loading is impossible to render or if the file fails to load.
  */
-export function AssetPdfPreview({ url }: AssetPdfPreviewProps) {
+export function AssetPdfPreview({ url, className = 'asset-card__pdf' }: AssetPdfPreviewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const near = useHasBeenNearViewport(ref);
   const [width, setWidth] = useState(0);
@@ -82,7 +88,7 @@ export function AssetPdfPreview({ url }: AssetPdfPreviewProps) {
   }, []);
 
   return (
-    <div ref={ref} className="asset-card__pdf">
+    <div ref={ref} className={className}>
       {near && <FirstPage url={url} width={width} />}
     </div>
   );
