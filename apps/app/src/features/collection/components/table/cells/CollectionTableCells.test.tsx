@@ -104,7 +104,7 @@ describe('CollectionTableMediaCell', () => {
 
     const cell = container.querySelector('.collection-table-cell--media')!;
     expect(cell).toHaveClass('collection-table-row__preview');
-    const frame = cell.querySelector('.collection-table-cell__thumbnail')!;
+    const frame = cell.querySelector('.collection-media')!;
     expect(frame).toHaveAttribute('aria-hidden', 'true');
     expect(frame).toContainElement(getByTestId('thumb'));
   });

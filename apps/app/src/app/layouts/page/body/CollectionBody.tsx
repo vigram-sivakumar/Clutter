@@ -60,7 +60,7 @@ export interface CollectionPropertyVisibility {
   updated: boolean;
   /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
   archived: boolean;
-  /** Card: show the note's cover image at the top of its preview. Table: show the Cover image column (when the host can change covers). Ignored in List. */
+  /** Card: show the note's cover image at the top of its preview. Table / List: show the Cover image column / media (when the host can change covers). */
   cover: boolean;
   /** Card layout only — show the rendered note content in its preview. Ignored in List/Table. */
   preview: boolean;
@@ -177,7 +177,8 @@ export function sortCollectionEntries(
 }
 
 /**
- * What the Table's Cover image column needs from the host: how to show a
+ * What the Cover image thumbnail (the Table's column, the List's media) needs
+ * from the host: how to show a
  * note's persisted cover, and the three ways to change it (the same writes the
  * note's own page cover uses, keyed by note id). Its presence is the capability
  * gate — absent, the column isn't offered (the Archive, for one).
@@ -226,9 +227,9 @@ export interface CollectionBodyProps {
    */
   previewResolvers?: DocumentPreviewResolvers;
   /**
-   * Table mode's Cover image column: shows each note's cover and opens the
-   * cover picker for that note when its thumbnail is clicked. Absent, the
-   * column isn't offered. Never consulted outside Table mode.
+   * The Cover image thumbnail — a column in Table mode, the trailing media in
+   * List mode: shows each note's cover and opens the cover picker for that note
+   * when it is clicked. Absent, it isn't offered. Never consulted in Card mode.
    */
   noteCover?: NoteCoverActions;
 }
@@ -278,6 +279,15 @@ function renderCreateFolderCard(onCreateFolder: () => void) {
 }
 
 export interface RenderNoteListOptions {
+  /**
+   * Each note's cover thumbnail at the row's trailing end — present only when
+   * the host can change covers (see `NoteCoverActions`); shown while the Cover
+   * image property is on. Same shape the table's Cover image column takes.
+   */
+  coverFor?: (entry: CollectionEntryModel) => {
+    url: string | null;
+    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  };
   /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
   actionsFor?: (entry: CollectionEntryModel) => ReactNode;
   /** The list's trailing "New Note" row's handler; absent, none renders. */
@@ -301,7 +311,7 @@ export interface RenderNoteListOptions {
 export function renderNoteList(
   entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  { actionsFor, onCreateNote }: RenderNoteListOptions = {}
+  { coverFor, actionsFor, onCreateNote }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -314,6 +324,7 @@ export function renderNoteList(
             archived: properties.archived,
           },
           actions: actionsFor?.(entry),
+          cover: properties.cover ? coverFor?.(entry) : undefined,
         })
       )}
       newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
@@ -421,18 +432,24 @@ export function CollectionBody({
   const coverNote = coverNoteId ? notes.find((note) => note.id === coverNoteId) : undefined;
   const closeCoverPicker = () => setCoverNoteId(null);
 
-  const noteSection =
-    viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
-      footer: <NoteTableNewRow onClick={onCreateNote} />,
-      coverFor: noteCover && ((entry) => ({
+  // Each note's cover thumbnail, for the Table's Cover image column and the
+  // List's trailing media alike — one definition, so both behave identically.
+  const coverFor = noteCover
+    ? (entry: CollectionEntryModel) => ({
         // A hidden cover isn't shown anywhere in the collection (the Card
         // view hides it too), so its note reads as having none here.
         url: entry.cover && !entry.coverHidden ? noteCover.resolveUrl(entry.cover) : null,
-        onClick: (event) => {
+        onClick: (event: MouseEvent<HTMLButtonElement>) => {
           coverAnchorRef.current = event.currentTarget;
           setCoverNoteId(entry.id);
         },
-      })),
+      })
+    : undefined;
+
+  const noteSection =
+    viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
+      footer: <NoteTableNewRow onClick={onCreateNote} />,
+      coverFor,
     }) : viewMode === 'card' ? (
       <NoteCardGrid
         onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
@@ -446,6 +463,7 @@ export function CollectionBody({
       </NoteCardGrid>
     ) : renderNoteList(sortedNotes, properties, {
       onCreateNote: sortedNotes.length > 0 ? onCreateNote : undefined,
+      coverFor,
     });
 
   return (
@@ -457,7 +475,7 @@ export function CollectionBody({
         </FolderGrid>
       )}
       {noteSection}
-      {noteCover && viewMode === 'table' && coverNote && (
+      {noteCover && viewMode !== 'card' && coverNote && (
         <CoverPickerOverlay
           open
           onClose={closeCoverPicker}

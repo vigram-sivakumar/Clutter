@@ -247,6 +247,23 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table__new-item')).toBeNull();
   });
 
+  it('List shows each asset\'s preview as the row\'s trailing media, in the same frame the table uses', () => {
+    const { container } = renderAssets({
+      resources: [
+        makeResource({ id: 'house', name: 'house.png', kind: 'image', path: '/vault/Assets/house.png' }),
+        makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf', path: '/vault/Assets/manual.pdf' }),
+      ],
+      viewMode: 'list',
+    });
+
+    const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-list-row')];
+    expect(imageRow!.querySelector('.collection-entry__media .collection-media img')).toHaveAttribute(
+      'src',
+      'app://vault/Assets/house.png'
+    );
+    expect(pdfRow!.querySelector('.collection-entry__media .collection-media .asset-thumbnail__pdf')).not.toBeNull();
+  });
+
   it('Table draws each asset with the generic header, media (thumbnail) and text cells', () => {
     const { container } = renderAssets({
       resources: [
@@ -265,11 +282,11 @@ describe('AssetsCollectionBody — which layout renders', () => {
     }
 
     // The thumbnail is the image itself / a PDF's first page, inside the generic frame.
-    expect(imageRow!.querySelector('.collection-table-cell__thumbnail img')).toHaveAttribute(
+    expect(imageRow!.querySelector('.collection-media img')).toHaveAttribute(
       'src',
       'app://vault/Assets/house.png'
     );
-    expect(pdfRow!.querySelector('.collection-table-cell__thumbnail .asset-thumbnail__pdf')).not.toBeNull();
+    expect(pdfRow!.querySelector('.collection-media .asset-thumbnail__pdf')).not.toBeNull();
   });
 
   it('Table shows the kind icon in the Preview column when there is no URL resolver', () => {
@@ -279,8 +296,8 @@ describe('AssetsCollectionBody — which layout renders', () => {
       resolveResourceUrl: undefined,
     });
 
-    expect(container.querySelector('.collection-table-cell__thumbnail img')).toBeNull();
-    expect(container.querySelector('.collection-table-cell__thumbnail .asset-thumbnail__icon')).not.toBeNull();
+    expect(container.querySelector('.collection-media img')).toBeNull();
+    expect(container.querySelector('.collection-media .asset-thumbnail__icon')).not.toBeNull();
   });
 
   it('Card uses the shared card grid with a dedicated AssetCard per asset', () => {

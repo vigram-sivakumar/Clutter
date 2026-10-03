@@ -19,6 +19,14 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
   descriptionClassName?: string;
   metadata?: ReactNode;
   /**
+   * A thumbnail (`CollectionMedia`) shown at the row's trailing end — after the
+   * title, description and `metadata` (the dates), before `actions` — the List
+   * layout's media slot. Opt-in; absent, the row is exactly as before. The
+   * thumbnail may be a button (its own click never opens the row, same
+   * nested-button guard as `actions`).
+   */
+  media?: ReactNode;
+  /**
    * Hover-gated trailing slot, mirroring Entry's own `.entry__actions`
    * (same opacity/visibility/pointer-events reveal pattern, in
    * CollectionEntry.css) — added for Archive's Restore/Delete row actions,
@@ -54,6 +62,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       description,
       descriptionClassName,
       metadata,
+      media,
       actions,
       stacked = false,
       isSelectable = false,
@@ -188,6 +197,8 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             </div>
           </>
         )}
+
+        {media && <div className="collection-entry__media">{media}</div>}
 
         {actions && <div className="collection-entry__actions">{actions}</div>}
       </div>

@@ -50,7 +50,7 @@ function coverActions(overrides: Partial<NoteCoverActions> = {}): NoteCoverActio
 
 const coverCell = (container: HTMLElement) => container.querySelector('.collection-table-row__cover')!;
 const coverButton = (container: HTMLElement) =>
-  coverCell(container).querySelector<HTMLButtonElement>('button.collection-table-cell__thumbnail')!;
+  coverCell(container).querySelector<HTMLButtonElement>('button.collection-media')!;
 
 describe('CollectionBody — Table: Cover image column', () => {
   it('is a media column after Name, labelled "Cover image", when the host can change covers', () => {
@@ -135,7 +135,7 @@ describe('CollectionBody — Table: Cover image column', () => {
     const spy = vi
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockImplementation(function (this: HTMLElement) {
-        if (this.classList.contains('collection-table-cell__thumbnail')) return rect(200, 600, 30, 30);
+        if (this.classList.contains('collection-media')) return rect(200, 600, 30, 30);
         if (this.classList.contains('overlay__surface')) return rect(0, 0, 320, 300);
         return rect(0, 0, 0, 0);
       });
@@ -220,14 +220,72 @@ describe('CollectionBody — Table: Cover image column', () => {
     }
   });
 
-  it('never renders the column or picker outside Table mode', () => {
-    for (const viewMode of ['list', 'card'] as const) {
+  it('never renders the column or picker in Card mode', () => {
+    const { container } = render(
+      <CollectionBody notes={[noteEntry()]} viewMode="card" noteCover={coverActions()} />
+    );
+    expect(container.querySelector('.collection-table-row__cover, .collection-media')).toBeNull();
+    expect(document.querySelector('.image-picker')).toBeNull();
+  });
+});
+
+describe('CollectionBody — List: Cover image media', () => {
+  const listMedia = (container: HTMLElement) =>
+    container.querySelector<HTMLButtonElement>('.collection-list-row .collection-entry__media button.collection-media')!;
+
+  it('shows each note\'s resolved cover as the row\'s trailing media, framed at its focal point', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[noteEntry({ cover: 'Assets/sea.png', coverPositionAbove: 30 })]}
+        viewMode="list"
+        noteCover={coverActions()}
+      />
+    );
+
+    const img = listMedia(container).querySelector('img')!;
+    expect(img).toHaveAttribute('src', 'app://vault/Assets/sea.png');
+    expect(img.style.objectPosition).toBe('50% 30%');
+    expect(listMedia(container)).toHaveAttribute('aria-label', 'Change cover image');
+  });
+
+  it('shows a plus to add one when the note has no cover, or its cover is hidden', () => {
+    for (const entry of [noteEntry(), noteEntry({ cover: 'Assets/sea.png', coverHidden: true })]) {
       const { container } = render(
-        <CollectionBody notes={[noteEntry()]} viewMode={viewMode} noteCover={coverActions()} />
+        <CollectionBody notes={[entry]} viewMode="list" noteCover={coverActions()} />
       );
-      expect(container.querySelector('.collection-table-row__cover')).toBeNull();
-      expect(document.querySelector('.image-picker')).toBeNull();
+
+      expect(listMedia(container).querySelector('img')).toBeNull();
+      expect(listMedia(container).querySelector('.note-cover-thumbnail__empty')).not.toBeNull();
+      expect(listMedia(container)).toHaveAttribute('aria-label', 'Add cover image');
       cleanup();
     }
+  });
+
+  it('clicking it opens the cover picker for that note — and does not open the note', () => {
+    const onClick = vi.fn();
+    const { container } = render(
+      <CollectionBody notes={[noteEntry({ onClick })]} viewMode="list" noteCover={coverActions()} />
+    );
+
+    fireEvent.click(listMedia(container));
+
+    expect(document.querySelector('.image-picker')).not.toBeNull();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('is not offered without cover support, or when the Cover image property is off', () => {
+    const without = render(<CollectionBody notes={[noteEntry()]} viewMode="list" />);
+    expect(without.container.querySelector('.collection-media')).toBeNull();
+    cleanup();
+
+    const off = render(
+      <CollectionBody
+        notes={[noteEntry()]}
+        viewMode="list"
+        noteCover={coverActions()}
+        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false }}
+      />
+    );
+    expect(off.container.querySelector('.collection-media')).toBeNull();
   });
 });

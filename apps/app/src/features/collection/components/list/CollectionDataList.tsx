@@ -3,6 +3,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import type { SystemIcon } from '@shared/icon';
 
 import type { CollectionRowAttributes } from '../collectionRowAttributes';
+import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionMedia';
 import { CollectionListGrid } from './CollectionListGrid';
 import { CollectionListRow } from './CollectionListRow';
 
@@ -20,6 +21,12 @@ export interface CollectionDataListItem {
   readonly description?: string;
   /** The muted trailing line(s) — dates, a kind label. One entry per value; none renders no metadata at all. */
   readonly metadata?: readonly string[];
+  /**
+   * A thumbnail at the row's trailing end, after the metadata (dates) — the same
+   * frame (`CollectionMedia`) the table's media column draws, so a cover or
+   * preview looks identical in either layout. Absent, the row has no media.
+   */
+  readonly media?: CollectionMediaProps;
   readonly isSelected?: boolean;
   /** Hover-revealed trailing slot (Archive's Restore / Delete). */
   readonly actions?: ReactNode;
@@ -60,6 +67,13 @@ export function CollectionDataList({ items, newItem, ...props }: CollectionDataL
                   <span key={`${index}:${value}`}>{value}</span>
                 ))}
               </>
+            ) : undefined
+          }
+          media={
+            item.media ? (
+              <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
+                {item.media.children}
+              </CollectionMedia>
             ) : undefined
           }
           isSelected={item.isSelected}

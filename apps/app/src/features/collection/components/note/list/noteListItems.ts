@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import { createElement, type MouseEvent, type ReactNode } from 'react';
 
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 import type { CollectionDataListItem } from '../../list/CollectionDataList';
+import { NoteCoverThumbnail } from '../table/NoteCoverThumbnail';
 
 export interface NoteListItemOptions {
   /** Which fields the list shows — an unchecked one is omitted, never a blanked-out but still-fetched value. */
@@ -14,6 +15,17 @@ export interface NoteListItemOptions {
   };
   /** Hover-revealed trailing slot (Archive's Restore / Delete). */
   readonly actions?: ReactNode;
+  /**
+   * The note's cover thumbnail at the row's trailing end — the same one the
+   * table's Cover image column shows. `url` is the cover resolved to a loadable
+   * URL (null: no visible cover → a plus to add one); `onClick` is what the
+   * thumbnail does when clicked (open the cover picker for this note). Absent,
+   * no media.
+   */
+  readonly cover?: {
+    readonly url: string | null;
+    readonly onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  };
 }
 
 /**
@@ -24,7 +36,7 @@ export interface NoteListItemOptions {
  */
 export function toNoteListItem(
   entry: CollectionEntryModel,
-  { show, actions }: NoteListItemOptions
+  { show, actions, cover }: NoteListItemOptions
 ): CollectionDataListItem {
   const metadata = [
     show.created ? entry.created : undefined,
@@ -39,6 +51,14 @@ export function toNoteListItem(
     title: entry.title,
     description: show.description ? entry.description : undefined,
     metadata,
+    media: cover && {
+      children: createElement(NoteCoverThumbnail, {
+        url: cover.url,
+        positionAbove: entry.coverPositionAbove,
+      }),
+      onClick: cover.onClick,
+      label: cover.url ? 'Change cover image' : 'Add cover image',
+    },
     isSelected: entry.selected,
     actions,
     onClick: entry.onClick,

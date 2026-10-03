@@ -147,3 +147,10 @@
 .collection-entry--stacked > .collection-entry__content {
   flex: 1;
 }
+
+/* Trailing media slot (List layout) — sits at the end of the row, after the metadata (dates), before the hover actions. */
+.collection-entry__media {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}

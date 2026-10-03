@@ -1,0 +1,42 @@
+/*
+ * The shared thumbnail frame (CollectionMedia) — used by the table's media
+ * cell and the list's media slot. What goes inside is styled by whoever fills
+ * it (AssetThumbnail.css, NoteCoverThumbnail.css). Per CLAUDE.md, no `margin`
+ * — spacing is padding only.
+ */
+:root {
+  --collection-media-size: var(--height-lg);
+}
+
+.collection-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--collection-media-size);
+  height: var(--collection-media-size);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* A clickable thumbnail (given an onClick): a button that looks like the frame. */
+.collection-media--interactive {
+  appearance: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 120ms ease;
+}
+.collection-media--interactive:hover {
+  background: var(--state-hover-medium);
+}
+.collection-media--interactive:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-inset-focus);
+}

@@ -70,6 +70,41 @@ describe('CollectionDataList', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it('draws an item\'s media in the shared thumbnail frame at the row\'s trailing end, after its metadata (the dates)', () => {
+    const onClick = vi.fn();
+    const rowClick = vi.fn();
+    const { container, getByLabelText } = render(
+      <CollectionDataList
+        items={[
+          item({
+            onClick: rowClick,
+            metadata: ['Today'],
+            actions: <button>Restore</button>,
+            media: { children: <img alt="" src="app://x.png" />, onClick, label: 'Change cover image' },
+          }),
+          item({ id: 'i2', media: { children: <i data-testid="visual" /> } }),
+          item({ id: 'i3' }),
+        ]}
+      />
+    );
+
+    const [withButton, visual, none] = [...container.querySelectorAll('.collection-list-row')];
+    const slot = withButton!.querySelector('.collection-entry__media')!;
+    expect(slot.querySelector('button.collection-media')).toBe(getByLabelText('Change cover image'));
+    expect(withButton!.querySelector('.collection-entry__content')).not.toContainElement(slot as HTMLElement);
+    expect(slot.previousElementSibling).toHaveClass('collection-entry__content');
+    expect(slot.nextElementSibling).toHaveClass('collection-entry__actions');
+
+    // A purely visual thumbnail is hidden from assistive tech; an item without media has no slot.
+    expect(visual!.querySelector('.collection-entry__media .collection-media')).toHaveAttribute('aria-hidden', 'true');
+    expect(none!.querySelector('.collection-entry__media')).toBeNull();
+
+    // Clicking the thumbnail does its own thing — it never opens the row.
+    fireEvent.click(getByLabelText('Change cover image'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(rowClick).not.toHaveBeenCalled();
+  });
+
   it('replaces the title with titleContent (an inline rename editor)', () => {
     const { getByTestId, queryByText } = render(
       <CollectionDataList items={[item({ titleContent: <input data-testid="rename" /> })]} />

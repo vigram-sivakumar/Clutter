@@ -123,6 +123,7 @@ export function AssetsCollectionBody({
       <CollectionDataList
         items={resources.map((resource) =>
           toAssetListItem(resource, {
+            url: resolveResourceUrl?.(resource.path),
             onClick: clickFor(resource),
             titleContent: titleContentFor(resource),
           })
