@@ -187,8 +187,12 @@ async function flush(): Promise<void> {
 }
 
 describe('PageHost: the Assets collection plugs into the standard collection architecture (header controls, List / Table / Card)', () => {
-  function setup(resources: VaultResource[]) {
+  /** `layout`, when given, is saved before the view opens (the default for a first-time user is Card). */
+  function setup(resources: VaultResource[], layout?: 'list' | 'table' | 'card') {
     const application = makeApplication(buildNotePage('x'), resources);
+    if (layout) {
+      application.collectionViewConfigStore.update('view:assets', { layout });
+    }
     application.navigation.openAssets();
     return application;
   }
@@ -224,8 +228,16 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
   };
 
-  it('defaults to the shared List — the same list rows notes use', async () => {
+  it('opens in Card for a first-time user (nothing saved), on the shared card grid', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
+    await flush();
+
+    expect(document.querySelectorAll('.collection-card-grid > .asset-card')).toHaveLength(2);
+    expect(document.querySelector('.collection-list-grid, .collection-table')).toBeNull();
+  });
+
+  it('a saved List is honoured over the default — the shared list rows notes use', async () => {
+    render(<AppLayout application={setup([image(), pdf()], 'list')} />);
     await flush();
 
     expect(document.querySelectorAll('.collection-list-grid > .collection-list-row')).toHaveLength(2);
@@ -322,7 +334,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
   });
 
   it('F2 on a focused row renames it through ResourceOperations — the same rename the sidebar uses', async () => {
-    const application = setup([image()]);
+    const application = setup([image()], 'list');
     const rename = vi.spyOn(application.resourceOperations, 'renameResource').mockResolvedValue(undefined as never);
     render(<AppLayout application={application} />);
     await flush();
@@ -340,10 +352,13 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
   });
 
   it('Sort by works through the standard menu: Type reorders the items and the choice is persisted under the Assets key', async () => {
-    const application = setup([
-      makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', path: `${ROOT}/alpha.pdf` }),
-      makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', path: `${ROOT}/beta.png` }),
-    ]);
+    const application = setup(
+      [
+        makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', path: `${ROOT}/alpha.pdf` }),
+        makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', path: `${ROOT}/beta.png` }),
+      ],
+      'list'
+    );
     render(<AppLayout application={application} />);
     await flush();
 
@@ -360,10 +375,13 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
   });
 
   it('a persisted sort Assets do not offer (a date) falls back to Name', async () => {
-    const application = setup([
-      makeResource({ id: 'img-z', kind: 'image', name: 'zeta.png', path: `${ROOT}/zeta.png` }),
-      makeResource({ id: 'img-a', kind: 'image', name: 'alpha.png', path: `${ROOT}/alpha.png` }),
-    ]);
+    const application = setup(
+      [
+        makeResource({ id: 'img-z', kind: 'image', name: 'zeta.png', path: `${ROOT}/zeta.png` }),
+        makeResource({ id: 'img-a', kind: 'image', name: 'alpha.png', path: `${ROOT}/alpha.png` }),
+      ],
+      'list'
+    );
     application.collectionViewConfigStore.update('view:assets', { sort: { key: 'updated', direction: 'up' } });
     render(<AppLayout application={application} />);
     await flush();

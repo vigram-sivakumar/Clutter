@@ -34,14 +34,22 @@ describe('AssetCard', () => {
     expect(container.querySelector('.note-card, .note-card__header, .document-preview')).toBeNull();
   });
 
-  it('shows the asset name (extension-free) and its kind', () => {
-    const { getByText } = render(<AssetCard resource={image()} url="app://house.png" />);
+  it('shows the asset name (extension-free) and no kind/type label — the header is just the icon and name', () => {
+    const { getByText, queryByText, container } = render(<AssetCard resource={image()} url="app://house.png" />);
 
     expect(getByText('house')).toBeInTheDocument();
-    expect(getByText('Image')).toBeInTheDocument();
+    expect(queryByText('Image')).toBeNull();
+    expect(container.querySelector('.collection-entry__metadata')).toBeNull();
   });
 
-  it('an image asset renders its image from the url it is given — fitted, never cropped (contain), with no alt noise', () => {
+  it('a PDF card has no type label either', () => {
+    const { queryByText, container } = render(<AssetCard resource={pdf()} url="app://manual.pdf" />);
+
+    expect(queryByText('PDF')).toBeNull();
+    expect(container.querySelector('.collection-entry__metadata')).toBeNull();
+  });
+
+  it('an image asset renders its image from the url it is given (as a cover-style fill, styled in AssetCard.css), with no alt noise', () => {
     const { container } = render(<AssetCard resource={image()} url="app://vault/house.png" />);
 
     const img = container.querySelector<HTMLImageElement>('.asset-card__image')!;
@@ -84,5 +92,13 @@ describe('AssetCard', () => {
 
     expect(container.querySelector('button, [aria-haspopup]')).toBeNull();
     expect(container.querySelector('.note-card__cover, .document-preview__canvas')).toBeNull();
+  });
+
+  it('puts the asset first and the header (icon + name) below it', () => {
+    const { container } = render(<AssetCard resource={image()} url="x" />);
+
+    const [first, second] = [...container.querySelector('.asset-card')!.children];
+    expect(first).toHaveClass('asset-card__preview');
+    expect(second).toHaveClass('asset-card__header');
   });
 });

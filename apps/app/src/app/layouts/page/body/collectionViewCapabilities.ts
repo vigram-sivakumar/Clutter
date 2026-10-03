@@ -31,14 +31,15 @@ export const NOTE_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
 };
 
 /**
- * Assets: the same three layouts notes have (List, Table, Card), defaulting to
- * List. No Properties — a resource carries only its kind, name and path, so
+ * Assets: the same three layouts notes have (List, Table, Card), opening in
+ * Card for anyone who hasn't chosen otherwise (a collection's first-time
+ * default; once a layout is picked it is persisted and wins). No Properties — a resource carries only its kind, name and path, so
  * there are no fields to toggle. Sort by offers the two things an asset has:
  * its Name and its Type.
  */
 export const ASSET_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   layouts: ['list', 'table', 'card'],
-  defaultLayout: 'list',
+  defaultLayout: 'card',
   properties: false,
   sortKeys: ['name', 'type'],
 };

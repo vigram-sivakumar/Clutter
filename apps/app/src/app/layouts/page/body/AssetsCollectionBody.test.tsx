@@ -82,8 +82,8 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     expect(container.querySelectorAll(ITEM_SELECTOR[viewMode])).toHaveLength(0);
   });
 
-  it('labels each item by kind', () => {
-    renderAssets({
+  it('labels each item by kind in List and Table (the card has no type label — its preview shows the kind)', () => {
+    const { container } = renderAssets({
       resources: [
         makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
         makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' }),
@@ -91,6 +91,12 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
       viewMode,
     });
 
+    if (viewMode === 'card') {
+      expect(container.querySelector('.collection-entry__metadata')).toBeNull();
+      expect(screen.queryByText('Image')).toBeNull();
+      expect(screen.queryByText('PDF')).toBeNull();
+      return;
+    }
     expect(screen.getByText('Image')).toBeInTheDocument();
     expect(screen.getByText('PDF')).toBeInTheDocument();
   });
@@ -257,7 +263,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
 });
 
 describe('AssetsCollectionBody — Card previews', () => {
-  it('an image card shows the resolved image (existing resolver) fitted in its area', () => {
+  it('an image card shows the resolved image (existing resolver), filling its area like a cover', () => {
     const { container } = renderAssets({
       resources: [makeResource({ id: 'house', name: 'house.png', path: '/vault/house.png' })],
       viewMode: 'card',

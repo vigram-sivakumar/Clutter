@@ -1,16 +1,31 @@
 /*
- * The asset-specific part of a card; the shell (surface, border, padding, gap,
- * fixed shape) and the stacked header are shared (CollectionCard.css,
- * CollectionEntry.css). The preview fills what the header leaves, so every
- * card is the same height.
+ * The asset-specific part of a card. It reuses the shared card shell's layout
+ * (the fixed 3:4 shape, the stacked header, the gap — CollectionCard.css,
+ * CollectionEntry.css) but not its look: an asset card has no surface, no
+ * border and no padding of its own — the asset is what has the border.
+ *
+ * Everything here is scoped to `.asset-card…`; the shared-shell overrides use
+ * `.collection-card.asset-card` so they win over `.collection-card` whatever the
+ * stylesheet order, and can never reach a note card.
  */
+.collection-card.asset-card {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.collection-card.asset-card:hover,
+.collection-card.asset-card.collection-card--selected {
+  background: none;
+}
+
+/* The asset itself carries the border (a card has none), flush with the card's edges. */
 .asset-card__preview {
   flex: 1 1 0;
   min-height: 0;
-  /* Same 4px inline inset as the note card's sections: lines the preview up under the header icon glyph. */
-  margin-inline: var(--space-4);
+  margin-inline: 0;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,12 +33,16 @@
   user-select: none;
 }
 
-/* The image, fitted into the area with its aspect ratio preserved (never cropped, never stretched). */
+/*
+ * The image behaves like a cover image: it fills the whole preview area and
+ * crops to fit (object-fit: cover, centered) — the area's shape wins, the
+ * image's own aspect ratio does not.
+ */
 .asset-card__image {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* A PDF's first page, top-aligned and clipped by the preview area (the page is taller than it). */

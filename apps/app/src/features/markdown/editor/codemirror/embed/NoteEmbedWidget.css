@@ -240,7 +240,7 @@
  * ancestor check.
  */
 .cm-content[contenteditable='false'] .cm-note-embed__content {
-  padding-left: 0px;
+  padding: 0;
   /* Resets the base rule's own `margin-bottom` for the nested case —
      overriding via higher specificity only affects properties actually
      re-declared here; anything not repeated (like margin-bottom would be

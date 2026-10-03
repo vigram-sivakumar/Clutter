@@ -19,10 +19,12 @@ describe('collection view capabilities', () => {
     });
   });
 
-  it('assets support the same three layouts as notes (Card is registered through the same layout list), default to List, with nothing to configure', () => {
+  it('assets support the same three layouts as notes (Card is registered through the same layout list), open in Card by default, and have nothing to toggle', () => {
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.layouts).toEqual(NOTE_COLLECTION_VIEW_CAPABILITIES.layouts);
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.layouts).toEqual(['list', 'table', 'card']);
-    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('list');
+    // First-time default: Card (notes still default to Table).
+    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('card');
+    expect(NOTE_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('table');
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.properties).toBe(false);
     // Sort by offers the two things an asset has.
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.sortKeys).toEqual(['name', 'type']);
@@ -31,13 +33,14 @@ describe('collection view capabilities', () => {
   it('resolveSupportedLayout keeps a supported persisted layout and otherwise returns the default', () => {
     expect(resolveSupportedLayout('card', ASSET_COLLECTION_VIEW_CAPABILITIES)).toBe('card');
     expect(resolveSupportedLayout('table', ASSET_COLLECTION_VIEW_CAPABILITIES)).toBe('table');
-    expect(resolveSupportedLayout(undefined, ASSET_COLLECTION_VIEW_CAPABILITIES)).toBe('list');
+    expect(resolveSupportedLayout(undefined, ASSET_COLLECTION_VIEW_CAPABILITIES)).toBe('card');
+    expect(resolveSupportedLayout('list', ASSET_COLLECTION_VIEW_CAPABILITIES)).toBe('list');
     expect(resolveSupportedLayout('table', NOTE_COLLECTION_VIEW_CAPABILITIES)).toBe('table');
     expect(resolveSupportedLayout(undefined, NOTE_COLLECTION_VIEW_CAPABILITIES)).toBe('table');
 
     // A collection that doesn't offer a layout falls back to its default for it.
     const listAndCardOnly = { ...ASSET_COLLECTION_VIEW_CAPABILITIES, layouts: ['list', 'card'] as const };
-    expect(resolveSupportedLayout('table', listAndCardOnly)).toBe('list');
+    expect(resolveSupportedLayout('table', listAndCardOnly)).toBe('card');
   });
 
   it('resolveSupportedSort keeps a sort the collection offers and otherwise falls back', () => {
