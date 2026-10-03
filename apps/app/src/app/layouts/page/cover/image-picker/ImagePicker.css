@@ -60,5 +60,4 @@
   line-height: var(--lh-label-small);
   color: var(--foreground-tertiary);
   text-align: center;
-  opacity: var(--opacity-medium);
 }
