@@ -140,6 +140,14 @@ interface DraftDescriptor {
   readonly type: PageType;
   readonly title?: string;
   readonly deterministicPath?: string;
+  /**
+   * Tags the draft should carry once promoted (e.g. "new note" from a tag's
+   * collection page). Held in memory only — written into the first
+   * frontmatter by persistDraft() — so the draft stays a draft (and is
+   * discarded if abandoned empty) instead of being promoted by a metadata
+   * edit. An explicit `tags` in a promoting updateMetadata() patch wins.
+   */
+  readonly tags?: readonly string[];
 }
 
 /**
@@ -496,13 +504,17 @@ export class PageOperations {
    * Note draft is ever opened.
    */
   public async openDraft(
-    options: CreatePageOptions & { readonly type?: PageType }
+    options: CreatePageOptions & {
+      readonly type?: PageType;
+      readonly tags?: readonly string[];
+    }
   ): Promise<string> {
     return this.acquireDraft(
       {
         folderId: options.folderId,
         type: options.type ?? 'note',
         title: options.title,
+        tags: options.tags,
       },
       false
     );
@@ -2003,11 +2015,15 @@ export class PageOperations {
           descriptor.title ?? 'Untitled'
         );
 
+    const effectivePatch: Partial<EditablePageMetadata> | undefined = descriptor.tags
+      ? { tags: descriptor.tags, ...metadataPatch }
+      : metadataPatch;
+
     const content = this.pageCreator.buildContent(
       id,
       descriptor.type,
       body,
-      metadataPatch ? this.toFrontmatterMetadataPatch(metadataPatch) : undefined
+      effectivePatch ? this.toFrontmatterMetadataPatch(effectivePatch) : undefined
     );
 
     const result = await this.coordinator.enqueue(id, {

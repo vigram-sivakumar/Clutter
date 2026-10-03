@@ -225,6 +225,22 @@ describe('PageOperations: only one unsaved draft can exist', () => {
   });
 });
 
+describe('PageOperations: a draft opened with tags', () => {
+  it('stays an unpersisted draft until it has content, then persists with the tags', async () => {
+    const { pageOperations, vault, draftCount } = setup();
+
+    const id = await pageOperations.openDraft({ folderId: null, tags: ['work'] });
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(draftCount()).toBe(1);
+
+    pageOperations.commitEdit(id, 'Real content');
+    await pageOperations.openDraft({ folderId: null });
+
+    expect(vault.getPage(id)?.metadata.tags).toEqual(['work']);
+  });
+});
+
 describe('PageOperations: navigating away from the single draft', () => {
   it('an empty draft is retargeted — same id, nothing persisted', async () => {
     const { pageOperations, vault, documentRegistry } = setup();
