@@ -6,6 +6,8 @@ export interface CollectionCardProps extends Omit<HTMLAttributes<HTMLDivElement>
   isSelected?: boolean;
   /** Drops the fixed card shape: the card is only as tall as its content. */
   compact?: boolean;
+  /** Drops the card's padding and gap: a section can run to the card edge, and sections that want inset provide their own padding. */
+  flush?: boolean;
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
@@ -19,7 +21,7 @@ export interface CollectionCardProps extends Omit<HTMLAttributes<HTMLDivElement>
  */
 export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(
   function CollectionCard(
-    { isSelected = false, compact = false, onClick, className, children, ...props },
+    { isSelected = false, compact = false, flush = false, onClick, className, children, ...props },
     ref
   ) {
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -40,6 +42,7 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(
         className={[
           'collection-card',
           compact && 'collection-card--compact',
+          flush && 'collection-card--flush',
           isSelected && 'collection-card--selected',
           className,
         ]

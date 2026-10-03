@@ -38,6 +38,7 @@ export function AssetCard({ resource, url, isSelected = false, onClick, titleCon
     <CollectionCard
       data-resource-id={resource.id}
       className="asset-card"
+      flush
       isSelected={isSelected}
       onClick={onClick ? () => onClick(resource) : undefined}
     >

@@ -5,11 +5,15 @@
  * them. Everything is scoped to `.asset-card__…`.
  */
 
-/* The media fills what the title section leaves of the fixed card shape, inset 4px to line up with the icon glyph of the title below it. */
+/* The card is flush (no padding), so the title section carries the card's 6px inset itself. */
+.asset-card__header {
+  padding: var(--space-6);
+}
+
+/* The media fills what the title section leaves of the fixed card shape, flush to the card's top and side edges (the card clips it to its rounded corners). */
 .asset-card__media {
   flex: 1 1 0;
   min-height: 0;
-  padding-inline: var(--space-4);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -28,7 +32,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-sm);
 }
 
 /* A PDF's first page, top-aligned and clipped by the preview area (the page is taller than it). */

@@ -11,7 +11,7 @@ export interface AssetMediaProps {
 /**
  * An asset's media region: the image (filling the area and cropping, as a
  * cover) or a PDF's first page. Asset-specific; the card geometry around it
- * (padding, gap, the 4px inset under the title icon) comes from the shared card
+ * (shape, surface) comes from the shared card
  * system and AssetCard.css.
  */
 export function AssetMedia({ kind, url }: AssetMediaProps) {

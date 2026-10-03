@@ -46,6 +46,12 @@
   aspect-ratio: auto;
 }
 
+/* No card padding or gap: a section (e.g. an asset's media) runs flush to the card edge, which clips it to the rounded corners; sections that want inset carry their own padding. */
+.collection-card--flush {
+  padding: 0;
+  gap: 0;
+}
+
 /* A collection entry used as a card's header (stacked layout) has no padding of its own: the card provides it. */
 .collection-card > .collection-entry {
   padding: 0;
