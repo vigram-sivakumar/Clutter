@@ -166,9 +166,21 @@ export class EffectivePageState {
    * resolve()-through-EffectivePage shape, for the same reason.
    */
   public getPagesByFrontmatterTag(name: string): EffectivePage[] {
-    return this.query
+    const durableIds = this.query
       .getPagesByFrontmatterTag(name)
-      .map((page) => this.resolve(page.id))
+      .map((page) => page.id);
+
+    // An open, not-yet-promoted draft opened with this tag (a tag's "new
+    // note") is shown under it too, same append-after-durable shape
+    // getChildPages() uses — it vanishes with the draft if abandoned.
+    const draftOnlyIds = this.workspace.openPages.filter(
+      (id) =>
+        !this.vault.getPage(id) &&
+        (this.pageOperations.getDraft(id)?.tags ?? []).includes(name)
+    );
+
+    return [...durableIds, ...draftOnlyIds]
+      .map((id) => this.resolve(id))
       .filter((entry): entry is EffectivePage => entry !== undefined);
   }
 

@@ -1,4 +1,5 @@
 import type { PageOperations } from '@core/application/page/PageOperations';
+import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 
 /**
  * "New note in this tag": the Tags sidebar row's "+" and the tag
@@ -13,7 +14,11 @@ import type { PageOperations } from '@core/application/page/PageOperations';
  */
 export async function createNoteForTag(
   pageOperations: PageOperations,
+  tagExpansionStore: TagExpansionStore,
   tagName: string
 ): Promise<void> {
+  // The draft is listed under its tag in the Tags sidebar (EffectivePageState.
+  // getPagesByFrontmatterTag), so expand the tag to make that visible.
+  tagExpansionStore.expand(tagName);
   await pageOperations.openDraft({ folderId: null, tags: [tagName] });
 }

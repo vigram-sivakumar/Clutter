@@ -140,6 +140,10 @@ export function Tags({
         onOpenTag: (name) => navigation.openTag(name),
         onOpenNoteEntry,
         onOpenContextEntry,
+        onOpenDraftEntry: (pageId) => {
+          setDirectlyOpenedNoteId(pageId);
+          workspace.openPage(pageId);
+        },
         directlyOpenedNoteId,
         vault,
         tagExpansionStore,
@@ -148,7 +152,7 @@ export function Tags({
         noteRowActions,
         onRevealInNotesSidebar,
         onCreateNoteForTag: (tagName) =>
-          void createNoteForTag(pageOperations, tagName),
+          void createNoteForTag(pageOperations, tagExpansionStore, tagName),
         resolveWikiLink,
         resolveTag,
         resolveEmbed,

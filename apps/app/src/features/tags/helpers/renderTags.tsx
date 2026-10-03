@@ -110,6 +110,13 @@ interface RenderTagsOptions {
    * optional action here.
    */
   onCreateNoteForTag?(tagName: string): void;
+  /**
+   * Re-selects an unpersisted draft listed under a tag (a tag's "new
+   * note") — a draft has no Vault entry, so onOpenNoteEntry's
+   * PageOperations.open() can't reach it (same split as FolderTree's
+   * onDraftPageClick).
+   */
+  onOpenDraftEntry?(pageId: string): void;
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
@@ -186,6 +193,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     noteRowActions,
     onRevealInNotesSidebar,
     onCreateNoteForTag,
+    onOpenDraftEntry,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -197,7 +205,10 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
   // A tag with zero occurrences has nothing to expand into — same
   // "isEmpty forces the caret collapsed" rule as Folder's own isEmpty,
   // and avoids ever querying getPagesByTag for a tag that can't have any.
-  const isEmpty = tag.usageCount === 0;
+  const hasDraft = effectivePageState
+    .getPagesByFrontmatterTag(tag.name)
+    .some((note) => note.isDraft);
+  const isEmpty = tag.usageCount === 0 && !hasDraft;
   const isExpanded = isEmpty ? false : tagExpansionStore.isExpanded(tag.name);
   // Only resolved while actually expanded — satisfies "don't parse/query
   // every note repeatedly every time a tag is expanded" by not querying
@@ -264,19 +275,16 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                 // See PageEntry's own highlightActive doc comment.
                 highlightActive={directlyOpenedNoteId === note.id}
                 onPageClick={onOpenNoteEntry}
-                // getPagesByFrontmatterTag/getPagesByTag are both
-                // durable-only (see their own doc comments) — a note
-                // reached from here is never a draft, so this branch is
-                // provably unreachable, same as PageEntry's own callers
-                // that guard entry.isDraft before choosing which handler
-                // to call.
-                onDraftPageClick={() => {}}
-                rowActions={noteRowActions}
+                // A draft appears here only via getPagesByFrontmatterTag's
+                // open-draft append; it has no Vault page, so it gets the
+                // draft re-select handler and no note actions.
+                onDraftPageClick={(id) => onOpenDraftEntry?.(id)}
+                rowActions={note.isDraft ? undefined : noteRowActions}
                 resolveWikiLink={resolveWikiLink}
                 resolveTag={resolveTag}
                 resolveEmbed={resolveEmbed}
                 extraMenuItems={
-                  onRevealInNotesSidebar
+                  onRevealInNotesSidebar && !note.isDraft
                     ? [
                         {
                           id: REVEAL_IN_NOTES_SIDEBAR_ITEM_ID,
@@ -287,7 +295,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                     : undefined
                 }
                 onExtraMenuSelect={
-                  onRevealInNotesSidebar
+                  onRevealInNotesSidebar && !note.isDraft
                     ? (id) => {
                         if (id === REVEAL_IN_NOTES_SIDEBAR_ITEM_ID) {
                           onRevealInNotesSidebar(note.id);

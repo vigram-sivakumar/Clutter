@@ -127,6 +127,13 @@ export class TagExpansionStore {
     void this.persist();
   }
 
+  /** Expands `tagName`; a no-op (no notify, no persist) if already expanded. */
+  expand(tagName: string): void {
+    if (!this.expandedTagNames.has(tagName)) {
+      this.toggleExpanded(tagName);
+    }
+  }
+
   /**
    * Moves `oldName`'s expanded state to `newName` — the tag-rename
    * integration point `TagOperations.rename()` calls alongside

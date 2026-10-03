@@ -1418,7 +1418,11 @@ export function PageHost({
       view.kind === 'workspace'
         ? () => void application.pageOperations.openDraft({ folderId: null })
         : view.kind === 'tag'
-          ? () => void createNoteForTag(application.pageOperations, view.tagName)
+          ? () => void createNoteForTag(
+                application.pageOperations,
+                application.tagExpansionStore,
+                view.tagName
+              )
           : undefined;
     // Title-adjacent "New" action.
     const newNoteAction = onCreateNote ? (

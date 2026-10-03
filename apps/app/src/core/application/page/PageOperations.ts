@@ -121,6 +121,8 @@ export interface DraftInfo {
   readonly folderId: string | null;
   readonly type: PageType;
   readonly title?: string;
+  /** Tags the draft will carry once promoted — see DraftDescriptor.tags. */
+  readonly tags?: readonly string[];
 }
 
 /**

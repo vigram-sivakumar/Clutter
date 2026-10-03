@@ -115,7 +115,10 @@ function extraPanelProps() {
   return {
     pageOperations: { open: vi.fn() } as unknown as PageOperations,
     folderOperations: { create: vi.fn() } as unknown as FolderOperations,
-    effectivePageState: { getPagesByTag: () => [] } as unknown as EffectivePageState,
+    effectivePageState: {
+      getPagesByTag: () => [],
+      getPagesByFrontmatterTag: () => [],
+    } as unknown as EffectivePageState,
     membershipSelector: {
       vaultRoot: '/vault',
       getWorkspaceFolders: () => [],

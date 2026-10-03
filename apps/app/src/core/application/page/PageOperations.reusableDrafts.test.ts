@@ -239,6 +239,20 @@ describe('PageOperations: a draft opened with tags', () => {
 
     expect(vault.getPage(id)?.metadata.tags).toEqual(['work']);
   });
+
+  it('is listed under its tag by EffectivePageState while a draft, and gone once abandoned empty', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const id = await pageOperations.openDraft({ folderId: null, tags: ['work'] });
+
+    expect(effectivePageState.getPagesByFrontmatterTag('work').map((p) => p.id)).toEqual([id]);
+    expect(effectivePageState.getPagesByFrontmatterTag('other')).toEqual([]);
+
+    // Retargeting the empty draft (no tags) replaces the descriptor.
+    await pageOperations.openDraft({ folderId: null });
+
+    expect(effectivePageState.getPagesByFrontmatterTag('work')).toEqual([]);
+  });
 });
 
 describe('PageOperations: navigating away from the single draft', () => {
