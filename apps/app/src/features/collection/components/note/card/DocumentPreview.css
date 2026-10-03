@@ -1,0 +1,383 @@
+/*
+ * The card's content section: a fixed document canvas seen through this
+ * viewport. No padding of its own beyond a 4px inline inset (it lines the text
+ * up under the header's icon glyph, like the metadata line and the cover): the card
+ * owns the padding around and the gap between its header and this. Its size
+ * is whatever the card (a fixed-ratio box, NoteCardGrid.css) has left — never
+ * the document — so a short and a very long note occupy identical boxes.
+ * Everything that leaves the box is clipped.
+ */
+.document-preview {
+  position: relative;
+  width: 100%;
+  /* Fills what's left of the card's fixed shape (a flex child of .note-card), so every card is the same height. */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding-inline: var(--space-4);
+
+  /* No background of its own: the card's surface shows through. */
+  /* Header/preview divider hidden on purpose (try-out) — restore `border-top: 1px solid var(--border-default)` to bring it back. */
+
+  /*
+   * Bottom fade. A mask (not an overlay colored like the card) so it fades
+   * to whatever the card surface is — the card's background is translucent,
+   * so a solid gradient could never match it.
+   */
+  --document-preview-fade: 56px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--document-preview-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--document-preview-fade)),
+    transparent
+  );
+}
+
+/*
+ * The canvas: ALWAYS --note-card-canvas-width wide (a fixed layout width,
+ * never a percentage of the card), so the Markdown lays out identically —
+ * same line breaks, same block heights — at every card size. The card width
+ * only changes the scale:
+ *
+ *   scale = (width available to the content) / canvas width
+ *
+ * measured in JS and set inline as `--document-preview-scale` (a plain number
+ * — see useCanvasScale for why it is not CSS math). `transform` doesn't change
+ * layout size, so the viewport's `overflow: hidden` clips the scaled canvas
+ * rather than anything reflowing. Inert: the card is the only click target.
+ */
+.document-preview__canvas {
+  width: var(--note-card-canvas-width);
+  /* --document-preview-scale is a plain number set inline from the measured viewport width (DocumentPreview.tsx). */
+  transform: scale(var(--document-preview-scale, 1));
+  transform-origin: top left;
+
+  pointer-events: none;
+  user-select: none;
+
+  /*
+   * Block spacing scale, in document pixels (the surface is scaled, so these
+   * shrink with it). Owned by the preview — not the editor's separator
+   * algorithm. Sibling vertical margins collapse, so the gap between two
+   * blocks is the larger of the two margins: that is what makes
+   * "paragraph -> list" a md gap and "paragraph -> code" a lg gap without
+   * any per-pair rules.
+   */
+  --document-preview-space-sm: var(--space-12);
+  --document-preview-space-md: var(--space-20);
+  --document-preview-space-lg: var(--space-28);
+  /* Gap between list items (and lines within one) — 0: the 1.5 line height alone separates rows. Raise to open lists up. */
+  --document-preview-list-item-gap: 0px;
+
+  font-family: var(--font-sans);
+  font-size: var(--cm-content);
+  line-height: var(--lh-cm-content);
+  color: var(--foreground-primary);
+}
+
+.document-preview__body {
+  margin-top: var(--document-preview-section-gap);
+}
+
+.document-preview__body {
+  /* No padding: the card owns it. */
+  overflow-wrap: anywhere;
+}
+
+/* ---- Block structure (markdown/render/renderMarkdownBlocks.tsx) ---- */
+
+/* paragraph -> paragraph: small gap. */
+.document-preview .markdown-blocks__paragraph {
+  margin-block: var(--document-preview-space-sm);
+}
+/* A paragraph's soft line breaks: one line per source line, as in the note. */
+.document-preview .markdown-blocks__line {
+  display: block;
+}
+.document-preview .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: var(--document-preview-space-sm);
+}
+/* Soft line breaks inside a quote stay tight (the editor keeps contiguous quote lines gapless so the bar is unbroken), and inside list items they use the item gap. */
+.document-preview .markdown-blocks__quote .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: 0;
+}
+.document-preview .markdown-blocks__list-item .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: var(--document-preview-list-item-gap);
+}
+/* image -> surrounding content: larger gap. */
+.document-preview .markdown-blocks__paragraph:has(> .compact-markdown-image) {
+  margin-block: var(--document-preview-space-lg);
+}
+
+.document-preview .markdown-blocks__heading {
+  /* heading -> content and heading -> heading: moderate gap. */
+  margin-block: var(--document-preview-space-md);
+  font-weight: var(--fw-bold);
+  color: var(--foreground-primary);
+}
+.document-preview h1 {
+  font-size: var(--text-heading-1);
+  line-height: var(--lh-heading-1);
+}
+.document-preview h2 {
+  font-size: var(--text-heading-2);
+  line-height: var(--lh-heading-2);
+}
+.document-preview h3 {
+  font-size: var(--text-heading-3);
+  line-height: var(--lh-heading-3);
+}
+.document-preview h4 {
+  font-size: var(--text-heading-4);
+  line-height: var(--lh-heading-4);
+}
+.document-preview h5 {
+  font-size: var(--text-heading-5);
+  line-height: var(--lh-heading-5);
+}
+.document-preview h6 {
+  font-size: var(--text-heading-6);
+  line-height: var(--lh-heading-6);
+}
+.document-preview .markdown-blocks__list {
+  /* list -> surrounding content: moderate gap. */
+  margin-block: var(--document-preview-space-md);
+  padding-inline-start: var(--space-24);
+}
+/*
+ * Unordered lists draw their own dot (the native marker can be neither
+ * measured nor positioned) so it shares one gutter column with the task
+ * checkbox: both are centered at half the list's 24px padding, i.e. 12px
+ * left of the item's content edge. Ordered lists keep their native numbers.
+ */
+.document-preview ul.markdown-blocks__list:not(.markdown-blocks__list--emoji) > .markdown-blocks__list-item {
+  list-style: none;
+  position: relative;
+}
+.document-preview
+  ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
+  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)::before {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  inset-inline-start: calc(-1 * var(--space-12) - 2.5px);
+  /* Vertically centered on the item's first line. */
+  top: calc((1lh - 5px) / 2);
+}
+.document-preview .markdown-blocks__list--emoji {
+  list-style: none;
+  padding-inline-start: 0;
+}
+/*
+ * Adjacent unordered lists read as one: `-`, `*` and `+` (and task items,
+ * which are bullet items too) parse as separate lists, but in a note they
+ * look like a single run — so no block gap between them, just the gap
+ * between items.
+ */
+.document-preview ul.markdown-blocks__list + ul.markdown-blocks__list {
+  margin-top: var(--document-preview-list-item-gap);
+}
+.document-preview .markdown-blocks__list-item + .markdown-blocks__list-item {
+  margin-top: var(--document-preview-list-item-gap);
+}
+/* Everything inside a list item (its paragraph, a nested list) hugs the item. */
+.document-preview .markdown-blocks__list-item > * {
+  margin-block: 0;
+}
+.document-preview .markdown-blocks__list-item > * + * {
+  margin-top: var(--document-preview-list-item-gap);
+}
+
+.document-preview .markdown-blocks__list-item--task {
+  /*
+   * The checkbox is the marker: no bullet dot, and the 16px box is centered
+   * on the same gutter column the dot uses (24px padding - 20px = box left at
+   * 4px, so its center is at 12px, matching the dot's).
+   */
+  list-style: none;
+  margin-inline-start: calc(-1 * var(--space-20));
+}
+
+.document-preview .markdown-blocks__task-box {
+  /* Same glyph geometry as the editor's task checkbox (16px circle). */
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  /* Clear gap between the circle and the text (the editor's `gap - 5px` offsets its wider button box, not a bare glyph — it computes negative here). */
+  margin-inline-end: var(--space-8);
+  vertical-align: -0.2em;
+  flex-shrink: 0;
+  color: var(--foreground-tertiary);
+}
+.document-preview .markdown-blocks__task[data-checked='true'] {
+  color: var(--foreground-tertiary);
+}
+.document-preview .markdown-blocks__task[data-checked='true'] .markdown-blocks__task-box {
+  color: var(--checkbox-accent);
+}
+
+.document-preview .markdown-blocks__quote {
+  /* blockquote -> surrounding content: moderate gap. */
+  margin-block: var(--document-preview-space-md);
+  /* <blockquote> carries a UA margin-inline (40px): zero it, or the text is pushed in. */
+  margin-inline: 0;
+  position: relative;
+  /* The bar lives inside the quote's own box (starting at the body's left edge, not hanging out into the gutter); this padding clears it. */
+  padding-inline-start: var(--space-16);
+  /* Text keeps its normal color — the editor's `.cm-quote` is `color: inherit`. */
+  color: inherit;
+}
+/* The editor's quote bar (`.cm-quote-line::before`): 4px, primary foreground, small radius. */
+.document-preview .markdown-blocks__quote::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: var(--foreground-primary);
+  border-radius: var(--radius-sm);
+}
+
+.document-preview .markdown-blocks__code {
+  /* code block -> surrounding content: larger gap. */
+  margin-block: var(--document-preview-space-lg);
+  padding: var(--space-12) var(--space-16);
+  overflow: hidden;
+
+  background: var(--fenced-code-surface);
+  border-radius: var(--radius-md);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.document-preview .markdown-blocks__table {
+  margin-block: var(--document-preview-space-md);
+  width: 100%;
+  border-collapse: collapse;
+}
+.document-preview .markdown-blocks__table th,
+.document-preview .markdown-blocks__table td {
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border-strong);
+  text-align: start;
+}
+.document-preview .markdown-blocks__table th {
+  font-weight: var(--fw-bold);
+}
+
+.document-preview .markdown-blocks__rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  /* horizontal rule -> surrounding content: larger gap. */
+  margin-block: var(--document-preview-space-lg);
+}
+.document-preview .markdown-blocks__rule::before,
+.document-preview .markdown-blocks__rule::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--md-hr-line);
+}
+.document-preview .markdown-blocks__rule:not(:has(.markdown-blocks__rule-label))::after {
+  display: none;
+}
+.document-preview .markdown-blocks__rule[data-variant='double']::before,
+.document-preview .markdown-blocks__rule[data-variant='double']::after {
+  border-top-style: double;
+  border-top-width: 3px;
+}
+.document-preview .markdown-blocks__rule[data-variant='dotted']::before,
+.document-preview .markdown-blocks__rule[data-variant='dotted']::after {
+  border-top-style: dotted;
+  border-top-width: 2px;
+}
+.document-preview .markdown-blocks__rule[data-variant='wavy']::before,
+.document-preview .markdown-blocks__rule[data-variant='wavy']::after {
+  border-top-style: dashed;
+}
+.document-preview .markdown-blocks__rule-label {
+  color: var(--foreground-tertiary);
+}
+
+/* ---- Inline (the compact renderer's classes; its own stylesheet is intentionally minimal) ---- */
+
+.document-preview strong {
+  font-weight: 700;
+}
+.document-preview em {
+  font-style: italic;
+}
+.document-preview s,
+.document-preview .compact-markdown-struck {
+  text-decoration: line-through;
+}
+.document-preview .compact-markdown-highlight {
+  background: var(--md-highlight-surface);
+  color: inherit;
+}
+.document-preview .compact-markdown-code {
+  padding: 0.1em 0.35em;
+  background: var(--md-inline-code-surface);
+  color: var(--md-inline-code-foreground);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+.document-preview .compact-markdown-link {
+  color: var(--md-link-foreground);
+}
+.document-preview .compact-markdown-link-title {
+  text-decoration: underline;
+  text-decoration-color: var(--md-link-underline);
+}
+.document-preview .compact-markdown-wikilink {
+  color: var(--md-wiki-foreground);
+}
+.document-preview .compact-markdown-wikilink-title {
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+}
+.document-preview .compact-markdown-tag {
+  padding-inline: 0.3em;
+  background: var(--md-tag-surface);
+  color: var(--md-tag-foreground);
+  border-radius: var(--md-badge-radius);
+  font-size: 0.9em;
+  font-weight: var(--fw-medium);
+}
+.document-preview .compact-markdown-date {
+  color: var(--md-date-foreground);
+}
+
+/* Images: constrained to the document column, never overflowing the viewport. */
+.document-preview .compact-markdown-image {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+.document-preview .compact-markdown-image-missing {
+  color: var(--foreground-tertiary);
+}
+
+/*
+ * Nothing hangs off the top or bottom of the content section. Last in the file
+ * and with a longer selector than any block's own margin rule above, so it
+ * wins for every block type (a heading, list, quote, code block, table or rule
+ * as the first block would otherwise keep its own top margin).
+ */
+.document-preview .document-preview__body > :first-child {
+  margin-top: 0;
+}
+.document-preview .document-preview__body > :last-child {
+  margin-bottom: 0;
+}

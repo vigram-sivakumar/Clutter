@@ -132,7 +132,7 @@ function isMeaningfulLeafBlock(node: SyntaxNode, text: string): boolean {
  * `labeledHorizontalRuleSyntax.ts`'s own doc comment), so it is handled by
  * `findMeaningfulTopLevelBlock`'s default "skip" branch instead.
  */
-function dividerLabelText(node: SyntaxNode, text: string): string | null {
+export function dividerLabelText(node: SyntaxNode, text: string): string | null {
   const raw = text.slice(node.from, node.to);
   const wrapChar = WRAPPED_DIVIDER_CHAR[node.name];
   if (wrapChar) {
@@ -259,7 +259,7 @@ export function selectCompactBlock(text: string): CompactBlockSelection | null {
  * the outer edges are trimmed, never interior whitespace, so multi-word
  * content is untouched.
  */
-function trimEdgeWhitespace(spans: readonly InlineSpan[]): InlineSpan[] {
+export function trimEdgeWhitespace(spans: readonly InlineSpan[]): InlineSpan[] {
   if (spans.length === 0) {
     return [];
   }

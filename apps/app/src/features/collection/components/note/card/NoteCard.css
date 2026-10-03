@@ -1,0 +1,118 @@
+.note-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  /* One shape for every card (see NoteCardGrid.css); the content section absorbs the other sections' differences. */
+  aspect-ratio: var(--note-card-aspect-ratio);
+  overflow: hidden;
+
+  /*
+   * The card owns all the padding, and a single gap between its sections
+   * (header, cover, content). The sections have none of their own, so hiding
+   * one removes it and its gap and everything else stays consistent.
+   * 6px matches CollectionEntry's own padding, i.e. FolderCard's.
+   */
+  padding: var(--space-6);
+  gap: var(--note-card-gap);
+
+  background: var(--surface-subtle);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.note-card:hover {
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle) 99%,
+    rgb(var(--state-base)) 1%
+  );
+}
+
+.note-card:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.note-card--selected {
+  background: rgba(35, 131, 226, 0.15);
+}
+
+/* The New Note card is quieter than a real note: half the surface tint, and the subtler border token. It lifts to a regular card's tint on hover. */
+.note-card--new {
+  background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+  border-color: var(--border-subtle);
+}
+.note-card--new:hover {
+  background: var(--surface-subtle);
+}
+
+/* The trailing "New Note" card: a normal card whose title reads as an action, like List/Table's "New Note" row. */
+.note-card--new .collection-entry__title {
+  /* Same color as the plus icon beside it (`--foreground-secondary`, below). */
+  color: var(--foreground-secondary);
+  font-weight: var(--fw-regular);
+}
+.note-card--new .collection-entry__leading {
+  color: var(--foreground-secondary);
+}
+
+/* Description above the edited date: the header's metadata becomes a column, each line truncating on its own. (Scoped to the note card — a folder card's counts stay inline.) */
+.note-card__header .collection-entry__metadata {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-0);
+}
+.note-card__header .collection-entry__metadata > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* No preview region (Cover image and Content preview both off): just the header's height, not the card shape. */
+.note-card--header-only,
+.note-card--cover-only {
+  aspect-ratio: auto;
+}
+/* The header is a stacked CollectionEntry; its own padding is zeroed — the card provides it. */
+.note-card .note-card__header {
+  padding: 0;
+}
+
+/*
+ * Cards without the page-shaped content must still all be the same height,
+ * whichever notes have a description or a date: the header reserves one line
+ * (16 + 2 gap) per metadata Property that is on (--note-card-header-lines,
+ * from NoteCardGrid) on top of the title row (24).
+ */
+.note-card--header-only .note-card__header,
+.note-card--cover-only .note-card__header {
+  min-height: calc(
+    var(--lh-body-small) +
+      var(--note-card-header-lines, 0) * (var(--lh-label-small) + var(--space-2))
+  );
+}
+
+/*
+ * The cover section: a fixed-height banner in real pixels — outside the
+ * scaled content canvas, so it does not scale with it. Its only padding is the
+ * 4px inline inset that lines it up under the header's icon glyph (the glyph
+ * sits 4px inside its 24px box), the same inset the metadata line and the
+ * content use. The rounding is on the image itself, so the inset doesn't leave
+ * it clipped square.
+ */
+.note-card__cover {
+  flex: none;
+  height: var(--note-card-cover-height);
+  padding-inline: var(--space-4);
+}
+.note-card__cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}

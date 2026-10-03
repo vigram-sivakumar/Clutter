@@ -4,7 +4,11 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CollectionBody, sortCollectionEntries } from './CollectionBody';
+import {
+  CollectionBody,
+  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  sortCollectionEntries,
+} from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 afterEach(() => {
@@ -144,6 +148,227 @@ describe('CollectionBody — Table mode (the default)', () => {
   });
 });
 
+describe('CollectionBody — Card mode (viewMode="card")', () => {
+  it('renders notes as NoteCards inside a NoteCardGrid, folders still as FolderCard', () => {
+    const { container, getByText } = render(
+      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="card" />
+    );
+
+    expect(container.querySelector('.note-card-grid')).toBeInTheDocument();
+    expect(container.querySelector('.note-list-grid')).not.toBeInTheDocument();
+    expect(container.querySelector('.note-table')).not.toBeInTheDocument();
+    expect(getByText('My note').closest('.note-card')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
+  });
+
+  it('clicking a card fires that note\'s own onClick', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { getByText } = render(
+      <CollectionBody
+        notes={[
+          noteEntry({ id: 'a', title: 'First', onClick: first }),
+          noteEntry({ id: 'b', title: 'Second', onClick: second }),
+        ]}
+        viewMode="card"
+      />
+    );
+
+    fireEvent.click(getByText('Second').closest('.note-card')!);
+
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  it('shows only the edited date in the card header, gated by the Last edited property', () => {
+    const entry = noteEntry({ created: 'Today', updated: '12 Aug 2026' });
+    const { getByText, queryByText, rerender } = render(
+      <CollectionBody notes={[entry]} viewMode="card" />
+    );
+    expect(getByText('Edited 12 Aug 2026')).toBeInTheDocument();
+    expect(queryByText(/Today|Created/)).not.toBeInTheDocument();
+
+    rerender(
+      <CollectionBody
+        notes={[entry]}
+        viewMode="card"
+        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, updated: false }}
+      />
+    );
+    expect(queryByText(/Edited/)).not.toBeInTheDocument();
+  });
+
+  it('shows the description above the edited date, gated by the Description property', () => {
+    const entry = noteEntry({ description: 'About this note', updated: '12 Aug 2026' });
+    const { container, getByText, queryByText, rerender } = render(
+      <CollectionBody notes={[entry]} viewMode="card" />
+    );
+    const lines = () =>
+      [...container.querySelectorAll('.note-card .collection-entry__metadata > span')].map((l) => l.textContent);
+    expect(lines()).toEqual(['About this note', 'Edited 12 Aug 2026']);
+
+    rerender(<CollectionBody notes={[noteEntry({ updated: '12 Aug 2026' })]} viewMode="card" />);
+    expect(lines()).toEqual(['Edited 12 Aug 2026']);
+
+    rerender(
+      <CollectionBody
+        notes={[entry]}
+        viewMode="card"
+        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false }}
+      />
+    );
+    expect(queryByText('About this note')).not.toBeInTheDocument();
+    expect(getByText('Edited 12 Aug 2026')).toBeInTheDocument();
+  });
+
+  describe('Cover image / Content preview properties', () => {
+    const entry = () =>
+      noteEntry({ markdown: '# Heading\n\nbody', cover: 'Assets/hero.png', coverPositionAbove: 30 });
+    const resolvers = { resolveCoverImage: (c: string) => `app://vault/${c}` };
+    const renderCard = (properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) =>
+      render(
+        <CollectionBody notes={[entry()]} viewMode="card" properties={properties} previewResolvers={resolvers} />
+      ).container;
+
+    it('shows both by default', () => {
+      const container = renderCard();
+
+      expect(container.querySelector('.note-card__cover-image')).toBeInTheDocument();
+      expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
+    });
+
+    it('Cover image off hides only the cover, keeping the content', () => {
+      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false });
+
+      expect(container.querySelector('.note-card__cover-image')).toBeNull();
+      expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
+    });
+
+    it('Content preview off hides the content section itself (not just clips it), keeping the cover', () => {
+      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false });
+
+      expect(container.querySelector('.note-card__cover-image')).toBeInTheDocument();
+      expect(container.querySelector('.document-preview__body')).toBeNull();
+      expect(container.textContent).not.toContain('Heading');
+    });
+
+    it('both off leaves a header-only card with no preview region at all', () => {
+      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
+
+      expect(container.querySelector('.note-card__header')).toBeInTheDocument();
+      expect(container.querySelector('.document-preview')).toBeNull();
+    });
+
+    it('marks the header-only card so it is not forced into the card shape', () => {
+      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
+
+      expect(container.querySelector('.note-card')).toHaveClass('note-card--header-only');
+      expect(renderCard().querySelector('.note-card')).not.toHaveClass('note-card--header-only');
+    });
+
+    it('Content preview off with Cover image on leaves header + cover cards — the New Note card too — not the full page shape', () => {
+      const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false };
+      const container = render(
+        <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} previewResolvers={resolvers} />
+      ).container;
+
+      const cards = [...container.querySelectorAll('.note-card')];
+      expect(cards).toHaveLength(2);
+      for (const card of cards) {
+        expect(card).toHaveClass('note-card--cover-only');
+        expect(card).not.toHaveClass('note-card--header-only');
+        // Cover section only (an empty slot for the New Note card / a note without a cover) — no content section.
+        expect(card.querySelector('.note-card__cover')).toBeInTheDocument();
+        expect(card.querySelector('.document-preview')).toBeNull();
+      }
+    });
+
+    it('both off: every card, the New Note card included, is header-only with no preview region', () => {
+      const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false };
+      const container = render(
+        <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} />
+      ).container;
+
+      const cards = [...container.querySelectorAll('.note-card')];
+      expect(cards).toHaveLength(2);
+      for (const card of cards) {
+        expect(card).toHaveClass('note-card--header-only');
+        expect(card.querySelector('.document-preview')).toBeNull();
+      }
+    });
+
+    it('tells the grid how many metadata lines to reserve (one per Description / Last edited that is on)', () => {
+      const lines = (properties: typeof DEFAULT_COLLECTION_PROPERTY_VISIBILITY) =>
+        render(<CollectionBody notes={[entry()]} viewMode="card" properties={properties} />).container
+          .querySelector<HTMLElement>('.note-card-grid')!
+          .style.getPropertyValue('--note-card-header-lines');
+
+      expect(lines(DEFAULT_COLLECTION_PROPERTY_VISIBILITY)).toBe('2');
+      cleanup();
+      expect(lines({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false })).toBe('1');
+      cleanup();
+      expect(lines({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false, updated: false })).toBe('0');
+    });
+
+    it('does not affect List or Table', () => {
+      for (const viewMode of ['list', 'table'] as const) {
+        const { getByText } = render(
+          <CollectionBody
+            notes={[entry()]}
+            viewMode={viewMode}
+            properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false }}
+          />
+        );
+        expect(getByText('My note')).toBeInTheDocument();
+        cleanup();
+      }
+    });
+  });
+
+  it('passes the entry markdown to the preview (live EffectivePage.markdown), not the title', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[noteEntry({ markdown: '# Live heading\n\nbody text' })]}
+        viewMode="card"
+      />
+    );
+
+    expect(container.querySelector('.document-preview h1')?.textContent).toBe('Live heading');
+  });
+
+  it('appends a New Note card only once there is a note, and it fires onCreateNote', () => {
+    const onCreateNote = vi.fn();
+    const empty = render(<CollectionBody notes={[]} viewMode="card" onCreateNote={onCreateNote} />);
+    expect(empty.queryByText('New Note')).not.toBeInTheDocument();
+    cleanup();
+
+    const { getByText } = render(
+      <CollectionBody notes={[noteEntry()]} viewMode="card" onCreateNote={onCreateNote} />
+    );
+    const newCard = getByText('New Note').closest('.note-card');
+    expect(newCard).toBeInTheDocument();
+    expect(newCard).toHaveClass('note-card--new');
+    // Same shell as every other card, including the preview-sized blank page.
+    expect(newCard!.querySelector('.note-card__header')).toBeInTheDocument();
+    expect(newCard!.querySelector('.document-preview')).toBeInTheDocument();
+    expect(newCard!.querySelector('.document-preview')!.textContent).toBe('');
+
+    fireEvent.click(getByText('New Note'));
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
+  });
+
+  it('List and Table modes never render a card or a preview', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = render(
+        <CollectionBody notes={[noteEntry({ markdown: '# x' })]} viewMode={viewMode} />
+      );
+      expect(container.querySelector('.note-card')).not.toBeInTheDocument();
+      expect(container.querySelector('.document-preview')).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+});
+
 describe('CollectionBody — Properties visibility', () => {
   it('defaults to showing description ("No description" fallback) and created/updated', () => {
     const { getByText } = render(
@@ -163,7 +388,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, lastOpened: true, created: true, updated: true }}
+        properties={{ description: false, lastOpened: true, created: true, updated: true, archived: true, cover: true, preview: true }}
       />
     );
 
@@ -184,7 +409,7 @@ describe('CollectionBody — Properties visibility', () => {
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {
     const entry = noteEntry({ created: 'Today', updated: 'Yesterday' });
-    const hidden = { description: true, lastOpened: true, created: false, updated: false };
+    const hidden = { description: true, lastOpened: true, created: false, updated: false, archived: true, cover: true, preview: true };
 
     const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
     expect(table.queryByText('Today')).not.toBeInTheDocument();
@@ -201,7 +426,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
         viewMode="table"
-        properties={{ description: false, lastOpened: false, created: false, updated: false }}
+        properties={{ description: false, lastOpened: false, created: false, updated: false, archived: true, cover: true, preview: true }}
       />
     );
 
@@ -215,7 +440,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, lastOpened: true, created: false, updated: true }}
+        properties={{ description: true, lastOpened: true, created: false, updated: true, archived: true, cover: true, preview: true }}
       />
     );
 
@@ -229,7 +454,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, lastOpened: false, created: false, updated: true }}
+        properties={{ description: true, lastOpened: false, created: false, updated: true, archived: true, cover: true, preview: true }}
       />
     );
 
@@ -248,7 +473,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, lastOpened: false, created: false, updated: false }}
+        properties={{ description: false, lastOpened: false, created: false, updated: false, archived: true, cover: true, preview: true }}
       />
     );
 
@@ -325,5 +550,19 @@ describe('sortCollectionEntries', () => {
       (el) => el.textContent
     );
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
+  });
+});
+
+describe('CollectionBody: Archived column is Archive-only', () => {
+  it('table mode never renders an Archived column in an ordinary collection', () => {
+    const { container } = render(
+      <CollectionBody
+        notes={[noteEntry({ archived: 'Today' })]}
+        viewMode="table"
+        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
+      />
+    );
+
+    expect(container.querySelector('.note-table__header-cell--archived')).not.toBeInTheDocument();
   });
 });

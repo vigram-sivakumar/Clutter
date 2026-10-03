@@ -31,12 +31,15 @@ describe('formatDatePropertyValue', () => {
     expect(formatDatePropertyValue('2025-09-15', NOW)).toBe('15 Sep 2025');
   });
 
-  it('appends a comma and the local time for a timestamp', () => {
-    expect(formatDatePropertyValue(new Date(2026, 10, 11, 20, 20).toISOString(), NOW)).toBe(
-      '11 Nov 2026, 08:20 PM'
+  it("formats a timestamp through formatRelativeTimestamp (relative under 2 hours, else date and time)", () => {
+    expect(formatDatePropertyValue(new Date(NOW.getTime() - 35 * 60_000).toISOString(), NOW)).toBe(
+      '35 minutes ago'
     );
-    expect(formatDatePropertyValue(new Date(2026, 9, 2, 20, 20).toISOString(), NOW)).toBe(
-      'Today, 08:20 PM'
+    expect(formatDatePropertyValue(new Date(2026, 10, 11, 20, 20).toISOString(), NOW)).toBe(
+      '11 Nov, 08:20 PM'
+    );
+    expect(formatDatePropertyValue(new Date(2025, 10, 11, 20, 20).toISOString(), NOW)).toBe(
+      '11 Nov 2025, 08:20 PM'
     );
     expect(formatDatePropertyValue(new Date(2026, 9, 1, 9, 5).toISOString(), NOW)).toBe(
       'Yesterday, 09:05 AM'

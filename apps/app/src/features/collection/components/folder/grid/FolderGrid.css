@@ -1,8 +1,8 @@
 .folder-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(200px, 1fr));
+  grid-template-columns: var(--collection-grid-columns);
   grid-auto-rows: 54px;
-  gap: 16px;
+  gap: var(--collection-grid-gap);
 }
 .folder-card--create {
   display: flex;

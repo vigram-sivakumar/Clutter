@@ -32,6 +32,16 @@ export interface CollectionEntryModel {
    */
   readonly createdAt?: string;
   readonly updatedAt?: string;
+  /**
+   * The Archive collection's "Archived" field — `archived` is the display
+   * string (`formatRelativeTimestamp`), `archivedAt` the raw ISO instant it
+   * sorts by, same split as `created`/`createdAt`. Only ever set for a
+   * `note` entry that is actually archived (`PageMetadata.archivedAt`);
+   * folder rows render as FolderCards with no date columns, so a folder
+   * entry leaves both undefined.
+   */
+  readonly archived?: string;
+  readonly archivedAt?: string;
   readonly subfolderCount?: number;
   readonly noteCount?: number;
   /**
@@ -43,4 +53,22 @@ export interface CollectionEntryModel {
    * no consumer reads yet.
    */
   readonly description?: string;
+  /**
+   * The note's Markdown body (EffectivePage.markdown — body-only, no
+   * frontmatter, and the live editing-session text when the note is open)
+   * for the Card view's read-only DocumentPreview. Only ever set for a
+   * `note` entry. Consumers other than Card mode never read it.
+   */
+  readonly markdown?: string;
+  /**
+   * The note's cover reference exactly as persisted (`PageMetadata.cover`:
+   * an `Assets/…` path or an external URL) — resolved to a loadable URL by
+   * the Card view's injected resolver, never here. `coverHidden` and
+   * `coverPositionAbove` mirror the metadata fields of the same name; the
+   * Card preview always renders a cover at the top, so only the *above*
+   * focal position is ever carried (see DocumentPreview).
+   */
+  readonly cover?: string;
+  readonly coverHidden?: boolean;
+  readonly coverPositionAbove?: number;
 }

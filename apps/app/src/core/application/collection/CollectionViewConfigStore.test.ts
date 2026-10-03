@@ -51,7 +51,8 @@ describe('CollectionViewConfigStore — load()', () => {
           'folder:good': { layout: 'list' },
           'folder:bad-not-object': 'oops',
           'folder:bad-empty': {},
-          'folder:bad-layout': { layout: 'card' },
+          'folder:bad-layout': { layout: 'gallery' },
+          'folder:card': { layout: 'card' },
           'folder:bad-properties-not-boolean': {
             properties: { description: true, lastOpened: true, created: true, updated: 'yes' },
           },
@@ -65,6 +66,7 @@ describe('CollectionViewConfigStore — load()', () => {
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
     expect(store.get('folder:good')).toEqual({ layout: 'list' });
+    expect(store.get('folder:card')).toEqual({ layout: 'card' });
     expect(store.get('folder:bad-not-object')).toBeUndefined();
     expect(store.get('folder:bad-empty')).toBeUndefined();
     expect(store.get('folder:bad-layout')).toBeUndefined();
@@ -276,5 +278,62 @@ describe('CollectionViewConfigStore — multi-writer coexistence with FoldStateS
     const written = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH));
     expect(written.foldState).toEqual({ 'page-1': { doc: 'hello', fold: [1, 2] } });
     expect(written.collectionViewConfig['folder:folder-1']).toEqual({ layout: 'list' });
+  });
+});
+
+describe('CollectionViewConfigStore — archived column', () => {
+  it('loads a legacy properties entry written before `archived` existed', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    first.update('folder:Archive', {
+      properties: { description: true, lastOpened: true, created: true, updated: true },
+    });
+    await flushMicrotasks();
+
+    const reloaded = await reload(fileSystem);
+
+    expect(reloaded.get('folder:Archive')).toEqual({
+      properties: { description: true, lastOpened: true, created: true, updated: true },
+    });
+  });
+
+  it('round-trips `archived` visibility and an archived sort key', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    const entry = {
+      properties: {
+        description: true,
+        lastOpened: true,
+        created: true,
+        updated: true,
+        archived: false,
+      },
+      sort: { key: 'archived', direction: 'down' },
+    } as const;
+    first.update('folder:Archive', entry);
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get('folder:Archive')).toEqual(entry);
+  });
+
+  it('loads and persists the optional Card toggles (cover/preview), and an entry without them still loads', async () => {
+    const base = { description: true, lastOpened: true, created: true, updated: true };
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({
+        collectionViewConfig: {
+          'folder:old': { properties: base },
+          'folder:card': { properties: { ...base, cover: false, preview: true } },
+          'folder:bad': { properties: { ...base, cover: 'no' } },
+        },
+      }),
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    expect(store.get('folder:old')?.properties).toEqual(base);
+    expect(store.get('folder:card')?.properties).toEqual({ ...base, cover: false, preview: true });
+    expect(store.get('folder:bad')).toBeUndefined();
+    warn.mockRestore();
   });
 });

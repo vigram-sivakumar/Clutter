@@ -5,16 +5,36 @@ import {
 import { WORKSPACE_STATE_RELATIVE_PATH } from '../../vault/initialize/ReservedResources';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
-export type PersistedCollectionLayout = 'list' | 'table';
+export type PersistedCollectionLayout = 'list' | 'table' | 'card';
 
 export interface PersistedCollectionProperties {
   readonly description: boolean;
   readonly lastOpened: boolean;
   readonly created: boolean;
   readonly updated: boolean;
+  /**
+   * The Archive collection's own column. Optional (unlike its siblings): it
+   * was added after the first persisted entries were written, and an entry
+   * without it must still load rather than be discarded as malformed —
+   * the caller resolves a missing value to the default (shown).
+   */
+  readonly archived?: boolean;
+  /**
+   * The Card layout's own toggles — cover image and content preview.
+   * Optional for the same reason as `archived`: added after the first
+   * persisted entries, so an entry without them must still load; the caller
+   * resolves a missing value to the default (shown).
+   */
+  readonly cover?: boolean;
+  readonly preview?: boolean;
 }
 
-export type PersistedCollectionSortKey = 'name' | 'lastOpened' | 'created' | 'updated';
+export type PersistedCollectionSortKey =
+  | 'name'
+  | 'lastOpened'
+  | 'created'
+  | 'updated'
+  | 'archived';
 export type PersistedCollectionSortDirection = 'down' | 'up';
 
 export interface PersistedCollectionSort {
@@ -56,6 +76,7 @@ const VALID_SORT_KEYS: ReadonlySet<string> = new Set([
   'lastOpened',
   'created',
   'updated',
+  'archived',
 ]);
 
 /**
@@ -255,7 +276,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
 
   if (layout !== undefined) {
     sawAnyField = true;
-    if (layout === 'list' || layout === 'table') {
+    if (layout === 'list' || layout === 'table' || layout === 'card') {
       entry.layout = layout;
       sawAnyValidField = true;
     }
@@ -295,7 +316,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     return undefined;
   }
 
-  const { description, lastOpened, created, updated } = raw as Record<string, unknown>;
+  const { description, lastOpened, created, updated, archived, cover, preview } = raw as Record<string, unknown>;
 
   if (
     typeof description !== 'boolean' ||
@@ -306,7 +327,24 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     return undefined;
   }
 
-  return { description, lastOpened, created, updated };
+  // The optional toggles: absent is fine (older entries), present-but-not-
+  // boolean discards the whole entry like any other malformed field.
+  const optional = { archived, cover, preview };
+  for (const value of Object.values(optional)) {
+    if (value !== undefined && typeof value !== 'boolean') {
+      return undefined;
+    }
+  }
+
+  return {
+    description,
+    lastOpened,
+    created,
+    updated,
+    ...(archived !== undefined && { archived: archived as boolean }),
+    ...(cover !== undefined && { cover: cover as boolean }),
+    ...(preview !== undefined && { preview: preview as boolean }),
+  };
 }
 
 function parseSort(raw: unknown): PersistedCollectionSort | undefined {

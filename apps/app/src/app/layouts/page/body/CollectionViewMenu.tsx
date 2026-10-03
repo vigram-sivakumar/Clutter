@@ -22,6 +22,8 @@ export interface CollectionViewMenuProps {
   onPropertiesChange: (next: CollectionPropertyVisibility) => void;
   sort: CollectionSortState;
   onSortChange: (next: CollectionSortState) => void;
+  /** Archive collection only — adds the Archived property and sort option, absent everywhere else. */
+  showArchived?: boolean;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{
@@ -31,19 +33,37 @@ const VIEW_ITEMS: ReadonlyArray<{
 }> = [
   { mode: 'list', label: 'List', icon: 'multiLine' },
   { mode: 'table', label: 'Table', icon: 'table' },
+  { mode: 'card', label: 'Card', icon: 'card' },
 ];
 
-const PROPERTY_ITEMS: ReadonlyArray<{
+const DESCRIPTION_PROPERTY_ITEM = { key: 'description', label: 'Description' } as const;
+
+// The date properties sit at the bottom of the Properties list, after
+// everything else (Description, and Card's Cover image / Content preview).
+const DATE_PROPERTY_ITEMS: ReadonlyArray<{
   key: keyof CollectionPropertyVisibility;
   label: string;
 }> = [
-  { key: 'description', label: 'Description' },
   { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
   { key: 'created', label: collectionFieldLabel('created') },
   { key: 'updated', label: collectionFieldLabel('updated') },
 ];
 
-// Deliberately the same labels as PROPERTY_ITEMS (Name is the one
+// Card layout only — they configure what a card's preview shows.
+const CARD_PROPERTY_ITEMS: ReadonlyArray<{
+  key: keyof CollectionPropertyVisibility;
+  label: string;
+}> = [
+  { key: 'cover', label: 'Cover image' },
+  { key: 'preview', label: 'Content preview' },
+];
+
+const ARCHIVED_PROPERTY_ITEM = {
+  key: 'archived',
+  label: collectionFieldLabel('archived'),
+} as const;
+
+// Deliberately the same labels as the Properties list (Name is the one
 // exception, Properties has no such field) — the product spec is
 // explicit that Sort by reuses the existing Properties labels verbatim,
 // not "Last Viewed"/"Date Created"/"Date Updated".
@@ -53,6 +73,11 @@ const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
   { key: 'created', label: collectionFieldLabel('created') },
   { key: 'updated', label: collectionFieldLabel('updated') },
 ];
+
+const ARCHIVED_SORT_ITEM = {
+  key: 'archived',
+  label: collectionFieldLabel('archived'),
+} as const;
 
 type ConfigureMenuView = 'root' | 'properties';
 
@@ -96,7 +121,18 @@ export function CollectionViewMenu({
   onPropertiesChange,
   sort,
   onSortChange,
+  showArchived = false,
 }: CollectionViewMenuProps) {
+  const propertyItems = [
+    DESCRIPTION_PROPERTY_ITEM,
+    ...(viewMode === 'card' ? CARD_PROPERTY_ITEMS : []),
+    // A card shows only the edited date, so Created and Last opened aren't offered in Card mode.
+    ...DATE_PROPERTY_ITEMS.filter(
+      ({ key }) => viewMode !== 'card' || (key !== 'created' && key !== 'lastOpened')
+    ),
+    ...(showArchived ? [ARCHIVED_PROPERTY_ITEM] : []),
+  ];
+  const sortItems = showArchived ? [...SORT_ITEMS, ARCHIVED_SORT_ITEM] : SORT_ITEMS;
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<ConfigureMenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -165,7 +201,7 @@ export function CollectionViewMenu({
               </MenuItem>
               <div className="menu__divider" role="separator" />
               <MenuGroupTitle>Sort by</MenuGroupTitle>
-              {SORT_ITEMS.map(({ key, label }) => {
+              {sortItems.map(({ key, label }) => {
                 const isActive = sort.key === key;
 
                 return (
@@ -231,7 +267,7 @@ export function CollectionViewMenu({
                 Properties
               </MenuGroupTitle>
               <div className="menu__divider" role="separator" />
-              {PROPERTY_ITEMS.map(({ key, label }) => {
+              {propertyItems.map(({ key, label }) => {
                 const checked = properties[key];
                 // Toggling a property doesn't close the menu (unlike a
                 // Layout selection) — these are independent on/off

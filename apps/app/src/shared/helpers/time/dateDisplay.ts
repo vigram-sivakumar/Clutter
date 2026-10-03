@@ -279,3 +279,65 @@ export function formatTimeDisplay(date: Date): string {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
 }
+
+/**
+ * Formats a full timestamp (an instant, not a calendar date) for a
+ * surface that shows both when and what time — the collection Table/List
+ * `created`/`updated` columns. The date half is local-calendar-day based
+ * (`Date`'s local getters, so a late-evening instant never lands on the
+ * adjacent UTC day): `Today`/`Tomorrow`/`Yesterday` stay bare words,
+ * every other date is `12 Aug` in `referenceDate`'s year and
+ * `12 Aug 2025` otherwise — never a weekday name. The time half is
+ * `formatTimeDisplay`'s 12-hour label, joined with `", "` exactly like
+ * the Property list's date-time values.
+ */
+export function formatDateTimeDisplay(date: Date, referenceDate: Date = new Date()): string {
+  const isoDate = [
+    String(date.getFullYear()).padStart(4, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+  const relation = classify(isoDate, referenceDate);
+
+  let dayLabel: string;
+  if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
+    dayLabel = dayIdentityLabel(relation, 'condensed');
+  } else {
+    const monthLabel = MONTH_LABELS_SHORT[relation.month - 1]!;
+    dayLabel =
+      relation.year === referenceDate.getFullYear()
+        ? `${relation.day} ${monthLabel}`
+        : `${relation.day} ${monthLabel} ${relation.year}`;
+  }
+
+  return `${dayLabel}, ${formatTimeDisplay(date)}`;
+}
+
+/** Beyond this age a timestamp reads as an absolute date/time, not "N ago". */
+const RELATIVE_TIMESTAMP_MAX_MS = 2 * 60 * 60 * 1000;
+
+function pluralize(count: number, unit: string): string {
+  return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
+}
+
+/**
+ * `formatDateTimeDisplay`, except a timestamp under two hours old reads as
+ * a relative age — `Just now`, `5 minutes ago`, `1 hour ago`. The window
+ * is deliberately short: labels are formatted once rather than ticking, so
+ * the longer a relative label could stay on screen the more stale it could
+ * get, and past a couple of hours `Today, 09:03 AM` is the more useful
+ * answer anyway. Anything older, or a future instant (clock skew), falls
+ * through to the absolute label.
+ */
+export function formatRelativeTimestamp(date: Date, referenceDate: Date = new Date()): string {
+  const ageMs = referenceDate.getTime() - date.getTime();
+
+  if (ageMs >= 0 && ageMs < RELATIVE_TIMESTAMP_MAX_MS) {
+    const minutes = Math.floor(ageMs / 60_000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return pluralize(minutes, 'minute');
+    return pluralize(Math.floor(minutes / 60), 'hour');
+  }
+
+  return formatDateTimeDisplay(date, referenceDate);
+}

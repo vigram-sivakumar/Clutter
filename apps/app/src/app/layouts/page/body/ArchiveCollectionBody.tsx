@@ -164,7 +164,7 @@ export function ArchiveCollectionBody({
 
   const noteRows = sortedNotes.map((entry) =>
     viewMode === 'table'
-      ? renderNoteTableRow(entry, properties, noteActions(entry))
+      ? renderNoteTableRow(entry, properties, noteActions(entry), true)
       : renderNoteListItem(entry, properties, noteActions(entry))
   );
 
@@ -177,7 +177,7 @@ export function ArchiveCollectionBody({
           </FolderGrid>
         )}
         {viewMode === 'table' ? (
-          <NoteTable columns={toTableColumns(properties)}>{noteRows}</NoteTable>
+          <NoteTable columns={toTableColumns(properties, true)}>{noteRows}</NoteTable>
         ) : (
           <NoteListGrid>{noteRows}</NoteListGrid>
         )}

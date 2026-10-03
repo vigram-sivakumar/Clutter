@@ -4,6 +4,9 @@ import { NoteTable } from '@features/collection/components/note/table/NoteTable'
 import { NoteTableRow } from '@features/collection/components/note/table/NoteTableRow';
 import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
 import { NoteList } from '@features/collection/components/note/list/NoteList';
+import { NoteCardGrid } from '@features/collection/components/note/card/NoteCardGrid';
+import { NoteCard } from '@features/collection/components/note/card/NoteCard';
+import type { DocumentPreviewResolvers } from '@features/collection/components/note/card/DocumentPreview';
 import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 import { FolderCard } from '@features/collection/components/folder/card/FolderCard';
 import type { NoteTableColumnVisibility } from '@features/collection/components/note/table/noteTableColumns';
@@ -14,7 +17,7 @@ import { PageBody } from './Page.Body';
 /**
  * Collection-view wiring. Two independent axes, not one:
  *
- *  - View mode ('list' | 'table') — how *notes* lay out.
+ *  - View mode ('list' | 'table' | 'card') — how *notes* lay out.
  *  - Item type ('folder' | 'note') — folders always render as FolderGrid/
  *    FolderCard, regardless of viewMode; only the notes section switches
  *    between NoteListGrid/NoteList and NoteTable/NoteTableRow. FolderCard is
@@ -28,7 +31,7 @@ import { PageBody } from './Page.Body';
  *    can't sit under NoteTable's header without breaking column alignment —
  *    which is why folders don't switch with the notes section.
  */
-export type CollectionViewMode = 'list' | 'table';
+export type CollectionViewMode = 'list' | 'table' | 'card';
 
 /**
  * Which note properties the collection UI currently shows — the
@@ -50,6 +53,12 @@ export interface CollectionPropertyVisibility {
   lastOpened: boolean;
   created: boolean;
   updated: boolean;
+  /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
+  archived: boolean;
+  /** Card layout only — show the note's cover image at the top of its preview. Ignored in List/Table. */
+  cover: boolean;
+  /** Card layout only — show the rendered note content in its preview. Ignored in List/Table. */
+  preview: boolean;
 }
 
 export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
@@ -57,6 +66,9 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
   lastOpened: true,
   created: true,
   updated: true,
+  archived: true,
+  cover: true,
+  preview: true,
 };
 
 /**
@@ -65,11 +77,15 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
  * the Name column's own cell, alongside the title), so it's excluded
  * here rather than threaded into a column NoteTable doesn't have.
  */
-export function toTableColumns(properties: CollectionPropertyVisibility): NoteTableColumnVisibility {
+export function toTableColumns(
+  properties: CollectionPropertyVisibility,
+  showArchived = false
+): NoteTableColumnVisibility {
   return {
     lastOpened: properties.lastOpened,
     created: properties.created,
     updated: properties.updated,
+    archived: showArchived && properties.archived,
   };
 }
 
@@ -82,7 +98,7 @@ export function toTableColumns(properties: CollectionPropertyVisibility): NoteTa
  * is the one place that translates `direction` into an actual comparison
  * for each key.
  */
-export type CollectionSortKey = 'name' | 'lastOpened' | 'created' | 'updated';
+export type CollectionSortKey = 'name' | 'lastOpened' | 'created' | 'updated' | 'archived';
 export type CollectionSortDirection = 'down' | 'up';
 
 export interface CollectionSortState {
@@ -144,7 +160,8 @@ export function sortCollectionEntries(
       return sort.direction === 'down' ? cmp : -cmp;
     }
 
-    const field = sort.key === 'created' ? 'createdAt' : 'updatedAt';
+    const field =
+      sort.key === 'created' ? 'createdAt' : sort.key === 'archived' ? 'archivedAt' : 'updatedAt';
     return compareRawDates(a[field], b[field], sort.direction);
   });
 
@@ -177,6 +194,12 @@ export interface CollectionBodyProps {
    * this row, so it's withheld rather than forwarded as-is.
    */
   onCreateNote?: () => void;
+  /**
+   * Resolution for Card mode's read-only DocumentPreview (WikiLink/Tag/
+   * embed/image/cover) — composed in PageHost from the editor's own
+   * resolver factories. Only consulted when `viewMode === 'card'`.
+   */
+  previewResolvers?: DocumentPreviewResolvers;
 }
 
 /**
@@ -249,8 +272,42 @@ export function renderNoteListItem(
       description={properties.description ? entry.description : undefined}
       created={properties.created ? entry.created : undefined}
       updated={properties.updated ? entry.updated : undefined}
+      archived={properties.archived ? entry.archived : undefined}
       onClick={entry.onClick}
       actions={actions}
+    />
+  );
+}
+
+/**
+ * Card-mode note rendering — same plain-string title caveat and
+ * `properties` gating as renderNoteListItem for the edited date (a card
+ * shows no created date or last-opened — the menu doesn't offer them in Card
+ * mode), the description (one line above it, hidden when the note has none —
+ * no "No description" placeholder, unlike Table), plus the card-only Cover
+ * image / Content preview toggles.
+ */
+export function renderNoteCard(
+  entry: CollectionEntryModel,
+  properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  previewResolvers?: DocumentPreviewResolvers
+) {
+  return (
+    <NoteCard
+      key={entry.id}
+      title={entry.title}
+      emoji={entry.emoji ?? undefined}
+      isSelected={entry.selected}
+      description={properties.description ? entry.description : undefined}
+      updated={properties.updated ? entry.updated : undefined}
+      markdown={properties.preview ? entry.markdown : ''}
+      cover={properties.cover ? entry.cover : undefined}
+      showCover={properties.cover}
+      showContent={properties.preview}
+      coverHidden={entry.coverHidden}
+      coverPositionAbove={entry.coverPositionAbove}
+      previewResolvers={previewResolvers}
+      onClick={entry.onClick}
     />
   );
 }
@@ -259,7 +316,9 @@ export function renderNoteListItem(
 export function renderNoteTableRow(
   entry: CollectionEntryModel,
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  actions?: ReactNode
+  actions?: ReactNode,
+  /** Archive collection only — must match the NoteTable header's own `toTableColumns(properties, true)`. */
+  showArchived = false
 ) {
   return (
     <NoteTableRow
@@ -271,7 +330,8 @@ export function renderNoteTableRow(
       showDescription={properties.description}
       created={properties.created ? entry.created : undefined}
       updated={properties.updated ? entry.updated : undefined}
-      columns={toTableColumns(properties)}
+      archived={properties.archived ? entry.archived : undefined}
+      columns={toTableColumns(properties, showArchived)}
       onClick={entry.onClick}
       actions={actions}
     />
@@ -286,6 +346,7 @@ export function CollectionBody({
   sort = DEFAULT_COLLECTION_SORT,
   onCreateFolder,
   onCreateNote,
+  previewResolvers,
 }: CollectionBodyProps) {
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
@@ -295,6 +356,17 @@ export function CollectionBody({
       <NoteTable columns={toTableColumns(properties)} onCreateNote={onCreateNote}>
         {sortedNotes.map((entry) => renderNoteTableRow(entry, properties))}
       </NoteTable>
+    ) : viewMode === 'card' ? (
+      <NoteCardGrid
+        onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
+        coverVisible={properties.cover}
+        contentVisible={properties.preview}
+        headerLines={(properties.description ? 1 : 0) + (properties.updated ? 1 : 0)}
+      >
+        {sortedNotes.map((entry) =>
+          renderNoteCard(entry, properties, previewResolvers)
+        )}
+      </NoteCardGrid>
     ) : (
       <NoteListGrid
         onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}

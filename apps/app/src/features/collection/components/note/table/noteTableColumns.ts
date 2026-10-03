@@ -9,6 +9,8 @@ export interface NoteTableColumnVisibility {
   lastOpened: boolean;
   created: boolean;
   updated: boolean;
+  /** The Archive collection's own column — absent (hidden) everywhere else. */
+  archived?: boolean;
 }
 
 export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
@@ -35,6 +37,9 @@ export function buildNoteTableGridTemplateColumns(
     columns.push('140px');
   }
   if (visibility.updated) {
+    columns.push('140px');
+  }
+  if (visibility.archived) {
     columns.push('140px');
   }
 

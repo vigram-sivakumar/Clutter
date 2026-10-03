@@ -14,6 +14,7 @@ export interface NoteListProps extends HTMLAttributes<HTMLDivElement> {
   lastOpened?: string;
   created?: string;
   updated?: string;
+  archived?: string;
 
   /** Hover-gated trailing slot — see CollectionEntry's own `actions` doc comment. */
   actions?: ReactNode;
@@ -33,6 +34,7 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
       lastOpened,
       created,
       updated,
+      archived,
 
       actions,
 
@@ -47,7 +49,7 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
     // metadata prop become `undefined` (rather than an empty-but-present
     // Fragment) when nothing is left to show, so CollectionEntry's own
     // `metadata && <div>` skips the wrapper too.
-    const hasMetadata = Boolean(lastOpened || created || updated);
+    const hasMetadata = Boolean(lastOpened || created || updated || archived);
 
     return (
       <CollectionEntry
@@ -65,6 +67,7 @@ export const NoteList = forwardRef<HTMLDivElement, NoteListProps>(
               {lastOpened && <span>{lastOpened}</span>}
               {created && <span>{created}</span>}
               {updated && <span>{updated}</span>}
+              {archived && <span>{archived}</span>}
             </>
           ) : undefined
         }

@@ -1,5 +1,12 @@
 :root {
   --collection-table-column: minmax(400px, 1fr) 140px 140px 140px;
+  /* Gap and columns of every collection grid (FolderGrid, NoteCardGrid) — one definition so they stay identical. */
+  --collection-grid-gap: var(--space-16);
+  /* Up to 5 columns (each item at least 1/5 of the row, minus gaps), wrapping to fewer — never narrower than 200px — as the container narrows. */
+  --collection-grid-columns: repeat(
+    auto-fill,
+    minmax(max(200px, calc((100% - 4 * var(--collection-grid-gap)) / 5)), 1fr)
+  );
   --collection-gutter: var(--space-0);
   --collection-table-divider-offset: var(--space-0);
 }
@@ -134,4 +141,27 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+/*
+ * Stacked (card) layout — see CollectionEntry's `stacked` prop. Row one is
+ * the leading icon + title; metadata sits below, full width. The title
+ * truncates inside the heading row, never pushing metadata around.
+ */
+.collection-entry--stacked > .collection-entry__content {
+  flex: 1;
+  gap: var(--space-2);
+}
+.collection-entry__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.collection-entry__heading .collection-entry__primary {
+  min-width: 0;
+}
+/* The icon glyph is centered in its leading box (24px box, 16px glyph), so metadata starts that inset in to line up with the glyph itself. */
+.collection-entry--stacked .collection-entry__metadata {
+  padding-inline-start: var(--space-4);
 }

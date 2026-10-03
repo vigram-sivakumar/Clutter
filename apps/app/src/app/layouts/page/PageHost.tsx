@@ -220,7 +220,7 @@ function resolveCollectionViewState(
 
   return {
     viewMode: persisted?.layout ?? 'table',
-    properties: persisted?.properties ?? DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+    properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, ...persisted?.properties },
     sort: persisted?.sort ?? DEFAULT_COLLECTION_SORT,
   };
 }
@@ -361,7 +361,7 @@ export function PageHost({
     }
   };
 
-  const collectionViewMenu = (
+  const renderCollectionViewMenu = (showArchived = false) => (
     <CollectionViewMenu
       viewMode={collectionViewMode}
       onChange={setCollectionViewMode}
@@ -369,6 +369,7 @@ export function PageHost({
       onPropertiesChange={setCollectionProperties}
       sort={collectionSort}
       onSortChange={setCollectionSort}
+      showArchived={showArchived}
     />
   );
 
@@ -1169,7 +1170,7 @@ export function PageHost({
           actions={topBar.actions}
           titleActions={
             <>
-              {collectionViewMenu}
+              {renderCollectionViewMenu(isArchiveView)}
               {newNoteAction}
             </>
           }
@@ -1245,6 +1246,15 @@ export function PageHost({
                 sort={collectionSort}
                 onCreateFolder={onCreateSubfolder}
                 onCreateNote={onCreateNote}
+                previewResolvers={{
+                  resolveWikiLink,
+                  resolveTag,
+                  resolveEmbed: resolvePageEmbed,
+                  resolveEmbedImage,
+                  resolveImageSrc,
+                  resolveCoverImage: (cover) =>
+                    application.resolveCoverImageForDisplay(cover),
+                }}
               />
             )
           }
@@ -1463,7 +1473,7 @@ export function PageHost({
         breadcrumbs={<Breadcrumbs items={[]} />}
         titleActions={
           <>
-            {collectionViewMenu}
+            {renderCollectionViewMenu()}
             {newNoteAction}
           </>
         }

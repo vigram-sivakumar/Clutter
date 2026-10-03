@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDateDisplay, formatTimeDisplay } from './dateDisplay';
+import { formatDateDisplay, formatDateTimeDisplay, formatRelativeTimestamp, formatTimeDisplay } from './dateDisplay';
 
 // Thursday, 2026-08-20 — same fixed reference date the Date-autocomplete
 // tests use, for consistency across the codebase's date-related suites.
@@ -271,5 +271,52 @@ describe("formatDateDisplay — 'condensedFullYear'", () => {
     expect(formatDateDisplay('2026-09-30', 'condensedFullYear', REF)).toBe('30 Sep 2026');
     expect(formatDateDisplay('2026-11-11', 'condensedFullYear', REF)).toBe('11 Nov 2026');
     expect(formatDateDisplay('2027-11-11', 'condensedFullYear', REF)).toBe('11 Nov 2027');
+  });
+});
+
+describe('formatDateTimeDisplay', () => {
+  const REF = new Date(2026, 9, 3, 12, 0);
+
+  it('today, yesterday and tomorrow stay bare words before the time', () => {
+    expect(formatDateTimeDisplay(new Date(2026, 9, 3, 14, 45), REF)).toBe('Today, 02:45 PM');
+    expect(formatDateTimeDisplay(new Date(2026, 9, 2, 9, 3), REF)).toBe('Yesterday, 09:03 AM');
+    expect(formatDateTimeDisplay(new Date(2026, 9, 4, 0, 5), REF)).toBe('Tomorrow, 12:05 AM');
+  });
+
+  it('drops the year in the reference year, never shows a weekday', () => {
+    expect(formatDateTimeDisplay(new Date(2026, 7, 12, 9, 3), REF)).toBe('12 Aug, 09:03 AM');
+    expect(formatDateTimeDisplay(new Date(2026, 9, 1, 18, 30), REF)).toBe('1 Oct, 06:30 PM');
+  });
+
+  it('shows the year outside the reference year', () => {
+    expect(formatDateTimeDisplay(new Date(2025, 7, 12, 9, 3), REF)).toBe('12 Aug 2025, 09:03 AM');
+  });
+});
+
+describe('formatRelativeTimestamp', () => {
+  const NOW = new Date(2026, 9, 3, 14, 45, 30);
+
+  it('under two hours reads as a relative age', () => {
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 14, 45, 10), NOW)).toBe('Just now');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 14, 44, 0), NOW)).toBe('1 minute ago');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 14, 10, 0), NOW)).toBe('35 minutes ago');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 13, 40, 0), NOW)).toBe('1 hour ago');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 12, 50, 0), NOW)).toBe('1 hour ago');
+  });
+
+  it('two hours or older falls back to the absolute label', () => {
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 12, 45, 30), NOW)).toBe('Today, 12:45 PM');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 9, 3), NOW)).toBe('Today, 09:03 AM');
+    expect(formatRelativeTimestamp(new Date(2026, 9, 2, 23, 50), NOW)).toBe('Yesterday, 11:50 PM');
+    expect(formatRelativeTimestamp(new Date(2026, 7, 12, 9, 3), NOW)).toBe('12 Aug, 09:03 AM');
+  });
+
+  it('the window is rolling, so it crosses midnight', () => {
+    const justAfterMidnight = new Date(2026, 9, 3, 0, 10);
+    expect(formatRelativeTimestamp(new Date(2026, 9, 2, 23, 50), justAfterMidnight)).toBe('20 minutes ago');
+  });
+
+  it('a future instant falls back to the absolute label', () => {
+    expect(formatRelativeTimestamp(new Date(2026, 9, 3, 18, 0), NOW)).toBe('Today, 06:00 PM');
   });
 });

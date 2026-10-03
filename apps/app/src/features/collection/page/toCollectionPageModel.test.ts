@@ -235,6 +235,49 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     ]);
   });
 
+  it('carries the note body and cover fields from EffectivePage for the Card preview, and none on a folder entry', () => {
+    const active = makeFolder({ id: 'folder-1' });
+    const sub = makeFolder({ id: 'folder-2', name: 'Sub', path: `${ROOT}/Sub`, parentId: 'folder-1' });
+    const page = makePage({
+      name: 'Covered',
+      source: { markdown: '# Body only\n\ntext' },
+      metadata: {
+        ...defaultPageMetadata,
+        cover: 'Assets/hero.png',
+        coverHidden: true,
+        coverLayout: 'side',
+        coverPositionAbove: 20,
+        coverPositionSide: 80,
+      },
+    });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active, sub], [page]);
+
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.notes[0]).toMatchObject({
+      markdown: '# Body only\n\ntext',
+      cover: 'Assets/hero.png',
+      coverHidden: true,
+      // The *above* focal position, even though this note's own layout is 'side'.
+      coverPositionAbove: 20,
+    });
+    expect(model.folders[0]).toMatchObject({
+      markdown: undefined,
+      cover: undefined,
+      coverHidden: undefined,
+      coverPositionAbove: undefined,
+    });
+  });
+
   it('does not show the raw auto-generated filename for an unnamed note — falls to the placeholder, not body content', () => {
     const active = makeFolder({ id: 'folder-1' });
     const page = makePage({

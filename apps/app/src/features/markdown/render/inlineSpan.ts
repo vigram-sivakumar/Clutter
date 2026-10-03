@@ -40,8 +40,19 @@ export type InlineSpan =
   | { readonly kind: 'tag'; readonly name: string }
   | { readonly kind: 'date'; readonly isoDate: string }
   | { readonly kind: 'link'; readonly label: string }
-  | { readonly kind: 'image'; readonly alt: string }
+  /**
+   * `src` is the Image's own raw destination (as written, never resolved) — present only when the
+   * caller opted in via `TokenizeInlineOptions.includeImageSrc` (the Card view's block renderer, the
+   * one surface with real image display); the compact tokenizer never sets it, so its span shape is
+   * unchanged.
+   */
+  | { readonly kind: 'image'; readonly alt: string; readonly src?: string }
   | { readonly kind: 'embed'; readonly path: string; readonly alias: string | null };
+
+export interface TokenizeInlineOptions {
+  /** Also record each Image's raw destination as `src` — see `InlineSpan`'s image variant. */
+  readonly includeImageSrc?: boolean;
+}
 
 /**
  * The four styled-container node kinds — each always parses with exactly
@@ -185,16 +196,19 @@ export function readLink(node: SyntaxNode, text: string): InlineSpan | null {
  * already true of the real editor's rendering; this function does not
  * introduce it, only stops diverging from it.
  */
-export function readImage(node: SyntaxNode, text: string): InlineSpan | null {
+export function readImage(node: SyntaxNode, text: string, includeSrc = false): InlineSpan | null {
   const match = scanImage(text.slice(node.from, node.to));
   if (!match) {
     return { kind: 'text', value: text.slice(node.from, node.to) };
   }
   if (match.alt.trim().length > 0) {
-    return { kind: 'image', alt: match.alt };
+    return includeSrc ? { kind: 'image', alt: match.alt, src: match.url } : { kind: 'image', alt: match.alt };
   }
   const basename = VaultPath.stemName(match.url);
-  return basename ? { kind: 'image', alt: basename } : null;
+  if (!basename) {
+    return null;
+  }
+  return includeSrc ? { kind: 'image', alt: basename, src: match.url } : { kind: 'image', alt: basename };
 }
 
 /**
@@ -267,7 +281,12 @@ const STRUCTURAL_MARKER_NODE_NAMES: ReadonlySet<string> = new Set([
  * recognized descendants are still found, wherever nested, captured as
  * `'text'` spans in the gaps between them.
  */
-function tokenizeChildren(node: SyntaxNode, text: string, from?: number): InlineSpan[] {
+function tokenizeChildren(
+  node: SyntaxNode,
+  text: string,
+  from?: number,
+  options: TokenizeInlineOptions = {}
+): InlineSpan[] {
   const spans: InlineSpan[] = [];
   let cursor = from ?? node.from;
 
@@ -301,7 +320,7 @@ function tokenizeChildren(node: SyntaxNode, text: string, from?: number): Inline
       // Recurse into this container's own children — a nested Link,
       // WikiLink, InlineCode, or another styled container inside it is
       // found and typed by this same walk, not flattened to raw text.
-      spans.push({ kind: container.kind, children: tokenizeChildren(n, text) });
+      spans.push({ kind: container.kind, children: tokenizeChildren(n, text, undefined, options) });
       cursor = n.to;
       return;
     }
@@ -322,7 +341,7 @@ function tokenizeChildren(node: SyntaxNode, text: string, from?: number): Inline
 
     if (n.name === 'Link' || n.name === 'Image') {
       pushText(cursor, n.from);
-      const span = n.name === 'Link' ? readLink(n, text) : readImage(n, text);
+      const span = n.name === 'Link' ? readLink(n, text) : readImage(n, text, options.includeImageSrc);
       if (span) {
         spans.push(span);
       }
@@ -385,6 +404,11 @@ function tokenizeChildren(node: SyntaxNode, text: string, from?: number): Inline
  * `node`, independent of the marker-consuming behavior `tokenizeChildren`
  * already applies at every depth.
  */
-export function tokenizeInline(node: SyntaxNode, text: string, from?: number): InlineSpan[] {
-  return tokenizeChildren(node, text, from);
+export function tokenizeInline(
+  node: SyntaxNode,
+  text: string,
+  from?: number,
+  options?: TokenizeInlineOptions
+): InlineSpan[] {
+  return tokenizeChildren(node, text, from, options);
 }

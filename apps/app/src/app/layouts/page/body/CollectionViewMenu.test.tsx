@@ -32,9 +32,10 @@ afterEach(() => {
 
 function renderMenu(
   overrides: {
-    viewMode?: 'list' | 'table';
+    viewMode?: 'list' | 'table' | 'card';
     properties?: CollectionPropertyVisibility;
     sort?: CollectionSortState;
+    showArchived?: boolean;
   } = {}
 ) {
   const onChange = vi.fn();
@@ -48,6 +49,7 @@ function renderMenu(
       onPropertiesChange={onPropertiesChange}
       sort={overrides.sort ?? DEFAULT_COLLECTION_SORT}
       onSortChange={onSortChange}
+      showArchived={overrides.showArchived}
     />
   );
   const trigger = utils.container.querySelector('[aria-haspopup="menu"]');
@@ -67,6 +69,7 @@ describe('CollectionViewMenu — root view', () => {
     expect(getByText('Layout')).toBeInTheDocument();
     expect(getByText('List')).toBeInTheDocument();
     expect(getByText('Table')).toBeInTheDocument();
+    expect(getByText('Card')).toBeInTheDocument();
     expect(getByText('Properties')).toBeInTheDocument();
     expect(getByText('Sort by')).toBeInTheDocument();
     expect(getByText('Name')).toBeInTheDocument();
@@ -80,6 +83,23 @@ describe('CollectionViewMenu — root view', () => {
 
     const propertiesRow = getByText('Properties').closest('.entry')!;
     expect(propertiesRow.querySelector('.entry__trailing svg')).toBeInTheDocument();
+  });
+
+  it('shows the Properties row in every layout, Card included', () => {
+    expect(renderMenu({ viewMode: 'card' }).getByText('Properties')).toBeInTheDocument();
+    cleanup();
+    expect(renderMenu({ viewMode: 'list' }).getByText('Properties')).toBeInTheDocument();
+    cleanup();
+    expect(renderMenu({ viewMode: 'table' }).getByText('Properties')).toBeInTheDocument();
+  });
+
+  it('selecting Card calls onChange with "card" and closes the whole menu', () => {
+    const { getByText, onChange, queryByText } = renderMenu();
+
+    fireEvent.click(getByText('Card'));
+
+    expect(onChange).toHaveBeenCalledWith('card');
+    expect(queryByText('Layout')).not.toBeInTheDocument();
   });
 
   it('selecting Table calls onChange and closes the whole menu', () => {
@@ -208,5 +228,110 @@ describe('CollectionViewMenu — Properties submenu', () => {
 
     expect(getByText('Layout')).toBeInTheDocument();
     expect(queryByText('Description')).not.toBeInTheDocument();
+  });
+});
+
+describe('CollectionViewMenu — Archived (Archive collection only)', () => {
+  it('offers no Archived property or sort option by default', () => {
+    const { getByText, queryByText } = renderMenu();
+
+    expect(queryByText('Archived')).not.toBeInTheDocument();
+    openPropertiesSubmenu(getByText);
+    expect(queryByText('Archived')).not.toBeInTheDocument();
+  });
+
+  it('offers an Archived sort option when showArchived', () => {
+    const { getByText, onSortChange } = renderMenu({ showArchived: true });
+
+    fireEvent.click(getByText('Archived'));
+
+    expect(onSortChange).toHaveBeenCalledWith({ key: 'archived', direction: 'down' });
+  });
+
+  it('offers an Archived property toggle when showArchived', () => {
+    const { getByText, onPropertiesChange } = renderMenu({ showArchived: true });
+
+    openPropertiesSubmenu(getByText);
+    fireEvent.click(getByText('Archived'));
+
+    expect(onPropertiesChange).toHaveBeenCalledWith({
+      ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+      archived: false,
+      cover: true,
+      preview: true,
+    });
+  });
+});
+
+describe('CollectionViewMenu — Card-only properties', () => {
+  it('offers Cover image and Content preview in Card mode only', () => {
+    const card = renderMenu({ viewMode: 'card' });
+    openPropertiesSubmenu(card.getByText);
+    expect(card.getByText('Cover image')).toBeInTheDocument();
+    expect(card.getByText('Content preview')).toBeInTheDocument();
+    cleanup();
+
+    for (const viewMode of ['list', 'table'] as const) {
+      const other = renderMenu({ viewMode });
+      openPropertiesSubmenu(other.getByText);
+      expect(other.queryByText('Cover image')).not.toBeInTheDocument();
+      expect(other.queryByText('Content preview')).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it('toggling them updates only their own key', () => {
+    const { getByText, onPropertiesChange } = renderMenu({ viewMode: 'card' });
+    openPropertiesSubmenu(getByText);
+
+    fireEvent.click(getByText('Cover image'));
+    expect(onPropertiesChange).toHaveBeenLastCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false });
+
+    fireEvent.click(getByText('Content preview'));
+    expect(onPropertiesChange).toHaveBeenLastCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false });
+  });
+});
+
+describe('CollectionViewMenu — Card mode property list', () => {
+  it('omits Created and Last opened in Card mode (a card shows only the edited date), keeping them in List and Table', () => {
+    const card = renderMenu({ viewMode: 'card' });
+    openPropertiesSubmenu(card.getByText);
+    expect(card.queryByText('Created')).not.toBeInTheDocument();
+    expect(card.queryByText('Last opened')).not.toBeInTheDocument();
+    expect(card.getByText('Last edited')).toBeInTheDocument();
+    expect(card.getByText('Description')).toBeInTheDocument();
+    expect(card.getByText('Cover image')).toBeInTheDocument();
+    expect(card.getByText('Content preview')).toBeInTheDocument();
+    cleanup();
+
+    for (const viewMode of ['list', 'table'] as const) {
+      const other = renderMenu({ viewMode });
+      openPropertiesSubmenu(other.getByText);
+      expect(other.getByText('Created')).toBeInTheDocument();
+      expect(other.getByText('Last opened')).toBeInTheDocument();
+      cleanup();
+    }
+  });
+});
+
+describe('CollectionViewMenu — Properties order', () => {
+  const propertyLabels = () =>
+    [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
+
+  it('puts the date properties at the bottom of the list in List and Table', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { getByText } = renderMenu({ viewMode });
+      openPropertiesSubmenu(getByText);
+
+      expect(propertyLabels()).toEqual(['Description', 'Last opened', 'Created', 'Last edited']);
+      cleanup();
+    }
+  });
+
+  it('puts the card toggles before the date in Card mode', () => {
+    const { getByText } = renderMenu({ viewMode: 'card' });
+    openPropertiesSubmenu(getByText);
+
+    expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Content preview', 'Last edited']);
   });
 });

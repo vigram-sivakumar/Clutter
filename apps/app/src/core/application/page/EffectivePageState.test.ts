@@ -114,8 +114,12 @@ describe('EffectivePageState: draft-only entries', () => {
       markdown: '',
       icon: null,
       favorite: false,
+      cover: null,
+      coverHidden: false,
+      coverPositionAbove: 50,
       createdAt: null,
       updatedAt: null,
+      archivedAt: null,
     });
 
     const children = effectivePageState.getChildPages(null);

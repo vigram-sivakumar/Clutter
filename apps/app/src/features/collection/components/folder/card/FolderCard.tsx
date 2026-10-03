@@ -51,6 +51,7 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(
         {...props}
         ref={ref}
         className={['folder-card', className].filter(Boolean).join(' ')}
+        stacked={Boolean(title)}
         icon={icon}
         emoji={emoji}
         title={title}

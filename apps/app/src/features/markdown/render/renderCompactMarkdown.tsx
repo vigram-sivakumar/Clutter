@@ -3,6 +3,9 @@ import { Fragment, type ReactNode } from 'react';
 import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
+import { classifyEmbedTargetExtension } from '../editor/codemirror/embed/embedTargetKind';
+import type { ResolveEmbedImage } from '../editor/codemirror/embed/embedImageResolution';
+import type { ResolveImageSrc } from '../editor/codemirror/image/imageSrcResolution';
 import { fallbackTagResolution, type ResolveTag } from '../editor/codemirror/tag/tagResolution';
 import { fallbackWikiLinkResolution, type ResolveWikiLink } from '../editor/codemirror/wikilink/wikiLinkResolution';
 import type { ResolvePageEmbed } from './blocks/pageEmbedResolution';
@@ -25,6 +28,15 @@ export interface CompactMarkdownResolvers {
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
   readonly resolveEmbed?: ResolvePageEmbed;
+  /**
+   * Opt-in real image display, used only by the Card view's block renderer
+   * (`renderMarkdownBlocks`) — the same `ResolveEmbedImage`/`ResolveImageSrc`
+   * boundaries the page editor is injected with (`createEmbedImageResolver`/
+   * `createImageSrcResolver`). Omitted (every compact/sidebar caller), an
+   * Image/Embed stays plain text exactly as before.
+   */
+  readonly resolveEmbedImage?: ResolveEmbedImage;
+  readonly resolveImageSrc?: ResolveImageSrc;
 }
 
 /**
@@ -196,7 +208,7 @@ const SELF_STRIKING_KINDS: ReadonlySet<CompactSpan['kind']> = new Set([
  * that renders a self-striking span with `struck: true`; every other
  * caller (including this one) renders at the default, unstruck state.
  */
-function renderCompactSpans(spans: readonly CompactSpan[], resolvers: CompactMarkdownResolvers): ReactNode[] {
+export function renderCompactSpans(spans: readonly CompactSpan[], resolvers: CompactMarkdownResolvers): ReactNode[] {
   return spans.map((span, index) => renderCompactSpan(span, resolvers, index, false));
 }
 
@@ -300,15 +312,65 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
     case 'link':
       return renderLink(span.label, key, struck);
     case 'image':
-      return span.alt;
+      return renderImage(span, resolvers, key);
     case 'embed':
       // Compact rendering has no image/PDF display concern at all (see
       // this file's own doc comment) — a resolved embed's own title
       // (or its resolver's basename fallback) is shown as plain text,
       // never an actual image/PDF/note preview. See `renderEmbed`'s own
       // doc comment for the full resolution-fallback chain.
-      return renderEmbed(span.path, resolvers.resolveEmbed);
+      return renderEmbedSpan(span.path, span.alias, resolvers, key);
   }
+}
+
+/**
+ * Real `<img>` only when an image resolver was injected *and* the span carries
+ * its destination; otherwise today's plain-text `alt`. An unresolved local
+ * path (or an external URL) is passed straight through as `src`, the same
+ * fallback the editor's own standard-image rendering uses
+ * (`ImageSrcResolution`'s `unresolved` doc comment).
+ */
+function renderImage(
+  span: Extract<CompactSpan, { kind: 'image' }>,
+  resolvers: CompactMarkdownResolvers,
+  key: number
+): ReactNode {
+  if (!resolvers.resolveImageSrc || !span.src) {
+    return span.alt;
+  }
+  const resolution = resolvers.resolveImageSrc(span.src);
+  const url = resolution.status === 'resolved' ? resolution.url : span.src;
+  return <img key={key} className="compact-markdown-image" src={url} alt={span.alt} draggable={false} />;
+}
+
+/**
+ * An `![[x.png]]` embed renders as an image when an embed-image resolver was
+ * injected and the target's own extension says image (the same
+ * extension-first classification the editor uses — `classifyEmbedTargetExtension`,
+ * never resolution success). A missing image file shows its alt as a
+ * placeholder rather than falling into page-embed text. Every other embed
+ * (and every caller without the resolver) keeps `renderEmbed`'s text.
+ */
+function renderEmbedSpan(
+  path: string,
+  alias: string | null,
+  resolvers: CompactMarkdownResolvers,
+  key: number
+): ReactNode {
+  if (resolvers.resolveEmbedImage && classifyEmbedTargetExtension(path) === 'image') {
+    const resolution = resolvers.resolveEmbedImage(path, alias);
+    if (resolution.status === 'image') {
+      return <img key={key} className="compact-markdown-image" src={resolution.url} alt={resolution.alt} draggable={false} />;
+    }
+    if (resolution.status === 'unresolved') {
+      return (
+        <span key={key} className="compact-markdown-image-missing">
+          {resolution.alt}
+        </span>
+      );
+    }
+  }
+  return renderEmbed(path, resolvers.resolveEmbed);
 }
 
 /**

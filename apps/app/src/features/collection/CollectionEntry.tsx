@@ -20,6 +20,15 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
    */
   actions?: ReactNode;
 
+  /**
+   * Card-style layout: row one is icon + title, `metadata` sits below it
+   * spanning the full width (instead of the default icon | title+metadata
+   * columns, or List/Table's trailing metadata). Opt-in — used by
+   * FolderCard and NoteCard so both share one header DOM; every other
+   * caller renders exactly as before.
+   */
+  stacked?: boolean;
+
   isSelected?: boolean;
 
   isSelectable?: boolean;
@@ -38,6 +47,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       descriptionClassName,
       metadata,
       actions,
+      stacked = false,
       isSelectable = false,
       isSelected = false,
       onSelectedChange,
@@ -85,25 +95,8 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       event.currentTarget.click();
     };
 
-    return (
-      <div
-        {...props}
-        ref={ref}
-        className={[
-          'collection-entry',
-          className,
-          onClick && 'collection-entry--interactive',
-          isSelectable && 'collection-entry--selectable',
-          isSelected && 'collection-entry--selected',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onClick={onClick ? handleClick : undefined}
-        onKeyDown={onClick ? handleKeyDown : undefined}
-        role={role ?? (onClick ? 'button' : undefined)}
-        tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
-      >
-        {(icon || emoji || isSelectable) && (
+    const leading =
+      (icon || emoji || isSelectable) && (
           <div className="collection-entry__leading">
             {(icon || emoji) && (
               <AppIcon
@@ -122,10 +115,10 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
               />
             )}
           </div>
-        )}
+        );
 
-        <div className="collection-entry__content">
-          <div className="collection-entry__primary">
+    const primary = (
+      <div className="collection-entry__primary">
             {title && <div className="collection-entry__title">{title}</div>}
 
             {description && (
@@ -141,11 +134,48 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
               </div>
             )}
           </div>
+    );
 
-          {metadata && (
-            <div className="collection-entry__metadata">{metadata}</div>
-          )}
-        </div>
+    return (
+      <div
+        {...props}
+        ref={ref}
+        className={[
+          'collection-entry',
+          className,
+          onClick && 'collection-entry--interactive',
+          stacked && 'collection-entry--stacked',
+          isSelectable && 'collection-entry--selectable',
+          isSelected && 'collection-entry--selected',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={onClick ? handleClick : undefined}
+        onKeyDown={onClick ? handleKeyDown : undefined}
+        role={role ?? (onClick ? 'button' : undefined)}
+        tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
+      >
+        {stacked ? (
+          <div className="collection-entry__content">
+            <div className="collection-entry__heading">
+              {leading}
+              {primary}
+            </div>
+            {metadata && (
+              <div className="collection-entry__metadata">{metadata}</div>
+            )}
+          </div>
+        ) : (
+          <>
+            {leading}
+            <div className="collection-entry__content">
+              {primary}
+              {metadata && (
+                <div className="collection-entry__metadata">{metadata}</div>
+              )}
+            </div>
+          </>
+        )}
 
         {actions && <div className="collection-entry__actions">{actions}</div>}
       </div>

@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY } from './CollectionBody';
 import { ArchiveCollectionBody } from './ArchiveCollectionBody';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -549,5 +550,60 @@ describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', (
     fireEvent.click(screen.getByText('spec').closest('.entry')!);
 
     expect(onOpenResource).toHaveBeenCalledWith(resource);
+  });
+});
+
+describe('ArchiveCollectionBody: Archived column', () => {
+  it('table mode shows an Archived header and each note\'s archived time', () => {
+    const note = makeNoteEntry({ archived: '35 minutes ago' });
+
+    const { container } = renderArchive({
+      notes: [note],
+      resources: [],
+      viewMode: 'table',
+    });
+
+    expect(container.querySelector('.note-table__header-cell--archived')).toHaveTextContent(
+      'Archived'
+    );
+    expect(screen.getByText('35 minutes ago').closest('.note-table-row__archived')).toBeInTheDocument();
+  });
+
+  it('table mode hides the column when the Archived property is unchecked', () => {
+    const { container } = renderArchive({
+      notes: [makeNoteEntry({ archived: '35 minutes ago' })],
+      resources: [],
+      viewMode: 'table',
+      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, archived: false },
+    });
+
+    expect(container.querySelector('.note-table__header-cell--archived')).not.toBeInTheDocument();
+    expect(screen.queryByText('35 minutes ago')).not.toBeInTheDocument();
+  });
+
+  it('list mode shows the archived time in the note metadata', () => {
+    renderArchive({
+      notes: [makeNoteEntry({ archived: 'Yesterday, 11:50 PM' })],
+      resources: [],
+      viewMode: 'list',
+    });
+
+    expect(screen.getByText('Yesterday, 11:50 PM')).toBeInTheDocument();
+  });
+
+  it('sorts by the raw archivedAt instant, newest first for "down"', () => {
+    renderArchive({
+      notes: [
+        makeNoteEntry({ id: 'a', title: 'Older', archivedAt: '2026-08-01T10:00:00.000Z' }),
+        makeNoteEntry({ id: 'b', title: 'Newer', archivedAt: '2026-09-01T10:00:00.000Z' }),
+      ],
+      resources: [],
+      viewMode: 'list',
+      sort: { key: 'archived', direction: 'down' },
+    });
+
+    const titles = [...document.querySelectorAll('.note-list')].map((el) => el.textContent);
+    expect(titles[0]).toContain('Newer');
+    expect(titles[1]).toContain('Older');
   });
 });

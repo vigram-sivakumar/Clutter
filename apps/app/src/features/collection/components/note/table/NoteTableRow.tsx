@@ -28,6 +28,7 @@ export interface NoteTableRowProps extends HTMLAttributes<HTMLDivElement> {
   lastOpened?: string;
   created?: string;
   updated?: string;
+  archived?: string;
   /**
    * Which of the lastOpened/created/updated columns actually exist on
    * this row — not just whether their content is shown. An unchecked
@@ -63,6 +64,7 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
       lastOpened,
       created,
       updated,
+      archived,
       columns = DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY,
 
       actions,
@@ -159,6 +161,13 @@ export const NoteTableRow = forwardRef<HTMLDivElement, NoteTableRowProps>(
           <CollectionEntry
             className="note-table-row__updated"
             metadata={updated}
+          />
+        )}
+
+        {columns.archived && (
+          <CollectionEntry
+            className="note-table-row__archived"
+            metadata={archived}
           />
         )}
 

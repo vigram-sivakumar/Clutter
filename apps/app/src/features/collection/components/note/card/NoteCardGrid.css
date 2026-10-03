@@ -1,0 +1,36 @@
+/*
+ * Same columns and gap as FolderGrid (the shared --collection-grid-*
+ * tokens, CollectionEntry.css), so cards sit on the folders' own grid.
+ *
+ * Card width is therefore flexible; the preview is a fixed-width document
+ * canvas scaled to fit it (DocumentPreview.css), so the document never
+ * reflows — it just gets visually larger or smaller.
+ */
+.note-card-grid {
+  /*
+   * width / height of the whole *card* — every card is exactly this shape, so
+   * heights are identical whether or not a header carries a description or a
+   * date. The preview takes whatever the header leaves (DocumentPreview.css),
+   * so nothing is reserved. 3:4 gives a ~9:10 page below a two-line header at
+   * the grid's usual 200–280px widths.
+   */
+  --note-card-aspect-ratio: 3 / 4;
+  /* Gap between a card's sections (header, cover, content) and the cover's height — real pixels. */
+  --note-card-gap: var(--space-8);
+  --note-card-cover-height: 56px;
+  /*
+   * The content's fixed document canvas width, in the document's own pixels.
+   * Markdown always lays out against exactly this width, whatever the card
+   * width; the card only changes the *scale* it is shown at (DocumentPreview.css).
+   * Tune this one value to change how much of a line fits.
+   */
+  --note-card-canvas-width: 600px;
+
+  display: grid;
+  grid-template-columns: var(--collection-grid-columns);
+  gap: var(--collection-grid-gap);
+  align-items: start;
+
+  width: 100%;
+  flex-shrink: 0;
+}

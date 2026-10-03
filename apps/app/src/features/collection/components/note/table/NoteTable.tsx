@@ -58,6 +58,12 @@ export function NoteTable({
             {collectionFieldLabel('updated')}
           </div>
         )}
+
+        {columns.archived && (
+          <div className="note-table__header-cell note-table__header-cell--archived">
+            {collectionFieldLabel('archived')}
+          </div>
+        )}
       </div>
 
       <div className="note-table__body">

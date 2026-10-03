@@ -27,6 +27,11 @@ type Unsubscribe = () => void;
  * a draft never has a persisted `favorite` (PageMetadata field, no
  * DraftDescriptor equivalent), so it always resolves to `false`
  * pre-promotion.
+ * `cover`/`coverHidden`/`coverPositionAbove` were added for the Notes
+ * Card preview (collection Card view), a read-only consumer — same
+ * "durable-structural, never tracked by a draft or open session" rule as
+ * `icon`/`description`: a draft resolves them to `null`/`false`/`50`
+ * (PageMetadata's own defaults) pre-promotion.
  */
 export interface EffectivePage {
   readonly id: string;
@@ -38,8 +43,17 @@ export interface EffectivePage {
   readonly markdown: string;
   readonly icon: string | null;
   readonly favorite: boolean;
+  readonly cover: string | null;
+  readonly coverHidden: boolean;
+  readonly coverPositionAbove: number;
   readonly createdAt: string | null;
   readonly updatedAt: string | null;
+  /**
+   * `PageMetadata.archivedAt` — read by the Archive collection's "Archived"
+   * column only. Same durable-structural rule as `createdAt`/`updatedAt`: a
+   * draft is never archived, so it resolves to `null` pre-promotion.
+   */
+  readonly archivedAt: string | null;
 }
 
 /**
@@ -263,8 +277,12 @@ export class EffectivePageState {
           : '',
       icon: page ? page.metadata.icon : null,
       favorite: page ? page.metadata.favorite : false,
+      cover: page ? page.metadata.cover : null,
+      coverHidden: page ? page.metadata.coverHidden : false,
+      coverPositionAbove: page ? page.metadata.coverPositionAbove : 50,
       createdAt: page ? page.metadata.createdAt : null,
       updatedAt: page ? page.metadata.updatedAt : null,
+      archivedAt: page ? page.metadata.archivedAt : null,
     };
   }
 

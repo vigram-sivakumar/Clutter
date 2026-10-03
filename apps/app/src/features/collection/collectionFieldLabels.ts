@@ -8,15 +8,27 @@ import type { SystemPropertyKey } from '@core/properties/systemProperties';
  * user-facing label comes from the system property definitions
  * (`updated` is the `modified` Property, shown as "Last edited").
  */
-export type CollectionTimestampField = 'lastOpened' | 'created' | 'updated';
+export type CollectionTimestampField = 'lastOpened' | 'created' | 'updated' | 'archived';
 
-const SYSTEM_PROPERTY_BY_FIELD: Readonly<Record<CollectionTimestampField, SystemPropertyKey>> = {
+const SYSTEM_PROPERTY_BY_FIELD: Readonly<
+  Record<Exclude<CollectionTimestampField, 'archived'>, SystemPropertyKey>
+> = {
   lastOpened: 'lastOpened',
   created: 'created',
   updated: 'modified',
 };
 
-/** The label of a collection timestamp field — Created / Last edited / Last opened. */
+/**
+ * The label of a collection timestamp field — Created / Last edited / Last
+ * opened / Archived. `archived` is the Archive collection's own column, not
+ * a system Property a note can list (`PageSystemPropertyKey` has no
+ * archived entry), so it has no system-property definition to read a
+ * label from.
+ */
 export function collectionFieldLabel(field: CollectionTimestampField): string {
+  if (field === 'archived') {
+    return 'Archived';
+  }
+
   return systemPropertyLabel(SYSTEM_PROPERTY_BY_FIELD[field]);
 }
