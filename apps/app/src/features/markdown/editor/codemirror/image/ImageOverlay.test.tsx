@@ -390,50 +390,89 @@ describe('ImageOverlay', () => {
 });
 
 describe('ImageOverlay — remote image actions', () => {
-  it('gives an image with no vault file a More actions menu when a remote download handler is supplied', () => {
-    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+  const remoteActions = () => ({
+    onSaveToVault: vi.fn(),
+    onOpenInBrowser: vi.fn(),
+    onCopyLink: vi.fn(),
+    onDownload: vi.fn(),
+  });
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+  const labels = () =>
+    [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
+
+  it('gives an image with no vault file the menu when remote actions are supplied', () => {
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} remoteImageActions={remoteActions()} />);
 
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('lists Set as cover image (unavailable for now) and Download — and nothing that needs a file', () => {
-    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+  it('lists the asset menu in its usual order with URL counterparts: Save to vault, Open in browser, Copy link, Download, Set as cover image (unavailable)', () => {
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} remoteImageActions={remoteActions()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    openMenu();
 
-    const cover = screen.getByText('Set as cover image').closest('[role="menuitem"]')!;
-    expect(cover).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('Download')).toBeInTheDocument();
-    for (const absent of ['Archive', 'Move to', 'Reveal in Finder', 'Copy path', 'Rename']) {
+    expect(labels()).toEqual(['Save to vault', 'Open in browser', 'Copy link', 'Download', 'Set as cover image']);
+    expect(screen.getByText('Set as cover image').closest('[role="menuitem"]')).toHaveAttribute('aria-disabled', 'true');
+    for (const absent of ['Archive', 'Move to…', 'Reveal in Finder', 'Copy path', 'Rename']) {
       expect(screen.queryByText(absent)).not.toBeInTheDocument();
     }
   });
 
-  it('Download saves the image at its own URL', () => {
-    const onDownloadRemoteImage = vi.fn();
-    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={onDownloadRemoteImage} />);
+  it.each([
+    ['Save to vault', 'onSaveToVault'],
+    ['Open in browser', 'onOpenInBrowser'],
+    ['Copy link', 'onCopyLink'],
+    ['Download', 'onDownload'],
+  ] as const)('%s calls its action with the image\'s own URL', (label, action) => {
+    const actions = remoteActions();
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} remoteImageActions={actions} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    fireEvent.click(screen.getByText('Download'));
+    openMenu();
+    fireEvent.click(screen.getByText(label));
 
-    expect(onDownloadRemoteImage).toHaveBeenCalledWith('https://example.com/image.png');
+    expect(actions[action]).toHaveBeenCalledWith('https://example.com/image.png');
+    for (const other of Object.keys(actions) as (keyof typeof actions)[]) {
+      if (other !== action) {
+        expect(actions[other]).not.toHaveBeenCalled();
+      }
+    }
   });
 
   it('choosing the unavailable Set as cover image does nothing', () => {
-    const onDownloadRemoteImage = vi.fn();
-    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={onDownloadRemoteImage} />);
+    const actions = remoteActions();
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} remoteImageActions={actions} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    openMenu();
     fireEvent.click(screen.getByText('Set as cover image'));
 
-    expect(onDownloadRemoteImage).not.toHaveBeenCalled();
+    for (const action of Object.values(actions)) {
+      expect(action).not.toHaveBeenCalled();
+    }
   });
 
-  it('a vault image keeps the resource menu — not the remote one — even with the handler supplied', () => {
-    render(<ImageOverlay image={localImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+  it('with a Set as cover image capability supplied, it is available for a remote image too', () => {
+    const onSetCoverImage = vi.fn();
+    render(
+      <ImageOverlay
+        image={externalImage}
+        onClose={vi.fn()}
+        remoteImageActions={remoteActions()}
+        onSetCoverImage={onSetCoverImage}
+      />
+    );
+
+    openMenu();
+    fireEvent.click(screen.getByText('Set as cover image'));
+
+    expect(onSetCoverImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('a vault image keeps the resource menu — not the remote one — even with remote actions supplied', () => {
+    render(<ImageOverlay image={localImage} onClose={vi.fn()} remoteImageActions={remoteActions()} />);
 
     expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    openMenu();
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+    expect(screen.queryByText('Save to vault')).not.toBeInTheDocument();
   });
 });

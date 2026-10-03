@@ -31,3 +31,10 @@ The Assets collection listed exactly the `VaultResource`s on disk (`MembershipSe
 - `AssetsCollectionBody` and the asset card/list/table take `Asset` instead of `VaultResource`; the table gains a Source column and the list marks remote assets.
 - Spec §3c documents the catalog; `Vault`, the Gate, Sync and the persisted view config are unchanged.
 - Every Assets render re-derives the catalog (one pass over pages' memoized sources); if that ever shows up in profiling, memoizing at the selector is the next step.
+
+## Amendment: actions on a remote asset (Save to vault)
+
+A remote asset opened in the image overlay gets the *same* asset menu as a vault file, adapted by source (`buildResourceSidebarMenu(kind, source)` is the one definition and the one order): **Save to vault** (stands in for Move to…), **Open in browser** (Reveal in Finder), **Copy link** (Copy path), **Download**, then **Set as cover image** (listed but unavailable until it is wired). Rename and Archive have no file to act on and are absent.
+
+**Save to vault** is the one action that writes. It adds an optional, binary-only `VaultFileSystem.writeBinaryFile(path, bytes)` primitive (like `stat`/`duplicate`: only providers that can write bytes need it) and `importRemoteAsset`, the URL counterpart of `importAsset`; both share `resolveAssetDestination`, so every imported asset is named by one rule (collision-free, in `Assets/`). It is a non-Gate write for the same reason `importAsset` is (an asset file is not Page/Folder domain content). The binary write is deliberately **not** registered as a self-write: the watcher's "created" event is how Sync adds the new file to the Vault, so it then appears in the Assets collection as a local asset (the remote entry for the same URL stays, as it is still referenced).
+

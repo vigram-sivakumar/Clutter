@@ -11,8 +11,24 @@ import { AppIcon } from '@shared/icon';
 import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
+/**
+ * What the menu does for an asset with no vault file (a remote asset, an
+ * external URL) — each takes the image's URL. All four are the app's existing
+ * behaviors (the editor's image menu already downloads and copies; Save to
+ * vault is `Application.importRemoteImage`), supplied by the caller.
+ */
+export interface RemoteImageActions {
+  onSaveToVault: (url: string) => void;
+  onOpenInBrowser: (url: string) => void;
+  onCopyLink: (url: string) => void;
+  onDownload: (url: string) => void;
+}
+
 export interface ImageOverlayMoreActionsProps {
-  resourceId: string;
+  /** A vault file's id — the resource menu. Exactly one of `resourceId` and `remote` is given. */
+  resourceId?: string;
+  /** A remote image — the same menu, adapted to a URL with no file behind it. */
+  remote?: { readonly url: string; readonly actions: RemoteImageActions };
   onArchiveResource?: (resourceId: string) => void;
   onRevealResourceInFinder?: (resourceId: string) => void;
   onCopyResourcePath?: (resourceId: string, format: LocationPathFormat) => void;
@@ -64,6 +80,7 @@ export interface ImageOverlayMoreActionsProps {
  */
 export function ImageOverlayMoreActions({
   resourceId,
+  remote,
   onArchiveResource,
   onRevealResourceInFinder,
   onCopyResourcePath,
@@ -73,49 +90,53 @@ export function ImageOverlayMoreActions({
   onCreateFolder,
   onSetCoverImage,
 }: ImageOverlayMoreActionsProps) {
-  // buildResourceSidebarMenu('image') minus rename (no home in this context
-  // yet — a deliberate product decision, not an oversight; see this file's
-  // own PR description), plus 'set-as-cover-image' spliced in right before
-  // Archive — same "organizational actions above, destructive-adjacent
-  // Archive last" ordering resourceSidebarMenu.config.ts's own doc comment
-  // already establishes for Archive, extended by one item — only when the
-  // caller actually supplies the capability (mirrors the inline
-  // ImageOptionsMenu's own onSetCoverImage?-gated item, never an
-  // always-present one).
-  const menuItems: OverflowMenuItemConfig[] = [];
-  for (const item of buildResourceSidebarMenu('image')) {
-    if (item.id === 'rename') {
-      continue;
+  // The one asset menu (`buildResourceSidebarMenu`), adapted to the asset's
+  // source: a vault file gets the resource menu, a remote image the same menu
+  // in the same order with URL counterparts. Rename has no home in this
+  // context (a deliberate product decision); Set as cover image is offered when
+  // the caller supplies the capability — and, for a remote image, always listed
+  // (unavailable for now, since it does nothing yet and a live control must
+  // never be a silent no-op).
+  const menuItems: OverflowMenuItemConfig[] = buildResourceSidebarMenu(
+    'image',
+    remote ? 'remote' : 'local',
+    {
+      rename: false,
+      setAsCoverImage: onSetCoverImage ? 'enabled' : remote ? 'disabled' : undefined,
     }
-    if (item.id === 'archive' && onSetCoverImage) {
-      menuItems.push({
-        id: 'set-as-cover-image',
-        label: 'Set as cover image',
-        icon: 'image',
-      });
-    }
-    menuItems.push(item);
-  }
+  );
   const [open, setOpen] = useState(false);
   const moveTrigger = useMoveDestinationTrigger(resourceMoveDestinations);
   const suppressReturnFocusRef = useRef(false);
 
   function handleSelect(id: string) {
     moveTrigger.handleSelect(id, (id) => {
-      if (id === 'archive') {
-        onArchiveResource?.(resourceId);
-      } else if (id === 'reveal-in-finder') {
-        onRevealResourceInFinder?.(resourceId);
-      } else if (id === 'download') {
-        onDownloadResource?.(resourceId);
-      } else if (id === 'copy-path-at-vault') {
-        onCopyResourcePath?.(resourceId, 'at-vault');
-      } else if (id === 'copy-path-full-path') {
-        onCopyResourcePath?.(resourceId, 'full-path');
-      } else if (id === 'copy-path-as-markdown') {
-        onCopyResourcePath?.(resourceId, 'as-markdown');
-      } else if (id === 'set-as-cover-image') {
+      if (id === 'set-as-cover-image') {
         onSetCoverImage?.();
+      } else if (remote) {
+        if (id === 'save-to-vault') {
+          remote.actions.onSaveToVault(remote.url);
+        } else if (id === 'open-in-browser') {
+          remote.actions.onOpenInBrowser(remote.url);
+        } else if (id === 'copy-link') {
+          remote.actions.onCopyLink(remote.url);
+        } else if (id === 'download') {
+          remote.actions.onDownload(remote.url);
+        }
+      } else if (resourceId !== undefined) {
+        if (id === 'archive') {
+          onArchiveResource?.(resourceId);
+        } else if (id === 'reveal-in-finder') {
+          onRevealResourceInFinder?.(resourceId);
+        } else if (id === 'download') {
+          onDownloadResource?.(resourceId);
+        } else if (id === 'copy-path-at-vault') {
+          onCopyResourcePath?.(resourceId, 'at-vault');
+        } else if (id === 'copy-path-full-path') {
+          onCopyResourcePath?.(resourceId, 'full-path');
+        } else if (id === 'copy-path-as-markdown') {
+          onCopyResourcePath?.(resourceId, 'as-markdown');
+        }
       }
     });
   }
@@ -153,7 +174,7 @@ export function ImageOverlayMoreActions({
           suppressReturnFocusRef={suppressReturnFocusRef}
         />
       </Overlay>
-      {resourceMoveDestinations !== undefined && (
+      {resourceId !== undefined && resourceMoveDestinations !== undefined && (
         <MoveDestinationPicker
           anchorRef={moveTrigger.triggerRef}
           open={moveTrigger.open}

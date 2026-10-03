@@ -148,6 +148,11 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     };
   }
 
+  /** Writes bytes as a (latin1-decoded) file, so a test can read back that it exists and what was written. */
+  async writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
+    await this.writeFile(path, new TextDecoder('latin1').decode(bytes));
+  }
+
   /** Test helper: pins a file's reported timestamps. */
   setFileTimes(path: string, times: { createdAt: Date; modifiedAt: Date }): void {
     this.times.set(path, times);

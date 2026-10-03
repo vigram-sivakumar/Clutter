@@ -53,6 +53,8 @@ import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUr
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { ASSETS_DIRECTORY_NAME } from '../vault/initialize/ensureAssetsDirectory';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
+import { fetchRemoteAsset } from '../vault/providers/fetchRemoteAsset';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
@@ -746,6 +748,17 @@ export class Application {
    */
   public async importCoverAsset(sourceAbsolutePath: string): Promise<string> {
     return importCoverAsset(this.fileSystem, this.rootPath, sourceAbsolutePath);
+  }
+
+  /**
+   * Saves a remote image into `{vaultRoot}/Assets/` and returns its
+   * vault-relative reference (the remote counterpart of `importCoverAsset`;
+   * same non-Gate carve-out — an asset file is not Vault domain content).
+   * The new file reaches the Vault through the watcher like any asset added
+   * to the vault, so it then appears in the Assets collection as a local asset.
+   */
+  public async importRemoteImage(url: string): Promise<string> {
+    return importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset);
   }
 
   /**

@@ -4,8 +4,7 @@ import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.ty
 import { Overlay } from '@components/overlay/Overlay';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
-import { ImageOverlayRemoteActions } from './ImageOverlayRemoteActions';
-import { ImageOverlayMoreActions } from './ImageOverlayMoreActions';
+import { ImageOverlayMoreActions, type RemoteImageActions } from './ImageOverlayMoreActions';
 
 import './ImageOverlay.css';
 
@@ -65,12 +64,12 @@ export interface ImageOverlayProps {
    */
   readonly onSetCoverImage?: () => void;
   /**
-   * Saves a copy of an image that has no vault file behind it (a remote asset,
-   * an external URL) wherever the user chooses. Its presence is what gives such
-   * an image a More Actions control at all (`ImageOverlayRemoteActions`);
+   * What the More actions menu does for an image that has no vault file behind
+   * it (a remote asset, an external URL): Save to vault, Open in browser, Copy
+   * link, Download. Its presence is what gives such an image a menu at all;
    * absent, a resource-less image shows none, as before.
    */
-  readonly onDownloadRemoteImage?: (url: string) => void;
+  readonly remoteImageActions?: RemoteImageActions;
 }
 
 /**
@@ -127,9 +126,8 @@ export interface ImageOverlayProps {
  *
  * Rendered only when `image.resourceId` is present — the resource menu's
  * actions all act on a vault file, so an external URL with no resource behind
- * it never gets an empty one. (An image with no resource instead gets the
- * short remote menu, `ImageOverlayRemoteActions`, when the caller supplies
- * `onDownloadRemoteImage`.) And —
+ * it never gets an empty one. (An image with no resource instead gets the same
+ * menu adapted to a URL, when the caller supplies `remoteImageActions`.) And —
  * unlike the inline widget's hover-reveal control — always visible: no
  * opacity toggle, no `:hover`/`:focus-within` rule, since there is no
  * underlying document to accidentally engage the way CM6's own
@@ -146,7 +144,7 @@ export function ImageOverlay({
   onMoveResource,
   onCreateFolder,
   onSetCoverImage,
-  onDownloadRemoteImage,
+  remoteImageActions,
 }: ImageOverlayProps) {
   return (
     <Overlay
@@ -186,10 +184,13 @@ export function ImageOverlay({
         )}
       {image &&
         !image.resourceId &&
-        onDownloadRemoteImage &&
+        remoteImageActions &&
         createPortal(
           <div className="image-overlay__controls-viewport">
-            <ImageOverlayRemoteActions onDownload={() => onDownloadRemoteImage(image.url)} />
+            <ImageOverlayMoreActions
+              remote={{ url: image.url, actions: remoteImageActions }}
+              onSetCoverImage={onSetCoverImage}
+            />
           </div>,
           document.body
         )}

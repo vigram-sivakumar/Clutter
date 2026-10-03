@@ -21,10 +21,32 @@ export async function importAsset(
   vaultRoot: string,
   sourceAbsolutePath: string
 ): Promise<string> {
+  const { destinationAbsolutePath, reference } = await resolveAssetDestination(
+    fileSystem,
+    vaultRoot,
+    VaultPath.filename(sourceAbsolutePath)
+  );
+
+  await fileSystem.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+
+  return reference;
+}
+
+/**
+ * Where a new asset called `fileName` goes in `{vaultRoot}/Assets/`: the
+ * folder is created if needed, and the name is made collision-free (`photo`,
+ * `photo 2`, …). The one place an imported asset's destination is decided —
+ * shared by importing a file (`importAsset`) and saving remote bytes
+ * (`importRemoteAsset`), so the two can never name things differently.
+ */
+export async function resolveAssetDestination(
+  fileSystem: VaultFileSystem,
+  vaultRoot: string,
+  fileName: string
+): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
   await ensureAssetsDirectory(fileSystem, vaultRoot);
 
   const assetsDir = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
-  const fileName = VaultPath.filename(sourceAbsolutePath);
   const dotIndex = fileName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
   const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';
@@ -38,9 +60,9 @@ export async function importAsset(
     existingNames.has(`${candidate}${extension}`)
   );
   const destinationFileName = `${uniqueBaseName}${extension}`;
-  const destinationAbsolutePath = `${assetsDir}/${destinationFileName}`;
 
-  await fileSystem.copyFile(sourceAbsolutePath, destinationAbsolutePath);
-
-  return `${ASSETS_DIRECTORY_NAME}/${destinationFileName}`;
+  return {
+    destinationAbsolutePath: `${assetsDir}/${destinationFileName}`,
+    reference: `${ASSETS_DIRECTORY_NAME}/${destinationFileName}`,
+  };
 }

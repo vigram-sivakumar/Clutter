@@ -88,4 +88,13 @@ export interface VaultFileSystem {
    * its absence and a failed call.
    */
   stat?(path: string): Promise<VaultFileStat>;
+
+  /**
+   * Writes raw bytes to a file (creating it), for content that isn't text —
+   * today, a remote image saved into the vault's Assets folder. Optional, like
+   * `stat`/`duplicate`: only providers that can write binary data provide it.
+   * A low-level primitive; callers (`importRemoteAsset`) own the naming and
+   * the decision to write.
+   */
+  writeBinaryFile?(path: string, bytes: Uint8Array): Promise<void>;
 }

@@ -24,6 +24,8 @@ Provide OS-level file I/O and change notification, with zero knowledge of vaults
     readDirectory(path: string): Promise<DirectoryEntry[]>;
     // optional, read-only (ADR-038): size / birthtime / mtime for resource metadata
     stat?(path: string): Promise<VaultFileStat>;
+    // optional (ADR-039 amendment): raw bytes, for saving a remote asset into the vault
+    writeBinaryFile?(path: string, bytes: Uint8Array): Promise<void>;
   }
 
 + interface VaultFileSystemWatcher {

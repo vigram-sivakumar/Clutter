@@ -13,7 +13,9 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { buildResourceMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
+import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -213,7 +215,15 @@ export function AppLayout({ application }: AppLayoutProps) {
           void application.resourceOperations.moveResource(id, destinationFolderId)
         }
         onCreateFolder={(name) => application.folderOperations.create(name, null)}
-        onDownloadRemoteImage={(url) => void downloadRemoteImage(url)}
+        remoteImageActions={{
+          onSaveToVault: (url) =>
+            void application.importRemoteImage(url).catch((error: unknown) => {
+              console.error('Could not save the image to the vault.', error);
+            }),
+          onOpenInBrowser: (url) => void openExternalUrl(url),
+          onCopyLink: (url) => void copyTextToClipboard(url),
+          onDownload: (url) => void downloadRemoteImage(url),
+        }}
         onSetCoverImage={
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }

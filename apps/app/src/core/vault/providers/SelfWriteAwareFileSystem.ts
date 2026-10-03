@@ -89,6 +89,17 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     return this.inner.duplicate?.(sourcePath, kind) as Promise<string>;
   }
 
+  /**
+   * Deliberately NOT registered as a self-write (unlike writeFile/copyFile):
+   * the only binary writes are asset files saved into the vault, and the
+   * watcher's "created" event for them is exactly how Sync adds the new
+   * resource to the Vault. Suppressing it would leave the file on disk but
+   * invisible to the app until the next scan.
+   */
+  writeBinaryFile?(path: string, bytes: Uint8Array): Promise<void> {
+    return this.inner.writeBinaryFile?.(path, bytes) as Promise<void>;
+  }
+
   stat?(path: string): Promise<VaultFileStat> {
     return this.inner.stat?.(path) as Promise<VaultFileStat>;
   }

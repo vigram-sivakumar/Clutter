@@ -8,6 +8,7 @@ import {
   rename,
   copyFile,
   stat,
+  writeFile,
 } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
 import { resolveLocalDuplicatePath } from './localDuplicateNaming';
@@ -58,6 +59,10 @@ export class LocalVaultProvider implements VaultFileSystem {
   async stat(path: string): Promise<VaultFileStat> {
     const info = await stat(this.resolvePath(path));
     return { size: info.size, createdAt: info.birthtime, modifiedAt: info.mtime };
+  }
+
+  async writeBinaryFile(path: string, bytes: Uint8Array): Promise<void> {
+    await writeFile(this.resolvePath(path), bytes);
   }
 
   async copyFile(
