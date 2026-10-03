@@ -13,6 +13,7 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { buildResourceMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
+import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -212,6 +213,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           void application.resourceOperations.moveResource(id, destinationFolderId)
         }
         onCreateFolder={(name) => application.folderOperations.create(name, null)}
+        onDownloadRemoteImage={(url) => void downloadRemoteImage(url)}
         onSetCoverImage={
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }

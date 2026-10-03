@@ -388,3 +388,52 @@ describe('ImageOverlay', () => {
     });
   });
 });
+
+describe('ImageOverlay — remote image actions', () => {
+  it('gives an image with no vault file a More actions menu when a remote download handler is supplied', () => {
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+  });
+
+  it('lists Set as cover image (unavailable for now) and Download — and nothing that needs a file', () => {
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+
+    const cover = screen.getByText('Set as cover image').closest('[role="menuitem"]')!;
+    expect(cover).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Download')).toBeInTheDocument();
+    for (const absent of ['Archive', 'Move to', 'Reveal in Finder', 'Copy path', 'Rename']) {
+      expect(screen.queryByText(absent)).not.toBeInTheDocument();
+    }
+  });
+
+  it('Download saves the image at its own URL', () => {
+    const onDownloadRemoteImage = vi.fn();
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={onDownloadRemoteImage} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByText('Download'));
+
+    expect(onDownloadRemoteImage).toHaveBeenCalledWith('https://example.com/image.png');
+  });
+
+  it('choosing the unavailable Set as cover image does nothing', () => {
+    const onDownloadRemoteImage = vi.fn();
+    render(<ImageOverlay image={externalImage} onClose={vi.fn()} onDownloadRemoteImage={onDownloadRemoteImage} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByText('Set as cover image'));
+
+    expect(onDownloadRemoteImage).not.toHaveBeenCalled();
+  });
+
+  it('a vault image keeps the resource menu — not the remote one — even with the handler supplied', () => {
+    render(<ImageOverlay image={localImage} onClose={vi.fn()} onDownloadRemoteImage={vi.fn()} />);
+
+    expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+  });
+});
