@@ -6,7 +6,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { CollectionCard } from '../../card/CollectionCard';
 import { CardTitleSection } from '../../card/CardTitleSection';
-import { assetCardMetadata } from './assetCardMetadata';
+import { assetCardMetadata, type AssetMetadataVisibility } from './assetCardMetadata';
 import { AssetMedia } from './AssetMedia';
 import './AssetCard.css';
 
@@ -21,6 +21,8 @@ export interface AssetCardProps {
   readonly url: string;
   /** The Title property: whether the title section (icon and name) is shown. */
   readonly showTitle?: boolean;
+  /** The File size / Created / Last edited properties (the card's lines read size, Created, Edited): which metadata lines the title section shows (all, by default). */
+  readonly metadataVisibility?: AssetMetadataVisibility;
   readonly isSelected?: boolean;
   /** Opens the asset — the same handler the list row gets (`onOpenResource`): the caller routes by kind (image overlay / PDF viewer). */
   readonly onClick?: (resource: VaultResource) => void;
@@ -33,14 +35,16 @@ export interface AssetCardProps {
  * (the Notes Card's geometry and typography — nothing asset-specific restyles
  * them), with the asset-specific media above and the title section at the
  * bottom. The title section is the icon and name,
- * then one line of the file's size and dates (`assetCardMetadata`) when the
+ * then the file's size and dates, one per line (`assetCardMetadata`), when the
  * vault knows them — never a kind label, since the media already shows what
  * kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
  * actions menu — the asset's actions live in its viewer. The title section can
  * be hidden (`showTitle`), leaving the media to fill the whole card.
  */
-export function AssetCard({ resource, url, showTitle = true, isSelected = false, onClick, titleContent }: AssetCardProps) {
+export function AssetCard({ resource, url, showTitle = true, metadataVisibility, isSelected = false, onClick, titleContent }: AssetCardProps) {
+  const metadata = assetCardMetadata(resource, metadataVisibility);
+
   return (
     <CollectionCard
       data-resource-id={resource.id}
@@ -57,7 +61,8 @@ export function AssetCard({ resource, url, showTitle = true, isSelected = false,
           icon={getResourceIcon(resource.kind)}
           title={getResourceDisplayName(resource)}
           titleContent={titleContent}
-          metadata={assetCardMetadata(resource)}
+          metadata={metadata.length > 0 && metadata.map((item) => <span key={item}>{item}</span>)}
+          metadataLayout="vertical"
         />
       )}
     </CollectionCard>

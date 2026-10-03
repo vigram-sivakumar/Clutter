@@ -409,3 +409,33 @@ describe('AssetsCollectionBody — Title property', () => {
     expect(container.querySelector('input')).toBeNull();
   });
 });
+
+describe('AssetsCollectionBody — metadata properties', () => {
+  const withMetadata = makeResource({
+    metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
+  });
+  const lines = (container: HTMLElement) =>
+    [...container.querySelectorAll('.card-metadata > *')].map((node) => node.textContent ?? '');
+
+  it('shows File size, Created and Edited on a card by default, one per line', () => {
+    const { container } = renderAssets({ resources: [withMetadata], viewMode: 'card' });
+
+    const items = lines(container);
+    expect(items).toHaveLength(3);
+    expect(items[0]).toBe('12 KB');
+    expect(items[1]).toMatch(/^Created /);
+    expect(items[2]).toMatch(/^Edited /);
+  });
+
+  it('hides each one when its property is off', () => {
+    const off = (key: 'size' | 'created' | 'updated') => ({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, [key]: false });
+
+    expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('size') }).container)).toHaveLength(2);
+    cleanup();
+    const noCreated = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('created') }).container);
+    expect(noCreated.some((line) => line.startsWith('Created'))).toBe(false);
+    cleanup();
+    const noEdited = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('updated') }).container);
+    expect(noEdited.some((line) => line.startsWith('Edited'))).toBe(false);
+  });
+});

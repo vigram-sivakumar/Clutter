@@ -25,7 +25,7 @@ export interface AssetsCollectionBodyProps {
    * PageHost): the shared List, Table or Card of asset items.
    */
   readonly viewMode?: CollectionViewMode;
-  /** The collection's Properties (the standard control, owned by PageHost) — for Assets, only `title`, in the Card layout. */
+  /** The collection's Properties (the standard control, owned by PageHost) — for Assets, `title`, `size`, `created` and `updated`, in the Card layout. */
   readonly properties?: CollectionPropertyVisibility;
   /**
    * The collection's Sort by (the standard control, owned by PageHost) —
@@ -109,6 +109,11 @@ export function AssetsCollectionBody({
             resource={resource}
             url={resolveResourceUrl(resource.path)}
             showTitle={properties.title}
+            metadataVisibility={{
+              size: properties.size,
+              created: properties.created,
+              updated: properties.updated,
+            }}
             onClick={clickFor(resource)}
             titleContent={titleContentFor(resource)}
           />

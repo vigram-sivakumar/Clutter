@@ -22,7 +22,7 @@ const resource = (metadata?: VaultResource['metadata']): VaultResource => ({
 });
 
 describe('assetCardMetadata', () => {
-  it('is size, Created and Last edited, in that order, joined by a middle dot', () => {
+  it('is size, Created and Edited, in that order, one item each', () => {
     const line = assetCardMetadata(
       resource({
         size: 12_345,
@@ -31,17 +31,26 @@ describe('assetCardMetadata', () => {
       })
     );
 
-    expect(line).toBe('12 KB · Created 35 minutes ago · Last edited 5 minutes ago');
+    expect(line).toEqual(['12 KB', 'Created 35 minutes ago', 'Edited 5 minutes ago']);
   });
 
   it('leaves out a part the platform could not report', () => {
-    expect(assetCardMetadata(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toBe(
-      '812 B · Last edited 5 minutes ago'
+    expect(assetCardMetadata(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toEqual(
+      ['812 B', 'Edited 5 minutes ago']
     );
-    expect(assetCardMetadata(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toBe('2 MB');
+    expect(assetCardMetadata(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual(['2 MB']);
   });
 
-  it('is undefined when the resource has no metadata', () => {
-    expect(assetCardMetadata(resource())).toBeUndefined();
+  it('is empty when the resource has no metadata', () => {
+    expect(assetCardMetadata(resource())).toEqual([]);
+  });
+
+  it('leaves out each item its property hides, independently', () => {
+    const full = resource({ size: 12_345, createdAt: '2026-10-03T11:25:00.000Z', modifiedAt: '2026-10-03T11:55:00.000Z' });
+
+    expect(assetCardMetadata(full, { size: false })).toEqual(['Created 35 minutes ago', 'Edited 5 minutes ago']);
+    expect(assetCardMetadata(full, { created: false })).toEqual(['12 KB', 'Edited 5 minutes ago']);
+    expect(assetCardMetadata(full, { updated: false })).toEqual(['12 KB', 'Created 35 minutes ago']);
+    expect(assetCardMetadata(full, { size: false, created: false, updated: false })).toEqual([]);
   });
 });

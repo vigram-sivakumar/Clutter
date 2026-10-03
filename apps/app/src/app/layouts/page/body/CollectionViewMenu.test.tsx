@@ -411,7 +411,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
   });
 });
 
-describe('CollectionViewMenu — assets Title property', () => {
+describe('CollectionViewMenu — assets Card properties', () => {
   const renderAssetMenu = (viewMode: 'list' | 'table' | 'card', properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) => {
     const onPropertiesChange = vi.fn();
     const utils = render(
@@ -429,17 +429,32 @@ describe('CollectionViewMenu — assets Title property', () => {
     return { ...utils, onPropertiesChange };
   };
 
-  it('Card offers Properties with only Title, and toggling it turns the title off', () => {
-    const { getByText, queryByText, onPropertiesChange } = renderAssetMenu('card');
+  it('Card offers Title, File size, Created and Last edited — in that order, and nothing note-specific', () => {
+    const { getByText, queryByText } = renderAssetMenu('card');
 
     openPropertiesSubmenu(getByText);
-    expect(getByText('Title')).toBeInTheDocument();
-    for (const absent of ['Description', 'Cover image', 'Content preview', 'Created', 'Last edited']) {
+    const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
+    expect(labels).toEqual(['Title', 'File size', 'Created', 'Last edited']);
+    for (const absent of ['Description', 'Cover image', 'Content preview', 'Last opened']) {
       expect(queryByText(absent)).not.toBeInTheDocument();
     }
+  });
 
-    fireEvent.click(getByText('Title'));
-    expect(onPropertiesChange).toHaveBeenCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, title: false });
+  it('toggling each one flips only its own property', () => {
+    for (const [label, key] of [
+      ['Title', 'title'],
+      ['File size', 'size'],
+      ['Created', 'created'],
+      ['Last edited', 'updated'],
+    ] as const) {
+      const { getByText, onPropertiesChange, unmount } = renderAssetMenu('card');
+
+      openPropertiesSubmenu(getByText);
+      fireEvent.click(getByText(label));
+
+      expect(onPropertiesChange).toHaveBeenCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, [key]: false });
+      unmount();
+    }
   });
 
   it('List and Table have nothing to toggle, so no Properties row', () => {
@@ -450,10 +465,11 @@ describe('CollectionViewMenu — assets Title property', () => {
     }
   });
 
-  it('notes never offer Title', () => {
+  it('notes never offer Title or File size', () => {
     const { getByText, queryByText } = renderMenu({ viewMode: 'card' });
 
     openPropertiesSubmenu(getByText);
     expect(queryByText('Title')).not.toBeInTheDocument();
+    expect(queryByText('File size')).not.toBeInTheDocument();
   });
 });

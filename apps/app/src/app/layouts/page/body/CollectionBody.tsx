@@ -66,6 +66,8 @@ export interface CollectionPropertyVisibility {
   preview: boolean;
   /** Assets' Card layout only — show each card's title section (icon and name). Ignored everywhere else. */
   title: boolean;
+  /** Assets' Card layout only — show each card's file size line. Ignored everywhere else (Created / Last edited reuse `created` / `updated`). */
+  size: boolean;
 }
 
 export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
@@ -77,6 +79,7 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
   cover: true,
   preview: true,
   title: true,
+  size: true,
 };
 
 /**
