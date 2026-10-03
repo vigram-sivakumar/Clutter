@@ -13,7 +13,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import {
   renderFolderCard,
-  renderNoteListItem,
+  renderNoteList,
   renderNoteTable,
   sortCollectionEntries,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
@@ -22,7 +22,6 @@ import {
   type CollectionPropertyVisibility,
   type CollectionSortState,
 } from './CollectionBody';
-import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
 import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 
 import { PageBody } from './Page.Body';
@@ -62,10 +61,10 @@ export interface ArchiveCollectionBodyProps {
 /**
  * The page-body rendering for the Archive folder view — folders/notes
  * render through the exact same components every other collection page
- * uses (renderFolderCard/renderNoteListItem/renderNoteTable, exported
+ * uses (renderFolderCard/renderNoteList/renderNoteTable, exported
  * from CollectionBody, one rendering per entry shape, not a second
  * implementation): folders always via FolderGrid/FolderCard, notes via
- * NoteListGrid/NoteList (List) or the generic CollectionDataTable (Table) — same
+ * the generic CollectionDataList (List) or CollectionDataTable (Table) — same
  * "folders don't switch with viewMode" rule CollectionBody itself follows.
  * Restore/Delete reuse the `actions` slot those components now carry
  * (CollectionEntry's `actions` prop). Resources (images/PDFs) stay on the
@@ -160,8 +159,6 @@ export function ArchiveCollectionBody({
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
-  const noteList = sortedNotes.map((entry) => renderNoteListItem(entry, properties, noteActions(entry)));
-
   return (
     <>
       <PageBody className="collection__content">
@@ -173,7 +170,7 @@ export function ArchiveCollectionBody({
         {viewMode === 'table' ? (
           renderNoteTable(sortedNotes, properties, { actionsFor: noteActions, showArchived: true })
         ) : (
-          <NoteListGrid>{noteList}</NoteListGrid>
+          renderNoteList(sortedNotes, properties, { actionsFor: noteActions })
         )}
         {resources.map((resource) => (
           <Resource

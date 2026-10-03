@@ -6,7 +6,7 @@ import './NoteCardGrid.css';
 
 export interface NoteCardGridProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  /** Trailing "New Note" card — same "present only once there's at least one note" convention as NoteListGrid's. */
+  /** Trailing "New Note" card — same "present only once there's at least one note" convention as the notes list's "New Note" row. */
   onCreateNote?: () => void;
   /**
    * The Cover image / Content preview properties, passed to the New Note

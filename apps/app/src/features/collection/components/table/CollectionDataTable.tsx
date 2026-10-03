@@ -1,5 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
+import type { CollectionRowAttributes } from '../collectionRowAttributes';
 import type { CollectionTableColumn } from './collectionTableColumns';
 import { buildCollectionTableGridTemplateColumns } from './collectionTableColumns';
 import { CollectionTable } from './CollectionTable';
@@ -32,12 +33,6 @@ export type CollectionTableCellValue =
   | ({ readonly kind: 'text' } & CollectionTableTextCellProps)
   | ({ readonly kind: 'media' } & CollectionTableMediaCellProps);
 
-/** Extra attributes a row may carry — `data-*` hooks (`data-resource-id`) and ARIA. */
-export type CollectionDataTableRowProps = Omit<
-  HTMLAttributes<HTMLDivElement>,
-  'children' | 'onClick' | 'className'
-> & { readonly [attribute: `data-${string}`]: string | undefined };
-
 /** One row: its cells keyed by column id, and how the whole row behaves. */
 export interface CollectionDataTableRow {
   readonly id: string;
@@ -47,7 +42,7 @@ export interface CollectionDataTableRow {
   readonly onClick?: () => void;
   /** Hover-revealed overlay at the row's right edge (Archive's Restore / Delete). */
   readonly actions?: ReactNode;
-  readonly props?: CollectionDataTableRowProps;
+  readonly props?: CollectionRowAttributes;
 }
 
 export interface CollectionDataTableProps extends HTMLAttributes<HTMLDivElement> {

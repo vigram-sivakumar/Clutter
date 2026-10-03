@@ -28,6 +28,12 @@ const ALL = sourceFiles(SRC).map((path) => ({
   rel: relative(SRC, path),
   text: stripComments(readFileSync(path, 'utf8')),
 }));
+function sourceFilesOfKind(dir: string, pattern: RegExp): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? sourceFilesOfKind(path, pattern) : pattern.test(name) ? [path] : [];
+  });
+}
 const importsOf = (text: string) => [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]!);
 
 describe('Assets use the shared collection infrastructure', () => {
@@ -57,14 +63,14 @@ describe('Assets use the shared collection infrastructure', () => {
   it('notes and assets render their lists, tables and cards with the same generic layers', () => {
     const uses = (path: string, spec: string) => importsOf(read(path)).includes(spec);
 
-    expect(uses('features/collection/components/note/list/NoteList.tsx', '../../list/CollectionListRow')).toBe(true);
-    expect(uses('features/collection/components/asset/list/AssetList.tsx', '../../list/CollectionListRow')).toBe(true);
+    // List mode: one generic list for every collection — no per-type list, row or grid components.
+    expect(uses('app/layouts/page/body/CollectionBody.tsx', '@features/collection/components/list/CollectionDataList')).toBe(true);
+    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/list/CollectionDataList')).toBe(true);
     // Table mode: one generic table for every collection — no per-type table, row or cell components.
     expect(uses('app/layouts/page/body/CollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
     expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
     expect(uses('features/collection/components/note/card/NoteCardGrid.tsx', '../../card/CollectionCardGrid')).toBe(true);
     expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/card/CollectionCardGrid')).toBe(true);
-    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/list/CollectionListGrid')).toBe(true);
   });
 
   it('the Assets body defines no Add, Settings, view-mode or header controls of its own', () => {
@@ -134,11 +140,37 @@ describe('the collection table is generic', () => {
       '@features/collection/components/table/CollectionDataTable'
     );
     expect(read('app/layouts/page/body/ArchiveCollectionBody.tsx')).toContain('renderNoteTable(');
+    expect(importsFor('app/layouts/page/body/ArchiveCollectionBody.tsx')).not.toContain(
+      '@features/collection/components/list/CollectionDataList'
+    );
+    expect(read('app/layouts/page/body/ArchiveCollectionBody.tsx')).toContain('renderNoteList(');
 
     const perTypeTableComponents = ALL.filter((file) =>
       /(^|\/)(note|asset)\/table\/[A-Z][A-Za-z]*Table(Row|Cell)?\.tsx$/.test(file.rel)
     ).map((file) => file.rel);
     expect(perTypeTableComponents).toEqual([]);
+  });
+
+  it('every collection renders List mode through CollectionDataList — never its own list, row or grid component, and no list CSS of its own', () => {
+    const perTypeListComponents = ALL.filter((file) =>
+      /(^|\/)(note|asset)\/list\/[A-Z][A-Za-z]*\.tsx$/.test(file.rel)
+    ).map((file) => file.rel);
+    expect(perTypeListComponents).toEqual([]);
+
+    const perTypeListStyles = sourceFilesOfKind(join(SRC, 'features/collection/components'), /\.css$/)
+      .map((path) => relative(SRC, path))
+      .filter((rel) => /\/(note|asset)\/list\//.test(rel));
+    expect(perTypeListStyles).toEqual([]);
+  });
+
+  it('nothing under components/list imports from a specific collection (note, asset, folder, tasks)', () => {
+    const offenders = ALL.filter((file) => file.rel.startsWith('features/collection/components/list/')).flatMap((file) =>
+      importsOf(file.text)
+        .filter((spec) => /\/(note|asset|folder|tasks)\/|@core\/vault|@features\/(notes|tasks)/.test(spec))
+        .map((spec) => `${file.rel} -> ${spec}`)
+    );
+
+    expect(offenders).toEqual([]);
   });
 
   it('nothing under components/table imports from a specific collection (note, asset, folder, tasks)', () => {

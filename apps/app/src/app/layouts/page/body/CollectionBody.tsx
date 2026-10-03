@@ -5,8 +5,8 @@ import {
   NoteTableNewRow,
   toNoteTableRow,
 } from '@features/collection/components/note/table/noteTableRows';
-import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
-import { NoteList } from '@features/collection/components/note/list/NoteList';
+import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
+import { toNoteListItem } from '@features/collection/components/note/list/noteListItems';
 import { NoteCardGrid } from '@features/collection/components/note/card/NoteCardGrid';
 import { NoteCard } from '@features/collection/components/note/card/NoteCard';
 import type { DocumentPreviewResolvers } from '@features/collection/components/note/card/DocumentPreview';
@@ -27,11 +27,10 @@ import { PageBody } from './Page.Body';
  *  - View mode ('list' | 'table' | 'card') — how *notes* lay out.
  *  - Item type ('folder' | 'note') — folders always render as FolderGrid/
  *    FolderCard, regardless of viewMode; only the notes section switches
- *    between NoteListGrid/NoteList and the generic CollectionDataTable.
+ *    between the generic CollectionDataList and CollectionDataTable.
  *    FolderCard is an item renderer (a CollectionEntry row with a
  *    background/radius/shadow treatment), and FolderGrid is its matching
- *    container — the same relationship NoteListGrid has to NoteList, not
- *    "the Card/Grid collection view" (a separate, not-yet-built feature
+ *    container — not "the Card/Grid collection view" (a separate, not-yet-built feature
  *    this wiring doesn't touch). Folders have no table rows yet (the
  *    table's header cell could draw one, but folders carry no table
  *    columns' worth of data), which is why they don't switch with the
@@ -213,7 +212,7 @@ export interface CollectionBodyProps {
   onCreateFolder?: () => void;
   /**
    * Wires each view mode's trailing "New Note" row (see NoteTableNewRow's
-   * and NoteListGrid's own doc comments) — same "presence is the capability
+   * and the notes list's `newItem`) — same "presence is the capability
    * gate" convention as onCreateFolder above. Table mode always renders
    * its row regardless of note count; list mode only gets one when
    * sortedNotes is non-empty (below) — list's own empty state is not
@@ -278,42 +277,53 @@ function renderCreateFolderCard(onCreateFolder: () => void) {
   );
 }
 
+export interface RenderNoteListOptions {
+  /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
+  actionsFor?: (entry: CollectionEntryModel) => ReactNode;
+  /** The list's trailing "New Note" row's handler; absent, none renders. */
+  onCreateNote?: () => void;
+}
+
 /**
- * List-mode note rendering. Title is passed as a plain string — NoteList
- * has no markdown-resolving slot the way the old Entry-based renderer's
- * `children` was, so a note title containing wiki-link/tag markdown syntax
- * renders literally here. A real, existing limitation of the component,
- * not something this wiring introduces.
+ * List-mode note rendering — the notes, as items of the one generic
+ * CollectionDataList (the same list assets and the Archive use). Title is
+ * passed as a plain string — the list has no markdown-resolving slot, so a
+ * note title containing wiki-link/tag markdown syntax renders literally here.
+ * A real, existing limitation of the component, not something this wiring
+ * introduces.
  *
- * `properties` gates which of description/created/updated are actually
- * passed through — unchecked means omitted, never a blanked-out but
+ * `properties` gates which of description/created/updated/archived are
+ * actually passed through — unchecked means omitted, never a blanked-out but
  * still-fetched value. `lastOpened` is never passed regardless (no data
- * source — see CollectionPropertyVisibility's own doc comment).
+ * source — see CollectionPropertyVisibility's own doc comment). Exported so
+ * ArchiveCollectionBody renders the same list instead of a second one.
  */
-export function renderNoteListItem(
-  entry: CollectionEntryModel,
+export function renderNoteList(
+  entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  actions?: ReactNode
+  { actionsFor, onCreateNote }: RenderNoteListOptions = {}
 ) {
   return (
-    <NoteList
-      key={entry.id}
-      title={entry.title}
-      emoji={entry.emoji ?? undefined}
-      isSelected={entry.selected}
-      description={properties.description ? entry.description : undefined}
-      created={properties.created ? entry.created : undefined}
-      updated={properties.updated ? entry.updated : undefined}
-      archived={properties.archived ? entry.archived : undefined}
-      onClick={entry.onClick}
-      actions={actions}
+    <CollectionDataList
+      items={entries.map((entry) =>
+        toNoteListItem(entry, {
+          show: {
+            description: properties.description,
+            created: properties.created,
+            updated: properties.updated,
+            archived: properties.archived,
+          },
+          actions: actionsFor?.(entry),
+        })
+      )}
+      newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
     />
   );
 }
 
 /**
  * Card-mode note rendering — same plain-string title caveat and
- * `properties` gating as renderNoteListItem for the edited date (a card
+ * `properties` gating as renderNoteList for the edited date (a card
  * shows no created date or last-opened — the menu doesn't offer them in Card
  * mode), the description (one line above it, hidden when the note has none —
  * no "No description" placeholder, unlike Table), plus the card-only Cover
@@ -361,7 +371,7 @@ export interface RenderNoteTableOptions {
 /**
  * Table-mode note rendering — the notes, as rows of the one generic
  * CollectionDataTable. Same plain-string title caveat and `properties` gating
- * as renderNoteListItem: an unchecked property removes its column from the
+ * as renderNoteList: an unchecked property removes its column from the
  * header and from every row, not just its values. Exported so
  * ArchiveCollectionBody renders the same table (with its Archived column and
  * row actions) instead of a second implementation.
@@ -434,13 +444,9 @@ export function CollectionBody({
           renderNoteCard(entry, properties, previewResolvers)
         )}
       </NoteCardGrid>
-    ) : (
-      <NoteListGrid
-        onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
-      >
-        {sortedNotes.map((entry) => renderNoteListItem(entry, properties))}
-      </NoteListGrid>
-    );
+    ) : renderNoteList(sortedNotes, properties, {
+      onCreateNote: sortedNotes.length > 0 ? onCreateNote : undefined,
+    });
 
   return (
     <PageBody className="collection__content">

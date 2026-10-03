@@ -2,10 +2,10 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { PageBody } from './Page.Body';
 import type { CollectionSortState, CollectionViewMode } from './CollectionBody';
-import { CollectionListGrid } from '@features/collection/components/list/CollectionListGrid';
+import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { CollectionCardGrid } from '@features/collection/components/card/CollectionCardGrid';
-import { AssetList } from '@features/collection/components/asset/list/AssetList';
+import { toAssetListItem } from '@features/collection/components/asset/list/toAssetListItem';
 import { toAssetTableRow } from '@features/collection/components/asset/table/toAssetTableRow';
 import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table/assetTableColumns';
 import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
@@ -44,7 +44,7 @@ export interface AssetsCollectionBodyProps {
 
 /**
  * The Assets collection's body: the shared List, Table and Card layouts filled
- * with asset items (`AssetList` / the generic data table's asset rows /
+ * with asset items (the generic data list's and data table's asset rows, and
  * `AssetCard`). The same
  * items open the same way in every layout, and rename the same way: press F2
  * on a focused item and its name becomes an inline editor. The collection's
@@ -120,16 +120,15 @@ export function AssetsCollectionBody({
     );
   } else {
     layout = (
-      <CollectionListGrid onKeyDown={handleKeyDown}>
-        {resources.map((resource) => (
-          <AssetList
-            key={resource.id}
-            resource={resource}
-            onClick={clickFor(resource)}
-            titleContent={titleContentFor(resource)}
-          />
-        ))}
-      </CollectionListGrid>
+      <CollectionDataList
+        items={resources.map((resource) =>
+          toAssetListItem(resource, {
+            onClick: clickFor(resource),
+            titleContent: titleContentFor(resource),
+          })
+        )}
+        onKeyDown={handleKeyDown}
+      />
     );
   }
 
