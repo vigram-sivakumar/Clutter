@@ -17,6 +17,7 @@ import { toAssetListItem } from '@features/collection/components/asset/list/toAs
 import { toAssetTableRow } from '@features/collection/components/asset/table/toAssetTableRow';
 import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table/assetTableColumns';
 import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
+import '@features/collection/components/asset/card/AssetCardGrid.css';
 import { AssetRenameField } from '@features/collection/components/asset/AssetRenameField';
 import { sortAssets } from '@features/collection/components/asset/sortAssets';
 import type { Asset } from '@core/vault/models/Asset';
@@ -111,7 +112,7 @@ export function AssetsCollectionBody({
   let layout: ReactNode;
   if (viewMode === 'card' && resolveResourceUrl) {
     layout = (
-      <CollectionCardGrid onKeyDown={handleKeyDown}>
+      <CollectionCardGrid className="asset-card-grid" onKeyDown={handleKeyDown}>
         {assets.map((asset) => (
           <AssetCard
             key={asset.id}

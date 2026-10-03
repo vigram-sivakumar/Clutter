@@ -1,0 +1,15 @@
+/*
+ * The Assets card grid: up to 6 columns instead of the shared 5 (notes and
+ * folders keep 5) — assets are mostly pictures, so smaller cards read better.
+ * Same shape as --collection-grid-columns (CollectionEntry.css): each column
+ * at least 1/6 of the row minus the gaps, wrapping to fewer as the container
+ * narrows, but never narrower than 140px (the shared 200px floor would only
+ * allow 6 on a very wide window). Only the columns change — the gap and card
+ * shape stay the shared ones.
+ */
+.asset-card-grid {
+  --collection-grid-columns: repeat(
+    auto-fill,
+    minmax(max(140px, calc((100% - 5 * var(--collection-grid-gap)) / 6)), 1fr)
+  );
+}

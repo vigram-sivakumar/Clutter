@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -518,5 +520,27 @@ describe('AssetsCollectionBody — remote assets', () => {
     expect(screen.getByText('Remote')).toBeInTheDocument();
     expect(screen.getByText('Vault')).toBeInTheDocument();
     table.unmount();
+  });
+});
+
+describe('AssetsCollectionBody — Card grid', () => {
+  it('uses the asset grid (6 columns), not the shared one', () => {
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card' });
+
+    expect(container.querySelector('.collection-card-grid')).toHaveClass('asset-card-grid');
+  });
+
+  it('the asset grid fits up to 6 columns, at least 140px each, overriding only the columns', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src/features/collection/components/asset/card/AssetCardGrid.css'),
+      'utf8'
+    ).replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(css).toMatch(/\.asset-card-grid\s*\{/);
+    expect(css).toMatch(/--collection-grid-columns:/);
+    expect(css).toMatch(/5 \* var\(--collection-grid-gap\)\) \/ 6/);
+    expect(css).toMatch(/max\(140px/);
+    // Nothing else of the shared grid is restyled.
+    expect(css).not.toMatch(/grid-template-columns|gap:|aspect-ratio/);
   });
 });
