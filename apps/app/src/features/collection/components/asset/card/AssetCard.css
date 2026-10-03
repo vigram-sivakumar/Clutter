@@ -32,7 +32,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-lg) - 1px);
 }
 
 /* A PDF's first page, top-aligned and clipped by the preview area (the page is taller than it). */
