@@ -54,7 +54,7 @@ describe('CollectionViewConfigStore — load()', () => {
           'folder:bad-layout': { layout: 'gallery' },
           'folder:card': { layout: 'card' },
           'folder:bad-properties-not-boolean': {
-            properties: { description: true, lastOpened: true, created: true, updated: 'yes' },
+            properties: { description: true, created: true, updated: 'yes' },
           },
           'folder:bad-sort-key': { sort: { key: 'nonsense', direction: 'down' } },
           'folder:bad-sort-direction': { sort: { key: 'name', direction: 'sideways' } },
@@ -174,7 +174,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
 
     beforeRestart.update('folder:projects', {
       layout: 'table',
-      properties: { description: true, lastOpened: false, created: false, updated: true },
+      properties: { description: true, created: false, updated: true },
       sort: { key: 'updated', direction: 'down' },
     });
     await flushMicrotasks();
@@ -183,7 +183,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
 
     expect(afterRestart.get('folder:projects')).toEqual({
       layout: 'table',
-      properties: { description: true, lastOpened: false, created: false, updated: true },
+      properties: { description: true, created: false, updated: true },
       sort: { key: 'updated', direction: 'down' },
     });
   });
@@ -286,14 +286,14 @@ describe('CollectionViewConfigStore — archived column', () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
     first.update('folder:Archive', {
-      properties: { description: true, lastOpened: true, created: true, updated: true },
+      properties: { description: true, created: true, updated: true },
     });
     await flushMicrotasks();
 
     const reloaded = await reload(fileSystem);
 
     expect(reloaded.get('folder:Archive')).toEqual({
-      properties: { description: true, lastOpened: true, created: true, updated: true },
+      properties: { description: true, created: true, updated: true },
     });
   });
 
@@ -303,7 +303,7 @@ describe('CollectionViewConfigStore — archived column', () => {
     const entry = {
       properties: {
         description: true,
-        lastOpened: true,
+       
         created: true,
         updated: true,
         archived: false,
@@ -317,7 +317,7 @@ describe('CollectionViewConfigStore — archived column', () => {
   });
 
   it('loads and persists the optional Card toggles (cover/preview), and an entry without them still loads', async () => {
-    const base = { description: true, lastOpened: true, created: true, updated: true };
+    const base = { description: true, created: true, updated: true };
     const fileSystem = new InMemoryVaultFileSystem({
       [WORKSPACE_PATH]: JSON.stringify({
         collectionViewConfig: {
@@ -352,6 +352,33 @@ describe('CollectionViewConfigStore — archived column', () => {
 
     expect(store.get('view:assets')).toEqual({ sort: { key: 'type', direction: 'up' } });
     expect(store.get('view:bad')).toBeUndefined();
+    warn.mockRestore();
+  });
+});
+
+describe('CollectionViewConfigStore — retired Last opened', () => {
+  it('still loads an entry saved with the old lastOpened property or sort key, dropping only what no longer exists', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({
+        collectionViewConfig: {
+          'folder:old-property': {
+            layout: 'table',
+            properties: { description: true, lastOpened: false, created: true, updated: false },
+          },
+          'folder:old-sort': { layout: 'list', sort: { key: 'lastOpened', direction: 'down' } },
+        },
+      }),
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    expect(store.get('folder:old-property')).toEqual({
+      layout: 'table',
+      properties: { description: true, created: true, updated: false },
+    });
+    // The retired sort key is discarded (the collection falls back to its default sort); the layout survives.
+    expect(store.get('folder:old-sort')).toEqual({ layout: 'list' });
     warn.mockRestore();
   });
 });

@@ -8,12 +8,11 @@ import type { SystemPropertyKey } from '@core/properties/systemProperties';
  * user-facing label comes from the system property definitions
  * (`updated` is the `modified` Property, shown as "Last edited").
  */
-export type CollectionTimestampField = 'lastOpened' | 'created' | 'updated' | 'archived';
+export type CollectionTimestampField = 'created' | 'updated' | 'archived';
 
 const SYSTEM_PROPERTY_BY_FIELD: Readonly<
   Record<Exclude<CollectionTimestampField, 'archived'>, SystemPropertyKey>
 > = {
-  lastOpened: 'lastOpened',
   created: 'created',
   updated: 'modified',
 };

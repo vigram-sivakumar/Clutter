@@ -44,18 +44,10 @@ export type CollectionViewMode = 'list' | 'table' | 'card';
  * distinct from view mode. Folder rows have no equivalent fields today
  * (FolderCard shows subfolder/note counts instead), so this only ever
  * gates note rendering.
- *
- * `lastOpened` is included because the Configure menu offers it as a
- * real, toggleable option, but `CollectionEntryModel` has no `lastOpened`
- * field — there is still no data source for it anywhere in the domain
- * model (see the collection-view investigation). Toggling it here changes
- * nothing observable yet; it's wired honestly rather than either omitted
- * (the menu is specified to offer exactly these four) or backed by a
- * fabricated value.
+
  */
 export interface CollectionPropertyVisibility {
   description: boolean;
-  lastOpened: boolean;
   created: boolean;
   updated: boolean;
   /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
@@ -72,7 +64,6 @@ export interface CollectionPropertyVisibility {
 
 export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
   description: true,
-  lastOpened: true,
   created: true,
   updated: true,
   archived: true,
@@ -96,7 +87,6 @@ export function toTableColumns(
 ): NoteTableColumnVisibility {
   return {
     cover: canChangeCover && properties.cover,
-    lastOpened: properties.lastOpened,
     created: properties.created,
     updated: properties.updated,
     archived: showArchived && properties.archived,
@@ -112,7 +102,7 @@ export function toTableColumns(
  * is the one place that translates `direction` into an actual comparison
  * for each key.
  */
-export type CollectionSortKey = 'name' | 'type' | 'lastOpened' | 'created' | 'updated' | 'archived';
+export type CollectionSortKey = 'name' | 'type' | 'created' | 'updated' | 'archived';
 export type CollectionSortDirection = 'down' | 'up';
 
 export interface CollectionSortState {
@@ -151,10 +141,7 @@ function compareRawDates(
 
 /**
  * Sorts a copy of `entries` (never mutates the input — callers hold
- * `readonly` arrays) by `sort`. `lastOpened` has no backing field on
- * `CollectionEntryModel` (no data source exists — see that type's own
- * doc comment), so sorting by it is a stable no-op: entries keep their
- * current relative order rather than a fabricated comparison. A folder
+ * `readonly` arrays) by `sort`. A folder
  * entry has no `createdAt`/`updatedAt` either (`FolderMetadata` doesn't
  * track them), so sorting folders by a date key is the same honest no-op.
  */
@@ -163,10 +150,6 @@ export function sortCollectionEntries(
   sort: CollectionSortState
 ): CollectionEntryModel[] {
   const copy = [...entries];
-
-  if (sort.key === 'lastOpened') {
-    return copy;
-  }
 
   copy.sort((a, b) => {
     if (sort.key === 'name') {
@@ -310,8 +293,7 @@ export interface RenderNoteListOptions {
  *
  * `properties` gates which of description/created/updated/archived are
  * actually passed through — unchecked means omitted, never a blanked-out but
- * still-fetched value. `lastOpened` is never passed regardless (no data
- * source — see CollectionPropertyVisibility's own doc comment). Exported so
+ * still-fetched value. Exported so
  * ArchiveCollectionBody renders the same list instead of a second one.
  */
 export function renderNoteList(
@@ -341,7 +323,7 @@ export function renderNoteList(
 /**
  * Card-mode note rendering — same plain-string title caveat and
  * `properties` gating as renderNoteList for the edited date (a card
- * shows no created date or last-opened — the menu doesn't offer them in Card
+ * shows no created date — the menu doesn't offer it in Card
  * mode), the description (one line above it, hidden when the note has none —
  * no "No description" placeholder, unlike Table), plus the card-only Cover
  * image / Content preview toggles.

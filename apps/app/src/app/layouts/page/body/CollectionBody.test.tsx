@@ -130,7 +130,7 @@ describe('CollectionBody — Table mode (the default)', () => {
 
     const row = container.querySelector('.collection-table-row')!;
     expect(row.querySelector('.collection-table-cell--header.collection-table-row__entry')).not.toBeNull();
-    expect(row.querySelectorAll('.collection-table-cell--date')).toHaveLength(3);
+    expect(row.querySelectorAll('.collection-table-cell--date')).toHaveLength(2);
     expect(row.querySelector('.collection-table-row__created')).toHaveTextContent('Today');
     expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent('Yesterday');
   });
@@ -413,7 +413,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, lastOpened: true, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
       />
     );
 
@@ -434,7 +434,7 @@ describe('CollectionBody — Properties visibility', () => {
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {
     const entry = noteEntry({ created: 'Today', updated: 'Yesterday' });
-    const hidden = { description: true, lastOpened: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true };
+    const hidden = { description: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true };
 
     const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
     expect(table.queryByText('Today')).not.toBeInTheDocument();
@@ -451,7 +451,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
         viewMode="table"
-        properties={{ description: false, lastOpened: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
       />
     );
 
@@ -465,12 +465,11 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, lastOpened: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
       />
     );
 
     expect(queryByText('Created')).not.toBeInTheDocument();
-    expect(queryByText('Last opened')).toBeInTheDocument();
     expect(queryByText('Last edited')).toBeInTheDocument();
   });
 
@@ -479,7 +478,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, lastOpened: false, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
       />
     );
 
@@ -498,7 +497,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, lastOpened: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
       />
     );
 
@@ -547,12 +546,6 @@ describe('sortCollectionEntries', () => {
     const up = sortCollectionEntries([noDate, alpha], { key: 'created', direction: 'up' });
     expect(down[down.length - 1]!.title).toBe('NoDate');
     expect(up[up.length - 1]!.title).toBe('NoDate');
-  });
-
-  it('lastOpened has no backing field, so sorting by it is a stable no-op', () => {
-    const input = [charlie, alpha, bravo];
-    const sorted = sortCollectionEntries(input, { key: 'lastOpened', direction: 'down' });
-    expect(sorted.map((e) => e.title)).toEqual(input.map((e) => e.title));
   });
 
   it('never mutates the input array', () => {

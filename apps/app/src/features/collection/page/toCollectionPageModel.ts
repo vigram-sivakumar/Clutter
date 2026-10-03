@@ -37,8 +37,7 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
  * `2026-07-08T14:03:00.000Z`) for the collection Table/List views' display
  * columns — `formatRelativeTimestamp`'s local-time `35 minutes ago` (under two hours) /
  * `Today, 09:03 AM` / `Yesterday, 09:03 AM` / `12 Aug, 09:03 AM` shape. `null` (never persisted, or a pre-promotion
- * draft — see EffectivePage's own doc comment) renders as nothing, same
- * treatment as the `lastOpened` column, which has no source of truth yet.
+ * draft — see EffectivePage's own doc comment) renders as nothing.
  */
 export function formatEntryTimestamp(isoTimestamp: string | null): string | undefined {
   if (!isoTimestamp) return undefined;

@@ -11,7 +11,6 @@ import type { CollectionTableColumn } from '../../table/collectionTableColumns';
 export interface NoteTableColumnVisibility {
   /** The Cover image column — a media cell showing the note's cover; hidden unless the host can change covers. */
   cover?: boolean;
-  lastOpened: boolean;
   created: boolean;
   updated: boolean;
   /** The Archive collection's own column — absent (hidden) everywhere else. */
@@ -19,14 +18,12 @@ export interface NoteTableColumnVisibility {
 }
 
 export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
-  lastOpened: true,
   created: true,
   updated: true,
 };
 
 /** The date columns, in display order — each is a 140px track holding a date cell. */
 const DATE_COLUMNS = [
-  { id: 'lastOpened', className: 'last-opened' },
   { id: 'created', className: 'created' },
   { id: 'updated', className: 'updated' },
   { id: 'archived', className: 'archived' },

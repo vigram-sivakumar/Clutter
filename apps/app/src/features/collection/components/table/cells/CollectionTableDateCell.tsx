@@ -19,7 +19,7 @@ export interface CollectionTableDateCellProps {
 }
 
 /**
- * A date column's cell (Last opened, Created, Updated, Archived, or any
+ * A date column's cell (Created, Updated, Archived, or any
  * future date field): one muted metadata line, aligned with the header cell
  * above it. Generic — it formats nothing and knows no field names; the column
  * definition and the caller decide both.

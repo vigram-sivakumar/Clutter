@@ -61,19 +61,18 @@ describe('CollectionBody — Table: Cover image column', () => {
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Cover image',
-      'Last opened',
       'Created',
       'Last edited',
     ]);
     const row = container.querySelector('.collection-table-row')!;
-    expect(row.children).toHaveLength(5);
+    expect(row.children).toHaveLength(4);
     expect(row.children[1]).toHaveClass('collection-table-cell--media', 'collection-table-row__cover');
   });
 
   it('is not offered without cover support, or when the Cover image property is off', () => {
     const without = render(<CollectionBody notes={[noteEntry()]} viewMode="table" />);
     expect(without.container.querySelector('.collection-table-row__cover')).toBeNull();
-    expect(without.container.querySelectorAll('.collection-table__header-cell')).toHaveLength(4);
+    expect(without.container.querySelectorAll('.collection-table__header-cell')).toHaveLength(3);
     cleanup();
 
     const off = render(

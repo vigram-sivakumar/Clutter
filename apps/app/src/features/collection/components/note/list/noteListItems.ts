@@ -31,8 +31,7 @@ export interface NoteListItemOptions {
 /**
  * A note as an item of the generic collection list: its values only. The
  * note-specific part is just this mapping (which field fills which slot, in
- * which order); drawing the row is `CollectionDataList`'s job. `lastOpened`
- * has no data source (see CollectionEntryModel), so it never appears.
+ * which order); drawing the row is `CollectionDataList`'s job.
  */
 export function toNoteListItem(
   entry: CollectionEntryModel,

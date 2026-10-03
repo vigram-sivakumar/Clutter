@@ -16,7 +16,7 @@ describe('collection view capabilities', () => {
       layouts: ['list', 'table', 'card'],
       defaultLayout: 'table',
       properties: true,
-      sortKeys: ['name', 'lastOpened', 'created', 'updated', 'archived'],
+      sortKeys: ['name', 'created', 'updated', 'archived'],
     });
   });
 

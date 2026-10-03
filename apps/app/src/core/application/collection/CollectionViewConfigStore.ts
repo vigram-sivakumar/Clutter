@@ -9,7 +9,6 @@ export type PersistedCollectionLayout = 'list' | 'table' | 'card';
 
 export interface PersistedCollectionProperties {
   readonly description: boolean;
-  readonly lastOpened: boolean;
   readonly created: boolean;
   readonly updated: boolean;
   /**
@@ -36,7 +35,6 @@ export interface PersistedCollectionProperties {
 export type PersistedCollectionSortKey =
   | 'name'
   | 'type'
-  | 'lastOpened'
   | 'created'
   | 'updated'
   | 'archived';
@@ -79,7 +77,6 @@ export interface PersistedCollectionViewConfig {
 const VALID_SORT_KEYS: ReadonlySet<string> = new Set([
   'name',
   'type',
-  'lastOpened',
   'created',
   'updated',
   'archived',
@@ -322,11 +319,10 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     return undefined;
   }
 
-  const { description, lastOpened, created, updated, archived, cover, preview, title, size } = raw as Record<string, unknown>;
+  const { description, created, updated, archived, cover, preview, title, size } = raw as Record<string, unknown>;
 
   if (
     typeof description !== 'boolean' ||
-    typeof lastOpened !== 'boolean' ||
     typeof created !== 'boolean' ||
     typeof updated !== 'boolean'
   ) {
@@ -344,7 +340,6 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
 
   return {
     description,
-    lastOpened,
     created,
     updated,
     ...(archived !== undefined && { archived: archived as boolean }),

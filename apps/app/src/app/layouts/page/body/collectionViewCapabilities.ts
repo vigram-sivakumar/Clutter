@@ -45,7 +45,7 @@ export const NOTE_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   layouts: ['list', 'table', 'card'],
   defaultLayout: 'table',
   properties: true,
-  sortKeys: ['name', 'lastOpened', 'created', 'updated', 'archived'],
+  sortKeys: ['name', 'created', 'updated', 'archived'],
 };
 
 /**

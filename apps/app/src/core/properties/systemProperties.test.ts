@@ -9,7 +9,6 @@ describe('system property definitions', () => {
   it.each([
     ['created', 'Created'],
     ['modified', 'Last edited'],
-    ['lastOpened', 'Last opened'],
     ['tags', 'Tags'],
     ['aliases', 'Aliases'],
   ] as const)('%s is shown as "%s"', (key, label) => {
@@ -27,9 +26,9 @@ describe('system property definitions', () => {
   it('is identified by canonical internal keys — the frontmatter keys, never the display wording', () => {
     const keys = Object.keys(systemPropertyDefinitions) as SystemPropertyKey[];
 
-    // Every key but `lastOpened` (a collection-persisted field) is an
-    // owned frontmatter key, so renaming a label can't touch stored data.
-    for (const key of keys.filter((candidate) => candidate !== 'lastOpened')) {
+    // Every key is an owned frontmatter key, so renaming a label can't
+    // touch stored data.
+    for (const key of keys) {
       expect(OWNED_FRONTMATTER_KEYS.has(key)).toBe(true);
     }
     // The label of `modified` is not its key, and no label is used as a key.

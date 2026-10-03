@@ -122,7 +122,7 @@ describe('CollectionViewMenu — root view', () => {
     // Only Name's row has a trailing arrow — the Properties trigger row's
     // chevron lives in the same slot but is a distinct, un-conditional
     // affordance, so this counts svgs scoped to Sort by's own rows only.
-    const sortByRows = [getByText('Name'), getByText('Last opened'), getByText('Created'), getByText('Last edited')];
+    const sortByRows = [getByText('Name'), getByText('Created'), getByText('Last edited')];
     const arrows = sortByRows.filter((row) => row.closest('.entry')!.querySelector('.entry__trailing svg'));
     expect(arrows).toHaveLength(1);
   });
@@ -168,7 +168,6 @@ describe('CollectionViewMenu — Properties submenu', () => {
     expect(queryByText('Sort by')).not.toBeInTheDocument();
 
     expect(getByText('Description')).toBeInTheDocument();
-    expect(getByText('Last opened')).toBeInTheDocument();
     expect(getByText('Created')).toBeInTheDocument();
     expect(getByText('Last edited')).toBeInTheDocument();
     expect(getByText('Properties')).toBeInTheDocument(); // the submenu's own title
@@ -176,19 +175,19 @@ describe('CollectionViewMenu — Properties submenu', () => {
 
   it('shows a tick icon for a checked property and an empty, same-sized indicator for an unchecked one', () => {
     const { getByText } = renderMenu({
-      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, lastOpened: false },
+      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, created: false },
     });
     openPropertiesSubmenu(getByText);
 
     const descriptionRow = getByText('Description').closest('.entry')!;
-    const lastOpenedRow = getByText('Last opened').closest('.entry')!;
+    const createdRow = getByText('Created').closest('.entry')!;
 
     expect(descriptionRow.querySelector('.entry__leading svg')).toBeInTheDocument();
-    expect(lastOpenedRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
+    expect(createdRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
     // Both rows still get the same fixed-width leading wrapper, checked
     // or not — this is what keeps the label from shifting on toggle.
     expect(descriptionRow.querySelector('.entry__leading')).toBeInTheDocument();
-    expect(lastOpenedRow.querySelector('.entry__leading')).toBeInTheDocument();
+    expect(createdRow.querySelector('.entry__leading')).toBeInTheDocument();
   });
 
   it('toggling a property calls onPropertiesChange with only that key flipped, and keeps the submenu open', () => {
@@ -306,11 +305,10 @@ describe('CollectionViewMenu — Card-only properties', () => {
 });
 
 describe('CollectionViewMenu — Card mode property list', () => {
-  it('omits Created and Last opened in Card mode (a card shows only the edited date), keeping them in List and Table', () => {
+  it('omits Created in Card mode (a card shows only the edited date), keeping them in List and Table', () => {
     const card = renderMenu({ viewMode: 'card' });
     openPropertiesSubmenu(card.getByText);
     expect(card.queryByText('Created')).not.toBeInTheDocument();
-    expect(card.queryByText('Last opened')).not.toBeInTheDocument();
     expect(card.getByText('Last edited')).toBeInTheDocument();
     expect(card.getByText('Description')).toBeInTheDocument();
     expect(card.getByText('Cover image')).toBeInTheDocument();
@@ -321,7 +319,6 @@ describe('CollectionViewMenu — Card mode property list', () => {
       const other = renderMenu({ viewMode });
       openPropertiesSubmenu(other.getByText);
       expect(other.getByText('Created')).toBeInTheDocument();
-      expect(other.getByText('Last opened')).toBeInTheDocument();
       cleanup();
     }
   });
@@ -336,7 +333,7 @@ describe('CollectionViewMenu — Properties order', () => {
       const { getByText } = renderMenu({ viewMode });
       openPropertiesSubmenu(getByText);
 
-      expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Last opened', 'Created', 'Last edited']);
+      expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Created', 'Last edited']);
       cleanup();
     }
   });
@@ -354,10 +351,10 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     .filter((el) => el.children.length === 0)
     .map((el) => el.textContent?.trim());
 
-  it('notes keep their Sort by options: Name, Last opened, Created, Last edited — and no Type', () => {
+  it('notes keep their Sort by options: Name, Created, Last edited — and no Type', () => {
     const { getByText, queryByText } = renderMenu({ viewMode: 'table' });
 
-    for (const label of ['Name', 'Last opened', 'Created', 'Last edited']) {
+    for (const label of ['Name', 'Created', 'Last edited']) {
       expect(getByText(label)).toBeInTheDocument();
     }
     expect(queryByText('Type')).not.toBeInTheDocument();
@@ -381,7 +378,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     expect(utils.getByText('Sort by')).toBeInTheDocument();
     expect(utils.getByText('Name')).toBeInTheDocument();
     expect(utils.getByText('Type')).toBeInTheDocument();
-    for (const absent of ['Last opened', 'Created', 'Last edited', 'Properties']) {
+    for (const absent of ['Created', 'Last edited', 'Properties']) {
       expect(utils.queryByText(absent)).not.toBeInTheDocument();
     }
 
@@ -435,7 +432,7 @@ describe('CollectionViewMenu — assets Card properties', () => {
     openPropertiesSubmenu(getByText);
     const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
     expect(labels).toEqual(['Title', 'File size', 'Created', 'Last edited']);
-    for (const absent of ['Description', 'Cover image', 'Content preview', 'Last opened']) {
+    for (const absent of ['Description', 'Cover image', 'Content preview']) {
       expect(queryByText(absent)).not.toBeInTheDocument();
     }
   });
@@ -471,5 +468,17 @@ describe('CollectionViewMenu — assets Card properties', () => {
     openPropertiesSubmenu(getByText);
     expect(queryByText('Title')).not.toBeInTheDocument();
     expect(queryByText('File size')).not.toBeInTheDocument();
+  });
+});
+
+describe('CollectionViewMenu — Last opened is gone', () => {
+  it('is offered neither as a property nor as a Sort by option, in any layout', () => {
+    for (const viewMode of ['list', 'table', 'card'] as const) {
+      const { getByText, queryByText } = renderMenu({ viewMode });
+      expect(queryByText('Last opened')).not.toBeInTheDocument();
+      openPropertiesSubmenu(getByText);
+      expect(queryByText('Last opened')).not.toBeInTheDocument();
+      cleanup();
+    }
   });
 });

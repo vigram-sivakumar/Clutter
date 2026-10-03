@@ -65,11 +65,6 @@ export function toNoteTableRow(
     };
   }
 
-  // `lastOpened` has no data source (see CollectionEntryModel) — its cell is
-  // present but empty, as before.
-  if (columns.lastOpened) {
-    cells.lastOpened = { kind: 'date' };
-  }
   if (columns.created) {
     cells.created = { kind: 'date', value: entry.created, dateTime: entry.createdAt };
   }

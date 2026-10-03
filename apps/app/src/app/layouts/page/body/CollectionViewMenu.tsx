@@ -50,7 +50,6 @@ const DATE_PROPERTY_ITEMS: ReadonlyArray<{
   key: keyof CollectionPropertyVisibility;
   label: string;
 }> = [
-  { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
   { key: 'created', label: collectionFieldLabel('created') },
   { key: 'updated', label: collectionFieldLabel('updated') },
 ];
@@ -86,7 +85,6 @@ const ARCHIVED_PROPERTY_ITEM = {
 const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
   { key: 'name', label: 'Name' },
   { key: 'type', label: 'Type' },
-  { key: 'lastOpened', label: collectionFieldLabel('lastOpened') },
   { key: 'created', label: collectionFieldLabel('created') },
   { key: 'updated', label: collectionFieldLabel('updated') },
 ];
@@ -147,12 +145,12 @@ export function CollectionViewMenu({
     ...(viewMode === 'card' ? CARD_PROPERTY_ITEMS : []),
     // The Archive has no Cover image thumbnail (covers aren't changed from there), so nothing to toggle.
     ...(viewMode !== 'card' && !showArchived ? ROW_PROPERTY_ITEMS : []),
-    // A note card shows only the edited date, so Created and Last opened aren't offered in Card mode — unless the collection lists its own property keys (an asset card shows Created too).
+    // A note card shows only the edited date, so Created isn't offered in Card mode — unless the collection lists its own property keys (an asset card shows Created too).
     ...DATE_PROPERTY_ITEMS.filter(
       ({ key }) =>
         viewMode !== 'card' ||
         capabilities.cardPropertyKeys !== undefined ||
-        (key !== 'created' && key !== 'lastOpened')
+        key !== 'created'
     ),
     ...(showArchived ? [ARCHIVED_PROPERTY_ITEM] : []),
   ];
