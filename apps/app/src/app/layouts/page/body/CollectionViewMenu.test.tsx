@@ -265,20 +265,29 @@ describe('CollectionViewMenu — Archived (Archive collection only)', () => {
 });
 
 describe('CollectionViewMenu — Card-only properties', () => {
-  it('offers Cover image and Content preview in Card mode only', () => {
+  it('offers Content preview in Card mode only, and Cover image in Card and Table (not List)', () => {
     const card = renderMenu({ viewMode: 'card' });
     openPropertiesSubmenu(card.getByText);
     expect(card.getByText('Cover image')).toBeInTheDocument();
     expect(card.getByText('Content preview')).toBeInTheDocument();
     cleanup();
 
-    for (const viewMode of ['list', 'table'] as const) {
-      const other = renderMenu({ viewMode });
-      openPropertiesSubmenu(other.getByText);
-      expect(other.queryByText('Cover image')).not.toBeInTheDocument();
-      expect(other.queryByText('Content preview')).not.toBeInTheDocument();
-      cleanup();
-    }
+    const table = renderMenu({ viewMode: 'table' });
+    openPropertiesSubmenu(table.getByText);
+    expect(table.getByText('Cover image')).toBeInTheDocument();
+    expect(table.queryByText('Content preview')).not.toBeInTheDocument();
+    cleanup();
+
+    const list = renderMenu({ viewMode: 'list' });
+    openPropertiesSubmenu(list.getByText);
+    expect(list.queryByText('Cover image')).not.toBeInTheDocument();
+    expect(list.queryByText('Content preview')).not.toBeInTheDocument();
+  });
+
+  it('does not offer Cover image in the Archive\'s table — it has no cover column', () => {
+    const archive = renderMenu({ viewMode: 'table', showArchived: true });
+    openPropertiesSubmenu(archive.getByText);
+    expect(archive.queryByText('Cover image')).not.toBeInTheDocument();
   });
 
   it('toggling them updates only their own key', () => {
@@ -319,14 +328,15 @@ describe('CollectionViewMenu — Properties order', () => {
   const propertyLabels = () =>
     [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
 
-  it('puts the date properties at the bottom of the list in List and Table', () => {
-    for (const viewMode of ['list', 'table'] as const) {
-      const { getByText } = renderMenu({ viewMode });
-      openPropertiesSubmenu(getByText);
+  it('puts the date properties at the bottom of the list in List and Table (Table adds Cover image before them)', () => {
+    const list = renderMenu({ viewMode: 'list' });
+    openPropertiesSubmenu(list.getByText);
+    expect(propertyLabels()).toEqual(['Description', 'Last opened', 'Created', 'Last edited']);
+    cleanup();
 
-      expect(propertyLabels()).toEqual(['Description', 'Last opened', 'Created', 'Last edited']);
-      cleanup();
-    }
+    const table = renderMenu({ viewMode: 'table' });
+    openPropertiesSubmenu(table.getByText);
+    expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Last opened', 'Created', 'Last edited']);
   });
 
   it('puts the card toggles before the date in Card mode', () => {

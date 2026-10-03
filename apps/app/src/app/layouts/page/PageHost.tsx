@@ -83,6 +83,7 @@ import {
   type CollectionViewMode,
   type CollectionPropertyVisibility,
   type CollectionSortState,
+  type NoteCoverActions,
 } from '@app/layouts/page/body/CollectionBody';
 import { CollectionHeaderActions } from '@app/layouts/page/body/CollectionHeaderActions';
 import {
@@ -929,6 +930,43 @@ export function PageHost({
     application.folderOperations.cancelNameEdit(folderId);
   };
 
+  // The Table's Cover image column (every note collection — folders, Daily
+  // Notes, Workspace, Favorites, tags): changes a *listed* note's cover through
+  // the same PageOperations.updateMetadata write the open page's own cover uses
+  // (onSetCoverImage above), just keyed by that note's id instead of the active
+  // page's. A new cover also un-hides a hidden one and re-centers the framing,
+  // since the collection shows a hidden cover as none (see CollectionBody).
+  const noteCoverActions: NoteCoverActions = {
+    resolveUrl: (cover) => application.resolveCoverImageForDisplay(cover),
+    onSet: (noteId, url) => {
+      void application.pageOperations.updateMetadata(noteId, {
+        cover: url,
+        coverHidden: false,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
+      });
+    },
+    onSetFromUpload: (noteId, sourcePath) => {
+      void (async () => {
+        const relativePath = await application.importCoverAsset(sourcePath);
+        await application.pageOperations.updateMetadata(noteId, {
+          cover: relativePath,
+          coverHidden: false,
+          coverPositionAbove: 50,
+          coverPositionSide: 50,
+        });
+      })();
+    },
+    onRemove: (noteId) => {
+      void application.pageOperations.updateMetadata(noteId, {
+        cover: null,
+        coverHidden: false,
+        coverPositionAbove: 50,
+        coverPositionSide: 50,
+      });
+    },
+  };
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -1268,6 +1306,7 @@ export function PageHost({
                 sort={collectionSort}
                 onCreateFolder={onCreateSubfolder}
                 onCreateNote={onCreateNote}
+                noteCover={noteCoverActions}
                 previewResolvers={{
                   resolveWikiLink,
                   resolveTag,
@@ -1508,6 +1547,7 @@ export function PageHost({
             sort={collectionSort}
             onCreateFolder={onCreateFolder}
             onCreateNote={onCreateNote}
+            noteCover={noteCoverActions}
           />
         }
       />

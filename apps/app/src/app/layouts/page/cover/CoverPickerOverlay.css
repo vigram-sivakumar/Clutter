@@ -1,0 +1,4 @@
+/* Same width the page cover's own picker host uses (.page__cover__picker). */
+.cover-picker-overlay {
+  width: 320px;
+}

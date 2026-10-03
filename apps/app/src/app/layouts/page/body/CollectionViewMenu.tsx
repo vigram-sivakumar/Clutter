@@ -64,6 +64,12 @@ const CARD_PROPERTY_ITEMS: ReadonlyArray<{
   { key: 'preview', label: 'Content preview' },
 ];
 
+// Table layout only — shows or hides the Cover image column (Card has its own "Cover image" row above).
+const TABLE_PROPERTY_ITEMS: ReadonlyArray<{
+  key: keyof CollectionPropertyVisibility;
+  label: string;
+}> = [{ key: 'cover', label: 'Cover image' }];
+
 const ARCHIVED_PROPERTY_ITEM = {
   key: 'archived',
   label: collectionFieldLabel('archived'),
@@ -134,6 +140,8 @@ export function CollectionViewMenu({
   const propertyItems = [
     DESCRIPTION_PROPERTY_ITEM,
     ...(viewMode === 'card' ? CARD_PROPERTY_ITEMS : []),
+    // The Archive's table has no Cover image column (covers aren't changed from there), so nothing to toggle.
+    ...(viewMode === 'table' && !showArchived ? TABLE_PROPERTY_ITEMS : []),
     // A card shows only the edited date, so Created and Last opened aren't offered in Card mode.
     ...DATE_PROPERTY_ITEMS.filter(
       ({ key }) => viewMode !== 'card' || (key !== 'created' && key !== 'lastOpened')

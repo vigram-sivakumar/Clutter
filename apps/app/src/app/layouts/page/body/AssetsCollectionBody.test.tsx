@@ -247,7 +247,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table__new-item')).toBeNull();
   });
 
-  it('Table draws each asset with the generic header, asset (thumbnail) and text cells', () => {
+  it('Table draws each asset with the generic header, media (thumbnail) and text cells', () => {
     const { container } = renderAssets({
       resources: [
         makeResource({ id: 'house', name: 'house.png', kind: 'image', path: '/vault/Assets/house.png' }),
@@ -260,7 +260,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
     for (const row of [imageRow!, pdfRow!]) {
       expect(row.children).toHaveLength(3);
       expect(row.children[0]).toHaveClass('collection-table-cell--header');
-      expect(row.children[1]).toHaveClass('collection-table-cell--asset', 'collection-table-row__preview');
+      expect(row.children[1]).toHaveClass('collection-table-cell--media', 'collection-table-row__preview');
       expect(row.children[2]).toHaveClass('collection-table-cell--text', 'collection-table-row__type');
     }
 

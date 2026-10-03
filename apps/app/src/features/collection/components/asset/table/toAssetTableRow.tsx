@@ -40,7 +40,7 @@ export function toAssetTableRow(
         titleContent,
       },
       preview: {
-        kind: 'asset',
+        kind: 'media',
         children: <AssetThumbnail kind={resource.kind} url={url} />,
       },
       type: { kind: 'text', value: ASSET_KIND_LABEL[resource.kind] },

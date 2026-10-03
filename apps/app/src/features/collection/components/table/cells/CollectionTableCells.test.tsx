@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CollectionTableAssetCell } from './CollectionTableAssetCell';
+import { CollectionTableMediaCell } from './CollectionTableMediaCell';
 import { CollectionTableDateCell } from './CollectionTableDateCell';
 import { CollectionTableHeaderCell } from './CollectionTableHeaderCell';
 import { CollectionTableTextCell } from './CollectionTableTextCell';
@@ -94,15 +94,15 @@ describe('CollectionTableTextCell', () => {
   });
 });
 
-describe('CollectionTableAssetCell', () => {
+describe('CollectionTableMediaCell', () => {
   it('draws a square, aria-hidden frame around whatever thumbnail it is given — and knows no asset kinds', () => {
     const { container, getByTestId } = render(
-      <CollectionTableAssetCell className="collection-table-row__preview">
+      <CollectionTableMediaCell className="collection-table-row__preview">
         <img data-testid="thumb" alt="" src="app://x.png" />
-      </CollectionTableAssetCell>
+      </CollectionTableMediaCell>
     );
 
-    const cell = container.querySelector('.collection-table-cell--asset')!;
+    const cell = container.querySelector('.collection-table-cell--media')!;
     expect(cell).toHaveClass('collection-table-row__preview');
     const frame = cell.querySelector('.collection-table-cell__thumbnail')!;
     expect(frame).toHaveAttribute('aria-hidden', 'true');

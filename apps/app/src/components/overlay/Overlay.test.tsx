@@ -254,6 +254,38 @@ describe('Overlay', () => {
     expect(content.classList.contains('overlay__content--bottom')).toBe(true);
   });
 
+  it('centers a side overlay vertically on the anchor (left, center)', async () => {
+    render(<Harness side="left" alignment="center" />);
+
+    const surface = document.body.querySelector('.overlay__surface') as HTMLDivElement;
+    const content = document.body.querySelector('.overlay__content') as HTMLDivElement;
+
+    // anchor: top 100, height 40 → middle at 120; surface height 120 → top 60.
+    // left of the anchor: 200 − 160 (surface width) − 6 (offset) = 34.
+    await waitFor(() => {
+      expect(surface.style.top).toBe('60px');
+      expect(surface.style.left).toBe('34px');
+    });
+
+    expect(content.style.transformOrigin).toBe('right center');
+    expect(content.classList.contains('overlay__content--left')).toBe(true);
+  });
+
+  it('centers a bottom overlay horizontally on the anchor', async () => {
+    render(<Harness side="bottom" alignment="center" />);
+
+    const surface = document.body.querySelector('.overlay__surface') as HTMLDivElement;
+    const content = document.body.querySelector('.overlay__content') as HTMLDivElement;
+
+    // anchor: left 200, width 100 → middle at 250; surface width 160 → left 170.
+    await waitFor(() => {
+      expect(surface.style.top).toBe('146px');
+      expect(surface.style.left).toBe('170px');
+    });
+
+    expect(content.style.transformOrigin).toBe('top center');
+  });
+
   it('omits animation classes when animation is disabled', () => {
     render(<Harness animate={false} />);
 

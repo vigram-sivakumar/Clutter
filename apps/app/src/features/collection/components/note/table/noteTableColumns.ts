@@ -9,6 +9,8 @@ import type { CollectionTableColumn } from '../../table/collectionTableColumns';
  * once and the rest reflow into its space.
  */
 export interface NoteTableColumnVisibility {
+  /** The Cover image column — a media cell showing the note's cover; hidden unless the host can change covers. */
+  cover?: boolean;
   lastOpened: boolean;
   created: boolean;
   updated: boolean;
@@ -32,8 +34,9 @@ const DATE_COLUMNS = [
 
 /**
  * The notes table's columns for a given visibility — Name always
- * (`minmax(400px, 1fr)`), then each date column that is on (`140px` each; a
- * hidden column reserves no grid space at all).
+ * (`minmax(400px, 1fr)`), then the Cover image column if on (`110px`), then
+ * each date column that is on (`140px` each; a hidden column reserves no
+ * grid space at all).
  */
 export function buildNoteTableColumns(
   visibility: NoteTableColumnVisibility
@@ -46,6 +49,16 @@ export function buildNoteTableColumns(
       className: 'collection-table__header-cell--name',
     },
   ];
+
+  if (visibility.cover) {
+    columns.push({
+      id: 'cover',
+      label: 'Cover image',
+      width: '110px',
+      className: 'collection-table__header-cell--cover',
+      cellClassName: 'collection-table-row__cover',
+    });
+  }
 
   for (const { id, className } of DATE_COLUMNS) {
     if (visibility[id]) {

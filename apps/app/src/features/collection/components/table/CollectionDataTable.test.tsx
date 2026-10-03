@@ -21,7 +21,7 @@ const row = (overrides: Partial<CollectionDataTableRow> = {}): CollectionDataTab
   cells: {
     name: { kind: 'header', icon: 'note', title: 'Plan', description: 'Q4' },
     created: { kind: 'date', value: 'Today', dateTime: '2026-10-03' },
-    preview: { kind: 'asset', children: <i /> },
+    preview: { kind: 'media', children: <i /> },
     type: { kind: 'text', value: 'PDF' },
   },
   ...overrides,
@@ -36,7 +36,7 @@ describe('CollectionDataTable', () => {
     expect(cells).toHaveLength(4);
     expect(cells[0]).toHaveClass('collection-table-cell--header', 'collection-table-row__entry', 'c-name');
     expect(cells[1]).toHaveClass('collection-table-cell--date', 'c-created');
-    expect(cells[2]).toHaveClass('collection-table-cell--asset', 'c-preview');
+    expect(cells[2]).toHaveClass('collection-table-cell--media', 'c-preview');
     expect(cells[3]).toHaveClass('collection-table-cell--text', 'c-type');
   });
 

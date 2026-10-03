@@ -5,9 +5,9 @@ import { buildCollectionTableGridTemplateColumns } from './collectionTableColumn
 import { CollectionTable } from './CollectionTable';
 import { CollectionTableRow } from './CollectionTableRow';
 import {
-  CollectionTableAssetCell,
-  type CollectionTableAssetCellProps,
-} from './cells/CollectionTableAssetCell';
+  CollectionTableMediaCell,
+  type CollectionTableMediaCellProps,
+} from './cells/CollectionTableMediaCell';
 import {
   CollectionTableDateCell,
   type CollectionTableDateCellProps,
@@ -30,7 +30,7 @@ export type CollectionTableCellValue =
   | ({ readonly kind: 'header' } & CollectionTableHeaderCellProps)
   | ({ readonly kind: 'date' } & CollectionTableDateCellProps)
   | ({ readonly kind: 'text' } & CollectionTableTextCellProps)
-  | ({ readonly kind: 'asset' } & CollectionTableAssetCellProps);
+  | ({ readonly kind: 'media' } & CollectionTableMediaCellProps);
 
 /** Extra attributes a row may carry — `data-*` hooks (`data-resource-id`) and ARIA. */
 export type CollectionDataTableRowProps = Omit<
@@ -85,9 +85,9 @@ function renderCell(column: CollectionTableColumn, value: CollectionTableCellVal
       const { kind: _kind, ...props } = value;
       return <CollectionTableTextCell key={key} {...props} className={className} />;
     }
-    case 'asset': {
+    case 'media': {
       const { kind: _kind, ...props } = value;
-      return <CollectionTableAssetCell key={key} {...props} className={className} />;
+      return <CollectionTableMediaCell key={key} {...props} className={className} />;
     }
   }
 }
@@ -97,7 +97,7 @@ function renderCell(column: CollectionTableColumn, value: CollectionTableCellVal
  * Archive. It owns the whole picture: the header row, the rows, and the cell
  * each column shows. A collection supplies only data — its columns (label,
  * width, hooks) and, per row, a value for each column; the table picks the
- * generic Header / Date / Text / Asset cell for each value and keeps header
+ * generic Header / Date / Text / Media cell for each value and keeps header
  * and rows on one grid (both built from `columns`, so they cannot drift).
  * It knows nothing about notes, assets or any other item type.
  */

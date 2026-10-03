@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { CollectionEntry } from '@features/collection/CollectionEntry';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
@@ -8,6 +8,7 @@ import type {
   CollectionTableCellValue,
 } from '../../table/CollectionDataTable';
 import type { NoteTableColumnVisibility } from './noteTableColumns';
+import { NoteCoverThumbnail } from './NoteCoverThumbnail';
 
 export interface NoteTableRowOptions {
   /**
@@ -21,6 +22,16 @@ export interface NoteTableRowOptions {
   readonly columns: NoteTableColumnVisibility;
   /** Hover-revealed trailing slot for the row (Archive's Restore / Delete). */
   readonly actions?: ReactNode;
+  /**
+   * The Cover image column's cell for this note — only read when
+   * `columns.cover` is on. `url` is the cover resolved to a loadable URL
+   * (null: no visible cover); `onClick` is what the thumbnail does when
+   * clicked (open the cover picker for this note).
+   */
+  readonly cover?: {
+    readonly url: string | null;
+    readonly onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  };
 }
 
 /**
@@ -31,7 +42,7 @@ export interface NoteTableRowOptions {
  */
 export function toNoteTableRow(
   entry: CollectionEntryModel,
-  { showDescription, columns, actions }: NoteTableRowOptions
+  { showDescription, columns, actions, cover }: NoteTableRowOptions
 ): CollectionDataTableRow {
   const cells: Record<string, CollectionTableCellValue> = {
     name: {
@@ -44,6 +55,15 @@ export function toNoteTableRow(
       isSelected: entry.selected,
     },
   };
+
+  if (columns.cover && cover) {
+    cells.cover = {
+      kind: 'media',
+      children: <NoteCoverThumbnail url={cover.url} positionAbove={entry.coverPositionAbove} />,
+      onClick: cover.onClick,
+      label: cover.url ? 'Change cover image' : 'Add cover image',
+    };
+  }
 
   // `lastOpened` has no data source (see CollectionEntryModel) — its cell is
   // present but empty, as before.

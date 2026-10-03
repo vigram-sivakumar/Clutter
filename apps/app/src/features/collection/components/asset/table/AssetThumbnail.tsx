@@ -18,7 +18,7 @@ export interface AssetThumbnailProps {
 }
 
 /**
- * What goes inside the generic table's asset cell for an asset: the image
+ * What goes inside the generic table's media cell for an asset: the image
  * itself (cropped to fill, like a cover), or a PDF's first page through the
  * same lazy pdf.js rendering the asset card uses (`AssetPdfPreview`). Falls
  * back to the kind's icon when there is no URL or an image fails to load —

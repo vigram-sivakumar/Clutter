@@ -151,10 +151,10 @@ describe('the collection table is generic', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the generic cells draw every cell of every collection: header, date, text, asset', () => {
+  it('the generic cells draw every cell of every collection: header, date, text, media', () => {
     const table = read('features/collection/components/table/CollectionDataTable.tsx');
 
-    for (const cell of ['CollectionTableHeaderCell', 'CollectionTableDateCell', 'CollectionTableTextCell', 'CollectionTableAssetCell']) {
+    for (const cell of ['CollectionTableHeaderCell', 'CollectionTableDateCell', 'CollectionTableTextCell', 'CollectionTableMediaCell']) {
       expect(table).toContain(cell);
     }
   });

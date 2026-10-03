@@ -1,0 +1,15 @@
+/*
+ * A note's cover inside the generic table's media cell. The cell owns the
+ * square frame (border, radius, clipping); these rules only size the content
+ * to fill it. No `margin` (CLAUDE.md).
+ */
+.note-cover-thumbnail__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.note-cover-thumbnail__empty {
+  color: var(--foreground-placeholder);
+}

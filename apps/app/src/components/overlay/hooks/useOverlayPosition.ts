@@ -104,6 +104,21 @@ export function useOverlayPosition({
     const resolvedSide = resolveSide(side, availableSpace, overlayRect, offset);
 
     const isStartAligned = alignment === 'start';
+    const isCenterAligned = alignment === 'center';
+
+    // Along a horizontal edge (the overlay opens above/below the anchor)…
+    const alignedLeft = isCenterAligned
+      ? anchorRect.left + anchorRect.width / 2 - overlayRect.width / 2
+      : isStartAligned
+        ? anchorRect.left
+        : anchorRect.right - overlayRect.width;
+    // …and along a vertical edge (the overlay opens beside the anchor).
+    const alignedTop = isCenterAligned
+      ? anchorRect.top + anchorRect.height / 2 - overlayRect.height / 2
+      : isStartAligned
+        ? anchorRect.top
+        : anchorRect.bottom - overlayRect.height;
+    const alignmentKeyword = isCenterAligned ? 'center' : isStartAligned ? 'start' : 'end';
 
     let top = 0;
     let left = 0;
@@ -112,42 +127,46 @@ export function useOverlayPosition({
     switch (resolvedSide) {
       case 'bottom':
         top = anchorRect.bottom + offset;
+        left = alignedLeft;
 
-        left = isStartAligned
-          ? anchorRect.left
-          : anchorRect.right - overlayRect.width;
-
-        transformOrigin = isStartAligned ? 'top left' : 'top right';
+        transformOrigin = {
+          start: 'top left',
+          end: 'top right',
+          center: 'top center',
+        }[alignmentKeyword];
         break;
 
       case 'top':
         top = anchorRect.top - overlayRect.height - offset;
+        left = alignedLeft;
 
-        left = isStartAligned
-          ? anchorRect.left
-          : anchorRect.right - overlayRect.width;
-
-        transformOrigin = isStartAligned ? 'bottom left' : 'bottom right';
+        transformOrigin = {
+          start: 'bottom left',
+          end: 'bottom right',
+          center: 'bottom center',
+        }[alignmentKeyword];
         break;
 
       case 'left':
-        top = isStartAligned
-          ? anchorRect.top
-          : anchorRect.bottom - overlayRect.height;
-
+        top = alignedTop;
         left = anchorRect.left - overlayRect.width - offset;
 
-        transformOrigin = isStartAligned ? 'right top' : 'right bottom';
+        transformOrigin = {
+          start: 'right top',
+          end: 'right bottom',
+          center: 'right center',
+        }[alignmentKeyword];
         break;
 
       case 'right':
-        top = isStartAligned
-          ? anchorRect.top
-          : anchorRect.bottom - overlayRect.height;
-
+        top = alignedTop;
         left = anchorRect.right + offset;
 
-        transformOrigin = isStartAligned ? 'left top' : 'left bottom';
+        transformOrigin = {
+          start: 'left top',
+          end: 'left bottom',
+          center: 'left center',
+        }[alignmentKeyword];
         break;
     }
 

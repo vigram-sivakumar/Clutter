@@ -13,7 +13,7 @@ export interface AssetPdfPreviewProps {
   readonly url: string;
   /**
    * The wrapper's class — defaults to the card's own `asset-card__pdf`. The
-   * table's asset cell passes its own so the same first-page rendering can be
+   * table's media cell passes its own so the same first-page rendering can be
    * sized as a thumbnail without inheriting the card's layout.
    */
   readonly className?: string;

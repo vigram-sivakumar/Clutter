@@ -1,15 +1,16 @@
 /*
  * The generic table cells (CollectionTableHeaderCell / DateCell / TextCell /
- * AssetCell). Header, Date and Text cells are CollectionEntry and inherit its
- * styling; only the asset thumbnail frame needs rules of its own (what goes
- * inside it is styled by the asset layer — AssetThumbnail.css). Per
- * CLAUDE.md, no `margin` here — spacing is padding only.
+ * MediaCell). Header, Date and Text cells are CollectionEntry and inherit its
+ * styling; only the media thumbnail frame needs rules of its own (what goes
+ * inside it is styled by whoever fills it — AssetThumbnail.css,
+ * NoteCoverThumbnail.css). Per CLAUDE.md, no `margin` here — spacing is
+ * padding only.
  */
 :root {
   --collection-table-thumbnail-size: var(--height-lg);
 }
 
-.collection-table-cell--asset {
+.collection-table-cell--media {
   display: flex;
   align-items: center;
   padding-inline: var(--space-6);
@@ -29,4 +30,23 @@
   border-radius: var(--radius-sm);
   pointer-events: none;
   user-select: none;
+}
+
+/* A clickable thumbnail (a media cell given an onClick): a button that looks like the frame. */
+.collection-table-cell__thumbnail--interactive {
+  appearance: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 120ms ease;
+}
+.collection-table-cell__thumbnail--interactive:hover {
+  background: var(--state-hover-medium);
+}
+.collection-table-cell__thumbnail--interactive:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-inset-focus);
 }

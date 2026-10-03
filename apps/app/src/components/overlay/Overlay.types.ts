@@ -4,7 +4,13 @@ export type OverlaySide = 'top' | 'bottom' | 'left' | 'right';
 
 export type OverlayPlacement = OverlaySide | 'center';
 
-export type OverlayAlignment = 'start' | 'end';
+/**
+ * Where the overlay lines up along the anchor's edge: `start` / `end` flush
+ * with the anchor's start / end edge, `center` centered on the anchor (a
+ * `left` / `right` overlay vertically centered, a `top` / `bottom` one
+ * horizontally centered).
+ */
+export type OverlayAlignment = 'start' | 'end' | 'center';
 
 export type OverlayBackdrop = false | 'transparent' | 'tinted';
 

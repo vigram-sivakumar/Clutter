@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import {
@@ -16,6 +16,7 @@ import {
   buildNoteTableColumns,
   type NoteTableColumnVisibility,
 } from '@features/collection/components/note/table/noteTableColumns';
+import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import './CollectionBody.css';
 
 import { PageBody } from './Page.Body';
@@ -60,7 +61,7 @@ export interface CollectionPropertyVisibility {
   updated: boolean;
   /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
   archived: boolean;
-  /** Card layout only — show the note's cover image at the top of its preview. Ignored in List/Table. */
+  /** Card: show the note's cover image at the top of its preview. Table: show the Cover image column (when the host can change covers). Ignored in List. */
   cover: boolean;
   /** Card layout only — show the rendered note content in its preview. Ignored in List/Table. */
   preview: boolean;
@@ -84,9 +85,12 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
  */
 export function toTableColumns(
   properties: CollectionPropertyVisibility,
-  showArchived = false
+  showArchived = false,
+  /** Whether the host can change a note's cover — without it the Cover image column has nothing to offer, so it isn't shown. */
+  canChangeCover = false
 ): NoteTableColumnVisibility {
   return {
+    cover: canChangeCover && properties.cover,
     lastOpened: properties.lastOpened,
     created: properties.created,
     updated: properties.updated,
@@ -173,6 +177,23 @@ export function sortCollectionEntries(
   return copy;
 }
 
+/**
+ * What the Table's Cover image column needs from the host: how to show a
+ * note's persisted cover, and the three ways to change it (the same writes the
+ * note's own page cover uses, keyed by note id). Its presence is the capability
+ * gate — absent, the column isn't offered (the Archive, for one).
+ */
+export interface NoteCoverActions {
+  /** A persisted cover reference → a loadable URL (`Application.resolveCoverImageForDisplay`). */
+  resolveUrl(cover: string): string | null;
+  /** Link or Unsplash pick. */
+  onSet(noteId: string, url: string): void;
+  /** Upload: import the file, then set it. */
+  onSetFromUpload(noteId: string, sourcePath: string): void;
+  /** Clear the cover. */
+  onRemove(noteId: string): void;
+}
+
 export interface CollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
@@ -205,6 +226,12 @@ export interface CollectionBodyProps {
    * resolver factories. Only consulted when `viewMode === 'card'`.
    */
   previewResolvers?: DocumentPreviewResolvers;
+  /**
+   * Table mode's Cover image column: shows each note's cover and opens the
+   * cover picker for that note when its thumbnail is clicked. Absent, the
+   * column isn't offered. Never consulted outside Table mode.
+   */
+  noteCover?: NoteCoverActions;
 }
 
 /**
@@ -318,6 +345,11 @@ export function renderNoteCard(
 }
 
 export interface RenderNoteTableOptions {
+  /** The Cover image column's per-note cell — present only when the host can change covers (see `NoteCoverActions`). */
+  coverFor?: (entry: CollectionEntryModel) => {
+    url: string | null;
+    onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  };
   /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
   actionsFor?: (entry: CollectionEntryModel) => ReactNode;
   /** Archive collection only — adds the Archived column (and its cells). */
@@ -337,9 +369,9 @@ export interface RenderNoteTableOptions {
 export function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  { actionsFor, showArchived = false, footer }: RenderNoteTableOptions = {}
+  { coverFor, actionsFor, showArchived = false, footer }: RenderNoteTableOptions = {}
 ) {
-  const columns = toTableColumns(properties, showArchived);
+  const columns = toTableColumns(properties, showArchived, coverFor !== undefined);
 
   return (
     <CollectionDataTable
@@ -349,6 +381,7 @@ export function renderNoteTable(
           showDescription: properties.description,
           columns,
           actions: actionsFor?.(entry),
+          cover: coverFor?.(entry),
         })
       )}
       footer={footer}
@@ -365,13 +398,31 @@ export function CollectionBody({
   onCreateFolder,
   onCreateNote,
   previewResolvers,
+  noteCover,
 }: CollectionBodyProps) {
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
+  // The note whose cover picker is open, and the thumbnail it opens beside
+  // (the picker is a popover anchored to the clicked cell, so the element
+  // is kept in a ref rather than state).
+  const [coverNoteId, setCoverNoteId] = useState<string | null>(null);
+  const coverAnchorRef = useRef<HTMLElement | null>(null);
+  const coverNote = coverNoteId ? notes.find((note) => note.id === coverNoteId) : undefined;
+  const closeCoverPicker = () => setCoverNoteId(null);
+
   const noteSection =
     viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
       footer: <NoteTableNewRow onClick={onCreateNote} />,
+      coverFor: noteCover && ((entry) => ({
+        // A hidden cover isn't shown anywhere in the collection (the Card
+        // view hides it too), so its note reads as having none here.
+        url: entry.cover && !entry.coverHidden ? noteCover.resolveUrl(entry.cover) : null,
+        onClick: (event) => {
+          coverAnchorRef.current = event.currentTarget;
+          setCoverNoteId(entry.id);
+        },
+      })),
     }) : viewMode === 'card' ? (
       <NoteCardGrid
         onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
@@ -400,6 +451,16 @@ export function CollectionBody({
         </FolderGrid>
       )}
       {noteSection}
+      {noteCover && viewMode === 'table' && coverNote && (
+        <CoverPickerOverlay
+          open
+          onClose={closeCoverPicker}
+          anchorRef={coverAnchorRef as RefObject<HTMLElement>}
+          onSetCoverImage={(url) => noteCover.onSet(coverNote.id, url)}
+          onSetCoverImageFromUpload={(sourcePath) => noteCover.onSetFromUpload(coverNote.id, sourcePath)}
+          onRemove={() => noteCover.onRemove(coverNote.id)}
+        />
+      )}
       {/* Trailing breathing room below the last row/card — see this
           class's own comment in CollectionBody.css for why it's a real
           flex child rather than padding on .collection__content. */}
