@@ -9,6 +9,7 @@ import type { EffectivePageState } from '@core/application/page/EffectivePageSta
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
+import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
@@ -133,19 +134,6 @@ export function Tags({
     }
   };
 
-  // The tag row's "+" — same openDraft(...) root-level note creation
-  // every other "+ New"/"+" entry point already uses (Sidebar.Notes.tsx),
-  // then a single updateMetadata() carrying the tag, which
-  // PageOperations' own draft-promotion branch treats as a committed
-  // change and persists immediately (same mechanism Cover Image already
-  // uses to promote a draft via a metadata edit, not a body edit).
-  // openDraft() already opens/selects the new note in the workspace, so
-  // no separate navigation call is needed here.
-  const onCreateNoteForTag = async (tagName: string): Promise<void> => {
-    const draftId = await pageOperations.openDraft({ folderId: null });
-    await pageOperations.updateMetadata(draftId, { tags: [tagName] });
-  };
-
   return (
     <View navigation={<TagsShortcuts onShortcut={onShortcut} />}>
       {renderTags(tags, {
@@ -159,7 +147,8 @@ export function Tags({
         effectivePageState,
         noteRowActions,
         onRevealInNotesSidebar,
-        onCreateNoteForTag: (tagName) => void onCreateNoteForTag(tagName),
+        onCreateNoteForTag: (tagName) =>
+          void createNoteForTag(pageOperations, tagName),
         resolveWikiLink,
         resolveTag,
         resolveEmbed,

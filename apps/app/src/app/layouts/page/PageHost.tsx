@@ -26,6 +26,7 @@ import {
   PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import {
   buildMoveDestinationItems,
@@ -1409,13 +1410,16 @@ export function PageHost({
     // 'new-note' case) — not a new creation path. Shared by the title-
     // adjacent Button below and NoteTable's trailing "New Note" row
     // (CollectionBody's onCreateNote). Favorites and a Tag's notes are
-    // filters, not containers — neither has an existing "create a note in
+    // filters, not containers — Favorites has no existing "create a note in
     // this view" call to wire to, so per rule 12 (never wire a live
-    // control to an invented handler) they get none.
+    // control to an invented handler) it gets none. A Tag's notes reuse
+    // createNoteForTag, the same helper the Tags sidebar row's "+" uses.
     const onCreateNote =
       view.kind === 'workspace'
         ? () => void application.pageOperations.openDraft({ folderId: null })
-        : undefined;
+        : view.kind === 'tag'
+          ? () => void createNoteForTag(application.pageOperations, view.tagName)
+          : undefined;
     // Title-adjacent "New" action.
     const newNoteAction = onCreateNote ? (
       <Button
