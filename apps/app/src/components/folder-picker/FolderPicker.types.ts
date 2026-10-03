@@ -20,6 +20,8 @@ export interface FolderPickerItem {
    * currently visible under its own collapsed/expanded state.
    */
   parentId: string | null;
+  /** This row's own leading icon, over the picker's `leadingIcon` (a flat list of mixed kinds, e.g. notes and daily notes). */
+  icon?: SystemIcon;
   /**
    * A muted, small-text label rendered inline next to `title`, on the same
    * line (same styling tokens as a search result's breadcrumb `path`) —

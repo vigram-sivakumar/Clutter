@@ -183,7 +183,7 @@ export function FolderPicker({
                   <span className="folder__leading">
                     <AppIcon
                       className="folder__icon"
-                      icon={leadingIcon}
+                      icon={item.icon ?? leadingIcon}
                       emoji={item.emoji}
                     />
                   </span>
