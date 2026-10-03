@@ -7,12 +7,10 @@
   background: var(--surface-subtle);
 }
 
-/* No body: the card is only as tall as its action, which is centered. No min-height (the reserved metadata lines don't apply to it). */
+/* No body, so it would collapse to header height; keep the grid's card shape and center the action in it. */
 .note-card.note-card--new {
+  aspect-ratio: var(--collection-card-aspect-ratio);
   justify-content: center;
-}
-.note-card.note-card--new .note-card__header {
-  min-height: 0;
 }
 .note-card--new .card-title-section__heading {
   justify-content: center;
