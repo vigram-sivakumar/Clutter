@@ -22,12 +22,12 @@
 
 /* The trailing "New Note" card: a normal card whose title reads as an action, like List/Table's "New Note" row. */
 .note-card--new .card-title {
-  /* Same color as the plus icon beside it (`--foreground-secondary`, below). */
-  color: var(--foreground-secondary);
+  /* Same color as the plus icon beside it (`--foreground-tertiary`, below). */
+  color: var(--foreground-tertiary);
   font-weight: var(--fw-regular);
 }
 .note-card--new .card-title-section__leading {
-  color: var(--foreground-secondary);
+  color: var(--foreground-tertiary);
 }
 
 /*
