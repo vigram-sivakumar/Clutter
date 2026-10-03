@@ -56,6 +56,10 @@ export function CoverPickerOverlay({
             onClose();
             onSetCoverImageFromUpload(sourcePath);
           }}
+          onAssetSelect={(cover) => {
+            onClose();
+            onSetCoverImage(cover);
+          }}
           onUnsplashSelect={onSetCoverImage}
         />
       </div>

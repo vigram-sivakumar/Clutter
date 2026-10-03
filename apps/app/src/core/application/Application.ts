@@ -51,7 +51,6 @@ import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlResolver';
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
-import { ASSETS_DIRECTORY_NAME } from '../vault/initialize/ensureAssetsDirectory';
 import { importCoverAsset } from '../vault/importCoverAsset';
 import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
 import { fetchRemoteAsset } from '../vault/providers/fetchRemoteAsset';
@@ -775,7 +774,9 @@ export class Application {
       return cover;
     }
 
-    if (cover.startsWith(`${ASSETS_DIRECTORY_NAME}/`)) {
+    // Any vault-relative reference (`Assets/…`, or another folder's image
+    // picked from the Asset tab) — not an absolute path or a URL scheme.
+    if (!cover.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(cover)) {
       return this.coverImageUrlResolver.toLoadableUrl(`${this.rootPath}/${cover}`);
     }
 

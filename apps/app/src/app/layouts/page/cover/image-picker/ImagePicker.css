@@ -21,39 +21,6 @@
   padding-inline: var(--space-12);
 }
 
-.image-picker__buttons {
-  display: flex;
-  gap: var(--space-8);
-  padding-inline: var(--space-12);
-}
-.image-picker__button {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  height: 64px;
-  width: 100%;
-  box-shadow: var(--shadow-inset-default);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  color: var(--foreground-secondary);
-  font-size: var(--text-label-small);
-}
-.image-picker__button:not(.image-picker__button--selected):hover {
-  background-color: color-mix(
-    in srgb,
-    var(--surface-subtle),
-    rgb(var(--state-base)) var(--state-hover-strength-medium)
-  );
-}
-.image-picker__button--selected {
-  background: color-mix(
-    in srgb,
-    var(--surface-subtle),
-    rgb(var(--state-base)) 7%
-  );
-  color: var(--foreground-primary);
-}
-
 .input__hint {
   font-size: var(--text-label-small);
   font-weight: var(--fw-thin);

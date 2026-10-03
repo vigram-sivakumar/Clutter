@@ -520,6 +520,10 @@ export function PageCover({
                 setOpen(false);
                 onSetCoverImageFromUpload?.(sourcePath);
               }}
+              onAssetSelect={(cover) => {
+                setOpen(false);
+                onSetCoverImage(cover);
+              }}
               onUnsplashSelect={(url) => {
                 // Deliberately does not close the menu — same Unsplash
                 // browse-and-preview reasoning as PageHeaderMoreActionsMenu's

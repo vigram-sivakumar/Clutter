@@ -19,6 +19,7 @@ import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
+import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
@@ -153,6 +154,30 @@ export function AppLayout({ application }: AppLayoutProps) {
     setResourceOverlay({ kind: 'image', image, onSetCoverImage: options?.onSetCoverImage });
   }
 
+  // The cover picker's Asset tab: every image the Assets collection holds
+  // (vault files anywhere, plus remote images in use). Derived when the tab
+  // renders, so it is never stale.
+  function listCoverPickerAssets(): CoverPickerAsset[] {
+    const prefix = `${application.vault.root}/`;
+    const result: CoverPickerAsset[] = [];
+    for (const asset of application.membershipSelector.getAllAssets()) {
+      if (asset.kind !== 'image') continue;
+      if (asset.source === 'local') {
+        const { path } = asset.resource;
+        if (!path.startsWith(prefix)) continue;
+        result.push({
+          id: asset.id,
+          name: asset.name,
+          previewUrl: application.resolveResourceImageUrl(path),
+          cover: path.slice(prefix.length),
+        });
+      } else {
+        result.push({ id: asset.id, name: asset.name, previewUrl: asset.url, cover: asset.url });
+      }
+    }
+    return result;
+  }
+
   function closeResourceOverlay(): void {
     setResourceOverlay(null);
   }
@@ -189,6 +214,7 @@ export function AppLayout({ application }: AppLayoutProps) {
       />
       <main className="app-layout__page">
         <TauriDragStrip />
+        <CoverAssetsProvider value={listCoverPickerAssets}>
         <PageHost
           application={application}
           onOpenResource={openVaultResourceOverlay}
@@ -198,6 +224,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onRequestReveal={setPendingReveal}
           onRevealHandled={() => setPendingReveal(null)}
         />
+        </CoverAssetsProvider>
       </main>
       <SidebarToggle
         isSidebarVisible={workspace.isSidebarVisible}

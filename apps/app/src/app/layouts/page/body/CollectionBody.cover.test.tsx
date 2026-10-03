@@ -164,7 +164,7 @@ describe('CollectionBody — Table: Cover image column', () => {
 
     fireEvent.click(coverButton(container));
 
-    expect(document.querySelector('.image-picker__buttons')).not.toBeNull();
+    expect(document.querySelector('[data-testid="sidebar.tab.asset"]')).not.toBeNull();
   });
 
   it('the picker\'s remove tab clears that note\'s cover and closes the picker', () => {
