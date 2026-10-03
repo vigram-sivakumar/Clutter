@@ -544,3 +544,35 @@ describe('AssetsCollectionBody — Card grid', () => {
     expect(css).not.toMatch(/grid-template-columns|gap:|aspect-ratio/);
   });
 });
+
+describe('AssetsCollectionBody — Upload card', () => {
+  it('ends the Card grid with an Upload card that calls onUpload — after every asset', () => {
+    const onUpload = vi.fn();
+    const { container, getByText } = renderAssets({ resources: [makeResource(), makeResource({ id: 'r2', name: 'b.png' })], viewMode: 'card', onUpload });
+
+    const grid = container.querySelector('.collection-card-grid')!;
+    expect(grid.lastElementChild).toHaveClass('asset-upload-card');
+    expect(grid.querySelectorAll('.asset-card')).toHaveLength(2);
+
+    fireEvent.click(getByText('Upload'));
+    expect(onUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it('is still there with no assets at all', () => {
+    const { container } = renderAssets({ resources: [], viewMode: 'card', onUpload: vi.fn() });
+
+    expect(container.querySelectorAll('.asset-card')).toHaveLength(0);
+    expect(container.querySelector('.asset-upload-card')).not.toBeNull();
+  });
+
+  it('is not rendered without an upload handler, nor in List or Table', () => {
+    expect(renderAssets({ resources: [makeResource()], viewMode: 'card' }).container.querySelector('.asset-upload-card')).toBeNull();
+    cleanup();
+
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, onUpload: vi.fn() });
+      expect(container.querySelector('.asset-upload-card')).toBeNull();
+      unmount();
+    }
+  });
+});

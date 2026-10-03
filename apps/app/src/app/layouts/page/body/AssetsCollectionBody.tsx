@@ -17,6 +17,7 @@ import { toAssetListItem } from '@features/collection/components/asset/list/toAs
 import { toAssetTableRow } from '@features/collection/components/asset/table/toAssetTableRow';
 import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table/assetTableColumns';
 import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
+import { AssetUploadCard } from '@features/collection/components/asset/card/AssetUploadCard';
 import '@features/collection/components/asset/card/AssetCardGrid.css';
 import { AssetRenameField } from '@features/collection/components/asset/AssetRenameField';
 import { sortAssets } from '@features/collection/components/asset/sortAssets';
@@ -48,6 +49,11 @@ export interface AssetsCollectionBodyProps {
    */
   readonly onOpenAsset?: (asset: Asset) => void;
   /**
+   * Starts an upload (the collection's Add action). When given, the Card view
+   * ends with an "Upload" card that calls it — shown even for an empty collection.
+   */
+  readonly onUpload?: () => void;
+  /**
    * `ResourceOperations.renameResource(resourceId, name)` — a single
    * collision-free write, committed once, so this body feeds it the final
    * name only (no per-keystroke channel). Only a vault file can be renamed; a
@@ -72,6 +78,7 @@ export function AssetsCollectionBody({
   sort,
   resolveResourceUrl,
   onOpenAsset,
+  onUpload,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -128,6 +135,7 @@ export function AssetsCollectionBody({
             titleContent={titleContentFor(asset)}
           />
         ))}
+        {onUpload && <AssetUploadCard onClick={onUpload} />}
       </CollectionCardGrid>
     );
   } else if (viewMode === 'table') {

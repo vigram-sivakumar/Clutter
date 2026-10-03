@@ -1386,6 +1386,7 @@ export function PageHost({
                 ? onOpenResource(asset.resource)
                 : onOpenImageOverlay({ url: asset.url, alt: getResourceDisplayName(asset) })
             }
+            onUpload={onAddAsset}
             onRenameResource={(id, name) =>
               void application.resourceOperations.renameResource(id, name)
             }

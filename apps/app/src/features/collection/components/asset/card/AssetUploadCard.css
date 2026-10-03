@@ -1,0 +1,25 @@
+/*
+ * The trailing "Upload" card: quieter than a real asset card (half the surface
+ * tint, the subtler border), lifting to a regular card's tint on hover, with
+ * its icon and label centered as one tertiary-colored action. Card shape,
+ * padding and the title section come from the shared card system. (`.collection-card`
+ * is repeated to rise above the shared shell's rules whatever the stylesheet order.)
+ */
+.asset-upload-card.collection-card {
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+  border-color: var(--border-subtle);
+}
+.asset-upload-card.collection-card:hover {
+  background: var(--surface-subtle);
+}
+.asset-upload-card .card-title-section__heading {
+  justify-content: center;
+}
+.asset-upload-card .card-title-section__leading,
+.asset-upload-card .card-title {
+  color: var(--foreground-tertiary);
+}
+.asset-upload-card .card-title {
+  font-weight: var(--fw-regular);
+}
