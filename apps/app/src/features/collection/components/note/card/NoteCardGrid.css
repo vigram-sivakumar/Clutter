@@ -16,4 +16,10 @@
    * Tune this one value to change how much of a line fits.
    */
   --note-card-canvas-width: 600px;
+  /*
+   * The reading column inside that canvas (also in document pixels; the body
+   * never exceeds the canvas). Equal to the canvas by default, so the text
+   * stays aligned under the card header's icon.
+   */
+  --note-card-reading-width: var(--note-card-canvas-width);
 }

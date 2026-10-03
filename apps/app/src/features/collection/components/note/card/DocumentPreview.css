@@ -77,15 +77,47 @@
   font-size: var(--cm-content);
   line-height: var(--lh-cm-content);
   color: var(--foreground-primary);
+
+  /*
+   * Reading typography — inherited by every block. Because the canvas lays
+   * out at one fixed width, these decide the same line breaks at every card
+   * size. Each is a progressive enhancement: a webview that doesn't know a
+   * property ignores it and keeps its default text, never a broken layout.
+   * (`-webkit-font-smoothing` only has an effect on macOS/WKWebView.)
+   */
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * The fixed reading column inside the canvas: line length is set here, in
+ * document pixels, never by the card. Defaults to the canvas width
+ * (NoteCardGrid.css) so the text lines up under the header; narrow
+ * --note-card-reading-width alone to get a tighter measure.
+ */
 .document-preview__body {
   margin-top: var(--document-preview-section-gap);
+  width: var(--note-card-reading-width, 100%);
+  max-width: 100%;
+  /* No padding: the card owns it. */
+  /* Only a single unbreakable token (a long URL) is broken, and only when it would overflow — never mid-word otherwise (no `anywhere`, no `break-all`, no hyphenation). */
+  overflow-wrap: break-word;
 }
 
-.document-preview__body {
-  /* No padding: the card owns it. */
-  overflow-wrap: anywhere;
+/*
+ * Line-ending quality. `pretty` avoids short last lines (orphans) in body
+ * text; `balance` evens out heading lines. Both only change *where* a line
+ * breaks inside the fixed 600px layout, so they cost nothing at scale.
+ */
+.document-preview .markdown-blocks__paragraph,
+.document-preview .markdown-blocks__line,
+.document-preview .markdown-blocks__list-item {
+  text-wrap: pretty;
+}
+.document-preview .markdown-blocks__heading {
+  text-wrap: balance;
 }
 
 /* ---- Block structure (markdown/render/renderMarkdownBlocks.tsx) ---- */
