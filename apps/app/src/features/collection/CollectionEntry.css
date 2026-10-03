@@ -148,7 +148,7 @@
   flex: 1;
 }
 
-/* Trailing media slot (List layout) — sits at the end of the row, after the metadata (dates), before the hover actions. */
+/* Media slot (List layout) — sits after the title/description, before the metadata (dates). */
 .collection-entry__media {
   display: flex;
   align-items: center;

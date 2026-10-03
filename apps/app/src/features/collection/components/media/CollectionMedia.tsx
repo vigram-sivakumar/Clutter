@@ -5,7 +5,7 @@ import './CollectionMedia.css';
 export interface CollectionMediaProps {
   /**
    * The thumbnail's content — an image, a rendered PDF page, a placeholder
-   * icon, anything that fills a small square. The frame draws only itself;
+   * icon, anything that fills a small landscape frame. The frame draws only itself;
    * what is shown (and how a failed load degrades) is the caller's concern,
    * so this knows nothing about what the media is.
    */
@@ -21,8 +21,8 @@ export interface CollectionMediaProps {
 }
 
 /**
- * The one thumbnail frame every collection layout shares — a small, row-height
- * square (border, radius, clipping) around whatever the caller supplies: a cover
+ * The one thumbnail frame every collection layout shares — a small landscape
+ * frame (border, radius, clipping) around whatever the caller supplies: a cover
  * image, an asset preview, any future media. The table's media cell and the
  * list's media slot both draw it, so a thumbnail looks identical in either.
  * Generic: it imports nothing about images, PDFs or any collection.

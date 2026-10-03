@@ -95,7 +95,7 @@ describe('CollectionTableTextCell', () => {
 });
 
 describe('CollectionTableMediaCell', () => {
-  it('draws a square, aria-hidden frame around whatever thumbnail it is given — and knows no asset kinds', () => {
+  it('draws an aria-hidden frame around whatever thumbnail it is given — and knows no asset kinds', () => {
     const { container, getByTestId } = render(
       <CollectionTableMediaCell className="collection-table-row__preview">
         <img data-testid="thumb" alt="" src="app://x.png" />
