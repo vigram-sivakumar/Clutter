@@ -1,7 +1,7 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 
-import { CollectionEntry } from '@features/collection/CollectionEntry';
 import { CollectionCard } from '../../card/CollectionCard';
+import { CardTitleSection } from '../../card/CardTitleSection';
 import type { SystemIcon } from '@shared/icon';
 import {
   DocumentPreview,
@@ -36,8 +36,8 @@ export interface NoteCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'tit
 }
 
 /**
- * One note as a card, made of up to three sibling sections — header, cover,
- * content. The card owns the padding around them and a single `gap` between
+ * One note as a card, made of up to three sibling sections — title
+ * section (the shared CardTitleSection), cover, content. The card owns the padding around them and a single `gap` between
  * them (NoteCard.css); the sections have none of their own beyond the 4px
  * inline inset that lines the cover and content up under the header's icon.
  * Hiding any section removes it and its gap; with the content hidden the cover
@@ -94,26 +94,16 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(
         isSelected={isSelected}
         onClick={onClick}
       >
-        {/* The shared collection entry in its stacked layout (icon + title,
-            metadata below) — same header FolderCard uses. No onClick, so
-            it renders as a plain row and the card stays the one
-            interactive target. */}
-        <CollectionEntry
-          stacked
+        {/* The shared title section (title, description, edited date). The
+            card stays the one interactive target. */}
+        <CardTitleSection
           className="note-card__header"
           icon={icon}
           emoji={emoji}
           title={title}
-          metadata={
-            description || updated ? (
-              <>
-                {description && (
-                  <span className="note-card__description">{description}</span>
-                )}
-                {updated && <span>Edited {updated}</span>}
-              </>
-            ) : undefined
-          }
+          description={description}
+          metadata={updated ? <span>Edited {updated}</span> : undefined}
+          metadataLayout="vertical"
         />
 
         {coverUrl && (

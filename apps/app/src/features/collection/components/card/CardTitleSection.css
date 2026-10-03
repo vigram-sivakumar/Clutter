@@ -1,0 +1,78 @@
+/*
+ * The shared card title block (CardTitleSection and its parts). The visual
+ * language of every card's text — the Notes Card's: 24px icon box + body-small
+ * medium title, label-small tertiary description/metadata, 2px between lines,
+ * description/metadata inset 4px to line up under the icon glyph (a 16px glyph
+ * centered in its 24px box). No padding of its own: the card provides it.
+ */
+.card-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.card-title-section__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.card-title-section__leading {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-sm);
+  aspect-ratio: 1;
+  color: var(--foreground-secondary);
+}
+
+.card-title {
+  min-width: 0;
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+  letter-spacing: var(--ls-body-small);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-description,
+.card-metadata {
+  min-width: 0;
+  padding-inline-start: var(--space-4);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+  color: var(--foreground-tertiary);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-metadata {
+  display: flex;
+  gap: var(--space-6);
+}
+.card-metadata--horizontal {
+  flex-direction: row;
+  align-items: center;
+}
+.card-metadata--vertical {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+/* Each item truncates on its own. */
+.card-metadata > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

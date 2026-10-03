@@ -38,13 +38,13 @@ describe('NoteCard', () => {
     );
 
     const header = container.querySelector('.note-card__header')!;
-    expect(header.querySelector('.collection-entry__title')?.textContent).toBe('Plan');
-    expect(header.querySelector('.collection-entry__metadata')?.textContent).toBe('Edited 12 Aug 2026');
+    expect(header.querySelector('.card-title')?.textContent).toBe('Plan');
+    expect(header.querySelector('.card-metadata')?.textContent).toBe('Edited 12 Aug 2026');
     // Icon + title share the heading row; metadata is below it, not inside.
-    const heading = header.querySelector('.collection-entry__heading')!;
-    expect(heading.querySelector('.collection-entry__title')).toBeInTheDocument();
+    const heading = header.querySelector('.card-title-section__heading')!;
+    expect(heading.querySelector('.card-title')).toBeInTheDocument();
     expect(heading.querySelector('.app-icon')).toBeInTheDocument();
-    expect(heading.contains(header.querySelector('.collection-entry__metadata'))).toBe(false);
+    expect(heading.contains(header.querySelector('.card-metadata'))).toBe(false);
     const preview = container.querySelector('.document-preview')!;
     expect(header.contains(preview)).toBe(false);
     expect(preview.querySelector('h1')?.textContent).toBe('Heading');
@@ -55,9 +55,9 @@ describe('NoteCard', () => {
       <NoteCard title="Plan" description="What this note is about" updated="12 Aug 2026" markdown="" />
     );
 
-    const lines = [...container.querySelectorAll('.collection-entry__metadata > span')];
+    const lines = [...container.querySelectorAll('.card-description, .card-metadata > span')];
     expect(lines.map((l) => l.textContent)).toEqual(['What this note is about', 'Edited 12 Aug 2026']);
-    expect(lines[0]).toHaveClass('note-card__description');
+    expect(lines[0]).toHaveClass('card-description');
   });
 
   it('renders no description line (and no placeholder) when there is none', () => {

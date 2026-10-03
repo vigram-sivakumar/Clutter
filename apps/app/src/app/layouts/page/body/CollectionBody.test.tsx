@@ -204,7 +204,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       <CollectionBody notes={[entry]} viewMode="card" />
     );
     const lines = () =>
-      [...container.querySelectorAll('.note-card .collection-entry__metadata > span')].map((l) => l.textContent);
+      [...container.querySelectorAll('.note-card .card-description, .note-card .card-metadata > span')].map((l) => l.textContent);
     expect(lines()).toEqual(['About this note', 'Edited 12 Aug 2026']);
 
     rerender(<CollectionBody notes={[noteEntry({ updated: '12 Aug 2026' })]} viewMode="card" />);

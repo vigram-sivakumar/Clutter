@@ -2,6 +2,7 @@ import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import './CollectionEntry.css';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { Checkbox } from '@components/checkbox/Checkbox';
+import { CardTitleSection } from './components/card/CardTitleSection';
 
 export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
   icon?: SystemIcon;
@@ -29,9 +30,9 @@ export interface CollectionEntryProps extends HTMLAttributes<HTMLDivElement> {
   /**
    * Card-style layout: row one is icon + title, `metadata` sits below it
    * spanning the full width (instead of the default icon | title+metadata
-   * columns, or List/Table's trailing metadata). Opt-in — used by
-   * FolderCard and NoteCard so both share one header DOM; every other
-   * caller renders exactly as before.
+   * columns, or List/Table's trailing metadata). Rendered by the shared
+   * CardTitleSection. Opt-in — used by FolderCard; every other caller renders
+   * exactly as before.
    */
   stacked?: boolean;
 
@@ -165,15 +166,17 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
         tabIndex={tabIndex ?? (onClick ? 0 : undefined)}
       >
         {stacked ? (
-          <div className="collection-entry__content">
-            <div className="collection-entry__heading">
-              {leading}
-              {primary}
-            </div>
-            {metadata && (
-              <div className="collection-entry__metadata">{metadata}</div>
-            )}
-          </div>
+          // The card header: the shared title section (components/card), so the
+          // stacked layout has one implementation. Only the leading box (with
+          // the selection checkbox) is this entry's own.
+          <CardTitleSection
+            className="collection-entry__content"
+            leading={leading || undefined}
+            title={title}
+            titleContent={titleContent}
+            description={description}
+            metadata={metadata}
+          />
         ) : (
           <>
             {leading}

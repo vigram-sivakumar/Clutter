@@ -92,7 +92,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     });
 
     if (viewMode === 'card') {
-      expect(container.querySelector('.collection-entry__metadata')).toBeNull();
+      expect(container.querySelector('.card-metadata')).toBeNull();
       expect(screen.queryByText('Image')).toBeNull();
       expect(screen.queryByText('PDF')).toBeNull();
       return;
@@ -111,7 +111,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     });
 
     const icon = (index: number) =>
-      itemFor(container, viewMode, index).querySelector('.collection-entry__icon svg')?.outerHTML;
+      itemFor(container, viewMode, index).querySelector('.collection-entry__icon svg, .card-title-section__icon svg')?.outerHTML;
     expect(icon(0)).toBeTruthy();
     expect(icon(1)).toBeTruthy();
     expect(icon(0)).not.toBe(icon(1));

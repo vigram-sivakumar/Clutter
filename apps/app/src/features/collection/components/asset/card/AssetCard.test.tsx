@@ -25,12 +25,12 @@ const image = (overrides: Partial<VaultResource> = {}): VaultResource => ({
 const pdf = (): VaultResource => ({ id: 'doc', kind: 'pdf', name: 'manual.pdf', path: '/vault/manual.pdf', parentId: null });
 
 describe('AssetCard', () => {
-  it('is built on the shared card shell and stacked header — not on NoteCard', () => {
+  it('is built on the shared card shell and title section — not on NoteCard', () => {
     const { container } = render(<AssetCard resource={image()} url="app://house.png" />);
 
     const card = container.querySelector('.asset-card')!;
     expect(card).toHaveClass('collection-card');
-    expect(card.querySelector('.collection-entry--stacked')).not.toBeNull();
+    expect(card.querySelector('.card-title-section')).not.toBeNull();
     expect(container.querySelector('.note-card, .note-card__header, .document-preview')).toBeNull();
   });
 
@@ -39,14 +39,14 @@ describe('AssetCard', () => {
 
     expect(getByText('house')).toBeInTheDocument();
     expect(queryByText('Image')).toBeNull();
-    expect(container.querySelector('.collection-entry__metadata')).toBeNull();
+    expect(container.querySelector('.card-metadata')).toBeNull();
   });
 
   it('a PDF card has no type label either', () => {
     const { queryByText, container } = render(<AssetCard resource={pdf()} url="app://manual.pdf" />);
 
     expect(queryByText('PDF')).toBeNull();
-    expect(container.querySelector('.collection-entry__metadata')).toBeNull();
+    expect(container.querySelector('.card-metadata')).toBeNull();
   });
 
   it('an image asset renders its image from the url it is given (as a cover-style fill, styled in AssetCard.css), with no alt noise', () => {
@@ -94,11 +94,11 @@ describe('AssetCard', () => {
     expect(container.querySelector('.note-card__cover, .document-preview__canvas')).toBeNull();
   });
 
-  it('puts the asset first and the header (icon + name) below it', () => {
+  it('puts the title section (icon + name) first, as on a note card, and the media below it', () => {
     const { container } = render(<AssetCard resource={image()} url="x" />);
 
     const [first, second] = [...container.querySelector('.asset-card')!.children];
-    expect(first).toHaveClass('asset-card__preview');
-    expect(second).toHaveClass('asset-card__header');
+    expect(first).toHaveClass('card-title-section', 'asset-card__header');
+    expect(second).toHaveClass('asset-card__media');
   });
 });

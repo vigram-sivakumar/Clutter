@@ -8,31 +8,13 @@
 }
 
 /* The trailing "New Note" card: a normal card whose title reads as an action, like List/Table's "New Note" row. */
-.note-card--new .collection-entry__title {
+.note-card--new .card-title {
   /* Same color as the plus icon beside it (`--foreground-secondary`, below). */
   color: var(--foreground-secondary);
   font-weight: var(--fw-regular);
 }
-.note-card--new .collection-entry__leading {
+.note-card--new .card-title-section__leading {
   color: var(--foreground-secondary);
-}
-
-/* Description above the edited date: the header's metadata becomes a column, each line truncating on its own. (Scoped to the note card — a folder card's counts stay inline.) */
-.note-card__header .collection-entry__metadata {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-0);
-}
-.note-card__header .collection-entry__metadata > span {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The header is a stacked CollectionEntry; its own padding is zeroed — the card provides it. */
-.note-card .note-card__header {
-  padding: 0;
 }
 
 /*
