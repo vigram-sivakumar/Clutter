@@ -10,7 +10,8 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-8);
-  max-height: 320px;
+  /* Four rows of thumbnails (84px each) and the three gaps between them. */
+  max-height: calc(4 * 84px + 3 * var(--space-8));
   overflow-y: auto;
   overflow-x: hidden;
   padding-inline: var(--space-12);
