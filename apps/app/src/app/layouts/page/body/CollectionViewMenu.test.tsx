@@ -410,3 +410,50 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     expect(utils.queryByText('Sort by')).not.toBeInTheDocument();
   });
 });
+
+describe('CollectionViewMenu — assets Title property', () => {
+  const renderAssetMenu = (viewMode: 'list' | 'table' | 'card', properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) => {
+    const onPropertiesChange = vi.fn();
+    const utils = render(
+      <CollectionViewMenu
+        viewMode={viewMode}
+        onChange={vi.fn()}
+        properties={properties}
+        onPropertiesChange={onPropertiesChange}
+        sort={DEFAULT_COLLECTION_SORT}
+        onSortChange={vi.fn()}
+        capabilities={ASSET_COLLECTION_VIEW_CAPABILITIES}
+      />
+    );
+    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+    return { ...utils, onPropertiesChange };
+  };
+
+  it('Card offers Properties with only Title, and toggling it turns the title off', () => {
+    const { getByText, queryByText, onPropertiesChange } = renderAssetMenu('card');
+
+    openPropertiesSubmenu(getByText);
+    expect(getByText('Title')).toBeInTheDocument();
+    for (const absent of ['Description', 'Cover image', 'Content preview', 'Created', 'Last edited']) {
+      expect(queryByText(absent)).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(getByText('Title'));
+    expect(onPropertiesChange).toHaveBeenCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, title: false });
+  });
+
+  it('List and Table have nothing to toggle, so no Properties row', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { queryByText, unmount } = renderAssetMenu(viewMode);
+      expect(queryByText('Properties')).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('notes never offer Title', () => {
+    const { getByText, queryByText } = renderMenu({ viewMode: 'card' });
+
+    openPropertiesSubmenu(getByText);
+    expect(queryByText('Title')).not.toBeInTheDocument();
+  });
+});

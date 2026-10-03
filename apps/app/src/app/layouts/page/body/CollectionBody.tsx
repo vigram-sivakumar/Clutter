@@ -64,6 +64,8 @@ export interface CollectionPropertyVisibility {
   cover: boolean;
   /** Card layout only — show the rendered note content in its preview. Ignored in List/Table. */
   preview: boolean;
+  /** Assets' Card layout only — show each card's title section (icon and name). Ignored everywhere else. */
+  title: boolean;
 }
 
 export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
@@ -74,6 +76,7 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
   archived: true,
   cover: true,
   preview: true,
+  title: true,
 };
 
 /**

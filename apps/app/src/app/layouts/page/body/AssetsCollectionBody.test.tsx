@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AssetsCollectionBody } from './AssetsCollectionBody';
-import type { CollectionViewMode } from './CollectionBody';
+import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type CollectionViewMode } from './CollectionBody';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
 class ResizeObserverMock {
@@ -374,5 +374,38 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
     const input = Object.freeze(resources());
 
     expect(() => renderAssets({ resources: input as VaultResource[], viewMode, sort: { key: 'name', direction: 'down' } })).not.toThrow();
+  });
+});
+
+describe('AssetsCollectionBody — Title property', () => {
+  const hidden = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, title: false };
+
+  it('hides each card title in Card layout when the Title property is off', () => {
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
+
+    expect(container.querySelector('.asset-card')).not.toBeNull();
+    expect(container.querySelector('.card-title-section')).toBeNull();
+  });
+
+  it('shows it by default, and the property does not affect List or Table', () => {
+    const shown = renderAssets({ resources: [makeResource()], viewMode: 'card' });
+    expect(shown.container.querySelector('.card-title-section')).not.toBeNull();
+    shown.unmount();
+
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, properties: hidden });
+      expect(container.textContent).toContain('house');
+      unmount();
+    }
+  });
+
+  it('F2 does not start a rename while the card title is hidden', () => {
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
+    const card = container.querySelector<HTMLElement>('.asset-card')!;
+
+    card.focus();
+    fireEvent.keyDown(card, { key: 'F2' });
+
+    expect(container.querySelector('input')).toBeNull();
   });
 });

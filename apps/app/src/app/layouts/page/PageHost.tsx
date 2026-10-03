@@ -1374,6 +1374,7 @@ export function PageHost({
           <AssetsCollectionBody
             resources={resources}
             viewMode={collectionViewMode}
+            properties={collectionProperties}
             sort={collectionSort}
             resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
             onOpenResource={onOpenResource}

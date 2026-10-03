@@ -27,6 +27,8 @@ export interface PersistedCollectionProperties {
    */
   readonly cover?: boolean;
   readonly preview?: boolean;
+  /** The Card layout's Title toggle (Assets) — optional for the same reason; missing resolves to shown. */
+  readonly title?: boolean;
 }
 
 export type PersistedCollectionSortKey =
@@ -318,7 +320,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     return undefined;
   }
 
-  const { description, lastOpened, created, updated, archived, cover, preview } = raw as Record<string, unknown>;
+  const { description, lastOpened, created, updated, archived, cover, preview, title } = raw as Record<string, unknown>;
 
   if (
     typeof description !== 'boolean' ||
@@ -331,7 +333,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
 
   // The optional toggles: absent is fine (older entries), present-but-not-
   // boolean discards the whole entry like any other malformed field.
-  const optional = { archived, cover, preview };
+  const optional = { archived, cover, preview, title };
   for (const value of Object.values(optional)) {
     if (value !== undefined && typeof value !== 'boolean') {
       return undefined;
@@ -346,6 +348,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     ...(archived !== undefined && { archived: archived as boolean }),
     ...(cover !== undefined && { cover: cover as boolean }),
     ...(preview !== undefined && { preview: preview as boolean }),
+    ...(title !== undefined && { title: title as boolean }),
   };
 }
 

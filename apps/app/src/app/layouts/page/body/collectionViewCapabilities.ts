@@ -1,4 +1,8 @@
-import type { CollectionSortKey, CollectionViewMode } from './CollectionBody';
+import type {
+  CollectionPropertyVisibility,
+  CollectionSortKey,
+  CollectionViewMode,
+} from './CollectionBody';
 
 /**
  * What a collection's Configure menu offers — the one place a collection type
@@ -14,6 +18,12 @@ export interface CollectionViewCapabilities {
   readonly defaultLayout: CollectionViewMode;
   /** Whether the Properties configuration (which fields a row/card shows) is offered. */
   readonly properties: boolean;
+  /**
+   * Restricts the Properties list to these keys. Absent, the note-shaped
+   * list applies (Description, dates, Card's Cover image / Content preview);
+   * `'title'` is only ever offered by a collection that lists it here.
+   */
+  readonly propertyKeys?: readonly (keyof CollectionPropertyVisibility)[];
   /**
    * The keys Sort by offers, in menu order — empty means no Sort by at all.
    * (`'archived'` is listed for notes but only ever shown in the Archive
@@ -33,14 +43,16 @@ export const NOTE_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
 /**
  * Assets: the same three layouts notes have (List, Table, Card), opening in
  * Card for anyone who hasn't chosen otherwise (a collection's first-time
- * default; once a layout is picked it is persisted and wins). No Properties — a resource carries only its kind, name and path, so
- * there are no fields to toggle. Sort by offers the two things an asset has:
+ * default; once a layout is picked it is persisted and wins). Properties offers
+ * only Title (Card layout): a resource carries just its kind, name and path,
+ * so the title is the one thing a layout can choose to show. Sort by offers the two things an asset has:
  * its Name and its Type.
  */
 export const ASSET_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   layouts: ['list', 'table', 'card'],
   defaultLayout: 'card',
-  properties: false,
+  properties: true,
+  propertyKeys: ['title'],
   sortKeys: ['name', 'type'],
 };
 

@@ -101,4 +101,13 @@ describe('AssetCard', () => {
     expect(first).toHaveClass('asset-card__media');
     expect(second).toHaveClass('card-title-section', 'asset-card__header');
   });
+
+  it('showTitle={false} drops the title section and leaves the media', () => {
+    const { container } = render(<AssetCard resource={image()} url="x" showTitle={false} />);
+
+    const card = container.querySelector('.asset-card')!;
+    expect(card.querySelector('.card-title-section')).toBeNull();
+    expect([...card.children]).toHaveLength(1);
+    expect(card.children[0]).toHaveClass('asset-card__media');
+  });
 });

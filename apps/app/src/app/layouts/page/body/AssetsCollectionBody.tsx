@@ -1,7 +1,12 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { PageBody } from './Page.Body';
-import type { CollectionSortState, CollectionViewMode } from './CollectionBody';
+import {
+  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  type CollectionPropertyVisibility,
+  type CollectionSortState,
+  type CollectionViewMode,
+} from './CollectionBody';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { CollectionCardGrid } from '@features/collection/components/card/CollectionCardGrid';
@@ -20,6 +25,8 @@ export interface AssetsCollectionBodyProps {
    * PageHost): the shared List, Table or Card of asset items.
    */
   readonly viewMode?: CollectionViewMode;
+  /** The collection's Properties (the standard control, owned by PageHost) — for Assets, only `title`, in the Card layout. */
+  readonly properties?: CollectionPropertyVisibility;
   /**
    * The collection's Sort by (the standard control, owned by PageHost) —
    * Name or Type; the same order in every layout. Absent, the resources keep
@@ -54,19 +61,22 @@ export interface AssetsCollectionBodyProps {
 export function AssetsCollectionBody({
   resources: unsorted,
   viewMode = 'list',
+  properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   sort,
   resolveResourceUrl,
   onOpenResource,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
+  const titleHidden = viewMode === 'card' && !properties.title;
   const resources = sort ? sortAssets(unsorted, sort) : unsorted;
 
   // F2 on a focused item renames it — the items carry `data-resource-id`, so one
   // handler on the layout container serves every layout. (A double-click would
   // collide with the single click that opens the asset.)
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== 'F2' || editingId !== null) {
+    if (event.key !== 'F2' || editingId !== null || titleHidden) {
       return;
     }
     const item = (event.target as HTMLElement).closest<HTMLElement>('[data-resource-id]');
@@ -98,6 +108,7 @@ export function AssetsCollectionBody({
             key={resource.id}
             resource={resource}
             url={resolveResourceUrl(resource.path)}
+            showTitle={properties.title}
             onClick={clickFor(resource)}
             titleContent={titleContentFor(resource)}
           />

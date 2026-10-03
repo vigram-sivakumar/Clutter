@@ -246,13 +246,12 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.body.textContent).toContain('doc');
   });
 
-  it('offers the same three layouts notes have (List, Table, Card), Sort by Name / Type, and no Properties (nothing to toggle)', async () => {
+  it('offers the same three layouts notes have (List, Table, Card), Sort by Name / Type, and Properties (Card layout, for the Title toggle)', async () => {
     render(<AppLayout application={setup([image()])} />);
     await flush();
     await openMenu();
 
-    expect(menuLabels()).toEqual(['List', 'Table', 'Card', 'Name', 'Type']);
-    expect(document.body.textContent).not.toMatch(/Properties/);
+    expect(menuLabels()).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'Type']);
     expect(document.body.textContent).toMatch(/Sort by/);
   });
 

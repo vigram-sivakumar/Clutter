@@ -18,6 +18,8 @@ export interface AssetCardProps {
    * from it.
    */
   readonly url: string;
+  /** The Title property: whether the title section (icon and name) is shown. */
+  readonly showTitle?: boolean;
   readonly isSelected?: boolean;
   /** Opens the asset — the same handler the list row gets (`onOpenResource`): the caller routes by kind (image overlay / PDF viewer). */
   readonly onClick?: (resource: VaultResource) => void;
@@ -31,9 +33,10 @@ export interface AssetCardProps {
  * them), with the asset-specific media above and the title section at the
  * bottom. The title section is just the icon and name, since the media already shows what kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
- * actions menu — the asset's actions live in its viewer.
+ * actions menu — the asset's actions live in its viewer. The title section can
+ * be hidden (`showTitle`), leaving the media to fill the whole card.
  */
-export function AssetCard({ resource, url, isSelected = false, onClick, titleContent }: AssetCardProps) {
+export function AssetCard({ resource, url, showTitle = true, isSelected = false, onClick, titleContent }: AssetCardProps) {
   return (
     <CollectionCard
       data-resource-id={resource.id}
@@ -44,12 +47,14 @@ export function AssetCard({ resource, url, isSelected = false, onClick, titleCon
     >
       <AssetMedia kind={resource.kind} url={url} />
 
-      <CardTitleSection
-        className="asset-card__header"
-        icon={getResourceIcon(resource.kind)}
-        title={getResourceDisplayName(resource)}
-        titleContent={titleContent}
-      />
+      {showTitle && (
+        <CardTitleSection
+          className="asset-card__header"
+          icon={getResourceIcon(resource.kind)}
+          title={getResourceDisplayName(resource)}
+          titleContent={titleContent}
+        />
+      )}
     </CollectionCard>
   );
 }
