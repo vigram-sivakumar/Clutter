@@ -530,18 +530,19 @@ describe('AssetsCollectionBody — Card grid', () => {
     expect(container.querySelector('.collection-card-grid')).toHaveClass('asset-card-grid');
   });
 
-  it('the asset grid fits up to 6 columns, at least 140px each, overriding only the columns', () => {
+  it('the asset grid fits up to 6 columns, at least 140px each, with a 4:5 card — overriding only those variables', () => {
     const css = readFileSync(
       join(process.cwd(), 'src/features/collection/components/asset/card/AssetCardGrid.css'),
       'utf8'
     ).replace(/\/\*[\s\S]*?\*\//g, '');
 
-    expect(css).toMatch(/\.asset-card-grid\s*\{/);
+    expect(css).toMatch(/\.collection-card-grid\.asset-card-grid\s*\{/);
+    expect(css).toMatch(/--collection-card-aspect-ratio:\s*4 \/ 5/);
     expect(css).toMatch(/--collection-grid-columns:/);
     expect(css).toMatch(/5 \* var\(--collection-grid-gap\)\) \/ 6/);
     expect(css).toMatch(/max\(140px/);
-    // Nothing else of the shared grid is restyled.
-    expect(css).not.toMatch(/grid-template-columns|gap:|aspect-ratio/);
+    // Nothing else of the shared grid is restyled (no direct aspect-ratio, columns or gap).
+    expect(css).not.toMatch(/(^|[;{\s])(grid-template-columns|gap|aspect-ratio)\s*:/);
   });
 });
 
