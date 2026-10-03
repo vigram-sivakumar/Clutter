@@ -9,14 +9,6 @@ export interface NoteCardGridProps extends HTMLAttributes<HTMLDivElement> {
   /** Trailing "New Note" card — same "present only once there's at least one note" convention as the notes list's "New Note" row. */
   onCreateNote?: () => void;
   /**
-   * The Cover image / Content preview properties, passed to the New Note
-   * card too so it takes the same layout (both off: header-only; content off:
-   * header plus an empty cover slot) and stays the same height as its
-   * neighbours.
-   */
-  coverVisible?: boolean;
-  contentVisible?: boolean;
-  /**
    * How many metadata lines (description, edited date) the collection's
    * Properties turn on. Header-only cards reserve exactly that many lines, so
    * their heights match whichever notes happen to have a description.
@@ -28,8 +20,6 @@ export interface NoteCardGridProps extends HTMLAttributes<HTMLDivElement> {
 export function NoteCardGrid({
   children,
   onCreateNote,
-  coverVisible = true,
-  contentVisible = true,
   headerLines = 0,
   className,
   style,
@@ -44,15 +34,14 @@ export function NoteCardGrid({
       {children}
 
       {onCreateNote && (
-        // A card like the rest — same shell and size, a blank page instead
-        // of a preview (no markdown, no cover, nothing to render).
+        // A card like the rest — same shell and size, but no body: just the
+        // centered "+ New Note" action (NoteCard.css).
         <NoteCard
           className="note-card--new"
           icon="plus"
           title="New Note"
-          markdown=""
-          showCover={coverVisible}
-          showContent={contentVisible}
+          showCover={false}
+          showContent={false}
           onClick={onCreateNote}
         />
       )}

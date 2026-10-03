@@ -441,8 +441,6 @@ export function CollectionBody({
     }) : viewMode === 'card' ? (
       <NoteCardGrid
         onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
-        coverVisible={properties.cover}
-        contentVisible={properties.preview}
         headerLines={(properties.description ? 1 : 0) + (properties.updated ? 1 : 0)}
       >
         {sortedNotes.map((entry) =>

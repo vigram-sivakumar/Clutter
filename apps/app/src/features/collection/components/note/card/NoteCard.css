@@ -7,6 +7,15 @@
   background: var(--surface-subtle);
 }
 
+/* No body, so it would collapse to header height; keep the grid's card shape and center the action in it. */
+.note-card.note-card--new {
+  aspect-ratio: var(--collection-card-aspect-ratio);
+  justify-content: center;
+}
+.note-card--new .card-title-section__heading {
+  justify-content: center;
+}
+
 /* The trailing "New Note" card: a normal card whose title reads as an action, like List/Table's "New Note" row. */
 .note-card--new .card-title {
   /* Same color as the plus icon beside it (`--foreground-secondary`, below). */
