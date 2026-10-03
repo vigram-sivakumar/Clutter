@@ -31,14 +31,21 @@ describe('assetCardMetadata', () => {
       })
     );
 
-    expect(line).toEqual(['12 KB', 'Created 35 minutes ago', 'Edited 5 minutes ago']);
+    expect(line).toEqual([
+      { label: 'Size', value: '12 KB' },
+      { label: 'Created', value: '35 minutes ago' },
+      { label: 'Edited', value: '5 minutes ago' },
+    ]);
   });
 
   it('leaves out a part the platform could not report', () => {
     expect(assetCardMetadata(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toEqual(
-      ['812 B', 'Edited 5 minutes ago']
+      [
+        { label: 'Size', value: '812 B' },
+        { label: 'Edited', value: '5 minutes ago' },
+      ]
     );
-    expect(assetCardMetadata(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual(['2 MB']);
+    expect(assetCardMetadata(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual([{ label: 'Size', value: '2 MB' }]);
   });
 
   it('is empty when the resource has no metadata', () => {
@@ -48,9 +55,11 @@ describe('assetCardMetadata', () => {
   it('leaves out each item its property hides, independently', () => {
     const full = resource({ size: 12_345, createdAt: '2026-10-03T11:25:00.000Z', modifiedAt: '2026-10-03T11:55:00.000Z' });
 
-    expect(assetCardMetadata(full, { size: false })).toEqual(['Created 35 minutes ago', 'Edited 5 minutes ago']);
-    expect(assetCardMetadata(full, { created: false })).toEqual(['12 KB', 'Edited 5 minutes ago']);
-    expect(assetCardMetadata(full, { updated: false })).toEqual(['12 KB', 'Created 35 minutes ago']);
-    expect(assetCardMetadata(full, { size: false, created: false, updated: false })).toEqual([]);
+    const labels = (visibility: Parameters<typeof assetCardMetadata>[1]) => assetCardMetadata(full, visibility).map((item) => item.label);
+
+    expect(labels({ size: false })).toEqual(['Created', 'Edited']);
+    expect(labels({ created: false })).toEqual(['Size', 'Edited']);
+    expect(labels({ updated: false })).toEqual(['Size', 'Created']);
+    expect(labels({ size: false, created: false, updated: false })).toEqual([]);
   });
 });

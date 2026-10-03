@@ -21,7 +21,7 @@ export interface AssetCardProps {
   readonly url: string;
   /** The Title property: whether the title section (icon and name) is shown. */
   readonly showTitle?: boolean;
-  /** The File size / Created / Last edited properties (the card's lines read size, Created, Edited): which metadata lines the title section shows (all, by default). */
+  /** The File size / Created / Last edited properties (the card's lines read Size, Created, Edited): which metadata lines the title section shows (all, by default). */
   readonly metadataVisibility?: AssetMetadataVisibility;
   readonly isSelected?: boolean;
   /** Opens the asset — the same handler the list row gets (`onOpenAsset`): the caller routes by kind (image overlay / PDF viewer). */
@@ -63,7 +63,15 @@ export function AssetCard({ asset, url, showTitle = true, metadataVisibility, is
           icon={getResourceIcon(asset.kind)}
           title={getResourceDisplayName(asset)}
           titleContent={titleContent}
-          metadata={metadata.length > 0 && metadata.map((item) => <span key={item}>{item}</span>)}
+          metadata={
+            metadata.length > 0 &&
+            metadata.map(({ label, value }) => (
+              <span key={label} className="asset-card__meta">
+                <span className="asset-card__meta-label">{label}</span>
+                <span className="asset-card__meta-value">{value}</span>
+              </span>
+            ))
+          }
           metadataLayout="vertical"
         />
       )}

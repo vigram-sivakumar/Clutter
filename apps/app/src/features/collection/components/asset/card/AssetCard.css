@@ -54,6 +54,30 @@
 }
 
 /*
+ * A metadata line: the label at the left, its value at the right of the card
+ * (the label keeps its width, the value truncates), the label a step dimmer so
+ * the value reads first.
+ */
+.asset-card__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+  width: 100%;
+}
+.asset-card__meta-label {
+  flex: none;
+}
+.asset-card__meta-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: rgb(255 255 255);
+}
+
+/*
  * The image behaves like a cover image: it fills the whole card and
  * crops to fit (object-fit: cover, centered) — the area's shape wins, the
  * image's own aspect ratio does not.

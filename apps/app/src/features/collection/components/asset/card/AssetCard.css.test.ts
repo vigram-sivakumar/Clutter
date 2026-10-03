@@ -43,4 +43,13 @@ describe('AssetCard.css', () => {
     expect(rule('.asset-card__header')).toMatch(/bottom:\s*0/);
     expect(rule('.asset-card__header')).toMatch(/linear-gradient\(\s*to top/);
   });
+
+  it('sets a metadata line\'s label apart from its value (space-between, the value truncating)', () => {
+    const rule = (selector: string) =>
+      rules.find((candidate) => candidate.selectors.includes(selector))?.body ?? '';
+
+    expect(rule('.asset-card__meta')).toMatch(/justify-content:\s*space-between/);
+    expect(rule('.asset-card__meta-label')).toMatch(/flex:\s*none/);
+    expect(rule('.asset-card__meta-value')).toMatch(/text-overflow:\s*ellipsis/);
+  });
 });

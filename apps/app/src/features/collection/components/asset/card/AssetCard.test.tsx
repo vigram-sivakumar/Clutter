@@ -122,11 +122,11 @@ describe('AssetCard', () => {
     );
     const line = withMetadata.container.querySelector('.card-metadata')!;
     expect(line).toHaveClass('card-metadata--vertical');
-    const items = [...line.children].map((child) => child.textContent);
-    expect(items).toHaveLength(3);
-    expect(items[0]).toBe('12 KB');
-    expect(items[1]).toMatch(/^Created /);
-    expect(items[2]).toMatch(/^Edited /);
+    const rows = [...line.querySelectorAll('.asset-card__meta')];
+    expect(rows).toHaveLength(3);
+    // Each line sets its label apart from its value.
+    expect(rows.map((row) => row.querySelector('.asset-card__meta-label')!.textContent)).toEqual(['Size', 'Created', 'Edited']);
+    expect(rows[0]!.querySelector('.asset-card__meta-value')).toHaveTextContent('12 KB');
     withMetadata.unmount();
 
     const without = render(<AssetCard asset={localAsset(image())} url="x" />);

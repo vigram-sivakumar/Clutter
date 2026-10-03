@@ -436,7 +436,10 @@ describe('AssetsCollectionBody — metadata properties', () => {
     metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
   });
   const lines = (container: HTMLElement) =>
-    [...container.querySelectorAll('.card-metadata > *')].map((node) => node.textContent ?? '');
+    [...container.querySelectorAll('.asset-card__meta')].map(
+      (row) =>
+        `${row.querySelector('.asset-card__meta-label')?.textContent}: ${row.querySelector('.asset-card__meta-value')?.textContent}`
+    );
 
   it('shows none of them on a card by default (a first-time user), though the title stays', () => {
     const { container } = renderAssets({ resources: [withMetadata], viewMode: 'card' });
@@ -454,9 +457,9 @@ describe('AssetsCollectionBody — metadata properties', () => {
 
     const items = lines(container);
     expect(items).toHaveLength(3);
-    expect(items[0]).toBe('12 KB');
-    expect(items[1]).toMatch(/^Created /);
-    expect(items[2]).toMatch(/^Edited /);
+    expect(items[0]).toBe('Size: 12 KB');
+    expect(items[1]).toMatch(/^Created: /);
+    expect(items[2]).toMatch(/^Edited: /);
   });
 
   it('hides each one when its property is off', () => {
@@ -466,10 +469,10 @@ describe('AssetsCollectionBody — metadata properties', () => {
     expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('size') }).container)).toHaveLength(2);
     cleanup();
     const noCreated = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('created') }).container);
-    expect(noCreated.some((line) => line.startsWith('Created'))).toBe(false);
+    expect(noCreated.some((line) => line.startsWith('Created:'))).toBe(false);
     cleanup();
     const noEdited = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('updated') }).container);
-    expect(noEdited.some((line) => line.startsWith('Edited'))).toBe(false);
+    expect(noEdited.some((line) => line.startsWith('Edited:'))).toBe(false);
   });
 });
 
