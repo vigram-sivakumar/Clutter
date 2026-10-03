@@ -3,6 +3,7 @@ import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
+import { readResourceMetadata } from './readResourceMetadata';
 import { classifySupportedResourceFile } from './SupportedResourceKind';
 
 export class VaultScanner {
@@ -83,7 +84,13 @@ export class VaultScanner {
     for (const file of resourceFiles) {
       const kind = classifySupportedResourceFile(file.name);
       if (kind !== null) {
-        result.files.push({ path: file.path, directoryPath: path, kind });
+        const metadata = await readResourceMetadata(this.fileSystem, file.path);
+        result.files.push({
+          path: file.path,
+          directoryPath: path,
+          kind,
+          ...(metadata && { metadata }),
+        });
       }
     }
     for (const directory of childDirectories) {

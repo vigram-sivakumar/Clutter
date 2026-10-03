@@ -1,4 +1,4 @@
-import type { VaultEntry, VaultFileSystem } from '../providers/VaultFileSystem';
+import type { VaultEntry, VaultFileStat, VaultFileSystem } from '../providers/VaultFileSystem';
 import { resolveLocalDuplicatePath } from '../providers/localDuplicateNaming';
 import { VaultPath } from '../ingest/VaultPath';
 
@@ -11,6 +11,9 @@ import { VaultPath } from '../ingest/VaultPath';
 export class InMemoryVaultFileSystem implements VaultFileSystem {
   private readonly files = new Map<string, string>();
   private readonly directories = new Set<string>();
+  /** Per-file timestamps, set on write; a file without a record (the initial files) reports the construction time. */
+  private readonly times = new Map<string, { createdAt: Date; modifiedAt: Date }>();
+  private readonly constructedAt = new Date();
 
   constructor(initialFiles: Record<string, string> = {}) {
     for (const [path, contents] of Object.entries(initialFiles)) {
@@ -120,7 +123,34 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
   async writeFile(path: string, contents: string): Promise<void> {
     const existingKey = this.findCaseInsensitiveMatch(path, this.files.keys());
 
-    this.files.set(existingKey ?? path, contents);
+    const key = existingKey ?? path;
+    const now = new Date();
+    const previous = this.times.get(key);
+
+    this.files.set(key, contents);
+    this.times.set(key, { createdAt: previous?.createdAt ?? now, modifiedAt: now });
+  }
+
+  /** Mirrors a real `stat`: size in UTF-8 bytes, plus the recorded (or default) timestamps. Throws for a missing file. */
+  async stat(path: string): Promise<VaultFileStat> {
+    const contents = this.files.get(path);
+
+    if (contents === undefined) {
+      throw new Error(`InMemoryVaultFileSystem: file not found: ${path}`);
+    }
+
+    const times = this.times.get(path);
+
+    return {
+      size: new TextEncoder().encode(contents).length,
+      createdAt: times?.createdAt ?? this.constructedAt,
+      modifiedAt: times?.modifiedAt ?? this.constructedAt,
+    };
+  }
+
+  /** Test helper: pins a file's reported timestamps. */
+  setFileTimes(path: string, times: { createdAt: Date; modifiedAt: Date }): void {
+    this.times.set(path, times);
   }
 
   /**

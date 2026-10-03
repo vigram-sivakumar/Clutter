@@ -27,6 +27,7 @@ export class ResourceBuilder {
       name: VaultPath.filename(file.path),
       path: file.path,
       parentId,
+      ...(file.metadata && { metadata: file.metadata }),
     };
   }
 }

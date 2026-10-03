@@ -1,4 +1,4 @@
-import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
+import type { VaultEntry, VaultFileStat, VaultFileSystem } from './VaultFileSystem';
 import type { SelfWriteRegistry } from './SelfWriteRegistry';
 
 /**
@@ -87,6 +87,10 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
 
   duplicate?(sourcePath: string, kind: 'file' | 'directory'): Promise<string> {
     return this.inner.duplicate?.(sourcePath, kind) as Promise<string>;
+  }
+
+  stat?(path: string): Promise<VaultFileStat> {
+    return this.inner.stat?.(path) as Promise<VaultFileStat>;
   }
 
   private toRelativePath(path: string): string {

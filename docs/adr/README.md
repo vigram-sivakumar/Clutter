@@ -35,3 +35,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [035](./035-persist-workspace-session-state.md) | Persist workspace session state — `WorkspaceSessionStore` observes `Workspace` | Accepted |
 | [036](./036-frontmatter-properties-aliases-and-custom-keys.md) | Frontmatter Properties — owned `aliases`, derived custom properties, and `renameCustomProperty()` | Accepted |
 | [037](./037-single-global-draft.md) | One global draft — `PageOperations` holds at most one unsaved draft | Accepted |
+| [038](./038-resource-filesystem-metadata.md) | Resource filesystem metadata — `VaultResource.metadata`, read once by Ingest/Sync via `VaultFileSystem.stat` | Accepted |

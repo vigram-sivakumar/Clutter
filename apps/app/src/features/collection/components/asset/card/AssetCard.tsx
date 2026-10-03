@@ -6,6 +6,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { CollectionCard } from '../../card/CollectionCard';
 import { CardTitleSection } from '../../card/CardTitleSection';
+import { assetCardMetadata } from './assetCardMetadata';
 import { AssetMedia } from './AssetMedia';
 import './AssetCard.css';
 
@@ -31,7 +32,10 @@ export interface AssetCardProps {
  * One asset (image or PDF) as a card: the shared card shell and title section
  * (the Notes Card's geometry and typography — nothing asset-specific restyles
  * them), with the asset-specific media above and the title section at the
- * bottom. The title section is just the icon and name, since the media already shows what kind it is. Click opens the asset;
+ * bottom. The title section is the icon and name,
+ * then one line of the file's size and dates (`assetCardMetadata`) when the
+ * vault knows them — never a kind label, since the media already shows what
+ * kind it is. Click opens the asset;
  * the title becomes an inline rename editor on request (`titleContent`). No
  * actions menu — the asset's actions live in its viewer. The title section can
  * be hidden (`showTitle`), leaving the media to fill the whole card.
@@ -53,6 +57,7 @@ export function AssetCard({ resource, url, showTitle = true, isSelected = false,
           icon={getResourceIcon(resource.kind)}
           title={getResourceDisplayName(resource)}
           titleContent={titleContent}
+          metadata={assetCardMetadata(resource)}
         />
       )}
     </CollectionCard>

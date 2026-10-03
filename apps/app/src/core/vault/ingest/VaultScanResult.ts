@@ -2,6 +2,7 @@ import type { FrontmatterAnalysis } from './analysis';
 import type { FolderFrontmatter } from './frontmatter';
 import type { PageFrontmatter } from './frontmatter';
 import type { ScannedPageAnalysis } from './analysis';
+import type { VaultResourceMetadata } from '../models/VaultResource';
 import type { SupportedResourceKind } from './SupportedResourceKind';
 
 export interface VaultScanResult {
@@ -37,4 +38,6 @@ export interface ScannedResourceFile {
   readonly path: string;
   readonly directoryPath: string;
   readonly kind: SupportedResourceKind;
+  /** Read once during the scan (ADR-038); absent when the file system could not be stat'd. */
+  readonly metadata?: VaultResourceMetadata;
 }

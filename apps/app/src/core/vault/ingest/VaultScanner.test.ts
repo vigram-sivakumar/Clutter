@@ -259,3 +259,61 @@ describe('VaultScanner supported resource files', () => {
     await expect(scanner.scan('/vault')).resolves.toBeDefined();
   });
 });
+
+describe('VaultScanner resource metadata (ADR-038)', () => {
+  class StatFileSystem extends FakeFileSystem {
+    readonly statCalls: string[] = [];
+
+    async stat(path: string) {
+      this.statCalls.push(path);
+      return {
+        size: 2048,
+        createdAt: new Date('2026-01-02T03:04:05.000Z'),
+        modifiedAt: null,
+      };
+    }
+  }
+
+  it('reads each resource file\'s metadata exactly once during the scan, as ISO strings', async () => {
+    const fileSystem = new StatFileSystem(
+      new Map([['/vault', [entry('a.png', '/vault/a.png', false), entry('b.pdf', '/vault/b.pdf', false)]]]),
+      new Map()
+    );
+
+    const result = await new VaultScanner(fileSystem).scan('/vault');
+
+    expect(fileSystem.statCalls).toEqual(['/vault/a.png', '/vault/b.pdf']);
+    expect(result.files[0]!.metadata).toEqual({
+      size: 2048,
+      createdAt: '2026-01-02T03:04:05.000Z',
+      modifiedAt: null,
+    });
+  });
+
+  it('does not stat Markdown pages', async () => {
+    const fileSystem = new StatFileSystem(
+      new Map([['/vault', [entry('Idea.md', '/vault/Idea.md', false)]]]),
+      new Map([['/vault/Idea.md', '---\n---\ncontent']])
+    );
+
+    await new VaultScanner(fileSystem).scan('/vault');
+
+    expect(fileSystem.statCalls).toEqual([]);
+  });
+
+  it('still discovers a resource, without metadata, when stat fails', async () => {
+    class FailingStat extends FakeFileSystem {
+      async stat(): Promise<never> {
+        throw new Error('EACCES');
+      }
+    }
+    const fileSystem = new FailingStat(
+      new Map([['/vault', [entry('a.png', '/vault/a.png', false)]]]),
+      new Map()
+    );
+
+    const result = await new VaultScanner(fileSystem).scan('/vault');
+
+    expect(result.files).toEqual([{ path: '/vault/a.png', directoryPath: '/vault', kind: 'image' }]);
+  });
+});

@@ -486,6 +486,48 @@ describe('updatePagePath', () => {
   });
 });
 
+describe('updateResourceMetadata', () => {
+  const metadata = { size: 10, createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-01-02T00:00:00.000Z' };
+
+  it('replaces the metadata in both maps and emits resource-changed, keeping every other field', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png', parentId: 'f1' });
+    const vault = makeVault([], [], [resource]);
+    const events: string[] = [];
+    vault.subscribe((event) => events.push(event.type));
+
+    vault.updateResourceMetadata('resource-1', metadata);
+
+    expect(vault.getResource('resource-1')).toEqual({ ...resource, metadata });
+    expect(vault.getResourceByPath('/vault/hero.png')).toBe(vault.getResource('resource-1'));
+    expect(events).toEqual(['resource-changed']);
+  });
+
+  it('is a no-op (no event) when the metadata is unchanged', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png', metadata });
+    const vault = makeVault([], [], [resource]);
+    const events: string[] = [];
+    vault.subscribe((event) => events.push(event.type));
+
+    vault.updateResourceMetadata('resource-1', { ...metadata });
+
+    expect(events).toEqual([]);
+    expect(vault.getResource('resource-1')).toBe(resource);
+  });
+
+  it('keeps the metadata when the resource moves', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png', metadata });
+    const vault = makeVault([], [], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/hero-final.png', null);
+
+    expect(vault.getResource('resource-1')!.metadata).toEqual(metadata);
+  });
+
+  it('throws for an unknown resource', () => {
+    expect(() => makeVault([]).updateResourceMetadata('nope', metadata)).toThrow(/unknown resource/);
+  });
+});
+
 describe('updateResourcePath', () => {
   it('updates path, name, and parentId when a resource moves', () => {
     const archiveFolder = makeFolder({ id: 'folder-archive', path: '/vault/Archive', name: 'Archive' });

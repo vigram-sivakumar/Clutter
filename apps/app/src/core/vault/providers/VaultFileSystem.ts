@@ -19,6 +19,16 @@ export interface VaultEntry {
   isDirectory: boolean;
 }
 
+/** What a platform can report about one file — raw, before the vault turns it into `VaultResourceMetadata` (ADR-038). */
+export interface VaultFileStat {
+  /** Size in bytes. */
+  size: number;
+  /** The filesystem's creation time (`birthtime`); null where unsupported. */
+  createdAt: Date | null;
+  /** The filesystem's modification time (`mtime`); null where unsupported. */
+  modifiedAt: Date | null;
+}
+
 export interface VaultFileSystem {
   exists(path: string): Promise<boolean>;
   createDirectory(path: string): Promise<void>;
@@ -69,4 +79,13 @@ export interface VaultFileSystem {
    * Duplicate are unaffected by this method's existence.
    */
   duplicate?(sourcePath: string, kind: 'file' | 'directory'): Promise<string>;
+
+  /**
+   * Reads a file's size and timestamps — a read-only primitive (ADR-038).
+   * Optional, like `duplicate`: only providers that can report this need it,
+   * and the many test doubles that never read file metadata are unaffected.
+   * Callers go through Ingest's `readResourceMetadata`, which tolerates both
+   * its absence and a failed call.
+   */
+  stat?(path: string): Promise<VaultFileStat>;
 }

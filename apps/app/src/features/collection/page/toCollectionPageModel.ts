@@ -40,7 +40,7 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
  * draft — see EffectivePage's own doc comment) renders as nothing, same
  * treatment as the `lastOpened` column, which has no source of truth yet.
  */
-function formatEntryTimestamp(isoTimestamp: string | null): string | undefined {
+export function formatEntryTimestamp(isoTimestamp: string | null): string | undefined {
   if (!isoTimestamp) return undefined;
   const parsed = new Date(isoTimestamp);
   return Number.isNaN(parsed.getTime()) ? undefined : formatRelativeTimestamp(parsed);

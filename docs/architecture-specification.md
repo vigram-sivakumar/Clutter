@@ -22,6 +22,8 @@ Provide OS-level file I/O and change notification, with zero knowledge of vaults
     moveFile(from: string, to: string): Promise<void>;
     createDirectory(path: string): Promise<void>;
     readDirectory(path: string): Promise<DirectoryEntry[]>;
+    // optional, read-only (ADR-038): size / birthtime / mtime for resource metadata
+    stat?(path: string): Promise<VaultFileStat>;
   }
 
 + interface VaultFileSystemWatcher {
@@ -250,6 +252,8 @@ interface VaultResource {
   name: string;
   path: string;
   parentId: string | null;
+  // ADR-038: file facts read once by Ingest/Sync via VaultFileSystem.stat; absent if unavailable
+  metadata?: { size: number; createdAt: string | null; modifiedAt: string | null };
 }
 ```
 

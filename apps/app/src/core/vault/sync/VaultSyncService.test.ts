@@ -537,7 +537,7 @@ describe('VaultSyncService: resource lifecycle', () => {
     expect(vault.getResourceByPath(`${ROOT}/unknown-folder/hero.png`)).toBeUndefined();
   });
 
-  it('changed: an in-place content edit to an already-tracked resource is a no-op — nothing about the resource itself changes', async () => {
+  it('changed: an in-place content edit to an already-tracked resource keeps its identity and path', async () => {
     const resource = makeResource('resource-1', `${ROOT}/hero.png`);
     const { vault, fileSystem, watcher } = setup([], [], [resource]);
     fileSystem.seedFile(`${ROOT}/hero.png`, 'different-binary-content');
@@ -549,6 +549,55 @@ describe('VaultSyncService: resource lifecycle', () => {
     expect(stillTracked).toBeDefined();
     expect(stillTracked!.path).toBe(`${ROOT}/hero.png`);
     expect(vault.resourceCount).toBe(1);
+  });
+
+  it('created: a new resource is built with its file metadata (size and timestamps) read from the filesystem', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'twelve bytes');
+    fileSystem.setFileTimes(`${ROOT}/hero.png`, {
+      createdAt: new Date('2026-01-02T03:04:05.000Z'),
+      modifiedAt: new Date('2026-02-03T04:05:06.000Z'),
+    });
+
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await flush();
+
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)!.metadata).toEqual({
+      size: 12,
+      createdAt: '2026-01-02T03:04:05.000Z',
+      modifiedAt: '2026-02-03T04:05:06.000Z',
+    });
+  });
+
+  it('changed: an in-place edit refreshes the tracked resource\'s metadata and emits resource-changed once', async () => {
+    const resource = {
+      ...makeResource('resource-1', `${ROOT}/hero.png`),
+      metadata: { size: 3, createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-01-01T00:00:00.000Z' },
+    };
+    const { vault, fileSystem, watcher } = setup([], [], [resource]);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'much longer content');
+    fileSystem.setFileTimes(`${ROOT}/hero.png`, {
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      modifiedAt: new Date('2026-05-05T00:00:00.000Z'),
+    });
+    const events: string[] = [];
+    vault.subscribe((event) => events.push(event.type));
+
+    watcher.emit({ type: 'changed', path: 'hero.png' });
+    await flush();
+
+    expect(vault.getResource('resource-1')!.metadata).toEqual({
+      size: 19,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      modifiedAt: '2026-05-05T00:00:00.000Z',
+    });
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)!.metadata?.size).toBe(19);
+    expect(events).toEqual(['resource-changed']);
+
+    // A second event with nothing different changes nothing.
+    watcher.emit({ type: 'changed', path: 'hero.png' });
+    await flush();
+    expect(events).toEqual(['resource-changed']);
   });
 
   it('deleted: a removed resource file removes it from the vault', async () => {

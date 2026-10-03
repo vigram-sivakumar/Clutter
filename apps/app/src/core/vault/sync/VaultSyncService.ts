@@ -8,6 +8,7 @@ import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { ResourceBuilder } from '../ingest/ResourceBuilder';
+import { readResourceMetadata } from '../ingest/readResourceMetadata';
 import { classifySupportedResourceFile, type SupportedResourceKind } from '../ingest/SupportedResourceKind';
 import { VaultScanner } from '../ingest/VaultScanner';
 import type { VaultScanResult } from '../ingest/VaultScanResult';
@@ -436,11 +437,10 @@ export class VaultSyncService {
    * already covers the common case, but handleCreated calls this
    * directly, without that check).
    *
-   * An already-tracked resource at this exact path is left untouched: a
-   * resource's Vault-visible state (id/kind/name/path/parentId) never
-   * changes as a result of its file's *content* changing in place, so a
-   * `changed` event for one is correctly a no-op here — nothing to
-   * rebuild, unlike a page.
+   * An already-tracked resource at this exact path keeps its
+   * id/kind/name/path/parentId — those never change as a result of its
+   * file's *content* changing in place — but its file metadata (size /
+   * mtime, ADR-038) is re-read and refreshed when it differs.
    */
   private async reconcileResourceFile(
     absolutePath: string,
@@ -457,6 +457,12 @@ export class VaultSyncService {
     }
 
     if (existingResource) {
+      // Its content (hence size / mtime) may have changed in place — the
+      // one thing about an already-tracked resource that can (ADR-038).
+      this.vault.updateResourceMetadata(
+        existingResource.id,
+        await readResourceMetadata(this.fileSystem, absolutePath)
+      );
       return;
     }
 
@@ -472,7 +478,12 @@ export class VaultSyncService {
 
     const resource = this.resourceBuilder.build({
       parentId,
-      file: { path: absolutePath, directoryPath, kind },
+      file: {
+        path: absolutePath,
+        directoryPath,
+        kind,
+        metadata: await readResourceMetadata(this.fileSystem, absolutePath),
+      },
     });
 
     this.vault.addResource(resource);
@@ -638,7 +649,13 @@ export class VaultSyncService {
     // frontmatter/body to re-read), so only genuinely new resources are
     // added.
     for (const resource of resources) {
-      if (this.vault.getResource(resource.id) || this.vault.getResourceByPath(resource.path)) {
+      const existingResource =
+        this.vault.getResource(resource.id) ?? this.vault.getResourceByPath(resource.path);
+
+      if (existingResource) {
+        // Already tracked: only its file facts can have changed (ADR-038),
+        // and this scan just read them.
+        this.vault.updateResourceMetadata(existingResource.id, resource.metadata);
         continue;
       }
 

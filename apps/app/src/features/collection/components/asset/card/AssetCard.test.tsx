@@ -110,4 +110,19 @@ describe('AssetCard', () => {
     expect([...card.children]).toHaveLength(1);
     expect(card.children[0]).toHaveClass('asset-card__media');
   });
+
+  it('shows the size and dates from the resource metadata under the name, and nothing when there is none', () => {
+    const withMetadata = render(
+      <AssetCard
+        resource={image({ metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' } })}
+        url="x"
+      />
+    );
+    const line = withMetadata.container.querySelector('.card-metadata')!;
+    expect(line.textContent).toMatch(/^12 KB · Created .+ · Last edited /);
+    withMetadata.unmount();
+
+    const without = render(<AssetCard resource={image()} url="x" />);
+    expect(without.container.querySelector('.card-metadata')).toBeNull();
+  });
 });

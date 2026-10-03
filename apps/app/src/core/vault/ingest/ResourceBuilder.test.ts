@@ -63,4 +63,11 @@ describe('ResourceBuilder', () => {
 
     expect(resource.parentId).toBe('parent-folder');
   });
+
+  it('carries the scanned file metadata onto the resource, and omits the field when there is none', () => {
+    const metadata = { size: 5, createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: null };
+
+    expect(builder.build({ parentId: null, file: makeScannedResourceFile({ metadata }) }).metadata).toEqual(metadata);
+    expect('metadata' in builder.build({ parentId: null, file: makeScannedResourceFile() })).toBe(false);
+  });
 });

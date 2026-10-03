@@ -1,7 +1,7 @@
 import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { FolderMetadata } from './FolderMetadata';
-import type { VaultResource } from './VaultResource';
+import type { VaultResource, VaultResourceMetadata } from './VaultResource';
 import type { Tag, TagMetadataEntry } from './Tag';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
@@ -41,11 +41,16 @@ export type VaultChangeEvent =
   | {
       // The VaultResource counterpart to 'page-moved' — emitted by
       // updateResourcePath() whenever a resource's path/parentId changes.
-      // No 'resource-changed' variant exists: a resource has no
-      // metadata-only mutation (unlike 'folder-changed').
       type: 'resource-moved';
       resourceId: string;
       path: string;
+    }
+  | {
+      // A resource's file facts (size / timestamps, ADR-038) changed in
+      // place — no path/parentId change, the resource-scoped counterpart
+      // to 'folder-changed'. Emitted by updateResourceMetadata() only.
+      type: 'resource-changed';
+      resourceId: string;
     }
   | {
       // Emitted by removeResource() — the resource-scoped counterpart to
@@ -568,6 +573,40 @@ export class Vault {
     this.notify({
       type: 'resource-added',
       resourceId: resource.id,
+    });
+  }
+
+  /**
+   * Replaces a resource's file metadata (size / timestamps, ADR-038) after
+   * Sync re-reads it for a file that changed in place. No path change, so
+   * only the by-id and by-path entries are refreshed; no
+   * refreshProjections() call, same reasoning as updateResourcePath().
+   * A no-op when nothing differs.
+   */
+  updateResourceMetadata(resourceId: string, metadata: VaultResourceMetadata | undefined): void {
+    const resource = this.resourcesById.get(resourceId);
+
+    if (!resource) {
+      throw new Error(`Cannot update metadata of unknown resource: ${resourceId}`);
+    }
+
+    if (
+      resource.metadata?.size === metadata?.size &&
+      resource.metadata?.createdAt === metadata?.createdAt &&
+      resource.metadata?.modifiedAt === metadata?.modifiedAt
+    ) {
+      return;
+    }
+
+    const { metadata: _previous, ...rest } = resource;
+    const updatedResource: VaultResource = metadata ? { ...rest, metadata } : rest;
+
+    this.resourcesById.set(resourceId, updatedResource);
+    this.resourcesByPath.set(updatedResource.path, updatedResource);
+
+    this.notify({
+      type: 'resource-changed',
+      resourceId,
     });
   }
 
