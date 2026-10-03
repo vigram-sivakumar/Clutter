@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CollectionSortState } from './CollectionBody';
+import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type CollectionSortState } from './CollectionBody';
 
 import {
   ASSET_COLLECTION_VIEW_CAPABILITIES,
   NOTE_COLLECTION_VIEW_CAPABILITIES,
+  resolveDefaultProperties,
   resolveSupportedLayout,
   resolveSupportedSort,
 } from './collectionViewCapabilities';
@@ -61,5 +62,16 @@ describe('collection view capabilities', () => {
       key: 'updated',
       direction: 'up',
     });
+  });
+
+  it("assets' card starts with only its title: the file facts default off, while notes keep every default", () => {
+    expect(resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES)).toEqual({
+      ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+      size: false,
+      created: false,
+      updated: false,
+    });
+    expect(resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES).title).toBe(true);
+    expect(resolveDefaultProperties(NOTE_COLLECTION_VIEW_CAPABILITIES)).toEqual(DEFAULT_COLLECTION_PROPERTY_VISIBILITY);
   });
 });

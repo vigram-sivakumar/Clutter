@@ -1,7 +1,8 @@
-import type {
-  CollectionPropertyVisibility,
-  CollectionSortKey,
-  CollectionViewMode,
+import {
+  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  type CollectionPropertyVisibility,
+  type CollectionSortKey,
+  type CollectionViewMode,
 } from './CollectionBody';
 
 /**
@@ -25,6 +26,12 @@ export interface CollectionViewCapabilities {
    * `'title'` and `'size'` are only ever offered by a collection that lists them here.
    */
   readonly cardPropertyKeys?: readonly (keyof CollectionPropertyVisibility)[];
+  /**
+   * Property visibilities that differ from the app-wide defaults when nothing
+   * is persisted yet for this collection (a first-time user). Once the user
+   * toggles anything, the whole set is persisted and wins.
+   */
+  readonly defaultProperties?: Partial<CollectionPropertyVisibility>;
   /**
    * The keys Sort by offers, in menu order — empty means no Sort by at all.
    * (`'archived'` is listed for notes but only ever shown in the Archive
@@ -54,8 +61,17 @@ export const ASSET_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   defaultLayout: 'card',
   properties: true,
   cardPropertyKeys: ['title', 'size', 'created', 'updated'],
+  // A first-time card shows just the media and its title; the file facts are opt-in.
+  defaultProperties: { size: false, created: false, updated: false },
   sortKeys: ['name', 'type'],
 };
+
+/** The properties a collection starts with before the user has toggled any: the app-wide defaults, then the collection's own. */
+export function resolveDefaultProperties(
+  capabilities: CollectionViewCapabilities
+): CollectionPropertyVisibility {
+  return { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, ...capabilities.defaultProperties };
+}
 
 /** A persisted layout, if this collection still supports it; otherwise the collection's default. */
 export function resolveSupportedLayout(

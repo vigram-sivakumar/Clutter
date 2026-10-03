@@ -417,8 +417,19 @@ describe('AssetsCollectionBody — metadata properties', () => {
   const lines = (container: HTMLElement) =>
     [...container.querySelectorAll('.card-metadata > *')].map((node) => node.textContent ?? '');
 
-  it('shows File size, Created and Edited on a card by default, one per line', () => {
+  it('shows none of them on a card by default (a first-time user), though the title stays', () => {
     const { container } = renderAssets({ resources: [withMetadata], viewMode: 'card' });
+
+    expect(lines(container)).toEqual([]);
+    expect(container.querySelector('.card-title-section')).not.toBeNull();
+  });
+
+  it('shows File size, Created and Edited once their properties are on, one per line', () => {
+    const { container } = renderAssets({
+      resources: [withMetadata],
+      viewMode: 'card',
+      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true },
+    });
 
     const items = lines(container);
     expect(items).toHaveLength(3);
@@ -428,7 +439,8 @@ describe('AssetsCollectionBody — metadata properties', () => {
   });
 
   it('hides each one when its property is off', () => {
-    const off = (key: 'size' | 'created' | 'updated') => ({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, [key]: false });
+    const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
+    const off = (key: 'size' | 'created' | 'updated') => ({ ...on, [key]: false });
 
     expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('size') }).container)).toHaveLength(2);
     cleanup();

@@ -78,7 +78,6 @@ import {
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import {
   CollectionBody,
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
   type CollectionViewMode,
   type CollectionPropertyVisibility,
@@ -89,6 +88,7 @@ import { CollectionHeaderActions } from '@app/layouts/page/body/CollectionHeader
 import {
   ASSET_COLLECTION_VIEW_CAPABILITIES,
   NOTE_COLLECTION_VIEW_CAPABILITIES,
+  resolveDefaultProperties,
   resolveSupportedLayout,
   resolveSupportedSort,
   type CollectionViewCapabilities,
@@ -230,7 +230,8 @@ function resolveCollectionViewState(
   return {
     // A persisted layout the collection doesn't support (e.g. 'table' for Assets) falls back to its default.
     viewMode: resolveSupportedLayout(persisted?.layout, capabilities),
-    properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, ...persisted?.properties },
+    // Nothing persisted yet -> the collection's own starting properties (Assets' card starts with only its title).
+    properties: { ...resolveDefaultProperties(capabilities), ...persisted?.properties },
     // A persisted sort key the collection doesn't offer falls back to the default (Name).
     sort: resolveSupportedSort(persisted?.sort, capabilities, DEFAULT_COLLECTION_SORT),
   };

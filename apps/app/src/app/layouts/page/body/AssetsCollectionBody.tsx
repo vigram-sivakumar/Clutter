@@ -2,7 +2,10 @@ import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { PageBody } from './Page.Body';
 import {
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  ASSET_COLLECTION_VIEW_CAPABILITIES,
+  resolveDefaultProperties,
+} from './collectionViewCapabilities';
+import {
   type CollectionPropertyVisibility,
   type CollectionSortState,
   type CollectionViewMode,
@@ -61,7 +64,7 @@ export interface AssetsCollectionBodyProps {
 export function AssetsCollectionBody({
   resources: unsorted,
   viewMode = 'list',
-  properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  properties = resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES),
   sort,
   resolveResourceUrl,
   onOpenResource,
