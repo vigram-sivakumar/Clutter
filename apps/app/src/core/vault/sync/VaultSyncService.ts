@@ -74,6 +74,27 @@ export class VaultSyncService {
   }
 
   /**
+   * Reconciles one file the app itself just wrote into the vault (an asset it
+   * downloaded), exactly as if the watcher had reported it created, and
+   * resolves once that has happened — so the caller can rely on the Vault
+   * knowing the file instead of waiting for the OS watcher, whose delivery is
+   * not guaranteed to be prompt. Runs on the same per-path lane as a watcher
+   * event for it, so the two never interleave; a later watcher event for the
+   * same file finds it already tracked and only refreshes its metadata.
+   * Unlike a watcher-driven reconcile, a failure propagates to the caller.
+   */
+  public reconcileWrittenFile(absolutePath: string): Promise<void> {
+    const prefix = `${this.vault.root}/`;
+    const relativePath = absolutePath.startsWith(prefix)
+      ? absolutePath.slice(prefix.length)
+      : absolutePath;
+
+    return this.coordinator.runExclusive(this.resolveKey(absolutePath), () =>
+      this.handleCreated(relativePath, false)
+    );
+  }
+
+  /**
    * Interprets the event and dispatches it through VaultSyncCoordinator so
    * that operations targeting the same page/path never overlap and always
    * run in the order their events arrived. The coordinator only enforces

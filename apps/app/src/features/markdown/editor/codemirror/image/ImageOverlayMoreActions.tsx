@@ -15,7 +15,7 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
  * What the menu does for an asset with no vault file (a remote asset, an
  * external URL) — each takes the image's URL. All four are the app's existing
  * behaviors (the editor's image menu already downloads and copies; Save to
- * vault is `Application.importRemoteImage`), supplied by the caller.
+ * vault is `Application.saveRemoteImageToVault`), supplied by the caller.
  */
 export interface RemoteImageActions {
   onSaveToVault: (url: string) => void;

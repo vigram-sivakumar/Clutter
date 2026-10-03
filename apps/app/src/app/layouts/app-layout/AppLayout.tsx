@@ -20,6 +20,8 @@ import { createResourceLocationActions } from '@app/layouts/resourceLocationActi
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { CoverNotePicker } from './CoverNotePicker';
+import { SaveToVaultDialog, type SaveToVaultStatus } from './SaveToVaultDialog';
+import { describeSaveToVaultResult } from '@core/presentation/describeSaveToVaultResult';
 import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
@@ -161,6 +163,33 @@ export function AppLayout({ application }: AppLayoutProps) {
     setResourceOverlay({ kind: 'image', image, onSetCoverImage: options?.onSetCoverImage });
   }
 
+  // Save to vault runs immediately (like Archive and Move — no confirmation
+  // step), then reports exactly what changed in the dialog below, because it can
+  // touch many notes at once and has no undo: the saved file is kept whatever
+  // the rewrites did, and the result names every use that changed, failed or
+  // was left alone. The action can't be repeated while one is running (the
+  // dialog blocks, and Application joins a second request for the same URL).
+  const [saveToVault, setSaveToVault] = useState<SaveToVaultStatus | null>(null);
+
+  function startSaveToVault(url: string): void {
+    if (saveToVault?.state === 'saving') {
+      return;
+    }
+
+    setResourceOverlay(null);
+    setSaveToVault({ state: 'saving' });
+    application
+      .saveRemoteImageToVault(url)
+      .then((result) => setSaveToVault({ state: 'done', message: describeSaveToVaultResult(result) }))
+      .catch((error: unknown) => {
+        console.error('Could not save the image to the vault.', error);
+        setSaveToVault({
+          state: 'error',
+          message: `${error instanceof Error ? error.message : String(error)} Nothing was changed.`,
+        });
+      });
+  }
+
   // "Set as cover image" from an asset's viewer: the asset's cover reference
   // (a vault-relative path, or the remote URL as is) waits here while the user
   // picks which note gets it. Only the note's cover metadata changes.
@@ -274,10 +303,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         }
         onCreateFolder={(name) => application.folderOperations.create(name, null)}
         remoteImageActions={{
-          onSaveToVault: (url) =>
-            void application.saveRemoteImageToVault(url).catch((error: unknown) => {
-              console.error('Could not save the image to the vault.', error);
-            }),
+          onSaveToVault: startSaveToVault,
           onOpenInBrowser: (url) => void openExternalUrl(url),
           onCopyLink: (url) => void copyTextToClipboard(url),
           onDownload: (url) => void downloadRemoteImage(url),
@@ -286,6 +312,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }
       />
+      <SaveToVaultDialog status={saveToVault} onClose={() => setSaveToVault(null)} />
       <CoverNotePicker
         open={coverTarget !== null}
         notes={coverTarget === null ? [] : buildCoverNoteItems(application.membershipSelector.getAllVisiblePages())}

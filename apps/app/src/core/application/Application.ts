@@ -52,7 +52,8 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
-import { replaceRemoteAssetReferences } from './asset/replaceRemoteAssetReferences';
+import { rewriteRemoteAssetReferences } from './asset/rewriteRemoteAssetReferences';
+import { saveRemoteImage, type SaveToVaultResult } from './asset/saveRemoteImage';
 import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
 import { fetchRemoteAsset } from '../vault/providers/fetchRemoteAsset';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
@@ -165,6 +166,8 @@ export class Application {
   private readonly selfWriteRegistry: SelfWriteRegistry;
   private fileSystemWatcher!: LocalFileSystemWatcher | BrowserFileSystemWatcher;
   private rootPath!: string;
+  /** Remote-image saves running right now, by URL — see saveRemoteImageToVault. */
+  private readonly remoteImageSaves = new Map<string, Promise<SaveToVaultResult>>();
   private closed = false;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
 
@@ -751,34 +754,61 @@ export class Application {
   }
 
   /**
-   * Saves a remote image into `{vaultRoot}/Assets/` and returns its
-   * vault-relative reference (the remote counterpart of `importCoverAsset`;
-   * same non-Gate carve-out — an asset file is not Vault domain content).
-   * The new file reaches the Vault through the watcher like any asset added
-   * to the vault, so it then appears in the Assets collection as a local asset.
+   * "Save to vault" for a remote image — the whole pipeline, once per URL at a
+   * time (a second click while one is running joins it instead of starting
+   * another, and clicking again after it finished just reports zero uses left):
+   *
+   *   download + write to Assets/  (importRemoteAsset; reuses a copy already
+   *   saved from this URL)
+   *     -> reconcile the file into the Vault through Sync (the Vault must know
+   *        it before anything points at it, or note images can't resolve)
+   *     -> rewrite every use of the URL (rewriteRemoteAssetReferences, through
+   *        PageOperations/FolderOperations like any other edit).
+   *
+   * Rejects without rewriting anything if the download, validation, write or
+   * registration fails. A rewrite that fails for some uses does not reject; it
+   * is reported in the result (`failed`, `skippedArchived`, `skippedHidden`).
+   * There is no undo: the saved file stays whatever the rewrites did, and the
+   * result says exactly which uses changed.
    */
-  public async importRemoteImage(url: string): Promise<string> {
-    return importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset);
-  }
+  public saveRemoteImageToVault(url: string): Promise<SaveToVaultResult> {
+    const inFlight = this.remoteImageSaves.get(url);
 
-  /**
-   * "Save to vault" for a remote image: saves it (importRemoteImage), then
-   * points every use of that URL — covers and note images — at the saved
-   * copy, through PageOperations/FolderOperations like any other edit.
-   * Resolves to the vault-relative reference. Rejects if the save fails
-   * (nothing is rewritten) or, after saving, if some use couldn't be updated.
-   */
-  public async saveRemoteImageToVault(url: string): Promise<string> {
-    const asset = this.membershipSelector
-      .getAllAssets()
-      .find((candidate) => candidate.source === 'remote' && candidate.url === url);
-    const reference = await this.importRemoteImage(url);
-
-    if (asset) {
-      await replaceRemoteAssetReferences(asset, reference, this.pageOperations, this.folderOperations);
+    if (inFlight) {
+      return inFlight;
     }
 
-    return reference;
+    const run = saveRemoteImage({
+      save: () => importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset),
+      register: async (absolutePath) => {
+        await this.vaultSyncService.reconcileWrittenFile(absolutePath);
+
+        if (!this.vault.getResourceByPath(absolutePath)) {
+          throw new Error(
+            'The image was saved, but the vault did not pick it up, so nothing was changed.'
+          );
+        }
+      },
+      rewrite: ({ reference }) =>
+        rewriteRemoteAssetReferences({
+          url,
+          reference,
+          pages: this.vault.pages(),
+          folders: this.vault.folders(),
+          currentMarkdown: (page) =>
+            this.documentRegistry.get(page.id)?.currentRevision.markdown ?? page.source.markdown,
+          isPageArchived: (page) =>
+            this.membershipSelector.isArchivedPage(page) ||
+            this.membershipSelector.isEffectivelyArchived(page.parentId),
+          isFolderArchived: (folder) => this.membershipSelector.isEffectivelyArchived(folder.id),
+          pageWriter: this.pageOperations,
+          folderWriter: this.folderOperations,
+        }),
+    }).finally(() => this.remoteImageSaves.delete(url));
+
+    this.remoteImageSaves.set(url, run);
+
+    return run;
   }
 
   /**

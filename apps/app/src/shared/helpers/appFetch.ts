@@ -7,11 +7,11 @@ import { isTauri } from '@tauri-apps/api/core';
  * page's origin is `localhost` and those hosts don't allow it. Elsewhere (the
  * web runtime, tests) it is the plain `fetch`.
  */
-export async function appFetch(url: string): Promise<Response> {
+export async function appFetch(url: string, init?: { signal?: AbortSignal }): Promise<Response> {
   if (isTauri()) {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    return tauriFetch(url);
+    return tauriFetch(url, init);
   }
 
-  return fetch(url);
+  return fetch(url, init);
 }

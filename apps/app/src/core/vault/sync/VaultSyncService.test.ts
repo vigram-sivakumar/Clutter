@@ -527,6 +527,44 @@ describe('VaultSyncService: resource lifecycle', () => {
     errorSpy.mockRestore();
   });
 
+  it('reconcileWrittenFile registers a file the app just wrote without any watcher event', async () => {
+    const { vault, fileSystem, service } = setup();
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
+  });
+
+  it('reconcileWrittenFile followed by the watcher\'s own created event adds the file once, without an error', async () => {
+    const { vault, fileSystem, watcher, service } = setup();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await flush();
+
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('reconcileWrittenFile racing the watcher event never double-adds (they share one lane)', async () => {
+    const { vault, fileSystem, watcher, service } = setup();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+    await flush();
+
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
+    expect([...vault.resources()].filter((r) => r.path === `${ROOT}/hero.png`)).toHaveLength(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
   it('created: a new pdf file appearing on disk adds a resource to the vault', async () => {
     const { vault, fileSystem, watcher } = setup();
     fileSystem.seedFile(`${ROOT}/spec.pdf`, 'binary-content');
