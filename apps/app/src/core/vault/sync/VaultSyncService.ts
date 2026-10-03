@@ -476,14 +476,21 @@ export class VaultSyncService {
       return;
     }
 
+    const metadata = await readResourceMetadata(this.fileSystem, absolutePath);
+
+    // Re-checked after the await: another sync lane (the directory-level
+    // reconcile runs on its own) may have added this very file while the
+    // metadata was being read, and adding it twice throws.
+    const addedMeanwhile = this.vault.getResourceByPath(absolutePath);
+
+    if (addedMeanwhile) {
+      this.vault.updateResourceMetadata(addedMeanwhile.id, metadata);
+      return;
+    }
+
     const resource = this.resourceBuilder.build({
       parentId,
-      file: {
-        path: absolutePath,
-        directoryPath,
-        kind,
-        metadata: await readResourceMetadata(this.fileSystem, absolutePath),
-      },
+      file: { path: absolutePath, directoryPath, kind, metadata },
     });
 
     this.vault.addResource(resource);

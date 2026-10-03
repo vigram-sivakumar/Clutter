@@ -504,6 +504,29 @@ describe('VaultSyncService: resource lifecycle', () => {
     expect(resource!.name).toBe('hero.png');
   });
 
+  it('a resource added by another sync lane while this one reads file facts is refreshed, not re-added', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    // Simulates the directory-level reconcile (its own lane) landing the same
+    // file between this lane's "not tracked yet" check and its add.
+    const stat = fileSystem.stat!.bind(fileSystem);
+    vi.spyOn(fileSystem, 'stat').mockImplementation(async (path) => {
+      if (!vault.getResourceByPath(path)) {
+        vault.addResource(makeResource(path, path));
+      }
+      return stat(path);
+    });
+
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await flush();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
+    errorSpy.mockRestore();
+  });
+
   it('created: a new pdf file appearing on disk adds a resource to the vault', async () => {
     const { vault, fileSystem, watcher } = setup();
     fileSystem.seedFile(`${ROOT}/spec.pdf`, 'binary-content');
