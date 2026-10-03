@@ -135,7 +135,6 @@ export function PageHeaderMoreActionsMenu({
   coverHidden,
   onSetCoverImage,
   onSetCoverImageFromUpload,
-  onRemoveCoverImage,
   onShowCoverImage,
   hasDescription,
   onEditDescription,
@@ -299,11 +298,7 @@ export function PageHeaderMoreActionsMenu({
         {view === 'cover' && onSetCoverImage && (
           <div className="page-header-more-actions-menu__cover">
             <ImagePicker
-              hasCoverImage={hasCoverImage}
               onClose={() => setView('root')}
-              onRemove={() => {
-                onRemoveCoverImage?.();
-              }}
               onLinkSubmit={(url) => {
                 setOpen(false);
                 onSetCoverImage(url);

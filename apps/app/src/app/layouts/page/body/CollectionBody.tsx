@@ -469,7 +469,6 @@ export function CollectionBody({
           anchorRef={coverAnchorRef as RefObject<HTMLElement>}
           onSetCoverImage={(url) => noteCover.onSet(coverNote.id, url)}
           onSetCoverImageFromUpload={(sourcePath) => noteCover.onSetFromUpload(coverNote.id, sourcePath)}
-          onRemove={() => noteCover.onRemove(coverNote.id)}
         />
       )}
       {/* Trailing breathing room below the last row/card — see this

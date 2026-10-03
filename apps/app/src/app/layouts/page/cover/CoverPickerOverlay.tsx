@@ -13,8 +13,6 @@ export interface CoverPickerOverlayProps {
   readonly onSetCoverImage: (url: string) => void;
   /** An upload: imports the file and sets it as the cover. */
   readonly onSetCoverImageFromUpload: (sourcePath: string) => void;
-  /** The picker's "hide" tab: clears the cover. */
-  readonly onRemove: () => void;
 }
 
 /**
@@ -33,21 +31,12 @@ export function CoverPickerOverlay({
   anchorRef,
   onSetCoverImage,
   onSetCoverImageFromUpload,
-  onRemove,
 }: CoverPickerOverlayProps) {
   return (
     <Overlay open={open} onClose={onClose} anchorRef={anchorRef} side="left" alignment="center">
       <div className="cover-picker-overlay">
-        {/* `hasCoverImage` only chooses the picker's opening tab: always the
-            image sources, never the empty "hide" tab — whoever opens this
-            wants to pick a cover, whether to add the first one or swap it. */}
         <ImagePicker
-          hasCoverImage
           onClose={onClose}
-          onRemove={() => {
-            onClose();
-            onRemove();
-          }}
           onLinkSubmit={(url) => {
             onClose();
             onSetCoverImage(url);

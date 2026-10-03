@@ -167,23 +167,6 @@ describe('CollectionBody — Table: Cover image column', () => {
     expect(document.querySelector('.image-picker__buttons')).not.toBeNull();
   });
 
-  it('the picker\'s remove tab clears that note\'s cover and closes the picker', () => {
-    const noteCover = coverActions();
-    const { container } = render(
-      <CollectionBody
-        notes={[noteEntry({ id: 'a' }), noteEntry({ id: 'b', title: 'Other', cover: 'Assets/sea.png' })]}
-        viewMode="table"
-        noteCover={noteCover}
-      />
-    );
-
-    fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.collection-table-row__cover button')[1]!);
-    fireEvent.click(screen.getByTestId('sidebar.tab.hide')); // the picker's "hide" (remove) tab
-
-    expect(noteCover.onRemove).toHaveBeenCalledWith('b');
-    expect(document.querySelector('.image-picker')).toBeNull();
-  });
-
   it('a link pick sets that note\'s cover and closes the picker', async () => {
     const OriginalImage = window.Image;
     vi.stubGlobal(

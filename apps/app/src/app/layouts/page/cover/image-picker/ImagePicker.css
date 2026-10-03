@@ -16,11 +16,6 @@
   padding-left: calc(var(--space-12) + 6px);
   padding-right: var(--space-12);
 }
-.image-picker__tabs {
-  width: 100%;
-  padding-inline: var(--space-12);
-}
-
 .image-picker__buttons {
   display: flex;
   gap: var(--space-8);

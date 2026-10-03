@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import './ImagePicker.css';
-import { Tabs, Tab } from '@components/tabs/Tabs';
 import { ImagePickerLink } from './ImagePicker.Link';
 import { ImagePickerUpload } from './ImagePicker.Upload';
 import { ImagePickerAsset } from './ImagePicker.Asset';
@@ -9,8 +8,6 @@ import { AppIcon } from '@shared/icon';
 import { Button } from '@components/button/Button';
 
 interface ImagePickerProps {
-  hasCoverImage: boolean;
-  onRemove: () => void;
   onClose: () => void;
   onLinkSubmit: (url: string) => void;
   onUploadSubmit: (filePath: string) => void;
@@ -28,7 +25,6 @@ interface ImagePickerProps {
   onAssetSelect: (cover: string) => void;
 }
 
-type ImagePickerTab = 'hide' | 'image';
 type ImageSource = 'upload' | 'link' | 'unsplash';
 
 const IMAGE_SOURCE_STORAGE_KEY = 'clutter-cover-picker-source';
@@ -44,18 +40,12 @@ function readStoredImageSource(): ImageSource {
 }
 
 export function ImagePicker({
-  hasCoverImage,
-  onRemove,
   onClose,
   onLinkSubmit,
   onUploadSubmit,
   onUnsplashSelect,
   onAssetSelect,
 }: ImagePickerProps) {
-  const [activeTab, setActiveTab] = useState<ImagePickerTab>(
-    hasCoverImage ? 'image' : 'hide'
-  );
-
   const [imageSource, setImageSource] = useState<ImageSource>(
     readStoredImageSource
   );
@@ -63,16 +53,6 @@ export function ImagePicker({
   const handleImageSourceChange = (source: ImageSource) => {
     localStorage.setItem(IMAGE_SOURCE_STORAGE_KEY, source);
     setImageSource(source);
-  };
-
-  const handleTabChange = (tab: string) => {
-    const nextTab = tab as ImagePickerTab;
-
-    setActiveTab(nextTab);
-
-    if (nextTab === 'hide') {
-      onRemove();
-    }
   };
 
   return (
@@ -83,73 +63,53 @@ export function ImagePicker({
           <AppIcon icon="dismiss" />
         </Button>
       </span>
-      <div className="image-picker__tabs">
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <Tab value="hide">
-            <AppIcon icon="hide" />
-          </Tab>
+      <div className="image-picker__buttons">
+        <button
+          className={`image-picker__button ${
+            imageSource === 'upload' ? 'image-picker__button--selected' : ''
+          }`}
+          type="button"
+          onClick={() => handleImageSourceChange('upload')}
+        >
+          <AppIcon icon="uploadImage" />
+          <span>Images</span>
+        </button>
 
-          <Tab value="image">
-            <AppIcon icon="image" />
-          </Tab>
-        </Tabs>
+        <button
+          className={`image-picker__button ${
+            imageSource === 'link' ? 'image-picker__button--selected' : ''
+          }`}
+          type="button"
+          value="link"
+          onClick={() => handleImageSourceChange('link')}
+        >
+          <AppIcon icon="link" />
+          <span>Link</span>
+        </button>
+
+        <button
+          className={`image-picker__button ${
+            imageSource === 'unsplash' ? 'image-picker__button--selected' : ''
+          }`}
+          type="button"
+          onClick={() => handleImageSourceChange('unsplash')}
+        >
+          <AppIcon icon="unsplash" />
+          <span>Unsplash</span>
+        </button>
       </div>
 
-      {activeTab === 'image' && (
+      {imageSource === 'upload' && (
         <>
-          <div className="image-picker__buttons">
-            <button
-              className={`image-picker__button ${
-                imageSource === 'upload' ? 'image-picker__button--selected' : ''
-              }`}
-              type="button"
-              onClick={() => handleImageSourceChange('upload')}
-            >
-              <AppIcon icon="uploadImage" />
-              <span>Images</span>
-            </button>
-
-            <button
-              className={`image-picker__button ${
-                imageSource === 'link' ? 'image-picker__button--selected' : ''
-              }`}
-              type="button"
-              value="link"
-              onClick={() => handleImageSourceChange('link')}
-            >
-              <AppIcon icon="link" />
-              <span>Link</span>
-            </button>
-
-            <button
-              className={`image-picker__button ${
-                imageSource === 'unsplash'
-                  ? 'image-picker__button--selected'
-                  : ''
-              }`}
-              type="button"
-              onClick={() => handleImageSourceChange('unsplash')}
-            >
-              <AppIcon icon="unsplash" />
-              <span>Unsplash</span>
-            </button>
-          </div>
-
-          {imageSource === 'upload' && (
-            <>
-              <ImagePickerAsset onSelect={onAssetSelect} />
-              <ImagePickerUpload onSubmit={onUploadSubmit} />
-            </>
-          )}
-
-          {imageSource === 'link' && (
-            <ImagePickerLink onSubmit={onLinkSubmit} />
-          )}
-
-          {imageSource === 'unsplash' && (
-            <ImagePickerUnsplash onSelect={onUnsplashSelect} />
-          )}
+          <ImagePickerAsset onSelect={onAssetSelect} />
+          <ImagePickerUpload onSubmit={onUploadSubmit} />
         </>
+      )}
+
+      {imageSource === 'link' && <ImagePickerLink onSubmit={onLinkSubmit} />}
+
+      {imageSource === 'unsplash' && (
+        <ImagePickerUnsplash onSelect={onUnsplashSelect} />
       )}
     </div>
   );
