@@ -510,7 +510,6 @@ export function PageCover({
                 setView('menu');
                 handleRemove();
               }}
-              onClose={() => setView('menu')}
               onLinkSubmit={(url) => {
                 setOpen(false);
                 onSetCoverImage(url);

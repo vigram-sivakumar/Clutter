@@ -10,7 +10,6 @@ import { Button } from '@components/button/Button';
 interface ImagePickerProps {
   /** When given, the header shows a Remove button that clears the cover. */
   onRemove?: () => void;
-  onClose: () => void;
   onLinkSubmit: (url: string) => void;
   onUploadSubmit: (filePath: string) => void;
   /**
@@ -43,7 +42,6 @@ function readStoredImageSource(): ImageSource {
 
 export function ImagePicker({
   onRemove,
-  onClose,
   onLinkSubmit,
   onUploadSubmit,
   onUnsplashSelect,
@@ -68,9 +66,6 @@ export function ImagePicker({
               Remove
             </Button>
           )}
-          <Button isIconOnly size="small" interaction="subtle" onClick={onClose}>
-            <AppIcon icon="dismiss" />
-          </Button>
         </span>
       </span>
       <div className="image-picker__buttons">

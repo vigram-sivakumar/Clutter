@@ -298,7 +298,6 @@ export function PageHeaderMoreActionsMenu({
         {view === 'cover' && onSetCoverImage && (
           <div className="page-header-more-actions-menu__cover">
             <ImagePicker
-              onClose={() => setView('root')}
               onLinkSubmit={(url) => {
                 setOpen(false);
                 onSetCoverImage(url);

@@ -132,16 +132,6 @@ describe('PageCover — More actions menu', () => {
     expect(onHide).not.toHaveBeenCalled();
   });
 
-  it("ImagePicker's own dismiss button returns to the root menu rather than closing the whole overlay", () => {
-    renderCover();
-
-    fireEvent.click(screen.getByText('Change cover image'));
-    fireEvent.click(document.querySelector('.image-picker__actions button:last-child')!);
-
-    expect(screen.getByText('Change cover image')).toBeInTheDocument();
-    expect(document.querySelector('.image-picker')).not.toBeInTheDocument();
-  });
-
   it('reopening after leaving on the picker view resets to the root menu', () => {
     renderCover();
 

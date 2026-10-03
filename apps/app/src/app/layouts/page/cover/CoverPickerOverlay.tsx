@@ -39,7 +39,6 @@ export function CoverPickerOverlay({
     <Overlay open={open} onClose={onClose} anchorRef={anchorRef} side="left" alignment="center">
       <div className="cover-picker-overlay">
         <ImagePicker
-          onClose={onClose}
           onRemove={() => {
             onClose();
             onRemove();

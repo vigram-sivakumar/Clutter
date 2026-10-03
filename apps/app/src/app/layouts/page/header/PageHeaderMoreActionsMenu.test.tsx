@@ -218,20 +218,6 @@ describe('PageHeaderMoreActionsMenu — Cover image view', () => {
     );
   });
 
-  it("ImagePicker's own dismiss button returns to the root view rather than closing the whole menu", () => {
-    renderMenu();
-
-    fireEvent.click(screen.getByText('Cover image'));
-    fireEvent.click(document.querySelector('.image-picker__header button')!);
-
-    expect(screen.getByText('Cover image')).toBeInTheDocument();
-    expect(document.querySelector('.image-picker')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'More actions' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    );
-  });
-
   it('reopening after leaving on the cover view resets to the root view', () => {
     renderMenu();
 
@@ -264,7 +250,9 @@ describe('PageHeaderMoreActionsMenu — never nests a second Overlay', () => {
     fireEvent.click(screen.getByText('Cover image'));
     expect(document.querySelectorAll('.overlay')).toHaveLength(1);
 
-    fireEvent.click(document.querySelector('.image-picker__header button')!);
+    const trigger = screen.getByRole('button', { name: 'More actions' });
+    fireEvent.click(trigger); // closes
+    fireEvent.click(trigger); // reopens on the root view
     fireEvent.click(screen.getByText('Emoji'));
     expect(document.querySelectorAll('.overlay')).toHaveLength(1);
   });
