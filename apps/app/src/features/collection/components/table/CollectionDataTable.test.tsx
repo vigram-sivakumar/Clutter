@@ -21,7 +21,7 @@ const row = (overrides: Partial<CollectionDataTableRow> = {}): CollectionDataTab
   cells: {
     name: { kind: 'header', icon: 'note', title: 'Plan', description: 'Q4' },
     created: { kind: 'date', value: 'Today', dateTime: '2026-10-03' },
-    preview: { kind: 'asset', fallbackIcon: 'pdf' },
+    preview: { kind: 'asset', children: <i /> },
     type: { kind: 'text', value: 'PDF' },
   },
   ...overrides,

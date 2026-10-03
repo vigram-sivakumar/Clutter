@@ -30,7 +30,3 @@
   pointer-events: none;
   user-select: none;
 }
-
-.collection-table-cell__thumbnail-icon {
-  color: var(--foreground-tertiary);
-}

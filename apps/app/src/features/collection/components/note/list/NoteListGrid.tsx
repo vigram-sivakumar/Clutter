@@ -6,7 +6,7 @@ export interface NoteListGridProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   /**
    * Wires a trailing "New Note" row, the list-mode counterpart to
-   * NoteTable's own always-rendered one — but unlike that one, this row
+   * the notes table's always-rendered one (NoteTableNewRow) — but unlike that one, this row
    * only renders at all when present (the caller, CollectionBody, only
    * passes it once there's at least one real note; list mode's own empty
    * state is not this row). Absent renders exactly the plain list every

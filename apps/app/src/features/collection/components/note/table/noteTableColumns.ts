@@ -1,15 +1,12 @@
 import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
-import {
-  buildCollectionTableGridTemplateColumns,
-  type CollectionTableColumn,
-} from '../../table/collectionTableColumns';
+import type { CollectionTableColumn } from '../../table/collectionTableColumns';
 
 /**
- * Which of NoteTable's optional columns (beyond the always-present Name
- * column) are currently visible. The single source `NoteTable`'s header
- * and `NoteTableRow`'s own grid both build their `grid-template-columns`
- * from, so the two can never drift out of alignment with each other —
- * neither component computes this independently.
+ * Which of the notes table's optional columns (beyond the always-present Name
+ * column) are currently visible. `buildNoteTableColumns` turns it into the
+ * columns `CollectionDataTable` draws — the one source of the header and of
+ * every row's grid and cells, so a hidden column is gone from all of them at
+ * once and the rest reflow into its space.
  */
 export interface NoteTableColumnVisibility {
   lastOpened: boolean;
@@ -25,17 +22,18 @@ export const DEFAULT_NOTE_TABLE_COLUMN_VISIBILITY: NoteTableColumnVisibility = {
   updated: true,
 };
 
+/** The date columns, in display order — each is a 140px track holding a date cell. */
+const DATE_COLUMNS = [
+  { id: 'lastOpened', className: 'last-opened' },
+  { id: 'created', className: 'created' },
+  { id: 'updated', className: 'updated' },
+  { id: 'archived', className: 'archived' },
+] as const;
+
 /**
- * The Name column is always present (`minmax(400px, 1fr)`); each optional
- * column contributes its `140px` track only when visible, so a hidden
- * column reserves no grid space at all — the remaining columns reflow
- * into the space it would have used.
- */
-/**
- * The notes table's columns for a given visibility — Name always, then each
- * date column that is on. The single source of both the header (CollectionTable)
- * and every row's grid (`buildNoteTableGridTemplateColumns`), so they can't
- * drift apart.
+ * The notes table's columns for a given visibility — Name always
+ * (`minmax(400px, 1fr)`), then each date column that is on (`140px` each; a
+ * hidden column reserves no grid space at all).
  */
 export function buildNoteTableColumns(
   visibility: NoteTableColumnVisibility
@@ -49,44 +47,17 @@ export function buildNoteTableColumns(
     },
   ];
 
-  if (visibility.lastOpened) {
-    columns.push({
-      id: 'lastOpened',
-      label: collectionFieldLabel('lastOpened'),
-      width: '140px',
-      className: 'collection-table__header-cell--last-opened',
-    });
-  }
-  if (visibility.created) {
-    columns.push({
-      id: 'created',
-      label: collectionFieldLabel('created'),
-      width: '140px',
-      className: 'collection-table__header-cell--created',
-    });
-  }
-  if (visibility.updated) {
-    columns.push({
-      id: 'updated',
-      label: collectionFieldLabel('updated'),
-      width: '140px',
-      className: 'collection-table__header-cell--updated',
-    });
-  }
-  if (visibility.archived) {
-    columns.push({
-      id: 'archived',
-      label: collectionFieldLabel('archived'),
-      width: '140px',
-      className: 'collection-table__header-cell--archived',
-    });
+  for (const { id, className } of DATE_COLUMNS) {
+    if (visibility[id]) {
+      columns.push({
+        id,
+        label: collectionFieldLabel(id),
+        width: '140px',
+        className: `collection-table__header-cell--${className}`,
+        cellClassName: `collection-table-row__${className}`,
+      });
+    }
   }
 
   return columns;
-}
-
-export function buildNoteTableGridTemplateColumns(
-  visibility: NoteTableColumnVisibility
-): string {
-  return buildCollectionTableGridTemplateColumns(buildNoteTableColumns(visibility));
 }

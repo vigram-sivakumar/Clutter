@@ -108,17 +108,4 @@ describe('CollectionTableAssetCell', () => {
     expect(frame).toHaveAttribute('aria-hidden', 'true');
     expect(frame).toContainElement(getByTestId('thumb'));
   });
-
-  it('shows the fallback icon only when there is nothing to preview', () => {
-    const empty = render(<CollectionTableAssetCell fallbackIcon="pdf" />);
-    expect(empty.container.querySelector('.collection-table-cell__thumbnail-icon')).not.toBeNull();
-    cleanup();
-
-    const filled = render(
-      <CollectionTableAssetCell fallbackIcon="pdf">
-        <span>preview</span>
-      </CollectionTableAssetCell>
-    );
-    expect(filled.container.querySelector('.collection-table-cell__thumbnail-icon')).toBeNull();
-  });
 });

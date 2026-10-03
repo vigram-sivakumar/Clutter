@@ -189,7 +189,7 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
     expect(container.querySelectorAll('.entry')).toHaveLength(0);
   });
 
-  it('table mode renders notes as NoteTableRow; folders stay on FolderGrid/FolderCard', () => {
+  it('table mode renders notes as rows of the generic table; folders stay on FolderGrid/FolderCard', () => {
     const folder = makeFolderEntry();
     const note = makeNoteEntry();
 
@@ -204,6 +204,12 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
     expect(screen.getByText('Old Note').closest('.collection-table-row')).toBeInTheDocument();
     expect(screen.getByText('Old Project').closest('.folder-card')).toBeInTheDocument();
     expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+  });
+
+  it('table mode has no "New Note" row — there is nothing to create in the Archive', () => {
+    renderArchive({ notes: [makeNoteEntry()], resources: [], viewMode: 'table' });
+
+    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
   });
 
   it('table mode: clicking a row still fires its onClick', () => {

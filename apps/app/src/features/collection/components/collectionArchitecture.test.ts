@@ -59,10 +59,9 @@ describe('Assets use the shared collection infrastructure', () => {
 
     expect(uses('features/collection/components/note/list/NoteList.tsx', '../../list/CollectionListRow')).toBe(true);
     expect(uses('features/collection/components/asset/list/AssetList.tsx', '../../list/CollectionListRow')).toBe(true);
-    expect(uses('features/collection/components/note/table/NoteTableRow.tsx', '../../table/CollectionTableRow')).toBe(true);
-    expect(uses('features/collection/components/asset/table/AssetTableRow.tsx', '../../table/CollectionTableRow')).toBe(true);
-    expect(uses('features/collection/components/note/table/NoteTable.tsx', '../../table/CollectionTable')).toBe(true);
-    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/table/CollectionTable')).toBe(true);
+    // Table mode: one generic table for every collection — no per-type table, row or cell components.
+    expect(uses('app/layouts/page/body/CollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
+    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
     expect(uses('features/collection/components/note/card/NoteCardGrid.tsx', '../../card/CollectionCardGrid')).toBe(true);
     expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/card/CollectionCardGrid')).toBe(true);
     expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/list/CollectionListGrid')).toBe(true);
@@ -116,5 +115,47 @@ describe('Assets use the shared collection infrastructure', () => {
     expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onAddAsset,\s*addLabel: 'Add asset'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);
+  });
+});
+
+describe('the collection table is generic', () => {
+  const importsFor = (path: string) => importsOf(read(path));
+
+  it('every collection renders Table mode through CollectionDataTable — never its own table, row or cell component', () => {
+    for (const body of [
+      'app/layouts/page/body/CollectionBody.tsx',
+      'app/layouts/page/body/AssetsCollectionBody.tsx',
+    ]) {
+      expect(importsFor(body), body).toContain('@features/collection/components/table/CollectionDataTable');
+    }
+
+    // The Archive renders its notes table through CollectionBody's renderNoteTable, the same one ordinary collections use.
+    expect(importsFor('app/layouts/page/body/ArchiveCollectionBody.tsx')).not.toContain(
+      '@features/collection/components/table/CollectionDataTable'
+    );
+    expect(read('app/layouts/page/body/ArchiveCollectionBody.tsx')).toContain('renderNoteTable(');
+
+    const perTypeTableComponents = ALL.filter((file) =>
+      /(^|\/)(note|asset)\/table\/[A-Z][A-Za-z]*Table(Row|Cell)?\.tsx$/.test(file.rel)
+    ).map((file) => file.rel);
+    expect(perTypeTableComponents).toEqual([]);
+  });
+
+  it('nothing under components/table imports from a specific collection (note, asset, folder, tasks)', () => {
+    const offenders = ALL.filter((file) => file.rel.startsWith('features/collection/components/table/')).flatMap((file) =>
+      importsOf(file.text)
+        .filter((spec) => /\/(note|asset|folder|tasks)\/|@core\/vault|@features\/(notes|tasks)/.test(spec))
+        .map((spec) => `${file.rel} -> ${spec}`)
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('the generic cells draw every cell of every collection: header, date, text, asset', () => {
+    const table = read('features/collection/components/table/CollectionDataTable.tsx');
+
+    for (const cell of ['CollectionTableHeaderCell', 'CollectionTableDateCell', 'CollectionTableTextCell', 'CollectionTableAssetCell']) {
+      expect(table).toContain(cell);
+    }
   });
 });

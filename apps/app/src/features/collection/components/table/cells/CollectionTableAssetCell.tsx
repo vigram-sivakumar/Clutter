@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
 
-import { AppIcon, type SystemIcon } from '@shared/icon';
-
 import './CollectionTableCells.css';
 
 export interface CollectionTableAssetCellProps {
@@ -12,8 +10,6 @@ export interface CollectionTableAssetCellProps {
    * cell knows no asset kinds.
    */
   readonly children?: ReactNode;
-  /** Shown inside the frame when there is no `children` (nothing to preview). */
-  readonly fallbackIcon?: SystemIcon;
   /** A column hook, e.g. `collection-table-row__preview`. */
   readonly className?: string;
 }
@@ -25,11 +21,7 @@ export interface CollectionTableAssetCellProps {
  * frame (`AssetThumbnail`). Purely visual (`aria-hidden`) — the row's header
  * cell carries the accessible name.
  */
-export function CollectionTableAssetCell({
-  children,
-  fallbackIcon,
-  className,
-}: CollectionTableAssetCellProps) {
+export function CollectionTableAssetCell({ children, className }: CollectionTableAssetCellProps) {
   return (
     <div
       className={['collection-table-cell', 'collection-table-cell--asset', className]
@@ -37,10 +29,7 @@ export function CollectionTableAssetCell({
         .join(' ')}
     >
       <div className="collection-table-cell__thumbnail" aria-hidden="true">
-        {children ??
-          (fallbackIcon && (
-            <AppIcon className="collection-table-cell__thumbnail-icon" icon={fallbackIcon} />
-          ))}
+        {children}
       </div>
     </div>
   );

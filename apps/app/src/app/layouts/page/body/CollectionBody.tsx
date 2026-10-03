@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { NoteTable } from '@features/collection/components/note/table/NoteTable';
-import { NoteTableRow } from '@features/collection/components/note/table/NoteTableRow';
+import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
+import {
+  NoteTableNewRow,
+  toNoteTableRow,
+} from '@features/collection/components/note/table/noteTableRows';
 import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
 import { NoteList } from '@features/collection/components/note/list/NoteList';
 import { NoteCardGrid } from '@features/collection/components/note/card/NoteCardGrid';
@@ -9,7 +12,10 @@ import { NoteCard } from '@features/collection/components/note/card/NoteCard';
 import type { DocumentPreviewResolvers } from '@features/collection/components/note/card/DocumentPreview';
 import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 import { FolderCard } from '@features/collection/components/folder/card/FolderCard';
-import type { NoteTableColumnVisibility } from '@features/collection/components/note/table/noteTableColumns';
+import {
+  buildNoteTableColumns,
+  type NoteTableColumnVisibility,
+} from '@features/collection/components/note/table/noteTableColumns';
 import './CollectionBody.css';
 
 import { PageBody } from './Page.Body';
@@ -20,16 +26,15 @@ import { PageBody } from './Page.Body';
  *  - View mode ('list' | 'table' | 'card') — how *notes* lay out.
  *  - Item type ('folder' | 'note') — folders always render as FolderGrid/
  *    FolderCard, regardless of viewMode; only the notes section switches
- *    between NoteListGrid/NoteList and NoteTable/NoteTableRow. FolderCard is
- *    an item renderer (a CollectionEntry row with a background/radius/
- *    shadow treatment), and FolderGrid is its matching container — the same
- *    relationship NoteListGrid has to NoteList and NoteTable has to
- *    NoteTableRow, not "the Card/Grid collection view" (a separate,
- *    not-yet-built feature this wiring doesn't touch). There is no
- *    folder-specific table-row component, and FolderCard's row shape has no
- *    equivalent to NoteTableRow's `--collection-table-column` grid, so it
- *    can't sit under NoteTable's header without breaking column alignment —
- *    which is why folders don't switch with the notes section.
+ *    between NoteListGrid/NoteList and the generic CollectionDataTable.
+ *    FolderCard is an item renderer (a CollectionEntry row with a
+ *    background/radius/shadow treatment), and FolderGrid is its matching
+ *    container — the same relationship NoteListGrid has to NoteList, not
+ *    "the Card/Grid collection view" (a separate, not-yet-built feature
+ *    this wiring doesn't touch). Folders have no table rows yet (the
+ *    table's header cell could draw one, but folders carry no table
+ *    columns' worth of data), which is why they don't switch with the
+ *    notes section.
  */
 export type CollectionViewMode = 'list' | 'table' | 'card';
 
@@ -72,10 +77,10 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
 };
 
 /**
- * The subset of `properties` that maps to NoteTable's actual grid
+ * The subset of `properties` that maps to the notes table's actual
  * columns — `description` isn't a separate column (it's nested inside
  * the Name column's own cell, alongside the title), so it's excluded
- * here rather than threaded into a column NoteTable doesn't have.
+ * here rather than threaded into a column the table doesn't have.
  */
 export function toTableColumns(
   properties: CollectionPropertyVisibility,
@@ -186,8 +191,8 @@ export interface CollectionBodyProps {
    */
   onCreateFolder?: () => void;
   /**
-   * Wires each view mode's trailing "New Note" row (see NoteTable's and
-   * NoteListGrid's own doc comments) — same "presence is the capability
+   * Wires each view mode's trailing "New Note" row (see NoteTableNewRow's
+   * and NoteListGrid's own doc comments) — same "presence is the capability
    * gate" convention as onCreateFolder above. Table mode always renders
    * its row regardless of note count; list mode only gets one when
    * sortedNotes is non-empty (below) — list's own empty state is not
@@ -312,28 +317,41 @@ export function renderNoteCard(
   );
 }
 
-/** Table-mode note rendering — same plain-string title caveat and `properties` gating as renderNoteListItem. */
-export function renderNoteTableRow(
-  entry: CollectionEntryModel,
+export interface RenderNoteTableOptions {
+  /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
+  actionsFor?: (entry: CollectionEntryModel) => ReactNode;
+  /** Archive collection only — adds the Archived column (and its cells). */
+  showArchived?: boolean;
+  /** The table's trailing row — an ordinary collection's "New Note"; absent, none renders (the Archive has nothing to create). */
+  footer?: ReactNode;
+}
+
+/**
+ * Table-mode note rendering — the notes, as rows of the one generic
+ * CollectionDataTable. Same plain-string title caveat and `properties` gating
+ * as renderNoteListItem: an unchecked property removes its column from the
+ * header and from every row, not just its values. Exported so
+ * ArchiveCollectionBody renders the same table (with its Archived column and
+ * row actions) instead of a second implementation.
+ */
+export function renderNoteTable(
+  entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  actions?: ReactNode,
-  /** Archive collection only — must match the NoteTable header's own `toTableColumns(properties, true)`. */
-  showArchived = false
+  { actionsFor, showArchived = false, footer }: RenderNoteTableOptions = {}
 ) {
+  const columns = toTableColumns(properties, showArchived);
+
   return (
-    <NoteTableRow
-      key={entry.id}
-      title={entry.title}
-      emoji={entry.emoji ?? undefined}
-      isSelected={entry.selected}
-      description={entry.description}
-      showDescription={properties.description}
-      created={properties.created ? entry.created : undefined}
-      updated={properties.updated ? entry.updated : undefined}
-      archived={properties.archived ? entry.archived : undefined}
-      columns={toTableColumns(properties, showArchived)}
-      onClick={entry.onClick}
-      actions={actions}
+    <CollectionDataTable
+      columns={buildNoteTableColumns(columns)}
+      rows={entries.map((entry) =>
+        toNoteTableRow(entry, {
+          showDescription: properties.description,
+          columns,
+          actions: actionsFor?.(entry),
+        })
+      )}
+      footer={footer}
     />
   );
 }
@@ -352,11 +370,9 @@ export function CollectionBody({
   const sortedNotes = sortCollectionEntries(notes, sort);
 
   const noteSection =
-    viewMode === 'table' ? (
-      <NoteTable columns={toTableColumns(properties)} onCreateNote={onCreateNote}>
-        {sortedNotes.map((entry) => renderNoteTableRow(entry, properties))}
-      </NoteTable>
-    ) : viewMode === 'card' ? (
+    viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
+      footer: <NoteTableNewRow onClick={onCreateNote} />,
+    }) : viewMode === 'card' ? (
       <NoteCardGrid
         onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
         coverVisible={properties.cover}

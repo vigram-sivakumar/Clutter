@@ -256,13 +256,14 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.body.textContent).toMatch(/Sort by/);
   });
 
-  it('Table renders the shared table with Name and Type columns', async () => {
+  it('Table renders the generic table with Name, Preview and Type columns', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
     await pick('Table');
 
     expect([...document.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
+      'Preview',
       'Type',
     ]);
     expect(document.querySelectorAll('.collection-table__body > .collection-table-row')).toHaveLength(2);

@@ -1108,7 +1108,7 @@ export function PageHost({
     // PageOperations.openDraft({ folderId }) call Sidebar.Notes.tsx's own
     // "+" row action already uses for "new note in this folder" (ADR-017
     // draft flow), not a new creation path. Shared by two entry points
-    // below: the title-adjacent Button, and NoteTable's always-rendered
+    // below: the title-adjacent Button, and the notes table's always-rendered
     // trailing "New Note" row (CollectionBody's onCreateNote) — one
     // handler, two live controls, not two implementations. Only defined
     // for an ordinary folder: a reserved one (Archive, Templates, Daily
@@ -1450,7 +1450,7 @@ export function PageHost({
     // PageOperations.openDraft({ folderId: null }) call the sidebar's
     // "New" shortcut already uses (buildNotesShortcutHandler.ts's
     // 'new-note' case) — not a new creation path. Shared by the title-
-    // adjacent Button below and NoteTable's trailing "New Note" row
+    // adjacent Button below and the notes table's trailing "New Note" row
     // (CollectionBody's onCreateNote). Favorites and a Tag's notes are
     // filters, not containers — Favorites has no existing "create a note in
     // this view" call to wire to, so per rule 12 (never wire a live

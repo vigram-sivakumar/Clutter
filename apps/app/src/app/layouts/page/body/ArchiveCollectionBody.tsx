@@ -14,8 +14,7 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import {
   renderFolderCard,
   renderNoteListItem,
-  renderNoteTableRow,
-  toTableColumns,
+  renderNoteTable,
   sortCollectionEntries,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
@@ -23,7 +22,6 @@ import {
   type CollectionPropertyVisibility,
   type CollectionSortState,
 } from './CollectionBody';
-import { NoteTable } from '@features/collection/components/note/table/NoteTable';
 import { NoteListGrid } from '@features/collection/components/note/list/NoteListGrid';
 import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 
@@ -64,10 +62,10 @@ export interface ArchiveCollectionBodyProps {
 /**
  * The page-body rendering for the Archive folder view — folders/notes
  * render through the exact same components every other collection page
- * uses (renderFolderCard/renderNoteListItem/renderNoteTableRow, exported
+ * uses (renderFolderCard/renderNoteListItem/renderNoteTable, exported
  * from CollectionBody, one rendering per entry shape, not a second
  * implementation): folders always via FolderGrid/FolderCard, notes via
- * NoteListGrid/NoteList (List) or NoteTable/NoteTableRow (Table) — same
+ * NoteListGrid/NoteList (List) or the generic CollectionDataTable (Table) — same
  * "folders don't switch with viewMode" rule CollectionBody itself follows.
  * Restore/Delete reuse the `actions` slot those components now carry
  * (CollectionEntry's `actions` prop). Resources (images/PDFs) stay on the
@@ -104,7 +102,7 @@ export function ArchiveCollectionBody({
     confirmation.request({ title, message, confirmLabel: 'Delete', onConfirm });
   }
 
-  // CollectionEntry's and NoteTableRow's own click handlers already refuse
+  // CollectionEntry's and CollectionTableRow's own click handlers already refuse
   // to fire the row's onClick when the click target is a nested <button>
   // (the same interactive-descendant guard Entry.tsx originally
   // established) — the same reason Resource.tsx's archiveActions buttons
@@ -162,11 +160,7 @@ export function ArchiveCollectionBody({
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
-  const noteRows = sortedNotes.map((entry) =>
-    viewMode === 'table'
-      ? renderNoteTableRow(entry, properties, noteActions(entry), true)
-      : renderNoteListItem(entry, properties, noteActions(entry))
-  );
+  const noteList = sortedNotes.map((entry) => renderNoteListItem(entry, properties, noteActions(entry)));
 
   return (
     <>
@@ -177,9 +171,9 @@ export function ArchiveCollectionBody({
           </FolderGrid>
         )}
         {viewMode === 'table' ? (
-          <NoteTable columns={toTableColumns(properties, true)}>{noteRows}</NoteTable>
+          renderNoteTable(sortedNotes, properties, { actionsFor: noteActions, showArchived: true })
         ) : (
-          <NoteListGrid>{noteRows}</NoteListGrid>
+          <NoteListGrid>{noteList}</NoteListGrid>
         )}
         {resources.map((resource) => (
           <Resource

@@ -110,18 +110,42 @@ describe('CollectionBody — Table mode (the default)', () => {
     expect(container.querySelector('.collection-list-grid')).not.toBeInTheDocument();
   });
 
-  it('renders notes as NoteTableRow rows inside a NoteTable, folders still as FolderCard', () => {
+  it('renders notes as rows of the generic table, folders still as FolderCard', () => {
     const { container, getByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="table" />
     );
 
     expect(container.querySelector('.collection-table')).toBeInTheDocument();
     expect(getByText('My note').closest('.collection-table-row')).toBeInTheDocument();
-    // Folders don't switch with viewMode — no folder-specific table row
-    // component exists, and FolderCard's row shape doesn't fit NoteTable's
-    // grid-column header, so folders stay on FolderGrid/FolderCard.
+    // Folders don't switch with viewMode — they have no table columns'
+    // worth of data, so they stay on FolderGrid/FolderCard.
     expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
     expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+  });
+
+  it('draws every note\'s name and dates with the generic header and date cells', () => {
+    const { container } = render(
+      <CollectionBody notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]} viewMode="table" />
+    );
+
+    const row = container.querySelector('.collection-table-row')!;
+    expect(row.querySelector('.collection-table-cell--header.collection-table-row__entry')).not.toBeNull();
+    expect(row.querySelectorAll('.collection-table-cell--date')).toHaveLength(3);
+    expect(row.querySelector('.collection-table-row__created')).toHaveTextContent('Today');
+    expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent('Yesterday');
+  });
+
+  it('ends the table with a "New Note" row that fires onCreateNote — even with no notes', () => {
+    const onCreateNote = vi.fn();
+    const { container, getByText } = render(
+      <CollectionBody notes={[]} viewMode="table" onCreateNote={onCreateNote} />
+    );
+
+    const row = getByText('New Note').closest('.collection-table__new-item')!;
+    expect(container.querySelector('.collection-table__body')!.lastElementChild).toBe(row);
+
+    fireEvent.click(row);
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 
   it('clicking a table row fires its onClick', () => {

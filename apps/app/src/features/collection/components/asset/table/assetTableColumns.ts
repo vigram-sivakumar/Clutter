@@ -1,8 +1,9 @@
 import type { CollectionTableColumn } from '../../table/collectionTableColumns';
 
 /**
- * The asset table's columns: the name and the kind. A resource carries nothing
- * else (no dates, no description), so there are no more columns to offer.
+ * The asset table's columns: the name, a small preview (the image, or a PDF's
+ * first page) and the kind. A resource carries nothing else (no dates, no
+ * description), so there are no more columns to offer.
  */
 export const ASSET_TABLE_COLUMNS: readonly CollectionTableColumn[] = [
   {
@@ -12,9 +13,17 @@ export const ASSET_TABLE_COLUMNS: readonly CollectionTableColumn[] = [
     className: 'collection-table__header-cell--name',
   },
   {
+    id: 'preview',
+    label: 'Preview',
+    width: '80px',
+    className: 'collection-table__header-cell--preview',
+    cellClassName: 'collection-table-row__preview',
+  },
+  {
     id: 'type',
     label: 'Type',
     width: '140px',
     className: 'collection-table__header-cell--type',
+    cellClassName: 'collection-table-row__type',
   },
 ];
