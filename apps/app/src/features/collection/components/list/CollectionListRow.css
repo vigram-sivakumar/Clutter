@@ -2,7 +2,7 @@
   align-items: center;
   border-radius: var(--radius-lg);
   width: 100%;
-  padding-inline-end: var(--space-12);
+  padding-inline-end: var(--space-6);
 }
 .collection-list-row .collection-entry__primary {
   display: flex;

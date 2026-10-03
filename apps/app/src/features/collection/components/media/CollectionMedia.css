@@ -1,13 +1,13 @@
 /*
  * The shared thumbnail frame (CollectionMedia) — used by the table's media
- * cell and the list's media slot. A 32 × 20 landscape frame (8:5), so a cover
+ * cell and the list's media slot. A 30 × 20 landscape frame (3:2), so a cover
  * or preview reads as a miniature of the real thing; change the two size
  * variables below to resize every thumbnail in every layout at once. What goes
  * inside is styled by whoever fills it (AssetThumbnail.css,
  * NoteCoverThumbnail.css). Per CLAUDE.md, no `margin` — spacing is padding only.
  */
 :root {
-  --collection-media-width: var(--space-32);
+  --collection-media-width: var(--space-30);
   --collection-media-height: var(--space-20);
 }
 
