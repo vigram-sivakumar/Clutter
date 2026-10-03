@@ -106,7 +106,7 @@ export function ImagePicker({
               onClick={() => handleImageSourceChange('upload')}
             >
               <AppIcon icon="uploadImage" />
-              <span>Upload</span>
+              <span>Images</span>
             </button>
 
             <button

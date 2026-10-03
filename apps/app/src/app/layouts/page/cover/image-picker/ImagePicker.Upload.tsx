@@ -26,8 +26,8 @@ export function ImagePickerUpload({ onSubmit }: ImagePickerUploadProps) {
 
   return (
     <div className="image-picker-upload">
-      <Button variant="outline-fill" onClick={handleSelect}>
-        Choose image
+      <Button variant="primary" onClick={handleSelect}>
+        Upload
       </Button>
       <span className="input__hint">Select an image from your computer.</span>
     </div>
