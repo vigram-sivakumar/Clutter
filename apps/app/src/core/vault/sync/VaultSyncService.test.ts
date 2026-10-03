@@ -527,21 +527,21 @@ describe('VaultSyncService: resource lifecycle', () => {
     errorSpy.mockRestore();
   });
 
-  it('reconcileWrittenFile registers a file the app just wrote without any watcher event', async () => {
+  it('reconcileKnownPath registers a file the app just wrote without any watcher event', async () => {
     const { vault, fileSystem, service } = setup();
     fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
 
-    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+    await service.reconcileKnownPath(`${ROOT}/hero.png`);
 
     expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
   });
 
-  it('reconcileWrittenFile followed by the watcher\'s own created event adds the file once, without an error', async () => {
+  it('reconcileKnownPath followed by the watcher\'s own created event adds the file once, without an error', async () => {
     const { vault, fileSystem, watcher, service } = setup();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
 
-    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+    await service.reconcileKnownPath(`${ROOT}/hero.png`);
     watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
     await flush();
 
@@ -550,19 +550,32 @@ describe('VaultSyncService: resource lifecycle', () => {
     errorSpy.mockRestore();
   });
 
-  it('reconcileWrittenFile racing the watcher event never double-adds (they share one lane)', async () => {
+  it('reconcileKnownPath racing the watcher event never double-adds (they share one lane)', async () => {
     const { vault, fileSystem, watcher, service } = setup();
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
 
     watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
-    await service.reconcileWrittenFile(`${ROOT}/hero.png`);
+    await service.reconcileKnownPath(`${ROOT}/hero.png`);
     await flush();
 
     expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
     expect([...vault.resources()].filter((r) => r.path === `${ROOT}/hero.png`)).toHaveLength(1);
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it('reconcileKnownPath adds a file whose parent folder the Vault does not know yet (first upload into a new vault)', async () => {
+    const { vault, fileSystem, service } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Assets`);
+    fileSystem.seedFile(`${ROOT}/Assets/hero.png`, 'binary-content');
+    expect(vault.getFolderByPath(`${ROOT}/Assets`)).toBeUndefined();
+
+    await service.reconcileKnownPath(`${ROOT}/Assets/hero.png`);
+
+    const folder = vault.getFolderByPath(`${ROOT}/Assets`);
+    expect(folder).toBeDefined();
+    expect(vault.getResourceByPath(`${ROOT}/Assets/hero.png`)!.parentId).toBe(folder!.id);
   });
 
   it('created: a new pdf file appearing on disk adds a resource to the vault', async () => {

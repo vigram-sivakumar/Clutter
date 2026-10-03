@@ -74,24 +74,57 @@ export class VaultSyncService {
   }
 
   /**
-   * Reconciles one file the app itself just wrote into the vault (an asset it
-   * downloaded), exactly as if the watcher had reported it created, and
-   * resolves once that has happened — so the caller can rely on the Vault
-   * knowing the file instead of waiting for the OS watcher, whose delivery is
-   * not guaranteed to be prompt. Runs on the same per-path lane as a watcher
-   * event for it, so the two never interleave; a later watcher event for the
-   * same file finds it already tracked and only refreshes its metadata.
-   * Unlike a watcher-driven reconcile, a failure propagates to the caller.
+   * Reconciles one path the app itself knows just changed — a file it created,
+   * rewrote or removed outside the Persistence Gate (ADR-040) — exactly as if
+   * the watcher had reported a change there, and resolves once that has
+   * happened. Disk is read, never assumed: the same `handleChanged` ->
+   * `reconcilePath` interpretation a watcher event gets decides whether this
+   * adds, refreshes or removes the entity, so how a file becomes a vault entity
+   * still has one owner and one implementation.
+   *
+   * It is a second *trigger* for that interpretation, not a second
+   * implementation: it runs on the same per-path lane as watcher events for
+   * that path (they serialize, never interleave), and a watcher event that
+   * arrives afterwards finds the entity already tracked and only refreshes its
+   * metadata. Unlike a watcher-driven reconcile, a failure propagates to the
+   * caller, who is waiting on the result.
    */
-  public reconcileWrittenFile(absolutePath: string): Promise<void> {
+  public reconcileKnownPath(absolutePath: string): Promise<void> {
+    // A file in a directory the Vault doesn't know yet (e.g. `Assets/` created
+    // moments ago by the first upload into a new vault) can't be added on its
+    // own — reconcileResourceFile/reconcileFileEntity skip it until its parent
+    // folder exists. So reconcile the topmost unknown ancestor directory
+    // instead: that scan adds the folder chain and everything in it, the target
+    // included.
+    const target = this.topmostUnknownDirectory(absolutePath) ?? absolutePath;
     const prefix = `${this.vault.root}/`;
-    const relativePath = absolutePath.startsWith(prefix)
-      ? absolutePath.slice(prefix.length)
-      : absolutePath;
+    const relativePath = target.startsWith(prefix) ? target.slice(prefix.length) : target;
 
-    return this.coordinator.runExclusive(this.resolveKey(absolutePath), () =>
-      this.handleCreated(relativePath, false)
+    return this.coordinator.runExclusive(this.resolveKey(target), () =>
+      this.handleChanged(relativePath)
     );
+  }
+
+  private topmostUnknownDirectory(absolutePath: string): string | undefined {
+    const root = this.vault.root;
+    const knownFolderPaths = new Set<string>();
+
+    for (const folder of this.vault.folders()) {
+      knownFolderPaths.add(folder.path);
+    }
+
+    let topmost: string | undefined;
+    let directory = this.directoryOf(absolutePath);
+
+    while (directory !== root && directory.startsWith(`${root}/`)) {
+      if (!knownFolderPaths.has(directory)) {
+        topmost = directory;
+      }
+
+      directory = this.directoryOf(directory);
+    }
+
+    return topmost;
   }
 
   /**

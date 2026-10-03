@@ -178,6 +178,25 @@ describe('Application.saveRemoteImageToVault — real vault', () => {
     expect(retry.rewritten).toBeGreaterThan(0);
   });
 
+  it('if the saved file cannot be registered in the Vault, STOP: no note or folder is modified and the file stays', async () => {
+    const { application, vault, fileSystem } = await setup(files());
+    const before = {
+      a: await fileSystem.readFile(`${ROOT}/A.md`),
+      b: await fileSystem.readFile(`${ROOT}/B.md`),
+      folder: await fileSystem.readFile(`${ROOT}/Proj/.folder.md`),
+    };
+    vi.spyOn(application.vaultSyncService, 'reconcileKnownPath').mockResolvedValue(undefined);
+
+    await expect(application.saveRemoteImageToVault(URL_)).rejects.toThrow(/did not pick it up/);
+
+    expect(await fileSystem.readFile(`${ROOT}/A.md`)).toBe(before.a);
+    expect(await fileSystem.readFile(`${ROOT}/B.md`)).toBe(before.b);
+    expect(await fileSystem.readFile(`${ROOT}/Proj/.folder.md`)).toBe(before.folder);
+    expect(vault.getPage('page-a')!.metadata.cover).toBe(URL_);
+    // The downloaded file is kept (no destructive cleanup), and a later retry reuses it.
+    expect((await fileSystem.readDirectory(`${ROOT}/Assets`)).filter((e) => e.name.endsWith('.jpg'))).toHaveLength(1);
+  });
+
   it('an archived note is left alone and counted', async () => {
     const { application, fileSystem } = await setup({
       ...files(),

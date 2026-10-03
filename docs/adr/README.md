@@ -37,3 +37,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [037](./037-single-global-draft.md) | One global draft — `PageOperations` holds at most one unsaved draft | Accepted |
 | [038](./038-resource-filesystem-metadata.md) | Resource filesystem metadata — `VaultResource.metadata`, read once by Ingest/Sync via `VaultFileSystem.stat` | Accepted |
 | [039](./039-asset-catalog.md) | The Assets catalog — every asset Clutter knows about or uses, derived from vault files and page/folder references | Accepted |
+| [040](./040-caller-triggered-reconciliation-for-app-created-files.md) | Caller-triggered reconciliation (`reconcileKnownPath`) for files the app creates outside the Gate | Accepted |

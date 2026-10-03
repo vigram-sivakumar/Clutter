@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+  isTauri: vi.fn().mockReturnValue(false),
+}));
 
 import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlResolver';
 import { Application } from './Application';
+import { PageCreator } from './page/PageCreator';
+import { PageFactory } from './page/PageFactory';
+import { DailyNoteService } from './daily-notes/DailyNoteService';
+import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { Vault } from '../vault/models/Vault';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
@@ -90,10 +99,19 @@ describe('Application.importCoverAsset', () => {
       { toLoadableUrl: (path) => path }
     );
     setRootPath(application, vaultRoot);
+    await fileSystem.createDirectory(vaultRoot);
+    application.attachVault(
+      application.vault,
+      new PageCreator(new UuidGenerator(), new PageFactory()),
+      new DailyNoteService()
+    );
 
     const reference = await application.importCoverAsset('/external/photo.png');
 
     expect(reference).toBe('Assets/photo.png');
     expect(fileSystem.getFileSync(`${vaultRoot}/Assets/photo.png`)).toBe('bytes');
+    // Registered in the Vault immediately — no watcher event involved (a copy's
+    // single echo is suppressed as a self-write).
+    expect(application.vault.getResourceByPath(`${vaultRoot}/Assets/photo.png`)).toBeDefined();
   });
 });

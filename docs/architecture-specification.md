@@ -300,7 +300,10 @@ Reconcile filesystem changes made outside the app into the Vault.
 ```ts
 + class VaultSyncService {
     constructor(vault: Vault, fileSystem: VaultFileSystem, watcher: VaultFileSystemWatcher, ...);
-    // no other public methods — it is a subscriber wired once, not called into
+    // Amended by ADR-040: one public entry point for a path the *app* knows changed
+    // (a file it wrote outside the Gate). Same reconciliation as a watcher event, same
+    // per-path lane; resolves once the Vault reflects disk.
+    reconcileKnownPath(absolutePath: string): Promise<void>;
   }
 ```
 
@@ -312,7 +315,7 @@ Constructed once at the Composition Root, after the Vault exists. Subscribes to 
 
 ### Invariants
 - Every external event is serialized per-path through `VaultSyncCoordinator` before touching the `Vault` — two external events for the same path never race.
-- Sync never initiates a write that the app itself didn't already make on disk — it only *reacts*, it never originates a change. (The one exception, archive-metadata repair, rewrites frontmatter to match an already-external move — it does not change the user's content.)
+- Sync never initiates a write that the app itself didn't already make on disk — it only *reacts* (to a watcher event, or, per ADR-040, to the app saying "this exact path changed"), it never originates a change. (The one exception, archive-metadata repair, rewrites frontmatter to match an already-external move — it does not change the user's content.)
 - Sync's write step for metadata repair uses the same `- writeParseRebuildReplace` internal helper the Persistence Gate uses for its own writes (see §5) — one implementation of "write → parse → rebuild → replace," shared, even though the two triggers (external event vs. app-initiated) remain separate entry points with separate queues.
 
 ### Concurrency model

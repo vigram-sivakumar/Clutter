@@ -748,9 +748,19 @@ export class Application {
    * Copies an external image into `{vaultRoot}/Assets/` and returns the
    * vault-relative reference for frontmatter storage. Non-Gate write —
    * same carve-out as TagOperations' `.clutter/*` writes.
+   *
+   * The copy is reconciled into the Vault before this resolves (ADR-040)
+   * instead of waiting on the file watcher: a copy produces a single OS
+   * `created` event, and `SelfWriteAwareFileSystem.copyFile` registers that
+   * very event as a self-write to suppress, so the watcher never told Sync
+   * about an uploaded asset and it stayed invisible until the next scan.
    */
   public async importCoverAsset(sourceAbsolutePath: string): Promise<string> {
-    return importCoverAsset(this.fileSystem, this.rootPath, sourceAbsolutePath);
+    const reference = await importCoverAsset(this.fileSystem, this.rootPath, sourceAbsolutePath);
+
+    await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
+
+    return reference;
   }
 
   /**
@@ -781,7 +791,7 @@ export class Application {
     const run = saveRemoteImage({
       save: () => importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset),
       register: async (absolutePath) => {
-        await this.vaultSyncService.reconcileWrittenFile(absolutePath);
+        await this.vaultSyncService.reconcileKnownPath(absolutePath);
 
         if (!this.vault.getResourceByPath(absolutePath)) {
           throw new Error(
