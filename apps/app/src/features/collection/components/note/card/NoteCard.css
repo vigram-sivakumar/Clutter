@@ -11,14 +11,14 @@
 .note-card.note-card--new {
   justify-content: center;
 }
-.note-card--new .note-card__header {
+.note-card.note-card--new .note-card__header {
   min-height: 0;
 }
 .note-card--new .card-title-section__heading {
   justify-content: center;
 }
 /* Nothing to reserve metadata lines for: drop the header-only min-height. */
-.note-card--new .note-card__header {
+.note-card.note-card--new .note-card__header {
   min-height: 0;
 }
 
