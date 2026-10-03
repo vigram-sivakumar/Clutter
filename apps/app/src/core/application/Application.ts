@@ -52,6 +52,7 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { replaceRemoteAssetReferences } from './asset/replaceRemoteAssetReferences';
 import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
 import { fetchRemoteAsset } from '../vault/providers/fetchRemoteAsset';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
@@ -758,6 +759,26 @@ export class Application {
    */
   public async importRemoteImage(url: string): Promise<string> {
     return importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset);
+  }
+
+  /**
+   * "Save to vault" for a remote image: saves it (importRemoteImage), then
+   * points every use of that URL — covers and note images — at the saved
+   * copy, through PageOperations/FolderOperations like any other edit.
+   * Resolves to the vault-relative reference. Rejects if the save fails
+   * (nothing is rewritten) or, after saving, if some use couldn't be updated.
+   */
+  public async saveRemoteImageToVault(url: string): Promise<string> {
+    const asset = this.membershipSelector
+      .getAllAssets()
+      .find((candidate) => candidate.source === 'remote' && candidate.url === url);
+    const reference = await this.importRemoteImage(url);
+
+    if (asset) {
+      await replaceRemoteAssetReferences(asset, reference, this.pageOperations, this.folderOperations);
+    }
+
+    return reference;
   }
 
   /**

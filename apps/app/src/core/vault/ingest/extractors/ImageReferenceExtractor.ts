@@ -13,7 +13,62 @@ import { allCodeRanges, isInsideAnyRange } from './markdownCodeRanges';
 const IMAGE = /!\[(?!\[)[^\]]*\]\(([^)\n]*)\)/g;
 const TRAILING_TITLE = /\s+(?:"[^"]*"|'[^']*')\s*$/;
 
+/**
+ * Splits the text between an image's parens into the destination and where it
+ * sits in that text — the same reading `extract` does (title dropped, `<...>`
+ * removed), but keeping the offsets so the destination alone can be replaced.
+ */
+function locateDestination(raw: string): { text: string; start: number } | null {
+  const leading = raw.length - raw.trimStart().length;
+  const body = raw.trim().replace(TRAILING_TITLE, '').trim();
+  const bracketed = body.startsWith('<') && body.endsWith('>');
+  const text = bracketed ? body.slice(1, -1).trim() : body;
+
+  if (!text) {
+    return null;
+  }
+
+  return { text, start: leading + raw.slice(leading).indexOf(text) };
+}
+
 export class ImageReferenceExtractor {
+  /**
+   * `content` with every standard image whose source is exactly `from` now
+   * pointing at `to`. Only the destination changes — alt text, title and
+   * `<...>` brackets stay as written — and anything inside code is untouched.
+   */
+  replaceSource(content: string, from: string, to: string): string {
+    if (!content.includes(from)) {
+      return content;
+    }
+
+    const code = allCodeRanges(content);
+    let result = content;
+    const matches = [...content.matchAll(IMAGE)].reverse();
+
+    for (const match of matches) {
+      const index = match.index ?? 0;
+
+      if (isInsideAnyRange(index, code)) {
+        continue;
+      }
+
+      const raw = match[1] ?? '';
+      const destination = locateDestination(raw);
+
+      if (!destination || destination.text !== from) {
+        continue;
+      }
+
+      const rawStart = index + match[0].length - 1 - raw.length;
+      const start = rawStart + destination.start;
+
+      result = result.slice(0, start) + to + result.slice(start + from.length);
+    }
+
+    return result;
+  }
+
   extract(content: string): readonly string[] {
     if (!content.includes('![')) {
       return [];

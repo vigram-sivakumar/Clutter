@@ -244,7 +244,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         onCreateFolder={(name) => application.folderOperations.create(name, null)}
         remoteImageActions={{
           onSaveToVault: (url) =>
-            void application.importRemoteImage(url).catch((error: unknown) => {
+            void application.saveRemoteImageToVault(url).catch((error: unknown) => {
               console.error('Could not save the image to the vault.', error);
             }),
           onOpenInBrowser: (url) => void openExternalUrl(url),

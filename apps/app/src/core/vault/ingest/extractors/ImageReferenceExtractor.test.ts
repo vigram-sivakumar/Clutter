@@ -39,3 +39,37 @@ describe('ImageReferenceExtractor', () => {
     expect(extract('just text')).toEqual([]);
   });
 });
+
+describe('ImageReferenceExtractor.replaceSource', () => {
+  const extractor = new ImageReferenceExtractor();
+  const url = 'https://example.com/a.png';
+
+  it('replaces only the destination, keeping alt text and a title', () => {
+    expect(extractor.replaceSource(`![sea](${url} "A sea")`, url, 'Assets/a.png')).toBe(
+      '![sea](Assets/a.png "A sea")'
+    );
+  });
+
+  it('keeps angle brackets and replaces every matching image', () => {
+    expect(
+      extractor.replaceSource(`![](<${url}>)\n\n![x](${url})`, url, 'Assets/a.png')
+    ).toBe('![](<Assets/a.png>)\n\n![x](Assets/a.png)');
+  });
+
+  it('leaves other images, links and code alone', () => {
+    const content = [
+      `![other](https://example.com/b.png)`,
+      `[link](${url})`,
+      '`![in code](' + url + ')`',
+      '```',
+      `![fenced](${url})`,
+      '```',
+    ].join('\n');
+
+    expect(extractor.replaceSource(content, url, 'Assets/a.png')).toBe(content);
+  });
+
+  it('returns the content unchanged when nothing matches', () => {
+    expect(extractor.replaceSource('plain text', url, 'Assets/a.png')).toBe('plain text');
+  });
+});
