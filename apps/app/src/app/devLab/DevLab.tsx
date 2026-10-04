@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { startCompletion } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, tooltips } from '@codemirror/view';
 
 import { PickerList } from '@components/picker-list/PickerList';
 import { PickerCard } from '@components/picker-card/PickerCard';
@@ -40,6 +40,7 @@ import {
   labTagSuggestions,
   labWikiLinkSuggestions,
 } from './labVault';
+import { prototypeCompletion, type PrototypeKind } from './prototypeCompletion';
 import './DevLab.css';
 
 /** Flip to true to show the folder picker again. */
@@ -49,10 +50,12 @@ interface SampleProps {
   readonly title: string;
   readonly doc: string;
   readonly caret: number;
+  /** When set, the popup uses the shared row + theme prototype instead of the app's current renderers. */
+  readonly prototype?: PrototypeKind;
 }
 
 /** A real CM6 editor with the real semantic-completion extensions, popup opened on mount. */
-function CompletionSample({ title, doc, caret }: SampleProps) {
+function CompletionSample({ title, doc, caret, prototype }: SampleProps) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,16 +70,22 @@ function CompletionSample({ title, doc, caret }: SampleProps) {
         selection: { anchor: caret },
         extensions: [
           markdownLanguageExtension(),
-          semanticCompletion(
-            () => labWikiLinkSuggestions,
-            () => labTagSuggestions,
-            () => labEmbedSuggestions,
-            () => labHeadingSuggestions
-          ),
-          wikiLinkAutocomplete(),
-          embedAutocomplete(),
-          tagAutocomplete(),
-          dateAutocomplete(),
+          // The popup renders inside its frame (not at the window's origin), so frames line up.
+          tooltips({ parent: host, position: 'absolute' }),
+          ...(prototype
+            ? [prototypeCompletion(prototype)]
+            : [
+                semanticCompletion(
+                  () => labWikiLinkSuggestions,
+                  () => labTagSuggestions,
+                  () => labEmbedSuggestions,
+                  () => labHeadingSuggestions
+                ),
+                wikiLinkAutocomplete(),
+                embedAutocomplete(),
+                tagAutocomplete(),
+                dateAutocomplete(),
+              ]),
         ],
       }),
     });
@@ -86,7 +95,7 @@ function CompletionSample({ title, doc, caret }: SampleProps) {
       window.clearTimeout(timer);
       view.destroy();
     };
-  }, [doc, caret]);
+  }, [doc, caret, prototype]);
 
   return (
     <section className="dev-lab__cell">
@@ -189,7 +198,17 @@ export function DevLab() {
         </section>
       </div>
 
-      <h2 className="dev-lab__group">CM6 autocomplete (real extensions)</h2>
+      <h2 className="dev-lab__group">CM6 autocomplete — shared row + theme (prototype)</h2>
+      <div className="dev-lab__grid">
+        <CompletionSample prototype="wikilink" title="[[ wikilink" doc="See [[" caret={6} />
+        <CompletionSample prototype="wikilink-create" title="[[ wikilink — no match, create" doc="See [[Projects/Project A/Zebra" caret={30} />
+        <CompletionSample prototype="embed" title="![[ embed" doc="Image: ![[" caret={10} />
+        <CompletionSample prototype="heading" title="![[Page# headings" doc="![[Markdown format renders/Headings#" caret={36} />
+        <CompletionSample prototype="tag" title="# tag" doc="Tagged #" caret={8} />
+        <CompletionSample prototype="date" title="@ date" doc="Due @" caret={5} />
+      </div>
+
+      <h2 className="dev-lab__group">CM6 autocomplete — current (real extensions)</h2>
       <div className="dev-lab__grid">
         <CompletionSample title="[[ wikilink" doc="See [[" caret={6} />
         <CompletionSample title="![[ embed" doc="Image: ![[" caret={10} />

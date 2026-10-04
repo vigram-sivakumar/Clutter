@@ -1,0 +1,91 @@
+/*
+ * The shared completion popup row. Every value is the one `PickerList`/`Entry` use
+ * (`.picker-list__item`, `.picker-list__title`, `.picker-list__path`), so a row here and a row in
+ * the note picker are the same size, spacing and color. Layout only — anything that overrides a
+ * class CM6 styles itself lives in completionPopupTheme.ts (`EditorView.theme`), because a plain
+ * stylesheet does not reliably win against CM6's dynamically injected baseTheme.
+ */
+.completion-row {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  min-height: var(--height-lg);
+  box-sizing: border-box;
+  padding-block: var(--space-6);
+  padding-inline: var(--space-6);
+  gap: var(--btn-gap-md);
+
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  color: var(--entry-foreground);
+}
+
+.completion-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* One line of the title tall, so the icon centers on the title line even when a path sits below. */
+  height: var(--lh-label);
+  aspect-ratio: 1;
+  color: var(--sidebar-icon-foreground);
+}
+.completion-row__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.completion-row__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.completion-row__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.completion-row__title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--foreground-primary);
+}
+.completion-row__suffix {
+  flex-shrink: 0;
+  color: var(--foreground-secondary);
+}
+
+.completion-row__path,
+.completion-row__trailing {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-tertiary);
+}
+.completion-row__path {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.completion-row__trailing {
+  flex-shrink: 0;
+  /* The title's line height, so its line box is centered on the title's line. */
+  line-height: var(--lh-label);
+}
+
+/* MenuGroupTitle: an Entry-height row of tertiary small text. */
+.completion-section-title {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--height-lg);
+  padding-inline: var(--space-6);
+  font-family: var(--font-sans);
+  font-size: var(--text-label-small);
+  color: var(--foreground-tertiary);
+}
