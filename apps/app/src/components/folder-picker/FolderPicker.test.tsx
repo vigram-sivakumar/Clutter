@@ -500,3 +500,30 @@ describe('FolderPicker data-can-scroll-down', () => {
     expect(list.hasAttribute('data-can-scroll-down')).toBe(false);
   });
 });
+
+describe('FolderPicker --folder-picker-first-section-bottom', () => {
+  const many = (section: string, count: number): FolderPickerItem[] =>
+    Array.from({ length: count }, (_, i) => ({ id: `${section}-${i}`, title: `${section} ${i}`, level: 0, parentId: null, section }));
+
+  it('is set to where the first Show more row ends, and removed when no section is capped', () => {
+    const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      if (this.classList.contains('folder-picker__list')) return rect(100, 400);
+      if (this.id.startsWith('folder-picker-toggle-')) return rect(330, 362);
+      return rect(0, 0);
+    };
+    try {
+      const { container, rerender } = render(
+        <FolderPicker items={many('Notes', 12)} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />
+      );
+      const list = container.querySelector<HTMLElement>('.folder-picker__list')!;
+      expect(list.style.getPropertyValue('--folder-picker-first-section-bottom')).toBe('262px');
+
+      rerender(<FolderPicker items={many('Notes', 3)} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />);
+      expect(list.style.getPropertyValue('--folder-picker-first-section-bottom')).toBe('');
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = original;
+    }
+  });
+});

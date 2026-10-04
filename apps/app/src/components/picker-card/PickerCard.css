@@ -51,13 +51,20 @@
      max-height above (border-box). */
   padding-bottom: var(--space-12);
 }
-/* With sections: tall enough to show the first section in full — its title, its rows (all with a
-   path, the tallest case), the 32px Show more row — then the divider and the second section's
-   title. Nine children in that stretch means eight 1px gaps; the divider is 1px plus 4px margins. */
+/* With sections: tall enough to show the first section in full, up to and including its
+   "Show more" row, and no further — the next section's divider and title stay below the fold.
+   FolderPicker measures where that row ends (`--folder-picker-first-section-bottom`, since rows
+   are 32px or 48px depending on whether they have a path) and the list ends 4px after it. The
+   calc is the ceiling, and the cap when that first section has no "Show more" to end at: its
+   title, five rows (all with a path, the tallest case), the 32px row, then the divider and the
+   second section's title. */
 .picker-card--sectioned .folder-picker__list {
-  max-height: calc(
-    2 * var(--height-lg) + var(--picker-card-section-rows) * var(--picker-card-row) + 32px + 8 * var(--space-1) + 9px +
-      var(--space-12)
+  max-height: min(
+    calc(
+      2 * var(--height-lg) + var(--picker-card-section-rows) * var(--picker-card-row) + 32px + 8 * var(--space-1) +
+        9px + var(--space-12)
+    ),
+    calc(var(--folder-picker-first-section-bottom, 100vh) + var(--space-4))
   );
 }
 /* The list runs to the card's bottom edge (no bottom padding), so while there is more to scroll to

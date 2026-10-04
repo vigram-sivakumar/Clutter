@@ -161,7 +161,30 @@ export function FolderPicker({
       setCanScrollDown(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
     }
   }
-  useLayoutEffect(updateCanScrollDown, [displayItems]);
+
+  // Where the first section's "Show more" row ends, from the top of the list's content, as the
+  // `--folder-picker-first-section-bottom` CSS variable — so a host can size the list to end
+  // right after it (rows differ in height, so no fixed number can). Unset when no section is
+  // capped, and unset while the layout can't be measured.
+  function updateFirstSectionBottom() {
+    const list = listRef.current;
+    const toggle = list?.querySelector<HTMLElement>('[id^="folder-picker-toggle-"]');
+    if (!list || !toggle) {
+      list?.style.removeProperty('--folder-picker-first-section-bottom');
+      return;
+    }
+    const bottom = toggle.getBoundingClientRect().bottom - list.getBoundingClientRect().top + list.scrollTop;
+    if (bottom > 0) {
+      list.style.setProperty('--folder-picker-first-section-bottom', `${Math.ceil(bottom)}px`);
+    } else {
+      list.style.removeProperty('--folder-picker-first-section-bottom');
+    }
+  }
+
+  useLayoutEffect(() => {
+    updateFirstSectionBottom();
+    updateCanScrollDown();
+  }, [displayItems]);
   useEffect(() => {
     const list = listRef.current;
     if (!list || typeof ResizeObserver === 'undefined') {
