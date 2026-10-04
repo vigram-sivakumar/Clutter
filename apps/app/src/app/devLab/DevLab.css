@@ -1,0 +1,18 @@
+/* TEMPORARY — see DevLab.tsx. */
+.dev-lab {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: auto;
+  padding: var(--space-24);
+  background: var(--surface-primary);
+  color: var(--foreground-primary);
+  font-family: var(--font-sans);
+}
+.dev-lab__header { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-16); }
+.dev-lab__hint { color: var(--foreground-tertiary); font-size: var(--text-label-small); flex: 1; }
+.dev-lab__group { margin: var(--space-24) 0 var(--space-12); font-size: var(--text-label); color: var(--foreground-secondary); }
+.dev-lab__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: var(--space-16); align-items: start; }
+.dev-lab__cell-title { margin: 0 0 var(--space-8); font-size: var(--text-label-small); color: var(--foreground-tertiary); font-weight: 500; }
+.dev-lab__editor { min-height: 320px; border: 1px dashed var(--foreground-tertiary); border-radius: var(--radius-lg); padding: var(--space-8); }
+.dev-lab__editor .cm-editor { outline: none; }

@@ -32,6 +32,12 @@ document.documentElement.dataset.runtime = isTauri() ? 'tauri' : 'web';
 // measured. installResizeDiagnostics() itself no-ops outside dev builds.
 installResizeDiagnostics();
 
+// TEMPORARY — autocomplete design lab (src/app/devLab/). Remove this block
+// and that folder when the design is done. Dev builds only.
+if (import.meta.env.DEV) {
+  void import('./devLab/mountDevLab').then((m) => m.mountDevLab());
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
