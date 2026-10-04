@@ -53,16 +53,68 @@ describe('MoveDestinationPicker', () => {
     expect(document.querySelector('.move-destination-picker__root-action')).toBeNull();
   });
 
-  it('starts with folders collapsed (delegated to FolderPicker)', () => {
+  it('lists nested folders flat — no tree, no carets — each with its parent path under the name', () => {
     const nested: FolderPickerItem[] = [
       ...items,
-      { id: 'folder-1a', title: 'Design', level: 1, parentId: 'folder-1' },
+      {
+        id: 'folder-1a',
+        title: 'Design',
+        level: 1,
+        parentId: 'folder-1',
+        ancestors: [{ id: 'folder-1', title: 'Project' }],
+      },
     ];
-    render(
-      <MoveDestinationPickerHarness items={nested} onSelect={vi.fn()} />
-    );
+    render(<MoveDestinationPickerHarness items={nested} onSelect={vi.fn()} />);
 
-    expect(screen.queryByText('Design')).toBeNull();
+    expect(screen.getByText('Design')).toBeDefined();
+    expect(screen.getAllByText('Project')).toHaveLength(2); // its own row, and Design's path
+    expect(document.querySelector('.folder-picker__path')?.textContent).toBe('Project');
+    expect(document.querySelectorAll('.folder-picker__item')).toHaveLength(3);
+    expect(document.querySelector('.folder-leading__caret, [aria-expanded]')).toBeNull();
+  });
+
+  it('is titled Move to, lists folders alphabetically, and has no section title, divider or Show more', () => {
+    render(<Harness onSelect={vi.fn()} />);
+
+    expect(document.querySelector('.picker-card__header')?.textContent).toBe('Move to');
+    expect(
+      Array.from(document.querySelectorAll('.folder-picker__title')).map((el) => el.textContent)
+    ).toEqual(['Finance', 'Project']);
+    expect(document.querySelector('.menu__group-title')).toBeNull();
+    expect(document.querySelector('[role="separator"]')).toBeNull();
+    expect(document.querySelector('[id^="folder-picker-toggle"]')).toBeNull();
+  });
+
+  it('keeps the vault root first and reports it as null', () => {
+    const onSelect = vi.fn();
+    const withRoot: FolderPickerItem[] = [
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', level: 0, parentId: null },
+      ...items,
+    ];
+    render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
+
+    expect(document.querySelector('.folder-picker__item')?.textContent).toContain('Clutter');
+    fireEvent.click(screen.getByText('Clutter'));
+
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it('the dismiss button closes the picker', () => {
+    const onClose = vi.fn();
+    function DismissHarness() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button ref={anchorRef}>anchor</button>
+          <MoveDestinationPicker anchorRef={anchorRef} open items={items} onSelect={vi.fn()} onClose={onClose} />
+        </>
+      );
+    }
+    render(<DismissHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('selecting a folder calls onSelect with its real id', () => {

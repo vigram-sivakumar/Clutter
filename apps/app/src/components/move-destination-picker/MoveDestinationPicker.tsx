@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import type { RefObject } from 'react';
 
 import { Popover } from '@components/popover/Popover';
-import { FolderPicker } from '@components/folder-picker/FolderPicker';
+import { PickerCard } from '@components/picker-card/PickerCard';
 import {
   ROOT_DESTINATION_ID,
   type FolderPickerItem,
@@ -50,6 +51,22 @@ export interface MoveDestinationPickerProps {
  * — the destination `PageOperations.move()`/`FolderOperations.move()`
  * already accept for "move to vault root".
  */
+/**
+ * The destination list as a flat, searchable list — no tree. The vault root ("Home") stays first;
+ * every folder after it is one alphabetical row with its parent path shown under the name (the
+ * `ancestors` the builder already attaches). No `section`, so the card draws no section title,
+ * divider or Show more.
+ */
+function flattenDestinations(items: FolderPickerItem[]): FolderPickerItem[] {
+  const flat = (item: FolderPickerItem): FolderPickerItem => ({ ...item, level: 0, parentId: null });
+  const root = items.filter((item) => item.id === ROOT_DESTINATION_ID).map(flat);
+  const folders = items
+    .filter((item) => item.id !== ROOT_DESTINATION_ID)
+    .map(flat)
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+  return [...root, ...folders];
+}
+
 export function MoveDestinationPicker({
   anchorRef,
   open,
@@ -60,10 +77,16 @@ export function MoveDestinationPicker({
   side,
   alignment,
 }: MoveDestinationPickerProps) {
+  const destinations = useMemo(() => flattenDestinations(items), [items]);
+
   return (
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} side={side} alignment={alignment}>
-      <FolderPicker
-        items={items}
+      <PickerCard
+        title="Move to"
+        onClose={onClose}
+        items={destinations}
+        placeholder="Search folders"
+        leadingIcon="folder"
         onSelect={(item) =>
           onSelect(item.id === ROOT_DESTINATION_ID ? null : item.id)
         }
