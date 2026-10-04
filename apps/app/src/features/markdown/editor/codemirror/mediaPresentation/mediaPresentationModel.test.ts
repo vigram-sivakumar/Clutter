@@ -7,8 +7,7 @@ import {
   resolveImagePresentation,
   resolvePdfPresentation,
   serializeImagePresentationTokens,
-  resolveFillHeightOnSwitch,
-  DEFAULT_FILL_HEIGHT_PX,
+  resolveFitSizeOnSwitch,
   serializePdfPresentationTokens,
   type ImagePresentation,
   type PdfPresentation,
@@ -403,27 +402,39 @@ describe('a height is always written with its width (the parser reads the first 
   });
 });
 
-describe('resolveFillHeightOnSwitch (Fit -> Fill keeps the current height, capped at the default)', () => {
-  it('keeps the on-screen height when nothing was saved and it is below the default', () => {
-    expect(resolveFillHeightOnSwitch(null, 380)).toBe(380);
-    expect(resolveFillHeightOnSwitch(null, 213.4)).toBe(213);
+describe('resolveFitSizeOnSwitch (Fill -> Fit keeps the height; the width follows the image)', () => {
+  const base = { boxWidth: 689, boxHeight: 400, naturalWidth: 600, naturalHeight: 400, currentWidth: 11 };
+
+  it('keeps the height and sets the width from the image proportions (3:2 at 400px tall is 600px wide)', () => {
+    expect(resolveFitSizeOnSwitch(base)).toEqual({ width: 600, height: 400 });
+    expect(resolveFitSizeOnSwitch({ ...base, boxHeight: 300 })).toEqual({ width: 450, height: 300 });
   });
 
-  it('prefers a saved height over the on-screen one', () => {
-    expect(resolveFillHeightOnSwitch(300, 380)).toBe(300);
+  it('works for a portrait image (2:3): the width is narrower than the height', () => {
+    expect(resolveFitSizeOnSwitch({ ...base, naturalWidth: 400, naturalHeight: 600 })).toEqual({
+      width: 267,
+      height: 400,
+    });
   });
 
-  it('caps at the default: a height at or above it becomes "nothing saved" (the default applies)', () => {
-    expect(DEFAULT_FILL_HEIGHT_PX).toBe(400);
-    expect(resolveFillHeightOnSwitch(null, 400)).toBeNull();
-    expect(resolveFillHeightOnSwitch(null, 600)).toBeNull();
-    expect(resolveFillHeightOnSwitch(500, 380)).toBeNull();
+  it('when the image at this height would be wider than the box, keeps the width and takes the natural height', () => {
+    // 3:2 at 600px tall would be 900px wide, in a 689px box: stays full width, 689 / 1.5 = 459 tall.
+    expect(resolveFitSizeOnSwitch({ ...base, boxHeight: 600 })).toEqual({ width: 11, height: 459 });
+    expect(resolveFitSizeOnSwitch({ ...base, boxHeight: 600, currentWidth: 500 })).toEqual({ width: 500, height: 459 });
   });
 
-  it('keeps nothing when there is nothing usable (no layout, zero or invalid height)', () => {
-    expect(resolveFillHeightOnSwitch(null, 0)).toBeNull();
-    expect(resolveFillHeightOnSwitch(null, Number.NaN)).toBeNull();
-    expect(resolveFillHeightOnSwitch(0, 380)).toBeNull();
+  it('an image exactly as wide as the box at this height is not narrowed', () => {
+    expect(resolveFitSizeOnSwitch({ ...base, boxWidth: 600 })).toEqual({ width: 11, height: 400 });
+  });
+
+  it('never returns a pixel width under 12 (it would read as column units)', () => {
+    expect(resolveFitSizeOnSwitch({ ...base, boxHeight: 5, naturalWidth: 1, naturalHeight: 10 })?.width).toBe(12);
+  });
+
+  it('returns null when something is missing: no layout, or the image has not loaded', () => {
+    expect(resolveFitSizeOnSwitch({ ...base, naturalWidth: 0 })).toBeNull();
+    expect(resolveFitSizeOnSwitch({ ...base, boxHeight: 0 })).toBeNull();
+    expect(resolveFitSizeOnSwitch({ ...base, boxWidth: Number.NaN })).toBeNull();
   });
 });
 

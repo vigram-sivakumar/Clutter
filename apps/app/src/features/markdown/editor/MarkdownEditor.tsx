@@ -69,7 +69,7 @@ import {
 } from './codemirror/mediaPresentation/mediaPresentationUpdate';
 import {
   DEFAULT_IMAGE_PRESENTATION,
-  resolveFillHeightOnSwitch,
+  resolveFitSizeOnSwitch,
   type ImagePresentation,
   type MediaAlignment,
 } from './codemirror/mediaPresentation/mediaPresentationModel';
@@ -1133,17 +1133,33 @@ export const MarkdownEditor = forwardRef<
     // full mechanism.
     const current = getImagePresentation(view.state, imageMenu.to);
     let next: ImagePresentation = { ...current, ...patch };
+    if (patch.mode === 'fit' && ui.displayMode === 'fill') {
+      // Fill -> Fit: the box keeps its height and the width follows from the image's proportions,
+      // so it shows whole at the same height (not full width with a new, taller height).
+      const container = imageMenu.anchor.current.closest<HTMLElement>('.cm-image-container');
+      const image = container?.querySelector('img');
+      const box = container?.getBoundingClientRect();
+      const size = resolveFitSizeOnSwitch({
+        boxWidth: box?.width ?? 0,
+        boxHeight: box?.height ?? 0,
+        naturalWidth: image?.naturalWidth ?? 0,
+        naturalHeight: image?.naturalHeight ?? 0,
+        currentWidth: current.width,
+      });
+      if (size) {
+        next = { ...next, width: size.width, height: size.height };
+      }
+    }
     if (patch.mode === 'fill' && ui.displayMode !== 'fill') {
-      // Fit -> Fill: the box takes the full width and keeps its current height — the one saved for
-      // Fill earlier if there is one, else the height it has on screen right now (Fit's natural
-      // height) — but never more than the default Fill height. Dragging it taller is still the
-      // user's to do from there.
+      // Fit -> Fill: the box takes the full width and keeps the height it has on screen right now,
+      // so the height carries across the switch (as it does going the other way). With nothing
+      // measurable, nothing is saved and the default Fill height applies.
       const container = imageMenu.anchor.current.closest<HTMLElement>('.cm-image-container');
       const renderedHeight = container ? Math.round(container.getBoundingClientRect().height) : 0;
       next = {
         ...next,
         width: DEFAULT_IMAGE_PRESENTATION.width,
-        height: resolveFillHeightOnSwitch(current.height, renderedHeight),
+        height: renderedHeight > 0 ? renderedHeight : null,
       };
     }
     const changes = computeImagePresentationUpdate(view.state, imageMenu.to, next);

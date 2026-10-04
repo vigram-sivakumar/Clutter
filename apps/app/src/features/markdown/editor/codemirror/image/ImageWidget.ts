@@ -390,6 +390,15 @@ export class ImageWidget extends WidgetType {
     const startContainer = measureBox(container);
     const startImg = measureBox(img);
 
+    // The target layout must be MEASURED with this widget's CSS transitions off. With them on, the
+    // first style recalculation after the width changes only starts the width transition, so the
+    // box is read at its OLD width — and an image whose height follows its width (Fit's automatic
+    // height) is then measured at that old width too: going Fill -> Fit with a narrower result, the
+    // animation aimed for the old-width height (459px) and snapped back to the real one (400px)
+    // when it finished. Switched back on right after measuring, before the animation is set up.
+    container.style.setProperty('transition', 'none');
+    img.style.setProperty('transition', 'none');
+
     container.classList.toggle('cm-image-container--fill', this.ui.displayMode === 'fill');
     container.classList.toggle('cm-image-container--fit', this.ui.displayMode === 'fit');
     img.className = `tok-image tok-image--${this.ui.displayMode}`;
@@ -407,6 +416,8 @@ export class ImageWidget extends WidgetType {
 
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
+    container.style.removeProperty('transition');
+    img.style.removeProperty('transition');
 
     // Container `height` is FLIP-animated too (2026-09, fixing a real
     // Fit→Fill asymmetry) — see `.cm-image-container`'s own CSS doc

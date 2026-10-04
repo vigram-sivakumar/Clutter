@@ -1200,93 +1200,164 @@ describe('MarkdownEditor: Fit/Fill toggle never corrupts imageUiState position m
     expect(view.state.doc.toString()).toContain('![Photo|center,fit](');
   });
 
-  describe('Fit → Fill keeps the height instead of snapping to the 400px default', () => {
+  describe('the height carries across Fit ↔ Fill', () => {
     const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    const naturalWidth = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'naturalWidth');
+    const naturalHeight = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'naturalHeight');
 
-    /** jsdom has no layout: report a Fit image box as 380px tall, as it would be on screen. */
-    function stubRenderedHeight(height: number) {
+    /** jsdom has no layout: report the image box as `width` x `height`, as it would be on screen. */
+    function stubBox(width: number, height: number) {
       HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
         const isImageBox = this.classList.contains('cm-image-container');
-        return { x: 0, y: 0, top: 0, left: 0, right: 600, bottom: isImageBox ? height : 0, width: 600, height: isImageBox ? height : 0, toJSON() {} } as DOMRect;
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: isImageBox ? width : 0,
+          bottom: isImageBox ? height : 0,
+          width: isImageBox ? width : 0,
+          height: isImageBox ? height : 0,
+          toJSON() {},
+        } as DOMRect;
       };
     }
 
-    afterEach(() => {
-      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    /** jsdom never loads an image, so its natural size is 0: give it the proportions of a real one. */
+    function stubNaturalSize(width: number, height: number) {
+      Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', { configurable: true, get: () => width });
+      Object.defineProperty(HTMLImageElement.prototype, 'naturalHeight', { configurable: true, get: () => height });
+    }
+
+    // The editor only mounts the real <img> once a detached probe Image has loaded, which jsdom never
+    // does on its own: capture the probes so a test can load them, as imageLivePreview.test.ts does.
+    let probes: HTMLImageElement[] = [];
+    const OriginalImage = window.Image;
+    beforeEach(() => {
+      probes = [];
+      class CapturingImage extends OriginalImage {
+        constructor(width?: number, height?: number) {
+          super(width, height);
+          probes.push(this);
+        }
+      }
+      vi.stubGlobal('Image', CapturingImage);
     });
 
-    it('with no height saved, Fill takes the height the image has on screen in Fit, at full width', () => {
-      stubRenderedHeight(380);
-      const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)'} />
-      );
-      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+    afterEach(() => {
+      vi.stubGlobal('Image', OriginalImage);
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+      for (const [key, descriptor] of [
+        ['naturalWidth', naturalWidth],
+        ['naturalHeight', naturalHeight],
+      ] as const) {
+        if (descriptor) {
+          Object.defineProperty(HTMLImageElement.prototype, key, descriptor);
+        } else {
+          delete (HTMLImageElement.prototype as unknown as Record<string, unknown>)[key];
+        }
+      }
+    });
 
-      selectMode('Fill');
+    function renderImage(markdown: string) {
+      const { container: root } = render(<MarkdownEditor pageId="test-page" markdown={markdown} />);
+      for (const probe of probes) {
+        probe.dispatchEvent(new Event('load'));
+      }
+      return EditorView.findFromDOM(root as unknown as HTMLElement)!;
+    }
 
-      // width written alongside the height (the parser reads the first number as the width)
-      expect(view.state.doc.toString()).toContain('![Photo|11,380](');
-      expect(getImagePresentation(view.state, view.state.doc.length)).toMatchObject({
-        width: 11,
-        height: 380,
-        mode: 'fill',
+    describe('Fit → Fill: full width, the height the box has on screen', () => {
+      it('takes the on-screen height, whatever it is, and writes the width with it', () => {
+        stubBox(300, 380);
+        const view = renderImage('Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)');
+
+        selectMode('Fill');
+
+        expect(view.state.doc.toString()).toContain('![Photo|11,380](');
+        expect(getImagePresentation(view.state, view.state.doc.length)).toMatchObject({
+          width: 11,
+          height: 380,
+          mode: 'fill',
+        });
+      });
+
+      it('has no cap and ignores an older saved height: the on-screen one wins, tall or short', () => {
+        stubBox(689, 600);
+        const view = renderImage('Prefix.\n\n![Photo|320,300,fit](https://example.com/a.jpg)');
+
+        selectMode('Fill');
+
+        expect(view.state.doc.toString()).toContain('![Photo|11,600](');
+      });
+
+      it('with nothing measurable (no layout), saves no height and the default Fill height applies', () => {
+        const view = renderImage('Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)');
+
+        selectMode('Fill');
+
+        expect(view.state.doc.toString()).toContain('![Photo](');
       });
     });
 
-    it('a height saved for Fill earlier, below the default, is the one that comes back — not the on-screen Fit height', () => {
-      stubRenderedHeight(380);
-      const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,300,fit](https://example.com/a.jpg)'} />
-      );
-      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+    describe('Fill → Fit: the box keeps its height, the width follows the image', () => {
+      it('a 3:2 image in a 689x400 Fill box becomes 600 wide and 400 tall', () => {
+        stubBox(689, 400);
+        stubNaturalSize(600, 400);
+        const view = renderImage('Prefix.\n\n![Photo](https://example.com/a.jpg)');
 
-      selectMode('Fill');
+        selectMode('Fit');
 
-      expect(view.state.doc.toString()).toContain('![Photo|11,300](');
+        expect(view.state.doc.toString()).toContain('![Photo|600,400,fit](');
+        expect(getImagePresentation(view.state, view.state.doc.length)).toMatchObject({
+          width: 600,
+          height: 400,
+          mode: 'fit',
+        });
+      });
+
+      it('a portrait image keeps the height and gets a narrower width', () => {
+        stubBox(689, 400);
+        stubNaturalSize(400, 600);
+        const view = renderImage('Prefix.\n\n![Photo](https://example.com/a.jpg)');
+
+        selectMode('Fit');
+
+        expect(view.state.doc.toString()).toContain('![Photo|267,400,fit](');
+      });
+
+      it('when keeping the height would make the image wider than the box, it keeps the width and takes the natural height', () => {
+        stubBox(689, 600);
+        stubNaturalSize(600, 400);
+        const view = renderImage('Prefix.\n\n![Photo|11,600](https://example.com/a.jpg)');
+
+        selectMode('Fit');
+
+        expect(view.state.doc.toString()).toContain('![Photo|11,459,fit](');
+      });
+
+      it('with the image not loaded (natural size unknown), only the mode changes', () => {
+        stubBox(689, 400);
+        const view = renderImage('Prefix.\n\n![Photo|320,380](https://example.com/a.jpg)');
+
+        selectMode('Fit');
+
+        expect(view.state.doc.toString()).toContain('![Photo|320,380,fit](');
+      });
     });
 
-    it('a height above the default Fill height is capped to the default (nothing saved), whether it was saved or is just the on-screen Fit height', () => {
-      stubRenderedHeight(600);
-      const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)'} />
-      );
-      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
-      selectMode('Fill');
-      expect(view.state.doc.toString()).toContain('![Photo](');
-      cleanup();
+    it('the height round-trips Fill → Fit → Fill', () => {
+      stubBox(689, 400);
+      stubNaturalSize(600, 400);
+      const view = renderImage('Prefix.\n\n![Photo](https://example.com/a.jpg)');
 
-      stubRenderedHeight(380);
-      const second = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,500,fit](https://example.com/a.jpg)'} />
-      );
-      const secondView = EditorView.findFromDOM(second.container as unknown as HTMLElement)!;
-      selectMode('Fill');
-      expect(secondView.state.doc.toString()).toContain('![Photo](');
-    });
-
-    it('the height stays through Fill → Fit → Fill', () => {
-      stubRenderedHeight(380);
-      const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)'} />
-      );
-      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
-
-      selectMode('Fill');
       selectMode('Fit');
-      expect(view.state.doc.toString()).toContain('![Photo|11,380,fit](');
+      expect(view.state.doc.toString()).toContain('![Photo|600,400,fit](');
+
+      // Back to Fill: the box is now 600 wide and 400 tall on screen.
+      stubBox(600, 400);
       selectMode('Fill');
-      expect(view.state.doc.toString()).toContain('![Photo|11,380](');
-    });
-
-    it('with nothing measurable (no layout), it falls back to the default Fill height rather than saving 0', () => {
-      const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)'} />
-      );
-      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
-
-      selectMode('Fill');
-
-      expect(view.state.doc.toString()).toContain('![Photo](');
+      expect(view.state.doc.toString()).toContain('![Photo|11,400](');
     });
   });
 

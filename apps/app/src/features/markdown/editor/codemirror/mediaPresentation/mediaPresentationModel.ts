@@ -94,24 +94,37 @@ export interface PdfPresentation {
 }
 
 /**
- * A Fill box's height when none is saved. Keep in step with `.cm-image-container--fill`'s
- * `height: 400px` (ImageWidget.css), which is what actually draws it.
+ * Where Fill → Fit leaves the box: it keeps its HEIGHT, and the width follows from the image's own
+ * proportions (so the image shows whole at that height) — a 3:2 image 400px tall becomes 600px wide.
+ *
+ * If that width would be wider than the box it is in (the image is wider than the box is), the
+ * height can't be kept without cropping, so the box keeps its width instead and the height becomes
+ * the image's natural height at it. `null` when anything needed is missing (no layout yet, the image
+ * not loaded): the caller then changes nothing but the mode.
+ *
+ * Widths below 12 would be read as column units rather than pixels, so a pixel width is never
+ * smaller than 12.
  */
-export const DEFAULT_FILL_HEIGHT_PX = 400;
-
-/**
- * The height an image takes when it is switched from Fit to Fill: the height it has now — the
- * one saved for Fill earlier if there is one, else the height it has on screen in Fit — but never
- * more than the default Fill height. Returns `null` (nothing saved: the default applies) when that
- * height reaches the default, or when there is nothing usable to keep. A user can always drag a
- * Fill box taller afterwards.
- */
-export function resolveFillHeightOnSwitch(savedHeight: number | null, renderedHeight: number): number | null {
-  const current = savedHeight ?? (renderedHeight > 0 ? renderedHeight : null);
-  if (current === null || !Number.isFinite(current) || current < 1 || current >= DEFAULT_FILL_HEIGHT_PX) {
+export function resolveFitSizeOnSwitch(input: {
+  readonly boxWidth: number;
+  readonly boxHeight: number;
+  readonly naturalWidth: number;
+  readonly naturalHeight: number;
+  readonly currentWidth: number;
+}): { readonly width: number; readonly height: number } | null {
+  const { boxWidth, boxHeight, naturalWidth, naturalHeight, currentWidth } = input;
+  const usable = [boxWidth, boxHeight, naturalWidth, naturalHeight].every(
+    (value) => Number.isFinite(value) && value > 0
+  );
+  if (!usable) {
     return null;
   }
-  return Math.round(current);
+  const ratio = naturalWidth / naturalHeight;
+  const widthAtThisHeight = Math.round(boxHeight * ratio);
+  if (widthAtThisHeight >= Math.round(boxWidth)) {
+    return { width: currentWidth, height: Math.round(boxWidth / ratio) };
+  }
+  return { width: Math.max(12, widthAtThisHeight), height: Math.round(boxHeight) };
 }
 
 export const DEFAULT_IMAGE_PRESENTATION: ImagePresentation = {

@@ -253,16 +253,28 @@ describe('flipDimensionTransition — a cleanup that never fired cannot strip a 
     expect(el.style.height).toBe('');
   });
 
-  it('cancelPendingDimensionTransitions disarms a pending cleanup without touching the inline size', () => {
+  it('cancelPendingDimensionTransitions settles right away: the pin is released and the cleanup disarmed', () => {
     const el = document.createElement('div');
     flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+    expect(el.style.height).toBe('400px');
 
     cancelPendingDimensionTransitions(el);
-    expect(el.style.height).toBe('400px');
+    expect(el.style.height).toBe('');
 
-    // Even if the pin is exactly what is still there, the cancelled cleanup no longer acts.
+    // Nothing left armed: a size set afterwards survives a late event.
+    el.style.height = '523px';
     fire(el, 'height');
-    expect(el.style.height).toBe('400px');
+    expect(el.style.height).toBe('523px');
+  });
+
+  it('cancelPendingDimensionTransitions leaves a size that is no longer the pin alone', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+    el.style.height = '523px';
+
+    cancelPendingDimensionTransitions(el);
+
+    expect(el.style.height).toBe('523px');
   });
 
   it('a new flip supersedes one that never settled, so only the latest cleanup remains', () => {
@@ -287,6 +299,138 @@ describe('flipDimensionTransition — a cleanup that never fired cannot strip a 
 
     expect(el.style.height).toBe('');
     expect(el.style.width).toBe('600px');
+  });
+});
+
+/**
+ * Fill -> Fit with a narrower result (689x400 -> 600x400): the width changes, the height doesn't. An
+ * image's automatic height follows its width, so with only the width pinned the height grew to 459px
+ * and snapped back to 400px. Both dimensions of an animating element are now pinned.
+ */
+describe('flipDimensionTransition — an unchanged dimension is pinned while its sibling animates', () => {
+  function fire(el: HTMLElement, propertyName: string): void {
+    el.dispatchEvent(new TransitionEvent('transitionend', { propertyName }));
+  }
+
+  it('pins the height at its (unchanged) size while the width animates, and releases both when the width settles', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([
+      { el, property: 'width', from: 689, to: 600 },
+      { el, property: 'height', from: 400, to: 400 },
+    ]);
+
+    expect(el.style.width).toBe('600px');
+    expect(el.style.height).toBe('400px');
+
+    fire(el, 'width');
+
+    expect(el.style.width).toBe('');
+    expect(el.style.height).toBe('');
+  });
+
+  it('pins nothing when neither dimension changes', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([
+      { el, property: 'width', from: 600, to: 600 },
+      { el, property: 'height', from: 400, to: 400 },
+    ]);
+
+    expect(el.style.width).toBe('');
+    expect(el.style.height).toBe('');
+  });
+
+  it('leaves the element\'s own transition alone afterwards (the pin is applied with it off, then it is restored)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+
+    expect(el.style.getPropertyValue('transition')).toBe('');
+  });
+
+  it('releases the pins after a short while even if no transition event ever arrives (WebKit)', () => {
+    vi.useFakeTimers();
+    try {
+      const el = document.createElement('div');
+      flipDimensionTransition([
+        { el, property: 'width', from: 689, to: 600 },
+        { el, property: 'height', from: 400, to: 400 },
+      ]);
+      expect(el.style.width).toBe('600px');
+
+      vi.advanceTimersByTime(700);
+
+      expect(el.style.width).toBe('');
+      expect(el.style.height).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the fallback does not strip a size set in the meantime', () => {
+    vi.useFakeTimers();
+    try {
+      const el = document.createElement('div');
+      flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+      el.style.height = '523px';
+
+      vi.advanceTimersByTime(700);
+
+      expect(el.style.height).toBe('523px');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('flipDimensionTransition — releasing a pin restores what the caller had declared, never clears it', () => {
+  function fire(el: HTMLElement, propertyName: string): void {
+    el.dispatchEvent(new TransitionEvent('transitionend', { propertyName }));
+  }
+
+  it('a saved pixel width declared before the animation is still there after it', () => {
+    const el = document.createElement('div');
+    el.style.width = '600px'; // the saved width, applied by the caller before the animation
+    flipDimensionTransition([{ el, property: 'width', from: 689, to: 600 }]);
+    expect(el.style.width).toBe('600px');
+
+    fire(el, 'width');
+
+    expect(el.style.width).toBe('600px');
+  });
+
+  it('a saved width declared as a percentage comes back as declared', () => {
+    const el = document.createElement('div');
+    el.style.width = '55%';
+    flipDimensionTransition([{ el, property: 'width', from: 689, to: 376 }]);
+
+    fire(el, 'width');
+
+    expect(el.style.width).toBe('55%');
+  });
+
+  it('a saved Fill height declared before the animation survives the cancel and the fallback too', () => {
+    vi.useFakeTimers();
+    try {
+      const el = document.createElement('div');
+      el.style.height = '400px';
+      flipDimensionTransition([{ el, property: 'height', from: 459, to: 400 }]);
+      cancelPendingDimensionTransitions(el);
+      expect(el.style.height).toBe('400px');
+
+      flipDimensionTransition([{ el, property: 'height', from: 459, to: 400 }]);
+      vi.advanceTimersByTime(700);
+      expect(el.style.height).toBe('400px');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('with nothing declared, the pin is cleared (as before)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'width', from: 689, to: 600 }]);
+
+    fire(el, 'width');
+
+    expect(el.style.width).toBe('');
   });
 });
 

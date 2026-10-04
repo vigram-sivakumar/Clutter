@@ -322,34 +322,67 @@ export interface FlipDimensionEntry {
  * when a resize drag ends — would fire it and strip the inline size the drag had just set, snapping
  * the embed back to its default size (the first drag after a mode switch "didn't take").
  */
-const pendingFlipCleanups = new WeakMap<HTMLElement, Map<string, () => void>>();
-
-function runPendingFlipCleanup(el: HTMLElement, property: string): void {
-  pendingFlipCleanups.get(el)?.get(property)?.();
+interface PendingFlip {
+  /** Stops waiting for this pin's own release without touching the inline size (a newer animation is taking over it). */
+  readonly supersede: () => void;
+  /** Releases the pin now — if it is still ours — and stops waiting for it. */
+  readonly settle: () => void;
+  /** What the caller had declared inline for this property before this animation pinned over it. */
+  readonly declared: string;
 }
 
+const pendingFlips = new WeakMap<HTMLElement, Map<string, PendingFlip>>();
+
+/** If the animation stalls (no `transitionend`, as in WebKit), the pins are still released after this long. */
+const FLIP_FALLBACK_MS = 600;
+
 /**
- * Disarms every FLIP cleanup still pending on `el` — without touching its inline sizes. Called when
- * something else takes over the element's size (a resize drag starts), so a stale cleanup can't
- * later remove what that took-over size set.
+ * Releases every FLIP pin still pending on `el` right away, as if its animation had just finished.
+ * Called when something else takes over the element's size (a resize drag starts): a pin left
+ * behind would hold the box at its animation size — including the other dimension that was pinned
+ * alongside it — and a cleanup still armed would later strip whatever that drag set.
  */
 export function cancelPendingDimensionTransitions(el: HTMLElement): void {
-  for (const property of Array.from(pendingFlipCleanups.get(el)?.keys() ?? [])) {
-    runPendingFlipCleanup(el, property);
+  for (const pending of Array.from(pendingFlips.get(el)?.values() ?? [])) {
+    pending.settle();
   }
 }
 
 export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]): void {
-  const changing = entries.filter((entry) => Math.abs(entry.from - entry.to) > 0.5);
+  // An element is animating if either of its dimensions genuinely changes. BOTH of its dimensions
+  // are then pinned for the animation — even one whose start and end are equal. Otherwise that one
+  // is left to the layout, which derives it from the other (an image's automatic height follows its
+  // width), so while the width moves the height wanders — growing and then snapping back — instead
+  // of staying put.
+  const animating = new Set(entries.filter((entry) => Math.abs(entry.from - entry.to) > 0.5).map((entry) => entry.el));
+  const changing = entries.filter((entry) => animating.has(entry.el));
   if (changing.length === 0) {
     return;
   }
 
-  // A previous FLIP of the same property that never settled is superseded by this one.
+  // A previous FLIP of the same property that never settled is superseded by this one. What is
+  // inline now is that one's pin, not anything the caller declared — so the value to go back to is
+  // the one IT recorded.
+  const inherited = new Map<FlipDimensionEntry, string>();
   for (const entry of changing) {
-    runPendingFlipCleanup(entry.el, entry.property);
+    const pending = pendingFlips.get(entry.el)?.get(entry.property);
+    if (pending) {
+      inherited.set(entry, pending.declared);
+      pending.supersede();
+    }
   }
 
+  // What the caller has already declared inline for each property (a saved pixel width, a saved
+  // Fill height) — read before pinning over it. Releasing a pin means going back to THIS, not
+  // clearing the property: clearing would delete a saved size that is meant to stay.
+  const declared = new Map<FlipDimensionEntry, string>(
+    changing.map((entry) => [entry, inherited.get(entry) ?? entry.el.style.getPropertyValue(entry.property)])
+  );
+
+  // The `from` pin is a jump back to the size the box already had — never itself animated.
+  for (const el of animating) {
+    el.style.setProperty('transition', 'none');
+  }
   for (const entry of changing) {
     entry.el.style.setProperty(entry.property, `${entry.from}px`);
   }
@@ -360,32 +393,56 @@ export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]):
   // so no animation plays at all (the same reason a bare "set final
   // value" never animated in the first place).
   void changing[0]!.el.offsetHeight;
+  for (const el of animating) {
+    el.style.removeProperty('transition');
+  }
+
+  // Only release a pin if it is still OUR pin: anything else that has since set this size (a drag,
+  // or the persisted size being re-applied) must be left alone. Compared as numbers — the browser
+  // rounds what it stores (`459.328125px` reads back as `459.328px`), so a string comparison would
+  // never match a fractional size and the pin would be left stuck.
+  const release = (entry: FlipDimensionEntry) => {
+    const pinned = Number.parseFloat(entry.el.style.getPropertyValue(entry.property));
+    if (Number.isFinite(pinned) && Math.abs(pinned - entry.to) < 0.01) {
+      const original = declared.get(entry) ?? '';
+      if (original === '') {
+        entry.el.style.removeProperty(entry.property);
+      } else {
+        entry.el.style.setProperty(entry.property, original);
+      }
+    }
+  };
+  const moving = (entry: FlipDimensionEntry) => Math.abs(entry.from - entry.to) > 0.5;
 
   for (const entry of changing) {
-    const disarm = () => {
-      entry.el.removeEventListener('transitionend', onSettled);
-      entry.el.removeEventListener('transitioncancel', onSettled);
-      pendingFlipCleanups.get(entry.el)?.delete(entry.property);
+    // A dimension that doesn't change has no transition of its own, so no event of its own: it is
+    // released together with the dimension of the same element that does.
+    const companions = moving(entry) ? changing.filter((other) => other.el === entry.el && !moving(other)) : [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const supersede = () => {
+      entry.el.removeEventListener('transitionend', onEvent);
+      entry.el.removeEventListener('transitioncancel', onEvent);
+      clearTimeout(timer);
+      pendingFlips.get(entry.el)?.delete(entry.property);
     };
-    const onSettled = (event: TransitionEvent) => {
-      if (event.target !== entry.el || event.propertyName !== entry.property) {
-        return;
-      }
-      disarm();
-      // Only release the pin if it is still OUR pin: anything else that has since set this size
-      // (a drag, or the persisted size being re-applied) must be left alone. Compared as numbers —
-      // the browser rounds what it stores (`459.328125px` reads back as `459.328px`), so a string
-      // comparison would never match a fractional size and the pin would be left stuck.
-      const pinned = Number.parseFloat(entry.el.style.getPropertyValue(entry.property));
-      if (Number.isFinite(pinned) && Math.abs(pinned - entry.to) < 0.01) {
-        entry.el.style.removeProperty(entry.property);
+    const settle = () => {
+      supersede();
+      release(entry);
+      companions.forEach(release);
+    };
+    const onEvent = (event: TransitionEvent) => {
+      if (event.target === entry.el && event.propertyName === entry.property) {
+        settle();
       }
     };
-    entry.el.addEventListener('transitionend', onSettled);
-    entry.el.addEventListener('transitioncancel', onSettled);
-    const forEl = pendingFlipCleanups.get(entry.el) ?? new Map<string, () => void>();
-    forEl.set(entry.property, disarm);
-    pendingFlipCleanups.set(entry.el, forEl);
+    if (moving(entry)) {
+      entry.el.addEventListener('transitionend', onEvent);
+      entry.el.addEventListener('transitioncancel', onEvent);
+    }
+    timer = setTimeout(settle, FLIP_FALLBACK_MS);
+    const forEl = pendingFlips.get(entry.el) ?? new Map<string, PendingFlip>();
+    forEl.set(entry.property, { supersede, settle, declared: declared.get(entry) ?? '' });
+    pendingFlips.set(entry.el, forEl);
   }
 
   for (const entry of changing) {
