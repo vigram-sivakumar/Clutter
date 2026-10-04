@@ -190,7 +190,7 @@ export function PdfEmbedMoreActions({
       >
         <OverflowMenuBody
           items={menuItems}
-          size="small"
+          size="medium"
           onSelect={handleSelect}
           onOpenChange={(open) => {
             if (!open) {

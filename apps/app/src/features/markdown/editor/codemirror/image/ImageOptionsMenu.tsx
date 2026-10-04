@@ -110,7 +110,7 @@ export function ImageOptionsMenu({
       side="bottom"
       alignment="end"
     >
-      <Menu size="small">
+      <Menu size="medium">
         {MODE_ITEMS.map(({ mode, label, icon }) => (
           <MenuItem
             key={mode}
