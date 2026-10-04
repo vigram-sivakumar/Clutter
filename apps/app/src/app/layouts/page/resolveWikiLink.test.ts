@@ -462,6 +462,65 @@ describe('createWikiLinkResolver', () => {
       expect(createFolder).not.toHaveBeenCalled();
     });
 
+    // A wiki link never creates anything inside the Daily Notes folder: that tree holds only the
+    // Daily Notes the calendar makes.
+    describe('inside the Daily Notes folder', () => {
+      it.each([
+        'Daily Notes/Foo',
+        'Daily Notes/2026/October/Foo',
+        'Daily Notes/2099/March/Foo', // would also have created a year and a month folder
+        'daily notes/2026/October/Foo',
+      ])('activating an unresolved link to "%s" creates no note and no folder', async (path) => {
+        const vault = makeVault([]);
+        const createPage = vi.fn();
+        const createFolder = vi.fn();
+        const resolve = createWikiLinkResolver(
+          vault,
+          fakePageOperations(vault, { create: createPage }),
+          fakeFolderOperations(vault, { create: createFolder })
+        );
+
+        const resolution = resolve(path, null);
+        expect(resolution.status).toBe('unresolved');
+        resolution.activate();
+        await flushAsync();
+
+        expect(createPage).not.toHaveBeenCalled();
+        expect(createFolder).not.toHaveBeenCalled();
+      });
+
+      it('still opens a note that already exists there', () => {
+        const month = makeFolder({ id: 'oct', path: '/vault/Daily Notes/2026/October' });
+        const page = makePage({ id: 'd1', path: '/vault/Daily Notes/2026/October/2026-10-03.md', name: '2026-10-03' });
+        const vault = makeVault([page], [month]);
+        const open = vi.fn();
+        const resolve = createWikiLinkResolver(vault, fakePageOperations(vault, { open }), fakeFolderOperations(vault));
+
+        const resolution = resolve('Daily Notes/2026/October/2026-10-03', null);
+        expect(resolution.status).toBe('resolved');
+        resolution.activate();
+
+        expect(open).toHaveBeenCalledWith('d1');
+      });
+
+      it('does not affect a folder that merely looks similar, or one of that name elsewhere', async () => {
+        for (const path of ['Daily Notes Archive/Foo', 'Projects/Daily Notes/Foo']) {
+          const vault = makeVault([]);
+          const createPage = vi.fn();
+          const resolve = createWikiLinkResolver(
+            vault,
+            fakePageOperations(vault, { create: createPage }),
+            fakeFolderOperations(vault)
+          );
+
+          resolve(path, null).activate();
+          await flushAsync();
+
+          expect(createPage).toHaveBeenCalledTimes(1);
+        }
+      });
+    });
+
     // 6. Repeated activation after creation does not create another note
     // (or folder) — the second activation finds the now-existing page in
     // Vault and opens it instead.

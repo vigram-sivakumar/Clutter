@@ -125,6 +125,34 @@ function persistingFolderOperations(vault: Vault): FolderOperations {
   } as unknown as FolderOperations;
 }
 
+describe('createWikiLinkSuggester — nothing to create inside the Daily Notes folder', () => {
+  it('offers no Create option for a path inside the Daily Notes folder', () => {
+    const vault = makeVault([]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    expect(suggest('Daily Notes/2026/October/Foo')).toEqual([]);
+    expect(suggest('Daily Notes/Foo')).toEqual([]);
+    expect(suggest('daily notes/2099/March/Foo')).toEqual([]);
+  });
+
+  it('still offers Create for any other unmatched path, including look-alikes', () => {
+    const vault = makeVault([]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    for (const path of ['Projects/Foo', 'Daily Notes Archive/Foo', 'Projects/Daily Notes/Foo']) {
+      expect(suggest(path)).toEqual([expect.objectContaining({ kind: 'create', path })]);
+    }
+  });
+
+  it('still lists the Daily Notes that exist, so linking to one works', () => {
+    const page = makePage({ id: 'd1', path: '/vault/Daily Notes/2026/October/2026-10-03.md', name: '2026-10-03' });
+    const vault = makeVault([page]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    expect(suggest('2026-10')).toEqual([expect.objectContaining({ kind: 'page', title: '2026-10-03' })]);
+  });
+});
+
 describe('createWikiLinkSuggester', () => {
   it('returns nothing for an empty query when the vault has no pages', () => {
     const vault = makeVault([]);

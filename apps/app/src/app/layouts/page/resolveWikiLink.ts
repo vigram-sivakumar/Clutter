@@ -3,6 +3,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import type { ResolveWikiLink, WikiLinkResolution } from '@features/markdown/editor/MarkdownEditor';
 
@@ -174,6 +175,16 @@ export function findPagesByAlias(vault: Vault, alias: string): Page[] {
  * insert/create, never navigate (docs/editor-architecture-decisions.md's
  * "autocomplete acceptance is insertion-only" invariant).
  */
+/**
+ * Whether a wiki link may create the note at `path` (vault-relative, no extension). Not inside the
+ * Daily Notes folder: that tree holds only the Daily Notes the calendar makes, so a link — typed,
+ * accepted from autocomplete, or clicked while unresolved — never creates a regular note (or the
+ * year / month folders to hold it) there. Linking to a Daily Note that already exists is unaffected.
+ */
+export function canCreateReferencedPage(vault: Vault, path: string): boolean {
+  return !DailyNotePath.isWithinRoot(vault.root, `${vault.root}/${path}.md`);
+}
+
 export async function createReferencedPage(
   vault: Vault,
   folderOperations: FolderOperations,
@@ -188,6 +199,10 @@ export async function createReferencedPage(
     if (activate) {
       void pageOperations.open(existing.id);
     }
+    return;
+  }
+
+  if (!canCreateReferencedPage(vault, path)) {
     return;
   }
 

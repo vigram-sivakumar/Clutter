@@ -48,6 +48,20 @@ export class DailyNotePath {
   }
 
   /**
+   * Whether `path` is the Daily Notes folder itself or anything inside it, at any depth. The tree
+   * holds only Daily Notes, made by the calendar — so a regular note never belongs in it. The folder
+   * name is matched without regard to case, as the file system does.
+   */
+  static isWithinRoot(vaultRoot: string, path: string): boolean {
+    const prefix = `${vaultRoot}/`;
+    if (!path.startsWith(prefix)) {
+      return false;
+    }
+    const [first] = path.slice(prefix.length).split('/');
+    return first !== undefined && first.toLowerCase() === this.ROOT.toLowerCase();
+  }
+
+  /**
    * What `folderPath` is within the Daily Notes tree — `'root'` (`Daily Notes`), `'year'`
    * (`Daily Notes/2026`) or `'month'` (`Daily Notes/2026/October`) — or `null` for any other
    * folder, including a folder with an unexpected name under Daily Notes. The same shape

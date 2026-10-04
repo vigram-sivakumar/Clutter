@@ -9,7 +9,7 @@ import type {
   WikiLinkSuggestion,
 } from '@features/markdown/editor/MarkdownEditor';
 
-import { createReferencedPage } from './resolveWikiLink';
+import { canCreateReferencedPage, createReferencedPage } from './resolveWikiLink';
 
 /**
  * Composes `Vault` + `PageOperations`/`FolderOperations` into the editor's
@@ -73,6 +73,10 @@ export function createWikiLinkSuggester(
     // `showCreate`): a Create option is offered only when the search
     // produces zero matches, never alongside real results.
     const path = query.trim();
+    // Nothing to offer for a path a link may not create (inside the Daily Notes folder).
+    if (!canCreateReferencedPage(vault, path)) {
+      return [];
+    }
     const suggestion: WikiLinkSuggestion = {
       kind: 'create',
       path,

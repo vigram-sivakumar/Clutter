@@ -154,5 +154,30 @@ describe('DailyNotePath.matchesCanonicalPath', () => {
       expect(sorted('year', ['Zed', 'March', 'Alpha', 'January'])).toEqual(['January', 'March', 'Alpha', 'Zed']);
     });
   });
+
+  describe('isWithinRoot — the Daily Notes folder and everything inside it', () => {
+    it.each([
+      '/vault/Daily Notes',
+      '/vault/Daily Notes/Foo.md',
+      '/vault/Daily Notes/2026',
+      '/vault/Daily Notes/2026/October/Foo.md',
+      '/vault/Daily Notes/2099/March/Anything/Deep.md',
+      '/vault/daily notes/2026/October/Foo.md', // the file system does not tell these apart
+      '/vault/DAILY NOTES/Foo.md',
+    ])('%s is inside', (path) => {
+      expect(DailyNotePath.isWithinRoot('/vault', path)).toBe(true);
+    });
+
+    it.each([
+      '/vault/Projects/Foo.md',
+      '/vault/Projects/Daily Notes/Foo.md', // a folder of that name somewhere else is just a folder
+      '/vault/Daily Notes Archive/Foo.md', // a sibling that merely starts the same
+      '/vault/Daily NotesX/Foo.md',
+      '/vault/Foo.md',
+      '/elsewhere/Daily Notes/Foo.md', // not under this vault
+    ])('%s is not', (path) => {
+      expect(DailyNotePath.isWithinRoot('/vault', path)).toBe(false);
+    });
+  });
 });
 
