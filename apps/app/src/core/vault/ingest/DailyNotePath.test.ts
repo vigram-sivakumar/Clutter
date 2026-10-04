@@ -106,4 +106,53 @@ describe('DailyNotePath.matchesCanonicalPath', () => {
       )
     ).toBe(false);
   });
+
+  describe('folderLevel — what a folder is within the Daily Notes tree', () => {
+    it.each([
+      ['/vault/Daily Notes', 'root'],
+      ['/vault/Daily Notes/2026', 'year'],
+      ['/vault/Daily Notes/2026/October', 'month'],
+    ])('%s is the %s', (path, level) => {
+      expect(DailyNotePath.folderLevel('/vault', path)).toBe(level);
+    });
+
+    it.each([
+      '/vault/Projects',
+      '/vault/Projects/2026',
+      '/vault/Daily Notes/Misc', // not a year
+      '/vault/Daily Notes/26', // not a four-digit year
+      '/vault/Daily Notes/2026/Octobre', // not a month
+      '/vault/Daily Notes/2026/October/Week 1', // deeper than a month
+      '/vault/Daily Notes Archive',
+      '/elsewhere/Daily Notes',
+    ])('%s is not part of the tree', (path) => {
+      expect(DailyNotePath.folderLevel('/vault', path)).toBeNull();
+    });
+  });
+
+  describe('compareFolderNames — years newest first, months January to December', () => {
+    const sorted = (level: 'root' | 'year', names: string[]) =>
+      [...names].sort((a, b) => DailyNotePath.compareFolderNames(level, a, b));
+
+    it('puts the latest year first', () => {
+      expect(sorted('root', ['2024', '2026', '2025', '2023'])).toEqual(['2026', '2025', '2024', '2023']);
+    });
+
+    it('puts months in calendar order, not alphabetical (April, August, ... would come first)', () => {
+      expect(sorted('year', ['October', 'April', 'January', 'December', 'August', 'February'])).toEqual([
+        'January',
+        'February',
+        'April',
+        'August',
+        'October',
+        'December',
+      ]);
+    });
+
+    it('puts a name that is not a year or month after the real ones, in alphabetical order', () => {
+      expect(sorted('root', ['Misc', '2024', 'Archive', '2026'])).toEqual(['2026', '2024', 'Archive', 'Misc']);
+      expect(sorted('year', ['Zed', 'March', 'Alpha', 'January'])).toEqual(['January', 'March', 'Alpha', 'Zed']);
+    });
+  });
 });
+

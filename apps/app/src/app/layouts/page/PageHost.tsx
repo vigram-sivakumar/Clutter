@@ -111,6 +111,8 @@ import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal'
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
+import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import {
   isRemoteImageReference,
   useImageFileActions,
@@ -618,7 +620,18 @@ export function PageHost({
     }
   };
 
-  const onOpenFolder = (id: string) => application.folderOperations.open(id);
+  // With the Daily Notes collection pages off (core/featureFlags.ts), the Daily Notes folder and its
+  // year and month folders have no page to open — nothing that asks for one gets it.
+  const isDailyNotesTreeFolder = (id: string): boolean => {
+    const target = vault.getFolder(id);
+    return target !== undefined && DailyNotePath.folderLevel(vault.root, target.path) !== null;
+  };
+  const onOpenFolder = (id: string) => {
+    if (!isDailyNotesCollectionPagesEnabled() && isDailyNotesTreeFolder(id)) {
+      return;
+    }
+    application.folderOperations.open(id);
+  };
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
   // no persistence. Durable-stage persistence is a separate, payload-free
   // request (onRequestSave below), fired on blur.
@@ -1178,7 +1191,18 @@ export function PageHost({
     // note here" affordance today (rule 12 — never wire a live control to
     // an invented handler), matching the same `!folderSystemLocationId`
     // gate showMoreActions/emoji already use.
-    const onCreateNote = !folderSystemLocationId
+    // Where this folder sits in the Daily Notes tree, if it does: the Daily Notes page holds only
+    // years, a year only months, a month only days — made by the calendar, never by hand. So none of
+    // them offers creating a folder or a note (no create-folder card, no "+" in the header).
+    const dailyNotesLevel = DailyNotePath.folderLevel(vault.root, folder.path);
+    const holdsOnlyFolders = dailyNotesLevel === 'root' || dailyNotesLevel === 'year';
+    const dailyNotesFolders =
+      dailyNotesLevel === 'root' || dailyNotesLevel === 'year'
+        ? [...model.folders].sort((a, b) =>
+            DailyNotePath.compareFolderNames(dailyNotesLevel, a.title, b.title)
+          )
+        : model.folders;
+    const onCreateNote = !folderSystemLocationId && dailyNotesLevel === null
       ? () => void application.pageOperations.openDraft({ folderId: folder.id })
       : undefined;
     // Title-adjacent (PageTitleSection's `actions` slot, after the
@@ -1190,7 +1214,7 @@ export function PageHost({
     // createAndOpenFolder.ts, the same create-then-open shape
     // duplicateAndOpenPage.ts already established for Duplicate. Creates
     // as a subfolder of the folder currently being viewed.
-    const onCreateSubfolder = !folderSystemLocationId
+    const onCreateSubfolder = !folderSystemLocationId && dailyNotesLevel === null
       ? () =>
           void createAndOpenFolder(
             application.folderOperations,
@@ -1324,7 +1348,9 @@ export function PageHost({
               />
             ) : (
               <CollectionBody
-                folders={model.folders}
+                folders={dailyNotesFolders}
+                foldersInGivenOrder={holdsOnlyFolders}
+                showNotes={!holdsOnlyFolders}
                 notes={model.notes}
                 viewMode={collectionViewMode}
                 properties={collectionProperties}
@@ -1681,7 +1707,15 @@ export function PageHost({
           hideDescriptionEditor(activePageId);
         }}
         onEditDescription={() => onOpenDescriptionEditor(activePageId)}
-        breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
+        breadcrumbs={
+          <Breadcrumbs
+            items={
+              draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+                ? draftBreadcrumbs.slice(-1)
+                : draftBreadcrumbs
+            }
+          />
+        }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
         // don't apply until this draft is actually persisted.
@@ -1963,7 +1997,17 @@ export function PageHost({
         onCancelPageDescription(page.id, Boolean(page.metadata.description))
       }
       onEditDescription={() => onOpenDescriptionEditor(page.id)}
-      breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+      // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
+      // off (core/featureFlags.ts) only the note's own crumb is shown.
+      breadcrumbs={
+        <Breadcrumbs
+          items={
+            page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+              ? breadcrumbs.slice(-1)
+              : breadcrumbs
+          }
+        />
+      }
       actions={topBar.actions}
       // Page-header-controls configuration: a Note is user-owned (its
       // metadata.icon, when set, always shows; More actions is

@@ -48,6 +48,68 @@ export class DailyNotePath {
   }
 
   /**
+   * What `folderPath` is within the Daily Notes tree — `'root'` (`Daily Notes`), `'year'`
+   * (`Daily Notes/2026`) or `'month'` (`Daily Notes/2026/October`) — or `null` for any other
+   * folder, including a folder with an unexpected name under Daily Notes. The same shape
+   * `from()` writes, read back from a folder path.
+   */
+  static folderLevel(vaultRoot: string, folderPath: string): 'root' | 'year' | 'month' | null {
+    const prefix = `${vaultRoot}/`;
+    if (!folderPath.startsWith(prefix)) {
+      return null;
+    }
+    const [root, year, month, ...rest] = folderPath.slice(prefix.length).split('/');
+    if (root !== this.ROOT || rest.length > 0) {
+      return null;
+    }
+    if (year === undefined) {
+      return 'root';
+    }
+    if (!/^\d{4}$/.test(year)) {
+      return null;
+    }
+    if (month === undefined) {
+      return 'year';
+    }
+    return (this.MONTH_NAMES as readonly string[]).includes(month) ? 'month' : null;
+  }
+
+  /**
+   * Orders two folder names of the same Daily Notes level: years newest first, months in calendar
+   * order (January to December) — not alphabetical, where April would come before January. A name
+   * that isn't a year / a month sorts last and keeps its alphabetical place among such names.
+   */
+  static compareFolderNames(level: 'root' | 'year', a: string, b: string): number {
+    if (level === 'root') {
+      const yearA = /^\d{4}$/.test(a) ? Number(a) : null;
+      const yearB = /^\d{4}$/.test(b) ? Number(b) : null;
+      if (yearA !== null && yearB !== null) {
+        return yearB - yearA;
+      }
+      if (yearA !== null) {
+        return -1;
+      }
+      if (yearB !== null) {
+        return 1;
+      }
+      return a.localeCompare(b);
+    }
+    const names = this.MONTH_NAMES as readonly string[];
+    const indexA = names.indexOf(a);
+    const indexB = names.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    if (indexA !== -1) {
+      return -1;
+    }
+    if (indexB !== -1) {
+      return 1;
+    }
+    return a.localeCompare(b);
+  }
+
+  /**
    * Whether `path` is exactly the canonical Daily Note path for some date —
    * the sole authority for "is this filename actually a Daily Note," used
    * by classification (PageBuilder/Vault.resolvePageType) to decide

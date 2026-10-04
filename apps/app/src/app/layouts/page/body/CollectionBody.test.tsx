@@ -585,3 +585,67 @@ describe('CollectionBody: Archived column is Archive-only', () => {
     expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();
   });
 });
+
+describe('CollectionBody — showNotes', () => {
+  it('shows the notes section by default, in every view mode', () => {
+    for (const viewMode of ['list', 'table', 'card'] as const) {
+      const { getByText, unmount } = render(
+        <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode={viewMode} />
+      );
+      expect(getByText('My note')).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('leaves the notes section out entirely when showNotes is false — folders only', () => {
+    for (const viewMode of ['list', 'table', 'card'] as const) {
+      const { getByText, queryByText, container, unmount } = render(
+        <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode={viewMode} showNotes={false} />
+      );
+      expect(getByText('My Folder')).toBeInTheDocument();
+      expect(queryByText('My note')).not.toBeInTheDocument();
+      expect(queryByText('New Note')).not.toBeInTheDocument();
+      expect(container.querySelector('.collection-table')).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+});
+
+describe('CollectionBody — foldersInGivenOrder', () => {
+  const folders = [
+    folderEntry({ id: 'a', title: '2024' }),
+    folderEntry({ id: 'b', title: '2026' }),
+    folderEntry({ id: 'c', title: '2025' }),
+  ];
+  const titles = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('.folder-card')).map((card) => card.textContent);
+
+  it('sorts folders by the Configure menu\'s sort by default (name, ascending here)', () => {
+    const { container } = render(
+      <CollectionBody folders={folders} viewMode="list" sort={{ key: 'name', direction: 'down' }} />
+    );
+    expect(titles(container)).toEqual(['2024', '2025', '2026']);
+  });
+
+  it('draws them exactly in the order given when foldersInGivenOrder is set, whatever the sort says', () => {
+    const given = [folders[1]!, folders[2]!, folders[0]!];
+    for (const direction of ['down', 'up'] as const) {
+      const { container, unmount } = render(
+        <CollectionBody folders={given} viewMode="list" sort={{ key: 'name', direction }} foldersInGivenOrder />
+      );
+      expect(titles(container)).toEqual(['2026', '2025', '2024']);
+      unmount();
+    }
+  });
+});
+
+describe('CollectionBody — no create actions when none are given', () => {
+  it('shows neither the create-folder card nor a New Note row without onCreateFolder / onCreateNote', () => {
+    const { container, queryByText } = render(
+      <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
+    );
+    expect(container.querySelector('.folder-card--create')).not.toBeInTheDocument();
+    expect(queryByText('New Note')).not.toBeInTheDocument();
+  });
+});
+

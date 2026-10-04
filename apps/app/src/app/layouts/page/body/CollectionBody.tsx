@@ -203,12 +203,25 @@ export interface CollectionBodyProps {
   /**
    * Wires each view mode's trailing "New Note" row (see NoteTableNewRow's
    * and the notes list's `newItem`) — same "presence is the capability
-   * gate" convention as onCreateFolder above. Table mode always renders
-   * its row regardless of note count; list mode only gets one when
-   * sortedNotes is non-empty (below) — list's own empty state is not
-   * this row, so it's withheld rather than forwarded as-is.
+   * gate" convention as onCreateFolder above. Without it no row is drawn
+   * in any mode (a "New Note" row that does nothing is a dead control).
+   * With it, table mode renders its row regardless of note count; list
+   * mode only gets one when sortedNotes is non-empty (below) — list's own
+   * empty state is not this row, so it's withheld rather than forwarded
+   * as-is.
    */
   onCreateNote?: () => void;
+  /**
+   * Whether the notes section is shown at all (default: yes). Off for a page that only holds folders
+   * — a Daily Notes year or the Daily Notes root — where an empty notes table would just be noise.
+   */
+  showNotes?: boolean;
+  /**
+   * Draws `folders` in the order given, ignoring the Configure menu's sort (default: sorted by it).
+   * For a page whose folders have a natural order of their own — Daily Notes' years newest first,
+   * a year's months January to December — that a name or date sort would break.
+   */
+  foldersInGivenOrder?: boolean;
   /**
    * Resolution for Card mode's read-only DocumentPreview (WikiLink/Tag/
    * embed/image/cover) — composed in PageHost from the editor's own
@@ -407,10 +420,12 @@ export function CollectionBody({
   sort = DEFAULT_COLLECTION_SORT,
   onCreateFolder,
   onCreateNote,
+  showNotes = true,
+  foldersInGivenOrder = false,
   previewResolvers,
   noteCover,
 }: CollectionBodyProps) {
-  const sortedFolders = sortCollectionEntries(folders, sort);
+  const sortedFolders = foldersInGivenOrder ? [...folders] : sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
   // The note whose cover picker is open, and the thumbnail it opens beside
@@ -437,7 +452,8 @@ export function CollectionBody({
 
   const noteSection =
     viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
-      footer: <NoteTableNewRow onClick={onCreateNote} />,
+      // Only when notes can be created here: a "New Note" row that does nothing is a dead control.
+      footer: onCreateNote ? <NoteTableNewRow onClick={onCreateNote} /> : undefined,
       coverFor,
     }) : viewMode === 'card' ? (
       <NoteCardGrid
@@ -461,7 +477,7 @@ export function CollectionBody({
           {onCreateFolder && renderCreateFolderCard(onCreateFolder)}
         </FolderGrid>
       )}
-      {noteSection}
+      {showNotes && noteSection}
       {noteCover && viewMode !== 'card' && coverNote && (
         <CoverPickerOverlay
           open
