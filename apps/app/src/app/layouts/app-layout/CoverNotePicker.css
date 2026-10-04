@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
-  width: var(--dialog-width-lg);
+  width: var(--dialog-width-md);
   /* Sizes the list (below). A row with a folder path is 48px; the rows per section is the
      picker's sectionLimit (CoverNotePicker.tsx). */
   --cover-note-row: 48px;
