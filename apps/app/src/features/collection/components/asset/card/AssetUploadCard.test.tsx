@@ -12,7 +12,7 @@ import { AssetUploadCard } from './AssetUploadCard';
 afterEach(cleanup);
 
 describe('AssetUploadCard', () => {
-  it('is a shared-shell card labelled Upload, with the upload icon and no media or metadata', () => {
+  it('is a shared-shell card labelled Upload, with the plain upload icon (not the image-upload one) and no media or metadata', () => {
     const { container, getByText } = render(<AssetUploadCard onClick={vi.fn()} />);
 
     const card = container.querySelector('.asset-upload-card')!;

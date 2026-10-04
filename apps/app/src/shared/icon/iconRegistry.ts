@@ -109,6 +109,7 @@ import Template from './svg/template.svg?react';
 import Tick from './svg/tick.svg?react';
 import Tray from './svg/tray.svg?react';
 import Unsplash from './svg/unsplash.svg?react';
+import Upload from './svg/upload.svg?react';
 import UploadImage from './svg/upload-image.svg?react';
 import Trash from './svg/trash.svg?react';
 import WidthFill from './svg/width-fill.svg?react';
@@ -223,6 +224,7 @@ export const iconRegistry = {
   tick: Tick,
   tray: Tray,
   unsplash: Unsplash,
+  upload: Upload,
   uploadImage: UploadImage,
   trash: Trash,
   widthFill: WidthFill,

@@ -16,7 +16,7 @@ export interface AssetUploadCardProps {
 export function AssetUploadCard({ onClick }: AssetUploadCardProps) {
   return (
     <CollectionCard className="asset-upload-card" onClick={onClick}>
-      <CardTitleSection icon="uploadImage" title="Upload" />
+      <CardTitleSection icon="upload" title="Upload" />
     </CollectionCard>
   );
 }

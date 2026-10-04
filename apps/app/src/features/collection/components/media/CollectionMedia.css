@@ -7,8 +7,8 @@
  * NoteCoverThumbnail.css). Per CLAUDE.md, no `margin` — spacing is padding only.
  */
 :root {
-  --collection-media-width: var(--space-30);
-  --collection-media-height: var(--space-20);
+  --collection-media-width: var(--space-40);
+  --collection-media-height: var(--space-30);
 }
 
 .collection-media {
