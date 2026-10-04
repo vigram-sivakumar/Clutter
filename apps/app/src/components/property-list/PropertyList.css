@@ -16,7 +16,7 @@
   gap: var(--space-12);
 }
 .property-list__name {
-  max-width: 160px;
+  max-width: 200px;
   color: var(--foreground-secondary);
 }
 /* The name's icon is the property's type. For a Property with a menu,

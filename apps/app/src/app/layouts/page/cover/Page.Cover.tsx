@@ -160,6 +160,9 @@ export function PageCover({
   const [view, setView] = useState<MenuView>('menu');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const suppressReturnFocusRef = useRef(false);
+  // The last src whose load failed — guards onRemove so one broken cover
+  // is removed once, and a later (different) src is judged on its own.
+  const failedSrcRef = useRef<string | null>(null);
 
   // Every fresh open must start on the menu view — this component doesn't
   // unmount between opens (only its Overlay does), so `view` would
@@ -590,6 +593,16 @@ export function PageCover({
               ? 'ns-resize'
               : 'ew-resize'
             : undefined,
+        }}
+        onError={() => {
+          // An invalid cover is deleted outright rather than left as a
+          // broken image: onRemove clears `cover` from the persisted
+          // metadata, which unmounts this component.
+          if (failedSrcRef.current === src) {
+            return;
+          }
+          failedSrcRef.current = src;
+          onRemove?.();
         }}
         onPointerDown={repositioning ? handleImagePointerDown : undefined}
         onPointerMove={repositioning ? handleImagePointerMove : undefined}
