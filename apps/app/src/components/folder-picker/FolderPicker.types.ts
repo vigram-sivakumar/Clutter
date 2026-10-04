@@ -30,6 +30,13 @@ export interface FolderPickerItem {
    * under width pressure — `title` never truncates.
    */
   secondaryLabel?: string;
+  /**
+   * The section this item belongs to. Where it changes from one item to the next, the
+   * picker draws a divider (not before the first section) and the section's title —
+   * a `MenuGroupTitle`. Items of one section must be adjacent; an item without a
+   * section never starts one.
+   */
+  section?: string;
 }
 
 /**

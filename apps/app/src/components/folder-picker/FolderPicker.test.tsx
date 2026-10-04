@@ -378,3 +378,40 @@ describe('FolderPicker', () => {
     });
   });
 });
+
+describe('FolderPicker sections', () => {
+  const items = [
+    { id: 'n1', title: 'Alpha', level: 0, parentId: null, section: 'Notes' },
+    { id: 'n2', title: 'Beta', level: 0, parentId: null, section: 'Notes' },
+    { id: 'd1', title: 'Today', level: 0, parentId: null, section: 'Daily notes' },
+  ];
+
+  it('draws a title per section and a divider only between sections', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" onSelect={() => {}} />);
+
+    expect(Array.from(container.querySelectorAll('.menu__group-title')).map((el) => el.textContent)).toEqual([
+      'Notes',
+      'Daily notes',
+    ]);
+    expect(container.querySelectorAll('[role="separator"]')).toHaveLength(1);
+  });
+
+  it('draws no sections for items without one', () => {
+    const { container } = render(
+      <FolderPicker items={items.map(({ section: _s, ...rest }) => rest)} leadingIcon="note" onSelect={() => {}} />
+    );
+
+    expect(container.querySelectorAll('.menu__group-title')).toHaveLength(0);
+    expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
+  });
+
+  it('drops a section that has no matching items while searching', () => {
+    const { container, getByPlaceholderText } = render(
+      <FolderPicker items={items} placeholder="Search" leadingIcon="note" onSelect={() => {}} />
+    );
+    fireEvent.change(getByPlaceholderText('Search'), { target: { value: 'tod' } });
+
+    expect(Array.from(container.querySelectorAll('.menu__group-title')).map((el) => el.textContent)).toEqual(['Daily notes']);
+    expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
+  });
+});

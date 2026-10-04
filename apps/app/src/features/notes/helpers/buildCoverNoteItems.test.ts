@@ -19,8 +19,8 @@ describe('buildCoverNoteItems', () => {
     const items = buildCoverNoteItems([page('b', 'beta', '🚀'), page('a', 'Alpha')], noFolders);
 
     expect(items).toEqual([
-      { id: 'a', title: 'Alpha', emoji: null, icon: 'note', level: 0, parentId: null },
-      { id: 'b', title: 'beta', emoji: '🚀', icon: 'note', level: 0, parentId: null },
+      { id: 'a', title: 'Alpha', emoji: null, icon: 'note', level: 0, parentId: null, section: 'Notes' },
+      { id: 'b', title: 'beta', emoji: '🚀', icon: 'note', level: 0, parentId: null, section: 'Notes' },
     ]);
   });
 
@@ -52,5 +52,15 @@ describe('buildCoverNoteItems', () => {
     const [item] = buildCoverNoteItems([daily], (id) => folders.get(id));
 
     expect(item!.ancestors).toBeUndefined();
+  });
+
+  it('lists notes first, then daily notes, each alphabetical, tagged with their section', () => {
+    const items = buildCoverNoteItems(
+      [page('d2', '2026-08-03', null, 'daily-note'), page('z', 'Zed'), page('d1', '2026-08-02', null, 'daily-note'), page('a', 'Alpha')],
+      noFolders
+    );
+
+    expect(items.map((item) => item.id)).toEqual(['a', 'z', 'd1', 'd2']);
+    expect(items.map((item) => item.section)).toEqual(['Notes', 'Notes', 'Daily notes', 'Daily notes']);
   });
 });

@@ -36,9 +36,16 @@ export function buildCoverNoteItems(
     return chain;
   }
 
-  return [...pages]
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-    .map((page) => {
+  const byName = (a: Page, b: Page) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  const isDailyNote = (page: Page) => page.type === 'daily-note';
+  // Notes first, then Daily Notes, each alphabetical by filename — the picker draws a
+  // titled section (with a divider between them) from `section`.
+  const ordered = [
+    ...pages.filter((page) => !isDailyNote(page)).sort(byName),
+    ...pages.filter(isDailyNote).sort(byName),
+  ];
+
+  return ordered.map((page) => {
       const isDaily = page.type === 'daily-note';
       // A Daily Note's date title already says where it belongs — no path.
       const ancestors = isDaily ? [] : ancestorsOf(page);
@@ -51,6 +58,7 @@ export function buildCoverNoteItems(
         level: 0,
         parentId: null,
         ancestors: ancestors.length > 0 ? ancestors : undefined,
+        section: isDaily ? 'Daily notes' : 'Notes',
       };
-    });
+  });
 }

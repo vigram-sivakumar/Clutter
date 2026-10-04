@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import type { FolderPickerProps } from './FolderPicker.types';
 import { Search } from '@components/search/Search';
 import { Entry } from '@components/entry/Entry';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { FolderLeading } from '@features/notes/sidebar/FolderLeading';
 import { AppIcon } from '@shared/icon';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
@@ -152,7 +153,9 @@ export function FolderPicker({
       />
 
       <div className="folder-picker__list" ref={listRef}>
-        {visibleItems.map((item) => {
+        {visibleItems.map((item, index) => {
+          const previousSection = index > 0 ? visibleItems[index - 1]!.section : undefined;
+          const startsSection = item.section !== undefined && item.section !== previousSection;
           // Reuses the exact same parentIds/isEmpty check the caret's
           // disabled state already relied on — a folder's caret shows
           // only when it actually has at least one child, no separate
@@ -168,8 +171,10 @@ export function FolderPicker({
               : undefined;
 
           return (
+            <Fragment key={item.id}>
+              {startsSection && index > 0 && <div className="menu__divider" role="separator" />}
+              {startsSection && <MenuGroupTitle>{item.section}</MenuGroupTitle>}
             <Entry
-              key={item.id}
               id={item.id}
               role="menuitem"
               // Rows are never real-DOM-focused (the search input keeps
@@ -222,6 +227,7 @@ export function FolderPicker({
                 )}
               </div>
             </Entry>
+            </Fragment>
           );
         })}
 
