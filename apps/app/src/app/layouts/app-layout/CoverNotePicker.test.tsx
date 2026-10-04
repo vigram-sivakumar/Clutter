@@ -30,10 +30,10 @@ describe('CoverNotePicker', () => {
     const onSelect = vi.fn();
     render(<CoverNotePicker open notes={notes} onSelect={onSelect} onClose={vi.fn()} />);
 
-    expect(screen.getByPlaceholderText('Search notes…')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search notes and folders…')).toBeTruthy();
     fireEvent.click(screen.getByText('Meeting Notes'));
 
-    expect(onSelect).toHaveBeenCalledWith('b');
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'note', id: 'b' });
   });
 
   it('the dismiss button closes without choosing, and there is no Cancel', () => {
@@ -46,5 +46,15 @@ describe('CoverNotePicker', () => {
 
     expect(onClose).toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('offers a Folders section after the notes, and reports a chosen folder as a folder', () => {
+    const onSelect = vi.fn();
+    const folders = [{ id: 'f1', title: 'Projects', level: 0, parentId: null, section: 'Folders' }];
+    render(<CoverNotePicker open notes={notes} folders={folders} onSelect={onSelect} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText('Projects'));
+
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'folder', id: 'f1' });
   });
 });

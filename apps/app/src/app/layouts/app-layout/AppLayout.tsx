@@ -19,10 +19,11 @@ import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
-import { CoverNotePicker } from './CoverNotePicker';
+import { CoverNotePicker, type CoverTarget } from './CoverNotePicker';
 import { SaveToVaultDialog, type SaveToVaultStatus } from './SaveToVaultDialog';
 import { describeSaveToVaultResult } from '@core/presentation/describeSaveToVaultResult';
 import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
+import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderItems';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
@@ -192,7 +193,7 @@ export function AppLayout({ application }: AppLayoutProps) {
 
   // "Set as cover image" from an asset's viewer: the asset's cover reference
   // (a vault-relative path, or the remote URL as is) waits here while the user
-  // picks which note gets it. Only the note's cover metadata changes.
+  // picks which note or folder gets it. Only that target's cover metadata changes.
   const [coverTarget, setCoverTarget] = useState<string | null>(null);
 
   function askForCoverNote(reference: string): void {
@@ -200,13 +201,15 @@ export function AppLayout({ application }: AppLayoutProps) {
     setCoverTarget(reference);
   }
 
-  function setNoteCover(noteId: string): void {
+  function setCover(target: CoverTarget): void {
     const reference = coverTarget;
     setCoverTarget(null);
     if (reference !== null) {
-      void application.pageOperations
-        .updateMetadata(noteId, newCoverPatch(reference))
-        .catch((error: unknown) => console.error('Could not set the cover image.', error));
+      const update =
+        target.kind === 'folder'
+          ? application.folderOperations.updateMetadata(target.id, newCoverPatch(reference))
+          : application.pageOperations.updateMetadata(target.id, newCoverPatch(reference));
+      void update.catch((error: unknown) => console.error('Could not set the cover image.', error));
     }
   }
 
@@ -319,7 +322,8 @@ export function AppLayout({ application }: AppLayoutProps) {
                 application.membershipSelector.getAllVisiblePages(),
                 (id) => application.vault.getFolder(id)
               )}
-        onSelect={setNoteCover}
+        folders={coverTarget === null ? [] : buildCoverFolderItems(application.membershipSelector)}
+        onSelect={setCover}
         onClose={() => setCoverTarget(null)}
       />
       <PdfOverlay

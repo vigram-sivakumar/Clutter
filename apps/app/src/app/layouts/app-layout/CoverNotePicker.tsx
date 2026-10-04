@@ -5,24 +5,35 @@ import { FolderPicker } from '@components/folder-picker/FolderPicker';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import './CoverNotePicker.css';
 
+export interface CoverTarget {
+  readonly kind: 'note' | 'folder';
+  readonly id: string;
+}
+
 interface CoverNotePickerProps {
   readonly open: boolean;
   readonly notes: FolderPickerItem[];
-  readonly onSelect: (noteId: string) => void;
+  /** A flat "Folders" section after the notes (each item's own `section` names it). */
+  readonly folders?: FolderPickerItem[];
+  readonly onSelect: (target: CoverTarget) => void;
   readonly onClose: () => void;
 }
 
 /**
- * "Set as cover image" → which note? The existing FolderPicker, fed notes
- * instead of folders (flat rows with the note icon), centered over the app.
- * It only reports the chosen note; what that does is the caller's.
+ * "Set as cover image" → which note or folder? The existing FolderPicker, fed notes (flat rows
+ * with the note icon) and then a flat Folders section, centered over the app. It only reports
+ * what was chosen; what that does is the caller's.
  */
 export function CoverNotePicker({
   open,
   notes,
+  folders = [],
   onSelect,
   onClose,
 }: CoverNotePickerProps) {
+  const allItems = [...notes, ...folders];
+  const folderIds = new Set(folders.map((folder) => folder.id));
+
   return (
     <Overlay
       open={open}
@@ -44,12 +55,12 @@ export function CoverNotePicker({
           </Button>
         </span>
         <FolderPicker
-          items={notes}
-          placeholder="Search notes…"
+          items={allItems}
+          placeholder="Search notes and folders…"
           leadingIcon="note"
           showPath
           sectionLimit={5}
-          onSelect={(item) => onSelect(item.id)}
+          onSelect={(item) => onSelect({ kind: folderIds.has(item.id) ? 'folder' : 'note', id: item.id })}
         />
       </div>
     </Overlay>
