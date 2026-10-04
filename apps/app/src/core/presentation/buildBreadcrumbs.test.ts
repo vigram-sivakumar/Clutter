@@ -471,23 +471,23 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
     expect(archiveCrumb.icon).not.toBe(getPageIcon('folder'));
   });
 
-  it('shows the canonical icon and label for an Inbox/Templates ancestor too', () => {
-    const inbox = makeFolder({
-      id: 'inbox-folder',
-      name: 'Inbox',
-      path: `${ROOT}/Inbox`,
+  it('shows the canonical icon and label for a Templates ancestor too', () => {
+    const templates = makeFolder({
+      id: 'templates-folder',
+      name: 'Templates',
+      path: `${ROOT}/Templates`,
       parentId: null,
     });
-    const page = makePage({ parentId: 'inbox-folder' });
+    const page = makePage({ parentId: 'templates-folder' });
     const crumbs = buildBreadcrumbs(
       page,
-      makeVault([inbox]),
-      makeMembershipSelector(makeVault([inbox])),
+      makeVault([templates]),
+      makeMembershipSelector(makeVault([templates])),
       vi.fn()
     );
 
-    expect(crumbs[0]!.title).toBe(getSystemLocationPresentation('inbox').label);
-    expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('inbox').icon);
+    expect(crumbs[0]!.title).toBe(getSystemLocationPresentation('templates').label);
+    expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('templates').icon);
   });
 
   it('uses the plain calendar icon (not the calendar-with-date .icon its sidebar tab uses) for a Daily Notes ancestor crumb', () => {

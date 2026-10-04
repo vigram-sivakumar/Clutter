@@ -107,7 +107,6 @@ import Tag from './svg/tag.svg?react';
 import TeaCup from './svg/tea-cup.svg?react';
 import Template from './svg/template.svg?react';
 import Tick from './svg/tick.svg?react';
-import Tray from './svg/tray.svg?react';
 import Unsplash from './svg/unsplash.svg?react';
 import Upload from './svg/upload.svg?react';
 import UploadImage from './svg/upload-image.svg?react';
@@ -222,7 +221,6 @@ export const iconRegistry = {
   teaCup: TeaCup,
   template: Template,
   tick: Tick,
-  tray: Tray,
   unsplash: Unsplash,
   upload: Upload,
   uploadImage: UploadImage,

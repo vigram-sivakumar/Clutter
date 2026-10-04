@@ -1024,7 +1024,7 @@ export class PagePersistenceCoordinator {
    * (FolderPathResolver.resolveRestoreDestination, mirroring
    * MoveService.resolveRestoreDestination's page-side contract exactly:
    * keyed on the folder's own `originalPath` alone, parent-exists → exact
-   * originalPath, else vault root, no Inbox, no originalParentId lookup),
+   * originalPath, else vault root, no originalParentId lookup),
    * then persists the target folder's own cleared archive metadata.
    * Descendant folders'/pages' own metadata is untouched, for the same
    * reason runArchiveFolder leaves them untouched — their new location is

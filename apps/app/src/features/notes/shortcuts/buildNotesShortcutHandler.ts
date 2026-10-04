@@ -15,9 +15,6 @@ export function buildNotesShortcutHandler(
         // unlike create(), so no composed .open() call is needed here.
         void pageOperations.openDraft({ folderId: null });
         break;
-      case 'inbox':
-        navigation.openInbox();
-        break;
       case 'templates':
         navigation.openTemplates();
         break;

@@ -194,7 +194,7 @@ export class FolderOperations {
   }
 
   /**
-   * Ensures a reserved folder (Daily Notes, Archive, Inbox, Templates,
+   * Ensures a reserved folder (Daily Notes, Archive, Templates,
    * .clutter) exists — recreating it, on disk and in Vault, if it was
    * deleted externally while the app kept running and Vault has already
    * reconciled the deletion away (VaultSyncService.handleDeleted). Not a

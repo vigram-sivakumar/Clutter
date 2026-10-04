@@ -4,11 +4,6 @@ import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationI
 export const notesShortcuts = [
   { id: 'new-note', title: 'New', icon: 'plus' },
   {
-    id: 'inbox',
-    title: getSystemLocationPresentation('inbox').label,
-    icon: getSystemLocationPresentation('inbox').icon,
-  },
-  {
     id: 'templates',
     title: getSystemLocationPresentation('templates').label,
     icon: getSystemLocationPresentation('templates').icon,

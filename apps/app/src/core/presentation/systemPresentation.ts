@@ -5,7 +5,7 @@ import { reservedFolderIdForName } from '@core/vault/initialize/ReservedResource
 
 /**
  * Stable identifiers for every system location the sidebar/navigation
- * exposes — the ones backed by a reserved Vault folder (archive, inbox,
+ * exposes — the ones backed by a reserved Vault folder (archive,
  * templates, daily-notes) share their id string with `ReservedFolderId`
  * (ReservedResources.ts) rather than a separately-maintained translation
  * table; the rest (notes, tasks, tags, favorites, search) have no backing
@@ -28,14 +28,13 @@ export type SystemLocationId =
   | 'workspace'
   | 'search'
   | 'archive'
-  | 'inbox'
   | 'templates'
   | 'assets';
 
 /**
  * A system location's presentation — label and icon only. This is the
  * single source every current surface (sidebar tabs, the Archive footer
- * button, Inbox/Templates shortcuts, the Favorites section header,
+ * button, Templates shortcut, the Favorites section header,
  * breadcrumb ancestors for pages inside a reserved folder, the page
  * header when a reserved folder is the active folder) reads from, and
  * the one place a future surface (search, command palette, quick
@@ -112,7 +111,6 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   workspace: { id: 'workspace', label: 'Workspace', icon: 'folder' },
   search: { id: 'search', label: 'Search', icon: 'magnifyingGlass' },
   archive: { id: 'archive', label: 'Archive', icon: 'archive' },
-  inbox: { id: 'inbox', label: 'Inbox', icon: 'tray' },
   templates: { id: 'templates', label: 'Templates', icon: 'template' },
   assets: { id: 'assets', label: 'Assets', icon: 'layers' },
 };
@@ -160,7 +158,7 @@ export type SystemLocationSurface = 'page-header';
  * `false`. This is the one place that decision is made; a `PageHost`
  * branch never re-derives it or checks the flag itself, so no branch can
  * accidentally bypass it, and it applies identically to a folder-backed
- * reserved location (Archive, Inbox, Templates, Daily Notes) and a
+ * reserved location (Archive, Templates, Daily Notes) and a
  * non-folder one (Today, Tags, Workspace, ...) alike.
  */
 export function getSystemLocationPresentation(
@@ -192,7 +190,7 @@ export function getSystemLocationPresentation(
  * Which SystemLocationId (if any) a Folder represents — the single place
  * every consumer that has a Folder in hand (breadcrumb ancestors, the
  * page header for a directly-viewed folder, and any future one) resolves
- * this, rather than each re-deriving "is this Archive/Inbox/Templates/
+ * this, rather than each re-deriving "is this Archive/Templates/
  * Daily Notes" itself. Reuses MembershipSelector.isSystemFolder() (ADR-023)
  * for the "is this actually reserved, not just named the same thing"
  * check (path/parentId-aware) instead of reimplementing it or calling

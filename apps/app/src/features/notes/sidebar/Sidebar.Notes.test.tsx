@@ -267,7 +267,7 @@ function overflowButtonForEntry(rowTitleElement: HTMLElement): HTMLElement {
 }
 
 describe('Sidebar Notes: Assets shortcut', () => {
-  it('is visible in the Notes sidebar, rendered in the navigation area (.view--navigation) alongside New/Inbox/Templates — not inside the Workspace/content area', () => {
+  it('is visible in the Notes sidebar, rendered in the navigation area (.view--navigation) alongside New/Templates — not inside the Workspace/content area', () => {
     const deps = setup([]);
 
     const { container } = renderNotes(deps);
@@ -284,7 +284,6 @@ describe('Sidebar Notes: Assets shortcut', () => {
     // Assets-only navigation section.
     const navigation = container.querySelector('.view--navigation');
     expect(navigation?.textContent).toContain('New');
-    expect(navigation?.textContent).toContain('Inbox');
     expect(navigation?.textContent).toContain('Templates');
     expect(navigation?.textContent).toContain('Assets');
   });

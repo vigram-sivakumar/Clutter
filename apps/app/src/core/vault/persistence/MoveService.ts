@@ -73,7 +73,7 @@ export class MoveService {
    * deliberately does not survive the original folder merely being
    * renamed (its id unchanged, but nothing exists at the old path
    * anymore) — that trade-off is the approved contract, not an oversight.
-   * No Inbox fallback: exactly two outcomes, original path or vault root.
+   * No fallback: exactly two outcomes, original path or vault root.
    */
   resolveRestoreDestination(current: Page): {
     path: string;

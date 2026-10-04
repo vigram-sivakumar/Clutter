@@ -538,7 +538,6 @@ Translate named, view-level user intents into `Workspace` state changes and/or `
 ```ts
 + class NavigationRouter {
     openArchive(): void;
-    openInbox(): void;
     openTemplates(): void;
     openFavorites(): void;
     openAllNotes(): void;

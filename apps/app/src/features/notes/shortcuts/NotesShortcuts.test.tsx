@@ -14,9 +14,9 @@ describe('NotesShortcuts', () => {
     const onShortcut = vi.fn();
     render(<NotesShortcuts onShortcut={onShortcut} />);
 
-    fireEvent.click(screen.getByText('Inbox'));
+    fireEvent.click(screen.getByText('Templates'));
 
-    expect(onShortcut).toHaveBeenCalledWith('inbox');
+    expect(onShortcut).toHaveBeenCalledWith('templates');
   });
 
   it('renders the Assets shortcut and invokes onShortcut with its id when clicked', () => {

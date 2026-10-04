@@ -67,7 +67,7 @@ function ancestorBreadcrumbs(
       break;
     }
 
-    // A reserved folder (Archive, Inbox, Templates, Daily Notes) in the
+    // A reserved folder (Archive, Templates, Daily Notes) in the
     // ancestor chain gets its canonical system-location icon/label
     // instead of the generic folder icon and raw Vault folder name — the
     // same presentation an ordinary folder never has, since it's not one.

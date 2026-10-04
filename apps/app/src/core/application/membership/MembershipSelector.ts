@@ -177,7 +177,7 @@ export class MembershipSelector {
    * Workspace membership for a root folder (ADR-023 §4, resolving the
    * two-definition bug the ADR's Context section documents): a root folder
    * belongs to Workspace unless it's a system/reserved folder (Archive,
-   * Inbox, Templates, Daily Notes, .clutter). This is the single
+   * Templates, Daily Notes, .clutter). This is the single
    * implementation both the sidebar's FolderTree and the Workspace
    * collection page (toCollectionPageModel) now consume — resolved in
    * favor of ReservedResources.ts's documented intent ("reserved folders...
