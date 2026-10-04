@@ -96,7 +96,8 @@
 .completion-row--asset {
   --completion-row-asset-height: 44px;
   align-items: stretch;
-  padding-block: var(--space-4);
+  /* The same inset on all four sides, so the highlight has equal spacing around the image. */
+  padding: var(--space-4);
   height: var(--completion-row-asset-height);
 }
 .completion-row--asset .completion-row__content {
