@@ -92,8 +92,9 @@ describe('CollectionDataList', () => {
     const slot = withButton!.querySelector('.collection-entry__media')!;
     expect(slot.querySelector('button.collection-media')).toBe(getByLabelText('Change cover image'));
     expect(withButton!.querySelector('.collection-entry__content')).not.toContainElement(slot as HTMLElement);
-    expect(slot.previousElementSibling).toHaveClass('collection-entry__metadata');
-    expect(slot.nextElementSibling).toHaveClass('collection-entry__actions');
+    expect(slot.parentElement).toHaveClass('collection-entry__metadata');
+    expect(slot.previousElementSibling).toHaveTextContent('Today');
+    expect(slot.parentElement!.nextElementSibling).toHaveClass('collection-entry__actions');
 
     // A purely visual thumbnail is hidden from assistive tech; an item without media has no slot.
     expect(visual!.querySelector('.collection-entry__media .collection-media')).toHaveAttribute('aria-hidden', 'true');

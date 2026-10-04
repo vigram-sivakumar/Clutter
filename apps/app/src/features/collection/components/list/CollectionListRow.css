@@ -31,8 +31,9 @@
   min-width: 0;
 }
 .collection-list-row .collection-entry__metadata {
-  height: var(--height-sm);
+  min-height: var(--height-sm);
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .collection-list-row:hover,

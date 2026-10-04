@@ -192,13 +192,16 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             <div className="collection-entry__content">
               {primary}
             </div>
-            {metadata && (
-              <div className="collection-entry__metadata">{metadata}</div>
+            {(metadata || media) && (
+              <div className="collection-entry__metadata">
+                {metadata}
+                {media && <div className="collection-entry__media">{media}</div>}
+              </div>
             )}
           </>
         )}
 
-        {media && <div className="collection-entry__media">{media}</div>}
+        {stacked && media && <div className="collection-entry__media">{media}</div>}
 
         {actions && <div className="collection-entry__actions">{actions}</div>}
       </div>
