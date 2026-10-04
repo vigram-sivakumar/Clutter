@@ -13,14 +13,13 @@ import { getDateSuggestions } from '@features/markdown/editor/codemirror/date/da
 import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
 
 import noteIcon from '@shared/icon/svg/note.svg?raw';
-import imageIcon from '@shared/icon/svg/image.svg?raw';
 import pdfIcon from '@shared/icon/svg/pdf.svg?raw';
 import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import tagIcon from '@shared/icon/svg/tag.svg?raw';
 import hashIcon from '@shared/icon/svg/hash.svg?raw';
 import calendarIcon from '@shared/icon/svg/calendar-blank.svg?raw';
 
-import { labEmbedSuggestions, labHeadingSuggestions, labTagSuggestions, labWikiLinkSuggestions } from './labVault';
+import { labSwatch, labEmbedSuggestions, labHeadingSuggestions, labTagSuggestions, labWikiLinkSuggestions } from './labVault';
 
 export type PrototypeKind = 'wikilink' | 'wikilink-create' | 'embed' | 'heading' | 'tag' | 'date';
 
@@ -50,7 +49,11 @@ function rowsFor(kind: PrototypeKind): Row[] {
     case 'embed':
       return labEmbedSuggestions('').map((s) => ({
         section: 'Assets',
-        spec: { iconSvg: s.resourceKind === 'pdf' ? pdfIcon : imageIcon, title: s.title, path: s.breadcrumb },
+        // Images show their own picture (the lab uses a gradient swatch for the file); a PDF keeps its icon.
+        spec:
+          s.resourceKind === 'pdf'
+            ? { iconSvg: pdfIcon, title: s.title, path: s.breadcrumb }
+            : { thumbnail: labSwatch('#4cc9f0', '#3a0ca3'), title: s.title, path: s.breadcrumb },
       }));
     case 'heading':
       return labHeadingSuggestions('Markdown format renders/Headings', '').map((s) => ({

@@ -89,3 +89,32 @@
   font-size: var(--text-label-small);
   color: var(--foreground-tertiary);
 }
+
+/* Asset row: the asset's image replaces the icon and fills the row's height (a square, cropped to
+   cover) — `.picker-list__item--asset`'s rule: one fixed row height with or without a path line,
+   so every asset row, and its image, is the same size. */
+.completion-row--asset {
+  --completion-row-asset-height: 44px;
+  align-items: stretch;
+  padding-block: var(--space-4);
+  height: var(--completion-row-asset-height);
+}
+.completion-row--asset .completion-row__content {
+  align-self: center;
+}
+.completion-row__thumbnail {
+  position: relative;
+  flex-shrink: 0;
+  width: calc(var(--completion-row-asset-height) - 2 * var(--space-4));
+  height: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  pointer-events: none;
+}
+.completion-row__thumbnail img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

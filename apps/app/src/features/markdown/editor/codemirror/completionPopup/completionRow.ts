@@ -11,6 +11,8 @@ import './completionRow.css';
 export interface CompletionRowSpec {
   /** Raw `<svg>` markup, drawn in `currentColor`. `Completion.render` is synchronous DOM, outside React. */
   readonly iconSvg?: string;
+  /** A loadable image URL shown in place of the icon, filling the row's height (an asset row, as in PickerList). */
+  readonly thumbnail?: string;
   readonly title: string;
   /** Secondary text right after the title (a page's matched alias). */
   readonly titleSuffix?: string;
@@ -40,7 +42,17 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
     view.dispatch({ effects: setSelectedCompletion(index) });
   });
 
-  if (spec.iconSvg) {
+  if (spec.thumbnail) {
+    row.classList.add('completion-row--asset');
+    const thumbnail = document.createElement('span');
+    thumbnail.className = 'completion-row__thumbnail';
+    const image = document.createElement('img');
+    image.src = spec.thumbnail;
+    image.alt = '';
+    image.draggable = false;
+    thumbnail.appendChild(image);
+    row.appendChild(thumbnail);
+  } else if (spec.iconSvg) {
     const icon = document.createElement('span');
     icon.className = 'completion-row__icon';
     icon.innerHTML = spec.iconSvg;
