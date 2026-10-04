@@ -1,7 +1,7 @@
 .cover-note-picker {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-12);
   width: 360px;
   /* Sizes the list (below). A row with a folder path is 48px; the rows per section is the
      picker's sectionLimit (CoverNotePicker.tsx). */
