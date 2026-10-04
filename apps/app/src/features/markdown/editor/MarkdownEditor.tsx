@@ -67,7 +67,11 @@ import {
   getPdfPresentation,
   computePdfPresentationUpdate,
 } from './codemirror/mediaPresentation/mediaPresentationUpdate';
-import type { MediaAlignment } from './codemirror/mediaPresentation/mediaPresentationModel';
+import {
+  DEFAULT_IMAGE_PRESENTATION,
+  type ImagePresentation,
+  type MediaAlignment,
+} from './codemirror/mediaPresentation/mediaPresentationModel';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { downloadTextFile } from '@shared/helpers/downloadTextFile';
 import type {
@@ -1127,7 +1131,21 @@ export const MarkdownEditor = forwardRef<
     // renders again" flicker. See that effect's own doc comment for the
     // full mechanism.
     const current = getImagePresentation(view.state, imageMenu.to);
-    const changes = computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, ...patch });
+    let next: ImagePresentation = { ...current, ...patch };
+    if (patch.mode === 'fill' && ui.displayMode !== 'fill') {
+      // Fit -> Fill: the box takes the full width, and keeps its height — the height saved for
+      // Fill earlier if there is one, else the height it has on screen right now (Fit's natural
+      // height) — so switching doesn't snap it to the 400px default. Resizing is still the
+      // user's to do from there.
+      const container = imageMenu.anchor.current.closest<HTMLElement>('.cm-image-container');
+      const renderedHeight = container ? Math.round(container.getBoundingClientRect().height) : 0;
+      next = {
+        ...next,
+        width: DEFAULT_IMAGE_PRESENTATION.width,
+        height: current.height ?? (renderedHeight > 0 ? renderedHeight : null),
+      };
+    }
+    const changes = computeImagePresentationUpdate(view.state, imageMenu.to, next);
     // `setImageUiState`'s own `pos`/`to` must be given in *this
     // transaction's post-change* coordinate space — `imageUiStateField.
     // update()` inserts an effect's `pos`/`to` directly into `next`

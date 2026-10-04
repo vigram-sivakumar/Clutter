@@ -221,10 +221,14 @@ function isValidWidth(width: number): boolean {
  */
 export function serializeImagePresentationTokens(presentation: ImagePresentation): string {
   const tokens: string[] = [];
-  if (isValidWidth(presentation.width) && presentation.width !== DEFAULT_IMAGE_PRESENTATION.width) {
+  const hasHeight = presentation.height !== null && isValidWidth(presentation.height);
+  // A height is the SECOND number; the parser takes the first as width. So whenever a height is
+  // written, the width is written too — even a default (full) one — or a lone `500` would be read
+  // back as a width of 500 and the height would be lost.
+  if (isValidWidth(presentation.width) && (presentation.width !== DEFAULT_IMAGE_PRESENTATION.width || hasHeight)) {
     tokens.push(String(presentation.width));
   }
-  if (presentation.height !== null && isValidWidth(presentation.height)) {
+  if (hasHeight) {
     tokens.push(String(presentation.height));
   }
   if (presentation.alignment !== DEFAULT_IMAGE_PRESENTATION.alignment) {

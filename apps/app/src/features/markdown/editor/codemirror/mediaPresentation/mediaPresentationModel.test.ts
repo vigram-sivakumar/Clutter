@@ -369,3 +369,35 @@ describe('serializePdfPresentationTokens', () => {
     expect(serializePdfPresentationTokens({ width: 11, alignment: 'right' })).toBe('right');
   });
 });
+
+describe('a height is always written with its width (the parser reads the first number as the width)', () => {
+  it('writes the default width alongside a height, so a lone number is never read back as a width', () => {
+    const presentation = { width: 11, height: 380, alignment: 'left' as const, mode: 'fill' as const };
+    const tokens = serializeImagePresentationTokens(presentation);
+
+    expect(tokens).toBe('11,380');
+    expect(resolveImagePresentation(tokens.split(','))).toEqual(presentation);
+  });
+
+  it('round-trips every width/height/alignment/mode combination', () => {
+    for (const width of [11, 6, 320]) {
+      for (const height of [null, 380, 500]) {
+        for (const alignment of ['left', 'center'] as const) {
+          for (const mode of ['fill', 'fit'] as const) {
+            const presentation = { width, height, alignment, mode };
+            const tokens = serializeImagePresentationTokens(presentation);
+            expect(resolveImagePresentation(tokens === '' ? [] : tokens.split(','))).toEqual(presentation);
+          }
+        }
+      }
+    }
+  });
+
+  it('still writes nothing for an all-default presentation, and no width when there is no height', () => {
+    expect(serializeImagePresentationTokens(DEFAULT_IMAGE_PRESENTATION)).toBe('');
+    expect(serializeImagePresentationTokens({ width: 11, height: null, alignment: 'center', mode: 'fit' })).toBe(
+      'center,fit'
+    );
+  });
+});
+

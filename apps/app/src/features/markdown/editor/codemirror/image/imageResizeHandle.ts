@@ -1,7 +1,11 @@
 import type { EditorView } from '@codemirror/view';
 
 import { computeImagePresentationUpdate, getImagePresentation } from '../mediaPresentation/mediaPresentationUpdate';
-import { clampMediaWidth, measureBox } from '../mediaPresentation/mediaLayoutStyle';
+import {
+  cancelPendingDimensionTransitions,
+  clampMediaWidth,
+  measureBox,
+} from '../mediaPresentation/mediaLayoutStyle';
 import { presentationOnlyEdit } from './imageUiState';
 
 /**
@@ -87,6 +91,11 @@ export function attachImageResizeHandle(
     }
     event.preventDefault();
     event.stopPropagation();
+
+    // The drag now owns this container's size: disarm any mode-switch animation cleanup that is
+    // still waiting for an event that may never come, or it would fire at the end of this drag and
+    // strip the height just set.
+    cancelPendingDimensionTransitions(container);
 
     const resizesHeight = container.classList.contains('cm-image-container--fill');
     // Always a corner-direction cursor, in both Fill and Fit — never

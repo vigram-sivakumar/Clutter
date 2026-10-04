@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { applyMediaWidth, flipDimensionTransition, type ResizeObserverHolder } from './mediaLayoutStyle';
+import {
+  applyMediaWidth,
+  cancelPendingDimensionTransitions,
+  flipDimensionTransition,
+  type ResizeObserverHolder,
+} from './mediaLayoutStyle';
 
 /**
  * Regression coverage for a real, confirmed "ResizeObserver loop completed
@@ -203,3 +208,74 @@ describe('flipDimensionTransition — cleanup fires on transitioncancel, not onl
     expect(el.style.height).toBe(''); // no-op — nothing was ever pinned
   });
 });
+
+/**
+ * The first resize drag after a Fit/Fill switch snapped back to the default height. The switch's
+ * animation pins an inline height and removes it on `transitionend`, which WebKit doesn't reliably
+ * send — so the cleanup stayed armed, and fired on the transition that plays when the NEXT drag ends,
+ * stripping the height that drag had just set. A second drag worked because the cleanup was spent.
+ */
+describe('flipDimensionTransition — a cleanup that never fired cannot strip a size set afterwards', () => {
+  function fire(el: HTMLElement, propertyName: string): void {
+    el.dispatchEvent(new TransitionEvent('transitionend', { propertyName }));
+  }
+
+  it('a late transitionend leaves a height the pin no longer holds alone (the drag\'s height survives)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+    expect(el.style.height).toBe('400px');
+
+    // The pin's own transitionend never came. The user then drags the height to 523px...
+    el.style.height = '523px';
+    // ...and the transition that plays as that drag ends fires the old listener.
+    fire(el, 'height');
+
+    expect(el.style.height).toBe('523px');
+  });
+
+  it('still releases the pin when it is still the pin (the normal case)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+
+    fire(el, 'height');
+
+    expect(el.style.height).toBe('');
+  });
+
+  it('cancelPendingDimensionTransitions disarms a pending cleanup without touching the inline size', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+
+    cancelPendingDimensionTransitions(el);
+    expect(el.style.height).toBe('400px');
+
+    // Even if the pin is exactly what is still there, the cancelled cleanup no longer acts.
+    fire(el, 'height');
+    expect(el.style.height).toBe('400px');
+  });
+
+  it('a new flip supersedes one that never settled, so only the latest cleanup remains', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 250 }]);
+    expect(el.style.height).toBe('250px');
+
+    fire(el, 'height');
+
+    expect(el.style.height).toBe('');
+  });
+
+  it('does not disturb a different property pinned on the same element', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([
+      { el, property: 'height', from: 300, to: 400 },
+      { el, property: 'width', from: 500, to: 600 },
+    ]);
+
+    fire(el, 'height');
+
+    expect(el.style.height).toBe('');
+    expect(el.style.width).toBe('600px');
+  });
+});
+

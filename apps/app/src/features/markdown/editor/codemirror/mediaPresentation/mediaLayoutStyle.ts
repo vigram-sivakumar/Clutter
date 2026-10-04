@@ -315,10 +315,39 @@ export interface FlipDimensionEntry {
  * case (still correct, still worth having) — just not sufficient by
  * itself for the specific WebKit non-firing behavior found here.
  */
+/**
+ * The cleanup still waiting on a `transitionend` for each element/property a FLIP pinned. Needed
+ * because that event is not reliable (WebKit, see `ImageWidget.updateDOM`): when it never comes the
+ * listener stays armed, and the next UNRELATED transition of the same property — the one that plays
+ * when a resize drag ends — would fire it and strip the inline size the drag had just set, snapping
+ * the embed back to its default size (the first drag after a mode switch "didn't take").
+ */
+const pendingFlipCleanups = new WeakMap<HTMLElement, Map<string, () => void>>();
+
+function runPendingFlipCleanup(el: HTMLElement, property: string): void {
+  pendingFlipCleanups.get(el)?.get(property)?.();
+}
+
+/**
+ * Disarms every FLIP cleanup still pending on `el` — without touching its inline sizes. Called when
+ * something else takes over the element's size (a resize drag starts), so a stale cleanup can't
+ * later remove what that took-over size set.
+ */
+export function cancelPendingDimensionTransitions(el: HTMLElement): void {
+  for (const property of Array.from(pendingFlipCleanups.get(el)?.keys() ?? [])) {
+    runPendingFlipCleanup(el, property);
+  }
+}
+
 export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]): void {
   const changing = entries.filter((entry) => Math.abs(entry.from - entry.to) > 0.5);
   if (changing.length === 0) {
     return;
+  }
+
+  // A previous FLIP of the same property that never settled is superseded by this one.
+  for (const entry of changing) {
+    runPendingFlipCleanup(entry.el, entry.property);
   }
 
   for (const entry of changing) {
@@ -333,16 +362,27 @@ export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]):
   void changing[0]!.el.offsetHeight;
 
   for (const entry of changing) {
+    const disarm = () => {
+      entry.el.removeEventListener('transitionend', onSettled);
+      entry.el.removeEventListener('transitioncancel', onSettled);
+      pendingFlipCleanups.get(entry.el)?.delete(entry.property);
+    };
     const onSettled = (event: TransitionEvent) => {
       if (event.target !== entry.el || event.propertyName !== entry.property) {
         return;
       }
-      entry.el.removeEventListener('transitionend', onSettled);
-      entry.el.removeEventListener('transitioncancel', onSettled);
-      entry.el.style.removeProperty(entry.property);
+      disarm();
+      // Only release the pin if it is still OUR pin: anything else that has since set this size
+      // (a drag, or the persisted size being re-applied) must be left alone.
+      if (entry.el.style.getPropertyValue(entry.property) === `${entry.to}px`) {
+        entry.el.style.removeProperty(entry.property);
+      }
     };
     entry.el.addEventListener('transitionend', onSettled);
     entry.el.addEventListener('transitioncancel', onSettled);
+    const forEl = pendingFlipCleanups.get(entry.el) ?? new Map<string, () => void>();
+    forEl.set(entry.property, disarm);
+    pendingFlipCleanups.set(entry.el, forEl);
   }
 
   for (const entry of changing) {
