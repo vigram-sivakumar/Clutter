@@ -191,10 +191,10 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
             {leading}
             <div className="collection-entry__content">
               {primary}
-              {metadata && (
-                <div className="collection-entry__metadata">{metadata}</div>
-              )}
             </div>
+            {metadata && (
+              <div className="collection-entry__metadata">{metadata}</div>
+            )}
           </>
         )}
 
