@@ -62,3 +62,9 @@
   justify-content: start;
   gap: var(--space-6);
 }
+
+/* The list is a height-capped flex column; without this the 1px section divider is a
+   shrinkable flex item and collapses to nothing once the list scrolls. */
+.folder-picker__list > .menu__divider {
+  flex-shrink: 0;
+}
