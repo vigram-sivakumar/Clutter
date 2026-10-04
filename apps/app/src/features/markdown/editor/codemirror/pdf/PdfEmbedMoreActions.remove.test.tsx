@@ -106,7 +106,6 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
     expect(labels).toEqual([
       'Left',
       'Center',
-      'Right',
       'Download',
       'Move to…',
       'Reveal in Finder',
@@ -121,7 +120,7 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
     const removeIndex = children.findIndex((el) => el.textContent === 'Remove');
     expect(children[removeIndex - 1]?.getAttribute('role')).toBe('separator');
     const rows = children.map((el) => (el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')));
-    expect(rows.slice(0, 5)).toEqual(['Position', 'Left', 'Center', 'Right', '---']);
+    expect(rows.slice(0, 4)).toEqual(['Position', 'Left', 'Center', '---']);
   });
 
   it('Remove only edits the current note\'s Markdown — never calls onArchiveResource or any other resource action', () => {

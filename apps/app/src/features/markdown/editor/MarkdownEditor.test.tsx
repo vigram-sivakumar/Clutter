@@ -1530,7 +1530,7 @@ describe('MarkdownEditor: image options menu — Position', () => {
     return document.querySelector<HTMLElement>('.cm-image-container')!;
   }
 
-  it('lists a Position section below Fit and Fill: a divider, the title, then Left, Center, Right, then a divider', () => {
+  it('lists a Position section below Fit and Fill: a divider, the title, then Left and Center, then a divider', () => {
     renderImage();
     openMenu();
 
@@ -1538,7 +1538,8 @@ describe('MarkdownEditor: image options menu — Position', () => {
     const rows = Array.from(menu.children).map((el) =>
       el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
     );
-    expect(rows.slice(0, 8)).toEqual(['Fit', 'Fill', '---', 'Position', 'Left', 'Center', 'Right', '---']);
+    expect(rows.slice(0, 7)).toEqual(['Fit', 'Fill', '---', 'Position', 'Left', 'Center', '---']);
+    expect(menuItem('Right')).toBeNull();
   });
 
   it('marks Left as the current position for an image with no alignment, and Center for one set to center', () => {
@@ -1554,22 +1555,27 @@ describe('MarkdownEditor: image options menu — Position', () => {
     expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(false);
   });
 
-  it('Center and Right write the alignment into the Markdown and move the image; Left clears it again', () => {
+  it('Center writes the alignment into the Markdown and moves the image; Left clears it again', () => {
     const view = renderImage();
 
     choose('Center');
     expect(view.state.doc.toString()).toContain('|center');
     expect(imageContainer().dataset.align).toBe('center');
 
-    choose('Right');
-    expect(view.state.doc.toString()).toContain('|right');
-    expect(view.state.doc.toString()).not.toContain('center');
-    expect(imageContainer().dataset.align).toBe('right');
-
     choose('Left');
     expect(view.state.doc.toString()).not.toContain('|');
     expect(imageContainer().dataset.align).toBeUndefined();
     expect(view.state.doc.toString()).toContain('![Mountain view](https://example.com/mountain.jpg)');
+  });
+
+  it('an image already written with |right keeps rendering right-aligned; the menu just has no Right entry to highlight', () => {
+    renderImage('Prefix.\n\n![Photo|320,right](https://example.com/a.jpg)');
+
+    expect(imageContainer().dataset.align).toBe('right');
+    openMenu();
+    expect(menuItem('Right')).toBeNull();
+    expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(false);
+    expect(menuItem('Center')?.classList.contains('entry-selected')).toBe(false);
   });
 
   it('keeps width and mode when the position changes, and the position when the mode changes', () => {
@@ -1585,7 +1591,7 @@ describe('MarkdownEditor: image options menu — Position', () => {
   it('never throws on repeated position changes, with or without text after the image', () => {
     const view = renderImage('Text.\n\n![A](https://example.com/a.jpg)\n\nMore text.');
 
-    for (const label of ['Center', 'Right', 'Left', 'Right', 'Center', 'Left']) {
+    for (const label of ['Center', 'Left', 'Center', 'Left', 'Center', 'Left']) {
       expect(() => choose(label)).not.toThrow();
       expect(view.state.doc.toString()).toContain('Text.');
       expect(view.state.doc.toString()).toContain('More text.');

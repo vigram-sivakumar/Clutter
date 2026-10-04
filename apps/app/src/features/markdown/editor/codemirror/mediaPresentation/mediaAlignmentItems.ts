@@ -4,8 +4,10 @@ import type { MediaAlignment } from './mediaPresentationModel';
 
 /**
  * The "Position" choices for an embedded image or PDF, in menu order. One list for both embeds'
- * menus, so their labels and icons never drift. The icons are the page cover's Position family
- * (`positionRight`, with a mirrored `positionLeft` and a `positionCenter` in the same style).
+ * menus, so their labels and icons never drift. Left and Center only: the Markdown format still
+ * accepts `right`, so an embed already written that way keeps rendering right-aligned, it just has
+ * no menu entry. The icons are the page cover's Position family (a mirrored `positionLeft` and a
+ * `positionCenter` in the cover's own style).
  */
 export const MEDIA_ALIGNMENT_ITEMS: ReadonlyArray<{
   readonly alignment: MediaAlignment;
@@ -14,5 +16,4 @@ export const MEDIA_ALIGNMENT_ITEMS: ReadonlyArray<{
 }> = [
   { alignment: 'left', label: 'Left', icon: 'positionLeft' },
   { alignment: 'center', label: 'Center', icon: 'positionCenter' },
-  { alignment: 'right', label: 'Right', icon: 'positionRight' },
 ];

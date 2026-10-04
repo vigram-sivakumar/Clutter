@@ -21,7 +21,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { Page } from '@core/vault/models/Page';
 
 /**
- * The inline PDF embed's More actions menu: its Position section (Left / Center / Right) rewrites
+ * The inline PDF embed's More actions menu: its Position section (Left / Center) rewrites
  * only the embed's own Markdown, through the real AppLayout -> PageHost -> MarkdownEditor ->
  * PdfEmbedWidget -> PdfEmbedMoreActions chain.
  */
@@ -205,12 +205,13 @@ async function renderPdfNote(markdown: string): Promise<EditorView> {
 }
 
 describe('PageHost: inline PDF embed More actions — Position', () => {
-  it('opens with Position first (title, Left, Center, Right), a divider, then the resource actions, then Remove', async () => {
+  it('opens with Position first (title, Left, Center), a divider, then the resource actions, then Remove', async () => {
     await renderPdfNote('Body text\n\n![[document.pdf]]\n');
     openMoreActions();
 
     const rows = menuRows();
-    expect(rows.slice(0, 5)).toEqual(['Position', 'Left', 'Center', 'Right', '---']);
+    expect(rows.slice(0, 4)).toEqual(['Position', 'Left', 'Center', '---']);
+    expect(menuItem('Right')).toBeNull();
     expect(rows[rows.length - 1]).toBe('Remove');
     expect(rows).toContain('Archive');
     expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(true);
@@ -228,12 +229,8 @@ describe('PageHost: inline PDF embed More actions — Position', () => {
 
     openMoreActions();
     expect(menuItem('Center')?.classList.contains('entry-selected')).toBe(true);
-    fireEvent.click(menuItem('Right')!);
-    await flush();
-    expect(view.state.doc.toString()).toContain('right');
-    expect(view.state.doc.toString()).not.toContain('center');
+    expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(false);
 
-    openMoreActions();
     fireEvent.click(menuItem('Left')!);
     await flush();
     expect(view.state.doc.toString()).toContain('![[document.pdf]]');
@@ -244,9 +241,9 @@ describe('PageHost: inline PDF embed More actions — Position', () => {
     const view = await renderPdfNote('![[document.pdf|20]]\n');
 
     openMoreActions();
-    fireEvent.click(menuItem('Right')!);
+    fireEvent.click(menuItem('Center')!);
     await flush();
 
-    expect(view.state.doc.toString()).toMatch(/!\[\[document\.pdf\|20,right\]\]/);
+    expect(view.state.doc.toString()).toMatch(/!\[\[document\.pdf\|20,center\]\]/);
   });
 });
