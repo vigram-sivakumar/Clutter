@@ -40,3 +40,23 @@
   );
   overflow-y: auto;
 }
+/* Rows are one fixed line tall, so a note's folder path sits inline after its title
+   (muted, same tokens as the stacked path) instead of under it. The path gives up
+   space and ellipsizes before the title does. */
+.cover-note-picker .folder-picker__content {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-6);
+  width: 100%;
+}
+.cover-note-picker .folder-picker__title {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+.cover-note-picker .folder-picker__path {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

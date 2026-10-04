@@ -17,6 +17,7 @@ export function FolderPicker({
   items,
   placeholder = 'Search folders',
   leadingIcon,
+  showPath = false,
   onSelect,
   onCreate,
 }: FolderPickerProps) {
@@ -162,7 +163,7 @@ export function FolderPicker({
           // ancestor titles — never shown for a root-level match (no
           // ancestors to join), never rendered outside search.
           const path =
-            isSearching && item.ancestors && item.ancestors.length > 0
+            (showPath || isSearching) && item.ancestors && item.ancestors.length > 0
               ? item.ancestors.map((ancestor) => ancestor.title).join(' / ')
               : undefined;
 

@@ -47,6 +47,7 @@ export function CoverNotePicker({
           items={notes}
           placeholder="Search notes…"
           leadingIcon="note"
+          showPath
           onSelect={(item) => onSelect(item.id)}
         />
       </div>

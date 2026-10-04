@@ -315,7 +315,10 @@ export function AppLayout({ application }: AppLayoutProps) {
       <SaveToVaultDialog status={saveToVault} onClose={() => setSaveToVault(null)} />
       <CoverNotePicker
         open={coverTarget !== null}
-        notes={coverTarget === null ? [] : buildCoverNoteItems(application.membershipSelector.getAllVisiblePages())}
+        notes={coverTarget === null ? [] : buildCoverNoteItems(
+                application.membershipSelector.getAllVisiblePages(),
+                (id) => application.vault.getFolder(id)
+              )}
         onSelect={setNoteCover}
         onClose={() => setCoverTarget(null)}
       />

@@ -54,6 +54,13 @@ export interface FolderPickerProps {
    * list of something other than folders, such as notes.
    */
   leadingIcon?: SystemIcon;
+  /**
+   * Shows each item's `ancestors` path under its title even when the search box is
+   * empty. By default the path appears only while searching — right for a folder tree,
+   * where indentation already shows the hierarchy, but a flat list (notes) has no other
+   * way to say where an item lives.
+   */
+  showPath?: boolean;
   onSelect: (item: FolderPickerItem) => void;
   onCreate?: (name: string) => void;
 }
