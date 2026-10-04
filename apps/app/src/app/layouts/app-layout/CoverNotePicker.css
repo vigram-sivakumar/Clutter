@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: var(--space-8);
   width: 360px;
-  --cover-note-row: 44px;
+  --cover-note-row: 48px;
   --cover-note-rows: 6;
   padding: var(--space-12);
   background: var(--surface-secondary);
@@ -24,20 +24,11 @@
   box-shadow: none;
   background: transparent;
 }
-/* Every row has one fixed, two-line height (title, with the folder path under it when
-   there is one) and the list is exactly N rows (plus the gaps
-   between them) tall, so it scrolls in whole rows and never cuts one at the
-   bottom edge. The height is fixed, not a max, so filtering doesn't resize the card. */
-.cover-note-picker .folder-picker__item {
-  box-sizing: border-box;
-  height: var(--cover-note-row);
-  padding-block: 0;
-  align-items: center;
-}
+/* Rows are the folder picker's own rows, unmodified (same padding, height and alignment) — a
+   row with a folder path is simply two lines tall. The list is capped, not fixed, so the
+   card grows with a short list and scrolls once it passes N two-line rows. */
 .cover-note-picker .folder-picker__list {
   flex: none;
-  height: calc(
-    var(--cover-note-rows) * var(--cover-note-row) + (var(--cover-note-rows) - 1) * var(--space-1)
-  );
+  max-height: calc(var(--cover-note-rows) * var(--cover-note-row) + (var(--cover-note-rows) - 1) * var(--space-1));
   overflow-y: auto;
 }
