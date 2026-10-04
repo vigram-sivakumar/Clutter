@@ -148,15 +148,15 @@ function drag(handle: HTMLElement, fromX: number, fromY: number, toX: number, to
 const FIT_URL_MD = '![Photo|fit](https://example.com/a.jpg)';
 const FILL_URL_MD = '![Photo](https://example.com/a.jpg)';
 
-describe('Fit — horizontal-only resize persistence, either corner', () => {
-  it('dragging the right corner outward widens the container and persists the new width, never a height', () => {
+describe('Fit — resize persistence, either corner (width changes; the height the image has is saved too)', () => {
+  it('dragging the right corner outward widens the container and persists the new width with the height the image has', () => {
     const view = mountUrlImage(FIT_URL_MD);
     const container = getContainer(view);
     stubDynamicRect(container, { width: 300, height: 200 });
 
     drag(getRightHandle(view), 0, 0, 80, 0);
 
-    expect(view.state.doc.toString()).toBe('![Photo|380,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|380,200,fit](https://example.com/a.jpg)');
   });
 
   it('dragging the right corner inward narrows the container', () => {
@@ -166,7 +166,7 @@ describe('Fit — horizontal-only resize persistence, either corner', () => {
 
     drag(getRightHandle(view), 100, 0, 40, 0);
 
-    expect(view.state.doc.toString()).toBe('![Photo|240,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|240,200,fit](https://example.com/a.jpg)');
   });
 
   it('dragging the left corner outward (further left) also widens the container — mirrored pointer math, same visual affordance', () => {
@@ -176,7 +176,7 @@ describe('Fit — horizontal-only resize persistence, either corner', () => {
 
     drag(getLeftHandle(view), 100, 0, 20, 0); // moved 80px further left
 
-    expect(view.state.doc.toString()).toBe('![Photo|380,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|380,200,fit](https://example.com/a.jpg)');
   });
 
   it('dragging the left corner inward (toward the right) narrows the container', () => {
@@ -186,26 +186,25 @@ describe('Fit — horizontal-only resize persistence, either corner', () => {
 
     drag(getLeftHandle(view), 0, 0, 60, 0); // moved 60px toward the right
 
-    expect(view.state.doc.toString()).toBe('![Photo|240,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|240,200,fit](https://example.com/a.jpg)');
   });
 
-  it('a Fit resize never writes a height token when none was already persisted', () => {
+  it('a Fit resize saves the height the image has, so the Markdown always knows the current height', () => {
     const view = mountUrlImage(FIT_URL_MD);
     stubDynamicRect(getContainer(view), { width: 300, height: 200 });
 
     drag(getRightHandle(view), 0, 0, 50, 0);
 
-    expect(view.state.doc.toString()).not.toContain(',350'); // no stray height token
-    expect(view.state.doc.toString()).toBe('![Photo|350,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|350,200,fit](https://example.com/a.jpg)');
   });
 
-  it('preserves an existing dormant height untouched across a width-only Fit resize from either corner', () => {
+  it('a Fit resize replaces an older saved (Fill) height with the one the image has now, from either corner', () => {
     const view = mountUrlImage('![Photo|300,500,fit](https://example.com/a.jpg)');
     stubDynamicRect(getContainer(view), { width: 300, height: 200 });
 
     drag(getRightHandle(view), 0, 0, 100, 0);
 
-    expect(view.state.doc.toString()).toBe('![Photo|400,500,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|400,200,fit](https://example.com/a.jpg)');
   });
 });
 
@@ -283,7 +282,7 @@ describe('resize lifecycle — no continuous dispatch during drag, exactly one c
     handle.dispatchEvent(pointerEvent('pointerup', 60, 0, pointerId));
 
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
-    expect(view.state.doc.toString()).toBe('![Photo|360,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|360,200,fit](https://example.com/a.jpg)');
   });
 
   it('a second, unrelated pointerup (no matching pointerdown having occurred) does nothing', () => {
@@ -312,14 +311,14 @@ describe('local asset embed resizes exactly like a native Image', () => {
     expect(view.state.doc.toString()).toBe('![[hero.png|320,500]]');
   });
 
-  it('Fit left-corner drag persists width only, preserving a dormant height, on an image-asset Embed', () => {
+  it('Fit left-corner drag persists the width and the height the image has, on an image-asset Embed', () => {
     const resolve = resolverFor({ 'hero.png': imageResolution('app://vault/hero.png') });
     const view = mountAssetEmbed('![[hero.png|300,500,fit]]', resolve);
     stubDynamicRect(getContainer(view), { width: 300, height: 200 });
 
     drag(getLeftHandle(view), 100, 0, 0, 0); // moved 100px further left
 
-    expect(view.state.doc.toString()).toBe('![[hero.png|400,500,fit]]');
+    expect(view.state.doc.toString()).toBe('![[hero.png|400,200,fit]]');
   });
 });
 
@@ -329,13 +328,13 @@ describe('resize commit integrates with CM6 undo/redo, exactly like a keystroke'
     stubDynamicRect(getContainer(view), { width: 300, height: 200 });
 
     drag(getRightHandle(view), 0, 0, 80, 0);
-    expect(view.state.doc.toString()).toBe('![Photo|380,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|380,200,fit](https://example.com/a.jpg)');
 
     undo(view);
     expect(view.state.doc.toString()).toBe(FIT_URL_MD);
 
     redo(view);
-    expect(view.state.doc.toString()).toBe('![Photo|380,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|380,200,fit](https://example.com/a.jpg)');
   });
 });
 
@@ -363,7 +362,7 @@ describe('a resize composes end-to-end with the existing Fill/Fit mode-switch pa
     });
   }
 
-  it('Fill resize → switch to Fit (height goes dormant) → Fit width resize preserves it → switch back to Fill (height reactivates)', async () => {
+  it('Fill resize → switch to Fit (the Fill height is kept, unused) → a Fit resize saves the height Fit has → switching back to Fill uses that one', async () => {
     const view = mountUrlImage(FILL_URL_MD);
     stubDynamicRect(getContainer(view), { width: 300, height: 400 });
 
@@ -373,11 +372,26 @@ describe('a resize composes end-to-end with the existing Fill/Fit mode-switch pa
     await selectMode(view, 0, view.state.doc.length, 'fit');
     expect(view.state.doc.toString()).toBe('![Photo|320,500,fit](https://example.com/a.jpg)');
 
+    // jsdom never fires `transitionend`, so the mode-switch animation's inline height pin would stay
+    // on the box; a real browser releases it. Do the same, so Fit's height is its own (automatic).
+    getContainer(view).style.removeProperty('height');
     stubDynamicRect(getContainer(view), { width: 320, height: 200 });
     drag(getRightHandle(view), 0, 0, 80, 0);
-    expect(view.state.doc.toString()).toBe('![Photo|400,500,fit](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|400,200,fit](https://example.com/a.jpg)');
 
     await selectMode(view, 0, view.state.doc.length, 'fill');
-    expect(view.state.doc.toString()).toBe('![Photo|400,500](https://example.com/a.jpg)');
+    expect(view.state.doc.toString()).toBe('![Photo|400,200](https://example.com/a.jpg)');
+  });
+
+  it('with no Fit resize in between, the Fill height saved earlier is what comes back', async () => {
+    const view = mountUrlImage(FILL_URL_MD);
+    stubDynamicRect(getContainer(view), { width: 300, height: 400 });
+
+    drag(getRightHandle(view), 0, 0, 20, 100);
+    await selectMode(view, 0, view.state.doc.length, 'fit');
+    expect(view.state.doc.toString()).toBe('![Photo|320,500,fit](https://example.com/a.jpg)');
+
+    await selectMode(view, 0, view.state.doc.length, 'fill');
+    expect(view.state.doc.toString()).toBe('![Photo|320,500](https://example.com/a.jpg)');
   });
 });

@@ -149,9 +149,11 @@ export function attachImageResizeHandle(
 
       const to = getTo();
       const current = getImagePresentation(view.state, to);
-      const next = resizesHeight
-        ? { ...current, width: finalWidth, height: finalHeight }
-        : { ...current, width: finalWidth };
+      // Both dimensions are saved in either mode, so the Markdown always holds the size the image
+      // actually has — what switching modes then keeps. In Fit the height is the one the image's own
+      // proportions give at this width; it is ignored for drawing (Fit's height is automatic) and only
+      // read when the image is switched to Fill.
+      const next = { ...current, width: finalWidth, height: finalHeight };
 
       const changes = computeImagePresentationUpdate(view.state, to, next);
       if (changes.from === changes.to && changes.insert === '') {
