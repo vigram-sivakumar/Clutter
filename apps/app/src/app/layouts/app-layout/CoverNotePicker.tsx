@@ -39,6 +39,9 @@ export function CoverNotePicker({
       open={open}
       onClose={onClose}
       position="centered"
+      // Anchored a fixed distance from the top rather than centered: the card's height follows its
+      // results, and a centered card would move its search box up and down as they change.
+      top={Math.round(window.innerHeight * 0.2)}
       backdrop="tinted"
     >
       <div className="cover-note-picker">
