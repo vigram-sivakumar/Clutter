@@ -1,9 +1,6 @@
 import { Overlay } from '@components/overlay/Overlay';
-import { Button } from '@components/button/Button';
-import { AppIcon } from '@shared/icon';
-import { FolderPicker } from '@components/folder-picker/FolderPicker';
+import { PickerCard } from '@components/picker-card/PickerCard';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
-import './CoverNotePicker.css';
 
 export interface CoverTarget {
   readonly kind: 'note' | 'folder';
@@ -44,28 +41,15 @@ export function CoverNotePicker({
       top={Math.round(window.innerHeight * 0.2)}
       backdrop="tinted"
     >
-      <div className="cover-note-picker">
-        <span className="cover-note-picker__header">
-          Set cover image
-          <Button
-            isIconOnly
-            size="small"
-            interaction="subtle"
-            aria-label="Dismiss"
-            onClick={onClose}
-          >
-            <AppIcon icon="dismiss" />
-          </Button>
-        </span>
-        <FolderPicker
-          items={allItems}
-          placeholder="Search notes and folders…"
-          leadingIcon="note"
-          showPath
-          sectionLimit={5}
-          onSelect={(item) => onSelect({ kind: folderIds.has(item.id) ? 'folder' : 'note', id: item.id })}
-        />
-      </div>
+      <PickerCard
+        title="Set cover image"
+        onClose={onClose}
+        items={allItems}
+        placeholder="Search notes and folders…"
+        leadingIcon="note"
+        sectionLimit={5}
+        onSelect={(item) => onSelect({ kind: folderIds.has(item.id) ? 'folder' : 'note', id: item.id })}
+      />
     </Overlay>
   );
 }

@@ -1,18 +1,19 @@
-.cover-note-picker {
+.picker-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
   width: var(--dialog-width-md);
   /* Sizes the list (below). A row with a folder path is 48px; the rows per section is the
-     picker's sectionLimit (CoverNotePicker.tsx). */
-  --cover-note-row: 48px;
-  --cover-note-section-rows: 5;
+     picker's sectionLimit (passed to PickerCard as `sectionLimit`). */
+  --picker-card-row: 48px;
+  --picker-card-section-rows: 5;
+  --picker-card-plain-rows: 7;
   padding: var(--space-12) var(--space-12) 0;
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
   box-shadow: var(--shadow-inset-thin-strong), var(--shadow-xl);
 }
-.cover-note-picker__header {
+.picker-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -21,7 +22,7 @@
   padding-left: var(--space-6);
 }
 /* The inner picker already has its own surface; flatten it into this card. */
-.cover-note-picker .folder-picker {
+.picker-card .folder-picker {
   padding: 0;
   box-shadow: none;
   background: transparent;
@@ -30,16 +31,14 @@
    row with a folder path is simply two lines tall. The list is capped, not fixed, so the
    card grows with a short list and scrolls once it passes N two-line rows. */
 /* The search box is 32px tall here (the shared input defaults to the 30px `--height-lg`). */
-.cover-note-picker .input {
+.picker-card .input {
   min-height: var(--space-32);
 }
-.cover-note-picker .folder-picker__list {
+.picker-card .folder-picker__list {
   flex: none;
-  /* Tall enough to show the first section in full — its title, its rows (all with a path, the
-     tallest case), the 32px Show more row — then the divider and the second section's title.
-     Nine children in that stretch means eight 1px gaps; the divider is 1px plus 4px margins. */
+  /* Without sections: N two-line rows (plus the 1px gaps and the bottom padding below). */
   max-height: calc(
-    2 * var(--height-lg) + var(--cover-note-section-rows) * var(--cover-note-row) + 32px + 8 * var(--space-1) + 9px +
+    var(--picker-card-plain-rows) * var(--picker-card-row) + (var(--picker-card-plain-rows) - 1) * var(--space-1) +
       var(--space-12)
   );
   overflow-y: auto;
@@ -52,10 +51,19 @@
      max-height above (border-box). */
   padding-bottom: var(--space-12);
 }
+/* With sections: tall enough to show the first section in full — its title, its rows (all with a
+   path, the tallest case), the 32px Show more row — then the divider and the second section's
+   title. Nine children in that stretch means eight 1px gaps; the divider is 1px plus 4px margins. */
+.picker-card--sectioned .folder-picker__list {
+  max-height: calc(
+    2 * var(--height-lg) + var(--picker-card-section-rows) * var(--picker-card-row) + 32px + 8 * var(--space-1) + 9px +
+      var(--space-12)
+  );
+}
 /* The list runs to the card's bottom edge (no bottom padding), so while there is more to scroll to
    its last rows fade out into the card instead of being cut off by a hard edge. Off at the end of
    the list, so the final row is never dimmed. */
-.cover-note-picker .folder-picker__list[data-can-scroll-down] {
+.picker-card .folder-picker__list[data-can-scroll-down] {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
 }
