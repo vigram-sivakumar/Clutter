@@ -32,6 +32,15 @@ describe('buildCoverNoteItems', () => {
     expect(item!.emoji).toBeNull();
   });
 
+  it('makes a daily note findable by its other date spellings, and a note only by its title', () => {
+    const items = buildCoverNoteItems([page('d', '2020-08-24', null, 'daily-note'), page('n', 'Alpha')], noFolders);
+    const [note, daily] = items;
+
+    expect(note!).not.toHaveProperty('searchText');
+    expect(daily!.searchText).toContain('2020-08-24');
+    expect(daily!.searchText).toContain('Monday, 24 August 2020');
+  });
+
   it("carries the note's folder chain, root-first, as ancestors", () => {
     const folders = new Map([
       ['projects', folder('projects', 'Projects', null)],

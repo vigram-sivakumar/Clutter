@@ -8,6 +8,7 @@ import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { FolderLeading } from '@features/notes/sidebar/FolderLeading';
 import { AppIcon } from '@shared/icon';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
+import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 
 import './PickerList.css';
 
@@ -66,8 +67,10 @@ export function PickerList({
       return items;
     }
 
-    return items.filter((item) =>
-      item.title.toLowerCase().includes(normalizedQuery)
+    return items.filter(
+      (item) =>
+        item.title.toLowerCase().includes(normalizedQuery) ||
+        (item.searchText !== undefined && matchesSearchText(item.searchText, normalizedQuery))
     );
   }, [items, normalizedQuery]);
 

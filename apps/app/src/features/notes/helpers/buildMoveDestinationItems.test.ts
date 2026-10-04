@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildCoverFolderItems } from './buildCoverFolderItems';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
 import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
@@ -43,13 +44,18 @@ const defaultFolderMetadata: Folder['metadata'] = {
   originalParentId: null,
 };
 
-function makeFolder(id: string, path: string, parentId: string | null = null): Folder {
+function makeFolder(
+  id: string,
+  path: string,
+  parentId: string | null = null,
+  status: Folder['metadata']['status'] = 'active'
+): Folder {
   return {
     id,
     name: path.slice(path.lastIndexOf('/') + 1),
     path,
     parentId,
-    metadata: defaultFolderMetadata,
+    metadata: status === 'active' ? defaultFolderMetadata : { ...defaultFolderMetadata, status },
   };
 }
 
@@ -153,6 +159,20 @@ describe('buildMoveDestinationItems', () => {
     const items = buildMoveDestinationItems(membershipSelector);
 
     expect(items.map((i) => i.id)).not.toContain('folder-archive');
+  });
+
+  it('excludes everything inside the Archive folder — an archived folder and its children — not only the folder itself', () => {
+    const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const archivedFolder = makeFolder('folder-old', `${ROOT}/Archive/Old`, 'folder-archive', 'archived');
+    const nested = makeFolder('folder-old-child', `${ROOT}/Archive/Old/Child`, 'folder-old');
+    const live = makeFolder('folder-live', `${ROOT}/Live`);
+    const membershipSelector = makeMembershipSelector([archive, archivedFolder, nested, live]);
+
+    const items = buildMoveDestinationItems(membershipSelector);
+
+    expect(items.map((i) => i.id)).toEqual(['__vault-root__', 'folder-live']);
+    // The cover picker's flat Folders list is built from the same rule.
+    expect(buildCoverFolderItems(membershipSelector).map((i) => i.id)).toEqual(['folder-live']);
   });
 
   it('excludes the reserved Daily Notes folder and everything nested inside it', () => {

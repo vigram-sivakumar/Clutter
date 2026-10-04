@@ -5,6 +5,7 @@ import type {
   PickerListItem,
 } from '@components/picker-list/PickerList.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
+import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
 import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { isToday } from '@shared/helpers/time';
@@ -53,6 +54,8 @@ export function buildCoverNoteItems(
       return {
         id: page.id,
         title: isDaily ? formatDailyNotePickerTitle(page.name) : page.name,
+        // The row reads `24 Aug`; the note is also found by its date as written elsewhere.
+        ...(isDaily && { searchText: dailyNoteSearchText(page.name) }),
         emoji: isDaily ? null : page.metadata.icon,
         icon: getPageIcon(page.type, isDaily && isToday(page.name)),
         level: 0,

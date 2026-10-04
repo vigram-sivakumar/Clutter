@@ -608,4 +608,36 @@ describe('PickerList fade next to the first Show more row', () => {
     expect(noteRow.classList.contains('picker-list__item--asset')).toBe(false);
     expect(noteRow.querySelector('img')).toBeNull();
   });
+
+  describe('searching a row by text beyond its title', () => {
+    // A Daily Note row reads "24 Aug 2020"; the same note is also found by its other spellings.
+    const daily: PickerListItem[] = [
+      { id: 'd1', title: '24 Aug 2020', searchText: '2020-08-24 Monday, 24 August 2020 24 Aug 2020', level: 0, parentId: null },
+      { id: 'd2', title: '24 Sep 2020', searchText: '2020-09-24 Thursday, 24 September 2020 24 Sep 2020', level: 0, parentId: null },
+      { id: 'n1', title: 'Notes about August', level: 0, parentId: null },
+    ];
+    const search = (query: string) => {
+      render(<PickerList items={daily} placeholder="Search" onSelect={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText('Search'), { target: { value: query } });
+      return screen.queryAllByRole('menuitem').map((row) => row.textContent);
+    };
+
+    it('finds a row by its ISO date', () => {
+      expect(search('2020-08-24')).toEqual(['24 Aug 2020']);
+    });
+
+    it('finds it by the month and day in either order, and by the long month name', () => {
+      expect(search('Aug 24')).toEqual(['24 Aug 2020']);
+      cleanup();
+      expect(search('September 24')).toEqual(['24 Sep 2020']);
+    });
+
+    it('still finds a plain row by its title', () => {
+      expect(search('notes about')).toEqual(['Notes about August']);
+    });
+
+    it('offers nothing for a date no row has', () => {
+      expect(search('Aug 26')).toEqual([]);
+    });
+  });
 });

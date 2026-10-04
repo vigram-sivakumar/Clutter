@@ -10,6 +10,8 @@ export interface PickerListAncestor {
 export interface PickerListItem {
   id: string;
   title: string;
+  /** Extra text the item is found by, beyond its `title` (a Daily Note's other date spellings). Matched with `matchesSearchText`. */
+  searchText?: string;
   emoji?: string | null;
   level: number;
   /** This item's ancestor chain, root-first — each entry carries its own folder's title/emoji, so a search-result breadcrumb can show every segment's own icon instead of only the leaf's. */

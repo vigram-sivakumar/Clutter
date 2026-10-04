@@ -1055,3 +1055,28 @@ describe('MembershipSelector.getAllAssets (ADR-039)', () => {
     expect(membershipSelector.getAllAssets()).toEqual([]);
   });
 });
+
+describe('MembershipSelector.getAllVisiblePages (what the note picker and other page pickers offer)', () => {
+  it('leaves out an archived page, a page inside an archived folder, and a dot-hidden page', () => {
+    const archivedFolder = makeFolder({
+      id: 'old',
+      name: 'Old',
+      path: `${ROOT}/Old`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const pages = [
+      makePage({ id: 'live', name: 'Live', path: `${ROOT}/Live.md` }),
+      makePage({
+        id: 'archived',
+        name: 'Archived',
+        path: `${ROOT}/Archive/Archived.md`,
+        metadata: { ...defaultPageMetadata, status: 'archived' },
+      }),
+      makePage({ id: 'in-archived-folder', name: 'Inside', path: `${ROOT}/Old/Inside.md`, parentId: 'old' }),
+      makePage({ id: 'hidden', name: '.hidden', path: `${ROOT}/.hidden.md` }),
+    ];
+    const { membershipSelector } = setup([archivedFolder], pages);
+
+    expect(membershipSelector.getAllVisiblePages().map((page) => page.id)).toEqual(['live']);
+  });
+});
