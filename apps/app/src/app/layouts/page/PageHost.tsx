@@ -112,9 +112,9 @@ import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import {
-  isRemoteCoverReference,
-  useCoverImageActions,
-} from './cover/CoverImageActionsContext';
+  isRemoteImageReference,
+  useImageFileActions,
+} from './ImageFileActionsContext';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 
 interface PageHostProps {
@@ -275,14 +275,14 @@ export function PageHost({
 
   // The cover menu's file actions: Download for any cover, Save to vault only for one that is a URL
   // (an image already in the vault has nothing to save). The flows live with AppLayout.
-  const coverImageActions = useCoverImageActions();
+  const coverImageActions = useImageFileActions();
   function coverImageFileActions(reference: string | null) {
     if (!coverImageActions || !reference) {
       return {};
     }
     return {
       onDownloadCoverImage: () => coverImageActions.download(reference),
-      onSaveCoverImageToVault: isRemoteCoverReference(reference)
+      onSaveCoverImageToVault: isRemoteImageReference(reference)
         ? () => coverImageActions.saveToVault(reference)
         : undefined,
     };
@@ -542,6 +542,11 @@ export function PageHost({
     }
     void downloadRemoteImage(url);
   }
+  // "Save to vault" for a remote image embedded in the note: the same flow, and result dialog, as the
+  // asset menu's (AppLayout owns it). The editor only offers it for a remote URL.
+  const saveImageToVaultFromEditor = coverImageActions
+    ? (url: string): void => coverImageActions.saveToVault(url)
+    : undefined;
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveTag = createTagResolver(application.navigation, vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
@@ -1731,6 +1736,7 @@ export function PageHost({
               onOpenImageOverlay={onOpenImageOverlay}
               onSetCoverImage={onSetCoverImage}
               onDownloadImage={downloadImageFromEditor}
+              onSaveImageToVault={saveImageToVaultFromEditor}
               onDownloadPdfResource={downloadResourceById}
               resolveImageResource={resolveImageResource}
               onArchiveResource={(id) =>
@@ -2034,6 +2040,7 @@ export function PageHost({
             onOpenImageOverlay={onOpenImageOverlay}
             onSetCoverImage={onSetCoverImage}
             onDownloadImage={downloadImageFromEditor}
+              onSaveImageToVault={saveImageToVaultFromEditor}
             onDownloadPdfResource={downloadResourceById}
             resolveImageResource={resolveImageResource}
             onArchiveResource={(id) =>

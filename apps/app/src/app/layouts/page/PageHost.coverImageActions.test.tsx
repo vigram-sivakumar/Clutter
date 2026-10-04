@@ -68,6 +68,21 @@ afterEach(() => {
 
 const ROOT = '/vault';
 
+function buildNoteWithBody(markdown: string): Page {
+  const builder = new PageBuilder(ROOT);
+  return builder.build({
+    parentId: null,
+    page: {
+      path: `${ROOT}/Note.md`,
+      directoryPath: ROOT,
+      frontmatter: { id: 'page-1' },
+      frontmatterAnalysis: { aliases: [] },
+      content: markdown,
+      analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+    },
+  });
+}
+
 function buildNoteWithCover(cover: string): Page {
   const builder = new PageBuilder(ROOT);
   return builder.build({
@@ -174,3 +189,31 @@ describe('PageHost: cover image file actions', () => {
     expect(downloadRemoteImage).not.toHaveBeenCalled();
   });
 });
+
+describe('PageHost: an image embedded in the note — Save to vault', () => {
+  async function openImageMenu(application: Application, page: Page): Promise<void> {
+    await application.pageOperations.open(page.id);
+    render(<AppLayout application={application} />);
+    await flush();
+    const sizeButton = document.querySelector<HTMLButtonElement>('.cm-media-control[aria-label="Image size options"]');
+    expect(sizeButton).not.toBeNull();
+    fireEvent.mouseDown(sizeButton!);
+    fireEvent.click(sizeButton!);
+  }
+
+  it('a remote image offers Save to vault, and choosing it runs the same save-to-vault flow with that URL', async () => {
+    const url = 'https://example.com/photos/mountain.png';
+    const page = buildNoteWithBody(`Text.\n\n![Mountain](${url})\n`);
+    const application = makeApplication([page]);
+    const save = vi
+      .spyOn(application, 'saveRemoteImageToVault')
+      .mockResolvedValue({ outcome: 'saved' } as never);
+    await openImageMenu(application, page);
+
+    fireEvent.click(screen.getByText('Save to vault'));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith(url));
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+});
+

@@ -23,6 +23,8 @@ export interface ImageOptionsMenuProps {
   readonly onSelectMode: (mode: ImageDisplayMode) => void;
   readonly onSelectAlignment: (alignment: MediaAlignment) => void;
   readonly onCopyLink: () => void;
+  /** Offered only for a remote image: copies it into the vault ("Save to vault"), the same action the asset menu has. Absent omits the item. */
+  readonly onSaveToVault?: () => void;
   /**
    * "Set as cover image" (2026-09-02 UX baseline, item 9) — present only
    * when the host has an actual cover-writing capability to offer (mirrors
@@ -98,6 +100,7 @@ export function ImageOptionsMenu({
   onSelectMode,
   onSelectAlignment,
   onCopyLink,
+  onSaveToVault,
   onSetCoverImage,
   onDownload,
   onRemove,
@@ -146,6 +149,18 @@ export function ImageOptionsMenu({
 
         <div className="menu__divider" role="separator" />
 
+        {onSaveToVault && (
+          <MenuItem
+            leading={<AppIcon icon="arrowDownRight" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSaveToVault();
+              onClose();
+            }}
+          >
+            Save to vault
+          </MenuItem>
+        )}
         <MenuItem
           leading={<AppIcon icon="link" />}
           onClick={(event) => {

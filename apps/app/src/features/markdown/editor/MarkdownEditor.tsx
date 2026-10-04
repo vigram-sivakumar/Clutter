@@ -246,6 +246,7 @@ export const MarkdownEditor = forwardRef<
     resolveDate,
     onSetCoverImage,
     onDownloadImage,
+    onSaveImageToVault,
     onDownloadPdfResource,
     resolveImageResource,
     onArchiveResource,
@@ -1211,6 +1212,17 @@ export const MarkdownEditor = forwardRef<
     onDownloadImage?.(imageMenu.copyUrl ?? imageMenu.url);
   };
 
+  // "Save to vault" — only for a remote image: an http(s) `url` with no `copyUrl` (a local vault
+  // image always has one, its vault-relative reference). Anything else has nothing to save.
+  const imageMenuIsRemote =
+    imageMenu !== null && imageMenu.copyUrl === undefined && /^https?:\/\//.test(imageMenu.url);
+  const handleSaveImageToVault = () => {
+    if (!imageMenu || !imageMenuIsRemote) {
+      return;
+    }
+    onSaveImageToVault?.(imageMenu.url);
+  };
+
   // "Remove" — only ever edits this note's own Markdown text (never the
   // underlying resource); see embedRemovalRange.ts's own doc comment for
   // the Remove-vs-Archive product rule this enforces.
@@ -1732,6 +1744,7 @@ export const MarkdownEditor = forwardRef<
         onSelectAlignment={handleSelectImageAlignment}
         onCopyLink={handleCopyImageLink}
         onSetCoverImage={onSetCoverImage ? handleSetCoverImage : undefined}
+        onSaveToVault={onSaveImageToVault && imageMenuIsRemote ? handleSaveImageToVault : undefined}
         onDownload={handleDownloadImage}
         onRemove={handleRemoveImage}
       />

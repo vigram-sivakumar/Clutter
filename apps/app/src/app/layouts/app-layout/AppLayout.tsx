@@ -28,10 +28,10 @@ import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderI
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
 import {
-  CoverImageActionsProvider,
-  isRemoteCoverReference,
-  type CoverImageActions,
-} from '@app/layouts/page/cover/CoverImageActionsContext';
+  ImageFileActionsProvider,
+  isRemoteImageReference,
+  type ImageFileActions,
+} from '@app/layouts/page/ImageFileActionsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
@@ -223,10 +223,10 @@ export function AppLayout({ application }: AppLayoutProps) {
   // Save to vault flow (and result dialog) as the asset menu — it rewrites every use of the URL,
   // covers included. Download saves the file anywhere: a remote one is fetched, one already in the
   // vault (a vault-relative reference) is copied from its file.
-  const coverImageActions: CoverImageActions = {
+  const coverImageActions: ImageFileActions = {
     saveToVault: startSaveToVault,
     download: (reference) => {
-      if (isRemoteCoverReference(reference)) {
+      if (isRemoteImageReference(reference)) {
         void downloadRemoteImage(reference);
         return;
       }
@@ -296,7 +296,7 @@ export function AppLayout({ application }: AppLayoutProps) {
       <main className="app-layout__page">
         <TauriDragStrip />
         <CoverAssetsProvider value={listCoverPickerAssets}>
-        <CoverImageActionsProvider value={coverImageActions}>
+        <ImageFileActionsProvider value={coverImageActions}>
         <PageHost
           application={application}
           onOpenResource={openVaultResourceOverlay}
@@ -307,7 +307,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onRequestReveal={setPendingReveal}
           onRevealHandled={() => setPendingReveal(null)}
         />
-        </CoverImageActionsProvider>
+        </ImageFileActionsProvider>
         </CoverAssetsProvider>
       </main>
       <SidebarToggle

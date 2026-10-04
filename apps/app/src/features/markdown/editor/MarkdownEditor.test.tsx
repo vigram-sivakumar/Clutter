@@ -1599,3 +1599,67 @@ describe('MarkdownEditor: image options menu — Position', () => {
     expect(imageContainer().classList.contains('cm-invalid-embed')).toBe(false);
   });
 });
+
+describe('MarkdownEditor: image options menu — Save to vault', () => {
+  const REMOTE_MD = '![Mountain view](https://example.com/mountain.jpg)';
+
+  function openMenu() {
+    const sizeButton = document.querySelector<HTMLButtonElement>(
+      '.cm-media-control[aria-label="Image size options"]'
+    )!;
+    fireEvent.mouseDown(sizeButton);
+    fireEvent.click(sizeButton);
+  }
+
+  function menuItem(label: string): HTMLElement | null {
+    return (
+      Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find((el) => el.textContent === label) ??
+      null
+    );
+  }
+
+  it('a remote image offers Save to vault, first in its actions group, and clicking it saves that URL and closes the menu', () => {
+    const onSaveImageToVault = vi.fn();
+    render(<MarkdownEditor pageId="test-page" markdown={REMOTE_MD} onSaveImageToVault={onSaveImageToVault} />);
+    openMenu();
+
+    const rows = Array.from(document.querySelector('.menu')!.children).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(rows.indexOf('Save to vault')).toBe(rows.indexOf('Copy link') - 1);
+
+    fireEvent.click(menuItem('Save to vault')!);
+
+    expect(onSaveImageToVault).toHaveBeenCalledTimes(1);
+    expect(onSaveImageToVault).toHaveBeenCalledWith('https://example.com/mountain.jpg');
+    expect(document.querySelector('.menu')).toBeNull();
+  });
+
+  it('is omitted when the host supplies no onSaveImageToVault', () => {
+    render(<MarkdownEditor pageId="test-page" markdown={REMOTE_MD} />);
+    openMenu();
+
+    expect(menuItem('Save to vault')).toBeNull();
+    expect(menuItem('Copy link')).not.toBeNull();
+  });
+
+  it('is omitted for an image that already lives in the vault, even when the host supplies it', () => {
+    const resolveEmbedImage: ResolveEmbedImage = (path) =>
+      path === 'image.png'
+        ? { status: 'image', url: 'app://vault/image.png', copyUrl: 'image.png', alt: 'image.png' }
+        : { status: 'unresolved', alt: path };
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'![[image.png]]'}
+        resolveEmbedImage={resolveEmbedImage}
+        onSaveImageToVault={vi.fn()}
+      />
+    );
+    openMenu();
+
+    expect(menuItem('Save to vault')).toBeNull();
+    expect(menuItem('Download')).not.toBeNull();
+  });
+});
+

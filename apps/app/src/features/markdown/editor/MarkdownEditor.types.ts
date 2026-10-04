@@ -278,6 +278,13 @@ export interface MarkdownEditorProps {
    */
   readonly onDownloadImage?: (url: string) => void;
   /**
+   * Backs the inline `ImageOptionsMenu`'s "Save to vault" item, offered only for an image that is a
+   * remote URL (an image already in the vault has nothing to save). Takes that URL; the app layer
+   * runs the save (and shows its result) — this editor has no opinion on how, same boundary reasoning
+   * as `onDownloadImage`. Absent omits the item entirely.
+   */
+  readonly onSaveImageToVault?: (url: string) => void;
+  /**
    * Backs a PDF embed's own "More actions" menu's Download item. Unlike
    * `onDownloadImage` above, a PDF embed's `resourceId` is already
    * resolved (`embedPdfResolution.ts`'s own doc comment: every `'pdf'`
