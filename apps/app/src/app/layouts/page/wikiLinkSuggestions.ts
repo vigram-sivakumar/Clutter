@@ -157,5 +157,9 @@ export function toPageSuggestion(
     breadcrumb: VaultPath.parentDirectory(path) || null,
     // Only on an alias match, so a title match's shape is unchanged.
     ...(alias !== null && { alias }),
+    // What the popup row needs to read like the note picker's: a Daily Note is listed by its date,
+    // a note by its own emoji.
+    ...(page.type === 'daily-note' && { dailyNote: true }),
+    ...(page.metadata.icon && { emoji: page.metadata.icon }),
   };
 }

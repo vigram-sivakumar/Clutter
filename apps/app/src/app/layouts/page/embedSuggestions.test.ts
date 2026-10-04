@@ -202,3 +202,22 @@ describe('createEmbedSuggester — suggestion shape', () => {
     expect(callCount).toBe(1);
   });
 });
+
+describe('createEmbedSuggester — preview URL for the popup thumbnail', () => {
+  it('gives each resource a loadable URL for its own file when a resolver is supplied', () => {
+    const resources = [makeResource('r1', `${ROOT}/hero.png`), makeResource('r2', `${ROOT}/Projects/plan.pdf`, 'pdf')];
+    const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources), (path) => `app://${path}`);
+
+    expect(suggest('').map((s) => [s.path, s.previewUrl])).toEqual([
+      ['hero.png', 'app:///vault/hero.png'],
+      ['Projects/plan.pdf', 'app:///vault/Projects/plan.pdf'],
+    ]);
+  });
+
+  it('has no preview URL without a resolver', () => {
+    const resources = [makeResource('r1', `${ROOT}/hero.png`)];
+    const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources));
+
+    expect(suggest('')[0]).not.toHaveProperty('previewUrl');
+  });
+});

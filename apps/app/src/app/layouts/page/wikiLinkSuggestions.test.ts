@@ -379,3 +379,21 @@ describe('createWikiLinkSuggester', () => {
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+describe('createWikiLinkSuggester — what the popup row needs', () => {
+  it('flags a Daily Note, and carries a note\'s own emoji, on its page suggestion', () => {
+    const vault = makeVault([
+      makePage({ id: 'a', path: '/vault/Alpha.md', name: 'Alpha', metadata: { ...defaultPageMetadata, icon: '🚀' } }),
+      makePage({ id: 'd', path: '/vault/Daily Notes/2026/October/2026-10-04.md', name: '2026-10-04', type: 'daily-note' }),
+      makePage({ id: 'b', path: '/vault/Beta.md', name: 'Beta' }),
+    ]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    const byTitle = new Map(suggest('').map((s) => [s.kind === 'page' ? s.title : '', s]));
+    expect(byTitle.get('Alpha')).toMatchObject({ emoji: '🚀' });
+    expect(byTitle.get('Alpha')).not.toHaveProperty('dailyNote');
+    expect(byTitle.get('2026-10-04')).toMatchObject({ dailyNote: true });
+    expect(byTitle.get('Beta')).not.toHaveProperty('emoji');
+    expect(byTitle.get('Beta')).not.toHaveProperty('dailyNote');
+  });
+});

@@ -1,4 +1,6 @@
 import { selectedCompletionIndex, setSelectedCompletion } from '@codemirror/autocomplete';
+import type { Completion, CompletionSection } from '@codemirror/autocomplete';
+import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import './completionRow.css';
@@ -11,6 +13,8 @@ import './completionRow.css';
 export interface CompletionRowSpec {
   /** Raw `<svg>` markup, drawn in `currentColor`. `Completion.render` is synchronous DOM, outside React. */
   readonly iconSvg?: string;
+  /** A note's own emoji, shown in place of the icon. */
+  readonly emoji?: string | null;
   /**
    * A loadable image URL shown in place of the icon, filling the row's height (an asset row, as in
    * PickerList). May be a promise (a PDF's first page takes a moment to render): the row shows its
@@ -70,6 +74,11 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
       void spec.thumbnail.then((src) => (src ? showImage(src) : showIcon()), showIcon);
     }
     row.appendChild(thumbnail);
+  } else if (spec.emoji) {
+    const emoji = document.createElement('span');
+    emoji.className = 'completion-row__icon completion-row__emoji';
+    emoji.textContent = spec.emoji;
+    row.appendChild(emoji);
   } else if (spec.iconSvg) {
     const icon = document.createElement('span');
     icon.className = 'completion-row__icon';
@@ -114,21 +123,38 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
 }
 
 /**
- * A section title row (`MenuGroupTitle`'s look) for `Completion.section.header`. Every section
- * after the first is set off by a divider above its title, as in `PickerList`.
+ * A completion that carries its popup row. Every kind's source builds one of these (mapping its
+ * own suggestion to a `CompletionRowSpec`); the single `renderCompletionRow` draws them all.
  */
-export function buildCompletionSectionHeader(name: string, divided = false): HTMLElement {
+export interface RowCompletion extends Completion {
+  readonly row: CompletionRowSpec;
+  /** The titled section the row is listed under, when its popup is sectioned. */
+  readonly section?: CompletionSection;
+}
+
+/**
+ * `autocompletion()`'s `addToOptions[].render` hook — the only one. CM6 has no per-completion
+ * render field in this version, only this config-level callback, run for every visible option;
+ * a completion with no `row` (none in this editor) is left to CM6's own label.
+ */
+export function renderCompletionRow(completion: Completion, _state: EditorState, view: EditorView): HTMLElement | null {
+  return 'row' in completion ? buildCompletionRow((completion as RowCompletion).row, view) : null;
+}
+
+/**
+ * A section title row (`MenuGroupTitle`'s look) for `Completion.section.header`, with a divider
+ * above it. The divider is hidden for the first section by CSS (`completionRow.css`) — CM6 gives
+ * a header no way to know whether it leads the list.
+ */
+export function buildCompletionSectionHeader(name: string): HTMLElement {
   const header = document.createElement('div');
   header.className = 'completion-section';
-  if (divided) {
-    const divider = document.createElement('div');
-    divider.className = 'completion-section__divider';
-    divider.setAttribute('role', 'separator');
-    header.appendChild(divider);
-  }
+  const divider = document.createElement('div');
+  divider.className = 'completion-section__divider';
+  divider.setAttribute('role', 'separator');
   const title = document.createElement('div');
   title.className = 'completion-section__title';
   title.textContent = name;
-  header.appendChild(title);
+  header.append(divider, title);
   return header;
 }

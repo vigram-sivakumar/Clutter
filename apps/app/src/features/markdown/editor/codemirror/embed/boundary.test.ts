@@ -55,7 +55,7 @@ describe('Embed editor boundary: no Vault/application-layer imports', () => {
         'embedSuggestion.ts',
         'embedEngagement.ts',
         'embedCompletionSource.ts',
-        'embedCompletionRenderer.ts',
+        'embedCompletionRow.ts',
         'embedImageResolution.ts',
         'embedLivePreview.ts',
         'embedAutocomplete.ts',

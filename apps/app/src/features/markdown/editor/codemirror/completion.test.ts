@@ -7,7 +7,6 @@ import { EditorView } from '@codemirror/view';
 import { semanticCompletion } from './completion';
 import { markdownLanguageExtension } from './markdownLanguage';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
-import { WIKILINK_TOOLTIP_CLASS } from './wikilink/wikiLinkAutocomplete';
 import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
 
 const getWikiLinkSuggestions: GetWikiLinkSuggestions = () => [
@@ -47,15 +46,27 @@ async function openCompletionAt(doc: string): Promise<HTMLElement | null> {
   return parent.querySelector<HTMLElement>('.cm-tooltip-autocomplete');
 }
 
-describe('semanticCompletion — popup min-width class', () => {
-  it('marks the popup while it lists [[ suggestions, so only that one gets the wider minimum', async () => {
-    const tooltip = await openCompletionAt('x [[Gui');
-    expect(tooltip?.classList.contains(WIKILINK_TOOLTIP_CLASS)).toBe(true);
+describe('semanticCompletion — one popup, one row shape', () => {
+  it('draws a [[ suggestion and a # suggestion with the same shared row', async () => {
+    const wiki = await openCompletionAt('x [[Gui');
+    expect(wiki?.querySelectorAll('.completion-row')).toHaveLength(1);
+    view?.destroy();
+
+    const tag = await openCompletionAt('x #des');
+    expect(tag?.querySelectorAll('.completion-row')).toHaveLength(1);
   });
 
-  it('leaves other sources’ popups (e.g. #tags) at CM6’s own sizing', async () => {
+  it('lists a [[ suggestion under its Notes section title', async () => {
+    const tooltip = await openCompletionAt('x [[Gui');
+    expect(tooltip?.querySelector('.completion-section__title')?.textContent).toBe('Notes');
+  });
+
+  it('leaves no row in the popup without the shared row class — the default label is hidden, so a bare option would be blank', async () => {
     const tooltip = await openCompletionAt('x #des');
-    expect(tooltip).not.toBeNull();
-    expect(tooltip?.classList.contains(WIKILINK_TOOLTIP_CLASS)).toBe(false);
+    const options = tooltip?.querySelectorAll('li[role="option"]') ?? [];
+    expect(options.length).toBeGreaterThan(0);
+    for (const option of options) {
+      expect(option.querySelector('.completion-row')).not.toBeNull();
+    }
   });
 });

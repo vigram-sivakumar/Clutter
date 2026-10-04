@@ -117,7 +117,44 @@ const membershipSelector = {
 const effectivePageState = { getPage: () => undefined } as unknown as EffectivePageState;
 
 export const labWikiLinkSuggestions = createWikiLinkSuggester(vault, {} as PageOperations, {} as FolderOperations);
-export const labEmbedSuggestions = createEmbedSuggester(vault, membershipSelector);
+/** A small real PDF (one page, the file name as its heading) so the lab renders a real first page. */
+function labPdfUrl(name: string): string {
+  const stream = `BT /F1 40 Tf 40 720 Td (${name.replace(/[()\\]/g, '')}) Tj ET\n0.2 0.4 0.8 rg 40 600 300 60 re f\n0.8 0.8 0.8 rg 40 500 500 12 re f 40 470 420 12 re f 40 440 480 12 re f`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
+}
+
+// The app resolves a resource's absolute path to a loadable URL; the lab hands out a gradient
+// swatch for an image and a generated PDF for a PDF, once per file.
+const labResourceUrls = new Map<string, string>();
+function labResourceUrl(path: string): string {
+  let url = labResourceUrls.get(path);
+  if (!url) {
+    url = path.endsWith('.pdf') ? labPdfUrl(path.slice(path.lastIndexOf('/') + 1)) : labSwatch('#4cc9f0', '#3a0ca3');
+    labResourceUrls.set(path, url);
+  }
+  return url;
+}
+
+export const labEmbedSuggestions = createEmbedSuggester(vault, membershipSelector, labResourceUrl);
 export const labHeadingSuggestions = createEmbedHeadingSuggester(vault, effectivePageState);
 export const labTagSuggestions = createTagSuggester(vault);
 

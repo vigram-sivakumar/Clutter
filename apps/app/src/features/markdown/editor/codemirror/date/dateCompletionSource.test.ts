@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { dateCompletionSource } from './dateCompletionSource';
-import type { DateCompletion } from './dateCompletionRenderer';
+import type { DateCompletion } from './dateCompletionRow';
 
 function contextAt(doc: string, pos: number): CompletionContext {
   const state = EditorState.create({ doc, selection: { anchor: pos } });

@@ -25,7 +25,7 @@ export function completionPopupTheme(): Extension {
       display: 'flex',
       flexDirection: 'column',
       gap: 'var(--space-1)',
-      minWidth: 'var(--completion-popup-min-width, 320px)',
+      minWidth: 'var(--completion-popup-min-width)',
       maxHeight: '260px',
       paddingBlock: 'var(--space-8)',
       paddingInline: 'var(--space-8)',
@@ -39,7 +39,7 @@ export function completionPopupTheme(): Extension {
       borderRadius: 'var(--radius-lg)',
     },
     // Section titles are rows CM6 inserts into the same flex column: never shrink them either.
-    '.cm-tooltip-autocomplete ul > completion-section, .cm-tooltip-autocomplete ul > .cm-completionSection': {
+    '.cm-tooltip-autocomplete ul > .completion-section': {
       padding: '0',
       flexShrink: '0',
     },

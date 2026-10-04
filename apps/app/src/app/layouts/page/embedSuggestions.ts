@@ -30,7 +30,9 @@ import type {
  */
 export function createEmbedSuggester(
   vault: Vault,
-  membershipSelector: MembershipSelector
+  membershipSelector: MembershipSelector,
+  /** A loadable URL for a resource's file (its absolute path), for the popup's thumbnail. */
+  resolveResourceUrl?: (path: string) => string
 ): GetEmbedSuggestions {
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -48,12 +50,12 @@ export function createEmbedSuggester(
     // rather than nothing, same "open immediately" rule
     // createWikiLinkSuggester already applies for a freshly typed `[[`.
     if (!normalizedQuery) {
-      return resources.map((resource) => toResourceSuggestion(vault, resource)).sort(byPath);
+      return resources.map((resource) => toResourceSuggestion(vault, resource, resolveResourceUrl)).sort(byPath);
     }
 
     return resources
       .filter((resource) => matchesQuery(vault, resource, normalizedQuery))
-      .map((resource) => toResourceSuggestion(vault, resource))
+      .map((resource) => toResourceSuggestion(vault, resource, resolveResourceUrl))
       .sort(byPath);
   };
 }
@@ -75,7 +77,11 @@ function matchesQuery(vault: Vault, resource: VaultResource, normalizedQuery: st
   return relativePath(vault, resource).toLowerCase().includes(normalizedQuery);
 }
 
-function toResourceSuggestion(vault: Vault, resource: VaultResource): EmbedResourceSuggestion {
+function toResourceSuggestion(
+  vault: Vault,
+  resource: VaultResource,
+  resolveResourceUrl: ((path: string) => string) | undefined
+): EmbedResourceSuggestion {
   const path = relativePath(vault, resource);
 
   return {
@@ -84,5 +90,6 @@ function toResourceSuggestion(vault: Vault, resource: VaultResource): EmbedResou
     title: getResourceDisplayName(resource),
     breadcrumb: VaultPath.parentDirectory(path) || null,
     resourceKind: resource.kind,
+    ...(resolveResourceUrl && { previewUrl: resolveResourceUrl(resource.path) }),
   };
 }

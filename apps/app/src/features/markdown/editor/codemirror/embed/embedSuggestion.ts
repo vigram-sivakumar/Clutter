@@ -31,6 +31,11 @@ export interface EmbedResourceSuggestion {
    * classified value, not a second guess at render time).
    */
   readonly resourceKind: 'image' | 'pdf';
+  /**
+   * A loadable URL for the resource's own file, for the popup's thumbnail (an image's picture, a
+   * PDF's first page). Absent where the caller has no URL resolver; the row then shows its icon.
+   */
+  readonly previewUrl?: string;
 }
 
 /**

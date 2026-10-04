@@ -1,8 +1,8 @@
-import type { Completion, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 
 import { findWikiLinkAt } from './wikiLinkEngagement';
-import type { WikiLinkCompletion } from './wikiLinkCompletionRenderer';
+import { wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
 import { serializeWikiLink } from './wikiLinkSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from './wikiLinkScanner';
 import type { GetWikiLinkSuggestions, WikiLinkSuggestion } from './wikiLinkSuggestion';
@@ -28,7 +28,7 @@ export const WIKILINK_TRIGGER_PATTERN = /\[\[[^\]|\n]*$/;
 /** Turns an accepted suggestion's target path (and matched alias, if any) into the text to insert. */
 type InsertText = (path: string, alias: string | null) => string;
 
-function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): Completion {
+function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): WikiLinkCompletion {
   const alias = suggestion.kind === 'page' ? (suggestion.alias ?? null) : null;
   const completion: WikiLinkCompletion = {
     label:
@@ -38,6 +38,7 @@ function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): C
           ? `${suggestion.title} (${alias})`
           : suggestion.title,
     suggestion,
+    ...wikiLinkRow(suggestion),
     apply(view, _completion, from, to) {
       const insert = insertText(suggestion.path, alias);
 

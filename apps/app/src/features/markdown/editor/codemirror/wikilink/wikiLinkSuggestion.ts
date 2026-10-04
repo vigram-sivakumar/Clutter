@@ -26,6 +26,10 @@ export interface WikiLinkPageSuggestion {
    * link's display text — `[[path|alias]]` — never as the target.
    */
   readonly alias?: string;
+  /** True for a Daily Note: the popup lists it under Daily notes by its short date title, with no path. */
+  readonly dailyNote?: boolean;
+  /** The page's own emoji, shown in place of the note icon. */
+  readonly emoji?: string | null;
 }
 
 export interface WikiLinkCreateSuggestion {

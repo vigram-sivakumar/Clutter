@@ -1,9 +1,9 @@
-import type { Completion, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { findEmbedAt } from './embedEngagement';
-import type { EmbedCompletion } from './embedCompletionRenderer';
+import { embedHeadingRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
 import { serializeEmbed } from './embedSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../wikilink/wikiLinkScanner';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
@@ -79,10 +79,11 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
 function toCompletion(
   suggestion: Extract<EmbedSuggestion, { kind: 'resource' }>,
   insertText: (path: string) => string
-): Completion {
+): EmbedCompletion {
   const completion: EmbedCompletion = {
     label: suggestion.title,
     suggestion,
+    ...embedResourceRow(suggestion),
     apply(view, _completion, from, to) {
       applyEmbedInsert(insertText(suggestion.path), view, from, to);
     },
@@ -101,10 +102,11 @@ function toHeadingCompletion(
   suggestion: Extract<EmbedSuggestion, { kind: 'heading' }>,
   pagePart: string,
   insertText: (target: string) => string
-): Completion {
+): EmbedCompletion {
   const completion: EmbedCompletion = {
     label: suggestion.heading,
     suggestion,
+    ...embedHeadingRow(suggestion),
     apply(view, _completion, from, to) {
       applyEmbedInsert(insertText(`${pagePart}#${suggestion.heading}`), view, from, to);
     },

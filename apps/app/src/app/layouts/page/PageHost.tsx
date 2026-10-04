@@ -459,7 +459,8 @@ export function PageHost({
   // through as an injected prop until a rendering milestone needs it).
   const getEmbedSuggestions = createEmbedSuggester(
     vault,
-    application.membershipSelector
+    application.membershipSelector,
+    (path) => application.resolveResourceImageUrl(path)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // ADR-032's heading-suggestion counterpart, scoped to whichever page the

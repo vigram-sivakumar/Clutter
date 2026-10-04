@@ -6,7 +6,7 @@ import { acceptCompletion, completionStatus, currentCompletions } from '@codemir
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { semanticCompletion } from '../completion';
-import { renderTagCompletion } from './tagCompletionRenderer';
+import { renderCompletionRow } from '../completionPopup/completionRow';
 import type { GetTagSuggestions } from './tagSuggestion';
 import type { GetWikiLinkSuggestions } from '../wikilink/wikiLinkSuggestion';
 
@@ -127,17 +127,13 @@ describe('Tag autocomplete — real CM6 lifecycle, wired through semanticComplet
   });
 
   /**
-   * Regression for the actual reported bug: the popup opened with correctly-
-   * populated options, but every row was visually empty because the shared
-   * `wikiLinkAutocompleteTheme()` CSS hides CM6's default label for every
-   * source, and Tag had no `addToOptions` renderer to fill the gap.
-   * Verified end-to-end here — not by hand-building a Completion, but by
-   * feeding `renderTagCompletion` the actual option objects the real
-   * `semanticCompletion()` pipeline produced (`currentCompletions`), so this
-   * fails again if either the source's label shape or the renderer's guard
-   * ever drift apart from each other.
+   * Regression for the actual reported bug: the popup opened with correctly-populated options,
+   * but every row was visually empty because the shared popup theme hides CM6's default label
+   * for every source, and Tag had nothing to fill the gap. Verified end-to-end — by feeding
+   * `renderCompletionRow` the actual option objects the real `semanticCompletion()` pipeline
+   * produced (`currentCompletions`), not a hand-built Completion.
    */
-  it('every option the real pipeline produces for a Tag query renders as a visible row via renderTagCompletion', async () => {
+  it('every option the real pipeline produces for a Tag query renders as a visible row', async () => {
     const getSuggestions: GetTagSuggestions = () => ['project', 'projector'];
     const view = mount(() => getSuggestions);
 
@@ -145,14 +141,12 @@ describe('Tag autocomplete — real CM6 lifecycle, wired through semanticComplet
     const completions = currentCompletions(view.state);
     expect(completions).toHaveLength(2);
 
-    const rendered = completions.map((completion) =>
-      renderTagCompletion(completion, view.state, view)
-    );
+    const rendered = completions.map((completion) => renderCompletionRow(completion, view.state, view));
 
     expect(rendered.every((row) => row instanceof HTMLElement)).toBe(true);
-    expect((rendered as HTMLElement[]).map((row) => row.textContent)).toEqual([
-      '#project',
-      '#projector',
+    expect((rendered as HTMLElement[]).map((row) => row.querySelector('.completion-row__title')?.textContent)).toEqual([
+      'project',
+      'projector',
     ]);
 
     view.destroy();

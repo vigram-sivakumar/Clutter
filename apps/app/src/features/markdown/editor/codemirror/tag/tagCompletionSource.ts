@@ -1,6 +1,8 @@
-import type { Completion, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 
 import { serializeTagName } from '@core/vault/models/Tag';
+import type { RowCompletion } from '../completionPopup/completionRow';
+import { tagRow } from './tagCompletionRow';
 import { extractTagTriggerQuery } from './tagTrigger';
 import type { GetTagSuggestions } from './tagSuggestion';
 
@@ -14,9 +16,10 @@ import type { GetTagSuggestions } from './tagSuggestion';
  * the canonical hyphen form for a tag it creates, never `_`, even when
  * completing an existing suggestion.
  */
-function toCompletion(name: string): Completion {
+function toCompletion(name: string): RowCompletion {
   return {
     label: `#${name}`,
+    row: tagRow(name),
     apply(view, _completion, from, to) {
       const insert = `#${serializeTagName(name)}`;
 

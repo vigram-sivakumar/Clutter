@@ -36,6 +36,11 @@
   height: 16px;
 }
 
+.completion-row__emoji {
+  font-size: inherit;
+  line-height: 1;
+}
+
 .completion-row__content {
   display: flex;
   flex-direction: column;
@@ -84,6 +89,10 @@
   height: 1px;
   margin: var(--space-4) var(--space-8);
   background: var(--border-default);
+}
+/* The first section has nothing above it to divide from. */
+.completion-section:first-child .completion-section__divider {
+  display: none;
 }
 .completion-section__title {
   display: flex;

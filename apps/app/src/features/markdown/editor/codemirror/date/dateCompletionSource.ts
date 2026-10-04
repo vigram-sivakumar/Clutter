@@ -1,10 +1,10 @@
-import type { Completion, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 
-import type { DateCompletion } from './dateCompletionRenderer';
+import { dateRow, type DateCompletion } from './dateCompletionRow';
 import { extractDateTriggerQuery } from './dateTrigger';
 import { getDateSuggestions, type DateSuggestion } from './dateSuggestion';
 
-function toCompletion(suggestion: DateSuggestion): Completion {
+function toCompletion(suggestion: DateSuggestion): DateCompletion {
   const completion: DateCompletion = {
     // CM6's own internal identifier for this option — deliberately left
     // as `suggestion.label`, not the reformatted display text
@@ -15,6 +15,7 @@ function toCompletion(suggestion: DateSuggestion): Completion {
     // otherwise build from this field.
     label: suggestion.label,
     dateSuggestion: suggestion,
+    row: dateRow(suggestion),
     apply(view, _completion, from, to) {
       // Always `@YYYY-MM-DD` — identical on a task line or in ordinary
       // content. There is deliberately no task-context branching here:
