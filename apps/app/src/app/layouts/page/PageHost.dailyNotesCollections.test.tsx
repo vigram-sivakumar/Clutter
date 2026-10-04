@@ -221,6 +221,47 @@ describe('Daily Notes collection pages (flag on)', () => {
   });
 });
 
+describe('the feature flag', () => {
+  it('is off by default', () => {
+    expect(defaultFlag).toBe(false);
+  });
+});
+
+describe('nothing on a Daily Notes page offers creating a note or folder', () => {
+  async function menuLabelsOfEveryMoreActions(path: string): Promise<string[][]> {
+    // How many "More actions" buttons the page has, then each one's menu, on a fresh render.
+    await renderFolder(path);
+    const count = document.querySelectorAll('button[aria-label="More actions"]').length;
+    cleanup();
+
+    const all: string[][] = [];
+    for (let index = 0; index < count; index++) {
+      await renderFolder(path);
+      fireEvent.click(document.querySelectorAll('button[aria-label="More actions"]')[index]!);
+      await flush();
+      all.push(
+        Array.from(document.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent ?? '')
+      );
+      cleanup();
+    }
+    return all;
+  }
+
+  it.each([
+    ['the Daily Notes page', `${ROOT}/Daily Notes`],
+    ['a year page', `${ROOT}/Daily Notes/2026`],
+    ['a month page', `${ROOT}/Daily Notes/2026/October`],
+  ])('%s: no create/new item in any of its menus, no "+", no create-folder card', async (_label, path) => {
+    for (const labels of await menuLabelsOfEveryMoreActions(path)) {
+      expect(labels.filter((label) => /\b(new|create)\b/i.test(label))).toEqual([]);
+    }
+
+    await renderFolder(path);
+    expect(hasHeaderPlus()).toBe(false);
+    expect(hasCreateFolderCard()).toBe(false);
+  });
+});
+
 describe('Daily Notes collection pages (flag off)', () => {
   beforeEach(() => {
     featureFlags.dailyNotesCollectionPages = false;
