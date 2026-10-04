@@ -305,7 +305,11 @@ export function PickerList({
               // 0 for any row with an onClick, adding every row to the
               // page's natural Tab order.
               tabIndex={-1}
-              className="picker-list__item"
+              className={
+                item.thumbnail
+                  ? 'picker-list__item picker-list__item--asset'
+                  : 'picker-list__item'
+              }
               level={isSearching ? 0 : item.level}
               // The secondary label (e.g. "Home" on the vault root) is the row's trailing meta —
               // Entry's own muted, never-shrinking right-hand slot — not part of its content.
@@ -315,7 +319,11 @@ export function PickerList({
                 ) : undefined
               }
               leading={
-                leadingIcon ? (
+                item.thumbnail ? (
+                  <span className="picker-list__thumbnail">
+                    <img src={item.thumbnail} alt="" draggable={false} />
+                  </span>
+                ) : leadingIcon ? (
                   <span className="picker-list__leading">
                     <AppIcon
                       className="picker-list__icon"

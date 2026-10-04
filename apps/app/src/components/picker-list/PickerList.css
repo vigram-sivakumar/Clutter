@@ -90,3 +90,42 @@
   pointer-events: none;
 }
 
+
+/* Asset row: the asset's image replaces the icon and fills the row's height (a square, cropped to
+   cover). Padding is trimmed so the image sits close to the row's edge, and the row is tall enough
+   (a title plus a path line) for the image to be worth showing. */
+.picker-list__item--asset {
+  --picker-list-asset-height: 44px;
+  align-items: stretch;
+  padding-block: var(--space-4);
+  /* Flex would otherwise shrink these rows inside the height-capped list. */
+  flex-shrink: 0;
+  /* One fixed height with or without a path line (title + path = 36px of text, plus padding), so
+     every asset row, and its image, is the same size. */
+  height: var(--picker-list-asset-height);
+}
+.picker-list__item--asset .entry__leading {
+  align-self: stretch;
+  height: auto;
+}
+.picker-list__item--asset .entry__content {
+  align-self: center;
+  height: auto;
+}
+.picker-list__thumbnail {
+  /* A square the height of the row's content box (row height - 2 x 4px padding), so the image fills
+     the row's height. The image is out of flow: its own size must not decide the row's height. */
+  position: relative;
+  width: calc(var(--picker-list-asset-height) - 2 * var(--space-4));
+  height: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  pointer-events: none;
+}
+.picker-list__thumbnail img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

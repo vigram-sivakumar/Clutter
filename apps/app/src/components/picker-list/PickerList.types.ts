@@ -23,6 +23,11 @@ export interface PickerListItem {
   /** This row's own leading icon, over the picker's `leadingIcon` (a flat list of mixed kinds, e.g. notes and daily notes). */
   icon?: SystemIcon;
   /**
+   * An asset's own image (a URL). When set, the row's leading shows this image instead of an
+   * icon or emoji, filling the row's height (square, cropped to cover) — for an asset entry.
+   */
+  thumbnail?: string;
+  /**
    * A muted, small-text label in the row's trailing slot, right-aligned (same styling tokens
    * as a search result's breadcrumb `path`) — e.g. "Home" on the root item, which is named
    * after the vault/folder itself. The trailing slot never shrinks, so `title` is what

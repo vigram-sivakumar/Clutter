@@ -587,4 +587,25 @@ describe('PickerList fade next to the first Show more row', () => {
       expect(list.hasAttribute('data-can-scroll-down')).toBe(true);
     });
   });
+  it('shows an asset item\'s thumbnail in place of its icon, and marks the row as an asset row', () => {
+    const { container } = render(
+      <PickerList
+        items={[
+          { id: 'a', title: 'sunset.jpg', level: 0, parentId: null, thumbnail: 'data:image/png;base64,AAAA' },
+          { id: 'n', title: 'Note', level: 0, parentId: null },
+        ]}
+        leadingIcon="note"
+        onSelect={vi.fn()}
+      />
+    );
+
+    const assetRow = container.querySelector('#a')!;
+    expect(assetRow.classList.contains('picker-list__item--asset')).toBe(true);
+    expect(assetRow.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+    expect(assetRow.querySelector('.picker-list__icon')).toBeNull();
+
+    const noteRow = container.querySelector('#n')!;
+    expect(noteRow.classList.contains('picker-list__item--asset')).toBe(false);
+    expect(noteRow.querySelector('img')).toBeNull();
+  });
 });

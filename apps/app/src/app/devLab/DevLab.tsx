@@ -35,6 +35,7 @@ import {
   labCoverFolderItems,
   labFolderItems,
   labHeadingSuggestions,
+  labAssetItems,
   labNoteItems,
   labTagSuggestions,
   labWikiLinkSuggestions,
@@ -179,7 +180,7 @@ export function DevLab() {
           <PickerCard
             title="Set cover image"
             onClose={() => {}}
-            items={[...labNoteItems, ...labCoverFolderItems]}
+            items={[...labAssetItems, ...labNoteItems, ...labCoverFolderItems]}
             placeholder="Search notes and folders…"
             leadingIcon="note"
             sectionLimit={5}

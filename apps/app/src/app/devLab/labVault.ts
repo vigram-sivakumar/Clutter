@@ -124,3 +124,15 @@ export const labTagSuggestions = createTagSuggester(vault);
 export const labFolderItems: PickerListItem[] = buildMoveDestinationItems(membershipSelector);
 export const labCoverFolderItems: PickerListItem[] = buildCoverFolderItems(membershipSelector);
 export const labNoteItems: PickerListItem[] = buildCoverNoteItems(PAGES, (id) => folderById.get(id));
+
+function labSwatch(from: string, to: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs><rect width="64" height="64" fill="url(#g)"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/** Asset rows (image thumbnail in place of the icon) for the picker's asset variant. */
+export const labAssetItems: PickerListItem[] = [
+  { id: 'asset-1', title: 'sunset.jpg', level: 0, parentId: null, section: 'Assets', thumbnail: labSwatch('#f6a35c', '#7b4bd6'), ancestors: [{ id: 'f-a', title: 'Images' }] },
+  { id: 'asset-2', title: 'diagram.png', level: 0, parentId: null, section: 'Assets', thumbnail: labSwatch('#4cc9f0', '#3a0ca3'), ancestors: [{ id: 'f-a', title: 'Images' }] },
+  { id: 'asset-3', title: 'cover-draft.webp', level: 0, parentId: null, section: 'Assets', thumbnail: labSwatch('#80ed99', '#22577a') },
+];
