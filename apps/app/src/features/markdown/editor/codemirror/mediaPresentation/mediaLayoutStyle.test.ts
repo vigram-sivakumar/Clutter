@@ -233,6 +233,17 @@ describe('flipDimensionTransition — a cleanup that never fired cannot strip a 
     expect(el.style.height).toBe('523px');
   });
 
+  it('releases a pin whose size the browser has rounded (a fractional measured size is still our pin)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 459.328125 }]);
+
+    // A real browser reads this back rounded to three decimals.
+    el.style.height = '459.328px';
+    fire(el, 'height');
+
+    expect(el.style.height).toBe('');
+  });
+
   it('still releases the pin when it is still the pin (the normal case)', () => {
     const el = document.createElement('div');
     flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);

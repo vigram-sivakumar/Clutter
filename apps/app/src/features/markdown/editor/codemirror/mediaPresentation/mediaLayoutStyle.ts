@@ -373,8 +373,11 @@ export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]):
       }
       disarm();
       // Only release the pin if it is still OUR pin: anything else that has since set this size
-      // (a drag, or the persisted size being re-applied) must be left alone.
-      if (entry.el.style.getPropertyValue(entry.property) === `${entry.to}px`) {
+      // (a drag, or the persisted size being re-applied) must be left alone. Compared as numbers —
+      // the browser rounds what it stores (`459.328125px` reads back as `459.328px`), so a string
+      // comparison would never match a fractional size and the pin would be left stuck.
+      const pinned = Number.parseFloat(entry.el.style.getPropertyValue(entry.property));
+      if (Number.isFinite(pinned) && Math.abs(pinned - entry.to) < 0.01) {
         entry.el.style.removeProperty(entry.property);
       }
     };
