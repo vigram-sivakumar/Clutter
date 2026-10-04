@@ -1,6 +1,7 @@
 import { autocompletion } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 
+import { completionScrollFade } from './completionPopup/completionScrollFade';
 import { renderCompletionRow } from './completionPopup/completionRow';
 import { completionPopupTheme } from './completionPopup/completionPopupTheme';
 import { dateCompletionSource } from './date/dateCompletionSource';
@@ -66,5 +67,6 @@ export function semanticCompletion(
       addToOptions: [{ render: renderCompletionRow, position: 50 }],
     }),
     completionPopupTheme(),
+    completionScrollFade(),
   ];
 }

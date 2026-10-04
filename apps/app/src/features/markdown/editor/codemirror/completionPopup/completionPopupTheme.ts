@@ -25,11 +25,20 @@ export function completionPopupTheme(): Extension {
       display: 'flex',
       flexDirection: 'column',
       gap: 'var(--space-1)',
-      minWidth: 'var(--completion-popup-min-width)',
+      // The note picker's own width (`PickerCard`: `--dialog-width-md`), fixed so the popup is
+      // the same width whatever its rows hold; a long title ellipsizes.
+      width: 'var(--dialog-width-md)',
+      boxSizing: 'border-box',
       maxHeight: '260px',
       paddingBlock: 'var(--space-8)',
       paddingInline: 'var(--space-8)',
       borderRadius: 'var(--radius-xxl)',
+    },
+    // While more rows lie below, the last visible ones fade out instead of ending at a hard edge —
+    // `PickerCard`'s fade. `completionScrollFade()` sets the attribute.
+    '.cm-tooltip.cm-tooltip-autocomplete > ul[data-can-scroll-down]': {
+      WebkitMaskImage: 'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
+      maskImage: 'linear-gradient(to bottom, #000 calc(100% - 40px), transparent)',
     },
     '.cm-tooltip-autocomplete ul > li': {
       padding: '0',
