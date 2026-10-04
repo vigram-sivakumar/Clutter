@@ -107,6 +107,13 @@ type PageCoverProps = {
    * knowledge of its own.
    */
   hasEmoji?: boolean;
+  /**
+   * Copies a remote cover image into the vault ("Save to vault"). Supplied only for a cover that
+   * is a URL — one that already lives in the vault has nothing to save, so no item is offered.
+   */
+  onSaveToVault?: () => void;
+  /** Saves the cover image file anywhere the user picks ("Download"). */
+  onDownload?: () => void;
 };
 
 type MenuView = 'menu' | 'picker';
@@ -140,6 +147,8 @@ export function PageCover({
   coverPositionSide,
   onSavePosition,
   hasEmoji,
+  onSaveToVault,
+  onDownload,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
   // 'menu' (Change cover image/Hide/Remove) vs 'picker' (the existing
@@ -477,6 +486,35 @@ export function PageCover({
                     onClick={handleEnterRepositioning}
                   >
                     Reposition
+                  </MenuItem>
+                )}
+                <div className="menu__divider" role="separator" />
+              </>
+            )}
+            {(onSaveToVault || onDownload) && (
+              <>
+                {onSaveToVault && (
+                  <MenuItem
+                    leading={<AppIcon icon="arrowDownRight" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(false);
+                      onSaveToVault();
+                    }}
+                  >
+                    Save to vault
+                  </MenuItem>
+                )}
+                {onDownload && (
+                  <MenuItem
+                    leading={<AppIcon icon="download" />}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(false);
+                      onDownload();
+                    }}
+                  >
+                    Download
                   </MenuItem>
                 )}
                 <div className="menu__divider" role="separator" />

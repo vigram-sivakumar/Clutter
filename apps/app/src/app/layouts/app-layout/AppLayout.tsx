@@ -15,6 +15,7 @@ import { getResourceDisplayName } from '@core/presentation/getResourceDisplayNam
 import { buildResourceMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
+import { downloadResource } from '@shared/helpers/downloadResource';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
@@ -26,6 +27,11 @@ import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems
 import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderItems';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { CoverAssetsProvider, type CoverPickerAsset } from '@app/layouts/page/cover/image-picker/CoverAssetsContext';
+import {
+  CoverImageActionsProvider,
+  isRemoteCoverReference,
+  type CoverImageActions,
+} from '@app/layouts/page/cover/CoverImageActionsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
@@ -213,6 +219,22 @@ export function AppLayout({ application }: AppLayoutProps) {
     }
   }
 
+  // The page cover menu's file actions. A remote cover saves into the vault through the same
+  // Save to vault flow (and result dialog) as the asset menu — it rewrites every use of the URL,
+  // covers included. Download saves the file anywhere: a remote one is fetched, one already in the
+  // vault (a vault-relative reference) is copied from its file.
+  const coverImageActions: CoverImageActions = {
+    saveToVault: startSaveToVault,
+    download: (reference) => {
+      if (isRemoteCoverReference(reference)) {
+        void downloadRemoteImage(reference);
+        return;
+      }
+      const fileName = reference.split('/').pop() ?? 'image';
+      void downloadResource(`${application.vault.root}/${reference}`, fileName);
+    },
+  };
+
   // The cover picker's Asset tab: every image the Assets collection holds
   // (vault files anywhere, plus remote images in use). Derived when the tab
   // renders, so it is never stale.
@@ -274,6 +296,7 @@ export function AppLayout({ application }: AppLayoutProps) {
       <main className="app-layout__page">
         <TauriDragStrip />
         <CoverAssetsProvider value={listCoverPickerAssets}>
+        <CoverImageActionsProvider value={coverImageActions}>
         <PageHost
           application={application}
           onOpenResource={openVaultResourceOverlay}
@@ -284,6 +307,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onRequestReveal={setPendingReveal}
           onRevealHandled={() => setPendingReveal(null)}
         />
+        </CoverImageActionsProvider>
         </CoverAssetsProvider>
       </main>
       <SidebarToggle

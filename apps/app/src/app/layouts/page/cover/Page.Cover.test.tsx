@@ -145,6 +145,100 @@ describe('PageCover — More actions menu', () => {
   });
 });
 
+describe('PageCover — file actions (Save to vault, Download)', () => {
+  it('lists neither without the callbacks, leaving the menu as it was', () => {
+    renderCover();
+
+    expect(screen.queryByText('Save to vault')).not.toBeInTheDocument();
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+  });
+
+  it('lists Save to vault and Download below the Position group, before Hide and Remove', () => {
+    renderCover({
+      onSaveToVault: vi.fn(),
+      onDownload: vi.fn(),
+      onSetLayout: vi.fn(),
+      onSavePosition: vi.fn(),
+    });
+
+    const labels = screen
+      .getAllByText(/Change cover image|Right|Top|Reposition|Save to vault|Download|Hide|Remove/)
+      .map((el) => el.textContent);
+    expect(labels).toEqual([
+      'Change cover image',
+      'Right',
+      'Top',
+      'Reposition',
+      'Save to vault',
+      'Download',
+      'Hide',
+      'Remove',
+    ]);
+  });
+
+  it('separates the groups with dividers: before Position, between Position and the file actions, and before Hide', () => {
+    renderCover({ onSaveToVault: vi.fn(), onDownload: vi.fn(), onSetLayout: vi.fn() });
+
+    const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(items).toEqual([
+      'Change cover image',
+      '---',
+      'Position',
+      'Right',
+      'Top',
+      '---',
+      'Save to vault',
+      'Download',
+      '---',
+      'Hide',
+      'Remove',
+    ]);
+  });
+
+  it('with no Position group, the file actions come straight after Change cover image, then a divider', () => {
+    renderCover({ onSaveToVault: vi.fn(), onDownload: vi.fn() });
+
+    const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(items).toEqual(['Change cover image', 'Save to vault', 'Download', '---', 'Hide', 'Remove']);
+  });
+
+  it('offers Download alone for a cover that is already in the vault (no onSaveToVault)', () => {
+    renderCover({ onDownload: vi.fn() });
+
+    expect(screen.getByText('Download')).toBeInTheDocument();
+    expect(screen.queryByText('Save to vault')).not.toBeInTheDocument();
+  });
+
+  it('clicking Save to vault calls onSaveToVault once and closes the menu, touching nothing else', () => {
+    const onSaveToVault = vi.fn();
+    const onDownload = vi.fn();
+    const { onHide, onRemove, onSetCoverImage } = renderCover({ onSaveToVault, onDownload });
+
+    fireEvent.click(screen.getByText('Save to vault'));
+
+    expect(onSaveToVault).toHaveBeenCalledTimes(1);
+    expect(onDownload).not.toHaveBeenCalled();
+    expect(onHide).not.toHaveBeenCalled();
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(onSetCoverImage).not.toHaveBeenCalled();
+    expect(document.querySelector('.menu')).not.toBeInTheDocument();
+  });
+
+  it('clicking Download calls onDownload once and closes the menu', () => {
+    const onDownload = vi.fn();
+    renderCover({ onSaveToVault: vi.fn(), onDownload });
+
+    fireEvent.click(screen.getByText('Download'));
+
+    expect(onDownload).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.menu')).not.toBeInTheDocument();
+  });
+});
+
 describe('PageCover — Position menu', () => {
   it('omits the Position section when onSetLayout is not supplied', () => {
     renderCover({ onSetLayout: undefined });

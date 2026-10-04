@@ -111,6 +111,10 @@ import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal'
 import { PropertyList } from '@components/property-list/PropertyList';
 import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
+import {
+  isRemoteCoverReference,
+  useCoverImageActions,
+} from './cover/CoverImageActionsContext';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 
 interface PageHostProps {
@@ -268,6 +272,21 @@ export function PageHost({
 }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
+
+  // The cover menu's file actions: Download for any cover, Save to vault only for one that is a URL
+  // (an image already in the vault has nothing to save). The flows live with AppLayout.
+  const coverImageActions = useCoverImageActions();
+  function coverImageFileActions(reference: string | null) {
+    if (!coverImageActions || !reference) {
+      return {};
+    }
+    return {
+      onDownloadCoverImage: () => coverImageActions.download(reference),
+      onSaveCoverImageToVault: isRemoteCoverReference(reference)
+        ? () => coverImageActions.saveToVault(reference)
+        : undefined,
+    };
+  }
 
   // Archive's onOpenResource dispatch — the resource-overlay state itself
   // is owned by AppLayout now; this just fixes the `archived` option so
@@ -1258,6 +1277,7 @@ export function PageHost({
             undefined
           }
           onRemoveCoverImage={onRemoveFolderCoverImage}
+          {...coverImageFileActions(model.coverImage)}
           coverHidden={model.coverHidden}
           onHideCoverImage={onHideFolderCoverImage}
           onShowCoverImage={onShowFolderCoverImage}
@@ -1964,6 +1984,7 @@ export function PageHost({
         application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
       }
       onRemoveCoverImage={onRemoveCoverImage}
+      {...coverImageFileActions(model.coverImage)}
       coverHidden={model.coverHidden}
       onHideCoverImage={onHideCoverImage}
       onShowCoverImage={onShowCoverImage}
