@@ -8,9 +8,10 @@ import calendarDot from '@shared/icon/svg/calendar-dot.svg?raw';
 import calendarNote from '@shared/icon/svg/calendar-note.svg?raw';
 import hash from '@shared/icon/svg/hash.svg?raw';
 import image from '@shared/icon/svg/image.svg?raw';
+import moreHorizontal from '@shared/icon/svg/more-horizontal.svg?raw';
 import note from '@shared/icon/svg/note.svg?raw';
 import pdf from '@shared/icon/svg/pdf.svg?raw';
 import plus from '@shared/icon/svg/plus.svg?raw';
 import tag from '@shared/icon/svg/tag.svg?raw';
 
-export const COMPLETION_ICONS = { calendarBlank, calendarDot, calendarNote, hash, image, note, pdf, plus, tag } as const;
+export const COMPLETION_ICONS = { calendarBlank, calendarDot, calendarNote, hash, image, moreHorizontal, note, pdf, plus, tag } as const;

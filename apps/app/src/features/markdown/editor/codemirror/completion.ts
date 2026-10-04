@@ -1,6 +1,7 @@
 import { autocompletion } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 
+import { completionSectionLimit, limitCompletionSections } from './completionPopup/completionSectionLimit';
 import { completionScrollFade } from './completionPopup/completionScrollFade';
 import { renderCompletionRow } from './completionPopup/completionRow';
 import { completionPopupTheme } from './completionPopup/completionPopupTheme';
@@ -56,8 +57,10 @@ export function semanticCompletion(
         // for `![[` — wikiLinkCompletionSource.ts's own explicit
         // preceding-`!` guard is what does that (see its doc comment).
         // This ordering is cosmetic only.
-        embedCompletionSource(getEmbedSuggestions, getEmbedHeadingSuggestions),
-        wikiLinkCompletionSource(getWikiLinkSuggestions),
+        // Only the long lists (`[[` notes, `![[` assets) are capped with "Show N more"; headings, dates
+        // and tags have no sections and are short.
+        limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getEmbedHeadingSuggestions)),
+        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions)),
         dateCompletionSource(),
         tagCompletionSource(getTagSuggestions),
       ],
@@ -68,5 +71,6 @@ export function semanticCompletion(
     }),
     completionPopupTheme(),
     completionScrollFade(),
+    completionSectionLimit(),
   ];
 }
