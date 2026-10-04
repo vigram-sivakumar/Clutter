@@ -29,6 +29,10 @@
 /* Rows are the folder picker's own rows, unmodified (same padding, height and alignment) — a
    row with a folder path is simply two lines tall. The list is capped, not fixed, so the
    card grows with a short list and scrolls once it passes N two-line rows. */
+/* The search box is 32px tall here (the shared input defaults to the 30px `--height-lg`). */
+.cover-note-picker .input {
+  min-height: var(--space-32);
+}
 .cover-note-picker .folder-picker__list {
   flex: none;
   /* Tall enough to show the first section in full — its title, its rows (all with a path, the
