@@ -54,11 +54,16 @@ export interface MoveDestinationPickerProps {
 /**
  * The destination list as a flat, searchable list — no tree. The vault root ("Home") stays first;
  * every folder after it is one alphabetical row with its parent path shown under the name (the
- * `ancestors` the builder already attaches). No `section`, so the card draws no section title,
- * divider or Show more.
+ * `ancestors` the builder already attaches). They are one "Folders" section — only so the card
+ * can cap it with Show more / Show less; its title is not drawn (`showSectionTitles={false}`).
  */
 function flattenDestinations(items: FolderPickerItem[]): FolderPickerItem[] {
-  const flat = (item: FolderPickerItem): FolderPickerItem => ({ ...item, level: 0, parentId: null });
+  const flat = (item: FolderPickerItem): FolderPickerItem => ({
+    ...item,
+    level: 0,
+    parentId: null,
+    section: 'Folders',
+  });
   const root = items.filter((item) => item.id === ROOT_DESTINATION_ID).map(flat);
   const folders = items
     .filter((item) => item.id !== ROOT_DESTINATION_ID)
@@ -87,6 +92,8 @@ export function MoveDestinationPicker({
         items={destinations}
         placeholder="Search folders"
         leadingIcon="folder"
+        sectionLimit={5}
+        showSectionTitles={false}
         onSelect={(item) =>
           onSelect(item.id === ROOT_DESTINATION_ID ? null : item.id)
         }

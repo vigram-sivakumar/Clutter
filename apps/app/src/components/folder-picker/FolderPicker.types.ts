@@ -74,6 +74,11 @@ export interface FolderPickerProps {
    * a `section` are never capped. Default: no cap.
    */
   sectionLimit?: number;
+  /**
+   * Draws each section's title (default). Turn off for a list that is one section only to give
+   * its rows a Show more cap, with no heading above them. Dividers between sections are unaffected.
+   */
+  showSectionTitles?: boolean;
   onSelect: (item: FolderPickerItem) => void;
   onCreate?: (name: string) => void;
 }

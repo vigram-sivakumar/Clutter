@@ -20,6 +20,7 @@ export function FolderPicker({
   leadingIcon,
   showPath = false,
   sectionLimit,
+  showSectionTitles = true,
   onSelect,
   onCreate,
 }: FolderPickerProps) {
@@ -155,29 +156,49 @@ export function FolderPicker({
   // Whether the list has more content below its visible part — exposed as `data-can-scroll-down`
   // so a host can fade the bottom edge only while there is something to scroll to.
   const [canScrollDown, setCanScrollDown] = useState(false);
-  function updateCanScrollDown() {
-    const list = listRef.current;
-    if (list) {
-      setCanScrollDown(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
-    }
-  }
-
-  // Where the first section's "Show more" row ends, from the top of the list's content, as the
-  // `--folder-picker-first-section-bottom` CSS variable — so a host can size the list to end
-  // right after it (rows differ in height, so no fixed number can). Unset when no section is
-  // capped, and unset while the layout can't be measured.
-  function updateFirstSectionBottom() {
+  // Where the first section's "Show more" row ends, from the top of the list's content, or null
+  // when no section is capped (or the layout can't be measured).
+  function measureFirstSectionBottom(): number | null {
     const list = listRef.current;
     const toggle = list?.querySelector<HTMLElement>('[id^="folder-picker-toggle-"]');
     if (!list || !toggle) {
-      list?.style.removeProperty('--folder-picker-first-section-bottom');
-      return;
+      return null;
     }
     const bottom = toggle.getBoundingClientRect().bottom - list.getBoundingClientRect().top + list.scrollTop;
-    if (bottom > 0) {
-      list.style.setProperty('--folder-picker-first-section-bottom', `${Math.ceil(bottom)}px`);
+    return bottom > 0 ? bottom : null;
+  }
+
+  function updateCanScrollDown() {
+    const list = listRef.current;
+    if (!list) {
+      return;
+    }
+    // The list's own bottom padding is scrollable but is not content — don't count it, or the
+    // fade would dim the last real row whenever the list is capped just short of that padding.
+    const padding = parseFloat(getComputedStyle(list).paddingBottom) || 0;
+    const moreBelow = list.scrollTop + list.clientHeight < list.scrollHeight - padding - 1;
+
+    // A host may end the list right at the first section's "Show more" row (the
+    // `--folder-picker-first-section-bottom` below). That row is the way to more, so while the list
+    // sits at the top it is not faded; the fade returns once the user scrolls.
+    const firstSectionBottom = measureFirstSectionBottom();
+    const endsAtFirstToggle =
+      list.scrollTop <= 0 && firstSectionBottom !== null && list.clientHeight <= firstSectionBottom + 5;
+
+    setCanScrollDown(moreBelow && !endsAtFirstToggle);
+  }
+
+  // Exposes where the first section's "Show more" row ends as the
+  // `--folder-picker-first-section-bottom` CSS variable — so a host can size the list to end right
+  // after it (rows differ in height, so no fixed number can). Unset when no section is capped, and
+  // unset while the layout can't be measured.
+  function updateFirstSectionBottom() {
+    const list = listRef.current;
+    const bottom = measureFirstSectionBottom();
+    if (bottom === null) {
+      list?.style.removeProperty('--folder-picker-first-section-bottom');
     } else {
-      list.style.removeProperty('--folder-picker-first-section-bottom');
+      list?.style.setProperty('--folder-picker-first-section-bottom', `${Math.ceil(bottom)}px`);
     }
   }
 
@@ -275,7 +296,7 @@ export function FolderPicker({
           return (
             <Fragment key={item.id}>
               {startsSection && index > 0 && <div className="menu__divider" role="separator" />}
-              {startsSection && <MenuGroupTitle>{item.section}</MenuGroupTitle>}
+              {startsSection && showSectionTitles && <MenuGroupTitle>{item.section}</MenuGroupTitle>}
             <Entry
               id={item.id}
               role="menuitem"

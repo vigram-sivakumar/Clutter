@@ -527,3 +527,62 @@ describe('FolderPicker --folder-picker-first-section-bottom', () => {
     }
   });
 });
+
+describe('FolderPicker showSectionTitles', () => {
+  const items = Array.from({ length: 8 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null, section: 'Notes' }));
+
+  it('can cap a single section with Show more while drawing no title for it', () => {
+    const { container } = render(
+      <FolderPicker items={items} leadingIcon="note" sectionLimit={5} showSectionTitles={false} onSelect={() => {}} />
+    );
+
+    expect(container.querySelectorAll('.menu__group-title')).toHaveLength(0);
+    expect(screen.getByText('Show more')).toBeTruthy();
+    expect(screen.queryByText('Note 5')).toBeNull();
+  });
+
+  it('draws the title by default', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />);
+
+    expect(container.querySelector('.menu__group-title')?.textContent).toBe('Notes');
+  });
+});
+
+describe('FolderPicker fade next to the first Show more row', () => {
+  const items = Array.from({ length: 8 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null, section: 'Notes' }));
+
+  function withGeometry(run: () => void) {
+    const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      if (this.classList.contains('folder-picker__list')) return rect(100, 400);
+      if (this.id.startsWith('folder-picker-toggle-')) return rect(330, 362);
+      return rect(0, 0);
+    };
+    try {
+      run();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = original;
+    }
+  }
+
+  it('does not fade a list that ends at the first Show more row, until it is scrolled', () => {
+    withGeometry(() => {
+      const { container } = render(
+        <FolderPicker items={items} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />
+      );
+      const list = container.querySelector<HTMLElement>('.folder-picker__list')!;
+      // The first Show more row ends 262px into the content; the list is cut just after it (266px).
+      Object.defineProperty(list, 'clientHeight', { configurable: true, value: 266 });
+      Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 600 });
+
+      list.scrollTop = 0;
+      fireEvent.scroll(list);
+      expect(list.hasAttribute('data-can-scroll-down')).toBe(false);
+
+      list.scrollTop = 50;
+      fireEvent.scroll(list);
+      expect(list.hasAttribute('data-can-scroll-down')).toBe(true);
+    });
+  });
+});

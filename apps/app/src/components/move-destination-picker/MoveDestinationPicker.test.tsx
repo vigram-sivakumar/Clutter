@@ -85,6 +85,31 @@ describe('MoveDestinationPicker', () => {
     expect(document.querySelector('[id^="folder-picker-toggle"]')).toBeNull();
   });
 
+  it('caps the list at five with a Show more row that expands it, still with no section title', () => {
+    const many: FolderPickerItem[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `f${i}`,
+      title: `Folder ${i}`,
+      level: 0,
+      parentId: null,
+    }));
+    render(<MoveDestinationPickerHarness items={many} onSelect={vi.fn()} />);
+
+    const titles = () =>
+      Array.from(document.querySelectorAll('.folder-picker__item'))
+        .filter((el) => !el.id.startsWith('folder-picker-toggle'))
+        .map((el) => el.textContent);
+    expect(titles()).toHaveLength(5);
+    expect(screen.queryByText('Folder 5')).toBeNull();
+    expect(document.querySelector('.menu__group-title')).toBeNull();
+
+    fireEvent.click(screen.getByText('Show more'));
+    expect(titles()).toHaveLength(8);
+    expect(screen.getByText('Folder 7')).toBeDefined();
+
+    fireEvent.click(screen.getByText('Show less'));
+    expect(titles()).toHaveLength(5);
+  });
+
   it('keeps the vault root first and reports it as null', () => {
     const onSelect = vi.fn();
     const withRoot: FolderPickerItem[] = [

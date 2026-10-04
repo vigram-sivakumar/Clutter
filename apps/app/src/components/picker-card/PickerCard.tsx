@@ -16,6 +16,8 @@ export interface PickerCardProps {
   readonly leadingIcon: SystemIcon;
   /** Caps each section (see `FolderPickerItem.section`) at this many rows, with Show more / Show less. */
   readonly sectionLimit?: number;
+  /** Pass false for a single section that needs the cap but no heading. Default true. */
+  readonly showSectionTitles?: boolean;
   readonly onSelect: (item: FolderPickerItem) => void;
   readonly onCreate?: (name: string) => void;
 }
@@ -34,6 +36,7 @@ export function PickerCard({
   placeholder,
   leadingIcon,
   sectionLimit,
+  showSectionTitles,
   onSelect,
   onCreate,
 }: PickerCardProps) {
@@ -53,6 +56,7 @@ export function PickerCard({
         leadingIcon={leadingIcon}
         showPath
         sectionLimit={sectionLimit}
+        showSectionTitles={showSectionTitles}
         onSelect={onSelect}
         onCreate={onCreate}
       />
