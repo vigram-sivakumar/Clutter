@@ -181,9 +181,9 @@ function makeAncestorFolder(overrides: Partial<Folder> = {}): Folder {
   });
 }
 
-describe('buildBreadcrumbs — root visibility policy', () => {
-  it('returns no breadcrumb trail for a root folder', () => {
-    const folder = makeFolder({ parentId: null });
+describe('buildBreadcrumbs — root entries', () => {
+  it('returns just the current crumb for a root folder', () => {
+    const folder = makeFolder({ id: 'f1', name: 'Projects', parentId: null });
     const crumbs = buildBreadcrumbs(
       folder,
       makeVault(),
@@ -191,11 +191,12 @@ describe('buildBreadcrumbs — root visibility policy', () => {
       vi.fn()
     );
 
-    expect(crumbs).toEqual([]);
+    expect(crumbs.map((c) => c.id)).toEqual(['f1']);
+    expect(crumbs[0]!.title).toBe('Projects');
   });
 
-  it('returns no breadcrumb trail for a root note', () => {
-    const page = makePage({ parentId: null });
+  it('returns just the current crumb for a root note', () => {
+    const page = makePage({ id: 'p1', name: 'My Note', parentId: null });
     const crumbs = buildBreadcrumbs(
       page,
       makeVault(),
@@ -203,28 +204,13 @@ describe('buildBreadcrumbs — root visibility policy', () => {
       vi.fn()
     );
 
-    expect(crumbs).toEqual([]);
-  });
-
-  it('returns no breadcrumb trail for a root daily note', () => {
-    const page = makePage({
-      type: 'daily-note',
-      name: '2026-08-02',
-      parentId: null,
-    });
-    const crumbs = buildBreadcrumbs(
-      page,
-      makeVault(),
-      makeMembershipSelector(makeVault()),
-      vi.fn()
-    );
-
-    expect(crumbs).toEqual([]);
+    expect(crumbs.map((c) => c.id)).toEqual(['p1']);
+    expect(crumbs[0]!.title).toBe('My Note');
   });
 });
 
-describe('buildBreadcrumbsForDraft — root visibility policy', () => {
-  it('returns no breadcrumb trail for a root draft', () => {
+describe('buildBreadcrumbsForDraft — root entries', () => {
+  it('returns just the draft crumb for a root draft', () => {
     const crumbs = buildBreadcrumbsForDraft(
       'draft-1',
       null,
@@ -235,7 +221,8 @@ describe('buildBreadcrumbsForDraft — root visibility policy', () => {
       vi.fn()
     );
 
-    expect(crumbs).toEqual([]);
+    expect(crumbs.map((c) => c.id)).toEqual(['draft-1']);
+    expect(crumbs[0]!.title).toBe('New Note');
   });
 });
 
