@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import type { FolderPickerItem, FolderPickerProps } from './FolderPicker.types';
@@ -152,6 +152,26 @@ export function FolderPicker({
     return { displayItems: shown, toggleAfter: toggles };
   }, [visibleItems, sectionLimit, expandedSections]);
 
+  // Whether the list has more content below its visible part — exposed as `data-can-scroll-down`
+  // so a host can fade the bottom edge only while there is something to scroll to.
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  function updateCanScrollDown() {
+    const list = listRef.current;
+    if (list) {
+      setCanScrollDown(list.scrollTop + list.clientHeight < list.scrollHeight - 1);
+    }
+  }
+  useLayoutEffect(updateCanScrollDown, [displayItems]);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(updateCanScrollDown);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, []);
+
   function toggleSection(section: string) {
     setExpandedSections((current) => {
       const next = new Set(current);
@@ -206,7 +226,12 @@ export function FolderPicker({
         placeholder={placeholder}
       />
 
-      <div className="folder-picker__list" ref={listRef}>
+      <div
+        className="folder-picker__list"
+        ref={listRef}
+        onScroll={updateCanScrollDown}
+        data-can-scroll-down={canScrollDown || undefined}
+      >
         {displayItems.map((item, index) => {
           const previousSection = index > 0 ? displayItems[index - 1]!.section : undefined;
           const startsSection = item.section !== undefined && item.section !== previousSection;

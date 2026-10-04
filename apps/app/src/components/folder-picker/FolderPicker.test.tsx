@@ -468,3 +468,35 @@ describe('FolderPicker sectionLimit', () => {
     expect(container.querySelector('[id^="folder-picker-toggle"]')?.getAttribute('role')).toBe('menuitem');
   });
 });
+
+describe('FolderPicker data-can-scroll-down', () => {
+  const items = Array.from({ length: 3 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null }));
+
+  function mockListGeometry(list: HTMLElement, geometry: { clientHeight: number; scrollHeight: number }) {
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: geometry.clientHeight });
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: geometry.scrollHeight });
+  }
+
+  it('is absent when everything fits', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" onSelect={() => {}} />);
+    const list = container.querySelector<HTMLElement>('.folder-picker__list')!;
+    mockListGeometry(list, { clientHeight: 300, scrollHeight: 300 });
+    fireEvent.scroll(list);
+
+    expect(list.hasAttribute('data-can-scroll-down')).toBe(false);
+  });
+
+  it('is present while there is more below, and goes away once scrolled to the end', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" onSelect={() => {}} />);
+    const list = container.querySelector<HTMLElement>('.folder-picker__list')!;
+    mockListGeometry(list, { clientHeight: 100, scrollHeight: 300 });
+
+    list.scrollTop = 0;
+    fireEvent.scroll(list);
+    expect(list.hasAttribute('data-can-scroll-down')).toBe(true);
+
+    list.scrollTop = 200;
+    fireEvent.scroll(list);
+    expect(list.hasAttribute('data-can-scroll-down')).toBe(false);
+  });
+});

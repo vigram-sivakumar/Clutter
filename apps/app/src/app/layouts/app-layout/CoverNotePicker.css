@@ -7,7 +7,7 @@
      picker's sectionLimit (CoverNotePicker.tsx). */
   --cover-note-row: 48px;
   --cover-note-section-rows: 5;
-  padding: var(--space-12);
+  padding: var(--space-12) var(--space-12) 0;
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
   box-shadow: var(--shadow-inset-thin-strong), var(--shadow-xl);
@@ -38,4 +38,11 @@
     2 * var(--height-lg) + var(--cover-note-section-rows) * var(--cover-note-row) + 32px + 8 * var(--space-1) + 9px
   );
   overflow-y: auto;
+}
+/* The list runs to the card's bottom edge (no bottom padding), so while there is more to scroll to
+   its last rows fade out into the card instead of being cut off by a hard edge. Off at the end of
+   the list, so the final row is never dimmed. */
+.cover-note-picker .folder-picker__list[data-can-scroll-down] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
 }
