@@ -10,6 +10,8 @@ import type { Extension } from '@codemirror/state';
 import { buildCompletionRow, buildCompletionSectionHeader, type CompletionRowSpec } from '@features/markdown/editor/codemirror/completionPopup/completionRow';
 import { completionPopupTheme } from '@features/markdown/editor/codemirror/completionPopup/completionPopupTheme';
 import { getDateSuggestions } from '@features/markdown/editor/codemirror/date/dateSuggestion';
+import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
+import { isToday } from '@shared/helpers/time';
 import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
 
 import noteIcon from '@shared/icon/svg/note.svg?raw';
@@ -18,6 +20,8 @@ import plusIcon from '@shared/icon/svg/plus.svg?raw';
 import tagIcon from '@shared/icon/svg/tag.svg?raw';
 import hashIcon from '@shared/icon/svg/hash.svg?raw';
 import calendarIcon from '@shared/icon/svg/calendar-blank.svg?raw';
+import calendarNoteIcon from '@shared/icon/svg/calendar-note.svg?raw';
+import calendarDotIcon from '@shared/icon/svg/calendar-dot.svg?raw';
 
 import { renderPdfThumbnail } from '@features/pdf/pdfThumbnail';
 import { labSwatch, labEmbedSuggestions, labHeadingSuggestions, labTagSuggestions, labWikiLinkSuggestions } from './labVault';
@@ -56,12 +60,28 @@ interface Row {
 
 function rowsFor(kind: PrototypeKind): Row[] {
   switch (kind) {
-    case 'wikilink':
-      return labWikiLinkSuggestions('').flatMap((s) =>
-        s.kind === 'page'
-          ? [{ section: 'Notes', spec: { iconSvg: noteIcon, title: s.title, titleSuffix: s.alias, path: s.breadcrumb } }]
-          : []
-      );
+    case 'wikilink': {
+      // Same split as the note picker (buildCoverNoteItems): notes first, then daily notes, each
+      // alphabetical. A daily note reads as its short date title, with no path, and its own icon.
+      // The lab detects a daily note by its folder; a real suggestion would carry its page type.
+      const pages = labWikiLinkSuggestions('').flatMap((s) => (s.kind === 'page' ? [s] : []));
+      const isDaily = (s: (typeof pages)[number]) => s.breadcrumb === 'Daily Notes';
+      return [
+        ...pages
+          .filter((s) => !isDaily(s))
+          .map((s) => ({
+            section: 'Notes',
+            spec: { iconSvg: noteIcon, title: s.title, titleSuffix: s.alias, path: s.breadcrumb },
+          })),
+        ...pages.filter(isDaily).map((s) => ({
+          section: 'Daily notes',
+          spec: {
+            iconSvg: isToday(s.title) ? calendarDotIcon : calendarNoteIcon,
+            title: formatDailyNotePickerTitle(s.title),
+          },
+        })),
+      ];
+    }
     case 'wikilink-create': {
       const suggestions = labWikiLinkSuggestions('Projects/Project A/Zebra');
       return suggestions.map((s) => {
@@ -73,8 +93,9 @@ function rowsFor(kind: PrototypeKind): Row[] {
       });
     }
     case 'embed':
-      return labEmbedSuggestions('').map((s) => ({
-        section: 'Assets',
+      // Images, then PDFs — each its own section, as the note picker splits Notes and Daily notes.
+      return [...labEmbedSuggestions('')].sort((a, b) => Number(a.resourceKind === 'pdf') - Number(b.resourceKind === 'pdf')).map((s) => ({
+        section: s.resourceKind === 'pdf' ? 'PDFs' : 'Images',
         // Images show their own picture (the lab uses a gradient swatch for the file); a PDF shows its first page.
         spec:
           s.resourceKind === 'pdf'
@@ -110,7 +131,7 @@ export function prototypeCompletion(kind: PrototypeKind): Extension {
       section = sections.get(row.section) ?? {
         name: row.section,
         rank: sections.size,
-        header: () => buildCompletionSectionHeader(row.section!),
+        header: (self) => buildCompletionSectionHeader(self.name, (self.rank as number) > 0),
       };
       sections.set(row.section, section);
     }

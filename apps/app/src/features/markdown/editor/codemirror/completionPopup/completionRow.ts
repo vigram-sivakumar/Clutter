@@ -113,10 +113,22 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
   return row;
 }
 
-/** A section title row (`MenuGroupTitle`'s look) for `Completion.section.header`. */
-export function buildCompletionSectionHeader(name: string): HTMLElement {
+/**
+ * A section title row (`MenuGroupTitle`'s look) for `Completion.section.header`. Every section
+ * after the first is set off by a divider above its title, as in `PickerList`.
+ */
+export function buildCompletionSectionHeader(name: string, divided = false): HTMLElement {
   const header = document.createElement('div');
-  header.className = 'completion-section-title';
-  header.textContent = name;
+  header.className = 'completion-section';
+  if (divided) {
+    const divider = document.createElement('div');
+    divider.className = 'completion-section__divider';
+    divider.setAttribute('role', 'separator');
+    header.appendChild(divider);
+  }
+  const title = document.createElement('div');
+  title.className = 'completion-section__title';
+  title.textContent = name;
+  header.appendChild(title);
   return header;
 }

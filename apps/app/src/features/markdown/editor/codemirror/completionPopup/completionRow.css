@@ -78,8 +78,14 @@
   line-height: var(--lh-label);
 }
 
-/* MenuGroupTitle: an Entry-height row of tertiary small text. */
-.completion-section-title {
+/* A section: an optional divider (`.menu__divider`: 1px, 4px above and below, 8px in from each
+   side of the list) above a MenuGroupTitle, an Entry-height row of tertiary small text. */
+.completion-section__divider {
+  height: 1px;
+  margin: var(--space-4) var(--space-8);
+  background: var(--border-default);
+}
+.completion-section__title {
   display: flex;
   align-items: center;
   box-sizing: border-box;
