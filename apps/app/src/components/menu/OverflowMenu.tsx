@@ -12,6 +12,7 @@ import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
 import { Menu } from './Menu';
+import { MenuGroupTitle } from './MenuGroupTitle';
 import { MenuItem } from './MenuItem';
 
 export interface OverflowMenuSubmenuItemConfig {
@@ -60,6 +61,14 @@ export interface OverflowMenuItemConfig {
    * speculative until a second shape actually shows up.
    */
   separatorBefore?: boolean;
+  /**
+   * A `MenuGroupTitle` section heading drawn immediately above this item (after its divider, when
+   * it has one) — set on the first item of a group, like `separatorBefore`. Items below it, up to
+   * the next divider, read as that group.
+   */
+  groupTitle?: string;
+  /** Highlights this item as the current choice of its group (`MenuItem`'s native `selected`), e.g. the current position. */
+  selected?: boolean;
 }
 
 export interface OverflowMenuProps {
@@ -253,6 +262,7 @@ export function OverflowMenuBody({
       {items.map((item) => (
         <Fragment key={item.id}>
           {item.separatorBefore && <div className="menu__divider" role="separator" />}
+          {item.groupTitle && <MenuGroupTitle>{item.groupTitle}</MenuGroupTitle>}
           {item.submenu ? (
         <OverflowSubmenuTrigger
             id={menuItemDomId(item.id)}
@@ -272,6 +282,7 @@ export function OverflowMenuBody({
           <MenuItem
             id={menuItemDomId(item.id)}
             disabled={item.disabled}
+            selected={item.selected}
             // Hovering any non-submenu item closes an open submenu —
             // otherwise it would stay open, anchored to a row the
             // pointer has moved away from, while this item's own hover

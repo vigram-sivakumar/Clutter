@@ -7,6 +7,8 @@ import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import { MEDIA_ALIGNMENT_ITEMS } from '../mediaPresentation/mediaAlignmentItems';
+import type { MediaAlignment } from '../mediaPresentation/mediaPresentationModel';
 import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
@@ -28,6 +30,10 @@ export interface PdfEmbedMoreActionsProps {
    * product rule this separation enforces.
    */
   readonly onRemoveEmbed?: () => void;
+  /** The embed's current alignment — highlights its Position option. Omitted (with `onSelectAlignment`) leaves the Position section out. */
+  readonly currentAlignment?: MediaAlignment;
+  /** Persists a new alignment into this embed's own Markdown (`![[doc.pdf|…,center]]`) — never touches the PDF file. */
+  readonly onSelectAlignment?: (alignment: MediaAlignment) => void;
   /**
    * Resource-level but non-mutating (a plain file copy, same as the
    * Sidebar's own Download) — unlike `onRemoveEmbed`, this does touch the
@@ -93,6 +99,8 @@ export function PdfEmbedMoreActions({
   resourceId,
   onClose,
   onRemoveEmbed,
+  currentAlignment,
+  onSelectAlignment,
   onDownloadResource,
   onArchiveResource,
   onRevealResourceInFinder,
@@ -101,9 +109,26 @@ export function PdfEmbedMoreActions({
   onMoveResource,
   onCreateFolder,
 }: PdfEmbedMoreActionsProps) {
-  const menuItems: OverflowMenuItemConfig[] = [
+  // Position first (how this embed sits on the page), then — after a divider — the resource's own
+  // actions, then Remove. Titled and highlighted like the image embed's menu.
+  const positionItems: OverflowMenuItemConfig[] = onSelectAlignment
+    ? MEDIA_ALIGNMENT_ITEMS.map(({ alignment, label, icon }, index) => ({
+        id: `align-${alignment}`,
+        label,
+        icon,
+        selected: alignment === currentAlignment,
+        ...(index === 0 ? { groupTitle: 'Position' } : {}),
+      }))
+    : [];
+  const resourceItems: OverflowMenuItemConfig[] = [
     ...(onDownloadResource ? [{ id: 'download', label: 'Download', icon: 'download' as const }] : []),
     ...buildResourceSidebarMenu('pdf').filter((item) => item.id !== 'rename'),
+  ];
+  const menuItems: OverflowMenuItemConfig[] = [
+    ...positionItems,
+    ...resourceItems.map((item, index) =>
+      index === 0 && positionItems.length > 0 ? { ...item, separatorBefore: true } : item
+    ),
     // Embed-level, never a source-resource operation — visually separated
     // from every item above (all real resource actions, Archive included)
     // by `separatorBefore`, not merely by ordering. See
@@ -124,6 +149,13 @@ export function PdfEmbedMoreActions({
     // this note's own Markdown text.
     if (id === 'remove-embed') {
       onRemoveEmbed?.();
+      return;
+    }
+
+    // Embed-level too — only rewrites this embed's own Markdown.
+    const alignment = MEDIA_ALIGNMENT_ITEMS.find((item) => `align-${item.alignment}` === id)?.alignment;
+    if (alignment) {
+      onSelectAlignment?.(alignment);
       return;
     }
 

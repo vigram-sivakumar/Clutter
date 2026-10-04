@@ -80,6 +80,8 @@ export interface OpenPdfMenuParams {
    * under a presentation-only patch, only `to` can.
    */
   readonly pos: number;
+  /** The embed's end — what its presentation (width/alignment) is read and rewritten by. Read when the button is clicked, so it is current. */
+  readonly to: number;
 }
 
 /**
@@ -334,7 +336,12 @@ export class PdfEmbedWidget extends WidgetType {
     const actionsGroup = document.createElement('div');
     actionsGroup.classList.add('cm-pdf-controls');
     const moreActionsButton = this.makeButton(MORE_ICON, 'More actions', () => {
-      this.getOnOpenPdfMenu()?.({ anchor: moreActionsButton, resourceId: this.resourceId, pos: this.pos });
+      this.getOnOpenPdfMenu()?.({
+        anchor: moreActionsButton,
+        resourceId: this.resourceId,
+        pos: this.pos,
+        to: getCurrentTo(),
+      });
     });
     const expandButton = this.makeButton(EXPAND_ICON, 'Expand', () => {
       this.getOnPdfEmbedClick()?.(this.path);

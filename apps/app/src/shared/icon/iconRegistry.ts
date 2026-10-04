@@ -80,6 +80,8 @@ import NotePencil from './svg/note-pencil.svg?react';
 import PDF from './svg/pdf.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
+import PositionCenter from './svg/position-center.svg?react';
+import PositionLeft from './svg/position-left.svg?react';
 import PositionRight from './svg/position-right.svg?react';
 import PositionTop from './svg/position-top.svg?react';
 import Question from './svg/question.svg?react';
@@ -192,6 +194,8 @@ export const iconRegistry = {
   pdf: PDF,
   pin: Pin,
   plus: Plus,
+  positionCenter: PositionCenter,
+  positionLeft: PositionLeft,
   positionRight: PositionRight,
   positionTop: PositionTop,
   question: Question,

@@ -2,10 +2,13 @@ import type { RefObject } from 'react';
 
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { MenuItem } from '@components/menu/MenuItem';
 import { AppIcon, SystemIcon } from '@shared/icon';
 
 import type { ImageDisplayMode } from './imageUiState';
+import type { MediaAlignment } from '../mediaPresentation/mediaPresentationModel';
+import { MEDIA_ALIGNMENT_ITEMS } from '../mediaPresentation/mediaAlignmentItems';
 
 
 export interface ImageOptionsMenuAnchor {
@@ -15,8 +18,10 @@ export interface ImageOptionsMenuAnchor {
 export interface ImageOptionsMenuProps {
   readonly anchor: ImageOptionsMenuAnchor | null;
   readonly currentMode: ImageDisplayMode;
+  readonly currentAlignment: MediaAlignment;
   readonly onClose: () => void;
   readonly onSelectMode: (mode: ImageDisplayMode) => void;
+  readonly onSelectAlignment: (alignment: MediaAlignment) => void;
   readonly onCopyLink: () => void;
   /**
    * "Set as cover image" (2026-09-02 UX baseline, item 9) — present only
@@ -88,8 +93,10 @@ const MODE_ITEMS: ReadonlyArray<{
 export function ImageOptionsMenu({
   anchor,
   currentMode,
+  currentAlignment,
   onClose,
   onSelectMode,
+  onSelectAlignment,
   onCopyLink,
   onSetCoverImage,
   onDownload,
@@ -111,6 +118,24 @@ export function ImageOptionsMenu({
             onClick={(event) => {
               event.stopPropagation();
               onSelectMode(mode);
+              onClose();
+            }}
+            leading={<AppIcon icon={icon} />}
+          >
+            {label}
+          </MenuItem>
+        ))}
+
+        <div className="menu__divider" role="separator" />
+
+        <MenuGroupTitle>Position</MenuGroupTitle>
+        {MEDIA_ALIGNMENT_ITEMS.map(({ alignment, label, icon }) => (
+          <MenuItem
+            key={alignment}
+            selected={alignment === currentAlignment}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectAlignment(alignment);
               onClose();
             }}
             leading={<AppIcon icon={icon} />}

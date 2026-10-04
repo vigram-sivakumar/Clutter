@@ -583,7 +583,7 @@ describe('embedLivePreview — PDF embeds, Expand control', () => {
 });
 
 describe('embedLivePreview — PDF embeds, More actions control', () => {
-  it('clicking More actions invokes the injected callback with this button as the anchor and the embed’s already-resolved resourceId', () => {
+  it('clicking More actions invokes the injected callback with this button as the anchor, the embed’s already-resolved resourceId, and its position and end', () => {
     const onOpenPdfMenu = vi.fn();
     const view = mountView(
       `x ${PDF}`,
@@ -602,7 +602,14 @@ describe('embedLivePreview — PDF embeds, More actions control', () => {
     expect(moreActionsButton).not.toBeNull();
     moreActionsButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    expect(onOpenPdfMenu).toHaveBeenCalledWith({ anchor: moreActionsButton, resourceId: 'resource-1', pos: 2 });
+    // `to` is the embed's end (`x ` + the embed), which the Position options read and rewrite
+    // its presentation by.
+    expect(onOpenPdfMenu).toHaveBeenCalledWith({
+      anchor: moreActionsButton,
+      resourceId: 'resource-1',
+      pos: 2,
+      to: view.state.doc.length,
+    });
   });
 });
 

@@ -526,3 +526,62 @@ describe('OverflowMenu — trigger icon', () => {
     expect(horizontalMarkup).not.toBe(verticalMarkup);
   });
 });
+
+describe('OverflowMenu — groupTitle and selected', () => {
+  const grouped: OverflowMenuItemConfig[] = [
+    { id: 'left', label: 'Left', icon: 'positionLeft', groupTitle: 'Position', selected: true },
+    { id: 'center', label: 'Center', icon: 'positionCenter' },
+    { id: 'download', label: 'Download', icon: 'download', separatorBefore: true },
+  ];
+
+  it('draws a section title above the item that carries it, after nothing else', () => {
+    render(<Harness onSelect={vi.fn()} itemsOverride={grouped} />);
+    fireEvent.click(screen.getByRole('button'));
+
+    const menu = document.querySelector('.menu')!;
+    const rows = Array.from(menu.children).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(rows).toEqual(['Position', 'Left', 'Center', '---', 'Download']);
+    expect(menu.querySelector('.menu__group-title')?.textContent).toBe('Position');
+  });
+
+  it('puts the section title after the item\'s own divider', () => {
+    render(
+      <Harness
+        onSelect={vi.fn()}
+        itemsOverride={[
+          { id: 'a', label: 'A', icon: 'trash' },
+          { id: 'left', label: 'Left', icon: 'positionLeft', separatorBefore: true, groupTitle: 'Position' },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByRole('button'));
+
+    const rows = Array.from(document.querySelector('.menu')!.children).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(rows).toEqual(['A', '---', 'Position', 'Left']);
+  });
+
+  it('highlights only the selected item, and selecting still goes through onSelect', () => {
+    const onSelect = vi.fn();
+    render(<Harness onSelect={onSelect} itemsOverride={grouped} />);
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Left').closest('.entry')).toHaveClass('entry-selected');
+    expect(screen.getByText('Center').closest('.entry')).not.toHaveClass('entry-selected');
+
+    fireEvent.click(screen.getByText('Center'));
+    expect(onSelect).toHaveBeenCalledWith('center');
+  });
+
+  it('an ordinary menu has no section titles and nothing selected', () => {
+    render(<Harness onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(document.querySelector('.menu__group-title')).toBeNull();
+    expect(document.querySelector('.entry-selected')).toBeNull();
+  });
+});
+

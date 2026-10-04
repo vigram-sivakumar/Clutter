@@ -85,7 +85,7 @@ beforeEach(() => {
 });
 
 describe('PDF embed "More actions" — Remove/Download/Archive separation', () => {
-  it('lists Download, Move to…, Reveal in Finder, Copy path, Archive, then Remove last — with a divider directly above Remove', () => {
+  it('lists Position first, then Download, Move to…, Reveal in Finder, Copy path, Archive, then Remove last — with a divider directly above Remove', () => {
     const onDownloadPdfResource = vi.fn();
     render(
       <MarkdownEditor
@@ -102,12 +102,26 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
     const labels = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]')).map(
       (el) => el.textContent
     );
-    expect(labels).toEqual(['Download', 'Move to…', 'Reveal in Finder', 'Copy path', 'Archive', 'Remove']);
+    // Position (how the embed sits) comes first; then the resource's own actions; Remove last.
+    expect(labels).toEqual([
+      'Left',
+      'Center',
+      'Right',
+      'Download',
+      'Move to…',
+      'Reveal in Finder',
+      'Copy path',
+      'Archive',
+      'Remove',
+    ]);
 
-    // The divider sits immediately before Remove, not anywhere else.
+    // The divider sits immediately before Remove, not anywhere else — and one more separates the
+    // Position section from the resource actions.
     const children = Array.from(menu.children);
     const removeIndex = children.findIndex((el) => el.textContent === 'Remove');
     expect(children[removeIndex - 1]?.getAttribute('role')).toBe('separator');
+    const rows = children.map((el) => (el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')));
+    expect(rows.slice(0, 5)).toEqual(['Position', 'Left', 'Center', 'Right', '---']);
   });
 
   it('Remove only edits the current note\'s Markdown — never calls onArchiveResource or any other resource action', () => {

@@ -61,7 +61,13 @@ import {
 import { resolveFileExtension } from './codemirror/fencedCode/fencedCodeFileExtension';
 import { formatCode, resolveFormatterParser } from './codemirror/fencedCode/codeFormatting';
 import { getImageUiState, presentationOnlyEdit, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
-import { getImagePresentation, computeImagePresentationUpdate } from './codemirror/mediaPresentation/mediaPresentationUpdate';
+import {
+  getImagePresentation,
+  computeImagePresentationUpdate,
+  getPdfPresentation,
+  computePdfPresentationUpdate,
+} from './codemirror/mediaPresentation/mediaPresentationUpdate';
+import type { MediaAlignment } from './codemirror/mediaPresentation/mediaPresentationModel';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { downloadTextFile } from '@shared/helpers/downloadTextFile';
 import type {
@@ -457,6 +463,7 @@ export const MarkdownEditor = forwardRef<
     anchor: PdfEmbedMoreActionsAnchor;
     resourceId: string;
     pos: number;
+    to: number;
   } | null>(null);
 
   function setPdfMenuButtonOpen(button: HTMLElement, open: boolean) {
@@ -464,7 +471,7 @@ export const MarkdownEditor = forwardRef<
     button.setAttribute('aria-expanded', String(open));
   }
 
-  const onOpenPdfMenuRef = useRef<OnOpenPdfMenu>(({ anchor, resourceId, pos }) => {
+  const onOpenPdfMenuRef = useRef<OnOpenPdfMenu>(({ anchor, resourceId, pos, to }) => {
     setPdfMenu((current) => {
       const closingSame = current !== null && current.anchor.current === anchor;
       if (current) {
@@ -473,7 +480,7 @@ export const MarkdownEditor = forwardRef<
       if (!closingSame) {
         setPdfMenuButtonOpen(anchor, true);
       }
-      return closingSame ? null : { anchor: { current: anchor }, resourceId, pos };
+      return closingSame ? null : { anchor: { current: anchor }, resourceId, pos, to };
     });
   });
 
@@ -1088,7 +1095,10 @@ export const MarkdownEditor = forwardRef<
     );
   };
 
-  const handleSelectImageDisplayMode = (mode: ImageDisplayMode) => {
+  const applyImageMenuPresentation = (patch: {
+    readonly mode?: ImageDisplayMode;
+    readonly alignment?: MediaAlignment;
+  }) => {
     const view = viewRef.current;
     if (!imageMenu || !view) {
       return;
@@ -1101,9 +1111,10 @@ export const MarkdownEditor = forwardRef<
     // would render correctly for the rest of this session but silently
     // fall back to Fill the moment the note is reopened (a fresh
     // `EditorState`), and a subsequent resize commit would have no
-    // persisted mode of its own to preserve. Width/alignment are read fresh
-    // and passed through unchanged — this dispatch's only intended effect
-    // is the mode field.
+    // persisted mode of its own to preserve. Everything not in `patch` (width,
+    // height, and whichever of mode/alignment isn't being changed) is read fresh
+    // and passed through unchanged — this dispatch's only intended effect is
+    // the field(s) in `patch`.
     //
     // `presentationOnlyEdit` (flicker fix): this transaction's `changes`
     // rewrite the image's own `|width,alignment,mode` pipe segment, which
@@ -1115,7 +1126,7 @@ export const MarkdownEditor = forwardRef<
     // renders again" flicker. See that effect's own doc comment for the
     // full mechanism.
     const current = getImagePresentation(view.state, imageMenu.to);
-    const changes = computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, mode });
+    const changes = computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, ...patch });
     // `setImageUiState`'s own `pos`/`to` must be given in *this
     // transaction's post-change* coordinate space — `imageUiStateField.
     // update()` inserts an effect's `pos`/`to` directly into `next`
@@ -1145,12 +1156,27 @@ export const MarkdownEditor = forwardRef<
         setImageUiState.of({
           pos: mappedChanges.mapPos(imageMenu.pos),
           to: mappedChanges.mapPos(imageMenu.to, 1),
-          state: { ...ui, displayMode: mode },
+          state: { ...ui, displayMode: patch.mode ?? ui.displayMode },
         }),
         presentationOnlyEdit.of(null),
       ],
       changes,
     });
+  };
+
+  const handleSelectImageDisplayMode = (mode: ImageDisplayMode) => applyImageMenuPresentation({ mode });
+  const handleSelectImageAlignment = (alignment: MediaAlignment) => applyImageMenuPresentation({ alignment });
+
+  // "Position" for a PDF embed — rewrites only this embed's own `|…,alignment` segment (the same
+  // presentation-only transaction the PDF resize handle commits), never the PDF file.
+  const handleSelectPdfAlignment = (alignment: MediaAlignment) => {
+    const view = viewRef.current;
+    if (!pdfMenu || !view) {
+      return;
+    }
+    const current = getPdfPresentation(view.state, pdfMenu.to);
+    const changes = computePdfPresentationUpdate(view.state, pdfMenu.to, { ...current, alignment });
+    view.dispatch({ effects: [presentationOnlyEdit.of(null)], changes });
   };
 
   const handleCopyImageLink = () => {
@@ -1689,14 +1715,21 @@ export const MarkdownEditor = forwardRef<
     ? getImageUiState(viewRef.current.state, imageMenu.pos).displayMode
     : 'fill';
 
+  const imageMenuCurrentAlignment: MediaAlignment =
+    imageMenu && viewRef.current ? getImagePresentation(viewRef.current.state, imageMenu.to).alignment : 'left';
+  const pdfMenuCurrentAlignment: MediaAlignment =
+    pdfMenu && viewRef.current ? getPdfPresentation(viewRef.current.state, pdfMenu.to).alignment : 'left';
+
   return (
     <>
       <div ref={containerRef} />
       <ImageOptionsMenu
         anchor={imageMenu?.anchor ?? null}
         currentMode={imageMenuCurrentMode}
+        currentAlignment={imageMenuCurrentAlignment}
         onClose={closeImageMenu}
         onSelectMode={handleSelectImageDisplayMode}
+        onSelectAlignment={handleSelectImageAlignment}
         onCopyLink={handleCopyImageLink}
         onSetCoverImage={onSetCoverImage ? handleSetCoverImage : undefined}
         onDownload={handleDownloadImage}
@@ -1707,6 +1740,8 @@ export const MarkdownEditor = forwardRef<
         resourceId={pdfMenu?.resourceId ?? null}
         onClose={closePdfMenu}
         onRemoveEmbed={handleRemovePdfEmbed}
+        currentAlignment={pdfMenuCurrentAlignment}
+        onSelectAlignment={handleSelectPdfAlignment}
         onDownloadResource={onDownloadPdfResource ? handleDownloadPdfResource : undefined}
         onArchiveResource={onArchiveResource}
         onRevealResourceInFinder={onRevealResourceInFinder}

@@ -1495,3 +1495,101 @@ describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
     expect(foldedRangesIn(second.container)).toEqual([]);
   });
 });
+
+describe('MarkdownEditor: image options menu — Position', () => {
+  function openMenu() {
+    const sizeButton = document.querySelector<HTMLButtonElement>(
+      '.cm-media-control[aria-label="Image size options"]'
+    )!;
+    fireEvent.mouseDown(sizeButton);
+    fireEvent.click(sizeButton);
+  }
+
+  function menuItem(label: string): HTMLElement | null {
+    return (
+      Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find((el) => el.textContent === label) ??
+      null
+    );
+  }
+
+  function choose(label: string): void {
+    openMenu();
+    const item = menuItem(label);
+    if (!item) {
+      throw new Error(`menu item not found: ${label}`);
+    }
+    fireEvent.click(item);
+  }
+
+  function renderImage(markdown = 'Some text before.\n\n![Mountain view](https://example.com/mountain.jpg)') {
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown={markdown} />);
+    return EditorView.findFromDOM(container as unknown as HTMLElement)!;
+  }
+
+  function imageContainer(): HTMLElement {
+    return document.querySelector<HTMLElement>('.cm-image-container')!;
+  }
+
+  it('lists a Position section below Fit and Fill: a divider, the title, then Left, Center, Right, then a divider', () => {
+    renderImage();
+    openMenu();
+
+    const menu = document.querySelector('.menu')!;
+    const rows = Array.from(menu.children).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(rows.slice(0, 8)).toEqual(['Fit', 'Fill', '---', 'Position', 'Left', 'Center', 'Right', '---']);
+  });
+
+  it('marks Left as the current position for an image with no alignment, and Center for one set to center', () => {
+    renderImage();
+    openMenu();
+    expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(true);
+    expect(menuItem('Center')?.classList.contains('entry-selected')).toBe(false);
+    cleanup();
+
+    renderImage('Prefix.\n\n![Photo|320,center](https://example.com/a.jpg)');
+    openMenu();
+    expect(menuItem('Center')?.classList.contains('entry-selected')).toBe(true);
+    expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(false);
+  });
+
+  it('Center and Right write the alignment into the Markdown and move the image; Left clears it again', () => {
+    const view = renderImage();
+
+    choose('Center');
+    expect(view.state.doc.toString()).toContain('|center');
+    expect(imageContainer().dataset.align).toBe('center');
+
+    choose('Right');
+    expect(view.state.doc.toString()).toContain('|right');
+    expect(view.state.doc.toString()).not.toContain('center');
+    expect(imageContainer().dataset.align).toBe('right');
+
+    choose('Left');
+    expect(view.state.doc.toString()).not.toContain('|');
+    expect(imageContainer().dataset.align).toBeUndefined();
+    expect(view.state.doc.toString()).toContain('![Mountain view](https://example.com/mountain.jpg)');
+  });
+
+  it('keeps width and mode when the position changes, and the position when the mode changes', () => {
+    const view = renderImage('Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)');
+
+    choose('Center');
+    expect(view.state.doc.toString()).toContain('![Photo|320,center,fit](https://example.com/a.jpg)');
+
+    choose('Fill');
+    expect(view.state.doc.toString()).toContain('![Photo|320,center](https://example.com/a.jpg)');
+  });
+
+  it('never throws on repeated position changes, with or without text after the image', () => {
+    const view = renderImage('Text.\n\n![A](https://example.com/a.jpg)\n\nMore text.');
+
+    for (const label of ['Center', 'Right', 'Left', 'Right', 'Center', 'Left']) {
+      expect(() => choose(label)).not.toThrow();
+      expect(view.state.doc.toString()).toContain('Text.');
+      expect(view.state.doc.toString()).toContain('More text.');
+    }
+    expect(imageContainer().classList.contains('cm-invalid-embed')).toBe(false);
+  });
+});
