@@ -307,6 +307,13 @@ export function PickerList({
               tabIndex={-1}
               className="picker-list__item"
               level={isSearching ? 0 : item.level}
+              // The secondary label (e.g. "Home" on the vault root) is the row's trailing meta —
+              // Entry's own muted, never-shrinking right-hand slot — not part of its content.
+              trailing={
+                item.secondaryLabel ? (
+                  <span className="picker-list__secondary">{item.secondaryLabel}</span>
+                ) : undefined
+              }
               leading={
                 leadingIcon ? (
                   <span className="picker-list__leading">
@@ -339,11 +346,6 @@ export function PickerList({
               <div className="picker-list__content">
                 <div className="picker-list__title-row">
                   <span className="picker-list__title">{item.title}</span>
-                  {item.secondaryLabel && (
-                    <span className="picker-list__secondary">
-                      {item.secondaryLabel}
-                    </span>
-                  )}
                 </div>
                 {!item.secondaryLabel && path && (
                   <span className="picker-list__path">{path}</span>

@@ -31,7 +31,7 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * (membershipSelector.vaultRoot), the exact same function the sidebar's
  * root-folders section title reads (Sidebar.Notes.tsx), so there is one
  * source of truth for "what is the vault root called," never a separate
- * hardcoded name here. Its `secondaryLabel` is "Home", rendered inline
+ * hardcoded name here. Its `secondaryLabel` is "Home", rendered in the row's trailing slot
  * next to the title in PickerList's existing muted/small-text styling.
  * MoveDestinationPicker is the one place that recognizes that sentinel id
  * and translates it back to the `null` destination every Move facade

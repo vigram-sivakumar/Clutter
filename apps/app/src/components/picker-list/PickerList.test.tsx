@@ -37,7 +37,7 @@ describe('PickerList', () => {
     expect(screen.queryByText('Vault root')).toBeNull();
   });
 
-  it("renders an item's secondaryLabel inline next to its title, in a separate span", () => {
+  it("renders an item's secondaryLabel in the row's trailing slot, not in its content", () => {
     const withSecondary: PickerListItem[] = [
       { id: 'root', title: 'MyClutter', secondaryLabel: 'Home', level: 0, parentId: null },
       ...items,
@@ -49,7 +49,9 @@ describe('PickerList', () => {
 
     expect(title.className).toContain('picker-list__title');
     expect(secondary.className).toContain('picker-list__secondary');
-    expect(secondary.parentElement).toBe(title.parentElement);
+    expect(secondary.closest('.entry__trailing')).not.toBeNull();
+    expect(secondary.closest('.entry__content')).toBeNull();
+    expect(title.closest('.entry__trailing')).toBeNull();
   });
 
   it('renders no secondary span for an item with no secondaryLabel', () => {

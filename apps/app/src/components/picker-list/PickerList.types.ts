@@ -23,11 +23,10 @@ export interface PickerListItem {
   /** This row's own leading icon, over the picker's `leadingIcon` (a flat list of mixed kinds, e.g. notes and daily notes). */
   icon?: SystemIcon;
   /**
-   * A muted, small-text label rendered inline next to `title`, on the same
-   * line (same styling tokens as a search result's breadcrumb `path`) —
-   * e.g. "Home" beside the root item's own vault/folder name. Unlike
-   * `title`, `secondaryLabel` is the one part of the row allowed to shrink
-   * under width pressure — `title` never truncates.
+   * A muted, small-text label in the row's trailing slot, right-aligned (same styling tokens
+   * as a search result's breadcrumb `path`) — e.g. "Home" on the root item, which is named
+   * after the vault/folder itself. The trailing slot never shrinks, so `title` is what
+   * ellipsizes under width pressure.
    */
   secondaryLabel?: string;
   /**

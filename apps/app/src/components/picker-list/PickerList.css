@@ -42,10 +42,10 @@
   text-overflow: ellipsis;
 }
 /*
- * Reuses .picker-list__path's own tertiary/small-text tokens — same
- * "Home" styling, just inline next to the title instead of stacked below
- * it. flex-shrink: 0 keeps it (and its text) always fully visible; the
- * title is the one that gives up space and ellipsizes first.
+ * Reuses .picker-list__path's own tertiary/small-text tokens — the same "Home" text,
+ * now in the row's trailing slot (right-aligned) instead of inline after the title or
+ * stacked below it. Entry's trailing slot never shrinks, so the title is the one that
+ * gives up space and ellipsizes first.
  */
 .picker-list__secondary,
 .picker-list__path {
@@ -55,6 +55,9 @@
 }
 .picker-list__secondary {
   flex-shrink: 0;
+  /* The title's line height, not the small-text one, so this trailing text's line box is the same
+     height as the title's and the two are centered on the same line. */
+  line-height: var(--lh-label);
 }
 .picker-list__create {
   display: flex;
