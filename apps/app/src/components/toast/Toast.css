@@ -1,0 +1,18 @@
+.toast {
+  position: fixed;
+  bottom: var(--space-16);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  max-width: min(480px, calc(100vw - var(--space-32, 32px)));
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-body-small);
+  color: var(--foreground-primary);
+}
+
+.toast--error {
+  color: var(--foreground-primary);
+}

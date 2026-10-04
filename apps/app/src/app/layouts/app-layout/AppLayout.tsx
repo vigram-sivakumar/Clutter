@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useCallback, useState, type CSSProperties } from 'react';
 import './AppLayout.css';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
@@ -20,9 +20,8 @@ import { openExternalUrl } from '@shared/helpers/openExternalUrl';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
+import { Toast, type ToastMessage } from '@components/toast/Toast';
 import { CoverNotePicker, type CoverTarget } from './CoverNotePicker';
-import { SaveToVaultDialog, type SaveToVaultStatus } from './SaveToVaultDialog';
-import { describeSaveToVaultResult } from '@core/presentation/describeSaveToVaultResult';
 import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
 import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderItems';
 import { newCoverPatch } from '@core/application/page/coverPatch';
@@ -170,30 +169,32 @@ export function AppLayout({ application }: AppLayoutProps) {
     setResourceOverlay({ kind: 'image', image, onSetCoverImage: options?.onSetCoverImage });
   }
 
-  // Save to vault runs immediately (like Archive and Move — no confirmation
-  // step), then reports exactly what changed in the dialog below, because it can
-  // touch many notes at once and has no undo: the saved file is kept whatever
-  // the rewrites did, and the result names every use that changed, failed or
-  // was left alone. The action can't be repeated while one is running (the
-  // dialog blocks, and Application joins a second request for the same URL).
-  const [saveToVault, setSaveToVault] = useState<SaveToVaultStatus | null>(null);
+  // Save to vault runs immediately (like Archive and Move — no confirmation or
+  // result dialog) and reports the outcome in a toast. Application joins a
+  // second request for the same URL, so a repeated click while one is running
+  // doesn't start another save. The detailed breakdown is backlog.
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   function startSaveToVault(url: string): void {
-    if (saveToVault?.state === 'saving') {
-      return;
-    }
-
     setResourceOverlay(null);
-    setSaveToVault({ state: 'saving' });
     application
       .saveRemoteImageToVault(url)
-      .then((result) => setSaveToVault({ state: 'done', message: describeSaveToVaultResult(result) }))
+      .then((result) => {
+        const partial = result.failed.length > 0;
+        setToast({
+          id: Date.now(),
+          tone: partial ? 'error' : 'default',
+          text: partial
+            ? `Saved to vault, but ${result.failed.length} ${result.failed.length === 1 ? 'reference' : 'references'} could not be updated`
+            : result.reusedExisting
+              ? 'Already saved in the vault'
+              : 'Saved to vault',
+        });
+      })
       .catch((error: unknown) => {
         console.error('Could not save the image to the vault.', error);
-        setSaveToVault({
-          state: 'error',
-          message: `${error instanceof Error ? error.message : String(error)} Nothing was changed.`,
-        });
+        setToast({ id: Date.now(), tone: 'error', text: 'Could not save to the vault' });
       });
   }
 
@@ -339,7 +340,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }
       />
-      <SaveToVaultDialog status={saveToVault} onClose={() => setSaveToVault(null)} />
+      <Toast toast={toast} onDismiss={dismissToast} />
       <CoverNotePicker
         open={coverTarget !== null}
         notes={coverTarget === null ? [] : buildCoverNoteItems(
