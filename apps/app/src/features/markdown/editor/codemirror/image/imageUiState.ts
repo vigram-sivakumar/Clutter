@@ -8,6 +8,7 @@ import {
 } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { scanImage } from './imageScanner';
 import { getImagePresentation } from '../mediaPresentation/mediaPresentationUpdate';
 
 /**
@@ -453,6 +454,20 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
       const insideReparsedNode = imageNode !== null && caretHead >= imageNode.from && caretHead <= imageNode.to;
       const stillInside = insidePositionalSpan || insideReparsedNode;
       if (!stillInside) {
+        // A still-pending Image whose destination is empty (`![alt]()`,
+        // e.g. closeBrackets' auto-closed `()`) hasn't had its URL typed
+        // or pasted yet, so the caret leaving it isn't the "first leave"
+        // of a finished image — keep it pending, so the URL added later
+        // stays raw until the caret leaves *then*. Image nodes only
+        // (`imageNode`); an Embed entry has no empty-destination state.
+        if (
+          value.state.pendingFirstLeave &&
+          !value.state.revealed &&
+          imageNode !== null &&
+          scanImage(tr.state.sliceDoc(imageNode.from, imageNode.to)) === null
+        ) {
+          return;
+        }
         toClear.push({ from, state: value.state });
       }
     });

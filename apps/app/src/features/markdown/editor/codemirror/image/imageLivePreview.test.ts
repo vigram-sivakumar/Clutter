@@ -2023,6 +2023,32 @@ describe('Incomplete image syntax', () => {
  * after what was typed; a hand-built `{changes}}`-only dispatch does not
  * reproduce that unless told to.
  */
+describe('Phase 2: pendingFirstLeave survives the caret leaving an empty-destination image', () => {
+  const url = 'https://example.com/x.png';
+
+  it('typing ![Text](), leaving, returning and pasting a URL stays raw until the caret leaves again', () => {
+    const view = mountView('', 0);
+    view.dispatch({ changes: { from: 0, insert: '![Text]()' }, selection: { anchor: 8 } });
+    view.dispatch({ changes: { from: 9, insert: '\nnext' }, selection: { anchor: 14 } });
+    expect(getImageUiState(view.state, 0).pendingFirstLeave).toBe(true);
+
+    view.dispatch({ selection: { anchor: 8 } });
+    view.dispatch({
+      changes: { from: 8, insert: url },
+      selection: { anchor: 8 + url.length },
+      userEvent: 'input.paste',
+    });
+    settleAllProbes();
+    expect(getImg(view) !== null).toBe(false);
+    expect(view.dom.textContent).toContain(`![Text](${url})`);
+
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    settleAllProbes();
+    expect(getImg(view) !== null).toBe(true);
+    expect(getImageUiState(view.state, 0).pendingFirstLeave).toBe(false);
+  });
+});
+
 describe('Phase 2: two consecutive images (no separator) are independent through the first-leave lifecycle', () => {
   const ONE = '![one](one.png)';
   const TWO = '![two](two.png)';
