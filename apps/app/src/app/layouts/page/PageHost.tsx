@@ -1158,7 +1158,7 @@ export function PageHost({
         onMoveFolder(folder.id, destinationFolderId),
       onCreateFolder: (name) => application.folderOperations.create(name, null),
     });
-    // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
+    // A reserved folder (Archive, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
     // topBarRegistry's no-op reserved-folder renderer (no menu trigger at
     // all) via MembershipSelector.isSystemFolder, but title-editability has
@@ -1175,7 +1175,7 @@ export function PageHost({
     );
     const isArchiveView = folderSystemLocationId === 'archive';
     // Page-header-controls configuration (final UX rules): a reserved
-    // folder (Archive, Inbox, Templates, Daily Notes) is system-reserved —
+    // folder (Archive, Templates, Daily Notes) is system-reserved —
     // its fixed icon always shows (once the header is allowed to show one
     // at all — see getSystemLocationPresentation's 'page-header' surface,
     // the single place that decision and the collectionIcon-vs-icon
@@ -1193,11 +1193,11 @@ export function PageHost({
     // below: the title-adjacent Button, and the notes table's always-rendered
     // trailing "New Note" row (CollectionBody's onCreateNote) — one
     // handler, two live controls, not two implementations. Only defined
-    // for an ordinary folder: a reserved one (Archive, Templates, Daily
-    // Notes — folderSystemLocationId truthy) has no established "create a
+    // for an ordinary folder or Templates (whose whole purpose is holding
+    // notes you create there): the other reserved ones (Archive, Daily
+    // Notes — folderSystemLocationId truthy) have no established "create a
     // note here" affordance today (rule 12 — never wire a live control to
-    // an invented handler), matching the same `!folderSystemLocationId`
-    // gate showMoreActions/emoji already use.
+    // an invented handler).
     // Where this folder sits in the Daily Notes tree, if it does: the Daily Notes page holds only
     // years, a year only months, a month only days — made by the calendar, never by hand. So none of
     // them offers creating a folder or a note (no create-folder card, no "+" in the header).
@@ -1209,9 +1209,11 @@ export function PageHost({
             DailyNotePath.compareFolderNames(dailyNotesLevel, a.title, b.title)
           )
         : model.folders;
-    const onCreateNote = !folderSystemLocationId && dailyNotesLevel === null
-      ? () => void application.pageOperations.openDraft({ folderId: folder.id })
-      : undefined;
+    const onCreateNote =
+      (!folderSystemLocationId || folderSystemLocationId === 'templates') &&
+      dailyNotesLevel === null
+        ? () => void application.pageOperations.openDraft({ folderId: folder.id })
+        : undefined;
     // Title-adjacent (PageTitleSection's `actions` slot, after the
     // Configure/CollectionViewMenu button, at the far right).
     // Folders grid's "Create folder" card handler (CollectionBody's
@@ -1355,7 +1357,8 @@ export function PageHost({
               />
             ) : (
               <CollectionBody
-                folders={dailyNotesFolders}
+                // Templates is a flat list of notes — no folders section.
+                folders={folderSystemLocationId === 'templates' ? [] : dailyNotesFolders}
                 foldersInGivenOrder={holdsOnlyFolders}
                 showNotes={!holdsOnlyFolders}
                 notes={model.notes}
