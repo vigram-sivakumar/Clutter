@@ -100,6 +100,10 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     return this.inner.writeBinaryFile?.(path, bytes) as Promise<void>;
   }
 
+  readBinaryFile?(path: string): Promise<Uint8Array> {
+    return this.inner.readBinaryFile?.(path) as Promise<Uint8Array>;
+  }
+
   stat?(path: string): Promise<VaultFileStat> {
     return this.inner.stat?.(path) as Promise<VaultFileStat>;
   }

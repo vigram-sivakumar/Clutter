@@ -73,3 +73,21 @@ describe('ImageReferenceExtractor.replaceSource', () => {
     expect(extractor.replaceSource('plain text', url, 'Assets/a.png')).toBe('plain text');
   });
 });
+
+describe('ImageReferenceExtractor.extractImages', () => {
+  const extractor = new ImageReferenceExtractor();
+
+  it('returns the display text and source of every image, in order', () => {
+    expect(
+      extractor.extractImages('![One](a.png) text ![ Two words ](<b c.png> "title") ![](d.png)')
+    ).toEqual([
+      { alt: 'One', src: 'a.png' },
+      { alt: 'Two words', src: 'b c.png' },
+      { alt: '', src: 'd.png' },
+    ]);
+  });
+
+  it('ignores code, links and wiki embeds', () => {
+    expect(extractor.extractImages('`![x](a.png)` [l](b.png) ![[c.png]]\n```\n![f](d.png)\n```')).toEqual([]);
+  });
+});

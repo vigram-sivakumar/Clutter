@@ -2,6 +2,7 @@ import { VaultPath } from '../ingest/VaultPath';
 import { classifySupportedResourceFile } from '../ingest/SupportedResourceKind';
 import { ASSETS_DIRECTORY_NAME } from '../initialize/ensureAssetsDirectory';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { sanitizeAssetDisplayName } from './assetDisplayName';
 import { resolveAssetDestination } from './importAsset';
 
 /** What fetching a remote asset yields: its bytes, and the server's declared content type when it gave one. */
@@ -39,8 +40,8 @@ const GENERIC_BINARY_TYPES: ReadonlySet<string> = new Set(['application/octet-st
 const MAX_STEM_LENGTH = 80;
 
 /**
- * The file name stem a URL suggests, made safe for any filesystem and for the
- * Assets folder: the last path segment (the query and fragment are never part
+ * The file name stem a URL suggests (the fallback when there is no usable
+ * display text), made safe for any filesystem and for the Assets folder: the last path segment (the query and fragment are never part
  * of it), decoded, its extension dropped, reduced to letters, digits, `-`, `_`
  * and `.`, with no leading dots and a bounded length. `image` when nothing
  * usable is left. Never contains a path separator, so a remote name can't
@@ -66,18 +67,6 @@ export function remoteAssetStem(url: string): string {
     .slice(0, MAX_STEM_LENGTH);
 
   return safe || 'image';
-}
-
-/** FNV-1a (32-bit) of the whole URL, as 8 hex digits — a stable, filesystem-safe fingerprint of which URL a file came from. */
-export function remoteAssetUrlHash(url: string): string {
-  let hash = 0x811c9dc5;
-
-  for (let index = 0; index < url.length; index += 1) {
-    hash ^= url.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-
-  return hash.toString(16).padStart(8, '0');
 }
 
 /** The URL path's own extension when it is a supported one (`.jpg`), else undefined. */
@@ -116,21 +105,67 @@ function resolveExtension(url: string, contentType: string | null | undefined): 
   );
 }
 
+/** Options for `importRemoteAsset`. */
+export interface ImportRemoteAssetOptions {
+  /**
+   * What the file should be called, typically the display text the user typed in
+   * `![display text](url)`. Sanitized here; one that makes no usable name (empty,
+   * generic, a bare URL) falls back to the URL's own name.
+   */
+  readonly displayName?: string;
+}
+
+/** `Name.jpg`, `Name 2.jpg`, `Name 3.jpg`, … (any case) — the files `resolveAssetDestination` could have made for this name. */
+function isSameNameFamily(entryName: string, stem: string, extension: string): boolean {
+  const lower = entryName.toLowerCase();
+  const base = `${stem}`.toLowerCase();
+  const ext = extension.toLowerCase();
+
+  if (!lower.endsWith(ext)) {
+    return false;
+  }
+
+  const withoutExtension = lower.slice(0, lower.length - ext.length);
+
+  return withoutExtension === base || new RegExp(`^${escapeRegExp(base)} \\d+$`).test(withoutExtension);
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+
+  for (let index = 0; index < a.byteLength; index += 1) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * Saves a remote asset into `{vaultRoot}/Assets/` and returns where it went —
  * the remote counterpart of `importAsset`, which copies a local file.
  *
- * The file name is `<stem>-<hash>.<ext>`: the stem comes from the URL's path
- * (sanitized, see `remoteAssetStem`), the hash fingerprints the *whole* URL,
- * and the extension comes from the response (`resolveExtension`). So the same
- * URL always lands on the same file — saving it again reuses that file without
- * downloading anything — while two URLs that only share a file name never
- * collide. A name taken by something else still falls back to the usual
- * collision-free suffix.
+ * Name: the display text the user typed (`options.displayName`), else the URL's
+ * own file name (sanitized, see `remoteAssetStem`); the extension comes from the
+ * response (`resolveExtension`). A name already taken gets the usual
+ * collision-free suffix (`Name`, `Name 2`, …), compared ignoring case because
+ * common file systems do.
  *
- * The response is validated before anything is written: it must be a
- * supported type, non-empty, and at most `MAX_REMOTE_ASSET_BYTES`; otherwise
- * this throws and the vault is untouched.
+ * Reuse: after downloading, if a file in that name family is byte-identical to
+ * the download, that file is returned (`reused: true`) and nothing is written,
+ * so saving the same image twice never makes `Name 2`. Without a binary read
+ * primitive the check is skipped and a new file is written.
+ *
+ * The response is validated before anything is written: supported type,
+ * non-empty, at most `MAX_REMOTE_ASSET_BYTES`; otherwise this throws and the
+ * vault is untouched.
  *
  * Non-Gate write, for the same reason `importAsset` is: an asset file never
  * becomes a Page/Folder in the Vault domain model. Fetching is injected
@@ -140,27 +175,11 @@ export async function importRemoteAsset(
   fileSystem: VaultFileSystem,
   vaultRoot: string,
   url: string,
-  fetchRemoteAsset: FetchRemoteAsset
+  fetchRemoteAsset: FetchRemoteAsset,
+  options: ImportRemoteAssetOptions = {}
 ): Promise<ImportedRemoteAsset> {
   if (!fileSystem.writeBinaryFile) {
     throw new Error('This vault cannot save remote files.');
-  }
-
-  const prefix = `${remoteAssetStem(url)}-${remoteAssetUrlHash(url)}`;
-  const assetsDir = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
-
-  if (await fileSystem.exists(assetsDir)) {
-    const existing = (await fileSystem.readDirectory(assetsDir)).find(
-      (entry) => !entry.isDirectory && entry.name.startsWith(`${prefix}.`)
-    );
-
-    if (existing) {
-      return {
-        reference: `${ASSETS_DIRECTORY_NAME}/${existing.name}`,
-        absolutePath: `${assetsDir}/${existing.name}`,
-        reused: true,
-      };
-    }
   }
 
   const { bytes, contentType } = await fetchRemoteAsset(url);
@@ -174,10 +193,32 @@ export async function importRemoteAsset(
   }
 
   const extension = resolveExtension(url, contentType);
+  const stem =
+    (options.displayName ? sanitizeAssetDisplayName(options.displayName) : null) ?? remoteAssetStem(url);
+  const assetsDir = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
+
+  if (fileSystem.readBinaryFile && (await fileSystem.exists(assetsDir))) {
+    for (const entry of await fileSystem.readDirectory(assetsDir)) {
+      if (entry.isDirectory || !isSameNameFamily(entry.name, stem, extension)) {
+        continue;
+      }
+
+      const existingPath = `${assetsDir}/${entry.name}`;
+
+      if (sameBytes(await fileSystem.readBinaryFile(existingPath), bytes)) {
+        return {
+          reference: `${ASSETS_DIRECTORY_NAME}/${entry.name}`,
+          absolutePath: existingPath,
+          reused: true,
+        };
+      }
+    }
+  }
+
   const { destinationAbsolutePath, reference } = await resolveAssetDestination(
     fileSystem,
     vaultRoot,
-    `${prefix}${extension}`
+    `${stem}${extension}`
   );
 
   await fileSystem.writeBinaryFile(destinationAbsolutePath, bytes);

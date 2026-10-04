@@ -10,7 +10,7 @@ import { allCodeRanges, isInsideAnyRange } from './markdownCodeRanges';
  * A destination may contain raw spaces (`![x](my photo.png)`) — Clutter's
  * editor grammar accepts them — so the destination runs to the closing paren.
  */
-const IMAGE = /!\[(?!\[)[^\]]*\]\(([^)\n]*)\)/g;
+const IMAGE = /!\[(?!\[)([^\]]*)\]\(([^)\n]*)\)/g;
 const TRAILING_TITLE = /\s+(?:"[^"]*"|'[^']*')\s*$/;
 
 /**
@@ -53,7 +53,7 @@ export class ImageReferenceExtractor {
         continue;
       }
 
-      const raw = match[1] ?? '';
+      const raw = match[2] ?? '';
       const destination = locateDestination(raw);
 
       if (!destination || destination.text !== from) {
@@ -69,6 +69,35 @@ export class ImageReferenceExtractor {
     return result;
   }
 
+  /**
+   * Every standard image with its display (alt) text and source, in document
+   * order — `![display text](src)` -> `{ alt: 'display text', src }`. Same
+   * rules as `extract` (code is ignored, titles and `<...>` dropped); the alt
+   * text is exactly as typed, trimmed.
+   */
+  extractImages(content: string): readonly { readonly alt: string; readonly src: string }[] {
+    if (!content.includes('![')) {
+      return [];
+    }
+
+    const code = allCodeRanges(content);
+    const images: { alt: string; src: string }[] = [];
+
+    for (const match of content.matchAll(IMAGE)) {
+      if (isInsideAnyRange(match.index ?? 0, code)) {
+        continue;
+      }
+
+      const destination = locateDestination(match[2] ?? '');
+
+      if (destination) {
+        images.push({ alt: (match[1] ?? '').trim(), src: destination.text });
+      }
+    }
+
+    return images;
+  }
+
   extract(content: string): readonly string[] {
     if (!content.includes('![')) {
       return [];
@@ -82,7 +111,7 @@ export class ImageReferenceExtractor {
         continue;
       }
 
-      let destination = (match[1] ?? '').trim().replace(TRAILING_TITLE, '').trim();
+      let destination = (match[2] ?? '').trim().replace(TRAILING_TITLE, '').trim();
 
       if (destination.startsWith('<') && destination.endsWith('>')) {
         destination = destination.slice(1, -1).trim();

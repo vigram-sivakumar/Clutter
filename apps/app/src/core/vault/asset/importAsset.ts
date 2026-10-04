@@ -52,12 +52,14 @@ export async function resolveAssetDestination(
   const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';
 
   const entries = await fileSystem.readDirectory(assetsDir);
+  // Compared ignoring case: the common file systems (macOS, Windows) would put
+  // `Photo.jpg` and `photo.jpg` in the same file.
   const existingNames = new Set(
-    entries.filter((entry) => !entry.isDirectory).map((entry) => entry.name)
+    entries.filter((entry) => !entry.isDirectory).map((entry) => entry.name.toLowerCase())
   );
 
   const uniqueBaseName = resolveCollisionFreeName(baseName, (candidate) =>
-    existingNames.has(`${candidate}${extension}`)
+    existingNames.has(`${candidate}${extension}`.toLowerCase())
   );
   const destinationFileName = `${uniqueBaseName}${extension}`;
 

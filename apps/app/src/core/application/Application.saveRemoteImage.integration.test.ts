@@ -128,6 +128,46 @@ describe('Application.saveRemoteImageToVault — real vault', () => {
     );
   });
 
+  it('names the saved file after the display text typed in the Markdown', async () => {
+    const { application, vault } = await setup({
+      ...files(),
+      [`${ROOT}/A.md`]: `---\nid: page-a\n---\n![Mountain at dawn](${URL_})\n`,
+    });
+
+    const result = await application.saveRemoteImageToVault(URL_);
+
+    expect(result.reference).toBe('Assets/Mountain at dawn.jpg');
+    expect(vault.getResourceByPath(`${ROOT}/Assets/Mountain at dawn.jpg`)!.name).toBe('Mountain at dawn.jpg');
+  });
+
+  it('a cover-only image (no display text) is named from its URL', async () => {
+    const { application } = await setup({
+      [`${ROOT}/A.md`]: `---\nid: page-a\ncover: ${URL_}\n---\nbody\n`,
+      [`${ROOT}/Assets/.keep`]: '',
+    });
+
+    expect((await application.saveRemoteImageToVault(URL_)).reference).toBe('Assets/abc.jpg');
+  });
+
+  it('two different images with the same display text get "Name" and "Name 2"', async () => {
+    const other = 'https://img.example.com/photo/other.jpg';
+    appFetchMock.mockImplementation(async (url: string) =>
+      url === other
+        ? new Response(new Uint8Array([1, 2, 3, 4]), { status: 200, headers: { 'content-type': 'image/jpeg' } })
+        : image()
+    );
+    const { application } = await setup({
+      ...files(),
+      [`${ROOT}/A.md`]: `---\nid: page-a\n---\n![Team](${URL_}) ![Team](${other})\n`,
+    });
+
+    const first = await application.saveRemoteImageToVault(URL_);
+    const second = await application.saveRemoteImageToVault(other);
+
+    expect(first.reference).toBe('Assets/Team.jpg');
+    expect(second.reference).toBe('Assets/Team 2.jpg');
+  });
+
   it('concurrent clicks share one download and one rewrite', async () => {
     const { application } = await setup(files());
 
@@ -141,14 +181,18 @@ describe('Application.saveRemoteImageToVault — real vault', () => {
     expect(appFetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('clicking again after success reuses the saved file and has nothing left to rewrite', async () => {
-    const { application, fileSystem } = await setup(files());
+  it('clicking again after success reuses the identical saved file and has nothing left to rewrite', async () => {
+    // An archived note keeps the same display text, so the name is still discoverable after the active notes were rewritten.
+    const { application, fileSystem } = await setup({
+      ...files(),
+      [`${ROOT}/Archive/Old.md`]: `---\nid: page-old\nstatus: archived\n---\nOld ![a](${URL_})\n`,
+    });
     const first = await application.saveRemoteImageToVault(URL_);
 
     const again = await application.saveRemoteImageToVault(URL_);
 
     expect(again).toMatchObject({ reusedExisting: true, rewritten: 0, reference: first.reference });
-    expect(appFetchMock).toHaveBeenCalledTimes(1);
+    expect(appFetchMock).toHaveBeenCalledTimes(2); // downloaded again to compare bytes, never written again
     expect((await fileSystem.readDirectory(`${ROOT}/Assets`)).filter((e) => e.name.endsWith('.jpg'))).toHaveLength(1);
   });
 

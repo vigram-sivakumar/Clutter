@@ -97,4 +97,11 @@ export interface VaultFileSystem {
    * the decision to write.
    */
   writeBinaryFile?(path: string, bytes: Uint8Array): Promise<void>;
+
+  /**
+   * Reads a file's raw bytes — the read counterpart of `writeBinaryFile`, used
+   * to tell whether an existing asset is byte-identical to a download. Optional
+   * for the same reason as `stat`/`writeBinaryFile`.
+   */
+  readBinaryFile?(path: string): Promise<Uint8Array>;
 }

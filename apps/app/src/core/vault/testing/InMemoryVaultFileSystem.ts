@@ -153,6 +153,13 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     await this.writeFile(path, new TextDecoder('latin1').decode(bytes));
   }
 
+  /** Reads back what `writeBinaryFile` stored. */
+  async readBinaryFile(path: string): Promise<Uint8Array> {
+    const contents = await this.readFile(path);
+
+    return Uint8Array.from(contents, (character) => character.charCodeAt(0) & 0xff);
+  }
+
   /** Test helper: pins a file's reported timestamps. */
   setFileTimes(path: string, times: { createdAt: Date; modifiedAt: Date }): void {
     this.times.set(path, times);

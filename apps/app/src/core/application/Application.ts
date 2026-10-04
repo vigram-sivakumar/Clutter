@@ -52,6 +52,8 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import type { Page } from '../vault/models/Page';
+import { findRemoteImageDisplayName } from './asset/remoteImageDisplayName';
 import { rewriteRemoteAssetReferences } from './asset/rewriteRemoteAssetReferences';
 import { saveRemoteImage, type SaveToVaultResult } from './asset/saveRemoteImage';
 import { importRemoteAsset } from '../vault/asset/importRemoteAsset';
@@ -768,8 +770,8 @@ export class Application {
    * time (a second click while one is running joins it instead of starting
    * another, and clicking again after it finished just reports zero uses left):
    *
-   *   download + write to Assets/  (importRemoteAsset; reuses a copy already
-   *   saved from this URL)
+   *   download + write to Assets/  (importRemoteAsset; named after the display
+   *   text typed in the notes, and reusing a byte-identical copy already there)
    *     -> reconcile the file into the Vault through Sync (the Vault must know
    *        it before anything points at it, or note images can't resolve)
    *     -> rewrite every use of the URL (rewriteRemoteAssetReferences, through
@@ -788,8 +790,17 @@ export class Application {
       return inFlight;
     }
 
+    const isPageArchived = (page: Page): boolean =>
+      this.membershipSelector.isArchivedPage(page) ||
+      this.membershipSelector.isEffectivelyArchived(page.parentId);
+    const currentMarkdown = (page: Page): string =>
+      this.documentRegistry.get(page.id)?.currentRevision.markdown ?? page.source.markdown;
+
     const run = saveRemoteImage({
-      save: () => importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset),
+      save: () =>
+        importRemoteAsset(this.fileSystem, this.rootPath, url, fetchRemoteAsset, {
+          displayName: findRemoteImageDisplayName(url, this.vault.pages(), currentMarkdown, isPageArchived),
+        }),
       register: async (absolutePath) => {
         await this.vaultSyncService.reconcileKnownPath(absolutePath);
 
@@ -805,11 +816,8 @@ export class Application {
           reference,
           pages: this.vault.pages(),
           folders: this.vault.folders(),
-          currentMarkdown: (page) =>
-            this.documentRegistry.get(page.id)?.currentRevision.markdown ?? page.source.markdown,
-          isPageArchived: (page) =>
-            this.membershipSelector.isArchivedPage(page) ||
-            this.membershipSelector.isEffectivelyArchived(page.parentId),
+          currentMarkdown,
+          isPageArchived,
           isFolderArchived: (folder) => this.membershipSelector.isEffectivelyArchived(folder.id),
           pageWriter: this.pageOperations,
           folderWriter: this.folderOperations,
