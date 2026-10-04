@@ -11,8 +11,12 @@ import './completionRow.css';
 export interface CompletionRowSpec {
   /** Raw `<svg>` markup, drawn in `currentColor`. `Completion.render` is synchronous DOM, outside React. */
   readonly iconSvg?: string;
-  /** A loadable image URL shown in place of the icon, filling the row's height (an asset row, as in PickerList). */
-  readonly thumbnail?: string;
+  /**
+   * A loadable image URL shown in place of the icon, filling the row's height (an asset row, as in
+   * PickerList). May be a promise (a PDF's first page takes a moment to render): the row shows its
+   * icon until the image arrives, and keeps it if there is none (`null`).
+   */
+  readonly thumbnail?: string | Promise<string | null>;
   readonly title: string;
   /** Secondary text right after the title (a page's matched alias). */
   readonly titleSuffix?: string;
@@ -46,11 +50,25 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
     row.classList.add('completion-row--asset');
     const thumbnail = document.createElement('span');
     thumbnail.className = 'completion-row__thumbnail';
-    const image = document.createElement('img');
-    image.src = spec.thumbnail;
-    image.alt = '';
-    image.draggable = false;
-    thumbnail.appendChild(image);
+    const showIcon = () => {
+      if (spec.iconSvg) {
+        thumbnail.classList.add('completion-row__thumbnail--icon');
+        thumbnail.innerHTML = spec.iconSvg;
+      }
+    };
+    const showImage = (src: string) => {
+      const image = document.createElement('img');
+      image.src = src;
+      image.alt = '';
+      image.draggable = false;
+      thumbnail.replaceChildren(image);
+    };
+    if (typeof spec.thumbnail === 'string') {
+      showImage(spec.thumbnail);
+    } else {
+      // Until it resolves the box is an empty, tinted square the size of the finished image.
+      void spec.thumbnail.then((src) => (src ? showImage(src) : showIcon()), showIcon);
+    }
     row.appendChild(thumbnail);
   } else if (spec.iconSvg) {
     const icon = document.createElement('span');

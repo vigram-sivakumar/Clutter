@@ -19,9 +19,35 @@ import tagIcon from '@shared/icon/svg/tag.svg?raw';
 import hashIcon from '@shared/icon/svg/hash.svg?raw';
 import calendarIcon from '@shared/icon/svg/calendar-blank.svg?raw';
 
+import { renderPdfThumbnail } from '@features/pdf/pdfThumbnail';
 import { labSwatch, labEmbedSuggestions, labHeadingSuggestions, labTagSuggestions, labWikiLinkSuggestions } from './labVault';
 
 export type PrototypeKind = 'wikilink' | 'wikilink-create' | 'embed' | 'heading' | 'tag' | 'date';
+
+/** A small real PDF (one page, the name as its heading) so the lab renders a real first page. */
+function labPdfUrl(name: string): string {
+  const stream = `BT /F1 40 Tf 40 720 Td (${name.replace(/[()\\]/g, '')}) Tj ET\n0.2 0.4 0.8 rg 40 600 300 60 re f\n0.8 0.8 0.8 rg 40 500 500 12 re f 40 470 420 12 re f 40 440 480 12 re f`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
+}
 
 interface Row {
   readonly spec: CompletionRowSpec;
@@ -49,10 +75,10 @@ function rowsFor(kind: PrototypeKind): Row[] {
     case 'embed':
       return labEmbedSuggestions('').map((s) => ({
         section: 'Assets',
-        // Images show their own picture (the lab uses a gradient swatch for the file); a PDF keeps its icon.
+        // Images show their own picture (the lab uses a gradient swatch for the file); a PDF shows its first page.
         spec:
           s.resourceKind === 'pdf'
-            ? { iconSvg: pdfIcon, title: s.title, path: s.breadcrumb }
+            ? { iconSvg: pdfIcon, thumbnail: renderPdfThumbnail(labPdfUrl(s.title), 36), title: s.title, path: s.breadcrumb }
             : { thumbnail: labSwatch('#4cc9f0', '#3a0ca3'), title: s.title, path: s.breadcrumb },
       }));
     case 'heading':

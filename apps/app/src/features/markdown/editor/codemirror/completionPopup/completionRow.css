@@ -110,6 +110,18 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
   pointer-events: none;
+  /* Visible only while a thumbnail is still loading (or has none). */
+  background: var(--state-hover-medium);
+}
+.completion-row__thumbnail--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sidebar-icon-foreground);
+}
+.completion-row__thumbnail--icon svg {
+  width: 16px;
+  height: 16px;
 }
 .completion-row__thumbnail img {
   position: absolute;
