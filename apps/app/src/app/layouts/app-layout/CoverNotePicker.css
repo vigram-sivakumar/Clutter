@@ -35,13 +35,18 @@
      tallest case), the 32px Show more row — then the divider and the second section's title.
      Nine children in that stretch means eight 1px gaps; the divider is 1px plus 4px margins. */
   max-height: calc(
-    2 * var(--height-lg) + var(--cover-note-section-rows) * var(--cover-note-row) + 32px + 8 * var(--space-1) + 9px
+    2 * var(--height-lg) + var(--cover-note-section-rows) * var(--cover-note-row) + 32px + 8 * var(--space-1) + 9px +
+      var(--space-12)
   );
   overflow-y: auto;
   /* The list runs out into the card's right padding and gives the rows that width back as its own
      padding, so the scrollbar sits in the padding area instead of over the rows. */
   margin-right: calc(var(--space-12) * -1);
   padding-right: var(--space-12);
+  /* Bottom padding inside the scrolling content (the card itself has none), so the last row
+     scrolls clear of the card's bottom edge instead of being cropped by it. Counted in the
+     max-height above (border-box). */
+  padding-bottom: var(--space-12);
 }
 /* The list runs to the card's bottom edge (no bottom padding), so while there is more to scroll to
    its last rows fade out into the card instead of being cut off by a hard edge. Off at the end of
