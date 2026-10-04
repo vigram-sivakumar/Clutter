@@ -22,7 +22,7 @@
   padding-left: var(--space-6);
 }
 /* The inner picker already has its own surface; flatten it into this card. */
-.picker-card .folder-picker {
+.picker-card .picker-list {
   padding: 0;
   box-shadow: none;
   background: transparent;
@@ -34,7 +34,7 @@
 .picker-card .input {
   min-height: var(--space-32);
 }
-.picker-card .folder-picker__list {
+.picker-card .picker-list__list {
   flex: none;
   /* Without sections: N two-line rows (plus the 1px gaps and the bottom padding below). */
   max-height: calc(
@@ -53,24 +53,24 @@
 }
 /* With sections: tall enough to show the first section in full, up to and including its
    "Show more" row, and no further — the next section's divider and title stay below the fold.
-   FolderPicker measures where that row ends (`--folder-picker-first-section-bottom`, since rows
+   PickerList measures where that row ends (`--picker-list-first-section-bottom`, since rows
    are 32px or 48px depending on whether they have a path) and the list ends 4px after it. The
    calc is the ceiling, and the cap when that first section has no "Show more" to end at: its
    title, five rows (all with a path, the tallest case), the 32px row, then the divider and the
    second section's title. */
-.picker-card--sectioned .folder-picker__list {
+.picker-card--sectioned .picker-list__list {
   max-height: min(
     calc(
       2 * var(--height-lg) + var(--picker-card-section-rows) * var(--picker-card-row) + 32px + 8 * var(--space-1) +
         9px + var(--space-12)
     ),
-    calc(var(--folder-picker-first-section-bottom, 100vh) + var(--space-4))
+    calc(var(--picker-list-first-section-bottom, 100vh) + var(--space-4))
   );
 }
 /* The list runs to the card's bottom edge (no bottom padding), so while there is more to scroll to
    its last rows fade out into the card instead of being cut off by a hard edge. Off at the end of
    the list, so the final row is never dimmed. */
-.picker-card .folder-picker__list[data-can-scroll-down] {
+.picker-card .picker-list__list[data-can-scroll-down] {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
 }

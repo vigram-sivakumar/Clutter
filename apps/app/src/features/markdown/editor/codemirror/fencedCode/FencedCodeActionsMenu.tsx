@@ -71,7 +71,7 @@ type MenuView = 'actions' | 'language';
  * `aria-activedescendant` (unconditionally, unchanged) — but since real
  * focus lives on `Search` while the language view is showing, `Search`
  * itself also carries `aria-activedescendant` pointing at the same
- * `activeId`, matching the exact convention `FolderPicker.tsx` already
+ * `activeId`, matching the exact convention `PickerList.tsx` already
  * established for this precise situation (a focused text input owning a
  * virtually-navigated list below it) — not a newly-invented pattern.
  *
@@ -349,7 +349,7 @@ function LanguagePickerContent({
         // `Menu`'s own container also carries `aria-activedescendant`
         // unconditionally (unchanged) — but real DOM focus lives here
         // while this view is showing, so this input carries it too,
-        // matching `FolderPicker.tsx`'s own established convention for
+        // matching `PickerList.tsx`'s own established convention for
         // exactly this shape (a focused text input virtually owning a
         // list below it), not a newly-invented pattern.
         aria-activedescendant={activeId}

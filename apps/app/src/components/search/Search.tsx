@@ -8,7 +8,7 @@ import './Search.css';
 import { Button } from '@components/button/Button';
 
 // forwardRef so a caller can focus the underlying <input> imperatively
-// (e.g. FolderPicker autofocusing search when it opens) — the same
+// (e.g. PickerList autofocusing search when it opens) — the same
 // ref-forwarding Input itself already does; Search previously stopped
 // that forwarding chain by being a plain function component.
 export const Search = forwardRef<HTMLInputElement, SearchProps>(

@@ -3,9 +3,9 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import {
   ROOT_DESTINATION_ID,
-  type FolderPickerAncestor,
-  type FolderPickerItem,
-} from '@components/folder-picker/FolderPicker.types';
+  type PickerListAncestor,
+  type PickerListItem,
+} from '@components/picker-list/PickerList.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
 import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 
@@ -32,7 +32,7 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * root-folders section title reads (Sidebar.Notes.tsx), so there is one
  * source of truth for "what is the vault root called," never a separate
  * hardcoded name here. Its `secondaryLabel` is "Home", rendered inline
- * next to the title in FolderPicker's existing muted/small-text styling.
+ * next to the title in PickerList's existing muted/small-text styling.
  * MoveDestinationPicker is the one place that recognizes that sentinel id
  * and translates it back to the `null` destination every Move facade
  * method already accepts.
@@ -48,8 +48,8 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 export function buildMoveDestinationItems(
   membershipSelector: MembershipSelector,
   excludeFolderId?: string
-): FolderPickerItem[] {
-  const items: FolderPickerItem[] = [
+): PickerListItem[] {
+  const items: PickerListItem[] = [
     {
       id: ROOT_DESTINATION_ID,
       title: getVaultDisplayName(membershipSelector.vaultRoot),
@@ -63,7 +63,7 @@ export function buildMoveDestinationItems(
     folders: readonly Folder[],
     level: number,
     parentId: string | null,
-    ancestors: FolderPickerAncestor[]
+    ancestors: PickerListAncestor[]
   ) {
     for (const folder of folders) {
       if (folder.id === excludeFolderId) {
@@ -114,7 +114,7 @@ export function buildMoveDestinationItems(
 export function buildResourceMoveDestinationItems(
   membershipSelector: MembershipSelector,
   query: VaultQuery
-): FolderPickerItem[] {
+): PickerListItem[] {
   // Resource Move keeps its prior, narrower contract (no vault-root
   // destination — a resource's natural home is a folder or Assets/) even
   // though buildMoveDestinationItems now offers root to every other caller.

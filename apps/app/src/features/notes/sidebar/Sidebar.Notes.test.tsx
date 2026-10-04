@@ -698,7 +698,7 @@ describe('Sidebar Notes: Resource move', () => {
 
     fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Move to…'));
-    const picker = document.querySelector<HTMLElement>('.folder-picker')!;
+    const picker = document.querySelector<HTMLElement>('.picker-list')!;
     fireEvent.click(within(picker).getByText('Projects'));
 
     expect(moveSpy).toHaveBeenCalledWith('resource-1', 'folder-1');

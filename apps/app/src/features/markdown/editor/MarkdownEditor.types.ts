@@ -1,4 +1,4 @@
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 import type { ImageOverlayImage } from './codemirror/image/ImageOverlay';
 
@@ -318,7 +318,7 @@ export interface MarkdownEditorProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
-  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

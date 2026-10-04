@@ -7,7 +7,7 @@
  * reliably win against CM6's dynamically-injected baseTheme (verified in
  * editorTheme.ts's own doc comment, for the same reason).
  *
- * Every color/spacing token below is the same one `Entry`/`FolderPicker`
+ * Every color/spacing token below is the same one `Entry`/`PickerList`
  * already use (`entry.css`'s own custom properties), reused directly for
  * visual consistency rather than redefined.
  */

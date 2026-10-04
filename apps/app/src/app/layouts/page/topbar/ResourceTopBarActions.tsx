@@ -12,7 +12,7 @@ import type {
 import { Dialog } from '@components/dialog/Dialog';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -69,7 +69,7 @@ export interface ResourceTopBarActionsProps {
    * folder being moved — itself and its own descendants). Absent for a
    * resource type that never gets a `move-to` item at all (Daily Note).
    */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   /** Invoked with the chosen destination (`null` = vault root) when a Move destination is selected. */
   onMove?: (destinationFolderId: string | null) => void;
   /**

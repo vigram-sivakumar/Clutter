@@ -1,9 +1,9 @@
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type {
-  FolderPickerAncestor,
-  FolderPickerItem,
-} from '@components/folder-picker/FolderPicker.types';
+  PickerListAncestor,
+  PickerListItem,
+} from '@components/picker-list/PickerList.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
 import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { getPageIcon } from '@core/presentation/getPageIcon';
@@ -21,9 +21,9 @@ import { isToday } from '@shared/helpers/time';
 export function buildCoverNoteItems(
   pages: readonly Page[],
   getFolder: (id: string) => Folder | undefined
-): FolderPickerItem[] {
-  function ancestorsOf(page: Page): FolderPickerAncestor[] {
-    const chain: FolderPickerAncestor[] = [];
+): PickerListItem[] {
+  function ancestorsOf(page: Page): PickerListAncestor[] {
+    const chain: PickerListAncestor[] = [];
     let current = page.parentId;
     while (current) {
       const folder = getFolder(current);

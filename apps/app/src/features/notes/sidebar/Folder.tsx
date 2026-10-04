@@ -7,7 +7,7 @@ import { MoveDestinationPicker } from '@components/move-destination-picker/MoveD
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import { FolderLeading } from './FolderLeading';
 import './Folder.css';
@@ -64,7 +64,7 @@ export interface FolderProps extends Omit<EntryProps, 'children'> {
    * picker anchored on this row's own trigger button, instead of
    * forwarding to onMenuSelect.
    */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   /** Invoked with the chosen destination (`null` = vault root). */
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see MoveDestinationPicker's matching prop. */
@@ -105,7 +105,7 @@ export function Folder({
   // Pulled out (not left in ...entryProps) so it can be combined with
   // this row's own hover-forcing reasons below, rather than one silently
   // overwriting the other via the {...entryProps} spread order — a
-  // caller-supplied forceHover (e.g. FolderPicker's keyboard-highlight)
+  // caller-supplied forceHover (e.g. PickerList's keyboard-highlight)
   // must survive alongside "menu/move-picker is open."
   forceHover: externalForceHover = false,
   ...entryProps
@@ -123,7 +123,7 @@ export function Folder({
         // which is itself hover-gated, so without this, moving the mouse
         // away mid-menu would hide the button needed to close it. Also
         // forced while the Move picker is open, or when a caller
-        // (FolderPicker's keyboard navigation) asks for it explicitly.
+        // (PickerList's keyboard navigation) asks for it explicitly.
         forceHover={externalForceHover || menuOpen || moveTrigger.open || changeIconTrigger.open}
         leading={
           <FolderLeading

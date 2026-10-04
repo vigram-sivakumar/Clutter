@@ -4,7 +4,7 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import { getResourceIcon } from '@core/presentation/getResourceIcon';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
@@ -56,7 +56,7 @@ export interface ResourceProps
    * menu opens the picker anchored on this row's own trigger button,
    * instead of forwarding to onMenuSelect.
    */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   /** Invoked with the chosen destination (`null` = vault root). */
   onMove?(destinationFolderId: string | null): void;
   /** Present alongside moveDestinations — see MoveDestinationPicker's matching prop. */

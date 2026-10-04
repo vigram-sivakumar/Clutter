@@ -158,7 +158,7 @@ interface TagPropertyEditorProps {
  * show in a popover under the value, as a menu: the `.menu` surface with
  * real MenuItem rows. `Menu` itself isn't used because it only handles
  * keys while it has focus, and here the input must keep it — so, as in
- * FolderPicker, the input drives useMenuKeyboard (the same hook `Menu`
+ * PickerList, the input drives useMenuKeyboard (the same hook `Menu`
  * runs on) and hands its state to the rows through MenuContext, exactly
  * what `Menu` provides them. Nothing starts highlighted; ArrowUp/Down (or
  * hover) highlight a suggestion, and Enter or a click adds it — with no

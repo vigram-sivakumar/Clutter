@@ -1,22 +1,22 @@
 import type { SystemIcon } from '@shared/icon';
 
 /** One ancestor's own identity, display name, and icon — the breadcrumb-segment shape a search result's path is built from, so each segment can render with the folder it actually represents, not a flattened string. */
-export interface FolderPickerAncestor {
+export interface PickerListAncestor {
   id: string;
   title: string;
   emoji?: string | null;
 }
 
-export interface FolderPickerItem {
+export interface PickerListItem {
   id: string;
   title: string;
   emoji?: string | null;
   level: number;
   /** This item's ancestor chain, root-first — each entry carries its own folder's title/emoji, so a search-result breadcrumb can show every segment's own icon instead of only the leaf's. */
-  ancestors?: FolderPickerAncestor[];
+  ancestors?: PickerListAncestor[];
   /**
    * The item's parent folder id, or `null` for a top-level item — the one
-   * piece of tree structure FolderPicker needs to know which rows are
+   * piece of tree structure PickerList needs to know which rows are
    * currently visible under its own collapsed/expanded state.
    */
   parentId: string | null;
@@ -42,8 +42,8 @@ export interface FolderPickerItem {
 /**
  * The sentinel id a Move destination list (buildMoveDestinationItems.ts)
  * uses to represent the vault root as an ordinary top-level
- * FolderPickerItem (title = the vault's own physical folder name,
- * secondaryLabel = "Home") — FolderPicker itself renders it exactly like
+ * PickerListItem (title = the vault's own physical folder name,
+ * secondaryLabel = "Home") — PickerList itself renders it exactly like
  * any other row, with no special-casing. MoveDestinationPicker is the one
  * place that recognizes this id and translates it back to the `null`
  * destination every Move facade method (PageOperations.move/
@@ -51,8 +51,8 @@ export interface FolderPickerItem {
  */
 export const ROOT_DESTINATION_ID = '__vault-root__';
 
-export interface FolderPickerProps {
-  items: FolderPickerItem[];
+export interface PickerListProps {
+  items: PickerListItem[];
   /** The search box's placeholder. Default: "Search folders". */
   placeholder?: string;
   /**
@@ -79,6 +79,6 @@ export interface FolderPickerProps {
    * its rows a Show more cap, with no heading above them. Dividers between sections are unaffected.
    */
   showSectionTitles?: boolean;
-  onSelect: (item: FolderPickerItem) => void;
+  onSelect: (item: PickerListItem) => void;
   onCreate?: (name: string) => void;
 }

@@ -14,7 +14,7 @@
  * own existing structural-selector convention (`.cm-code-block-line:has(
  * .cm-code-block-copy)` elsewhere in this codebase) — `Menu` itself
  * (`@components/menu/Menu.tsx`) is shared by the Actions view on this same
- * button, `OverflowMenuBody`, `FolderPicker`, and others, none of which
+ * button, `OverflowMenuBody`, `PickerList`, and others, none of which
  * should be capped at 264px, so this can't be a change to `.menu` itself
  * or to `Menu`'s own component (it also doesn't accept a merged
  * `className` today — its own explicit `className` always wins over any

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { usePdfDocument } from './usePdfDocument';
@@ -40,7 +40,7 @@ export interface PdfViewerProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
-  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

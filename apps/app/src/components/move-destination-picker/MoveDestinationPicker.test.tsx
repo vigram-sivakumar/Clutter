@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { MoveDestinationPicker } from './MoveDestinationPicker';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -25,7 +25,7 @@ afterEach(() => {
   cleanup();
 });
 
-const items: FolderPickerItem[] = [
+const items: PickerListItem[] = [
   { id: 'folder-1', title: 'Project', level: 0, parentId: null },
   { id: 'folder-2', title: 'Finance', level: 0, parentId: null },
 ];
@@ -54,7 +54,7 @@ describe('MoveDestinationPicker', () => {
   });
 
   it('lists nested folders flat — no tree, no carets — each with its parent path under the name', () => {
-    const nested: FolderPickerItem[] = [
+    const nested: PickerListItem[] = [
       ...items,
       {
         id: 'folder-1a',
@@ -68,8 +68,8 @@ describe('MoveDestinationPicker', () => {
 
     expect(screen.getByText('Design')).toBeDefined();
     expect(screen.getAllByText('Project')).toHaveLength(2); // its own row, and Design's path
-    expect(document.querySelector('.folder-picker__path')?.textContent).toBe('Project');
-    expect(document.querySelectorAll('.folder-picker__item')).toHaveLength(3);
+    expect(document.querySelector('.picker-list__path')?.textContent).toBe('Project');
+    expect(document.querySelectorAll('.picker-list__item')).toHaveLength(3);
     expect(document.querySelector('.folder-leading__caret, [aria-expanded]')).toBeNull();
   });
 
@@ -78,15 +78,15 @@ describe('MoveDestinationPicker', () => {
 
     expect(document.querySelector('.picker-card__header')?.textContent).toBe('Move to');
     expect(
-      Array.from(document.querySelectorAll('.folder-picker__title')).map((el) => el.textContent)
+      Array.from(document.querySelectorAll('.picker-list__title')).map((el) => el.textContent)
     ).toEqual(['Finance', 'Project']);
     expect(document.querySelector('.menu__group-title')).toBeNull();
     expect(document.querySelector('[role="separator"]')).toBeNull();
-    expect(document.querySelector('[id^="folder-picker-toggle"]')).toBeNull();
+    expect(document.querySelector('[id^="picker-list-toggle"]')).toBeNull();
   });
 
   it('caps the list at five with a Show more row that expands it, still with no section title', () => {
-    const many: FolderPickerItem[] = Array.from({ length: 8 }, (_, i) => ({
+    const many: PickerListItem[] = Array.from({ length: 8 }, (_, i) => ({
       id: `f${i}`,
       title: `Folder ${i}`,
       level: 0,
@@ -95,8 +95,8 @@ describe('MoveDestinationPicker', () => {
     render(<MoveDestinationPickerHarness items={many} onSelect={vi.fn()} />);
 
     const titles = () =>
-      Array.from(document.querySelectorAll('.folder-picker__item'))
-        .filter((el) => !el.id.startsWith('folder-picker-toggle'))
+      Array.from(document.querySelectorAll('.picker-list__item'))
+        .filter((el) => !el.id.startsWith('picker-list-toggle'))
         .map((el) => el.textContent);
     expect(titles()).toHaveLength(5);
     expect(screen.queryByText('Folder 5')).toBeNull();
@@ -112,13 +112,13 @@ describe('MoveDestinationPicker', () => {
 
   it('keeps the vault root first and reports it as null', () => {
     const onSelect = vi.fn();
-    const withRoot: FolderPickerItem[] = [
+    const withRoot: PickerListItem[] = [
       { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', level: 0, parentId: null },
       ...items,
     ];
     render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
 
-    expect(document.querySelector('.folder-picker__item')?.textContent).toContain('Clutter');
+    expect(document.querySelector('.picker-list__item')?.textContent).toContain('Clutter');
     fireEvent.click(screen.getByText('Clutter'));
 
     expect(onSelect).toHaveBeenCalledWith(null);
@@ -210,9 +210,9 @@ describe('MoveDestinationPicker', () => {
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Marketing' },
       });
-      // FolderPicker's own Create row is a stable id, not one text node —
-      // see FolderPicker.test.tsx's own getCreateRow() doc comment for why.
-      fireEvent.click(document.getElementById('folder-picker-create')!);
+      // PickerList's own Create row is a stable id, not one text node —
+      // see PickerList.test.tsx's own getCreateRow() doc comment for why.
+      fireEvent.click(document.getElementById('picker-list-create')!);
 
       await vi.waitFor(() => {
         expect(onSelect).toHaveBeenCalledWith('folder-new');
@@ -239,7 +239,7 @@ function MoveDestinationPickerHarness({
   items,
   onSelect,
 }: {
-  items: FolderPickerItem[];
+  items: PickerListItem[];
   onSelect: (id: string | null) => void;
 }) {
   const anchorRef = useRef<HTMLButtonElement>(null);

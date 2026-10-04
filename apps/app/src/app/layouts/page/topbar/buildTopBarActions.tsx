@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
@@ -94,7 +94,7 @@ export interface BuildTopBarActionsOptions {
   /** Same shape as archiveConfirmationMessage, for 'delete'. */
   deleteConfirmationMessage?: string;
   /** Present only when `resource`'s menu includes a `move-to` item — see ResourceTopBarActions' matching props. */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see ResourceTopBarActions' matching prop. */
   onCreateFolder?: (name: string) => Promise<string>;

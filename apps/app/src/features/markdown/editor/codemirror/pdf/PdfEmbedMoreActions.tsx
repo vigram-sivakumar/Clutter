@@ -6,7 +6,7 @@ import { OverflowMenuBody } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
@@ -42,7 +42,7 @@ export interface PdfEmbedMoreActionsProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
-  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

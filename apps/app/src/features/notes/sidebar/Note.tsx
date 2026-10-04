@@ -6,7 +6,7 @@ import { MoveDestinationPicker } from '@components/move-destination-picker/MoveD
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
 import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
@@ -66,7 +66,7 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
    * row's own overflow menu opens the picker anchored on this row's own
    * trigger button, instead of forwarding to onMenuSelect.
    */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   /** Invoked with the chosen destination (`null` = vault root). */
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see MoveDestinationPicker's matching prop. */

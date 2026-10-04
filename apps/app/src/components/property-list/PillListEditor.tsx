@@ -70,7 +70,7 @@ interface PillListEditorProps {
  *
  * The suggestions are a menu: the `.menu` surface with real MenuItem
  * rows. `Menu` itself isn't used because it only handles keys while it has
- * focus, and here the input must keep it — so, as in FolderPicker, the
+ * focus, and here the input must keep it — so, as in PickerList, the
  * input's useMenuKeyboard (the same hook `Menu` runs on) is handed to the
  * rows through MenuContext, exactly what `Menu` provides them.
  */

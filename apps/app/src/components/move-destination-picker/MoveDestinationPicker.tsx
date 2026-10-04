@@ -5,8 +5,8 @@ import { Popover } from '@components/popover/Popover';
 import { PickerCard } from '@components/picker-card/PickerCard';
 import {
   ROOT_DESTINATION_ID,
-  type FolderPickerItem,
-} from '@components/folder-picker/FolderPicker.types';
+  type PickerListItem,
+} from '@components/picker-list/PickerList.types';
 import type {
   OverlayAlignment,
   OverlaySide,
@@ -16,11 +16,11 @@ export interface MoveDestinationPickerProps {
   anchorRef: RefObject<HTMLElement>;
   open: boolean;
   onClose: () => void;
-  items: FolderPickerItem[];
+  items: PickerListItem[];
   /** `null` when the selected item is the vault root (ROOT_DESTINATION_ID). */
   onSelect: (destinationFolderId: string | null) => void;
   /**
-   * Present only when the caller wants FolderPicker's "Create ..." row
+   * Present only when the caller wants PickerList's "Create ..." row
    * offered for a non-matching search — orchestration only: this
    * component never creates a folder itself, it calls the existing
    * creation flow the caller supplies (FolderOperations.create(), via
@@ -36,7 +36,7 @@ export interface MoveDestinationPickerProps {
 }
 
 /**
- * The one Move destination-picker surface — Popover + FolderPicker, shared
+ * The one Move destination-picker surface — Popover + PickerList, shared
  * by every Move entry point (Note/Folder, topbar and sidebar) so the flow
  * (what's offered, what's excluded, what gets called) has exactly one
  * implementation. Callers only ever supply a folder list (via
@@ -46,7 +46,7 @@ export interface MoveDestinationPickerProps {
  * action, or divider. When the caller's `items` includes the root sentinel
  * (buildMoveDestinationItems.ts prepends an item titled with the vault's
  * own physical folder name, labeled "Home", with id ROOT_DESTINATION_ID),
- * FolderPicker renders it as an ordinary top-level row; this component is
+ * PickerList renders it as an ordinary top-level row; this component is
  * the one place that recognizes that id and translates it back to `null`
  * — the destination `PageOperations.move()`/`FolderOperations.move()`
  * already accept for "move to vault root".
@@ -57,8 +57,8 @@ export interface MoveDestinationPickerProps {
  * `ancestors` the builder already attaches). They are one "Folders" section — only so the card
  * can cap it with Show more / Show less; its title is not drawn (`showSectionTitles={false}`).
  */
-function flattenDestinations(items: FolderPickerItem[]): FolderPickerItem[] {
-  const flat = (item: FolderPickerItem): FolderPickerItem => ({
+function flattenDestinations(items: PickerListItem[]): PickerListItem[] {
+  const flat = (item: PickerListItem): PickerListItem => ({
     ...item,
     level: 0,
     parentId: null,

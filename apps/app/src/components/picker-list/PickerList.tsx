@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import type { FolderPickerItem, FolderPickerProps } from './FolderPicker.types';
+import type { PickerListItem, PickerListProps } from './PickerList.types';
 import { Search } from '@components/search/Search';
 import { Entry } from '@components/entry/Entry';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
@@ -9,12 +9,12 @@ import { FolderLeading } from '@features/notes/sidebar/FolderLeading';
 import { AppIcon } from '@shared/icon';
 import { useMenuKeyboard } from '@components/menu/useMenuKeyboard';
 
-import './FolderPicker.css';
+import './PickerList.css';
 
 /** DOM id for the "Create ..." row — stable so useMenuKeyboard (which keys off element ids) can address it like any other menuitem. */
-const CREATE_ITEM_ID = 'folder-picker-create';
+const CREATE_ITEM_ID = 'picker-list-create';
 
-export function FolderPicker({
+export function PickerList({
   items,
   placeholder = 'Search folders',
   leadingIcon,
@@ -23,7 +23,7 @@ export function FolderPicker({
   showSectionTitles = true,
   onSelect,
   onCreate,
-}: FolderPickerProps) {
+}: PickerListProps) {
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -130,7 +130,7 @@ export function FolderPicker({
     }
 
     const seen = new Map<string, number>();
-    const shown: FolderPickerItem[] = [];
+    const shown: PickerListItem[] = [];
     for (const item of visibleItems) {
       const section = item.section;
       if (section === undefined) {
@@ -160,7 +160,7 @@ export function FolderPicker({
   // when no section is capped (or the layout can't be measured).
   function measureFirstSectionBottom(): number | null {
     const list = listRef.current;
-    const toggle = list?.querySelector<HTMLElement>('[id^="folder-picker-toggle-"]');
+    const toggle = list?.querySelector<HTMLElement>('[id^="picker-list-toggle-"]');
     if (!list || !toggle) {
       return null;
     }
@@ -179,7 +179,7 @@ export function FolderPicker({
     const moreBelow = list.scrollTop + list.clientHeight < list.scrollHeight - padding - 1;
 
     // A host may end the list right at the first section's "Show more" row (the
-    // `--folder-picker-first-section-bottom` below). That row is the way to more, so while the list
+    // `--picker-list-first-section-bottom` below). That row is the way to more, so while the list
     // sits at the top it is not faded; the fade returns once the user scrolls.
     const firstSectionBottom = measureFirstSectionBottom();
     const endsAtFirstToggle =
@@ -189,16 +189,16 @@ export function FolderPicker({
   }
 
   // Exposes where the first section's "Show more" row ends as the
-  // `--folder-picker-first-section-bottom` CSS variable — so a host can size the list to end right
+  // `--picker-list-first-section-bottom` CSS variable — so a host can size the list to end right
   // after it (rows differ in height, so no fixed number can). Unset when no section is capped, and
   // unset while the layout can't be measured.
   function updateFirstSectionBottom() {
     const list = listRef.current;
     const bottom = measureFirstSectionBottom();
     if (bottom === null) {
-      list?.style.removeProperty('--folder-picker-first-section-bottom');
+      list?.style.removeProperty('--picker-list-first-section-bottom');
     } else {
-      list?.style.setProperty('--folder-picker-first-section-bottom', `${Math.ceil(bottom)}px`);
+      list?.style.setProperty('--picker-list-first-section-bottom', `${Math.ceil(bottom)}px`);
     }
   }
 
@@ -257,7 +257,7 @@ export function FolderPicker({
   }
 
   return (
-    <div className="folder-picker">
+    <div className="picker-list">
       <Search
         ref={searchRef}
         value={query}
@@ -271,7 +271,7 @@ export function FolderPicker({
       />
 
       <div
-        className="folder-picker__list"
+        className="picker-list__list"
         ref={listRef}
         onScroll={updateCanScrollDown}
         data-can-scroll-down={canScrollDown || undefined}
@@ -305,13 +305,13 @@ export function FolderPicker({
               // 0 for any row with an onClick, adding every row to the
               // page's natural Tab order.
               tabIndex={-1}
-              className="folder-picker__item"
+              className="picker-list__item"
               level={isSearching ? 0 : item.level}
               leading={
                 leadingIcon ? (
-                  <span className="folder__leading">
+                  <span className="picker-list__leading">
                     <AppIcon
-                      className="folder__icon"
+                      className="picker-list__icon"
                       icon={item.icon ?? leadingIcon}
                       emoji={item.emoji}
                     />
@@ -336,33 +336,33 @@ export function FolderPicker({
               onMouseEnter={() => keyboard.setActiveId(item.id)}
               onClick={() => onSelect(item)}
             >
-              <div className="folder-picker__content">
-                <div className="folder-picker__title-row">
-                  <span className="folder-picker__title">{item.title}</span>
+              <div className="picker-list__content">
+                <div className="picker-list__title-row">
+                  <span className="picker-list__title">{item.title}</span>
                   {item.secondaryLabel && (
-                    <span className="folder-picker__secondary">
+                    <span className="picker-list__secondary">
                       {item.secondaryLabel}
                     </span>
                   )}
                 </div>
                 {!item.secondaryLabel && path && (
-                  <span className="folder-picker__path">{path}</span>
+                  <span className="picker-list__path">{path}</span>
                 )}
               </div>
             </Entry>
               {toggleAfter.has(item.id) && (
                 <Entry
-                  id={`folder-picker-toggle-${item.section}`}
+                  id={`picker-list-toggle-${item.section}`}
                   role="menuitem"
                   tabIndex={-1}
-                  className="folder-picker__item"
+                  className="picker-list__item"
                   leading={
-                    <span className="folder__leading">
-                      <AppIcon className="folder__icon" icon="moreHorizontal" />
+                    <span className="picker-list__leading">
+                      <AppIcon className="picker-list__icon" icon="moreHorizontal" />
                     </span>
                   }
-                  forceHover={keyboard.activeId === `folder-picker-toggle-${item.section}`}
-                  onMouseEnter={() => keyboard.setActiveId(`folder-picker-toggle-${item.section}`)}
+                  forceHover={keyboard.activeId === `picker-list-toggle-${item.section}`}
+                  onMouseEnter={() => keyboard.setActiveId(`picker-list-toggle-${item.section}`)}
                   onClick={() => toggleSection(item.section!)}
                 >
                   <span>{toggleAfter.get(item.id)!.expanded ? 'Show less' : 'Show more'}</span>
@@ -377,15 +377,15 @@ export function FolderPicker({
             id={CREATE_ITEM_ID}
             role="menuitem"
             tabIndex={-1}
-            className="folder__title-create"
-            leading={<AppIcon className="create__icon" icon="plus" />}
+            className="picker-list__create-row"
+            leading={<AppIcon className="picker-list__create-icon" icon="plus" />}
             forceHover={keyboard.activeId === CREATE_ITEM_ID}
             onMouseEnter={() => keyboard.setActiveId(CREATE_ITEM_ID)}
             onClick={() => onCreate(query.trim())}
           >
-            <div className="folder-picker__create">
-              <span className="folder-picker__create-label">Create</span>
-              <span className="folder-picker__title">{query.trim()}</span>
+            <div className="picker-list__create">
+              <span className="picker-list__create-label">Create</span>
+              <span className="picker-list__title">{query.trim()}</span>
             </div>
           </Entry>
         )}

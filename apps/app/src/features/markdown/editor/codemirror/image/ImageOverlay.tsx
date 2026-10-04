@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { Overlay } from '@components/overlay/Overlay';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
@@ -47,7 +47,7 @@ export interface ImageOverlayProps {
   ) => void;
   /** Same shape/reasoning as onRevealResourceInFinder above — see downloadResource.ts. */
   readonly onDownloadResource?: (resourceId: string) => void;
-  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

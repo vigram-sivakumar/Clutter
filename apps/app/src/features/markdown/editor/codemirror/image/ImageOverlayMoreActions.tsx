@@ -6,7 +6,7 @@ import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { Overlay } from '@components/overlay/Overlay';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
@@ -33,7 +33,7 @@ export interface ImageOverlayMoreActionsProps {
   onRevealResourceInFinder?: (resourceId: string) => void;
   onCopyResourcePath?: (resourceId: string, format: LocationPathFormat) => void;
   onDownloadResource?: (resourceId: string) => void;
-  resourceMoveDestinations?: FolderPickerItem[];
+  resourceMoveDestinations?: PickerListItem[];
   onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { Note } from './Note';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -33,7 +33,7 @@ const menuWithMove: OverflowMenuItemConfig[] = [
   { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
 ];
 
-const destinations: FolderPickerItem[] = [
+const destinations: PickerListItem[] = [
   { id: 'folder-dest', title: 'Elsewhere', level: 0, parentId: null },
 ];
 
@@ -45,7 +45,7 @@ function NoteHarness({
   emoji,
 }: {
   onMenuSelect: (id: string) => void;
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   onMove?: (destinationFolderId: string | null) => void;
   onChangeIcon?: (emoji: string | null) => void;
   emoji?: string | null;

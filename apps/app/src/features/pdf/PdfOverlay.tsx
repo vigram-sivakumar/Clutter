@@ -1,6 +1,6 @@
 import { Overlay } from '@components/overlay/Overlay';
 import type { VaultResource } from '@core/vault/models/VaultResource';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { PdfViewer } from './PdfViewer';
@@ -34,7 +34,7 @@ export interface PdfOverlayProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
-  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
     destinationFolderId: string | null

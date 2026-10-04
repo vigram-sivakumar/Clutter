@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 
 export interface MoveDestinationTrigger {
   /** Pass to the same button that already anchors the row/topbar's overflow menu. */
@@ -26,7 +26,7 @@ export interface MoveDestinationTrigger {
  * before this was extracted for the sidebar to reuse too.
  */
 export function useMoveDestinationTrigger(
-  moveDestinations: FolderPickerItem[] | undefined
+  moveDestinations: PickerListItem[] | undefined
 ): MoveDestinationTrigger {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);

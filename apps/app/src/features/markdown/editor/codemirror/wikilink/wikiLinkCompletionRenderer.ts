@@ -39,7 +39,7 @@ export function isWikiLinkCompletion(completion: Completion): completion is Wiki
 /**
  * Inlined verbatim from `shared/icon/svg/note.svg` and `plus.svg` — the
  * exact same icons `AppIcon` renders elsewhere (`note` for an existing
- * page, `plus` for FolderPicker's own "Create ..." row), reused here as
+ * page, `plus` for PickerList's own "Create ..." row), reused here as
  * raw markup rather than through `AppIcon` itself: `Completion.render`
  * must return a plain DOM `Node` built synchronously outside React's own
  * tree (docs/editor-architecture-decisions.md's WikiLink autocomplete
@@ -59,7 +59,7 @@ const PLUS_ICON_SVG =
  * for each visible option). Builds plain DOM styled with
  * `wikiLinkCompletion.css`'s own classes, which reuse `Entry`'s design
  * tokens (`--entry-foreground`, `--entry-selected-surface`, etc.) for
- * visual consistency with FolderPicker/Entry — without importing `Entry`
+ * visual consistency with PickerList/Entry — without importing `Entry`
  * itself, which owns its own click/keyboard/hover behavior that would
  * conflict with CM6 owning this popup's interaction entirely. CM6's own
  * default `.cm-completionLabel` element still renders alongside this
@@ -88,8 +88,8 @@ export function renderWikiLinkCompletion(
 
   const row = document.createElement('div');
   row.className = 'wikilink-completion';
-  // Mirrors FolderPicker's `onMouseEnter={() => keyboard.setActiveId(item.id)}`
-  // (FolderPicker.tsx): hover moves CM6's own selection rather than adding a
+  // Mirrors PickerList's `onMouseEnter={() => keyboard.setActiveId(item.id)}`
+  // (PickerList.tsx): hover moves CM6's own selection rather than adding a
   // second, CSS-only highlight state that can disagree with it. `li.id` is
   // `<tooltipId>-<index>` — the same convention CM6's own click handler
   // parses out of the DOM id (CompletionTooltip's `mousedown` listener).

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { PageType } from '@core/vault/models/Page';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
@@ -14,7 +14,7 @@ export interface TopBarActionsOptions {
   onDelete?: () => void;
   onDuplicate?: () => void;
   /** Present only when `menu` includes a `move-to` item — see ResourceTopBarActions' matching props. */
-  moveDestinations?: FolderPickerItem[];
+  moveDestinations?: PickerListItem[];
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see ResourceTopBarActions' matching prop. */
   onCreateFolder?: (name: string) => Promise<string>;

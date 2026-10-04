@@ -1,5 +1,5 @@
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
-import { ROOT_DESTINATION_ID, type FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import { ROOT_DESTINATION_ID, type PickerListItem } from '@components/picker-list/PickerList.types';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
@@ -11,7 +11,7 @@ import { buildMoveDestinationItems } from './buildMoveDestinationItems';
  * folder keeps its parent chain as `ancestors`, so the picker can show where it lives. The
  * vault root is not offered.
  */
-export function buildCoverFolderItems(membershipSelector: MembershipSelector): FolderPickerItem[] {
+export function buildCoverFolderItems(membershipSelector: MembershipSelector): PickerListItem[] {
   return buildMoveDestinationItems(membershipSelector)
     .filter((item) => item.id !== ROOT_DESTINATION_ID)
     .map((item) => ({

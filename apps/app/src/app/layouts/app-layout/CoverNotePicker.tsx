@@ -1,6 +1,6 @@
 import { Overlay } from '@components/overlay/Overlay';
 import { PickerCard } from '@components/picker-card/PickerCard';
-import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
 
 export interface CoverTarget {
   readonly kind: 'note' | 'folder';
@@ -9,15 +9,15 @@ export interface CoverTarget {
 
 interface CoverNotePickerProps {
   readonly open: boolean;
-  readonly notes: FolderPickerItem[];
+  readonly notes: PickerListItem[];
   /** A flat "Folders" section after the notes (each item's own `section` names it). */
-  readonly folders?: FolderPickerItem[];
+  readonly folders?: PickerListItem[];
   readonly onSelect: (target: CoverTarget) => void;
   readonly onClose: () => void;
 }
 
 /**
- * "Set as cover image" → which note or folder? The existing FolderPicker, fed notes (flat rows
+ * "Set as cover image" → which note or folder? The existing PickerList, fed notes (flat rows
  * with the note icon) and then a flat Folders section, centered over the app. It only reports
  * what was chosen; what that does is the caller's.
  */

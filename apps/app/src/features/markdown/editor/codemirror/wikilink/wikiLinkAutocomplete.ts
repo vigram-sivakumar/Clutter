@@ -17,7 +17,7 @@ import {
 
 /**
  * Re-skins CM6's own `.cm-tooltip-autocomplete` popup to match
- * FolderPicker's container (`folder-picker` in FolderPicker.css) —
+ * PickerList's container (`picker-list` in PickerList.css) —
  * `EditorView.theme()`, not a plain stylesheet: CM6 injects its
  * `autocompletion()` baseTheme dynamically at extension-creation time,
  * after any statically-bundled CSS, so a plain external rule targeting
@@ -118,8 +118,8 @@ export function wikiLinkAutocompleteTheme(): Extension {
     // Hover moves CM6's actual selection (see renderWikiLinkCompletion's
     // `mouseenter` listener) rather than adding a second, CSS-only
     // highlight — so `[aria-selected]` alone is the single visual driver,
-    // the same single-source-of-truth invariant FolderPicker keeps via its
-    // one `activeId` state (FolderPicker.tsx / useMenuKeyboard.ts).
+    // the same single-source-of-truth invariant PickerList keeps via its
+    // one `activeId` state (PickerList.tsx / useMenuKeyboard.ts).
     '.cm-tooltip-autocomplete ul > li[aria-selected]': {
       background: 'var(--entry-selected-surface)',
       color: 'var(--entry-selected-foreground)',

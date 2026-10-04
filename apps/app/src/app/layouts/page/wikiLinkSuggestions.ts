@@ -22,7 +22,7 @@ import { createReferencedPage } from './resolveWikiLink';
  * Matching is deliberately the simplest thing that already has a precedent
  * in this codebase: plain case-insensitive substring match against a
  * page's title and its `analysis.aliases` (findPageMatches) — the exact algorithm
- * `FolderPicker.tsx` already uses for folder names
+ * `PickerList.tsx` already uses for folder names
  * (`item.title.toLowerCase().includes(normalizedQuery)`), extended only to
  * also check aliases, since WikiLinks (unlike folder names) already
  * resolve through them (`resolveWikiLink.ts`'s `findPagesByAlias`). A
@@ -69,7 +69,7 @@ export function createWikiLinkSuggester(
       return matches;
     }
 
-    // Mirrors FolderPicker's own rule exactly (FolderPicker.tsx's
+    // Mirrors PickerList's own rule exactly (PickerList.tsx's
     // `showCreate`): a Create option is offered only when the search
     // produces zero matches, never alongside real results.
     const path = query.trim();
