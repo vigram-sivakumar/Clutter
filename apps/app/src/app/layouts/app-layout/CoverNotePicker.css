@@ -3,8 +3,10 @@
   flex-direction: column;
   gap: var(--space-8);
   width: 360px;
+  /* Sizes the list (below). A row with a folder path is 48px; the rows per section is the
+     picker's sectionLimit (CoverNotePicker.tsx). */
   --cover-note-row: 48px;
-  --cover-note-rows: 6;
+  --cover-note-section-rows: 5;
   padding: var(--space-12);
   background: var(--surface-secondary);
   border-radius: var(--radius-xxl);
@@ -29,6 +31,11 @@
    card grows with a short list and scrolls once it passes N two-line rows. */
 .cover-note-picker .folder-picker__list {
   flex: none;
-  max-height: calc(var(--cover-note-rows) * var(--cover-note-row) + (var(--cover-note-rows) - 1) * var(--space-1));
+  /* Tall enough to show the first section in full — its title, its rows (all with a path, the
+     tallest case), the 32px Show more row — then the divider and the second section's title.
+     Nine children in that stretch means eight 1px gaps; the divider is 1px plus 4px margins. */
+  max-height: calc(
+    2 * var(--height-lg) + var(--cover-note-section-rows) * var(--cover-note-row) + 32px + 8 * var(--space-1) + 9px
+  );
   overflow-y: auto;
 }
