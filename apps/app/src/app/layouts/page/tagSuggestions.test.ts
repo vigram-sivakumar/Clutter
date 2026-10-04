@@ -60,12 +60,16 @@ function makeVault(pages: Page[]): Vault {
 }
 
 describe('createTagSuggester', () => {
-  it('returns nothing for an empty query', () => {
-    const vault = makeVault([]);
+  it('returns every tag, sorted, for an empty query — a freshly typed # lists them all', () => {
+    const vault = makeVault([makePage('a', ['work']), makePage('b', ['project'])]);
     const suggest = createTagSuggester(vault);
 
-    expect(suggest('')).toEqual([]);
-    expect(suggest('   ')).toEqual([]);
+    expect(suggest('')).toEqual(['project', 'work']);
+    expect(suggest('   ')).toEqual(['project', 'work']);
+  });
+
+  it('returns nothing for an empty query in a vault with no tags', () => {
+    expect(createTagSuggester(makeVault([]))('')).toEqual([]);
   });
 
   it('matches by case-insensitive substring against a single-word tag', () => {

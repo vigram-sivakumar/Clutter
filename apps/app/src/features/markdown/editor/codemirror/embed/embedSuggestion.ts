@@ -6,7 +6,7 @@
  * `MembershipSelector` itself, it only calls a function the app layer
  * supplies.
  *
- * Two suggestion kinds: `'resource'` (image/PDF targets, unchanged) and
+ * Three suggestion kinds: `'page'` (a note or Daily Note), `'resource'` (image/PDF targets) and
  * `'heading'` (ADR-032 — a heading within an already-typed page target,
  * `![[Page#`). There is no `create-resource` Gate operation kind (per the
  * approved Resource mutation scope — see `ResourceOperations.ts`), so
@@ -52,19 +52,39 @@ export interface EmbedHeadingSuggestion {
   readonly level: number;
 }
 
-export type EmbedSuggestion = EmbedResourceSuggestion | EmbedHeadingSuggestion;
+/**
+ * A note (regular or Daily Note) offered as an embed target — `![[Page]]`. Same shape as a
+ * WikiLink page suggestion (`wikilink/wikiLinkSuggestion.ts`) minus the alias, and rendered by the
+ * same popup row. `path` is vault-relative with no extension, the page's canonical identity — the
+ * title/date a row shows, and any date text a search matched, are presentation only.
+ */
+export interface EmbedPageSuggestion {
+  readonly kind: 'page';
+  readonly path: string;
+  readonly title: string;
+  readonly breadcrumb: string | null;
+  /** True for a Daily Note: the popup lists it under Daily notes by its short date title, with no path. */
+  readonly dailyNote?: boolean;
+  /** The page's own emoji, shown in place of the note icon. */
+  readonly emoji?: string | null;
+}
+
+/** What `![[query` can offer as a target: a note or an asset. */
+export type EmbedTargetSuggestion = EmbedPageSuggestion | EmbedResourceSuggestion;
+
+export type EmbedSuggestion = EmbedTargetSuggestion | EmbedHeadingSuggestion;
 
 /**
  * `query` is the raw text typed after `![[`, never including the
- * brackets themselves. Scoped to `EmbedResourceSuggestion` specifically
- * (not the general `EmbedSuggestion` union) — this datasource never
+ * brackets themselves. Scoped to `EmbedTargetSuggestion` specifically
+ * (notes and assets, not the general `EmbedSuggestion` union) — this datasource never
  * returns headings; once a query contains `#`, `embedCompletionSource.ts`
  * switches to `GetEmbedHeadingSuggestions` entirely rather than this one
  * ever needing to produce a mixed result set.
  */
 export type GetEmbedSuggestions = (
   query: string
-) => readonly EmbedResourceSuggestion[];
+) => readonly EmbedTargetSuggestion[];
 
 /**
  * `pagePath` is the already-typed portion before `#` (the same string

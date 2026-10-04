@@ -16,13 +16,11 @@ export interface DateCompletion extends RowCompletion {
  * How a Date suggestion reads in the popup: always the full human-readable date
  * (`formatDateDisplay`'s `'shortWeekday'` — the Daily Note title format with an abbreviated
  * weekday, since a row has less room than a page title), never the raw ISO value. A relative
- * keyword (`Today`, `Tomorrow`, `Yesterday`) has no date of its own in its label, so it is shown
- * on the right next to the date it resolved to.
+ * keyword already leads that text (`Today, 4 October 2026`), so nothing is added beside it.
  */
 export function dateRow(suggestion: DateSuggestion): DateCompletion['row'] {
   return {
     iconSvg: COMPLETION_ICONS.calendarBlank,
     title: formatDateDisplay(suggestion.isoDate, 'shortWeekday'),
-    trailing: /^[A-Za-z]+$/.test(suggestion.label) ? suggestion.label : undefined,
   };
 }

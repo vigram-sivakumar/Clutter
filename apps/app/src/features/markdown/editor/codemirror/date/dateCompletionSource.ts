@@ -1,5 +1,6 @@
 import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 
+import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { dateRow, type DateCompletion } from './dateCompletionRow';
 import { extractDateTriggerQuery } from './dateTrigger';
 import { getDateSuggestions, type DateSuggestion } from './dateSuggestion';
@@ -26,9 +27,11 @@ function toCompletion(suggestion: DateSuggestion): DateCompletion {
       // extraction layer").
       const insert = `@${suggestion.isoDate}`;
 
+      // The space is part of this transaction (one undo), unless one already follows.
+      const space = trailingSpaceChange(view.state, to);
       view.dispatch({
-        changes: { from, to, insert },
-        selection: { anchor: from + insert.length },
+        changes: [{ from, to, insert }, ...(space ? [space] : [])],
+        selection: { anchor: from + insert.length + 1 },
       });
     },
   };

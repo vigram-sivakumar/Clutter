@@ -1,6 +1,7 @@
 import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 
+import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import { wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
 import { serializeWikiLink } from './wikiLinkSerialize';
@@ -60,9 +61,11 @@ function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): W
       const existing = findWikiLinkAt(view.state, from);
       const anchor = existing ? existing.to + (insert.length - (to - from)) : from + insert.length;
 
+      // After the whole link, in the same transaction (one undo), unless a space already follows.
+      const space = trailingSpaceChange(view.state, existing ? existing.to : to);
       view.dispatch({
-        changes: { from, to, insert },
-        selection: { anchor },
+        changes: [{ from, to, insert }, ...(space ? [space] : [])],
+        selection: { anchor: anchor + 1 },
       });
 
       if (suggestion.kind === 'create') {

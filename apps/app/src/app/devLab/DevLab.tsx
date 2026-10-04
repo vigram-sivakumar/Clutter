@@ -196,7 +196,7 @@ export function DevLab() {
         <CompletionSample title="[[ wikilink" doc="See [[" caret={6} />
         <CompletionSample title="![[ embed" doc="Image: ![[" caret={10} />
         <CompletionSample title="![[Page# headings" doc="![[Markdown format renders/Headings#" caret={36} />
-        <CompletionSample title="# tag (needs a query — empty shows nothing, as in the app)" doc="Tagged #w" caret={9} />
+        <CompletionSample title="# tag" doc="Tagged #" caret={8} />
         <CompletionSample title="@ date" doc="Due @" caret={5} />
       </div>
     </div>

@@ -3,11 +3,16 @@ import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { findEmbedAt } from './embedEngagement';
-import { embedHeadingRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
+import { embedHeadingRow, embedPageRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
 import { serializeEmbed } from './embedSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../wikilink/wikiLinkScanner';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
-import type { EmbedSuggestion, GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embedSuggestion';
+import type {
+  EmbedSuggestion,
+  EmbedTargetSuggestion,
+  GetEmbedHeadingSuggestions,
+  GetEmbedSuggestions,
+} from './embedSuggestion';
 
 /**
  * Matches from the most recent unclosed `![[` up to the cursor — a fresh,
@@ -29,11 +34,11 @@ export const EMBED_TRIGGER_PATTERN = /!\[\[[^\]|\n]*$/;
  * Shared `apply()` body — both a resource/heading suggestion insert the
  * same way, differing only in what `insert` text they compose (a
  * resource's own `path`, or `${pagePart}#${heading}` for a heading
- * suggestion — see `toCompletion`/`toHeadingCompletion`).
+ * suggestion — see `toCompletion`/`toHeadingCompletion`). Every
+ * embed — note, Daily Note, heading, image, PDF — moves the cursor onto a
+ * fresh line below it.
  */
 function applyEmbedInsert(insert: string, view: EditorView, from: number, to: number): void {
-  const changes = { from, to, insert };
-
   // Mirrors wikiLinkCompletionSource.ts's identical fix, one node
   // type over: reactivating completion inside an ALREADY-CLOSED
   // `![[reference]]` replaces only the bare reference text, leaving
@@ -46,11 +51,30 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
   // node and falls back to `from + insert.length`, already correct
   // there since `serializeEmbed` appended its own `]]` into `insert`.
   const existingBeforeChange = findEmbedAt(view.state, from);
-  const selection = {
-    anchor: existingBeforeChange
-      ? existingBeforeChange.to + (insert.length - (to - from))
-      : from + insert.length,
-  };
+  const embedEndBefore = existingBeforeChange ? existingBeforeChange.to : to;
+  const embedEndAfter = existingBeforeChange
+    ? existingBeforeChange.to + (insert.length - (to - from))
+    : from + insert.length;
+
+  // An embed renders as a block (an image, a PDF, an embedded note), so the cursor leaves it for
+  // its own line: exactly one line break after the embed, in this same transaction (one undo
+  // step). A blank line already below is reused rather than stacking another; any text that
+  // followed the embed on its line moves down with the break, as Enter would do.
+  const { doc } = view.state;
+  const line = doc.lineAt(embedEndBefore);
+  const blankLineBelow =
+    embedEndBefore === line.to && line.number < doc.lines && /^\s*$/.test(doc.line(line.number + 1).text);
+
+  const changes: { from: number; to?: number; insert: string }[] = [{ from, to, insert }];
+  if (!blankLineBelow) {
+    if (embedEndBefore === to) {
+      // Fresh `![[query`: the replaced range ends exactly where the break goes.
+      changes[0] = { from, to, insert: `${insert}\n` };
+    } else {
+      changes.push({ from: embedEndBefore, insert: '\n' });
+    }
+  }
+  const selection = { anchor: embedEndAfter + 1 };
 
   // Phase 2 (2026-09 rendering-lifecycle unification): explicitly
   // completing the target — as opposed to merely typing/pasting one
@@ -77,13 +101,13 @@ function applyEmbedInsert(insert: string, view: EditorView, from: number, to: nu
 }
 
 function toCompletion(
-  suggestion: Extract<EmbedSuggestion, { kind: 'resource' }>,
+  suggestion: EmbedTargetSuggestion,
   insertText: (path: string) => string
 ): EmbedCompletion {
   const completion: EmbedCompletion = {
     label: suggestion.title,
     suggestion,
-    ...embedResourceRow(suggestion),
+    ...(suggestion.kind === 'page' ? embedPageRow(suggestion) : embedResourceRow(suggestion)),
     apply(view, _completion, from, to) {
       applyEmbedInsert(insertText(suggestion.path), view, from, to);
     },

@@ -397,3 +397,96 @@ describe('createWikiLinkSuggester — what the popup row needs', () => {
     expect(byTitle.get('Beta')).not.toHaveProperty('dailyNote');
   });
 });
+
+describe('createWikiLinkSuggester — Daily Notes are found by their date', () => {
+  const dailyPath = (iso: string, month: string) => `/vault/Daily Notes/${iso.slice(0, 4)}/${month}/${iso}.md`;
+  const daily = (iso: string, month: string, overrides: Partial<Page> = {}) =>
+    makePage({ id: `d-${iso}`, path: dailyPath(iso, month), name: iso, type: 'daily-note', ...overrides });
+
+  const vault = () =>
+    makeVault([
+      daily('2020-08-24', 'August'),
+      daily('2020-08-25', 'August'),
+      daily('2020-09-24', 'September'),
+      makePage({ id: 'n1', path: '/vault/Notes about August.md', name: 'Notes about August' }),
+    ]);
+  const suggest = (v: Vault, query: string) =>
+    createWikiLinkSuggester(v, fakePageOperations(), fakeFolderOperations())(query)
+      .flatMap((s) => (s.kind === 'page' ? [s.title] : []))
+      .sort();
+
+  it('still finds a note by its ISO date', () => {
+    expect(suggest(vault(), '2020-08-24')).toEqual(['2020-08-24']);
+  });
+
+  it('finds every August Daily Note — and the note whose title says August — by "Aug"', () => {
+    expect(suggest(vault(), 'Aug')).toEqual(['2020-08-24', '2020-08-25', 'Notes about August']);
+  });
+
+  it('finds the September note by "Sep"', () => {
+    expect(suggest(vault(), 'Sep')).toEqual(['2020-09-24']);
+  });
+
+  it('finds one day by "Aug 24", "24 Aug", "August 24, 2020" and its weekday', () => {
+    for (const query of ['Aug 24', '24 Aug', 'August 24, 2020', 'Monday 24']) {
+      expect(suggest(vault(), query)).toEqual(['2020-08-24']);
+    }
+  });
+
+  it('does not find a Daily Note by a date it is not', () => {
+    expect(suggest(vault(), 'Aug 26')).toEqual([]);
+  });
+
+  it('flags the suggestion as a Daily Note, so the popup shows the app\'s date title and the Daily notes section', () => {
+    const [suggestion] = createWikiLinkSuggester(vault(), fakePageOperations(), fakeFolderOperations())('Aug 24');
+
+    expect(suggestion).toMatchObject({ kind: 'page', dailyNote: true });
+  });
+
+  it('still points at the canonical page: the path inserted is the stored one, never the date alias', () => {
+    const [suggestion] = createWikiLinkSuggester(vault(), fakePageOperations(), fakeFolderOperations())('Aug 24');
+
+    expect(suggestion).toMatchObject({ path: 'Daily Notes/2020/August/2020-08-24', title: '2020-08-24' });
+    expect(suggestion).not.toHaveProperty('alias');
+  });
+
+  describe('archived pages', () => {
+    const archived = (page: Page): Page => ({ ...page, metadata: { ...page.metadata, status: 'archived' } });
+    const isArchived = (page: Page) => page.metadata.status === 'archived';
+    const suggestWith = (v: Vault, query: string) =>
+      createWikiLinkSuggester(v, fakePageOperations(), fakeFolderOperations(), isArchived)(query)
+        .flatMap((s) => (s.kind === 'page' ? [s.title] : []))
+        .sort();
+
+    it('are not offered, a Daily Note or an ordinary note — empty query or searched', () => {
+      const v = makeVault([
+        archived(makePage({ id: 'a1', path: '/vault/Archive/2020-08-24.md', name: '2020-08-24' })),
+        archived(makePage({ id: 'a2', path: '/vault/Archive/Old plans.md', name: 'Old plans' })),
+        makePage({ id: 'n1', path: '/vault/Plans.md', name: 'Plans' }),
+      ]);
+
+      expect(suggestWith(v, '')).toEqual(['Plans']);
+      expect(suggestWith(v, 'plans')).toEqual(['Plans']);
+      expect(suggestWith(v, '2020-08-24')).toEqual([]);
+    });
+
+    it('a page the rule does not call archived is still offered', () => {
+      const v = makeVault([daily('2020-08-24', 'August')]);
+
+      expect(suggestWith(v, 'Aug 24')).toEqual(['2020-08-24']);
+    });
+
+    it('without a rule nothing is filtered — the default for callers that have none', () => {
+      const v = makeVault([archived(makePage({ id: 'a2', path: '/vault/Archive/Old plans.md', name: 'Old plans' }))]);
+
+      expect(suggest(v, 'old')).toEqual(['Old plans']);
+    });
+  });
+
+  it('a note merely named like a date, never a Daily Note, is not given date aliases', () => {
+    const lookalike = makePage({ id: 'x', path: '/vault/Projects/2020-08-24.md', name: '2020-08-24' });
+
+    expect(suggest(makeVault([lookalike]), 'Aug 24')).toEqual([]);
+    expect(suggest(makeVault([lookalike]), '2020-08-24')).toEqual(['2020-08-24']);
+  });
+});

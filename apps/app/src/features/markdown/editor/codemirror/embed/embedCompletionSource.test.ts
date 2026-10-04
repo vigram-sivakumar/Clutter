@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
+import { history, undo, redo } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -113,7 +114,7 @@ describe('embedCompletionSource — fresh, not-yet-closed ![[query', () => {
       option.apply(view, option, result?.from ?? 0, 9);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[Projects/hero.png]] y');
+    expect(view.state.doc.toString()).toBe('x ![[Projects/hero.png]]\n y');
   });
 
   it("apply() places the cursor immediately after the closing ']]' it just inserted", () => {
@@ -130,7 +131,7 @@ describe('embedCompletionSource — fresh, not-yet-closed ![[query', () => {
       option.apply(view, option, result?.from ?? 0, 7);
     }
 
-    expect(view.state.doc.toString()).toBe('![[hero.png]]');
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\n');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 });
@@ -193,7 +194,7 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('![[hero.png|Caption]]');
+    expect(view.state.doc.toString()).toBe('![[hero.png|Caption]]\n');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
     expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
   });
@@ -213,7 +214,7 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[hero.png]] y');
+    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n y');
   });
 
   it(
@@ -234,10 +235,11 @@ describe('embedCompletionSource — reactivating inside an already-closed Embed'
         option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
       }
 
-      expect(view.state.doc.toString()).toBe('x ![[hero.png]] y');
+      expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n y');
       // Right after the "]]" (index 5 + "![[".length... computed directly:
       // "x ![[hero.png]] y" — "]]" ends at index 15.
-      expect(view.state.selection.main.head).toBe(15);
+      // ...and one line break later: the cursor sits at the start of the new line.
+      expect(view.state.selection.main.head).toBe(16);
     }
   );
 
@@ -379,7 +381,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
       option.apply(view, option, result?.from ?? 0, 15);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[Note B#Setup]] y');
+    expect(view.state.doc.toString()).toBe('x ![[Note B#Setup]]\n y');
   });
 
   it('reactivating inside an already-closed ![[Page#Heading]] offers heading suggestions again, scoped to the page portion', () => {
@@ -413,6 +415,169 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('x ![[Note B#Setup]] y');
+    expect(view.state.doc.toString()).toBe('x ![[Note B#Setup]]\n y');
+  });
+});
+
+describe('embedCompletionSource — every embed moves the cursor to a fresh line below', () => {
+  const image = { kind: 'resource' as const, path: 'hero.png', title: 'hero.png', breadcrumb: null, resourceKind: 'image' as const };
+  const pdf = { kind: 'resource' as const, path: 'plan.pdf', title: 'plan.pdf', breadcrumb: null, resourceKind: 'pdf' as const };
+
+  /** Mounts `doc` (with history), applies the first option at the end of the `![[...` before `cursorAt`. */
+  function accept(doc: string, cursorAt: number, suggestion: typeof image | typeof pdf = image) {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const state = EditorState.create({ doc, extensions: [markdownLanguageExtension(), history()] });
+    const view = new EditorView({ state, parent });
+    const source = embedCompletionSource(() => () => [suggestion]);
+    const result = call(source, contextAt(view, cursorAt));
+    const option = result?.options[0];
+    expect(option).toBeDefined();
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, result?.to ?? cursorAt);
+    }
+    return view;
+  }
+
+  it('creates exactly one new line below the embed and puts the cursor at its start', () => {
+    const view = accept('![[her', 6);
+
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\n');
+    expect(view.state.doc.lines).toBe(2);
+    const head = view.state.selection.main.head;
+    expect(head).toBe(view.state.doc.line(2).from);
+    expect(view.state.selection.main.empty).toBe(true);
+  });
+
+  it('preserves text before the embed on its line', () => {
+    const view = accept('Some text ![[her', 16);
+
+    expect(view.state.doc.toString()).toBe('Some text ![[hero.png]]\n');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('does not stack a second blank line when one already follows', () => {
+    const view = accept('![[her\n\nnext', 6);
+
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nnext');
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+  });
+
+  it('inserts a single break before a following content line, which stays intact', () => {
+    const view = accept('![[her\nnext', 6);
+
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nnext');
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+  });
+
+  it('moves text after the completion range onto the new line, after the cursor', () => {
+    const view = accept('x ![[her tail', 8);
+
+    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+  });
+
+  it('reactivating inside a closed embed: replaces the reference, then breaks after the construct (alias kept)', () => {
+    const view = accept('x ![[her|Cap]] y', 8);
+
+    expect(view.state.doc.toString()).toBe('x ![[hero.png|Cap]]\n y');
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+  });
+
+  it('reactivating a closed embed that already ends its line followed by a blank line adds no break', () => {
+    const view = accept('![[her]]\n\nz', 6);
+
+    expect(view.state.doc.toString()).toBe('![[hero.png]]\n\nz');
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+  });
+
+  it('a PDF embed behaves the same as an image embed', () => {
+    const image_ = accept('Some text ![[her', 16, image);
+    const pdf_ = accept('Some text ![[pla', 16, pdf);
+
+    expect(pdf_.state.doc.toString()).toBe('Some text ![[plan.pdf]]\n');
+    expect(pdf_.state.selection.main.head).toBe(pdf_.state.doc.length);
+    expect(image_.state.doc.lines).toBe(pdf_.state.doc.lines);
+  });
+
+  it('undo removes the insertion and the line break together, and redo restores both', () => {
+    const view = accept('x ![[her tail', 8);
+    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe('x ![[her tail');
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('x ![[hero.png]]\n tail');
+  });
+
+  it('a heading embed (a section of a note, rendered as a block) breaks the line too', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({ doc: 'x ![[Note B#Set', extensions: [markdownLanguageExtension()] }),
+      parent,
+    });
+    const source = embedCompletionSource(
+      () => vi.fn(),
+      () => () => [{ kind: 'heading' as const, heading: 'Setup', level: 2 }]
+    );
+    const result = call(source, contextAt(view, 15));
+    const option = result?.options[0];
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, 15);
+    }
+
+    expect(view.state.doc.toString()).toBe('x ![[Note B#Setup]]\n');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it.each([
+    ['a note', { kind: 'page' as const, path: 'Projects/My Notes', title: 'My Notes', breadcrumb: 'Projects' }, '![[Projects/My Notes]]'],
+    [
+      'a Daily Note',
+      { kind: 'page' as const, path: '2026-08-24', title: '2026-08-24', breadcrumb: null, dailyNote: true },
+      '![[2026-08-24]]',
+    ],
+  ])('%s inserts its canonical path and breaks the line like an asset does', (_label, suggestion, embed) => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const state = EditorState.create({ doc: 'Intro ![[Aug', extensions: [markdownLanguageExtension(), history()] });
+    const view = new EditorView({ state, parent });
+    const source = embedCompletionSource(() => () => [suggestion]);
+    const result = call(source, contextAt(view, 12));
+    const option = result?.options[0];
+    expect(option).toBeDefined();
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, 12);
+    }
+
+    expect(view.state.doc.toString()).toBe(`Intro ${embed}\n`);
+    expect(view.state.selection.main.head).toBe(view.state.doc.line(2).from);
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe('Intro ![[Aug');
+  });
+
+  it('a [[Page]] completion never breaks the line', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = new EditorView({
+      state: EditorState.create({ doc: 'x [[Pa', extensions: [markdownLanguageExtension()] }),
+      parent,
+    });
+    const getSuggestions: GetWikiLinkSuggestions = () => [
+      { kind: 'page', id: 'p1', path: 'Page', title: 'Page', breadcrumb: null } as never,
+    ];
+    const source = wikiLinkCompletionSource(() => getSuggestions);
+    const result = call(source, contextAt(view, 6));
+    const option = result?.options[0];
+    expect(option).toBeDefined();
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, 6);
+    }
+
+    expect(view.state.doc.toString()).not.toContain('\n');
+    expect(view.state.doc.toString()).toMatch(/^x \[\[Page\]\]/);
   });
 });

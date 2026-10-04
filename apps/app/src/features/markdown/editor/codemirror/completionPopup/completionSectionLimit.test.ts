@@ -6,7 +6,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 import { semanticCompletion } from '../completion';
-import type { EmbedHeadingSuggestion, EmbedResourceSuggestion } from '../embed/embedSuggestion';
+import type { EmbedHeadingSuggestion, EmbedResourceSuggestion, EmbedTargetSuggestion } from '../embed/embedSuggestion';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { WikiLinkPageSuggestion } from '../wikilink/wikiLinkSuggestion';
 import { COMPLETION_SECTION_LIMIT } from './completionSectionLimit';
@@ -34,7 +34,7 @@ const images = (count: number): EmbedResourceSuggestion[] =>
 
 interface Suggestions {
   wiki?: WikiLinkPageSuggestion[];
-  embed?: EmbedResourceSuggestion[];
+  embed?: EmbedTargetSuggestion[];
   tags?: string[];
   headings?: EmbedHeadingSuggestion[];
 }
@@ -203,14 +203,39 @@ describe('"Show N more" in the ![[ popup', () => {
     expect(rows(view)[13]).toBe('Show less');
     expect(view.state.doc.toString()).toBe('![[');
   });
+
+  it('caps notes, Daily notes and images each on their own, over the one combined result', async () => {
+    const view = await open('![[', { embed: [...images(9), ...dailyNotes(7), ...notes(8)] });
+
+    // Sections come in rank order whatever order the source listed them in.
+    // Media first (images), then notes, then Daily notes.
+    expect(rows(view).filter(isToggle)).toEqual(['Show 4 more', 'Show 3 more', 'Show 2 more']);
+    expect(rows(view)).toHaveLength(3 * (COMPLETION_SECTION_LIMIT + 1));
+    expect(rows(view).slice(0, COMPLETION_SECTION_LIMIT)).toEqual(images(5).map((n) => n.title));
+
+    // Expanding one section leaves the others capped.
+    await click(view, 'Show 4 more');
+    expect(rows(view).filter(isToggle)).toEqual(['Show less', 'Show 3 more', 'Show 2 more']);
+    expect(rows(view)).toHaveLength(9 + 1 + 2 * (COMPLETION_SECTION_LIMIT + 1));
+  });
 });
 
-describe('the short popups are unchanged', () => {
-  it('does not cap # tags', async () => {
+describe('the short popups have no toggle', () => {
+  it('a bare # opens at once with every tag, capped like the other long lists', async () => {
     const view = await open('x #', { tags: Array.from({ length: 15 }, (_, i) => `tag${i}`) });
 
-    expect(rows(view)).toHaveLength(15);
-    expect(rows(view).some(isToggle)).toBe(false);
+    expect(rows(view)).toHaveLength(COMPLETION_SECTION_LIMIT + 1);
+    expect(rows(view)[COMPLETION_SECTION_LIMIT]).toBe('Show 10 more');
+
+    await click(view, 'Show 10 more');
+    expect(rows(view)).toHaveLength(15 + 1);
+    expect(view.state.doc.toString()).toBe('x #');
+  });
+
+  it('adds no toggle to a short list of tags', async () => {
+    const view = await open('x #', { tags: ['a', 'b', 'c'] });
+
+    expect(rows(view)).toEqual(['a', 'b', 'c']);
   });
 
   it('does not cap ![[Page# headings', async () => {
@@ -251,7 +276,7 @@ describe('keeping the user\'s place across the refresh', () => {
 
     press(view, 'Enter');
     await wait(250);
-    expect(view.state.doc.toString()).toBe('See [[Note 5]]');
+    expect(view.state.doc.toString()).toBe('See [[Note 5]] ');
   });
 
   it('does not let a quick second Enter through to the editor as a newline while the popup refreshes', async () => {

@@ -105,7 +105,7 @@ describe('wikiLinkCompletionSource — fresh, not-yet-closed [[query', () => {
       option.apply(view, option, result?.from ?? 0, 13);
     }
 
-    expect(view.state.doc.toString()).toBe('x [[Brand New]]');
+    expect(view.state.doc.toString()).toBe('x [[Brand New]] ');
     expect(create).toHaveBeenCalledTimes(1);
   });
 
@@ -123,7 +123,7 @@ describe('wikiLinkCompletionSource — fresh, not-yet-closed [[query', () => {
       option.apply(view, option, result?.from ?? 0, 11);
     }
 
-    expect(view.state.doc.toString()).toBe('[[Brand New]]');
+    expect(view.state.doc.toString()).toBe('[[Brand New]] ');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 
@@ -142,7 +142,7 @@ describe('wikiLinkCompletionSource — fresh, not-yet-closed [[query', () => {
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('[[Note title|My alias]]');
+    expect(view.state.doc.toString()).toBe('[[Note title|My alias]] ');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
     expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
   });
@@ -299,8 +299,8 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
       }
 
       expect(view.state.doc.toString()).toBe('x [[2026-08-25]] y');
-      // Right after the "]]" (index 16), not right after "25" (index 14).
-      expect(view.state.selection.main.head).toBe(16);
+      // Past the "]]" and the space that already followed it (index 17), not right after "25" (index 14).
+      expect(view.state.selection.main.head).toBe(17);
     }
   );
 
@@ -326,8 +326,8 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
 
       const doc = view.state.doc.toString();
       expect(doc).toBe('x [[New Note|My news]] y');
-      expect(view.state.selection.main.head).toBe(doc.indexOf(']] y') + ']]'.length);
-      expect(view.state.selection.main.anchor).toBe(doc.indexOf(']] y') + ']]'.length);
+      expect(view.state.selection.main.head).toBe(doc.indexOf(']] y') + ']]'.length + 1);
+      expect(view.state.selection.main.anchor).toBe(doc.indexOf(']] y') + ']]'.length + 1);
     }
   );
 
@@ -446,7 +446,7 @@ describe('wikiLinkCompletionSource — a page found by an alias', () => {
   it('[[UX accepts as the canonical full path with the alias as display text', () => {
     const view = mountView('x [[UX');
     accept(view, 6);
-    expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|UX]]');
+    expect(view.state.doc.toString()).toBe('x [[Design/User Experience Guidelines|UX]] ');
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
   });
 

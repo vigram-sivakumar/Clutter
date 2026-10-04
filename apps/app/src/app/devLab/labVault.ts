@@ -104,7 +104,7 @@ const vault = {
   pages: () => PAGES,
   getFolder: (id: string) => folderById.get(id),
   getPageByPath: (path: string) => PAGES.find((p) => p.path === path),
-  tags: () => ['work', 'personal', 'project/clutter', 'reading-list'].map((name) => ({ name })),
+  tags: () => ['work', 'personal', 'project/clutter', 'reading-list', 'ideas', 'travel', 'recipes', 'budget'].map((name) => ({ name })),
 } as unknown as Vault;
 
 const membershipSelector = {

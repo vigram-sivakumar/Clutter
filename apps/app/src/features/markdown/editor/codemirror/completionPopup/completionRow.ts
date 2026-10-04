@@ -28,6 +28,11 @@ export interface CompletionRowSpec {
   readonly path?: string | null;
   /** Muted text pinned to the row's right edge. */
   readonly trailing?: string;
+  /**
+   * A short, single-line row (a tag's name): a popup made only of these is the small dialog width
+   * (`completionPopupTheme`) instead of the note picker's.
+   */
+  readonly compact?: boolean;
 }
 
 /**
@@ -42,6 +47,9 @@ export interface CompletionRowSpec {
 export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): HTMLElement {
   const row = document.createElement('div');
   row.className = 'completion-row';
+  if (spec.compact) {
+    row.classList.add('completion-row--compact');
+  }
   row.addEventListener('mouseenter', () => {
     const index = Number(row.parentElement?.id.split('-').pop());
     if (Number.isNaN(index) || selectedCompletionIndex(view.state) === index) {

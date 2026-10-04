@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { embedHeadingRow, embedResourceRow } from './embedCompletionRow';
+import { embedHeadingRow, embedPageRow, embedResourceRow } from './embedCompletionRow';
 import type { EmbedResourceSuggestion } from './embedSuggestion';
 
 const resource = (overrides: Partial<EmbedResourceSuggestion> = {}): EmbedResourceSuggestion => ({
@@ -41,5 +41,36 @@ describe('embedHeadingRow', () => {
 
     expect(result.row).toMatchObject({ title: 'Billing', trailing: 'H2' });
     expect(result).not.toHaveProperty('section');
+  });
+});
+
+describe('embedPageRow', () => {
+  it('shows a note as it reads after [[ — its name over its folder, in the Notes section', () => {
+    const { row, section } = embedPageRow({ kind: 'page', path: 'Projects/Roadmap', title: 'Roadmap', breadcrumb: 'Projects' });
+
+    expect(row).toMatchObject({ title: 'Roadmap', path: 'Projects' });
+    expect(section?.name).toBe('Notes');
+  });
+
+  it('shows a Daily Note by its short date, with no path, in the Daily notes section', () => {
+    const { row, section } = embedPageRow({ kind: 'page', path: '2026-08-24', title: '2026-08-24', breadcrumb: null, dailyNote: true });
+
+    expect(row.title).toBe('24 Aug');
+    expect(row.path).toBeUndefined();
+    expect(section?.name).toBe('Daily notes');
+  });
+
+  it('orders the sections Images, PDFs, Notes, Daily notes', () => {
+    const rank = (s?: { rank?: number | string }) => Number(s?.rank);
+    const sections = [
+      embedResourceRow(resource()).section,
+      embedResourceRow(resource({ resourceKind: 'pdf' })).section,
+      embedPageRow({ kind: 'page', path: 'N', title: 'N', breadcrumb: null }).section,
+      embedPageRow({ kind: 'page', path: 'D', title: 'D', breadcrumb: null, dailyNote: true }).section,
+    ];
+
+    expect(sections.map((s) => s?.name)).toEqual(['Images', 'PDFs', 'Notes', 'Daily notes']);
+    expect(sections.map(rank)).toEqual([...sections.map(rank)].sort((a, b) => a - b));
+    expect(new Set(sections.map(rank)).size).toBe(4);
   });
 });

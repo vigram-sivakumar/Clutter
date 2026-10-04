@@ -29,10 +29,16 @@ export function completionPopupTheme(): Extension {
       // the same width whatever its rows hold; a long title ellipsizes.
       width: 'var(--dialog-width-md)',
       boxSizing: 'border-box',
-      maxHeight: '260px',
+      // The long lists (`[[`, `![[`) get room; tags and dates are capped lower, just below.
+      maxHeight: '420px',
       paddingBlock: 'var(--space-8)',
       paddingInline: 'var(--space-8)',
       borderRadius: 'var(--radius-xxl)',
+    },
+    // A popup of only compact rows (tags) is the small dialog width: the names are short.
+    '.cm-tooltip.cm-tooltip-autocomplete > ul:has(.completion-row--compact)': {
+      width: 'var(--dialog-width-sm)',
+      maxHeight: '260px',
     },
     // While more rows lie below, the last visible ones fade out instead of ending at a hard edge —
     // `PickerCard`'s fade. `completionScrollFade()` sets the attribute.

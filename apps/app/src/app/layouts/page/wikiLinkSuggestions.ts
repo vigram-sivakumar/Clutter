@@ -3,6 +3,8 @@ import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { dailyNoteSearchText } from '@core/presentation/dailyNoteSearchText';
+import { matchesSearchText } from '@shared/helpers/matchesSearchText';
 import type {
   GetWikiLinkSuggestions,
   WikiLinkPageSuggestion,
@@ -38,8 +40,16 @@ import { canCreateReferencedPage, createReferencedPage } from './resolveWikiLink
 export function createWikiLinkSuggester(
   vault: Vault,
   pageOperations: PageOperations,
-  folderOperations: FolderOperations
+  folderOperations: FolderOperations,
+  /**
+   * Whether a page is archived (itself, or inside an archived folder) — the workspace's own rule,
+   * `MembershipSelector`'s. Archived pages are not offered: the popup lists what the user can see
+   * and edit, the same pages the pickers offer. Default: none are.
+   */
+  isArchived: (page: Page) => boolean = () => false
 ): GetWikiLinkSuggestions {
+  const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
+
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -58,10 +68,10 @@ export function createWikiLinkSuggester(
     // investigation). No Create option here: an empty path has nothing to
     // create yet.
     if (!normalizedQuery) {
-      return Array.from(vault.pages()).map((page) => toPageSuggestion(vault, page)).sort(byTitle);
+      return livePages().map((page) => toPageSuggestion(vault, page)).sort(byTitle);
     }
 
-    const matches = findPageMatches(vault.pages(), normalizedQuery)
+    const matches = findPageMatches(livePages(), normalizedQuery, (page) => page.type === 'daily-note')
       .map(({ page, alias }) => toPageSuggestion(vault, page, alias))
       .sort(byTitle);
 
@@ -109,11 +119,23 @@ export interface PageMatch {
  * match by the same alias. `normalizedQuery` is already trimmed and
  * lower-cased, and must be non-empty.
  */
-export function findPageMatches(pages: Iterable<Page>, normalizedQuery: string): PageMatch[] {
+export function findPageMatches(
+  pages: Iterable<Page>,
+  normalizedQuery: string,
+  isDailyNote: (page: Page) => boolean = () => false
+): PageMatch[] {
   const matches: PageMatch[] = [];
 
   for (const page of pages) {
-    if (VaultPath.pageName(page.path).toLowerCase().includes(normalizedQuery)) {
+    const name = VaultPath.pageName(page.path);
+    if (name.toLowerCase().includes(normalizedQuery)) {
+      matches.push({ page, alias: null });
+      continue;
+    }
+
+    // A Daily Note's name is its ISO date, but it is read (and so searched for) as the date the
+    // app writes — `Aug`, `Aug 24`, `Monday` — which the stored name alone would never match.
+    if (isDailyNote(page) && matchesSearchText(dailyNoteSearchText(name), normalizedQuery)) {
       matches.push({ page, alias: null });
       continue;
     }

@@ -20,9 +20,8 @@ import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag
  * `TagBuilder`/`normalizeTagName`, so no additional dedup step is needed
  * here — every match is already exactly one suggestion per logical tag,
  * displayed via `formatTagDisplayLabel` (separator → space, preferred
- * casing preserved). An empty query returns no suggestions, same as
- * WikiLink's — the popup only offers anything once the user has actually
- * started typing a name.
+ * casing preserved). An empty query returns every tag — a freshly
+ * typed `#` opens the popup at once, as a fresh `[[` lists every page.
  *
  * No "create" suggestion, unlike WikiLink's: `resolveTag.ts`'s own doc
  * comment already establishes a tag needs no explicit creation step, so
@@ -31,10 +30,6 @@ import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag
 export function createTagSuggester(vault: Vault): GetTagSuggestions {
   return (query) => {
     const normalizedQuery = normalizeTagName(query.trim());
-
-    if (!normalizedQuery) {
-      return [];
-    }
 
     return Array.from(vault.tags())
       .filter((tag) => normalizeTagName(tag.name).includes(normalizedQuery))

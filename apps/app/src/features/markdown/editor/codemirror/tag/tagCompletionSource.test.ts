@@ -121,15 +121,41 @@ describe('tagCompletionSource', () => {
     expect(view.state.doc.toString()).toBe('x #Product-design y');
   });
 
-  it('returns null (no popup) when the getter returns no matching tags', () => {
-    const view = mountView('x #zzz');
-    const getSuggestions: GetTagSuggestions = vi.fn(() => []);
-    const source = tagCompletionSource(() => getSuggestions);
+  describe('a tag nothing matches', () => {
+    const none: GetTagSuggestions = () => [];
 
-    const result = call(source, contextAt(view, 6));
+    it('offers to create what was typed — the one option, instead of an empty popup', () => {
+      const view = mountView('x #zzz');
+      const result = call(tagCompletionSource(() => none), contextAt(view, 6));
 
-    expect(getSuggestions).toHaveBeenCalledWith('zzz');
-    expect(result).toBeNull();
+      expect(result?.options).toHaveLength(1);
+      expect(result?.options[0]?.label).toBe('Create "#zzz"');
+      expect(result?.from).toBe(2);
+      expect(result?.to).toBe(6);
+    });
+
+    it('inserts the typed tag and a space — nothing else is created, a tag is just the text', () => {
+      const view = mountView('x #zzz');
+      const result = call(tagCompletionSource(() => none), contextAt(view, 6));
+
+      (result!.options[0]!.apply as (v: EditorView, c: unknown, from: number, to: number) => void)(view, result!.options[0], 2, 6);
+
+      expect(view.state.doc.toString()).toBe('x #zzz ');
+      expect(view.state.selection.main.head).toBe(7);
+    });
+
+    it('offers nothing while only a bare # is typed — an empty name is not a tag', () => {
+      const view = mountView('x #');
+
+      expect(call(tagCompletionSource(() => none), contextAt(view, 3))).toBeNull();
+    });
+
+    it('is not offered alongside real matches — only when nothing matches, as in [[', () => {
+      const view = mountView('x #pro');
+      const result = call(tagCompletionSource(() => () => ['project']), contextAt(view, 6));
+
+      expect(result?.options.map((o) => o.label)).toEqual(['#project']);
+    });
   });
 
   it('returns null when no suggester is injected', () => {

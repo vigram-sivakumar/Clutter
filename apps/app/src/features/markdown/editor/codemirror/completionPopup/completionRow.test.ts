@@ -14,6 +14,13 @@ function mountView(): EditorView {
 const ICON = '<svg viewBox="0 0 16 16"></svg>';
 
 describe('buildCompletionRow', () => {
+  it('marks a compact row, which the popup theme sizes the small width by', () => {
+    const view = mountView();
+
+    expect(buildCompletionRow({ title: 'tag', compact: true }, view).classList.contains('completion-row--compact')).toBe(true);
+    expect(buildCompletionRow({ title: 'Plan' }, view).classList.contains('completion-row--compact')).toBe(false);
+  });
+
   it('lays out an icon, the title, and the path (joined with " / ") on its own line below it', () => {
     const row = buildCompletionRow({ iconSvg: ICON, title: 'Plan', path: 'Projects/Work' }, mountView());
 

@@ -106,7 +106,7 @@ describe('dateCompletionSource', () => {
       4
     );
 
-    expect(view.state.doc.toString()).toBe(`@${option.dateSuggestion.isoDate}`);
+    expect(view.state.doc.toString()).toBe(`@${option.dateSuggestion.isoDate} `);
     expect(view.state.doc.toString()).not.toContain('Tomorrow');
   });
 

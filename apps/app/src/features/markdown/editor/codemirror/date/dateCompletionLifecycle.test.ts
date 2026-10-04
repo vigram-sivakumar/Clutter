@@ -79,7 +79,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}$/);
+    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -96,7 +96,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2}$/);
+    expect(view.state.doc.toString()).toMatch(/^@\d{4}-\d{2}-\d{2} $/);
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -114,7 +114,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toBe('@2027-03-12');
+    expect(view.state.doc.toString()).toBe('@2027-03-12 ');
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -132,7 +132,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toBe('@2027-01-01');
+    expect(view.state.doc.toString()).toBe('@2027-01-01 ');
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -152,7 +152,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toBe('@2027-01-12');
+    expect(view.state.doc.toString()).toBe('@2027-01-12 ');
     expect(completionStatus(view.state)).toBeNull();
 
     await type(view, ' ');
@@ -201,7 +201,7 @@ describe('Date autocomplete — real CM6 accept/reopen lifecycle', () => {
 
     await settle();
     accept(view);
-    expect(view.state.doc.toString()).toBe('@2027-03-12');
+    expect(view.state.doc.toString()).toBe('@2027-03-12 ');
 
     view.destroy();
   });

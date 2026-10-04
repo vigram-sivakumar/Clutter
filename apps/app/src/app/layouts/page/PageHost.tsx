@@ -451,7 +451,10 @@ export function PageHost({
   const getWikiLinkSuggestions = createWikiLinkSuggester(
     vault,
     application.pageOperations,
-    application.folderOperations
+    application.folderOperations,
+    (page) =>
+      application.membershipSelector.isArchivedPage(page) ||
+      application.membershipSelector.isEffectivelyArchived(page.parentId)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   // Resource embed autocomplete only, this milestone — no resolver for a
@@ -460,7 +463,10 @@ export function PageHost({
   const getEmbedSuggestions = createEmbedSuggester(
     vault,
     application.membershipSelector,
-    (path) => application.resolveResourceImageUrl(path)
+    (path) => application.resolveResourceImageUrl(path),
+    (page) =>
+      application.membershipSelector.isArchivedPage(page) ||
+      application.membershipSelector.isEffectivelyArchived(page.parentId)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // ADR-032's heading-suggestion counterpart, scoped to whichever page the

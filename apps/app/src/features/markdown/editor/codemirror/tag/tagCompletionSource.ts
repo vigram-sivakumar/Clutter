@@ -2,7 +2,9 @@ import type { CompletionResult, CompletionSource } from '@codemirror/autocomplet
 
 import { serializeTagName } from '@core/vault/models/Tag';
 import type { RowCompletion } from '../completionPopup/completionRow';
-import { tagRow } from './tagCompletionRow';
+import { COMPLETION_SECTIONS } from '../completionPopup/completionSections';
+import { trailingSpaceChange } from '../completionPopup/trailingSpace';
+import { tagCreateRow, tagRow } from './tagCompletionRow';
 import { extractTagTriggerQuery } from './tagTrigger';
 import type { GetTagSuggestions } from './tagSuggestion';
 
@@ -16,16 +18,20 @@ import type { GetTagSuggestions } from './tagSuggestion';
  * the canonical hyphen form for a tag it creates, never `_`, even when
  * completing an existing suggestion.
  */
-function toCompletion(name: string): RowCompletion {
+function toCompletion(name: string, create = false): RowCompletion {
   return {
-    label: `#${name}`,
-    row: tagRow(name),
+    label: create ? `Create "#${name}"` : `#${name}`,
+    row: create ? tagCreateRow(name) : tagRow(name),
+    // The create row stands alone; existing tags are one "Tags" section, capped like any other.
+    ...(create ? {} : { section: COMPLETION_SECTIONS.tags }),
     apply(view, _completion, from, to) {
       const insert = `#${serializeTagName(name)}`;
 
+      // The space is part of this transaction (one undo), unless one already follows.
+      const space = trailingSpaceChange(view.state, to);
       view.dispatch({
-        changes: { from, to, insert },
-        selection: { anchor: from + insert.length },
+        changes: [{ from, to, insert }, ...(space ? [space] : [])],
+        selection: { anchor: from + insert.length + 1 },
       });
     },
   };
@@ -54,14 +60,17 @@ export function tagCompletionSource(
     }
 
     const items = suggestions(trigger.query);
-    if (items.length === 0) {
+    // Like `[[`: when nothing matches, offer to make what was typed a new tag. A tag is not a
+    // thing created somewhere — writing `#name` is all it takes — so accepting just inserts it.
+    // Nothing typed yet is nothing to create.
+    if (items.length === 0 && trigger.query === '') {
       return null;
     }
 
     const result: CompletionResult = {
       from: trigger.from,
       to: trigger.to,
-      options: items.map(toCompletion),
+      options: items.length > 0 ? items.map((name) => toCompletion(name)) : [toCompletion(trigger.query, true)],
       // Suggestions are already filtered by the injected suggester's own
       // substring match — see wikiLinkCompletionSource.ts's identical
       // reasoning for why a second, competing CM6 fuzzy re-filter on top

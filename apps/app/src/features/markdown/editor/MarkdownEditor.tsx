@@ -101,6 +101,8 @@ export type {
   GetEmbedSuggestions,
   EmbedSuggestion,
   EmbedResourceSuggestion,
+  EmbedPageSuggestion,
+  EmbedTargetSuggestion,
 } from './codemirror/embed/embedSuggestion';
 export type {
   ResolveEmbedImage,

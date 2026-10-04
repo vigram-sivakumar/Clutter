@@ -57,12 +57,12 @@ export function semanticCompletion(
         // for `![[` — wikiLinkCompletionSource.ts's own explicit
         // preceding-`!` guard is what does that (see its doc comment).
         // This ordering is cosmetic only.
-        // Only the long lists (`[[` notes, `![[` assets) are capped with "Show N more"; headings, dates
-        // and tags have no sections and are short.
+        // The lists that can grow long (`[[` notes, `![[` assets, `#` tags) are capped with "Show N
+        // more"; headings and dates have no sections and are short.
         limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getEmbedHeadingSuggestions)),
         limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions)),
         dateCompletionSource(),
-        tagCompletionSource(getTagSuggestions),
+        limitCompletionSections(tagCompletionSource(getTagSuggestions)),
       ],
       icons: false,
       defaultKeymap: true,

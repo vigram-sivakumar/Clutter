@@ -77,7 +77,7 @@ describe('Tag autocomplete — real CM6 lifecycle, wired through semanticComplet
     await settle();
     accept(view);
 
-    expect(view.state.doc.toString()).toBe('#project');
+    expect(view.state.doc.toString()).toBe('#project ');
     expect(completionStatus(view.state)).toBeNull();
 
     view.destroy();
@@ -92,11 +92,25 @@ describe('Tag autocomplete — real CM6 lifecycle, wired through semanticComplet
     view.destroy();
   });
 
-  it('a query matching nothing keeps the popup closed', async () => {
+  it('a query matching nothing offers to create the tag, and accepting it keeps what was typed', async () => {
     const getSuggestions: GetTagSuggestions = () => [];
     const view = mount(() => getSuggestions);
 
     await type(view, '#zzz');
+    expect(completionStatus(view.state)).toBe('active');
+    const [create] = currentCompletions(view.state);
+    expect(create?.label).toBe('Create "#zzz"');
+    const row = renderCompletionRow(create!, view.state, view);
+    expect(row?.querySelector('.completion-row__title')?.textContent).toBe('Create "zzz"');
+
+    view.destroy();
+  });
+
+  it('a bare # with nothing typed keeps the popup closed when there are no tags', async () => {
+    const getSuggestions: GetTagSuggestions = () => [];
+    const view = mount(() => getSuggestions);
+
+    await type(view, '#');
     expect(completionStatus(view.state)).toBeNull();
 
     view.destroy();

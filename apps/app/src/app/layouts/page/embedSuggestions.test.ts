@@ -4,16 +4,17 @@ import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { VaultResource } from '@core/vault/models/VaultResource';
+import type { Page } from '@core/vault/models/Page';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 
 import { createEmbedSuggester } from './embedSuggestions';
 
 const ROOT = '/vault';
 
-function makeVault(resources: VaultResource[]): Vault {
+function makeVault(resources: VaultResource[], pages: Page[] = []): Vault {
   return new Vault(
     ROOT,
-    [],
+    pages,
     [],
     [],
     [],
@@ -183,7 +184,8 @@ describe('createEmbedSuggester — suggestion shape', () => {
     const vault = makeVault(resources);
     const suggest = createEmbedSuggester(vault, fakeMembershipSelector(resources));
 
-    expect(suggest('')[0]?.resourceKind).toBe('pdf');
+    const first = suggest('')[0];
+    expect(first?.kind === 'resource' && first.resourceKind).toBe('pdf');
   });
 
   it('never scans the filesystem — sources exclusively from the injected MembershipSelector', () => {
@@ -208,7 +210,9 @@ describe('createEmbedSuggester — preview URL for the popup thumbnail', () => {
     const resources = [makeResource('r1', `${ROOT}/hero.png`), makeResource('r2', `${ROOT}/Projects/plan.pdf`, 'pdf')];
     const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources), (path) => `app://${path}`);
 
-    expect(suggest('').map((s) => [s.path, s.previewUrl])).toEqual([
+    expect(
+      suggest('').map((s) => [s.path, s.kind === 'resource' ? s.previewUrl : undefined])
+    ).toEqual([
       ['hero.png', 'app:///vault/hero.png'],
       ['Projects/plan.pdf', 'app:///vault/Projects/plan.pdf'],
     ]);
@@ -219,5 +223,98 @@ describe('createEmbedSuggester — preview URL for the popup thumbnail', () => {
     const suggest = createEmbedSuggester(makeVault(resources), fakeMembershipSelector(resources));
 
     expect(suggest('')[0]).not.toHaveProperty('previewUrl');
+  });
+});
+
+const pageMetadata = {
+  icon: null,
+  cover: null,
+  coverHidden: false,
+  coverLayout: 'side' as const,
+  coverPositionAbove: 50,
+  coverPositionSide: 50,
+  description: '',
+  favorite: false,
+  status: 'active' as const,
+  archivedAt: null,
+  originalParentId: null,
+  originalPath: null,
+  createdAt: null,
+  updatedAt: null,
+};
+
+function makePage(path: string, type: Page['type'] = 'note', id = path): Page {
+  return {
+    id,
+    type,
+    path: `${ROOT}/${path}`,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    parentId: null,
+    metadata: pageMetadata,
+    source: { markdown: '' },
+    analysis: { headings: [], aliases: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+  } as unknown as Page;
+}
+
+describe('createEmbedSuggester — notes and Daily Notes alongside assets', () => {
+  const resources = [makeResource('r1', `${ROOT}/hero.png`), makeResource('r2', `${ROOT}/Projects/plan.pdf`, 'pdf')];
+  const pages = [
+    makePage('My Project Notes.md'),
+    makePage('Projects/Roadmap.md'),
+    makePage('2026-08-24.md', 'daily-note'),
+    makePage('2026-07-02.md', 'daily-note'),
+  ];
+  const suggest = (query: string, isArchived?: (page: Page) => boolean) =>
+    createEmbedSuggester(makeVault(resources, pages), fakeMembershipSelector(resources), undefined, isArchived)(query);
+  const paths = (query: string, isArchived?: (page: Page) => boolean) => suggest(query, isArchived).map((s) => s.path);
+
+  it('a freshly typed ![[ offers images and PDFs, then notes, then Daily Notes', () => {
+    expect(suggest('').map((s) => [s.kind, s.path])).toEqual([
+      ['resource', 'hero.png'],
+      ['resource', 'Projects/plan.pdf'],
+      ['page', 'My Project Notes'],
+      ['page', 'Projects/Roadmap'],
+      ['page', '2026-07-02'],
+      ['page', '2026-08-24'],
+    ]);
+  });
+
+  it('finds a regular note by its title, as a page suggestion with no extension in its path', () => {
+    const [note] = suggest('my project');
+    expect(note).toMatchObject({ kind: 'page', path: 'My Project Notes', title: 'My Project Notes', breadcrumb: null });
+    expect(paths('my project')).toEqual(['My Project Notes']);
+  });
+
+  it('a folder-qualified query reaches notes in that folder', () => {
+    expect(paths('Projects/')).toEqual(['Projects/plan.pdf', 'Projects/Roadmap']);
+  });
+
+  it.each(['2026-08', '2026-08-24', 'Aug', 'Aug 24', 'Aug 24, 2026', 'August 24', 'monday'])(
+    'finds the Daily Note 2026-08-24 by %s, keeping its ISO name as the path',
+    (query) => {
+      const found = suggest(query).filter((s) => s.kind === 'page' && s.dailyNote);
+      expect(found.map((s) => s.path)).toContain('2026-08-24');
+    }
+  );
+
+  it('does not match a Daily Note by a date it is not', () => {
+    expect(paths('Sep')).toEqual([]);
+    expect(paths('Aug 25')).toEqual([]);
+  });
+
+  it('includes an archived Daily Note, but not an archived regular note', () => {
+    const archived = () => true;
+    expect(paths('', archived)).toEqual(['hero.png', 'Projects/plan.pdf', '2026-07-02', '2026-08-24']);
+    expect(paths('Aug', archived)).toEqual(['2026-08-24']);
+    expect(paths('Roadmap', archived)).toEqual([]);
+  });
+
+  it('still finds images and PDFs by name', () => {
+    expect(paths('hero')).toEqual(['hero.png']);
+    expect(paths('plan.pdf')).toEqual(['Projects/plan.pdf']);
+  });
+
+  it('marks a Daily Note so the popup lists it under Daily notes', () => {
+    expect(suggest('2026-07')[0]).toMatchObject({ kind: 'page', dailyNote: true, path: '2026-07-02' });
   });
 });

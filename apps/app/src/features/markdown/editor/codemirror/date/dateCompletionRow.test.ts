@@ -13,10 +13,11 @@ describe('dateRow', () => {
     expect(row.trailing).toBeUndefined();
   });
 
-  it('shows a relative keyword on the right, next to the full date it resolved to', () => {
+  it('shows nothing beside a relative keyword — the title already reads "Today, ..."', () => {
     const row = dateRow({ label: 'Today', isoDate: '2026-10-04' });
 
     expect(row.title).toBe(formatDateDisplay('2026-10-04', 'shortWeekday'));
-    expect(row.trailing).toBe('Today');
+    expect(row.title).toContain('Today');
+    expect(row).not.toHaveProperty('trailing');
   });
 });
