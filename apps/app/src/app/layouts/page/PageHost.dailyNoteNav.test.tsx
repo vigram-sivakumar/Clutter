@@ -193,8 +193,9 @@ describe('PageHost: Daily Notes nav controls', () => {
     )!);
     await flush();
 
+    const todayDay = String(new Date().getDate());
     await waitFor(() => {
-      expect(document.querySelector('.page-title')?.textContent).toContain('Today');
+      expect(document.querySelector('.page-title')?.textContent).toContain(todayDay);
     });
   });
 

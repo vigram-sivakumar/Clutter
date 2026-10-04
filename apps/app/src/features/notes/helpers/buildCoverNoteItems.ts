@@ -5,7 +5,7 @@ import type {
   PickerListItem,
 } from '@components/picker-list/PickerList.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
-import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { isToday } from '@shared/helpers/time';
 
@@ -52,7 +52,7 @@ export function buildCoverNoteItems(
 
       return {
         id: page.id,
-        title: isDaily ? formatDailyNoteTitle(page.name) : page.name,
+        title: isDaily ? formatDailyNotePickerTitle(page.name) : page.name,
         emoji: isDaily ? null : page.metadata.icon,
         icon: getPageIcon(page.type, isDaily && isToday(page.name)),
         level: 0,

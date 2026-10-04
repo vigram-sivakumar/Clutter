@@ -8,14 +8,19 @@ import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalenda
  * degrades to showing the raw string instead of formatting garbage —
  * mirrors `DateWidget`'s own guard before calling `formatDateDisplay`.
  *
- * Reads the way dates do elsewhere in the app (`'condensed'`): Today /
- * Yesterday / Tomorrow, a weekday name within the current week, otherwise a
- * short month and day (`2 Oct`) with the year only when it isn't the current one
- * (`31 Dec 2025`).
- *
- * The one owner of a Daily Note's date title: the page header and the note
- * pickers both read it from here.
+ * The Daily Note's own page title: the day, then the full date
+ * (`Today, 4 October 2026`).
  */
 export function formatDailyNoteTitle(name: string): string {
+  return isValidCalendarDate(name) ? formatDateDisplay(name, 'full') : name;
+}
+
+/**
+ * A Daily Note's title as one row of a list (the note picker), where room is short: it reads the
+ * way dates do elsewhere in the app (`'condensed'`) — Today / Yesterday / Tomorrow, a weekday name
+ * within the current week, otherwise a short month and day (`2 Oct`), with the year only when it
+ * isn't the current one (`31 Dec 2025`). Not used for the page itself, which keeps the full title.
+ */
+export function formatDailyNotePickerTitle(name: string): string {
   return isValidCalendarDate(name) ? formatDateDisplay(name, 'condensed') : name;
 }

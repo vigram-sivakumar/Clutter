@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Page } from '@core/vault/models/Page';
-import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
+import { formatDailyNotePickerTitle } from '@core/presentation/formatDailyNoteTitle';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { buildCoverNoteItems } from './buildCoverNoteItems';
 
@@ -27,7 +27,7 @@ describe('buildCoverNoteItems', () => {
   it('shows a daily note as its date title with the daily note icon', () => {
     const [item] = buildCoverNoteItems([page('d', '2026-08-02', null, 'daily-note')], noFolders);
 
-    expect(item!.title).toBe(formatDailyNoteTitle('2026-08-02'));
+    expect(item!.title).toBe(formatDailyNotePickerTitle('2026-08-02'));
     expect(item!.icon).toBe(getPageIcon('daily-note', false));
     expect(item!.emoji).toBeNull();
   });
