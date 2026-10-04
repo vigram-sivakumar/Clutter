@@ -63,8 +63,10 @@
   gap: var(--space-6);
 }
 
-/* The list is a height-capped flex column; without this the 1px section divider is a
-   shrinkable flex item and collapses to nothing once the list scrolls. */
-.folder-picker__list > .menu__divider {
+/* The list is a height-capped flex column. Once it overflows and scrolls, flex shrinks any
+   item with nothing inside to hold its height open — the 1px section divider collapsed to 0
+   and the 30px section title to its 20px line. Neither may shrink. */
+.folder-picker__list > .menu__divider,
+.folder-picker__list > .menu__group-title {
   flex-shrink: 0;
 }
