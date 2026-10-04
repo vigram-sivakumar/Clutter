@@ -415,3 +415,56 @@ describe('FolderPicker sections', () => {
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
   });
 });
+
+describe('FolderPicker sectionLimit', () => {
+  const many = (section: string, count: number): FolderPickerItem[] =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `${section}-${i}`,
+      title: `${section} ${i}`,
+      level: 0,
+      parentId: null,
+      section,
+    }));
+  const items = [...many('Notes', 12), ...many('Daily notes', 3)];
+  const rowCount = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('.folder-picker__item')).filter((el) => !el.id.startsWith('folder-picker-toggle'))
+      .length;
+
+  it('shows the first N of an over-limit section with a Show more row, and leaves a short section alone', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
+
+    expect(rowCount(container)).toBe(13);
+    expect(container.querySelectorAll('[id^="folder-picker-toggle"]')).toHaveLength(1);
+    expect(screen.getByText('Show more')).toBeTruthy();
+    expect(screen.queryByText('Notes 10')).toBeNull();
+  });
+
+  it('Show more expands only that section and the row becomes Show less; clicking again collapses it', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
+
+    fireEvent.click(screen.getByText('Show more'));
+    expect(rowCount(container)).toBe(15);
+    expect(screen.getByText('Notes 11')).toBeTruthy();
+    expect(screen.getByText('Show less')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Show less'));
+    expect(rowCount(container)).toBe(13);
+    expect(screen.getByText('Show more')).toBeTruthy();
+  });
+
+  it('does not cap anything without a sectionLimit, and never caps items without a section', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" onSelect={() => {}} />);
+    expect(rowCount(container)).toBe(15);
+    expect(container.querySelectorAll('[id^="folder-picker-toggle"]')).toHaveLength(0);
+
+    cleanup();
+    const unsectioned = many('x', 12).map(({ section: _s, ...rest }) => rest);
+    const second = render(<FolderPicker items={unsectioned} leadingIcon="note" sectionLimit={3} onSelect={() => {}} />);
+    expect(rowCount(second.container)).toBe(12);
+  });
+
+  it('the Show more row is a menu item the shared keyboard can reach', () => {
+    const { container } = render(<FolderPicker items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
+    expect(container.querySelector('[id^="folder-picker-toggle"]')?.getAttribute('role')).toBe('menuitem');
+  });
+});

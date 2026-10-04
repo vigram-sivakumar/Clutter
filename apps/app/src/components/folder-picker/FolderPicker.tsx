@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import type { FolderPickerProps } from './FolderPicker.types';
+import type { FolderPickerItem, FolderPickerProps } from './FolderPicker.types';
 import { Search } from '@components/search/Search';
 import { Entry } from '@components/entry/Entry';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
@@ -19,6 +19,7 @@ export function FolderPicker({
   placeholder = 'Search folders',
   leadingIcon,
   showPath = false,
+  sectionLimit,
   onSelect,
   onCreate,
 }: FolderPickerProps) {
@@ -110,6 +111,59 @@ export function FolderPicker({
   // rendered, which is exactly why `useMenuKeyboard`'s own
   // first-navigable-item fallback (via `preferredActiveId: null` above)
   // resolves to it automatically, with no special-casing needed here.
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(() => new Set());
+
+  // Caps each section at `sectionLimit` unless the user expanded it. `toggleAfter` marks the last
+  // item shown of every section that has more than the cap — the "Show more/less" row goes there.
+  const { displayItems, toggleAfter } = useMemo(() => {
+    const toggles = new Map<string, { section: string; expanded: boolean }>();
+    if (sectionLimit === undefined) {
+      return { displayItems: visibleItems, toggleAfter: toggles };
+    }
+
+    const totals = new Map<string, number>();
+    for (const item of visibleItems) {
+      if (item.section !== undefined) {
+        totals.set(item.section, (totals.get(item.section) ?? 0) + 1);
+      }
+    }
+
+    const seen = new Map<string, number>();
+    const shown: FolderPickerItem[] = [];
+    for (const item of visibleItems) {
+      const section = item.section;
+      if (section === undefined) {
+        shown.push(item);
+        continue;
+      }
+      const index = seen.get(section) ?? 0;
+      seen.set(section, index + 1);
+      const expanded = expandedSections.has(section);
+      const overLimit = (totals.get(section) ?? 0) > sectionLimit;
+      if (overLimit && !expanded && index >= sectionLimit) {
+        continue;
+      }
+      shown.push(item);
+      const isLastShown = overLimit && (expanded ? index === (totals.get(section) ?? 0) - 1 : index === sectionLimit - 1);
+      if (isLastShown) {
+        toggles.set(item.id, { section, expanded });
+      }
+    }
+    return { displayItems: shown, toggleAfter: toggles };
+  }, [visibleItems, sectionLimit, expandedSections]);
+
+  function toggleSection(section: string) {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+  }
+
   const showCreate =
     isSearching && filteredItems.length === 0 && Boolean(onCreate);
 
@@ -153,8 +207,8 @@ export function FolderPicker({
       />
 
       <div className="folder-picker__list" ref={listRef}>
-        {visibleItems.map((item, index) => {
-          const previousSection = index > 0 ? visibleItems[index - 1]!.section : undefined;
+        {displayItems.map((item, index) => {
+          const previousSection = index > 0 ? displayItems[index - 1]!.section : undefined;
           const startsSection = item.section !== undefined && item.section !== previousSection;
           // Reuses the exact same parentIds/isEmpty check the caret's
           // disabled state already relied on — a folder's caret shows
@@ -227,6 +281,24 @@ export function FolderPicker({
                 )}
               </div>
             </Entry>
+              {toggleAfter.has(item.id) && (
+                <Entry
+                  id={`folder-picker-toggle-${item.section}`}
+                  role="menuitem"
+                  tabIndex={-1}
+                  className="folder-picker__item"
+                  leading={
+                    <span className="folder__leading">
+                      <AppIcon className="folder__icon" icon="moreHorizontal" />
+                    </span>
+                  }
+                  forceHover={keyboard.activeId === `folder-picker-toggle-${item.section}`}
+                  onMouseEnter={() => keyboard.setActiveId(`folder-picker-toggle-${item.section}`)}
+                  onClick={() => toggleSection(item.section!)}
+                >
+                  <span>{toggleAfter.get(item.id)!.expanded ? 'Show less' : 'Show more'}</span>
+                </Entry>
+              )}
             </Fragment>
           );
         })}

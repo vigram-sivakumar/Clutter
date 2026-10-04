@@ -48,6 +48,7 @@ export function CoverNotePicker({
           placeholder="Search notes…"
           leadingIcon="note"
           showPath
+          sectionLimit={5}
           onSelect={(item) => onSelect(item.id)}
         />
       </div>

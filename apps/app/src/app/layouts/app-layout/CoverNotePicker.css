@@ -27,6 +27,10 @@
 /* Rows are the folder picker's own rows, unmodified (same padding, height and alignment) — a
    row with a folder path is simply two lines tall. The list is capped, not fixed, so the
    card grows with a short list and scrolls once it passes N two-line rows. */
+/* Same block margin the shared Menu gives an input (`.menu .input` in components/menu/Menu.css). */
+.cover-note-picker .input {
+  margin-block: var(--space-6);
+}
 .cover-note-picker .folder-picker__list {
   flex: none;
   max-height: calc(var(--cover-note-rows) * var(--cover-note-row) + (var(--cover-note-rows) - 1) * var(--space-1));

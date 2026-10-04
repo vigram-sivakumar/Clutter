@@ -68,6 +68,12 @@ export interface FolderPickerProps {
    * way to say where an item lives.
    */
   showPath?: boolean;
+  /**
+   * Caps how many items each section shows. A section with more gets a "Show more" row after
+   * its last visible item that expands just that section, and becomes "Show less". Items without
+   * a `section` are never capped. Default: no cap.
+   */
+  sectionLimit?: number;
   onSelect: (item: FolderPickerItem) => void;
   onCreate?: (name: string) => void;
 }
