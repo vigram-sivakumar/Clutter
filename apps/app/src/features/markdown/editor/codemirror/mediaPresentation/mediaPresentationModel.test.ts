@@ -7,6 +7,8 @@ import {
   resolveImagePresentation,
   resolvePdfPresentation,
   serializeImagePresentationTokens,
+  resolveFillHeightOnSwitch,
+  DEFAULT_FILL_HEIGHT_PX,
   serializePdfPresentationTokens,
   type ImagePresentation,
   type PdfPresentation,
@@ -398,6 +400,30 @@ describe('a height is always written with its width (the parser reads the first 
     expect(serializeImagePresentationTokens({ width: 11, height: null, alignment: 'center', mode: 'fit' })).toBe(
       'center,fit'
     );
+  });
+});
+
+describe('resolveFillHeightOnSwitch (Fit -> Fill keeps the current height, capped at the default)', () => {
+  it('keeps the on-screen height when nothing was saved and it is below the default', () => {
+    expect(resolveFillHeightOnSwitch(null, 380)).toBe(380);
+    expect(resolveFillHeightOnSwitch(null, 213.4)).toBe(213);
+  });
+
+  it('prefers a saved height over the on-screen one', () => {
+    expect(resolveFillHeightOnSwitch(300, 380)).toBe(300);
+  });
+
+  it('caps at the default: a height at or above it becomes "nothing saved" (the default applies)', () => {
+    expect(DEFAULT_FILL_HEIGHT_PX).toBe(400);
+    expect(resolveFillHeightOnSwitch(null, 400)).toBeNull();
+    expect(resolveFillHeightOnSwitch(null, 600)).toBeNull();
+    expect(resolveFillHeightOnSwitch(500, 380)).toBeNull();
+  });
+
+  it('keeps nothing when there is nothing usable (no layout, zero or invalid height)', () => {
+    expect(resolveFillHeightOnSwitch(null, 0)).toBeNull();
+    expect(resolveFillHeightOnSwitch(null, Number.NaN)).toBeNull();
+    expect(resolveFillHeightOnSwitch(0, 380)).toBeNull();
   });
 });
 

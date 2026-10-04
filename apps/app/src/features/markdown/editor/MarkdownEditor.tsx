@@ -69,6 +69,7 @@ import {
 } from './codemirror/mediaPresentation/mediaPresentationUpdate';
 import {
   DEFAULT_IMAGE_PRESENTATION,
+  resolveFillHeightOnSwitch,
   type ImagePresentation,
   type MediaAlignment,
 } from './codemirror/mediaPresentation/mediaPresentationModel';
@@ -1133,16 +1134,16 @@ export const MarkdownEditor = forwardRef<
     const current = getImagePresentation(view.state, imageMenu.to);
     let next: ImagePresentation = { ...current, ...patch };
     if (patch.mode === 'fill' && ui.displayMode !== 'fill') {
-      // Fit -> Fill: the box takes the full width, and keeps its height — the height saved for
+      // Fit -> Fill: the box takes the full width and keeps its current height — the one saved for
       // Fill earlier if there is one, else the height it has on screen right now (Fit's natural
-      // height) — so switching doesn't snap it to the 400px default. Resizing is still the
+      // height) — but never more than the default Fill height. Dragging it taller is still the
       // user's to do from there.
       const container = imageMenu.anchor.current.closest<HTMLElement>('.cm-image-container');
       const renderedHeight = container ? Math.round(container.getBoundingClientRect().height) : 0;
       next = {
         ...next,
         width: DEFAULT_IMAGE_PRESENTATION.width,
-        height: current.height ?? (renderedHeight > 0 ? renderedHeight : null),
+        height: resolveFillHeightOnSwitch(current.height, renderedHeight),
       };
     }
     const changes = computeImagePresentationUpdate(view.state, imageMenu.to, next);

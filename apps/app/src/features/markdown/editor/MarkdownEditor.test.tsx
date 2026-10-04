@@ -1233,16 +1233,35 @@ describe('MarkdownEditor: Fit/Fill toggle never corrupts imageUiState position m
       });
     });
 
-    it('a height saved for Fill earlier is the one that comes back, not the on-screen Fit height', () => {
+    it('a height saved for Fill earlier, below the default, is the one that comes back — not the on-screen Fit height', () => {
       stubRenderedHeight(380);
       const { container: root } = render(
-        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,500,fit](https://example.com/a.jpg)'} />
+        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,300,fit](https://example.com/a.jpg)'} />
       );
       const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
 
       selectMode('Fill');
 
-      expect(view.state.doc.toString()).toContain('![Photo|11,500](');
+      expect(view.state.doc.toString()).toContain('![Photo|11,300](');
+    });
+
+    it('a height above the default Fill height is capped to the default (nothing saved), whether it was saved or is just the on-screen Fit height', () => {
+      stubRenderedHeight(600);
+      const { container: root } = render(
+        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,fit](https://example.com/a.jpg)'} />
+      );
+      const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+      selectMode('Fill');
+      expect(view.state.doc.toString()).toContain('![Photo](');
+      cleanup();
+
+      stubRenderedHeight(380);
+      const second = render(
+        <MarkdownEditor pageId="test-page" markdown={'Prefix.\n\n![Photo|320,500,fit](https://example.com/a.jpg)'} />
+      );
+      const secondView = EditorView.findFromDOM(second.container as unknown as HTMLElement)!;
+      selectMode('Fill');
+      expect(secondView.state.doc.toString()).toContain('![Photo](');
     });
 
     it('the height stays through Fill → Fit → Fill', () => {

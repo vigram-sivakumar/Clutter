@@ -93,6 +93,27 @@ export interface PdfPresentation {
   readonly alignment: MediaAlignment;
 }
 
+/**
+ * A Fill box's height when none is saved. Keep in step with `.cm-image-container--fill`'s
+ * `height: 400px` (ImageWidget.css), which is what actually draws it.
+ */
+export const DEFAULT_FILL_HEIGHT_PX = 400;
+
+/**
+ * The height an image takes when it is switched from Fit to Fill: the height it has now — the
+ * one saved for Fill earlier if there is one, else the height it has on screen in Fit — but never
+ * more than the default Fill height. Returns `null` (nothing saved: the default applies) when that
+ * height reaches the default, or when there is nothing usable to keep. A user can always drag a
+ * Fill box taller afterwards.
+ */
+export function resolveFillHeightOnSwitch(savedHeight: number | null, renderedHeight: number): number | null {
+  const current = savedHeight ?? (renderedHeight > 0 ? renderedHeight : null);
+  if (current === null || !Number.isFinite(current) || current < 1 || current >= DEFAULT_FILL_HEIGHT_PX) {
+    return null;
+  }
+  return Math.round(current);
+}
+
 export const DEFAULT_IMAGE_PRESENTATION: ImagePresentation = {
   width: 11,
   height: null,
