@@ -7,6 +7,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { MultiSelectSuggestion } from '@components/property-list/PropertyList.types';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 import { readListedSystemProperties } from '@core/vault/ingest/frontmatter/propertyVisibility';
+import { readVisibleCustomProperties } from '@core/vault/ingest/frontmatter/templateMarker';
 import {
   readCustomProperties,
   validateCustomPropertyName,
@@ -297,7 +298,7 @@ export function buildPageProperties(
   // PageOperations.renameCustomProperty enforces (reserved system keys in
   // any case, empty, unreadable, or another key on this page).
   const customItems = new Map<string, PropertyListItem>(
-    readCustomProperties(customLines).map((property): [string, PropertyListItem] => {
+    readVisibleCustomProperties(customLines).map((property): [string, PropertyListItem] => {
       const { key } = property;
       const clear =
         property.type === 'list'

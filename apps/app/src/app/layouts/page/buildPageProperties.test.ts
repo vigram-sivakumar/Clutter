@@ -66,6 +66,20 @@ describe('buildPageProperties', () => {
     });
   });
 
+  it("leaves the template marker (`kind: template`) out, but shows a user's own `kind`", () => {
+    const marked = makePage('note', { unownedFrontmatter: ['kind: template', 'Priority: high'] });
+    expect(buildPageProperties(marked).map((i) => i.name)).toEqual([
+      'Tags',
+      'Aliases',
+      'Created',
+      'Last edited',
+      'Priority',
+    ]);
+
+    const own = makePage('note', { unownedFrontmatter: ['kind: book'] });
+    expect(buildPageProperties(own).map((i) => i.name)).toContain('kind');
+  });
+
   it('reads Aliases from frontmatter metadata, not the derived analysis', () => {
     const page = makePage('note', { aliases: ['From frontmatter'] });
     expect(buildPageProperties(page)[1]!.value).toEqual(['From frontmatter']);

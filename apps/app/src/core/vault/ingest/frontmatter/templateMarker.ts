@@ -1,6 +1,7 @@
 import {
   addCustomProperty,
   readCustomProperties,
+  type CustomFrontmatterProperty,
   removeCustomProperty,
   setCustomScalarValue,
 } from './customFrontmatter';
@@ -56,4 +57,23 @@ export function evaluateTemplateMarker(
         type: 'text',
         value: TEMPLATE_MARKER_VALUE,
       });
+}
+
+/**
+ * Whether `property` is the template marker itself (`kind: template`) —
+ * Clutter's own bookkeeping, not something the user wrote, so the Properties
+ * list leaves it out. A user's own `kind` (any other value) is ordinary data
+ * and stays visible.
+ */
+export function isTemplateMarkerProperty(property: CustomFrontmatterProperty): boolean {
+  return (
+    property.key === TEMPLATE_MARKER_KEY &&
+    property.type === 'text' &&
+    property.value === TEMPLATE_MARKER_VALUE
+  );
+}
+
+/** The custom properties the Properties list shows: every one except the template marker. */
+export function readVisibleCustomProperties(lines: readonly string[]): CustomFrontmatterProperty[] {
+  return readCustomProperties(lines).filter((property) => !isTemplateMarkerProperty(property));
 }

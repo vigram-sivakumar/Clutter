@@ -1,4 +1,4 @@
-import { readCustomProperties } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { readVisibleCustomProperties } from '@core/vault/ingest/frontmatter/templateMarker';
 import {
   isPropertiesSectionHidden,
   readListedSystemProperties,
@@ -73,7 +73,7 @@ export function derivePropertiesSectionState({
   /** The title's "Add a property" was chosen and the picker is open on the empty row (never persisted). */
   isStarting?: boolean;
 }): PropertiesSectionState {
-  const hasProperties = readListedSystemProperties(lines).length > 0 || readCustomProperties(lines).length > 0;
+  const hasProperties = readListedSystemProperties(lines).length > 0 || readVisibleCustomProperties(lines).length > 0;
   const showsProperties = hasProperties && !isPropertiesSectionHidden(lines);
 
   if (isArchived) {

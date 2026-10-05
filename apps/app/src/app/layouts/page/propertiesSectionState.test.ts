@@ -36,6 +36,16 @@ describe('derivePropertiesSectionState — the zero-property default', () => {
   });
 });
 
+describe('derivePropertiesSectionState — the template marker', () => {
+  it('a note whose only custom property is `kind: template` shows nothing, like a note with no properties', () => {
+    expect(state('kind: template')).toEqual(DEFAULT);
+  });
+
+  it("a user's own `kind` still counts as a custom property to show", () => {
+    expect(state('kind: book').hasProperties).toBe(true);
+  });
+});
+
 describe('derivePropertiesSectionState — something to show', () => {
   it('a listed system property displays the section with its add button; the title offers nothing', () => {
     expect(state('properties:\n  visible:\n    - tags')).toEqual({
