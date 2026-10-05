@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CollectionMedia } from './CollectionMedia';
 
@@ -19,20 +19,47 @@ describe('CollectionMedia', () => {
     expect(screen.getByTestId('inside').closest('.cx-collection-media')).not.toBeNull();
   });
 
-  it('is purely visual: hidden from assistive tech, and never a button', () => {
-    const { container } = render(<CollectionMedia>x</CollectionMedia>);
+  it('without onClick it is a purely visual frame, hidden from assistive tech', () => {
+    const { container } = render(<CollectionMedia label="ignored">x</CollectionMedia>);
     const frame = container.firstElementChild!;
 
     expect(frame.tagName).toBe('DIV');
     expect(frame).toHaveAttribute('aria-hidden', 'true');
+    expect(frame).not.toHaveAttribute('aria-label');
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('fillHeight marks the frame to fill its host', () => {
+  it('with onClick it is a labelled button', () => {
+    let currentTarget: EventTarget | null = null;
+    const onClick = vi.fn((event: { currentTarget: EventTarget }) => {
+      currentTarget = event.currentTarget;
+    });
+    render(
+      <CollectionMedia onClick={onClick} label="Change cover">
+        x
+      </CollectionMedia>
+    );
+
+    const button = screen.getByRole('button', { name: 'Change cover' });
+    expect(button).toHaveClass('cx-collection-media--interactive');
+    expect(button).toHaveAttribute('type', 'button');
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(currentTarget).toBe(button);
+  });
+
+  it('fillHeight marks the frame to fill its host (on the visual frame and on the button)', () => {
     const { container, rerender } = render(<CollectionMedia>x</CollectionMedia>);
     expect(container.firstElementChild).not.toHaveClass('cx-collection-media--fill-height');
 
     rerender(<CollectionMedia fillHeight>x</CollectionMedia>);
     expect(container.firstElementChild).toHaveClass('cx-collection-media', 'cx-collection-media--fill-height');
+
+    rerender(
+      <CollectionMedia fillHeight onClick={() => {}} label="Change">
+        x
+      </CollectionMedia>
+    );
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveClass('cx-collection-media--fill-height');
   });
 });

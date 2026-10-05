@@ -86,7 +86,9 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
     case 'media':
       return (
         <div className={join('cx-collection-table-cell', 'cx-collection-table-cell--media', props.className)}>
-          <CollectionMedia fillHeight={props.fillHeight}>{props.children}</CollectionMedia>
+          <CollectionMedia onClick={props.onClick} label={props.label}>
+            {props.children}
+          </CollectionMedia>
         </div>
       );
   }

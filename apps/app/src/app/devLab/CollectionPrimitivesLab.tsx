@@ -108,7 +108,7 @@ export function CollectionPrimitivesLab() {
     { id: 'l1', icon: 'note', title: 'Weekly Meeting', description: 'Team sync notes', metadata: ['Today', 'Yesterday'], onClick: () => say('open list l1') },
     {
       id: 'l2', emoji: '🌊', title: 'Trip photos', description: 'Summit weekend', metadata: ['12 Aug 2026'], isSelected: true,
-      media: { children: <Art hue={200} /> },
+      media: { children: <Art hue={200} />, onClick: () => say('media click (row did not open)'), label: 'Change cover' },
       onClick: () => say('open list l2'),
     },
     { id: 'l3', icon: 'note', title: 'Inert row (no onClick)', metadata: ['n/a'] },
@@ -119,7 +119,7 @@ export function CollectionPrimitivesLab() {
       id: 't1',
       cells: {
         name: { variant: 'header', icon: 'note', title: 'Weekly Meeting', description: 'Team sync notes' },
-        preview: { variant: 'media', children: <Art hue={20} /> },
+        preview: { variant: 'media', children: <Art hue={20} />, onClick: () => say('table media click'), label: 'Change cover' },
         type: { variant: 'text', value: 'Note' },
         created: { variant: 'text', value: 'Today', dateTime: '2026-10-05T10:00:00.000Z' },
       },
@@ -261,7 +261,8 @@ export function CollectionPrimitivesLab() {
 
       <h3>CollectionMedia</h3>
       <div className="cx-lab__row">
-        <div className="cx-lab__cell"><CollectionMedia><Art hue={40} /></CollectionMedia>default frame</div>
+        <div className="cx-lab__cell"><CollectionMedia><Art hue={40} /></CollectionMedia>visual</div>
+        <div className="cx-lab__cell"><CollectionMedia onClick={() => say('media button')} label="Change"><Art hue={160} /></CollectionMedia>button</div>
       </div>
 
       <h3>ScaledCanvas — one 600px design, three widths (lazy=false)</h3>
