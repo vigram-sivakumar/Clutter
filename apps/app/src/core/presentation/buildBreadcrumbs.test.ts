@@ -490,6 +490,29 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
     expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('templates').icon);
   });
 
+  it.each([
+    ['Archive', 'archive'],
+    ['Templates', 'templates'],
+  ] as const)(
+    'a directly-viewed %s folder\'s own crumb uses the canonical system-location icon and label, not the generic folder icon',
+    (name, id) => {
+      const folder = makeFolder({
+        id: `${id}-folder`,
+        name,
+        path: `${ROOT}/${name}`,
+        parentId: null,
+      });
+      const vault = makeVault([folder]);
+      const crumbs = buildBreadcrumbs(folder, vault, makeMembershipSelector(vault), vi.fn());
+
+      expect(crumbs).toHaveLength(1);
+      expect(crumbs[0]!.title).toBe(getSystemLocationPresentation(id).label);
+      expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation(id).icon);
+      expect(crumbs[0]!.icon).not.toBe(getPageIcon('folder'));
+      expect(crumbs[0]!.emoji).toBeUndefined();
+    }
+  );
+
   it('uses the plain calendar icon (not the calendar-with-date .icon its sidebar tab uses) for a Daily Notes ancestor crumb', () => {
     const dailyNotes = makeFolder({
       id: 'daily-notes-folder',

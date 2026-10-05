@@ -41,12 +41,40 @@ function entryBreadcrumbTitle(entry: Page | Folder): string {
  * Every entry walks the same parent-folder chain; only the trailing
  * breadcrumb differs based on the entry type.
  */
-function getEntryIcon(entry: Page | Folder) {
-  if (!isPage(entry)) {
-    return getPageIcon('folder');
-  }
-
+function getEntryIcon(entry: Page) {
   return getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name));
+}
+
+/**
+ * A folder's crumb title/icon/emoji — one definition for an ancestor crumb
+ * and for the trailing crumb of a directly-viewed folder.
+ *
+ * A reserved folder (Archive, Templates, Daily Notes) gets its canonical
+ * system-location icon/label instead of the generic folder icon and raw
+ * Vault folder name — the same presentation an ordinary folder never has,
+ * since it's not one. No emoji override for these: they're fixed,
+ * non-customizable system icons, same as Tasks/Tags/Search already are.
+ * collectionIcon (falling back to icon) — a folder crumb represents the
+ * collection/domain, not a specific document, and for Daily Notes that's
+ * a different icon than its sidebar tab uses.
+ */
+function folderCrumbFields(
+  folder: Folder,
+  membershipSelector: MembershipSelector
+): Pick<Breadcrumb, 'id' | 'title' | 'icon' | 'emoji'> {
+  const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
+  const presentation = systemLocation
+    ? getSystemLocationPresentation(systemLocation)
+    : undefined;
+
+  return {
+    id: folder.id,
+    title: presentation ? presentation.label : entryBreadcrumbTitle(folder),
+    icon: presentation
+      ? (presentation.collectionIcon ?? presentation.icon)
+      : getPageIcon('folder'),
+    emoji: presentation ? undefined : (folder.metadata.icon ?? undefined),
+  };
 }
 
 /** Shared by buildBreadcrumbs and buildBreadcrumbsForDraft — the ancestor
@@ -67,27 +95,8 @@ function ancestorBreadcrumbs(
       break;
     }
 
-    // A reserved folder (Archive, Templates, Daily Notes) in the
-    // ancestor chain gets its canonical system-location icon/label
-    // instead of the generic folder icon and raw Vault folder name — the
-    // same presentation an ordinary folder never has, since it's not one.
-    // No emoji override for these: they're fixed, non-customizable system
-    // icons, same as Tasks/Tags/Search already are.
-    const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
-    const presentation = systemLocation
-      ? getSystemLocationPresentation(systemLocation)
-      : undefined;
-
     ancestors.unshift({
-      id: folder.id,
-      title: presentation ? presentation.label : entryBreadcrumbTitle(folder),
-      // collectionIcon (falling back to icon) — an ancestor crumb
-      // represents the collection/domain, not a specific document, and
-      // for Daily Notes that's a different icon than its sidebar tab uses.
-      icon: presentation
-        ? (presentation.collectionIcon ?? presentation.icon)
-        : getPageIcon('folder'),
-      emoji: presentation ? undefined : (folder.metadata.icon ?? undefined),
+      ...folderCrumbFields(folder, membershipSelector),
       onClick: () => onOpenFolder(folder.id),
     });
 
@@ -105,12 +114,16 @@ export function buildBreadcrumbs(
 ): Breadcrumb[] {
   const ancestors = ancestorBreadcrumbs(entry.parentId, vault, membershipSelector, onOpenFolder);
 
-  ancestors.push({
-    id: entry.id,
-    title: entryBreadcrumbTitle(entry),
-    icon: getEntryIcon(entry),
-    emoji: entry.metadata.icon ?? undefined,
-  });
+  ancestors.push(
+    isPage(entry)
+      ? {
+          id: entry.id,
+          title: entryBreadcrumbTitle(entry),
+          icon: getEntryIcon(entry),
+          emoji: entry.metadata.icon ?? undefined,
+        }
+      : folderCrumbFields(entry, membershipSelector)
+  );
 
   return ancestors;
 }
