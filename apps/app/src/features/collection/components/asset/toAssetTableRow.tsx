@@ -7,7 +7,6 @@ import type { CollectionDataTableRow } from '@features/collection/components/tab
 import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
 import type { AssetTableColumnVisibility } from './assetTableColumns';
 import { assetFileFacts } from './assetCardMetadata';
-import { ASSET_KIND_LABEL } from './assetKind';
 import { AssetPreview } from './AssetPreview';
 
 export interface AssetTableRowOptions {
@@ -24,7 +23,7 @@ export interface AssetTableRowOptions {
 /**
  * An asset as a row of the generic collection table: its values only, keyed
  * by the column ids `buildAssetTableColumns` declares — the name (with the asset's
- * preview, `AssetPreview`, in place of an icon), the kind label and, as the Properties turn them on, the file's size and dates (empty for a remote asset, which has no file). A
+ * preview, `AssetPreview`, in place of an icon), and, as the Properties turn them on, the file's size and dates (empty for a remote asset, which has no file). A
  * vault file's row carries `data-resource-id`,
  * which the body's F2-to-rename handler looks up. Drawing the cells and the
  * grid is `CollectionDataTable`'s job.
@@ -53,7 +52,6 @@ export function toAssetTableRow(
         title: getResourceDisplayName(asset),
         titleContent,
       },
-      type: { variant: 'text', value: ASSET_KIND_LABEL[asset.kind] },
       ...(columns.size ? { size: { variant: 'text' as const, value: facts.size } } : {}),
       ...(columns.created
         ? { created: { variant: 'text' as const, value: facts.created, dateTime: facts.createdAt } }

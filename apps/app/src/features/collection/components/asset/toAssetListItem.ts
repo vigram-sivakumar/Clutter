@@ -7,13 +7,12 @@ import type { CollectionDataListItem } from '@features/collection/components/lis
 import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
 import type { AssetTableColumnVisibility } from './assetTableColumns';
 import { assetFileFacts } from './assetCardMetadata';
-import { ASSET_KIND_LABEL } from './assetKind';
 import { AssetPreview } from './AssetPreview';
 
 export interface AssetListItemOptions {
   /** The asset's loadable URL (a local file's `Application.resolveResourceImageUrl(path)`, a remote asset's own URL), for the preview. Absent, the preview shows the kind's icon. */
   readonly url?: string;
-  /** Which file facts the list shows after the kind — the same Properties the card and the table use. */
+  /** Which file facts the list shows — the same Properties the card and the table use. */
   readonly show: AssetTableColumnVisibility;
   /** Opens the asset — absent while it is being renamed, so a click in the editor never opens it. */
   readonly onClick?: (asset: Asset) => void;
@@ -22,9 +21,11 @@ export interface AssetListItemOptions {
 }
 
 /**
- * An asset as an item of the generic collection list: its name, kind
- * label, the kind, then what the Properties turn on (size, created, last edited) and, in place of an icon, its preview thumbnail (`AssetPreview`, the same one the table shows). The row carries `data-resource-id` (vault files only), which the body's F2-to-rename
- * handler looks up; a remote asset (a URL, not a file) is marked "URL". Drawing the row is `CollectionDataList`'s job.
+ * An asset as an item of the generic collection list: its name, what the
+ * Properties turn on (size, created, last edited) and, in place of an icon, its
+ * preview thumbnail (`AssetPreview`, the same one the table shows). The row
+ * carries `data-resource-id` (vault files only), which the body's F2-to-rename
+ * handler looks up. Drawing the row is `CollectionDataList`'s job.
  */
 export function toAssetListItem(
   asset: Asset,
@@ -40,8 +41,6 @@ export function toAssetListItem(
     title: getResourceDisplayName(asset),
     titleContent,
     metadata: [
-      ASSET_KIND_LABEL[asset.kind],
-      ...(asset.source === 'remote' ? ['URL'] : []),
       ...(show.size && facts.size ? [facts.size] : []),
       ...(show.created && facts.created ? [facts.created] : []),
       ...(show.updated && facts.modified ? [facts.modified] : []),
