@@ -255,7 +255,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.body.textContent).toMatch(/Sort by/);
   });
 
-  it('Table renders the generic table with Name, Type and Source columns (the preview leads the name)', async () => {
+  it('Table renders the generic table with Name and Type — the file-fact Properties add Size, Created, Last edited (the preview leads the name)', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
     await pick('Table');
@@ -263,7 +263,6 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect([...document.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Type',
-      'Source',
     ]);
     expect(document.querySelectorAll('.collection-table__body > .collection-table-row')).toHaveLength(2);
   });

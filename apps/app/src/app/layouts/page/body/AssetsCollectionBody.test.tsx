@@ -258,13 +258,12 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table, .collection-grid')).toBeNull();
   });
 
-  it('Table uses the generic table with Name, Type and Source columns (the preview leads the name)', () => {
+  it('Table uses the generic table with Name and Type — Size, Created and Last edited are the same Properties the card has (the preview leads the name)', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'table' });
 
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Type',
-      'Source',
     ]);
     expect(container.querySelector('.collection-table__body > .collection-table-row')).not.toBeNull();
     // No "new item" footer row: an asset has no "New" row of its own (Add lives in the header).
@@ -300,10 +299,9 @@ describe('AssetsCollectionBody — which layout renders', () => {
 
     const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-table-row')];
     for (const row of [imageRow!, pdfRow!]) {
-      expect(row.children).toHaveLength(3);
+      expect(row.children).toHaveLength(2);
       expect(row.children[0]).toHaveClass('collection-table-cell--header');
       expect(row.children[1]).toHaveClass('collection-table-cell--text', 'collection-table-row__type');
-      expect(row.children[2]).toHaveClass('collection-table-cell--text', 'collection-table-row__source');
     }
 
     // The thumbnail leads the name, in place of an icon: the image itself / a PDF's first page, inside the generic frame.
@@ -517,16 +515,93 @@ describe('AssetsCollectionBody — remote assets', () => {
     expect(container.querySelector('input')).toBeNull();
   });
 
-  it('says where an asset lives: the list marks a remote one, the table has a Source column', () => {
+  it('the list marks a remote asset', () => {
     const list = renderAssets({ assets: [remote, localAsset(makeResource())], viewMode: 'list' });
-    expect(list.container.textContent).toContain('Remote');
-    list.unmount();
 
-    const table = renderAssets({ assets: [remote, localAsset(makeResource())], viewMode: 'table' });
-    expect(screen.getByText('Source')).toBeInTheDocument();
-    expect(screen.getByText('Remote')).toBeInTheDocument();
-    expect(screen.getByText('Vault')).toBeInTheDocument();
-    table.unmount();
+    expect(list.container.textContent).toContain('Remote');
+  });
+});
+
+describe('AssetsCollectionBody — the file-fact Properties govern List and Table, like the card', () => {
+  const FACTS = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
+  const file = () => localAsset(makeResource({ metadata: FACTS }));
+  const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
+  const off = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: false, created: false, updated: false };
+  const remote: RemoteAsset = {
+    id: 'remote:https://example.com/mountain.jpg',
+    source: 'remote',
+    kind: 'image',
+    name: 'mountain.jpg',
+    url: 'https://example.com/mountain.jpg',
+    references: [],
+  };
+
+  it('Table: File size, Created and Last edited are columns only while their Properties are on', () => {
+    const shown = renderAssets({ assets: [file()], viewMode: 'table', properties: on });
+    expect([...shown.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+      'Name',
+      'Type',
+      'Size',
+      'Created',
+      'Last edited',
+    ]);
+    expect(shown.container.querySelector('.collection-table-row__size')).toHaveTextContent('12 KB');
+    expect(shown.container.querySelector('.collection-table-row__created')).toHaveAttribute('data-date', FACTS.createdAt);
+    expect(shown.container.querySelector('.collection-table-row__updated')).toHaveAttribute('data-date', FACTS.modifiedAt);
+    shown.unmount();
+
+    const hidden = renderAssets({ assets: [file()], viewMode: 'table', properties: off });
+    expect([...hidden.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+      'Name',
+      'Type',
+    ]);
+  });
+
+  it('Table: each property turns only its own column on', () => {
+    for (const [key, label] of [
+      ['size', 'Size'],
+      ['created', 'Created'],
+      ['updated', 'Last edited'],
+    ] as const) {
+      const { container, unmount } = renderAssets({ assets: [file()], viewMode: 'table', properties: { ...off, [key]: true } });
+
+      expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+        'Name',
+        'Type',
+        label,
+      ]);
+      unmount();
+    }
+  });
+
+  it('Table: a remote asset has no file, so its size and date cells are empty', () => {
+    const { container } = renderAssets({ assets: [remote], viewMode: 'table', properties: on });
+
+    for (const column of ['size', 'created', 'updated']) {
+      expect(container.querySelector(`.collection-table-row__${column}`)).toBeEmptyDOMElement();
+    }
+  });
+
+  it('List: the same Properties add the size and dates to the row metadata, after the kind', () => {
+    const shown = renderAssets({ assets: [file()], viewMode: 'list', properties: on });
+    const metadata = [...shown.container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent);
+    expect(metadata[0]).toBe('Image');
+    expect(metadata[1]).toBe('12 KB');
+    expect(metadata).toHaveLength(4);
+    shown.unmount();
+
+    const hidden = renderAssets({ assets: [file()], viewMode: 'list', properties: off });
+    expect([...hidden.container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual(['Image']);
+  });
+
+  it('the Card still lists the same facts as its own lines, from the same properties', () => {
+    const { container } = renderAssets({ assets: [file()], viewMode: 'card', properties: on });
+
+    expect([...container.querySelectorAll('.card-title-section__metadata-label')].map((n) => n.textContent)).toEqual([
+      'Size',
+      'Created',
+      'Edited',
+    ]);
   });
 });
 

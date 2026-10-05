@@ -20,15 +20,15 @@ describe('collection view capabilities', () => {
     });
   });
 
-  it('assets support the same three layouts as notes (Card is registered through the same layout list), open in Card by default, and offer Card-only properties', () => {
+  it('assets support the same three layouts as notes (Card is registered through the same layout list), open in Card by default, and offer file-fact properties in every layout', () => {
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.layouts).toEqual(NOTE_COLLECTION_VIEW_CAPABILITIES.layouts);
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.layouts).toEqual(['list', 'table', 'card']);
     // First-time default: Card (notes still default to Table).
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('card');
     expect(NOTE_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('table');
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.properties).toBe(true);
-    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.cardPropertyKeys).toEqual(['title', 'size', 'created', 'updated']);
-    expect(NOTE_COLLECTION_VIEW_CAPABILITIES.cardPropertyKeys).toBeUndefined();
+    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toEqual(['title', 'size', 'created', 'updated']);
+    expect(NOTE_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toBeUndefined();
     // Sort by offers the two things an asset has.
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.sortKeys).toEqual(['name', 'type']);
   });
@@ -64,7 +64,7 @@ describe('collection view capabilities', () => {
     });
   });
 
-  it("assets' card starts with only its title: the file facts default off, while notes keep every default", () => {
+  it("assets start with only their title/name: the file facts default off in every layout, while notes keep every default", () => {
     expect(resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES)).toEqual({
       ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
       size: false,

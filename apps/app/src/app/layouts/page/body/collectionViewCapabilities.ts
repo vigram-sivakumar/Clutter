@@ -20,12 +20,13 @@ export interface CollectionViewCapabilities {
   /** Whether the Properties configuration (which fields a row/card shows) is offered. */
   readonly properties: boolean;
   /**
-   * The Properties offered in the Card layout, and none in List / Table
-   * (which have nothing to toggle for this collection). Absent, the note-shaped
-   * list applies (Description, dates, Card's Cover image / Content preview);
-   * `'title'` and `'size'` are only ever offered by a collection that lists them here.
+   * The Properties this collection offers, in every layout it has — only those
+   * (`'title'` is only ever shown in the Card layout, where the name is a
+   * property; List and Table always show it). Absent, the note-shaped list
+   * applies (Description, dates, List/Table's Cover image); `'title'` and
+   * `'size'` are only ever offered by a collection that lists them here.
    */
-  readonly cardPropertyKeys?: readonly (keyof CollectionPropertyVisibility)[];
+  readonly propertyKeys?: readonly (keyof CollectionPropertyVisibility)[];
   /**
    * Property visibilities that differ from the app-wide defaults when nothing
    * is persisted yet for this collection (a first-time user). Once the user
@@ -52,16 +53,16 @@ export const NOTE_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
  * Assets: the same three layouts notes have (List, Table, Card), opening in
  * Card for anyone who hasn't chosen otherwise (a collection's first-time
  * default; once a layout is picked it is persisted and wins). Properties offers
- * Title, File size, Created and Last edited (Card layout) — the things a card
- * can choose to show; List and Table have nothing to toggle. Sort by offers the two things an asset has:
- * its Name and its Type.
+ * Title (Card only), File size, Created and Last edited — in every layout: the
+ * card's metadata lines, the list's metadata and the table's columns. Sort by
+ * offers the two things an asset has: its Name and its Type.
  */
 export const ASSET_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   layouts: ['list', 'table', 'card'],
   defaultLayout: 'card',
   properties: true,
-  cardPropertyKeys: ['title', 'size', 'created', 'updated'],
-  // A first-time card shows just the media and its title; the file facts are opt-in.
+  propertyKeys: ['title', 'size', 'created', 'updated'],
+  // A first-time view shows just the media/name and the kind; the file facts are opt-in, in every layout.
   defaultProperties: { size: false, created: false, updated: false },
   sortKeys: ['name', 'type'],
 };

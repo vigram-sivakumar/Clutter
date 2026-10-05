@@ -19,7 +19,7 @@ import { CollectionGrid } from '@features/collection/components/grid/CollectionG
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import { toAssetListItem } from '@features/collection/components/asset/toAssetListItem';
 import { toAssetTableRow } from '@features/collection/components/asset/toAssetTableRow';
-import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/assetTableColumns';
+import { buildAssetTableColumns } from '@features/collection/components/asset/assetTableColumns';
 import {
   ASSET_CARD_ASPECT_RATIO,
   ASSET_GRID,
@@ -89,6 +89,8 @@ export function AssetsCollectionBody({
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !properties.title;
   const assets = sort ? sortAssets(unsorted, sort) : unsorted;
+  // The file-fact Properties (File size, Created, Last edited) govern every layout alike: card lines, list metadata, table columns.
+  const fileFacts = { size: properties.size, created: properties.created, updated: properties.updated };
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.
   const urlFor = (asset: Asset): string | undefined =>
     asset.source === 'remote' ? asset.url : resolveResourceUrl?.(asset.resource.path);
@@ -155,10 +157,11 @@ export function AssetsCollectionBody({
   } else if (viewMode === 'table') {
     layout = (
       <CollectionDataTable
-        columns={ASSET_TABLE_COLUMNS}
+        columns={buildAssetTableColumns(fileFacts)}
         rows={assets.map((asset) =>
           toAssetTableRow(asset, {
             url: urlFor(asset),
+            columns: fileFacts,
             onClick: clickFor(asset),
             titleContent: titleContentFor(asset),
           })
@@ -172,6 +175,7 @@ export function AssetsCollectionBody({
         items={assets.map((asset) =>
           toAssetListItem(asset, {
             url: urlFor(asset),
+            show: fileFacts,
             onClick: clickFor(asset),
             titleContent: titleContentFor(asset),
           })

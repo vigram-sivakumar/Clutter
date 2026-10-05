@@ -10,6 +10,37 @@ export interface AssetMetadataItem {
   readonly value: string;
 }
 
+/**
+ * A vault file's facts as people read them — size `12 KB`, created and
+ * modified `Yesterday, 09:03 AM` / `35 minutes ago` — with the raw ISO instants
+ * the dates came from. Each is absent when the platform couldn't report it
+ * (or there is no file at all). The one place these are formatted: the card,
+ * the list and the table all read them from here.
+ */
+export interface AssetFileFacts {
+  readonly size?: string;
+  readonly created?: string;
+  readonly createdAt?: string;
+  readonly modified?: string;
+  readonly modifiedAt?: string;
+}
+
+export function assetFileFacts(resource: VaultResource): AssetFileFacts {
+  const { metadata } = resource;
+
+  if (!metadata) {
+    return {};
+  }
+
+  return {
+    size: formatFileSize(metadata.size) || undefined,
+    created: formatEntryTimestamp(metadata.createdAt) || undefined,
+    createdAt: metadata.createdAt ?? undefined,
+    modified: formatEntryTimestamp(metadata.modifiedAt) || undefined,
+    modifiedAt: metadata.modifiedAt ?? undefined,
+  };
+}
+
 export interface AssetMetadataVisibility {
   readonly size?: boolean;
   readonly created?: boolean;
@@ -30,15 +61,7 @@ export function assetCardMetadata(
   resource: VaultResource,
   { size = true, created: showCreated = true, updated: showUpdated = true }: AssetMetadataVisibility = {}
 ): AssetMetadataItem[] {
-  const { metadata } = resource;
-
-  if (!metadata) {
-    return [];
-  }
-
-  const created = formatEntryTimestamp(metadata.createdAt);
-  const modified = formatEntryTimestamp(metadata.modifiedAt);
-  const fileSize = formatFileSize(metadata.size);
+  const { size: fileSize, created, modified } = assetFileFacts(resource);
   const items: AssetMetadataItem[] = [];
 
   if (size && fileSize) {

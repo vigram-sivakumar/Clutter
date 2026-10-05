@@ -60,7 +60,7 @@ const ROW_PROPERTY_ITEMS: ReadonlyArray<{
   label: string;
 }> = [{ key: 'cover', label: 'Cover image' }];
 
-// Assets' Card layout only — a collection opts in through `capabilities.cardPropertyKeys`.
+// A collection opts in through `capabilities.propertyKeys` (Title only ever shows in the Card layout).
 const TITLE_PROPERTY_ITEM = { key: 'title', label: 'Title' } as const;
 const SIZE_PROPERTY_ITEM = { key: 'size', label: 'File size' } as const;
 
@@ -131,24 +131,23 @@ export function CollectionViewMenu({
   capabilities = NOTE_COLLECTION_VIEW_CAPABILITIES,
 }: CollectionViewMenuProps) {
   const allPropertyItems = [
-    ...(viewMode === 'card' ? [TITLE_PROPERTY_ITEM, SIZE_PROPERTY_ITEM] : []),
+    ...(viewMode === 'card' ? [TITLE_PROPERTY_ITEM] : []),
+    SIZE_PROPERTY_ITEM,
     DESCRIPTION_PROPERTY_ITEM,
     // The Archive has no Cover image thumbnail (covers aren't changed from there), so nothing to toggle.
     ...(viewMode !== 'card' && !showArchived ? ROW_PROPERTY_ITEMS : []),
-    // A note card shows only the edited date, so Created isn't offered in Card mode — unless the collection lists its own property keys (an asset card shows Created too).
+    // A note card shows only the edited date, so Created isn't offered in Card mode — unless the collection lists its own property keys (an asset shows Created in every layout).
     ...DATE_PROPERTY_ITEMS.filter(
       ({ key }) =>
         viewMode !== 'card' ||
-        capabilities.cardPropertyKeys !== undefined ||
+        capabilities.propertyKeys !== undefined ||
         key !== 'created'
     ),
     ...(showArchived ? [ARCHIVED_PROPERTY_ITEM] : []),
   ];
-  // A collection that lists its `cardPropertyKeys` offers only those; Title and File size are offered only that way.
-  const propertyItems = capabilities.cardPropertyKeys
-    ? viewMode === 'card'
-      ? allPropertyItems.filter(({ key }) => capabilities.cardPropertyKeys!.includes(key))
-      : []
+  // A collection that lists its `propertyKeys` offers only those, in every layout; Title and File size are offered only that way.
+  const propertyItems = capabilities.propertyKeys
+    ? allPropertyItems.filter(({ key }) => capabilities.propertyKeys!.includes(key))
     : allPropertyItems.filter(({ key }) => key !== 'title' && key !== 'size');
   // Only the keys this collection offers, in the canonical order; Archived joins them in the Archive collection only.
   const sortItems = [

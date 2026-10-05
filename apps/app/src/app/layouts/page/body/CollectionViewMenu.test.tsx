@@ -352,7 +352,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     expect(queryByText('Type')).not.toBeInTheDocument();
   });
 
-  it('assets get Sort by with Name and Type only, no Properties, and the same active-row direction toggle', () => {
+  it('assets get Sort by with Name and Type only (no date sorts), and the same active-row direction toggle', () => {
     const onSortChange = vi.fn();
     const utils = render(
       <CollectionViewMenu
@@ -370,7 +370,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     expect(utils.getByText('Sort by')).toBeInTheDocument();
     expect(utils.getByText('Name')).toBeInTheDocument();
     expect(utils.getByText('Type')).toBeInTheDocument();
-    for (const absent of ['Created', 'Last edited', 'Properties']) {
+    for (const absent of ['Created', 'Last edited']) {
       expect(utils.queryByText(absent)).not.toBeInTheDocument();
     }
 
@@ -400,7 +400,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
   });
 });
 
-describe('CollectionViewMenu — assets Card properties', () => {
+describe('CollectionViewMenu — assets properties (every layout)', () => {
   const renderAssetMenu = (viewMode: 'list' | 'table' | 'card', properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) => {
     const onPropertiesChange = vi.fn();
     const utils = render(
@@ -446,10 +446,16 @@ describe('CollectionViewMenu — assets Card properties', () => {
     }
   });
 
-  it('List and Table have nothing to toggle, so no Properties row', () => {
+  it('List and Table offer File size, Created and Last edited — the same toggles as the card, without Title (the name is always there)', () => {
     for (const viewMode of ['list', 'table'] as const) {
-      const { queryByText, unmount } = renderAssetMenu(viewMode);
-      expect(queryByText('Properties')).not.toBeInTheDocument();
+      const { getByText, queryByText, unmount } = renderAssetMenu(viewMode);
+
+      openPropertiesSubmenu(getByText);
+      const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
+      expect(labels).toEqual(['File size', 'Created', 'Last edited']);
+      for (const absent of ['Title', 'Description', 'Cover image']) {
+        expect(queryByText(absent)).not.toBeInTheDocument();
+      }
       unmount();
     }
   });

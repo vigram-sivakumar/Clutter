@@ -75,8 +75,8 @@ describe('CollectionHeaderActions', () => {
     const assets = renderActions({ menu: { capabilities: ASSET_COLLECTION_VIEW_CAPABILITIES } as never });
     fireEvent.click(assets.container.querySelector('button[aria-haspopup="menu"]')!);
     const assetLabels = [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
-    // Same three layouts notes have, no Properties in List (they are Card-only), and Sort by with just Name and Type.
-    expect(assetLabels).toEqual(['List', 'Table', 'Card', 'Name', 'Type']);
+    // Same three layouts notes have, Properties (the file facts, in every layout), and Sort by with just Name and Type.
+    expect(assetLabels).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'Type']);
   });
 
   function template(id: string, title: string, onClick = vi.fn()) {
