@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import { getResourceIcon } from '@core/presentation/getResourceIcon';
 import type { Asset } from '@core/vault/models/Asset';
 
 import type { CollectionDataTableRow } from '@features/collection/components/table/CollectionDataTable';
+import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
 import { ASSET_KIND_LABEL } from './assetKind';
 import { AssetPreview } from './AssetPreview';
 
@@ -19,8 +19,9 @@ export interface AssetTableRowOptions {
 
 /**
  * An asset as a row of the generic collection table: its values only, keyed
- * by the column ids in `ASSET_TABLE_COLUMNS` — the name, a thumbnail
- * (`AssetPreview`), the kind label and where it lives (Vault / Remote). A
+ * by the column ids in `ASSET_TABLE_COLUMNS` — the name (with the asset's
+ * preview, `AssetPreview`, in place of an icon), the kind label and where it
+ * lives (Vault / Remote). A
  * vault file's row carries `data-resource-id`,
  * which the body's F2-to-rename handler looks up. Drawing the cells and the
  * grid is `CollectionDataTable`'s job.
@@ -37,13 +38,14 @@ export function toAssetTableRow(
     cells: {
       name: {
         variant: 'header',
-        icon: getResourceIcon(asset.kind),
+        // The preview stands where the icon would: the image itself, a PDF's first page, or the kind's icon.
+        leading: (
+          <CollectionMedia>
+            <AssetPreview kind={asset.kind} url={url} />
+          </CollectionMedia>
+        ),
         title: getResourceDisplayName(asset),
         titleContent,
-      },
-      preview: {
-        variant: 'media',
-        children: <AssetPreview kind={asset.kind} url={url} />,
       },
       type: { variant: 'text', value: ASSET_KIND_LABEL[asset.kind] },
       source: { variant: 'text', value: asset.source === 'local' ? 'Vault' : 'Remote' },

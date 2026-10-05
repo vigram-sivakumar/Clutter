@@ -1,7 +1,7 @@
 import type { CollectionTableColumn } from '@features/collection/components/table/collectionTableColumns';
 
 /**
- * The asset table's columns: the name, a small preview (the image, or a PDF's
+ * The asset table's columns: the name (led by the asset's preview — the image, or a PDF's
  * first page), the kind and where it lives (the vault, or a remote URL). An
  * asset carries nothing else worth a column (no description).
  */
@@ -11,13 +11,6 @@ export const ASSET_TABLE_COLUMNS: readonly CollectionTableColumn[] = [
     label: 'Name',
     width: 'minmax(400px, 1fr)',
     className: 'collection-table__header-cell--name',
-  },
-  {
-    id: 'preview',
-    label: 'Preview',
-    width: '80px',
-    className: 'collection-table__header-cell--preview',
-    cellClassName: 'collection-table-row__preview',
   },
   {
     id: 'type',

@@ -1,10 +1,10 @@
 import { createElement, type ReactNode } from 'react';
 
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import { getResourceIcon } from '@core/presentation/getResourceIcon';
 import type { Asset } from '@core/vault/models/Asset';
 
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
+import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
 import { ASSET_KIND_LABEL } from './assetKind';
 import { AssetPreview } from './AssetPreview';
 
@@ -18,8 +18,8 @@ export interface AssetListItemOptions {
 }
 
 /**
- * An asset as an item of the generic collection list: its icon, name, kind
- * label and preview thumbnail (`AssetPreview`, the same one the table shows). The row carries `data-resource-id` (vault files only), which the body's F2-to-rename
+ * An asset as an item of the generic collection list: its name, kind
+ * label and, in place of an icon, its preview thumbnail (`AssetPreview`, the same one the table shows). The row carries `data-resource-id` (vault files only), which the body's F2-to-rename
  * handler looks up; a remote asset's metadata says so. Drawing the row is `CollectionDataList`'s job.
  */
 export function toAssetListItem(
@@ -28,11 +28,11 @@ export function toAssetListItem(
 ): CollectionDataListItem {
   return {
     id: asset.id,
-    icon: getResourceIcon(asset.kind),
+    // The preview stands where the icon would: the image itself, a PDF's first page, or the kind's icon.
+    leading: createElement(CollectionMedia, null, createElement(AssetPreview, { kind: asset.kind, url })),
     title: getResourceDisplayName(asset),
     titleContent,
     metadata: [ASSET_KIND_LABEL[asset.kind], ...(asset.source === 'remote' ? ['Remote'] : [])],
-    media: { children: createElement(AssetPreview, { kind: asset.kind, url }) },
     onClick: onClick ? () => onClick(asset) : undefined,
     // Only a vault file can be renamed in place, so only it carries the id F2 looks up.
     props: asset.source === 'local' ? { 'data-resource-id': asset.resource.id } : {},

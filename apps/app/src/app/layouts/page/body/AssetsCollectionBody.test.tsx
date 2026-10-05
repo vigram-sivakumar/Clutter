@@ -118,7 +118,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     expect(screen.getByText('PDF')).toBeInTheDocument();
   });
 
-  it('distinguishes image and pdf items by icon', () => {
+  it('distinguishes image and pdf items: by icon in the card header, by the preview that leads the name in List and Table', () => {
     const { container } = renderAssets({
       resources: [
         makeResource({ id: 'house', name: 'house.png', kind: 'image' }),
@@ -127,11 +127,18 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
       viewMode,
     });
 
-    const icon = (index: number) =>
-      itemFor(container, viewMode, index).querySelector('.collection-row__leading svg, .card-title-section__leading svg')?.outerHTML;
-    expect(icon(0)).toBeTruthy();
-    expect(icon(1)).toBeTruthy();
-    expect(icon(0)).not.toBe(icon(1));
+    const item = (index: number) => itemFor(container, viewMode, index);
+    if (viewMode === 'card') {
+      const icon = (index: number) => item(index).querySelector('.card-title-section__leading svg')?.outerHTML;
+      expect(icon(0)).toBeTruthy();
+      expect(icon(1)).toBeTruthy();
+      expect(icon(0)).not.toBe(icon(1));
+      return;
+    }
+    // The preview (the image itself / a PDF's first page) stands where the icon would, in the name.
+    expect(item(0).querySelector('.collection-row__leading .collection-media img')).not.toBeNull();
+    expect(item(1).querySelector('.collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(item(0).querySelector('.collection-row__leading svg')).toBeNull();
   });
 
   it('clicking an image invokes onOpenResource with the resource — the existing image overlay', () => {
@@ -251,12 +258,11 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table, .collection-grid')).toBeNull();
   });
 
-  it('Table uses the generic table with Name, Preview, Type and Source columns', () => {
+  it('Table uses the generic table with Name, Type and Source columns (the preview leads the name)', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'table' });
 
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
-      'Preview',
       'Type',
       'Source',
     ]);
@@ -265,7 +271,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.collection-table-row--new-item')).toBeNull();
   });
 
-  it('List shows each asset\'s preview as the row\'s trailing media, in the same frame the table uses', () => {
+  it('List shows each asset\'s preview in place of an icon, leading the name, in the generic media frame', () => {
     const { container } = renderAssets({
       resources: [
         makeResource({ id: 'house', name: 'house.png', kind: 'image', path: '/vault/Assets/house.png' }),
@@ -275,14 +281,15 @@ describe('AssetsCollectionBody — which layout renders', () => {
     });
 
     const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-row')];
-    expect(imageRow!.querySelector('.collection-row__media .collection-media img')).toHaveAttribute(
+    expect(imageRow!.querySelector('.collection-row__leading .collection-media img')).toHaveAttribute(
       'src',
       'app://vault/Assets/house.png'
     );
-    expect(pdfRow!.querySelector('.collection-row__media .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(pdfRow!.querySelector('.collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(imageRow!.querySelector('.collection-row__media')).toBeNull();
   });
 
-  it('Table draws each asset with the generic header, media (thumbnail) and text cells', () => {
+  it('Table draws each asset with the generic header (led by the thumbnail) and text cells', () => {
     const { container } = renderAssets({
       resources: [
         makeResource({ id: 'house', name: 'house.png', kind: 'image', path: '/vault/Assets/house.png' }),
@@ -293,14 +300,13 @@ describe('AssetsCollectionBody — which layout renders', () => {
 
     const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-table-row')];
     for (const row of [imageRow!, pdfRow!]) {
-      expect(row.children).toHaveLength(4);
+      expect(row.children).toHaveLength(3);
       expect(row.children[0]).toHaveClass('collection-table-cell--header');
-      expect(row.children[1]).toHaveClass('collection-table-cell--media', 'collection-table-row__preview');
-      expect(row.children[2]).toHaveClass('collection-table-cell--text', 'collection-table-row__type');
-      expect(row.children[3]).toHaveClass('collection-table-cell--text', 'collection-table-row__source');
+      expect(row.children[1]).toHaveClass('collection-table-cell--text', 'collection-table-row__type');
+      expect(row.children[2]).toHaveClass('collection-table-cell--text', 'collection-table-row__source');
     }
 
-    // The thumbnail is the image itself / a PDF's first page, inside the generic frame.
+    // The thumbnail leads the name, in place of an icon: the image itself / a PDF's first page, inside the generic frame.
     expect(imageRow!.querySelector('.collection-media img')).toHaveAttribute(
       'src',
       'app://vault/Assets/house.png'
@@ -308,7 +314,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(pdfRow!.querySelector('.collection-media .asset-pdf-preview')).not.toBeNull();
   });
 
-  it('Table shows the kind icon in the Preview column when there is no URL resolver', () => {
+  it('Table shows the kind icon in the thumbnail frame when there is no URL resolver', () => {
     const { container } = renderAssets({
       resources: resources(),
       viewMode: 'table',
