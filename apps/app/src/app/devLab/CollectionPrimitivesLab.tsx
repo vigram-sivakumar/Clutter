@@ -26,6 +26,7 @@ import {
 } from '@features/collection/primitives/table/CollectionDataTable';
 import type { CollectionTableColumn } from '@features/collection/primitives/table/collectionTableColumns';
 import { CollectionMedia } from '@features/collection/primitives/media/CollectionMedia';
+import { CollectionImage } from '@features/collection/primitives/media/CollectionImage';
 import { ScaledCanvas } from '@features/collection/primitives/scale/ScaledCanvas';
 
 import './CollectionPrimitivesLab.css';
@@ -40,9 +41,14 @@ const art = (hue: number, label = '') =>
       `<rect width="160" height="120" fill="url(#g)"/><text x="80" y="66" text-anchor="middle" font-size="14" fill="white" opacity=".7" font-family="sans-serif">${label}</text></svg>`
   );
 
-const Art = ({ hue, label }: { hue: number; label?: string }) => (
-  <img className="cx-lab__thumb" src={art(hue, label)} alt="" draggable={false} />
-);
+const Art = ({ hue, label }: { hue: number; label?: string }) => <CollectionImage src={art(hue, label)} />;
+
+/** A tall picture, red on top and blue at the bottom, to show which part positionY keeps. */
+const TALL =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200"><rect width="100" height="100" fill="#d9534f"/><rect y="100" width="100" height="100" fill="#4f7fd9"/></svg>`
+  );
 
 const DOC_WIDTH = 600;
 const Doc = () => (
@@ -263,6 +269,22 @@ export function CollectionPrimitivesLab() {
       <div className="cx-lab__row">
         <div className="cx-lab__cell"><CollectionMedia><Art hue={40} /></CollectionMedia>visual</div>
         <div className="cx-lab__cell"><CollectionMedia onClick={() => say('media button')} label="Change"><Art hue={160} /></CollectionMedia>button</div>
+      </div>
+
+      <h3>CollectionImage — covers its box, positionY picks the part kept, falls back to an icon</h3>
+      <div className="cx-lab__row">
+        {[
+          { label: 'positionY 0 (top)', node: <CollectionImage src={TALL} positionY={0} /> },
+          { label: 'positionY 50 (default)', node: <CollectionImage src={TALL} /> },
+          { label: 'positionY 100 (bottom)', node: <CollectionImage src={TALL} positionY={100} /> },
+          { label: 'fails to load → fallback', node: <CollectionImage src="/does-not-exist.png" fallback={<AppIcon icon="image" />} /> },
+          { label: 'no src → fallback', node: <CollectionImage fallback={<AppIcon icon="plus" />} /> },
+        ].map(({ label, node }) => (
+          <div className="cx-lab__cell" key={label}>
+            <div style={{ width: 120, height: 80, border: '1px dashed var(--border-default)', overflow: 'hidden' }}>{node}</div>
+            {label}
+          </div>
+        ))}
       </div>
 
       <h3>ScaledCanvas — one 600px design, three widths (lazy=false)</h3>

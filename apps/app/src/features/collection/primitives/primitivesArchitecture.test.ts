@@ -115,6 +115,7 @@ describe('the Collection primitives own only their own CSS', () => {
     'table/CollectionTableRow.css': 'cx-collection-table-row',
     'table/cells/CollectionTableCell.css': 'cx-collection-table-cell',
     'media/CollectionMedia.css': 'cx-collection-media',
+    'media/CollectionImage.css': 'cx-collection-image',
     'scale/ScaledCanvas.css': 'cx-scaled-canvas',
   };
 
