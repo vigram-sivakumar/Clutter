@@ -62,10 +62,12 @@
   padding-inline-end: 0;
 }
 
-/* Hovered pill: a slightly lifted surface. Both selectors, because the
-   read-only one above declares --pill-surface at higher specificity. */
-.pill:hover,
-.property-list__value .entry__content .pill:hover {
+/* Hovered pill: a slightly lifted surface — only for a clickable one (Pill
+   sets role="button" only then); a static pill (the Template pill) has
+   nothing to hover. Both selectors, because the read-only one above
+   declares --pill-surface at higher specificity. */
+.pill[role='button']:hover,
+.property-list__value .entry__content .pill[role='button']:hover {
   --pill-surface: color-mix(
     in srgb,
     var(--surface-tertiary) 97%,
