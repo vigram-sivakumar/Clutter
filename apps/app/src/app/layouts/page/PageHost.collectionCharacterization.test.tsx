@@ -93,6 +93,7 @@ function makeApplication(): Application {
     folder(TEMPLATES, null),
     folder(ARCHIVE, null),
     folder(`${PROJECTS}/Sub`, PROJECTS),
+    folder(`${TEMPLATES}/Meetings`, TEMPLATES),
   ];
   const pages = [
     pageIn(PROJECTS, 'plan', 'Plan'),
@@ -212,6 +213,24 @@ describe('CURRENT BEHAVIOR — a persisted layout applies per folder, to Inbox l
     expect(hasTable()).toBe(false);
     expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)').length).toBeGreaterThan(0);
     expect(noteRows()).toBe(0);
+  });
+});
+
+describe('KNOWN DEFECT — Templates offers folders it then never shows', () => {
+  it('KNOWN DEFECT: Templates draws a create-folder card but hides its own subfolders from the page (the folders section is emptied for it)', async () => {
+    await renderFolder(TEMPLATES);
+
+    const folderCards = document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)');
+    expect(hasCreateFolderCard()).toBe(true);
+    expect(folderCards).toHaveLength(0); // `Meetings` exists in the vault but is not listed
+    expect(bodyHasText('Meetings')).toBe(false);
+  });
+
+  it('an ordinary folder lists its subfolders next to the same create-folder card', async () => {
+    await renderFolder(PROJECTS);
+
+    expect(document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)')).toHaveLength(1);
+    expect(bodyHasText('Sub')).toBe(true);
   });
 });
 
