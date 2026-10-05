@@ -21,6 +21,18 @@ export interface CardTitleSectionProps {
   /** `horizontal`: items on one line; `vertical`: one item per line. */
   metadataLayout?: 'horizontal' | 'vertical';
   /**
+   * How a `{ label, value }` item lays out: `inline` (default) puts the value right after the
+   * label; `spread` puts the label at the start and the value at the end of the full width, the
+   * value truncating first. Plain string items are unaffected.
+   */
+  metadataAlign?: 'inline' | 'spread';
+  /**
+   * Where the title row sits among the section's lines: `top` (default) is title, description,
+   * metadata; `bottom` reverses the section so the title row is last, under the description
+   * and metadata (each part keeps its own internal order).
+   */
+  titlePlacement?: 'top' | 'bottom';
+  /**
    * Reserves room for at least this many metadata lines even when there are fewer (or none), so
    * cards whose headers carry different amounts of metadata still come out the same height.
    */
@@ -47,6 +59,8 @@ export function CardTitleSection({
   description,
   metadata,
   metadataLayout = 'horizontal',
+  metadataAlign = 'inline',
+  titlePlacement = 'top',
   minMetadataLines = 0,
   className,
 }: CardTitleSectionProps) {
@@ -56,7 +70,15 @@ export function CardTitleSection({
   const reservesMetadata = items.length > 0 || minMetadataLines > 0;
 
   return (
-    <div className={['cx-card-title-section', className].filter(Boolean).join(' ')}>
+    <div
+      className={[
+        'cx-card-title-section',
+        titlePlacement === 'bottom' && 'cx-card-title-section--title-bottom',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {(hasLeading || hasTitle) && (
         <div className="cx-card-title-section__heading">
           {hasLeading && (
@@ -75,7 +97,10 @@ export function CardTitleSection({
           className={[
             'cx-card-title-section__metadata',
             `cx-card-title-section__metadata--${metadataLayout}`,
-          ].join(' ')}
+            metadataAlign === 'spread' && 'cx-card-title-section__metadata--spread',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           style={{ '--cx-card-title-section-min-lines': minMetadataLines } as CSSProperties}
         >
           {items.map((item, index) =>

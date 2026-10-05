@@ -12,6 +12,11 @@
   min-width: 0;
 }
 
+/* titlePlacement="bottom": the title row last; the description and metadata keep their own order. */
+.cx-card-title-section--title-bottom {
+  flex-direction: column-reverse;
+}
+
 .cx-card-title-section__heading {
   display: flex;
   align-items: center;
@@ -92,4 +97,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--foreground-secondary);
+}
+
+/* metadataAlign="spread": a label/value item runs the full width, label at the start, value at the end. */
+.cx-card-title-section__metadata--spread .cx-card-title-section__metadata-item {
+  width: 100%;
+  justify-content: space-between;
 }

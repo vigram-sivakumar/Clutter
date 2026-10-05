@@ -200,7 +200,7 @@ export function CollectionPrimitivesLab() {
             aspectRatio="4 / 5"
             onClick={() => say('open overlay')}
             media={<Art hue={300} label="media fills the card" />}
-            header={<CardTitleSection icon="image" title="Overlay · photo.png" metadata={[{ label: 'Size', value: '4 MB' }, { label: 'Created', value: 'Today' }]} metadataLayout="vertical" />}
+            header={<CardTitleSection icon="image" title="Overlay · photo.png" metadata={[{ label: 'Size', value: '4 MB' }, { label: 'Created', value: 'Today' }]} metadataLayout="vertical" metadataAlign="spread" titlePlacement="bottom" />}
           />
           <CollectionCard
             onClick={() => say('open header-only')}

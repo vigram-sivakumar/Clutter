@@ -80,6 +80,33 @@ describe('CardTitleSection', () => {
     );
   });
 
+  it('aligns label/value items inline by default, or spread across the full width', () => {
+    const items = [{ label: 'Size', value: '4 MB' }];
+    const { container, rerender } = render(<CardTitleSection title="Plan" metadata={items} metadataLayout="vertical" />);
+    expect(container.querySelector('.cx-card-title-section__metadata')).not.toHaveClass(
+      'cx-card-title-section__metadata--spread'
+    );
+
+    rerender(<CardTitleSection title="Plan" metadata={items} metadataLayout="vertical" metadataAlign="spread" />);
+    expect(container.querySelector('.cx-card-title-section__metadata')).toHaveClass(
+      'cx-card-title-section__metadata--spread'
+    );
+  });
+
+  it('puts the title row on top by default, or last with titlePlacement="bottom"', () => {
+    const { container, rerender } = render(<CardTitleSection title="Plan" description="d" metadata={['m']} />);
+    expect(root(container)).not.toHaveClass('cx-card-title-section--title-bottom');
+
+    rerender(<CardTitleSection title="Plan" description="d" metadata={['m']} titlePlacement="bottom" />);
+    expect(root(container)).toHaveClass('cx-card-title-section--title-bottom');
+    // the markup order is unchanged (reading order); only the visual order is reversed
+    expect([...root(container).children].map((c) => c.className.split(' ')[0])).toEqual([
+      'cx-card-title-section__heading',
+      'cx-card-title-section__description',
+      'cx-card-title-section__metadata',
+    ]);
+  });
+
   it('reserves metadata height: min lines show even with fewer items or none', () => {
     const { container, rerender } = render(<CardTitleSection title="Plan" minMetadataLines={2} />);
     let metadata = container.querySelector('.cx-card-title-section__metadata') as HTMLElement;
