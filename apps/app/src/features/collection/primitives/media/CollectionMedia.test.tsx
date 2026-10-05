@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -48,18 +50,10 @@ describe('CollectionMedia', () => {
     expect(currentTarget).toBe(button);
   });
 
-  it('fillHeight marks the frame to fill its host (on the visual frame and on the button)', () => {
-    const { container, rerender } = render(<CollectionMedia>x</CollectionMedia>);
-    expect(container.firstElementChild).not.toHaveClass('cx-collection-media--fill-height');
+  it('has no size props: the parent sizes it through custom properties (default 32 × 24)', () => {
+    const css = readFileSync(join(__dirname, 'CollectionMedia.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
-    rerender(<CollectionMedia fillHeight>x</CollectionMedia>);
-    expect(container.firstElementChild).toHaveClass('cx-collection-media', 'cx-collection-media--fill-height');
-
-    rerender(
-      <CollectionMedia fillHeight onClick={() => {}} label="Change">
-        x
-      </CollectionMedia>
-    );
-    expect(screen.getByRole('button', { name: 'Change' })).toHaveClass('cx-collection-media--fill-height');
+    expect(css).toMatch(/width:\s*var\(--cx-collection-media-width,\s*var\(--space-32\)\)/);
+    expect(css).toMatch(/height:\s*var\(--cx-collection-media-height,\s*var\(--space-24\)\)/);
   });
 });

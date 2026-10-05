@@ -118,14 +118,13 @@ describe('CollectionDataTable', () => {
     expect(second).not.toHaveAttribute('role');
   });
 
-  it('marks selected rows, draws actions and extra row attributes', () => {
+  it('marks selected rows and carries extra row attributes', () => {
     const { container } = render(
       <CollectionDataTable
         columns={columns}
         rows={[
           row({
             isSelected: true,
-            actions: <button type="button">Restore</button>,
             props: { 'data-resource-id': 'r1' },
           }),
         ]}
@@ -134,7 +133,6 @@ describe('CollectionDataTable', () => {
     const tableRow = container.querySelector('.cx-collection-table-row')!;
 
     expect(tableRow).toHaveClass('cx-collection-table-row--selected');
-    expect(tableRow.querySelector('.cx-collection-table-row__actions button')).toHaveTextContent('Restore');
     expect(tableRow).toHaveAttribute('data-resource-id', 'r1');
   });
 

@@ -28,9 +28,6 @@ export interface CollectionDataListItem {
 
   readonly isSelected?: boolean;
 
-  /** Revealed on hover/focus at the row's end. */
-  readonly actions?: ReactNode;
-
   /** Opens the item (click / Enter / Space). */
   readonly onClick?: () => void;
 
@@ -84,7 +81,6 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
             ) : undefined
           }
           isSelected={item.isSelected}
-          actions={item.actions}
           onClick={item.onClick ? () => item.onClick?.() : undefined}
         />
       ))}

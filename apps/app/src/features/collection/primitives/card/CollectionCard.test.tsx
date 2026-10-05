@@ -13,12 +13,11 @@ afterEach(cleanup);
 const card = (container: HTMLElement) => container.firstElementChild as HTMLElement;
 
 describe('CollectionCard — slots', () => {
-  it('renders header, media, content and actions in their own wrappers, and nothing for an absent slot', () => {
+  it('renders header, media and content in their own wrappers, and nothing for an absent slot', () => {
     const { container } = render(
       <CollectionCard
         header={<h3>head</h3>}
         media={<img alt="" data-testid="media" />}
-        actions={<button type="button">act</button>}
       >
         <p>body</p>
       </CollectionCard>
@@ -28,13 +27,11 @@ describe('CollectionCard — slots', () => {
     expect(root.querySelector('.cx-collection-card__header')).toHaveTextContent('head');
     expect(root.querySelector('.cx-collection-card__media [data-testid="media"]')).not.toBeNull();
     expect(root.querySelector('.cx-collection-card__content')).toHaveTextContent('body');
-    expect(root.querySelector('.cx-collection-card__actions button')).not.toBeNull();
 
     cleanup();
     const { container: bare } = render(<CollectionCard header="only" />);
     expect(bare.querySelector('.cx-collection-card__media')).toBeNull();
     expect(bare.querySelector('.cx-collection-card__content')).toBeNull();
-    expect(bare.querySelector('.cx-collection-card__actions')).toBeNull();
   });
 
   it('knows nothing about what a slot holds — any node goes in', () => {
@@ -169,15 +166,17 @@ describe('CollectionCard — interaction', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('a nested interactive element keeps its own click (the actions slot never opens the card)', () => {
+  it('a nested interactive element keeps its own click and never opens the card', () => {
     const onClick = vi.fn();
-    const onAction = vi.fn();
+    const onNested = vi.fn();
     render(
-      <CollectionCard header="h" onClick={onClick} actions={<button type="button" onClick={onAction}>Restore</button>} />
+      <CollectionCard header="h" onClick={onClick}>
+        <button type="button" onClick={onNested}>Inner</button>
+      </CollectionCard>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-    expect(onAction).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Inner' }));
+    expect(onNested).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes } from 'react';
 import { CollectionRow } from '../row/CollectionRow';
 import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
 import { CollectionTableCell, type CollectionTableCellProps } from './cells/CollectionTableCell';
@@ -23,8 +23,6 @@ export interface CollectionDataTableRow {
   readonly isSelected?: boolean;
   /** Opens the row (click / Enter / Space). */
   readonly onClick?: () => void;
-  /** Revealed on hover/focus at the row's right edge. */
-  readonly actions?: ReactNode;
   /** Extra `data-*` / ARIA attributes for the row. */
   readonly props?: CollectionRowAttributes;
 }
@@ -73,7 +71,6 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
           key={row.id}
           gridTemplateColumns={gridTemplateColumns}
           isSelected={row.isSelected}
-          actions={row.actions}
           onClick={row.onClick ? () => row.onClick?.() : undefined}
         >
           {columns.map((column) => {

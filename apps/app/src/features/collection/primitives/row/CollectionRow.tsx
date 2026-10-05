@@ -32,8 +32,6 @@ export interface CollectionRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   metadata?: ReactNode;
   /** A thumbnail at the trailing end, after the metadata (`list` only). */
   media?: ReactNode;
-  /** Revealed on hover/focus at the row's end. */
-  actions?: ReactNode;
 
   isSelected?: boolean;
 
@@ -42,11 +40,9 @@ export interface CollectionRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
 }
 
 /**
- * One generic row: leading icon or emoji, title, description, metadata, media
- * and hover-revealed actions. It draws a list row or a table's name cell and
+ * One generic row: leading icon or emoji, title, description, metadata and media. It draws a list row or a table's name cell and
  * knows nothing about what the row is. Opening goes through the shared
- * activation behavior, so a nested control (an actions button, a clickable
- * thumbnail) keeps its own click.
+ * activation behavior, so a nested control (a clickable thumbnail) keeps its own click.
  */
 export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(function CollectionRow(
   {
@@ -61,7 +57,6 @@ export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(func
     descriptionPlaceholder,
     metadata,
     media,
-    actions,
     isSelected = false,
     onClick,
     className,
@@ -127,7 +122,6 @@ export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(func
         )}
       </div>
 
-      {actions && <div className="cx-collection-row__actions">{actions}</div>}
     </div>
   );
 });

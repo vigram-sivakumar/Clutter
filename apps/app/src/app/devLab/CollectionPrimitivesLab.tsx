@@ -236,9 +236,9 @@ export function CollectionPrimitivesLab() {
       <div className="cx-lab__stage" style={stage}>
         <CollectionDataList
           items={[
-            { id: 'al1', leading: <CollectionMedia fillHeight><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault', metadata: ['Image', '2.4 MB'], onClick: () => say('open asset al1') },
-            { id: 'al2', leading: <CollectionMedia fillHeight><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote', metadata: ['PDF', '810 KB'], onClick: () => say('open asset al2') },
-            { id: 'al3', leading: <CollectionMedia fillHeight><Art hue={300} /></CollectionMedia>, title: 'No description (one-line row)', metadata: ['Image'], isSelected: true },
+            { id: 'al1', leading: <CollectionMedia><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault', metadata: ['Image', '2.4 MB'], onClick: () => say('open asset al1') },
+            { id: 'al2', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote', metadata: ['PDF', '810 KB'], onClick: () => say('open asset al2') },
+            { id: 'al3', leading: <CollectionMedia><Art hue={300} /></CollectionMedia>, title: 'No description (one-line row)', metadata: ['Image'], isSelected: true },
           ]}
         />
       </div>
@@ -258,9 +258,9 @@ export function CollectionPrimitivesLab() {
             { id: 'size', label: 'Size', width: '110px' },
           ]}
           rows={[
-            { id: 'a1', cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '2.4 MB' } }, onClick: () => say('open asset a1') },
-            { id: 'a2', cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote' }, type: { variant: 'text', value: 'PDF' }, size: { variant: 'text', value: '810 KB' } }, onClick: () => say('open asset a2') },
-            { id: 'a3', isSelected: true, cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={300} /></CollectionMedia>, title: 'A very long file name that has to be cut off before it reaches the next column.png' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '12 MB' } }, onClick: () => say('open asset a3') },
+            { id: 'a1', cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '2.4 MB' } }, onClick: () => say('open asset a1') },
+            { id: 'a2', cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote' }, type: { variant: 'text', value: 'PDF' }, size: { variant: 'text', value: '810 KB' } }, onClick: () => say('open asset a2') },
+            { id: 'a3', isSelected: true, cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={300} /></CollectionMedia>, title: 'A very long file name that has to be cut off before it reaches the next column.png' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '12 MB' } }, onClick: () => say('open asset a3') },
           ]}
         />
       </div>
@@ -272,7 +272,7 @@ export function CollectionPrimitivesLab() {
       </div>
 
       <h3>Multiple sizes — the same primitives in containers of 240, 420 and 720px</h3>
-      <p className="cx-lab__note">Fake data, fixed-width stages. Grid columns, rows (truncation), the table (horizontal scroll) and media at each width.</p>
+      <p className="cx-lab__note">Fake data, fixed-width stages (each parent sizes its own CollectionMedia). Grid columns, rows (truncation), the table (horizontal scroll) and media at each width.</p>
       <div className="cx-lab__row">
         {[240, 420, 720].map((w) => (
           <div className="cx-lab__cell" key={w} style={{ width: w }}>
@@ -296,7 +296,7 @@ export function CollectionPrimitivesLab() {
               <CollectionDataList
                 items={[
                   { id: `s1-${w}`, icon: 'note', title: 'A long row title that has to truncate', description: 'and a long description beside it', metadata: ['Today', 'Yesterday'], media: { children: <Art hue={20} /> }, onClick: () => say(`open row @${w}`) },
-                  { id: `s2-${w}`, leading: <CollectionMedia fillHeight><Art hue={200} /></CollectionMedia>, title: 'Short', metadata: ['12 Aug'] },
+                  { id: `s2-${w}`, leading: <CollectionMedia><Art hue={200} /></CollectionMedia>, title: 'Short', metadata: ['12 Aug'] },
                 ]}
                 newItem={{ label: 'New Note', onClick: () => say('new') }}
               />
@@ -312,7 +312,7 @@ export function CollectionPrimitivesLab() {
               />
               <div className="cx-lab__row" style={{ marginTop: 12, gap: 12, alignItems: 'center' }}>
                 <CollectionMedia><Art hue={40} /></CollectionMedia>
-                <div style={{ height: 56, display: 'flex' }}><CollectionMedia fillHeight><Art hue={160} /></CollectionMedia></div>
+                <div style={{ height: 56, display: 'flex' }}><CollectionMedia><Art hue={160} /></CollectionMedia></div>
                 <div style={{ width: 120 }}><ScaledCanvas designWidth={DOC_WIDTH} lazy={false}><Doc /></ScaledCanvas></div>
               </div>
             </div>

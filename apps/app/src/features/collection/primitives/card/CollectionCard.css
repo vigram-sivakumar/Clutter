@@ -59,20 +59,42 @@
 .cx-collection-card--layout-overlay {
   padding: 0;
   gap: 0;
-  --cx-card-title-color: #fff;
-  --cx-card-title-leading-color: #fff;
-  --cx-card-description-color: rgba(255, 255, 255, 0.78);
+  --cx-card-title-color: rgb(255 255 255);
+  --cx-card-title-leading-color: rgb(255 255 255);
+  --cx-card-description-color: rgb(255 255 255 / 0.78);
+  --cx-card-metadata-value-color: rgb(255 255 255);
 }
 .cx-collection-card--layout-overlay > .cx-collection-card__media {
   position: absolute;
   inset: 0;
 }
+/*
+ * The header sits over the media's bottom edge on a dark scrim so its text stays readable on any
+ * picture. The scrim and the text are deliberately fixed colours, not theme tokens: it sits over a
+ * picture, so it is dark and the text light in both themes. The gradient is eased (alpha follows
+ * 0.72 × (1 − smoothstep), sampled every 10%) so it has no visible edge at either end.
+ */
 .cx-collection-card--layout-overlay > .cx-collection-card__header {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  padding: var(--space-24) var(--space-6) var(--space-6);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  z-index: 1;
+  padding: var(--space-32) var(--space-6) var(--space-6);
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.72) 0%,
+    rgb(0 0 0 / 0.7) 10%,
+    rgb(0 0 0 / 0.645) 20%,
+    rgb(0 0 0 / 0.564) 30%,
+    rgb(0 0 0 / 0.467) 40%,
+    rgb(0 0 0 / 0.36) 50%,
+    rgb(0 0 0 / 0.253) 60%,
+    rgb(0 0 0 / 0.156) 70%,
+    rgb(0 0 0 / 0.075) 80%,
+    rgb(0 0 0 / 0.02) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
 }
 
 /* ---- empty: the quiet "add something" card, its content centred ---- */
@@ -87,25 +109,4 @@
   align-items: center;
   justify-content: center;
   color: var(--foreground-tertiary);
-}
-
-/* ---- actions: revealed on hover / focus ---- */
-.cx-collection-card__actions {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 150ms ease;
-}
-.cx-collection-card:hover > .cx-collection-card__actions,
-.cx-collection-card:focus-within > .cx-collection-card__actions {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
 }

@@ -1,18 +1,17 @@
 /*
- * The thumbnail frame. A 32 × 24 landscape frame; change the two custom
- * properties to resize every frame. Spacing is padding only (CLAUDE.md: no
- * margin on anything the editor/collection layout manages).
+ * The thumbnail frame. Its parent sets the size with --cx-collection-media-width
+ * and --cx-collection-media-height (default 32 × 24); `contain: size` keeps what
+ * is inside (an image's intrinsic size) from driving it. Spacing is padding only
+ * (CLAUDE.md: no margin on anything the collection layout manages).
  */
 .cx-collection-media {
-  --cx-collection-media-width: var(--space-32);
-  --cx-collection-media-height: var(--space-24);
-
   display: flex;
+  contain: size;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--cx-collection-media-width);
-  height: var(--cx-collection-media-height);
+  width: var(--cx-collection-media-width, var(--space-32));
+  height: var(--cx-collection-media-height, var(--space-24));
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -36,16 +35,4 @@
 .cx-collection-media--interactive:focus-visible {
   outline: none;
   box-shadow: var(--shadow-inset-focus);
-}
-
-/*
- * Fill the host's height (the host must stretch it); the width stays fixed, so the frame never
- * drives the host's height itself — `contain: size` keeps whatever is inside (an image's
- * intrinsic size) out of that calculation.
- */
-.cx-collection-media--fill-height {
-  width: var(--cx-collection-media-fill-width, var(--space-32));
-  height: auto;
-  align-self: stretch;
-  contain: size;
 }

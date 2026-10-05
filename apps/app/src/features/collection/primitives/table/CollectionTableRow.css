@@ -36,28 +36,6 @@
   pointer-events: none;
 }
 
-/* Hover-revealed row actions: an overlay at the right edge, not a grid column. */
-.cx-collection-table-row__actions {
-  position: absolute;
-  right: var(--space-12);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 150ms ease;
-}
-.cx-collection-table-row:hover > .cx-collection-table-row__actions,
-.cx-collection-table-row:focus-within > .cx-collection-table-row__actions {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
 /* The trailing "new item" row. */
 .cx-collection-table-row--new-item {
   padding-block: var(--space-8);

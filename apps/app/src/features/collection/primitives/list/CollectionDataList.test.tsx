@@ -44,12 +44,12 @@ describe('CollectionDataList', () => {
     expect(screen.queryByText('Hidden')).toBeNull();
   });
 
-  it('leading replaces the icon with a thumbnail that fills the row height', () => {
+  it('leading replaces the icon with a thumbnail', () => {
     const { container } = render(
       <CollectionDataList
         items={[
           item({
-            leading: <CollectionMedia fillHeight><img alt="" data-testid="thumb" /></CollectionMedia>,
+            leading: <CollectionMedia><img alt="" data-testid="thumb" /></CollectionMedia>,
             description: 'Vault',
           }),
         ]}
@@ -57,7 +57,7 @@ describe('CollectionDataList', () => {
     );
     const row = container.querySelector('.cx-collection-row')!;
 
-    expect(row.querySelector('.cx-collection-row__leading .cx-collection-media--fill-height [data-testid="thumb"]')).not.toBeNull();
+    expect(row.querySelector('.cx-collection-row__leading .cx-collection-media [data-testid="thumb"]')).not.toBeNull();
     expect(row.querySelector('svg')).toBeNull();
   });
 
@@ -92,13 +92,12 @@ describe('CollectionDataList', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it('marks selected items, draws actions and extra row attributes', () => {
+  it('marks selected items and carries extra row attributes', () => {
     const { container } = render(
       <CollectionDataList
         items={[
           item({
             isSelected: true,
-            actions: <button type="button">Restore</button>,
             props: { 'data-resource-id': 'r1', 'aria-label': 'Plan row' },
           }),
         ]}
@@ -107,7 +106,6 @@ describe('CollectionDataList', () => {
     const row = container.querySelector('.cx-collection-row')!;
 
     expect(row).toHaveClass('cx-collection-row--selected');
-    expect(row.querySelector('.cx-collection-row__actions button')).toHaveTextContent('Restore');
     expect(row).toHaveAttribute('data-resource-id', 'r1');
     expect(row).toHaveAttribute('aria-label', 'Plan row');
   });

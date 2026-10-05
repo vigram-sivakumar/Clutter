@@ -11,8 +11,6 @@ export interface CollectionCardProps
   media?: ReactNode;
   /** The main content. In `stack` it fills whatever height the header and media leave. */
   children?: ReactNode;
-  /** Revealed on hover/focus, pinned to the card's top-right corner. */
-  actions?: ReactNode;
 
   /** `stack` (default): header, media, content in order. `overlay`: media fills the card, the header sits over its bottom edge. */
   layout?: 'stack' | 'overlay';
@@ -34,7 +32,7 @@ export interface CollectionCardProps
 
 /**
  * A bounded card surface — fill, border, radius, hover, selected, focus — with
- * four slots (header, media, children, actions) it arranges but never looks
+ * three slots (header, media, children) it arranges but never looks
  * inside. What a card shows is the caller's content; what it does when
  * clicked is the caller's `onClick`, wired through the shared activation
  * behavior (nested controls keep their own clicks).
@@ -44,7 +42,6 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
     header,
     media,
     children,
-    actions,
     layout = 'stack',
     aspectRatio,
     isSelected = false,
@@ -90,7 +87,6 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
           {children && <div className="cx-collection-card__content">{children}</div>}
         </>
       )}
-      {actions && <div className="cx-collection-card__actions">{actions}</div>}
     </div>
   );
 });

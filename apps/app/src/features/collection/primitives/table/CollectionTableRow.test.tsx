@@ -47,16 +47,6 @@ describe('CollectionTableRow', () => {
     expect(row(container)).toHaveClass('cx-collection-table-row--selected');
   });
 
-  it('draws the actions slot outside the cells', () => {
-    const { container } = render(
-      <CollectionTableRow gridTemplateColumns="1fr" actions={<button type="button">Restore</button>}>
-        x
-      </CollectionTableRow>
-    );
-
-    expect(container.querySelector('.cx-collection-table-row__actions button')).toHaveTextContent('Restore');
-  });
-
   it('is inert without onClick', () => {
     const { container } = render(<CollectionTableRow gridTemplateColumns="1fr">x</CollectionTableRow>);
 

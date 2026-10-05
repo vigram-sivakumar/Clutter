@@ -96,11 +96,14 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--foreground-secondary);
+  color: var(--cx-card-metadata-value-color, var(--foreground-secondary));
 }
 
 /* metadataAlign="spread": a label/value item runs the full width, label at the start, value at the end. */
 .cx-card-title-section__metadata--spread .cx-card-title-section__metadata-item {
   width: 100%;
   justify-content: space-between;
+}
+.cx-card-title-section__metadata--spread .cx-card-title-section__metadata-value {
+  text-align: right;
 }

@@ -122,12 +122,6 @@ describe('CollectionRow — state and slots', () => {
     expect(row(container)).toHaveClass('cx-collection-row--selected');
   });
 
-  it('draws the actions slot', () => {
-    const { container } = render(<CollectionRow title="Plan" actions={<button type="button">Restore</button>} />);
-
-    expect(container.querySelector('.cx-collection-row__actions button')).toHaveTextContent('Restore');
-  });
-
   it('forwards ref, className and attributes', () => {
     const ref = { current: null as HTMLDivElement | null };
     const { container } = render(<CollectionRow ref={ref} title="Plan" className="mine" data-resource-id="r1" />);
@@ -158,19 +152,19 @@ describe('CollectionRow — interaction', () => {
     expect(onClick).toHaveBeenCalledTimes(3);
   });
 
-  it('a nested control (actions, a clickable thumbnail) keeps its own click', () => {
+  it('a nested control (a clickable thumbnail) keeps its own click', () => {
     const onClick = vi.fn();
-    const onAction = vi.fn();
+    const onNested = vi.fn();
     render(
       <CollectionRow
         title="Plan"
         onClick={onClick}
-        actions={<button type="button" onClick={onAction}>Restore</button>}
+        media={<button type="button" onClick={onNested}>Thumb</button>}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-    expect(onAction).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Thumb' }));
+    expect(onNested).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();
   });
 });

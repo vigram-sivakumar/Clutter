@@ -49,7 +49,7 @@ export interface CardTitleSectionProps {
  *
  * Customizable by its host through CSS custom properties it reads (all
  * optional): --cx-card-title-color, --cx-card-title-leading-color,
- * --cx-card-description-color.
+ * --cx-card-description-color, --cx-card-metadata-value-color.
  */
 export function CardTitleSection({
   icon,

@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from 'react';
+import { type MouseEvent, type ReactNode } from 'react';
 import './CollectionMedia.css';
 
 export interface CollectionMediaProps {
@@ -8,30 +8,27 @@ export interface CollectionMediaProps {
   readonly onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   /** The button's accessible name (used only with `onClick`). A purely visual frame is hidden from assistive tech. */
   readonly label?: string;
-  /**
-   * Fill the height of whatever it sits in (a row's leading slot, say) instead of the fixed
-   * frame height; the width stays fixed (--cx-collection-media-fill-width). Needs a host that stretches it.
-   */
-  readonly fillHeight?: boolean;
 }
 
 /**
- * A small thumbnail frame: size, border, radius, clipping. It knows nothing
- * about what it frames. With `onClick` it is a button that looks like the frame.
+ * A thumbnail frame: border, radius, clipping. It has no size props — its
+ * parent decides how big it is, through --cx-collection-media-width and
+ * --cx-collection-media-height (default 32 × 24; `auto` height stretches it to
+ * a flex parent). It knows nothing about what it frames. With `onClick` it is
+ * a button that looks like the frame.
  */
-export function CollectionMedia({ children, onClick, label, fillHeight = false }: CollectionMediaProps) {
-  const frame = ['cx-collection-media', fillHeight && 'cx-collection-media--fill-height'];
+export function CollectionMedia({ children, onClick, label }: CollectionMediaProps) {
   return onClick ? (
     <button
       type="button"
-      className={[...frame, 'cx-collection-media--interactive'].filter(Boolean).join(' ')}
+      className="cx-collection-media cx-collection-media--interactive"
       aria-label={label}
       onClick={onClick}
     >
       {children}
     </button>
   ) : (
-    <div className={frame.filter(Boolean).join(' ')} aria-hidden="true">
+    <div className="cx-collection-media" aria-hidden="true">
       {children}
     </div>
   );
