@@ -116,4 +116,26 @@ describe('buildNoteTopBarMenu', () => {
     expect(archived).not.toContain('add-a-description');
     expect(draft).not.toContain('add-a-description');
   });
+
+  it("includes an enabled 'use-as-template' for a persisted, active note", () => {
+    const item = buildNoteTopBarMenu('active').find((i) => i.id === 'use-as-template');
+
+    expect(item).toBeDefined();
+    expect(item?.disabled).toBeFalsy();
+  });
+
+  it("disables 'use-as-template' for a draft and an archived note", () => {
+    expect(
+      buildNoteTopBarMenu('draft').find((i) => i.id === 'use-as-template')?.disabled
+    ).toBe(true);
+    expect(
+      buildNoteTopBarMenu('archived').find((i) => i.id === 'use-as-template')?.disabled
+    ).toBe(true);
+  });
+
+  it("omits 'use-as-template' for a note that is already a template", () => {
+    expect(
+      buildNoteTopBarMenu('active', false, false, true).map((i) => i.id)
+    ).not.toContain('use-as-template');
+  });
 });
