@@ -39,7 +39,8 @@
   height: auto;
   min-height: var(--height-sm);
   aspect-ratio: auto;
-  /* A CollectionMedia in here takes the row's height; its width stays the default. */
+  /* A CollectionMedia in here is a 24px-wide thumbnail that takes the row's height (24px × 24px in a one-line row). */
+  --collection-media-width: var(--space-24);
   --collection-media-height: auto;
 }
 

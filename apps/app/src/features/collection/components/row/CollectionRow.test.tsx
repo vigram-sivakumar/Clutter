@@ -34,6 +34,15 @@ describe('CollectionRow — content', () => {
     expect(container.querySelector('.emoji-icon')).toBeNull();
   });
 
+  it('a thumbnail in the leading slot is 24px wide and takes the row height (a 24px square in a one-line row)', () => {
+    const css = readFileSync(join(__dirname, 'CollectionRow.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = css.match(/\.collection-row__leading--custom\s*\{([^}]*)\}/)![1]!;
+
+    expect(rule).toMatch(/--collection-media-width:\s*var\(--space-24\)/);
+    expect(rule).toMatch(/--collection-media-height:\s*auto/);
+    expect(rule).toMatch(/align-self:\s*stretch/);
+  });
+
   it('has no leading box without an icon or emoji', () => {
     const { container } = render(<CollectionRow title="Plan" />);
 
