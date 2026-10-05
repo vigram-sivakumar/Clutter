@@ -27,7 +27,7 @@ export function toFolderCardProps(entry: CollectionEntryModel): CollectionCardPr
       <CardTitleSection
         icon="folder"
         emoji={entry.emoji ?? undefined}
-        title={entry.title}
+        title={entry.values.name}
         metadata={
           hasCounts ? [`${entry.subfolderCount ?? 0} Subfolders`, `${entry.noteCount ?? 0} Notes`] : undefined
         }

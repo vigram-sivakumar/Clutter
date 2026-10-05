@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { noteEntry } from '@features/collection/testing/collectionEntry';
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -80,7 +81,7 @@ describe('CollectionHeaderActions', () => {
   });
 
   function template(id: string, title: string, onClick = vi.fn()) {
-    return { id, type: 'note', title, icon: 'note', emoji: null, selected: false, onClick, markdown: `# ${title}` } as never;
+    return noteEntry({ id, title, onClick, markdown: `# ${title}` }) as never;
   }
   function openWithTemplates(templates: unknown[], onCreateTemplate = vi.fn()) {
     const utils = renderActions({

@@ -6,23 +6,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
+import { formatEntryTimestamp } from '../../properties/formatProperty';
+import { noteEntry, type EntryFixture } from '../../testing/collectionEntry';
 
 import type { NotePreviewResolvers } from './notePreviewResolvers';
 import { NOTE_CARD_ASPECT_RATIO, NOTE_GRID, toNoteCardProps, type NoteCardOptions } from './toNoteCardProps';
 
 afterEach(cleanup);
 
-const entry = (overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel => ({
-  id: 'n1',
-  type: 'note',
-  title: 'Plan',
-  icon: 'note',
-  emoji: null,
-  selected: false,
-  onClick: () => {},
-  markdown: '# Heading',
-  ...overrides,
-});
+const entry = (fixture: EntryFixture = {}): CollectionEntryModel =>
+  noteEntry({ id: 'n1', title: 'Plan', onClick: () => {}, markdown: '# Heading', ...fixture });
+// An entry's dates are ISO instants; the text a card shows is the formatter's.
+const UPDATED_AT = '2026-08-12T14:20:00.000Z';
+const UPDATED_TEXT = formatEntryTimestamp(UPDATED_AT)!;
 const SHOW_ALL: NoteCardOptions['show'] = { description: true, updated: true };
 const resolvers: NotePreviewResolvers = {
   resolveCoverImage: (cover) => (cover.startsWith('Assets/') ? `app://vault/${cover}` : cover),
@@ -35,7 +31,7 @@ function draw(model: CollectionEntryModel, options: Partial<NoteCardOptions> = {
 
 describe('toNoteCardProps', () => {
   it('is a fixed-shape card on the generic card: header, then the page canvas — no note-specific card component', () => {
-    const { container } = draw(entry({ updated: '12 Aug 2026' }));
+    const { container } = draw(entry({ updated: UPDATED_AT }));
     const card = container.firstElementChild as HTMLElement;
 
     expect(card).toHaveClass('collection-card', 'collection-card--layout-stack');
@@ -48,11 +44,11 @@ describe('toNoteCardProps', () => {
   });
 
   it('renders title and metadata in the header, and the page as a separate region', () => {
-    const { container } = draw(entry({ updated: '12 Aug 2026' }));
+    const { container } = draw(entry({ updated: UPDATED_AT }));
 
     const header = container.querySelector('.collection-card__header')!;
     expect(header.querySelector('.card-title-section__title')?.textContent).toBe('Plan');
-    expect(header.querySelector('.card-title-section__metadata')?.textContent).toBe('Edited 12 Aug 2026');
+    expect(header.querySelector('.card-title-section__metadata')?.textContent).toBe(`Edited ${UPDATED_TEXT}`);
     // Icon + title share the heading row; metadata is below it, not inside.
     const heading = header.querySelector('.card-title-section__heading')!;
     expect(heading.querySelector('.app-icon')).toBeInTheDocument();
@@ -69,23 +65,23 @@ describe('toNoteCardProps', () => {
   });
 
   it('shows the description on its own line above the edited date', () => {
-    const { container } = draw(entry({ description: 'What this note is about', updated: '12 Aug 2026', markdown: '' }));
+    const { container } = draw(entry({ description: 'What this note is about', updated: UPDATED_AT, markdown: '' }));
 
     const lines = [
       ...container.querySelectorAll('.card-title-section__description, .card-title-section__metadata-item'),
     ];
-    expect(lines.map((l) => l.textContent)).toEqual(['What this note is about', 'Edited 12 Aug 2026']);
+    expect(lines.map((l) => l.textContent)).toEqual(['What this note is about', `Edited ${UPDATED_TEXT}`]);
   });
 
   it('renders no description line (and no placeholder) when there is none', () => {
-    const { container } = draw(entry({ updated: '12 Aug 2026', markdown: '' }));
+    const { container } = draw(entry({ updated: UPDATED_AT, markdown: '' }));
 
     expect(container.querySelector('.card-title-section__description')).toBeNull();
     expect(container.textContent).not.toMatch(/No description/);
   });
 
   it('the Description / Last edited properties turn their lines off', () => {
-    const { container } = draw(entry({ description: 'About', updated: '12 Aug 2026' }), {
+    const { container } = draw(entry({ description: 'About', updated: UPDATED_AT }), {
       show: { description: false, updated: false },
     });
 
@@ -152,7 +148,8 @@ describe('toNoteCardProps', () => {
 
     it('is omitted when hidden, absent or unresolvable — the card still has its canvas', () => {
       for (const [model, options] of [
-        [entry({ cover: 'Assets/hero.png', coverHidden: true }), {}],
+        // A hidden cover is simply no cover value (the adapter drops it).
+        [entry({}), {}],
         [entry({}), {}],
         [entry({ cover: 'Assets/hero.png' }), { resolvers: { resolveCoverImage: () => null } }],
       ] as const) {

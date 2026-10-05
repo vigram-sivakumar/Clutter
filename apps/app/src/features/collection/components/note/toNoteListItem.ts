@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react';
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
+import { formatPropertyValue } from '../../properties/formatProperty';
 import { toNoteCoverImage } from './toNoteCoverImage';
 
 export interface NoteListItemOptions {
@@ -36,17 +37,17 @@ export function toNoteListItem(
   { show, cover }: NoteListItemOptions
 ): CollectionDataListItem {
   const metadata = [
-    show.created ? entry.created : undefined,
-    show.updated ? entry.updated : undefined,
-    show.archived ? entry.archived : undefined,
+    show.created ? formatPropertyValue('created', entry.values) : undefined,
+    show.updated ? formatPropertyValue('updated', entry.values) : undefined,
+    show.archived ? formatPropertyValue('archived', entry.values) : undefined,
   ].filter((value): value is string => Boolean(value));
 
   return {
     id: entry.id,
     icon: 'note',
     emoji: entry.emoji ?? undefined,
-    title: entry.title,
-    description: show.description ? entry.description : undefined,
+    title: entry.values.name,
+    description: show.description ? entry.values.description : undefined,
     metadata,
     media: cover && {
       children: toNoteCoverImage(cover.url, entry.coverPositionAbove),

@@ -6,23 +6,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
+import { folderEntry, type EntryFixture } from '../../testing/collectionEntry';
 
 import { FOLDER_GRID, toFolderCardProps } from './toFolderCardProps';
 
 afterEach(cleanup);
 
-const entry = (overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel => ({
-  id: 'f1',
-  type: 'folder',
-  title: 'Projects',
-  icon: 'folder',
-  emoji: null,
-  selected: false,
-  onClick: () => {},
-  subfolderCount: 2,
-  noteCount: 5,
-  ...overrides,
-});
+const entry = (fixture: EntryFixture = {}): CollectionEntryModel =>
+  folderEntry({ id: 'f1', title: 'Projects', onClick: () => {}, subfolderCount: 2, noteCount: 5, ...fixture });
 
 const draw = (model: CollectionEntryModel) => render(<CollectionCard {...toFolderCardProps(model)} />);
 

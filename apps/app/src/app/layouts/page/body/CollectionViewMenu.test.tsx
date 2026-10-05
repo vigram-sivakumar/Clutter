@@ -10,8 +10,8 @@ import {
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
   type CollectionPropertyVisibility,
-  type CollectionSortState,
 } from './CollectionBody';
+import type { CollectionSort } from '@core/properties/collectionSort';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -35,7 +35,7 @@ function renderMenu(
   overrides: {
     viewMode?: 'list' | 'table' | 'card';
     properties?: CollectionPropertyVisibility;
-    sort?: CollectionSortState;
+    sort?: CollectionSort;
     showArchived?: boolean;
   } = {}
 ) {
@@ -133,28 +133,28 @@ describe('CollectionViewMenu — root view', () => {
 
     fireEvent.click(getByText('Last edited'));
 
-    expect(onSortChange).toHaveBeenCalledWith({ key: 'updated', direction: 'down' });
+    expect(onSortChange).toHaveBeenCalledWith({ property: 'updated', direction: 'down' });
     expect(getByText('Sort by')).toBeInTheDocument();
   });
 
   it('clicking the already-active sort option flips its direction: down to up', () => {
     const { getByText, onSortChange } = renderMenu({
-      sort: { key: 'created', direction: 'down' },
+      sort: { property: 'created', direction: 'down' },
     });
 
     fireEvent.click(getByText('Created'));
 
-    expect(onSortChange).toHaveBeenCalledWith({ key: 'created', direction: 'up' });
+    expect(onSortChange).toHaveBeenCalledWith({ property: 'created', direction: 'up' });
   });
 
   it('clicking the already-active option a second time flips back: up to down', () => {
     const { getByText, onSortChange } = renderMenu({
-      sort: { key: 'name', direction: 'up' },
+      sort: { property: 'name', direction: 'up' },
     });
 
     fireEvent.click(getByText('Name'));
 
-    expect(onSortChange).toHaveBeenCalledWith({ key: 'name', direction: 'down' });
+    expect(onSortChange).toHaveBeenCalledWith({ property: 'name', direction: 'down' });
   });
 });
 
@@ -249,7 +249,7 @@ describe('CollectionViewMenu — Archived (Archive collection only)', () => {
 
     fireEvent.click(getByText('Archived'));
 
-    expect(onSortChange).toHaveBeenCalledWith({ key: 'archived', direction: 'down' });
+    expect(onSortChange).toHaveBeenCalledWith({ property: 'archived', direction: 'down' });
   });
 
   it('offers an Archived property toggle when showArchived', () => {
@@ -378,9 +378,9 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
 
     // Re-clicking the active key (Name, down) flips it; picking File size activates it at 'down'.
     fireEvent.click(utils.getByText('Name'));
-    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'name', direction: 'up' });
+    expect(onSortChange).toHaveBeenLastCalledWith({ property: 'name', direction: 'up' });
     fireEvent.click(utils.getByText('File size'));
-    expect(onSortChange).toHaveBeenLastCalledWith({ key: 'size', direction: 'down' });
+    expect(onSortChange).toHaveBeenLastCalledWith({ property: 'size', direction: 'down' });
   });
 
   it('every collection and layout: Sort by is Name followed by the Properties list — same labels, same order (Title is the Name)', () => {

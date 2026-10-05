@@ -2,6 +2,8 @@ import {
   mergeAndWriteWorkspaceStateFile,
   readWorkspaceStateFileText,
 } from '../../vault/initialize/workspaceStateFile';
+import { isPropertyId } from '../../properties/collectionProperties';
+import type { CollectionSort } from '../../properties/collectionSort';
 import { WORKSPACE_STATE_RELATIVE_PATH } from '../../vault/initialize/ReservedResources';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
@@ -32,20 +34,13 @@ export interface PersistedCollectionProperties {
   readonly size?: boolean;
 }
 
-export type PersistedCollectionSortKey =
-  | 'name'
-  | 'description'
-  | 'cover'
-  | 'size'
-  | 'created'
-  | 'updated'
-  | 'archived';
-export type PersistedCollectionSortDirection = 'down' | 'up';
-
-export interface PersistedCollectionSort {
-  readonly key: PersistedCollectionSortKey;
-  readonly direction: PersistedCollectionSortDirection;
-}
+/**
+ * The persisted sort is `{ property, direction }` — a property id from the registry
+ * (`core/properties/collectionProperties.ts`) and the arrow shown. Entries written before the
+ * registry stored it as `{ key, direction }` under the same ids; both are read, only the new
+ * shape is written.
+ */
+export type PersistedCollectionSort = CollectionSort;
 
 /**
  * A single collection's persisted Configure-menu state (Layout/Properties/
@@ -75,16 +70,6 @@ export interface PersistedCollectionViewConfig {
   readonly properties?: PersistedCollectionProperties;
   readonly sort?: PersistedCollectionSort;
 }
-
-const VALID_SORT_KEYS: ReadonlySet<string> = new Set([
-  'name',
-  'description',
-  'cover',
-  'size',
-  'created',
-  'updated',
-  'archived',
-]);
 
 /**
  * Owns the `collectionViewConfig` top-level key of `.clutter/workspace.json`
@@ -359,9 +344,11 @@ function parseSort(raw: unknown): PersistedCollectionSort | undefined {
     return undefined;
   }
 
-  const { key, direction } = raw as { key?: unknown; direction?: unknown };
+  // `property` is the current field; `key` is what entries written before the registry used.
+  const { property, key, direction } = raw as { property?: unknown; key?: unknown; direction?: unknown };
+  const id = property ?? key;
 
-  if (typeof key !== 'string' || !VALID_SORT_KEYS.has(key)) {
+  if (!isPropertyId(id)) {
     return undefined;
   }
 
@@ -369,5 +356,5 @@ function parseSort(raw: unknown): PersistedCollectionSort | undefined {
     return undefined;
   }
 
-  return { key: key as PersistedCollectionSortKey, direction };
+  return { property: id, direction };
 }

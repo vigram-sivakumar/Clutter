@@ -2,7 +2,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import { formatFileSize } from '@shared/helpers/fileSize';
 
 import { collectionFieldLabel } from '../../collectionFieldLabels';
-import { formatEntryTimestamp } from '../../page/toCollectionPageModel';
+import { formatEntryTimestamp } from '../../properties/formatProperty';
 
 /** One metadata line: what it is, and its value — the card sets them apart (label left, value right). */
 export interface AssetMetadataItem {

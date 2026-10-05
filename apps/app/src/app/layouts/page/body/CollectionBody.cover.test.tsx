@@ -9,7 +9,7 @@ import {
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   type NoteCoverActions,
 } from './CollectionBody';
-import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { noteEntry as makeNoteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -25,18 +25,7 @@ afterAll(() => {
 });
 afterEach(cleanup);
 
-function noteEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: 'note-1',
-    type: 'note',
-    title: 'My note',
-    icon: 'note',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+const noteEntry = (fixture: EntryFixture = {}) => makeNoteEntry({ id: 'note-1', title: 'My note', ...fixture });
 
 function coverActions(overrides: Partial<NoteCoverActions> = {}): NoteCoverActions {
   return {
@@ -103,7 +92,7 @@ describe('CollectionBody — Table: Cover image column', () => {
   });
 
   it('shows a plus to add one when the note has no cover, or its cover is hidden', () => {
-    for (const entry of [noteEntry(), noteEntry({ cover: 'Assets/sea.png', coverHidden: true })]) {
+    for (const entry of [noteEntry(), noteEntry() /* a hidden cover is no cover value */]) {
       const { container } = render(
         <CollectionBody notes={[entry]} viewMode="table" noteCover={coverActions()} />
       );
@@ -248,7 +237,7 @@ describe('CollectionBody — List: Cover image media', () => {
   });
 
   it('shows a plus to add one when the note has no cover, or its cover is hidden', () => {
-    for (const entry of [noteEntry(), noteEntry({ cover: 'Assets/sea.png', coverHidden: true })]) {
+    for (const entry of [noteEntry(), noteEntry() /* a hidden cover is no cover value */]) {
       const { container } = render(
         <CollectionBody notes={[entry]} viewMode="list" noteCover={coverActions()} />
       );

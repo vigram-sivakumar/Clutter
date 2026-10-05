@@ -369,7 +369,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     expect(order()).toEqual(['img-b', 'pdf-a']); // Largest first
-    expect(application.collectionViewConfigStore.get('view:assets')?.sort).toEqual({ key: 'size', direction: 'down' });
+    expect(application.collectionViewConfigStore.get('view:assets')?.sort).toEqual({ property: 'size', direction: 'down' });
   });
 
   it('a persisted sort Assets do not offer (a description) falls back to Name', async () => {
@@ -380,7 +380,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
       ],
       'list'
     );
-    application.collectionViewConfigStore.update('view:assets', { sort: { key: 'description', direction: 'up' } });
+    application.collectionViewConfigStore.update('view:assets', { sort: { property: 'description', direction: 'up' } });
     render(<AppLayout application={application} />);
     await flush();
 

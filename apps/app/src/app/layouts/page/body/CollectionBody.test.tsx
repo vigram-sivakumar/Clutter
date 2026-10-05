@@ -7,39 +7,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CollectionBody,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  sortCollectionEntries,
+  NOTE_SORT_OPTIONS,
 } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { folderEntry, noteEntry } from '@features/collection/testing/collectionEntry';
+import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
+import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
 
 afterEach(() => {
   cleanup();
 });
 
-function noteEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: 'note-1',
-    type: 'note',
-    title: 'My note',
-    icon: 'note',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+// An entry's dates are ISO instants (the raw property value); the text a layout shows is the formatter's.
+const CREATED_AT = '2026-08-10T09:03:00.000Z';
+const UPDATED_AT = '2026-08-12T14:20:00.000Z';
+const CREATED_TEXT = formatEntryTimestamp(CREATED_AT)!;
+const UPDATED_TEXT = formatEntryTimestamp(UPDATED_AT)!;
 
-function folderEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: 'folder-1',
-    type: 'folder',
-    title: 'My Folder',
-    icon: 'folder',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+/** The notes collections' sorter, with the tie-breaks they have always had. */
+const sortNotes = (entries: readonly CollectionEntryModel[], sort: CollectionSort) =>
+  sortEntries(entries, sort, NOTE_SORT_OPTIONS);
 
 describe('CollectionBody — List mode (viewMode="list")', () => {
   it('renders a folder as a generic card and a note as a generic list row, inside the generic list', () => {
@@ -125,14 +112,14 @@ describe('CollectionBody — Table mode (the default)', () => {
 
   it('draws every note\'s name and dates with the generic header and date cells', () => {
     const { container } = render(
-      <CollectionBody notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]} viewMode="table" />
+      <CollectionBody notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]} viewMode="table" />
     );
 
     const row = container.querySelector('.collection-table-row')!;
     expect(row.querySelector('.collection-table-cell--header.collection-table-cell--header')).not.toBeNull();
     expect(row.querySelectorAll('.collection-table-cell--text')).toHaveLength(2);
-    expect(row.querySelector('.collection-table-row__created')).toHaveTextContent('Today');
-    expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent('Yesterday');
+    expect(row.querySelector('.collection-table-row__created')).toHaveTextContent(CREATED_TEXT);
+    expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent(UPDATED_TEXT);
   });
 
   it('ends the table with a "New Note" row that fires onCreateNote — even with no notes', () => {
@@ -162,13 +149,13 @@ describe('CollectionBody — Table mode (the default)', () => {
   it('shows created/updated when present on the entry', () => {
     const { getByText } = render(
       <CollectionBody
-        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
       />
     );
 
-    expect(getByText('Today')).toBeInTheDocument();
-    expect(getByText('Yesterday')).toBeInTheDocument();
+    expect(getByText(CREATED_TEXT)).toBeInTheDocument();
+    expect(getByText(UPDATED_TEXT)).toBeInTheDocument();
   });
 });
 
@@ -205,12 +192,12 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
   });
 
   it('shows only the edited date in the card header, gated by the Last edited property', () => {
-    const entry = noteEntry({ created: 'Today', updated: '12 Aug 2026' });
+    const entry = noteEntry({ created: 'Today', updated: UPDATED_AT });
     const { getByText, queryByText, rerender } = render(
       <CollectionBody notes={[entry]} viewMode="card" />
     );
-    expect(getByText('Edited 12 Aug 2026')).toBeInTheDocument();
-    expect(queryByText(/Today|Created/)).not.toBeInTheDocument();
+    expect(getByText(`Edited ${UPDATED_TEXT}`)).toBeInTheDocument();
+    expect(queryByText(CREATED_TEXT)).not.toBeInTheDocument();
 
     rerender(
       <CollectionBody
@@ -223,16 +210,16 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
   });
 
   it('shows the description above the edited date, gated by the Description property', () => {
-    const entry = noteEntry({ description: 'About this note', updated: '12 Aug 2026' });
+    const entry = noteEntry({ description: 'About this note', updated: UPDATED_AT });
     const { container, getByText, queryByText, rerender } = render(
       <CollectionBody notes={[entry]} viewMode="card" />
     );
     const lines = () =>
       [...container.querySelectorAll('.collection-card .card-title-section__description, .collection-card .card-title-section__metadata-item')].map((l) => l.textContent);
-    expect(lines()).toEqual(['About this note', 'Edited 12 Aug 2026']);
+    expect(lines()).toEqual(['About this note', `Edited ${UPDATED_TEXT}`]);
 
-    rerender(<CollectionBody notes={[noteEntry({ updated: '12 Aug 2026' })]} viewMode="card" />);
-    expect(lines()).toEqual(['Edited 12 Aug 2026']);
+    rerender(<CollectionBody notes={[noteEntry({ updated: UPDATED_AT })]} viewMode="card" />);
+    expect(lines()).toEqual([`Edited ${UPDATED_TEXT}`]);
 
     rerender(
       <CollectionBody
@@ -242,7 +229,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       />
     );
     expect(queryByText('About this note')).not.toBeInTheDocument();
-    expect(getByText('Edited 12 Aug 2026')).toBeInTheDocument();
+    expect(getByText(`Edited ${UPDATED_TEXT}`)).toBeInTheDocument();
   });
 
   describe('Cover and content', () => {
@@ -344,14 +331,14 @@ describe('CollectionBody — Properties visibility', () => {
   it('defaults to showing description ("No description" fallback) and created/updated', () => {
     const { getByText } = render(
       <CollectionBody
-        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
       />
     );
 
     expect(getByText('No description')).toBeInTheDocument();
-    expect(getByText('Today')).toBeInTheDocument();
-    expect(getByText('Yesterday')).toBeInTheDocument();
+    expect(getByText(CREATED_TEXT)).toBeInTheDocument();
+    expect(getByText(UPDATED_TEXT)).toBeInTheDocument();
   });
 
   it('hides description entirely (not just blanked) when unchecked', () => {
@@ -379,17 +366,17 @@ describe('CollectionBody — Properties visibility', () => {
   });
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {
-    const entry = noteEntry({ created: 'Today', updated: 'Yesterday' });
+    const entry = noteEntry({ created: CREATED_AT, updated: UPDATED_AT });
     const hidden = { description: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true };
 
     const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
-    expect(table.queryByText('Today')).not.toBeInTheDocument();
-    expect(table.queryByText('Yesterday')).not.toBeInTheDocument();
+    expect(table.queryByText(CREATED_TEXT)).not.toBeInTheDocument();
+    expect(table.queryByText(UPDATED_TEXT)).not.toBeInTheDocument();
     table.unmount();
 
     const list = render(<CollectionBody notes={[entry]} viewMode="list" properties={hidden} />);
-    expect(list.queryByText('Today')).not.toBeInTheDocument();
-    expect(list.queryByText('Yesterday')).not.toBeInTheDocument();
+    expect(list.queryByText(CREATED_TEXT)).not.toBeInTheDocument();
+    expect(list.queryByText(UPDATED_TEXT)).not.toBeInTheDocument();
   });
 
   it('never affects folder cards — they have no description/created/updated fields', () => {
@@ -409,7 +396,7 @@ describe('CollectionBody — Properties visibility', () => {
   it('Table mode: an unchecked column removes its header cell entirely, not just its row values', () => {
     const { queryByText } = render(
       <CollectionBody
-        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
         properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
       />
@@ -422,7 +409,7 @@ describe('CollectionBody — Properties visibility', () => {
   it('Table mode: the header and each row share the same narrowed grid-template-columns when columns are hidden', () => {
     const { container } = render(
       <CollectionBody
-        notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
+        notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
         properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
       />
@@ -456,39 +443,39 @@ describe('CollectionBody — Properties visibility', () => {
   });
 });
 
-describe('sortCollectionEntries', () => {
-  const charlie = noteEntry({ id: 'c', title: 'Charlie', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
-  const alpha = noteEntry({ id: 'a', title: 'Alpha', createdAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
-  const bravo = noteEntry({ id: 'b', title: 'Bravo', createdAt: '2026-02-01T00:00:00.000Z', updatedAt: '2026-02-01T00:00:00.000Z' });
+describe('sorting notes (sortEntries with the notes\' tie-breaks)', () => {
+  const charlie = noteEntry({ id: 'c', title: 'Charlie', created: '2026-01-01T00:00:00.000Z', updated: '2026-03-01T00:00:00.000Z' });
+  const alpha = noteEntry({ id: 'a', title: 'Alpha', created: '2026-03-01T00:00:00.000Z', updated: '2026-01-01T00:00:00.000Z' });
+  const bravo = noteEntry({ id: 'b', title: 'Bravo', created: '2026-02-01T00:00:00.000Z', updated: '2026-02-01T00:00:00.000Z' });
 
   it('sorts by name, down = A→Z', () => {
-    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'name', direction: 'down' });
-    expect(sorted.map((e) => e.title)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+    const sorted = sortNotes([charlie, alpha, bravo], { property: 'name', direction: 'down' });
+    expect(sorted.map((e) => e.values.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 
   it('sorts by name, up = Z→A', () => {
-    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'name', direction: 'up' });
-    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+    const sorted = sortNotes([charlie, alpha, bravo], { property: 'name', direction: 'up' });
+    expect(sorted.map((e) => e.values.name)).toEqual(['Charlie', 'Bravo', 'Alpha']);
   });
 
   it('sorts by created, down = newest first', () => {
-    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'created', direction: 'down' });
-    expect(sorted.map((e) => e.title)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+    const sorted = sortNotes([charlie, alpha, bravo], { property: 'created', direction: 'down' });
+    expect(sorted.map((e) => e.values.name)).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 
   it('sorts by created, up = oldest first', () => {
-    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'created', direction: 'up' });
-    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+    const sorted = sortNotes([charlie, alpha, bravo], { property: 'created', direction: 'up' });
+    expect(sorted.map((e) => e.values.name)).toEqual(['Charlie', 'Bravo', 'Alpha']);
   });
 
   describe('the other Properties — Sort by is the Properties list', () => {
     const described = (title: string, description?: string, cover?: string, coverHidden?: boolean) =>
-      noteEntry({ id: title, title, description, cover, coverHidden });
+      noteEntry({ id: title, title, description, cover: coverHidden ? undefined : cover });
     const [x, y, z] = [described('X', 'banana'), described('Y', 'apple'), described('Z')];
 
     it('Description: down = A→Z, up = Z→A; a note without one always sorts last', () => {
-      expect(sortCollectionEntries([x, z, y], { key: 'description', direction: 'down' }).map((e) => e.title)).toEqual(['Y', 'X', 'Z']);
-      expect(sortCollectionEntries([x, z, y], { key: 'description', direction: 'up' }).map((e) => e.title)).toEqual(['X', 'Y', 'Z']);
+      expect(sortNotes([x, z, y], { property: 'description', direction: 'down' }).map((e) => e.values.name)).toEqual(['Y', 'X', 'Z']);
+      expect(sortNotes([x, z, y], { property: 'description', direction: 'up' }).map((e) => e.values.name)).toEqual(['X', 'Y', 'Z']);
     });
 
     it('Cover image: down puts the notes that show a cover first (a hidden cover does not count); ties keep name order', () => {
@@ -497,13 +484,13 @@ describe('sortCollectionEntries', () => {
       const none = described('A');
       const another = described('D', undefined, 'Assets/d.png');
 
-      expect(sortCollectionEntries([none, hidden, another, withCover], { key: 'cover', direction: 'down' }).map((e) => e.title)).toEqual([
+      expect(sortNotes([none, hidden, another, withCover], { property: 'cover', direction: 'down' }).map((e) => e.values.name)).toEqual([
         'B',
         'D',
         'A',
         'C',
       ]);
-      expect(sortCollectionEntries([none, hidden, another, withCover], { key: 'cover', direction: 'up' }).map((e) => e.title)).toEqual([
+      expect(sortNotes([none, hidden, another, withCover], { property: 'cover', direction: 'up' }).map((e) => e.values.name)).toEqual([
         'A',
         'C',
         'B',
@@ -512,27 +499,27 @@ describe('sortCollectionEntries', () => {
     });
 
     it('File size is no property of a note, so it leaves the order as given', () => {
-      expect(sortCollectionEntries([x, z, y], { key: 'size', direction: 'down' }).map((e) => e.title)).toEqual(['X', 'Z', 'Y']);
+      expect(sortNotes([x, z, y], { property: 'size', direction: 'down' }).map((e) => e.values.name)).toEqual(['X', 'Z', 'Y']);
     });
   });
 
   it('sorts by updated, down = newest first', () => {
-    const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'updated', direction: 'down' });
-    expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
+    const sorted = sortNotes([charlie, alpha, bravo], { property: 'updated', direction: 'down' });
+    expect(sorted.map((e) => e.values.name)).toEqual(['Charlie', 'Bravo', 'Alpha']);
   });
 
   it('an entry missing the sorted date field always sorts last, regardless of direction', () => {
     const noDate = noteEntry({ id: 'n', title: 'NoDate' });
-    const down = sortCollectionEntries([noDate, alpha], { key: 'created', direction: 'down' });
-    const up = sortCollectionEntries([noDate, alpha], { key: 'created', direction: 'up' });
-    expect(down[down.length - 1]!.title).toBe('NoDate');
-    expect(up[up.length - 1]!.title).toBe('NoDate');
+    const down = sortNotes([noDate, alpha], { property: 'created', direction: 'down' });
+    const up = sortNotes([noDate, alpha], { property: 'created', direction: 'up' });
+    expect(down[down.length - 1]!.values.name).toBe('NoDate');
+    expect(up[up.length - 1]!.values.name).toBe('NoDate');
   });
 
   it('never mutates the input array', () => {
     const input = [charlie, alpha, bravo];
     const snapshot = [...input];
-    sortCollectionEntries(input, { key: 'name', direction: 'down' });
+    sortNotes(input, { property: 'name', direction: 'down' });
     expect(input).toEqual(snapshot);
   });
 
@@ -541,7 +528,7 @@ describe('sortCollectionEntries', () => {
       <CollectionBody
         notes={[charlie, alpha, bravo]}
         viewMode="table"
-        sort={{ key: 'name', direction: 'down' }}
+        sort={{ property: 'name', direction: 'down' }}
       />
     );
 
@@ -556,7 +543,7 @@ describe('CollectionBody: Archived column is Archive-only', () => {
   it('table mode never renders an Archived column in an ordinary collection', () => {
     const { container } = render(
       <CollectionBody
-        notes={[noteEntry({ archived: 'Today' })]}
+        notes={[noteEntry({ archived: CREATED_AT })]}
         viewMode="table"
         properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
       />
@@ -602,7 +589,7 @@ describe('CollectionBody — foldersInGivenOrder', () => {
 
   it('sorts folders by the Configure menu\'s sort by default (name, ascending here)', () => {
     const { container } = render(
-      <CollectionBody folders={folders} viewMode="list" sort={{ key: 'name', direction: 'down' }} />
+      <CollectionBody folders={folders} viewMode="list" sort={{ property: 'name', direction: 'down' }} />
     );
     expect(titles(container)).toEqual(['2024', '2025', '2026']);
   });
@@ -611,7 +598,7 @@ describe('CollectionBody — foldersInGivenOrder', () => {
     const given = [folders[1]!, folders[2]!, folders[0]!];
     for (const direction of ['down', 'up'] as const) {
       const { container, unmount } = render(
-        <CollectionBody folders={given} viewMode="list" sort={{ key: 'name', direction }} foldersInGivenOrder />
+        <CollectionBody folders={given} viewMode="list" sort={{ property: 'name', direction }} foldersInGivenOrder />
       );
       expect(titles(container)).toEqual(['2026', '2025', '2024']);
       unmount();

@@ -7,7 +7,6 @@ import {
 } from './collectionViewCapabilities';
 import {
   type CollectionPropertyVisibility,
-  type CollectionSortState,
   type CollectionViewMode,
 } from './CollectionBody';
 import { EditableText } from '@components/editable-text/EditableText';
@@ -25,7 +24,8 @@ import {
   ASSET_GRID,
   toAssetCardProps,
 } from '@features/collection/components/asset/toAssetCardProps';
-import { sortAssets } from '@features/collection/components/asset/sortAssets';
+import { ASSET_SORT_OPTIONS, toAssetEntry } from '@features/collection/components/asset/toAssetEntry';
+import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
 import type { Asset } from '@core/vault/models/Asset';
 
 export interface AssetsCollectionBodyProps {
@@ -43,7 +43,7 @@ export interface AssetsCollectionBodyProps {
    * Name or Type; the same order in every layout. Absent, the resources keep
    * the order given.
    */
-  readonly sort?: CollectionSortState;
+  readonly sort?: CollectionSort;
   /** `Application.resolveResourceImageUrl` — turns a vault file's path into a loadable URL, for the Card view's previews and the Table's Preview column. A remote asset's own URL is used as is. */
   readonly resolveResourceUrl?: (path: string) => string;
   /**
@@ -88,7 +88,9 @@ export function AssetsCollectionBody({
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !properties.title;
-  const assets = sort ? sortAssets(unsorted, sort) : unsorted;
+  const assets = sort
+    ? sortEntries(unsorted.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset)
+    : unsorted;
   // The file-fact Properties (File size, Created, Last edited) govern every layout alike: card lines, list metadata, table columns.
   const fileFacts = { size: properties.size, created: properties.created, updated: properties.updated };
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.

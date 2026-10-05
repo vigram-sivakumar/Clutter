@@ -2,6 +2,7 @@ import { CardTitleSection } from '@features/collection/components/card/CardTitle
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
+import { formatPropertyValue } from '../../properties/formatProperty';
 import { resolveNoteCoverUrl, type NotePreviewResolvers } from './notePreviewResolvers';
 import { NotePageCanvas } from './preview/NotePageCanvas';
 
@@ -31,21 +32,23 @@ export function toNoteCardProps(
   entry: CollectionEntryModel,
   { show, resolvers }: NoteCardOptions
 ): CollectionCardProps {
+  const edited = formatPropertyValue('updated', entry.values);
+
   return {
     header: (
       <CardTitleSection
         icon="note"
         emoji={entry.emoji ?? undefined}
-        title={entry.title}
-        description={show.description ? entry.description : undefined}
-        metadata={show.updated && entry.updated ? [`Edited ${entry.updated}`] : undefined}
+        title={entry.values.name}
+        description={show.description ? entry.values.description : undefined}
+        metadata={show.updated && edited ? [`Edited ${edited}`] : undefined}
         metadataLayout="vertical"
       />
     ),
     children: (
       <NotePageCanvas
         markdown={entry.markdown}
-        coverUrl={resolveNoteCoverUrl(entry.cover, entry.coverHidden, resolvers)}
+        coverUrl={resolveNoteCoverUrl(entry.values.cover, false, resolvers)}
         coverPositionAbove={entry.coverPositionAbove}
         resolvers={resolvers}
       />

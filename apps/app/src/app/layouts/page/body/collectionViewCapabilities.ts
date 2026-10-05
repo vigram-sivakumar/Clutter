@@ -1,7 +1,8 @@
+import type { PropertyId } from '@core/properties/collectionProperties';
+
 import {
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   type CollectionPropertyVisibility,
-  type CollectionSortKey,
   type CollectionViewMode,
 } from './CollectionBody';
 
@@ -38,7 +39,7 @@ export interface CollectionViewCapabilities {
    * (`'archived'` is listed for notes but only ever shown in the Archive
    * collection, which the menu gates separately.)
    */
-  readonly sortKeys: readonly CollectionSortKey[];
+  readonly sortKeys: readonly PropertyId[];
 }
 
 /** Folders, Workspace, Favorites, Tags, Archive — note-shaped collections: every layout, properties and sort. */
@@ -85,10 +86,10 @@ export function resolveSupportedLayout(
 }
 
 /** A persisted sort, if this collection offers its key; otherwise `fallback` (the app default). */
-export function resolveSupportedSort<T extends { key: CollectionSortKey }>(
+export function resolveSupportedSort<T extends { property: PropertyId }>(
   sort: T | undefined,
   capabilities: CollectionViewCapabilities,
   fallback: T
 ): T {
-  return sort !== undefined && capabilities.sortKeys.includes(sort.key) ? sort : fallback;
+  return sort !== undefined && capabilities.sortKeys.includes(sort.property) ? sort : fallback;
 }

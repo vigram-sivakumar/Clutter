@@ -54,13 +54,13 @@ describe('CURRENT BEHAVIOR — the persisted property shape is a full boolean sn
   it('writes exactly what it is given into workspace.json under `collectionViewConfig` — it adds no defaults of its own', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
-    store.update('view:assets', { layout: 'card', sort: { key: 'size', direction: 'down' } });
+    store.update('view:assets', { layout: 'card', sort: { property: 'size', direction: 'down' } });
     await flush();
 
     const written = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH)) as { collectionViewConfig: unknown };
 
     expect(written.collectionViewConfig).toEqual({
-      'view:assets': { layout: 'card', sort: { key: 'size', direction: 'down' } },
+      'view:assets': { layout: 'card', sort: { property: 'size', direction: 'down' } },
     });
   });
 
@@ -91,14 +91,25 @@ describe('CURRENT BEHAVIOR — the persisted property shape is a full boolean sn
 });
 
 describe('CURRENT BEHAVIOR — the persisted sort shape and its key vocabulary', () => {
-  it('stores `{ key, direction }`; the key is one of name, description, cover, size, created, updated, archived', async () => {
-    const keys = ['name', 'description', 'cover', 'size', 'created', 'updated', 'archived'];
+  it('stores `{ property, direction }`; the property is one of name, description, cover, size, created, updated, archived', async () => {
+    const ids = ['name', 'description', 'cover', 'size', 'created', 'updated', 'archived'];
     const store = await loadWith(
-      Object.fromEntries(keys.map((key) => [`folder:${key}`, { sort: { key, direction: 'up' } }]))
+      Object.fromEntries(ids.map((property) => [`folder:${property}`, { sort: { property, direction: 'up' } }]))
     );
 
-    for (const key of keys) {
-      expect(store.get(`folder:${key}`)).toEqual({ sort: { key, direction: 'up' } });
+    for (const property of ids) {
+      expect(store.get(`folder:${property}`)).toEqual({ sort: { property, direction: 'up' } });
+    }
+  });
+
+  it('an entry written before the registry stored the same ids as `{ key, direction }` — read as the same sort, written back as `property`', async () => {
+    const ids = ['name', 'description', 'cover', 'size', 'created', 'updated', 'archived'];
+    const store = await loadWith(
+      Object.fromEntries(ids.map((key) => [`folder:${key}`, { sort: { key, direction: 'down' } }]))
+    );
+
+    for (const property of ids) {
+      expect(store.get(`folder:${property}`)).toEqual({ sort: { property, direction: 'down' } });
     }
   });
 
@@ -108,7 +119,7 @@ describe('CURRENT BEHAVIOR — the persisted sort shape and its key vocabulary',
       'folder:future-name': { sort: { key: 'modified', direction: 'down' } },
     });
 
-    expect(store.get('folder:current')).toEqual({ sort: { key: 'updated', direction: 'down' } });
+    expect(store.get('folder:current')).toEqual({ sort: { property: 'updated', direction: 'down' } });
     expect(store.get('folder:future-name')).toBeUndefined();
   });
 
@@ -119,7 +130,7 @@ describe('CURRENT BEHAVIOR — the persisted sort shape and its key vocabulary',
     });
 
     expect(store.get('folder:asc')).toBeUndefined();
-    expect(store.get('folder:up')).toEqual({ sort: { key: 'name', direction: 'up' } });
+    expect(store.get('folder:up')).toEqual({ sort: { property: 'name', direction: 'up' } });
   });
 
   it('retired keys still in a saved file: `lastOpened` and `type` as a sort key are dropped (the layout survives; `type` rejects its whole entry)', async () => {
@@ -148,7 +159,7 @@ describe('CURRENT BEHAVIOR — tolerant loading', () => {
       'folder:none': { layout: 'gallery' },
     });
 
-    expect(store.get('folder:half')).toEqual({ sort: { key: 'name', direction: 'down' } });
+    expect(store.get('folder:half')).toEqual({ sort: { property: 'name', direction: 'down' } });
     expect(store.get('folder:none')).toBeUndefined();
   });
 
@@ -175,19 +186,15 @@ describe('CURRENT BEHAVIOR — a shape this build does not know is discarded, no
   // Matters for rollback: an older build reading an entry written in a future shape must fall back to
   // defaults rather than misread it. (It also means a migration must convert on READ, because the old
   // reader cannot be taught.)
-  it('an entry holding only unknown fields (e.g. a future `propertyOverrides` / `sort.property`) is discarded', async () => {
-    const store = await loadWith({
-      'folder:future-overrides': { propertyOverrides: { cover: false } },
-      'folder:future-sort': { sort: { property: 'created', direction: 'down' } },
-    });
+  it('an entry holding only unknown fields is discarded', async () => {
+    const store = await loadWith({ 'folder:future': { someFutureField: { cover: false } } });
 
-    expect(store.get('folder:future-overrides')).toBeUndefined();
-    expect(store.get('folder:future-sort')).toBeUndefined();
+    expect(store.get('folder:future')).toBeUndefined();
   });
 
   it('unknown fields next to valid ones are dropped on load, not preserved', async () => {
     const store = await loadWith({
-      'folder:mixed': { layout: 'list', propertyOverrides: { cover: false } },
+      'folder:mixed': { layout: 'list', someFutureField: { cover: false } },
     });
 
     expect(store.get('folder:mixed')).toEqual({ layout: 'list' });

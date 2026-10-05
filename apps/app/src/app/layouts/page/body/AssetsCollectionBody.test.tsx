@@ -370,11 +370,11 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
   });
 
   it('sorts by Name A→Z (down) and Z→A (up)', () => {
-    const down = renderAssets({ resources: resources(), viewMode, sort: { key: 'name', direction: 'down' } });
+    const down = renderAssets({ resources: resources(), viewMode, sort: { property: 'name', direction: 'down' } });
     expect(order(down.container)).toEqual(['a', 'm', 'z']);
     cleanup();
 
-    const up = renderAssets({ resources: resources(), viewMode, sort: { key: 'name', direction: 'up' } });
+    const up = renderAssets({ resources: resources(), viewMode, sort: { property: 'name', direction: 'up' } });
     expect(order(up.container)).toEqual(['z', 'm', 'a']);
   });
 
@@ -387,15 +387,15 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
       sized('c', 50, '2021-01-01T00:00:00.000Z', '2022-01-01T00:00:00.000Z'),
     ];
 
-    for (const [key, down] of [
+    for (const [property, down] of [
       ['size', ['b', 'c', 'a']],
       ['created', ['b', 'c', 'a']],
       ['updated', ['a', 'c', 'b']],
     ] as const) {
-      const shown = renderAssets({ assets, viewMode, sort: { key, direction: 'down' } });
+      const shown = renderAssets({ assets, viewMode, sort: { property, direction: 'down' } });
       expect(order(shown.container)).toEqual([...down]);
       cleanup();
-      const up = renderAssets({ assets, viewMode, sort: { key, direction: 'up' } });
+      const up = renderAssets({ assets, viewMode, sort: { property, direction: 'up' } });
       expect(order(up.container)).toEqual([...down].reverse());
       cleanup();
     }
@@ -404,7 +404,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
   it('does not reorder the caller’s array', () => {
     const input = Object.freeze(resources());
 
-    expect(() => renderAssets({ resources: input as VaultResource[], viewMode, sort: { key: 'name', direction: 'down' } })).not.toThrow();
+    expect(() => renderAssets({ resources: input as VaultResource[], viewMode, sort: { property: 'name', direction: 'down' } })).not.toThrow();
   });
 });
 

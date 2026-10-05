@@ -86,7 +86,6 @@ import {
   DEFAULT_COLLECTION_SORT,
   type CollectionViewMode,
   type CollectionPropertyVisibility,
-  type CollectionSortState,
   type NoteCoverActions,
 } from '@app/layouts/page/body/CollectionBody';
 import { CollectionHeaderActions, type CollectionHeaderActionsProps } from '@app/layouts/page/body/CollectionHeaderActions';
@@ -100,6 +99,7 @@ import {
 } from '@app/layouts/page/body/collectionViewCapabilities';
 import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
+import type { CollectionSort } from '@core/properties/collectionSort';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
@@ -223,7 +223,7 @@ function focusEditorOnOpen(title: string): boolean {
 interface CollectionViewState {
   readonly viewMode: CollectionViewMode;
   readonly properties: CollectionPropertyVisibility;
-  readonly sort: CollectionSortState;
+  readonly sort: CollectionSort;
 }
 
 /**
@@ -234,7 +234,7 @@ interface CollectionViewState {
  * field). The store's own `PersistedCollectionLayout`/
  * `PersistedCollectionProperties`/`PersistedCollectionSort` types are
  * structurally identical to `CollectionViewMode`/`CollectionPropertyVisibility`/
- * `CollectionSortState` by design (see `CollectionViewConfigStore`'s own
+ * `CollectionSort` by design (see `CollectionViewConfigStore`'s own
  * doc comment), so no field-by-field conversion is needed here.
  */
 function resolveCollectionViewState(
@@ -408,7 +408,7 @@ export function PageHost({
       });
     }
   };
-  const setCollectionSort = (next: CollectionSortState): void => {
+  const setCollectionSort = (next: CollectionSort): void => {
     setCollectionViewState((previous) => ({ ...previous, sort: next }));
     if (collectionViewKey) {
       application.collectionViewConfigStore.update(collectionViewKey, {
@@ -1266,7 +1266,7 @@ export function PageHost({
     const dailyNotesFolders =
       dailyNotesLevel === 'root' || dailyNotesLevel === 'year'
         ? [...model.folders].sort((a, b) =>
-            DailyNotePath.compareFolderNames(dailyNotesLevel, a.title, b.title)
+            DailyNotePath.compareFolderNames(dailyNotesLevel, a.values.name, b.values.name)
           )
         : model.folders;
     const onCreateNote =

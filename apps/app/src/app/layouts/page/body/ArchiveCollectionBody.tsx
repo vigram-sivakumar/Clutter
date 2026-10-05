@@ -11,13 +11,14 @@ import {
   renderFolderGrid,
   renderNoteList,
   renderNoteTable,
-  sortCollectionEntries,
+  NOTE_SORT_OPTIONS,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
   type CollectionViewMode,
   type CollectionPropertyVisibility,
-  type CollectionSortState,
 } from './CollectionBody';
+
+import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
 
 import { PageBody } from './Page.Body';
 
@@ -26,7 +27,7 @@ export interface ArchiveCollectionBodyProps {
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
   properties?: CollectionPropertyVisibility;
-  sort?: CollectionSortState;
+  sort?: CollectionSort;
   resources: readonly VaultResource[];
   /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
   onOpenResource?(resource: VaultResource): void;
@@ -100,8 +101,8 @@ export function ArchiveCollectionBody({
     );
   }
 
-  const sortedFolders = sortCollectionEntries(folders, sort);
-  const sortedNotes = sortCollectionEntries(notes, sort);
+  const sortedFolders = sortEntries(folders, sort, NOTE_SORT_OPTIONS);
+  const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
 
   return (
     <>

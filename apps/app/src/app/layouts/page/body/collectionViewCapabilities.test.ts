@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type CollectionSortState } from './CollectionBody';
+import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY } from './CollectionBody';
+import type { CollectionSort } from '@core/properties/collectionSort';
 
 import {
   ASSET_COLLECTION_VIEW_CAPABILITIES,
@@ -47,23 +48,23 @@ describe('collection view capabilities', () => {
   });
 
   it('resolveSupportedSort keeps a sort the collection offers and otherwise falls back', () => {
-    const fallback: CollectionSortState = { key: 'name', direction: 'down' };
+    const fallback: CollectionSort = { property: 'name', direction: 'down' };
 
-    expect(resolveSupportedSort({ key: 'size', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-      key: 'size',
+    expect(resolveSupportedSort({ property: 'size', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+      property: 'size',
       direction: 'up',
     });
-    expect(resolveSupportedSort({ key: 'created', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-      key: 'created',
+    expect(resolveSupportedSort({ property: 'created', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+      property: 'created',
       direction: 'up',
     });
     // Assets have no description or cover: a persisted sort by one is not honoured.
-    expect(resolveSupportedSort({ key: 'description', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+    expect(resolveSupportedSort({ property: 'description', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
     expect(resolveSupportedSort(undefined, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
     // Notes have no file size: a stray one falls back for them too.
-    expect(resolveSupportedSort({ key: 'size', direction: 'down' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
-    expect(resolveSupportedSort({ key: 'updated', direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-      key: 'updated',
+    expect(resolveSupportedSort({ property: 'size', direction: 'down' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+    expect(resolveSupportedSort({ property: 'updated', direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+      property: 'updated',
       direction: 'up',
     });
   });

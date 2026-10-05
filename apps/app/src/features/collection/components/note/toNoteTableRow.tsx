@@ -7,6 +7,7 @@ import type {
 
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import type { NoteTableColumnVisibility } from './noteTableColumns';
+import { formatPropertyValue } from '../../properties/formatProperty';
 import { toNoteCoverImage } from './toNoteCoverImage';
 
 export interface NoteTableRowOptions {
@@ -46,8 +47,8 @@ export function toNoteTableRow(
       variant: 'header',
       icon: 'note',
       emoji: entry.emoji ?? undefined,
-      title: entry.title,
-      description: showDescription ? entry.description : undefined,
+      title: entry.values.name,
+      description: showDescription ? entry.values.description : undefined,
       descriptionPlaceholder: showDescription ? 'No description' : undefined,
     },
   };
@@ -62,13 +63,13 @@ export function toNoteTableRow(
   }
 
   if (columns.created) {
-    cells.created = { variant: 'text', value: entry.created, dateTime: entry.createdAt };
+    cells.created = { variant: 'text', value: formatPropertyValue('created', entry.values), dateTime: entry.values.created };
   }
   if (columns.updated) {
-    cells.updated = { variant: 'text', value: entry.updated, dateTime: entry.updatedAt };
+    cells.updated = { variant: 'text', value: formatPropertyValue('updated', entry.values), dateTime: entry.values.updated };
   }
   if (columns.archived) {
-    cells.archived = { variant: 'text', value: entry.archived, dateTime: entry.archivedAt };
+    cells.archived = { variant: 'text', value: formatPropertyValue('archived', entry.values), dateTime: entry.values.archived };
   }
 
   return { id: entry.id, cells, isSelected: entry.selected, onClick: entry.onClick };

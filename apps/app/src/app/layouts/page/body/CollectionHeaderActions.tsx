@@ -31,7 +31,7 @@ function templateItems(
     },
     ...templates.map((template) => ({
       id: template.id,
-      title: template.title,
+      title: template.values.name,
       emoji: template.emoji,
       level: 0,
       parentId: null,

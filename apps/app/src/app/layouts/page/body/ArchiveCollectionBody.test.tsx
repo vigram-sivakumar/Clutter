@@ -7,7 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY } from './CollectionBody';
 import { ArchiveCollectionBody } from './ArchiveCollectionBody';
 import type { VaultResource } from '@core/vault/models/VaultResource';
-import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { folderEntry, noteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
+import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -40,31 +41,12 @@ function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
   };
 }
 
-function makeFolderEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: 'folder-1',
-    type: 'folder',
-    title: 'Old Project',
-    icon: 'folder',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+const makeFolderEntry = (overrides: EntryFixture = {}) => folderEntry({ id: 'folder-1', title: 'Old Project', ...overrides });
+const makeNoteEntry = (overrides: EntryFixture = {}) => noteEntry({ id: 'page-1', title: 'Old Note', ...overrides });
 
-function makeNoteEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: 'page-1',
-    type: 'note',
-    title: 'Old Note',
-    icon: 'note',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+// An entry's dates are ISO instants; the text a layout shows is the formatter's.
+const ARCHIVED_AT = '2026-08-12T14:20:00.000Z';
+const ARCHIVED_TEXT = formatEntryTimestamp(ARCHIVED_AT)!;
 
 function renderArchive(
   props: Partial<Omit<Parameters<typeof ArchiveCollectionBody>[0], 'resources'>> & {
@@ -339,7 +321,7 @@ describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', (
 
 describe('ArchiveCollectionBody: Archived column', () => {
   it('table mode shows an Archived header and each note\'s archived time', () => {
-    const note = makeNoteEntry({ archived: '35 minutes ago' });
+    const note = makeNoteEntry({ archived: ARCHIVED_AT });
 
     const { container } = renderArchive({
       notes: [note],
@@ -350,40 +332,40 @@ describe('ArchiveCollectionBody: Archived column', () => {
     expect(container.querySelector('.collection-table__header-cell--archived')).toHaveTextContent(
       'Archived'
     );
-    expect(screen.getByText('35 minutes ago').closest('.collection-table-row__archived')).toBeInTheDocument();
+    expect(screen.getByText(ARCHIVED_TEXT).closest('.collection-table-row__archived')).toBeInTheDocument();
   });
 
   it('table mode hides the column when the Archived property is unchecked', () => {
     const { container } = renderArchive({
-      notes: [makeNoteEntry({ archived: '35 minutes ago' })],
+      notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
       resources: [],
       viewMode: 'table',
       properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, archived: false },
     });
 
     expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();
-    expect(screen.queryByText('35 minutes ago')).not.toBeInTheDocument();
+    expect(screen.queryByText(ARCHIVED_TEXT)).not.toBeInTheDocument();
   });
 
   it('list mode shows the archived time in the note metadata', () => {
     renderArchive({
-      notes: [makeNoteEntry({ archived: 'Yesterday, 11:50 PM' })],
+      notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
       resources: [],
       viewMode: 'list',
     });
 
-    expect(screen.getByText('Yesterday, 11:50 PM')).toBeInTheDocument();
+    expect(screen.getByText(ARCHIVED_TEXT)).toBeInTheDocument();
   });
 
-  it('sorts by the raw archivedAt instant, newest first for "down"', () => {
+  it('sorts by the raw archived instant, newest first for "down"', () => {
     renderArchive({
       notes: [
-        makeNoteEntry({ id: 'a', title: 'Older', archivedAt: '2026-08-01T10:00:00.000Z' }),
-        makeNoteEntry({ id: 'b', title: 'Newer', archivedAt: '2026-09-01T10:00:00.000Z' }),
+        makeNoteEntry({ id: 'a', title: 'Older', archived: '2026-08-01T10:00:00.000Z' }),
+        makeNoteEntry({ id: 'b', title: 'Newer', archived: '2026-09-01T10:00:00.000Z' }),
       ],
       resources: [],
       viewMode: 'list',
-      sort: { key: 'archived', direction: 'down' },
+      sort: { property: 'archived', direction: 'down' },
     });
 
     const titles = [...document.querySelectorAll('.collection-row')].map((el) => el.textContent);

@@ -127,11 +127,11 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
     store.update('folder:folder-1', { layout: 'list' });
-    store.update('folder:folder-1', { sort: { key: 'updated', direction: 'up' } });
+    store.update('folder:folder-1', { sort: { property: 'updated', direction: 'up' } });
 
     expect(store.get('folder:folder-1')).toEqual({
       layout: 'list',
-      sort: { key: 'updated', direction: 'up' },
+      sort: { property: 'updated', direction: 'up' },
     });
   });
 
@@ -175,7 +175,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
     beforeRestart.update('folder:projects', {
       layout: 'table',
       properties: { description: true, created: false, updated: true },
-      sort: { key: 'updated', direction: 'down' },
+      sort: { property: 'updated', direction: 'down' },
     });
     await flushMicrotasks();
 
@@ -184,7 +184,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
     expect(afterRestart.get('folder:projects')).toEqual({
       layout: 'table',
       properties: { description: true, created: false, updated: true },
-      sort: { key: 'updated', direction: 'down' },
+      sort: { property: 'updated', direction: 'down' },
     });
   });
 });
@@ -308,7 +308,7 @@ describe('CollectionViewConfigStore — archived column', () => {
         updated: true,
         archived: false,
       },
-      sort: { key: 'archived', direction: 'down' },
+      sort: { property: 'archived', direction: 'down' },
     } as const;
     first.update('folder:Archive', entry);
     await flushMicrotasks();
@@ -350,7 +350,7 @@ describe('CollectionViewConfigStore — archived column', () => {
 
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
-    expect(store.get('view:assets')).toEqual({ sort: { key: 'size', direction: 'up' } });
+    expect(store.get('view:assets')).toEqual({ sort: { property: 'size', direction: 'up' } });
     expect(store.get('view:bad')).toBeUndefined();
     warn.mockRestore();
   });

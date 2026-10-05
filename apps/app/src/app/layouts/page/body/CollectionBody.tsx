@@ -19,6 +19,8 @@ import {
   type NoteTableColumnVisibility,
 } from '@features/collection/components/note/noteTableColumns';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
+import type { PropertyId } from '@core/properties/collectionProperties';
+import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
 import './CollectionBody.css';
 
 import { PageBody } from './Page.Body';
@@ -94,108 +96,25 @@ export function toTableColumns(
 }
 
 /**
- * "Sort by" — the Configure menu's third section. `key` picks which field
- * to order by; `direction` is deliberately `'down' | 'up'`, not
- * `'asc' | 'desc'` — it names the arrow shown, not an abstract ordering,
- * because what "down" *means* differs per key (Name and Description: A→Z;
- * the date keys: newest-first; File size: largest first; Cover image:
- * those with a cover first) per the product spec. Every key but Name is one of
- * the collection's Properties — Sort by offers exactly the Properties list. `sortCollectionEntries` below
- * is the one place that translates `direction` into an actual comparison
- * for each key.
+ * The Sort by state is `{ property, direction }` (`CollectionSort`, core/properties): a
+ * property id from the one registry and the arrow shown. What sorting by a property MEANS is
+ * that property's own `sort` behavior, implemented once by `sortEntries` — nothing in this
+ * file knows how any property is ordered.
  */
-export type CollectionSortKey =
-  | 'name'
-  | 'description'
-  | 'cover'
-  | 'size'
-  | 'created'
-  | 'updated'
-  | 'archived';
-export type CollectionSortDirection = 'down' | 'up';
-
-export interface CollectionSortState {
-  key: CollectionSortKey;
-  direction: CollectionSortDirection;
-}
-
-export const DEFAULT_COLLECTION_SORT: CollectionSortState = {
-  key: 'name',
+export const DEFAULT_COLLECTION_SORT: CollectionSort = {
+  property: 'name',
   direction: 'down',
 };
 
 /**
- * `direction` is applied here, inside the date comparison, rather than by
- * negating this function's result at the call site — the missing-value
- * sentinel (always-last) must stay direction-independent, and a blanket
- * negation of the whole return value would flip that sentinel along with
- * the real comparison, putting a dateless entry first under 'down'.
+ * How the notes collections break ties: Description and Cover image fall back to Name, every
+ * other property keeps its ties in the order given. (The assets collection breaks the ties of
+ * its own properties by Name — see `ASSET_SORT_OPTIONS`; the two have always differed and this
+ * preserves both.) Folders are ordered with the same options.
  */
-function compareRawDates(
-  a: string | undefined,
-  b: string | undefined,
-  direction: CollectionSortDirection
-): number {
-  // A missing date always sorts after a present one, regardless of
-  // direction — never presented as older or newer than a real date.
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-
-  const cmp = a < b ? -1 : a > b ? 1 : 0;
-  // "down" = newest first, i.e. the *larger* ISO timestamp sorts first —
-  // the reverse of this function's own ascending (a < b) comparison.
-  return direction === 'down' ? -cmp : cmp;
-}
-
-/**
- * Sorts a copy of `entries` (never mutates the input — callers hold
- * `readonly` arrays) by `sort`. A folder
- * entry has no `createdAt`/`updatedAt` either (`FolderMetadata` doesn't
- * track them), so sorting folders by a date key is the same honest no-op.
- */
-export function sortCollectionEntries(
-  entries: readonly CollectionEntryModel[],
-  sort: CollectionSortState
-): CollectionEntryModel[] {
-  const copy = [...entries];
-
-  const byName = (x: CollectionEntryModel, y: CollectionEntryModel) => x.title.localeCompare(y.title);
-  const direct = (cmp: number) => (sort.direction === 'down' ? cmp : -cmp);
-
-  copy.sort((a, b) => {
-    switch (sort.key) {
-      case 'name':
-        return direct(byName(a, b));
-
-      case 'description': {
-        // A missing description always sorts last, whichever way the list is ordered.
-        const [x, y] = [a.description?.trim(), b.description?.trim()];
-        if (!x && !y) return byName(a, b);
-        if (!x) return 1;
-        if (!y) return -1;
-        return direct(x.localeCompare(y)) || byName(a, b);
-      }
-
-      case 'cover': {
-        // "down" puts the notes that show a cover first; ties keep name order.
-        const [x, y] = [Boolean(a.cover && !a.coverHidden), Boolean(b.cover && !b.coverHidden)];
-        return x === y ? byName(a, b) : direct(x ? -1 : 1);
-      }
-
-      case 'size':
-        // Notes and folders have no file size: the honest no-op, like a folder's dates.
-        return 0;
-
-      default: {
-        const field = sort.key === 'created' ? 'createdAt' : sort.key === 'archived' ? 'archivedAt' : 'updatedAt';
-        return compareRawDates(a[field], b[field], sort.direction);
-      }
-    }
-  });
-
-  return copy;
-}
+export const NOTE_SORT_OPTIONS: SortOptions = {
+  nameTieBreak: new Set<PropertyId>(['description', 'cover']),
+};
 
 /**
  * What the Cover image thumbnail (the Table's column, the List's media) needs
@@ -220,7 +139,7 @@ export interface CollectionBodyProps {
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
   properties?: CollectionPropertyVisibility;
-  sort?: CollectionSortState;
+  sort?: CollectionSort;
   /**
    * Present only when this page supports creating a folder here (see
    * PageHost.tsx's own call sites — an ordinary folder or the Workspace-
@@ -393,8 +312,8 @@ export function CollectionBody({
   previewResolvers,
   noteCover,
 }: CollectionBodyProps) {
-  const sortedFolders = foldersInGivenOrder ? [...folders] : sortCollectionEntries(folders, sort);
-  const sortedNotes = sortCollectionEntries(notes, sort);
+  const sortedFolders = foldersInGivenOrder ? [...folders] : sortEntries(folders, sort, NOTE_SORT_OPTIONS);
+  const sortedNotes = sortEntries(notes, sort, NOTE_SORT_OPTIONS);
 
   // The note whose cover picker is open, and the thumbnail it opens beside
   // (the picker is a popover anchored to the clicked cell, so the element
@@ -410,7 +329,7 @@ export function CollectionBody({
     ? (entry: CollectionEntryModel) => ({
         // A hidden cover isn't shown anywhere in the collection (the Card
         // view hides it too), so its note reads as having none here.
-        url: entry.cover && !entry.coverHidden ? noteCover.resolveUrl(entry.cover) : null,
+        url: entry.values.cover ? noteCover.resolveUrl(entry.values.cover) : null,
         onClick: (event: MouseEvent<HTMLButtonElement>) => {
           coverAnchorRef.current = event.currentTarget;
           setCoverNoteId(entry.id);

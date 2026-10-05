@@ -5,7 +5,10 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { sortAssets } from '@features/collection/components/asset/sortAssets';
+import { ASSET_SORT_OPTIONS, toAssetEntry } from '@features/collection/components/asset/toAssetEntry';
+import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
+import { folderEntry, noteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
+import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
 import type { Asset } from '@core/vault/models/Asset';
 import { localAsset } from '@core/vault/testing/localAsset';
 
@@ -15,8 +18,7 @@ import {
   CollectionBody,
   DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   DEFAULT_COLLECTION_SORT,
-  sortCollectionEntries,
-  type CollectionSortState,
+  NOTE_SORT_OPTIONS,
   type CollectionViewMode,
 } from './CollectionBody';
 import { CollectionViewMenu } from './CollectionViewMenu';
@@ -68,33 +70,16 @@ afterEach(() => {
 
 type Layout = CollectionViewMode;
 
-function note(title: string, overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: overrides.id ?? title,
-    type: 'note',
-    title,
-    icon: 'note',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+const note = (title: string, fixture: EntryFixture = {}): CollectionEntryModel => noteEntry({ id: title, title, ...fixture });
+const folder = (title: string, fixture: EntryFixture = {}): CollectionEntryModel => folderEntry({ id: title, title, ...fixture });
 
-function folder(title: string, overrides: Partial<CollectionEntryModel> = {}): CollectionEntryModel {
-  return {
-    id: overrides.id ?? title,
-    type: 'folder',
-    title,
-    icon: 'folder',
-    emoji: null,
-    selected: false,
-    onClick: vi.fn(),
-    ...overrides,
-  };
-}
+/** The two collections' sorters: the one engine, with the tie-breaks each has always had. */
+const sortCollectionEntries = (entries: readonly CollectionEntryModel[], sort: CollectionSort) =>
+  sortEntries(entries, sort, NOTE_SORT_OPTIONS);
+const sortAssets = (assets: readonly Asset[], sort: CollectionSort): Asset[] =>
+  sortEntries(assets.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset);
 
-const titles = (entries: readonly CollectionEntryModel[]) => entries.map((entry) => entry.title);
+const titles = (entries: readonly CollectionEntryModel[]) => entries.map((entry) => entry.values.name);
 
 function renderMenu({
   viewMode,
@@ -105,7 +90,7 @@ function renderMenu({
   viewMode: Layout;
   capabilities?: CollectionViewCapabilities;
   showArchived?: boolean;
-  sort?: CollectionSortState;
+  sort?: CollectionSort;
 }) {
   const onPropertiesChange = vi.fn();
   const utils = render(
@@ -144,6 +129,12 @@ function readPropertiesSubmenu(getByText: (text: string) => HTMLElement) {
   fireEvent.click(getByText('Properties'));
   return menuLabels();
 }
+
+// Dates are ISO instants (the raw property value); the text a layout shows is the formatter's.
+const CREATED_AT = '2026-08-10T09:03:00.000Z';
+const UPDATED_AT = '2026-08-12T14:20:00.000Z';
+const CREATED_TEXT = formatEntryTimestamp(CREATED_AT)!;
+const UPDATED_TEXT = formatEntryTimestamp(UPDATED_AT)!;
 
 const iso = (day: number) => `2026-01-${String(day).padStart(2, '0')}T00:00:00.000Z`;
 
@@ -371,12 +362,12 @@ describe('CURRENT BEHAVIOR — sorting: Name', () => {
   it('orders by plain localeCompare — digits compare character by character, NOT numerically ("Project 10" before "Project 2")', () => {
     const entries = [note('Project 2'), note('Project 10'), note('Project 1')];
 
-    expect(titles(sortCollectionEntries(entries, { key: 'name', direction: 'down' }))).toEqual([
+    expect(titles(sortCollectionEntries(entries, { property: 'name', direction: 'down' }))).toEqual([
       'Project 1',
       'Project 10',
       'Project 2',
     ]);
-    expect(titles(sortCollectionEntries(entries, { key: 'name', direction: 'up' }))).toEqual([
+    expect(titles(sortCollectionEntries(entries, { property: 'name', direction: 'up' }))).toEqual([
       'Project 2',
       'Project 10',
       'Project 1',
@@ -385,7 +376,7 @@ describe('CURRENT BEHAVIOR — sorting: Name', () => {
 
   it('assets order the same way, by the extension-free name shown', () => {
     const sorted = sortAssets([asset('file2.png'), asset('file10.png'), asset('file1.png')], {
-      key: 'name',
+      property: 'name',
       direction: 'down',
     });
 
@@ -393,37 +384,37 @@ describe('CURRENT BEHAVIOR — sorting: Name', () => {
   });
 
   it('is locale-aware rather than code-point order: "apple" sorts before "Banana" (notes and assets alike)', () => {
-    expect(titles(sortCollectionEntries([note('Banana'), note('apple')], { key: 'name', direction: 'down' }))).toEqual([
+    expect(titles(sortCollectionEntries([note('Banana'), note('apple')], { property: 'name', direction: 'down' }))).toEqual([
       'apple',
       'Banana',
     ]);
     expect(
-      sortAssets([asset('Banana.png'), asset('apple.png')], { key: 'name', direction: 'down' }).map((a) => a.name)
+      sortAssets([asset('Banana.png'), asset('apple.png')], { property: 'name', direction: 'down' }).map((a) => a.name)
     ).toEqual(['apple.png', 'Banana.png']);
   });
 
   it('the sidebar\'s natural ordering is a different comparator: nothing in Configure sorts "2" before "10"', () => {
-    const sorted = titles(sortCollectionEntries([note('Item 10'), note('Item 2')], { key: 'name', direction: 'down' }));
+    const sorted = titles(sortCollectionEntries([note('Item 10'), note('Item 2')], { property: 'name', direction: 'down' }));
 
     expect(sorted).not.toEqual(['Item 2', 'Item 10']);
   });
 });
 
 describe('CURRENT BEHAVIOR — sorting: direction and missing values', () => {
-  const old = note('Old', { createdAt: iso(1), updatedAt: iso(1), description: 'b' });
-  const mid = note('Mid', { createdAt: iso(2), updatedAt: iso(2), description: 'a' });
-  const fresh = note('Fresh', { createdAt: iso(3), updatedAt: iso(3) });
+  const old = note('Old', { created: iso(1), updated: iso(1), description: 'b' });
+  const mid = note('Mid', { created: iso(2), updated: iso(2), description: 'a' });
+  const fresh = note('Fresh', { created: iso(3), updated: iso(3) });
 
   it('down means A→Z for text, newest first for dates', () => {
-    expect(titles(sortCollectionEntries([old, fresh, mid], { key: 'name', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
-    expect(titles(sortCollectionEntries([old, fresh, mid], { key: 'created', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
-    expect(titles(sortCollectionEntries([old, fresh, mid], { key: 'updated', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
+    expect(titles(sortCollectionEntries([old, fresh, mid], { property: 'name', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
+    expect(titles(sortCollectionEntries([old, fresh, mid], { property: 'created', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
+    expect(titles(sortCollectionEntries([old, fresh, mid], { property: 'updated', direction: 'down' }))).toEqual(['Fresh', 'Mid', 'Old']);
   });
 
   it('down means largest first for file size (assets)', () => {
     const facts = (size: number) => ({ size, createdAt: null, modifiedAt: null });
     const sorted = sortAssets([asset('s.png', facts(1)), asset('l.png', facts(9)), asset('m.png', facts(5))], {
-      key: 'size',
+      property: 'size',
       direction: 'down',
     });
 
@@ -432,15 +423,16 @@ describe('CURRENT BEHAVIOR — sorting: direction and missing values', () => {
 
   it('down means "shows a cover" first for Cover image, and a hidden cover counts as none', () => {
     const covered = note('Covered', { cover: 'Assets/a.png' });
-    const hidden = note('Hidden', { cover: 'Assets/b.png', coverHidden: true });
+    // A hidden cover is no cover value — the adapter drops it, so it counts as none when sorting.
+    const hidden = note('Hidden');
     const bare = note('Bare');
 
-    expect(titles(sortCollectionEntries([bare, hidden, covered], { key: 'cover', direction: 'down' }))).toEqual([
+    expect(titles(sortCollectionEntries([bare, hidden, covered], { property: 'cover', direction: 'down' }))).toEqual([
       'Covered',
       'Bare',
       'Hidden',
     ]);
-    expect(titles(sortCollectionEntries([bare, hidden, covered], { key: 'cover', direction: 'up' }))).toEqual([
+    expect(titles(sortCollectionEntries([bare, hidden, covered], { property: 'cover', direction: 'up' }))).toEqual([
       'Bare',
       'Hidden',
       'Covered',
@@ -449,11 +441,11 @@ describe('CURRENT BEHAVIOR — sorting: direction and missing values', () => {
 
   it('a missing value sorts last in BOTH directions: dates, descriptions, and asset facts', () => {
     for (const direction of ['down', 'up'] as const) {
-      expect(titles(sortCollectionEntries([note('None'), mid], { key: 'created', direction })).at(-1)).toBe('None');
-      expect(titles(sortCollectionEntries([note('None'), mid], { key: 'description', direction })).at(-1)).toBe('None');
+      expect(titles(sortCollectionEntries([note('None'), mid], { property: 'created', direction })).at(-1)).toBe('None');
+      expect(titles(sortCollectionEntries([note('None'), mid], { property: 'description', direction })).at(-1)).toBe('None');
       expect(
         sortAssets([asset('none.png'), asset('has.png', { size: 3, createdAt: iso(1), modifiedAt: iso(1) })], {
-          key: 'size',
+          property: 'size',
           direction,
         }).at(-1)?.name
       ).toBe('none.png');
@@ -463,28 +455,28 @@ describe('CURRENT BEHAVIOR — sorting: direction and missing values', () => {
   it('a whitespace-only description counts as missing', () => {
     const blank = note('Blank', { description: '   ' });
 
-    expect(titles(sortCollectionEntries([blank, mid], { key: 'description', direction: 'down' }))).toEqual(['Mid', 'Blank']);
+    expect(titles(sortCollectionEntries([blank, mid], { property: 'description', direction: 'down' }))).toEqual(['Mid', 'Blank']);
   });
 
   it('a sort by a property the item does not have leaves the order as given: size for notes, a description for assets', () => {
-    expect(titles(sortCollectionEntries([note('B'), note('A')], { key: 'size', direction: 'down' }))).toEqual(['B', 'A']);
+    expect(titles(sortCollectionEntries([note('B'), note('A')], { property: 'size', direction: 'down' }))).toEqual(['B', 'A']);
     expect(
-      sortAssets([asset('b.png'), asset('a.png')], { key: 'description', direction: 'down' }).map((a) => a.name)
+      sortAssets([asset('b.png'), asset('a.png')], { property: 'description', direction: 'down' }).map((a) => a.name)
     ).toEqual(['b.png', 'a.png']);
   });
 });
 
 describe('CURRENT BEHAVIOR — sorting: tie-breaking (notes and assets DIFFER — a unified sorter must pick one)', () => {
   it('notes: equal dates keep the input order, in either direction (a stable sort, no name tie-break)', () => {
-    const zed = note('Zed', { createdAt: iso(5) });
-    const alpha = note('Alpha', { createdAt: iso(5) });
+    const zed = note('Zed', { created: iso(5) });
+    const alpha = note('Alpha', { created: iso(5) });
 
-    expect(titles(sortCollectionEntries([zed, alpha], { key: 'created', direction: 'down' }))).toEqual(['Zed', 'Alpha']);
-    expect(titles(sortCollectionEntries([zed, alpha], { key: 'created', direction: 'up' }))).toEqual(['Zed', 'Alpha']);
+    expect(titles(sortCollectionEntries([zed, alpha], { property: 'created', direction: 'down' }))).toEqual(['Zed', 'Alpha']);
+    expect(titles(sortCollectionEntries([zed, alpha], { property: 'created', direction: 'up' }))).toEqual(['Zed', 'Alpha']);
   });
 
   it('notes: two entries with NO date keep the input order', () => {
-    expect(titles(sortCollectionEntries([note('Zed'), note('Alpha')], { key: 'updated', direction: 'down' }))).toEqual([
+    expect(titles(sortCollectionEntries([note('Zed'), note('Alpha')], { property: 'updated', direction: 'down' }))).toEqual([
       'Zed',
       'Alpha',
     ]);
@@ -494,7 +486,7 @@ describe('CURRENT BEHAVIOR — sorting: tie-breaking (notes and assets DIFFER �
     const first = note('Same', { id: 'first' });
     const second = note('Same', { id: 'second' });
 
-    expect(sortCollectionEntries([second, first], { key: 'name', direction: 'down' }).map((e) => e.id)).toEqual([
+    expect(sortCollectionEntries([second, first], { property: 'name', direction: 'down' }).map((e) => e.id)).toEqual([
       'second',
       'first',
     ]);
@@ -503,10 +495,10 @@ describe('CURRENT BEHAVIOR — sorting: tie-breaking (notes and assets DIFFER �
   it('notes: equal descriptions, and equal cover state, are broken by name A→Z in either direction', () => {
     const zed = note('Zed', { description: 'same' });
     const alpha = note('Alpha', { description: 'same' });
-    expect(titles(sortCollectionEntries([zed, alpha], { key: 'description', direction: 'down' }))).toEqual(['Alpha', 'Zed']);
-    expect(titles(sortCollectionEntries([zed, alpha], { key: 'description', direction: 'up' }))).toEqual(['Alpha', 'Zed']);
+    expect(titles(sortCollectionEntries([zed, alpha], { property: 'description', direction: 'down' }))).toEqual(['Alpha', 'Zed']);
+    expect(titles(sortCollectionEntries([zed, alpha], { property: 'description', direction: 'up' }))).toEqual(['Alpha', 'Zed']);
 
-    expect(titles(sortCollectionEntries([note('Zed'), note('Alpha')], { key: 'cover', direction: 'down' }))).toEqual([
+    expect(titles(sortCollectionEntries([note('Zed'), note('Alpha')], { property: 'cover', direction: 'down' }))).toEqual([
       'Alpha',
       'Zed',
     ]);
@@ -518,12 +510,12 @@ describe('CURRENT BEHAVIOR — sorting: tie-breaking (notes and assets DIFFER �
     for (const key of ['size', 'created', 'updated'] as const) {
       for (const direction of ['down', 'up'] as const) {
         expect(
-          sortAssets([asset('zed.png', facts), asset('alpha.png', facts)], { key, direction }).map((a) => a.name),
+          sortAssets([asset('zed.png', facts), asset('alpha.png', facts)], { property: key, direction }).map((a) => a.name),
           `${key} ${direction}`
         ).toEqual(['alpha.png', 'zed.png']);
       }
     }
-    expect(sortAssets([asset('zed.png'), asset('alpha.png')], { key: 'size', direction: 'down' }).map((a) => a.name)).toEqual([
+    expect(sortAssets([asset('zed.png'), asset('alpha.png')], { property: 'size', direction: 'down' }).map((a) => a.name)).toEqual([
       'alpha.png',
       'zed.png',
     ]);
@@ -532,17 +524,17 @@ describe('CURRENT BEHAVIOR — sorting: tie-breaking (notes and assets DIFFER �
   it('folders have no dates or size, so a date sort leaves their order as given; a name sort still orders them', () => {
     const folders = [folder('Zed'), folder('Alpha')];
 
-    expect(titles(sortCollectionEntries(folders, { key: 'created', direction: 'down' }))).toEqual(['Zed', 'Alpha']);
-    expect(titles(sortCollectionEntries(folders, { key: 'size', direction: 'up' }))).toEqual(['Zed', 'Alpha']);
-    expect(titles(sortCollectionEntries(folders, { key: 'name', direction: 'down' }))).toEqual(['Alpha', 'Zed']);
+    expect(titles(sortCollectionEntries(folders, { property: 'created', direction: 'down' }))).toEqual(['Zed', 'Alpha']);
+    expect(titles(sortCollectionEntries(folders, { property: 'size', direction: 'up' }))).toEqual(['Zed', 'Alpha']);
+    expect(titles(sortCollectionEntries(folders, { property: 'name', direction: 'down' }))).toEqual(['Alpha', 'Zed']);
   });
 
   it('never mutates its input (notes and assets)', () => {
     const entries = [note('B'), note('A')];
     const assets = [asset('b.png'), asset('a.png')];
 
-    sortCollectionEntries(entries, { key: 'name', direction: 'down' });
-    sortAssets(assets, { key: 'name', direction: 'down' });
+    sortCollectionEntries(entries, { property: 'name', direction: 'down' });
+    sortAssets(assets, { property: 'name', direction: 'down' });
 
     expect(titles(entries)).toEqual(['B', 'A']);
     expect(assets.map((a) => a.name)).toEqual(['b.png', 'a.png']);
@@ -554,28 +546,28 @@ describe('CURRENT BEHAVIOR — which persisted sort a collection honours', () =>
 
   it('notes honour name, description, cover, created, updated and archived; they drop size', () => {
     for (const key of ['name', 'description', 'cover', 'created', 'updated', 'archived'] as const) {
-      expect(resolveSupportedSort({ key, direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-        key,
+      expect(resolveSupportedSort({ property: key, direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+        property: key,
         direction: 'up',
       });
     }
-    expect(resolveSupportedSort({ key: 'size', direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+    expect(resolveSupportedSort({ property: 'size', direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
   });
 
   it('assets honour name, size, created and updated; they drop description, cover and archived', () => {
     for (const key of ['name', 'size', 'created', 'updated'] as const) {
-      expect(resolveSupportedSort({ key, direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-        key,
+      expect(resolveSupportedSort({ property: key, direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+        property: key,
         direction: 'up',
       });
     }
     for (const key of ['description', 'cover', 'archived'] as const) {
-      expect(resolveSupportedSort({ key, direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+      expect(resolveSupportedSort({ property: key, direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
     }
   });
 
   it('every collection defaults to Name, down', () => {
-    expect(DEFAULT_COLLECTION_SORT).toEqual({ key: 'name', direction: 'down' });
+    expect(DEFAULT_COLLECTION_SORT).toEqual({ property: 'name', direction: 'down' });
   });
 });
 
@@ -623,9 +615,9 @@ describe('CURRENT BEHAVIOR — Archive layouts', () => {
 
 describe('KNOWN DEFECT — configure and rendering disagree about what a layout shows', () => {
   it('KNOWN DEFECT: a stale persisted sort by Created still orders a Card collection, though Configure no longer offers Created there', () => {
-    const early = note('Early', { createdAt: iso(1) });
-    const late = note('Late', { createdAt: iso(9) });
-    const persistedBeforeSwitchingToCard: CollectionSortState = { key: 'created', direction: 'down' };
+    const early = note('Early', { created: iso(1) });
+    const late = note('Late', { created: iso(9) });
+    const persistedBeforeSwitchingToCard: CollectionSort = { property: 'created', direction: 'down' };
 
     // The resolver keeps it: Created is in the note collection's sort keys…
     expect(resolveSupportedSort(persistedBeforeSwitchingToCard, NOTE_COLLECTION_VIEW_CAPABILITIES, DEFAULT_COLLECTION_SORT)).toEqual(
@@ -648,13 +640,13 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
   it('KNOWN DEFECT: a note card never shows Created (Configure hides the property there), while an asset card does', () => {
     const { container, queryByText } = render(
       <CollectionBody
-        notes={[note('Plan', { created: 'Created-marker', updated: '12 Aug 2026' })]}
+        notes={[note('Plan', { created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="card"
         properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, created: true }}
       />
     );
-    expect(queryByText(/Created-marker/)).not.toBeInTheDocument(); // created is on, yet not drawn
-    expect(container.textContent).toContain('Edited 12 Aug 2026'); // only the edited date is
+    expect(queryByText(CREATED_TEXT)).not.toBeInTheDocument(); // created is on, yet not drawn
+    expect(container.textContent).toContain(`Edited ${UPDATED_TEXT}`); // only the edited date is
     cleanup();
 
     const assetCard = renderAssets(
@@ -693,8 +685,8 @@ describe('KNOWN DEFECT — configure and rendering disagree about what a layout 
     card.unmount();
 
     // Note card: no label at all — "Edited <date>" as one string.
-    const noteCard = render(<CollectionBody notes={[note('Plan', { updated: '12 Aug 2026' })]} viewMode="card" />);
-    expect(noteCard.container.textContent).toContain('Edited 12 Aug 2026');
+    const noteCard = render(<CollectionBody notes={[note('Plan', { updated: UPDATED_AT })]} viewMode="card" />);
+    expect(noteCard.container.textContent).toContain(`Edited ${UPDATED_TEXT}`);
     expect(noteCard.container.querySelector('.card-title-section__metadata-label')).toBeNull();
   });
 

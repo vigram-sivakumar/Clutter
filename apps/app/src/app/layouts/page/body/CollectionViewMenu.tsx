@@ -12,20 +12,17 @@ import {
   NOTE_COLLECTION_VIEW_CAPABILITIES,
   type CollectionViewCapabilities,
 } from './collectionViewCapabilities';
-import type {
-  CollectionViewMode,
-  CollectionPropertyVisibility,
-  CollectionSortState,
-  CollectionSortKey,
-} from './CollectionBody';
+import type { PropertyId } from '@core/properties/collectionProperties';
+import type { CollectionSort } from '@core/properties/collectionSort';
+import type { CollectionViewMode, CollectionPropertyVisibility } from './CollectionBody';
 
 export interface CollectionViewMenuProps {
   viewMode: CollectionViewMode;
   onChange: (mode: CollectionViewMode) => void;
   properties: CollectionPropertyVisibility;
   onPropertiesChange: (next: CollectionPropertyVisibility) => void;
-  sort: CollectionSortState;
-  onSortChange: (next: CollectionSortState) => void;
+  sort: CollectionSort;
+  onSortChange: (next: CollectionSort) => void;
   /** Archive collection only — adds the Archived property and sort option, absent everywhere else. */
   showArchived?: boolean;
   /** Which standard controls this collection offers (see collectionViewCapabilities.ts); notes' by default. */
@@ -72,7 +69,7 @@ const ARCHIVED_PROPERTY_ITEM = {
 // Sort by is the Properties list: Name (the one field Properties has no
 // item for — the name is always shown), then every Property the layout
 // offers, under the same label and in the same order. Title is Name.
-const SORT_KEY_OF_PROPERTY: Partial<Record<keyof CollectionPropertyVisibility, CollectionSortKey>> = {
+const SORT_KEY_OF_PROPERTY: Partial<Record<keyof CollectionPropertyVisibility, PropertyId>> = {
   description: 'description',
   cover: 'cover',
   size: 'size',
@@ -146,7 +143,7 @@ export function CollectionViewMenu({
     ? allPropertyItems.filter(({ key }) => capabilities.propertyKeys!.includes(key))
     : allPropertyItems.filter(({ key }) => key !== 'title' && key !== 'size');
   // Exactly the Properties list: Name, then each offered Property (that this collection can sort by), same labels and order.
-  const sortItems: Array<{ key: CollectionSortKey; label: string }> = [
+  const sortItems: Array<{ key: PropertyId; label: string }> = [
     { key: 'name', label: 'Name' },
     ...propertyItems.flatMap(({ key, label }) => {
       const sortKey = SORT_KEY_OF_PROPERTY[key];
@@ -231,7 +228,7 @@ export function CollectionViewMenu({
                 </>
               )}
               {(showSort ? sortItems : []).map(({ key, label }) => {
-                const isActive = sort.key === key;
+                const isActive = sort.property === key;
 
                 return (
                   <MenuItem
@@ -261,14 +258,14 @@ export function CollectionViewMenu({
                       // direction; picking a different option activates it
                       // at its own default ('down' — A→Z for Name, newest-
                       // first for the three date keys, per
-                      // sortCollectionEntries' own doc comment).
+                      // `sortEntries`' own doc comment).
                       onSortChange(
                         isActive
                           ? {
-                              key,
+                              property: key,
                               direction: sort.direction === 'down' ? 'up' : 'down',
                             }
-                          : { key, direction: 'down' }
+                          : { property: key, direction: 'down' }
                       );
                     }}
                   >

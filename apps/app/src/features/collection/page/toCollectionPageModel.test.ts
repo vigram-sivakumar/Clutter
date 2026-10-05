@@ -206,7 +206,7 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     );
 
     expect(model.folders).toEqual([
-      expect.objectContaining({ id: 'folder-2', title: 'Subfolder' }),
+      expect.objectContaining({ id: 'folder-2', values: expect.objectContaining({ name: 'Subfolder' }) }),
     ]);
   });
 
@@ -231,11 +231,11 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     );
 
     expect(model.notes).toEqual([
-      expect.objectContaining({ id: 'page-1', title: 'Meeting Notes' }),
+      expect.objectContaining({ id: 'page-1', values: expect.objectContaining({ name: 'Meeting Notes' }) }),
     ]);
   });
 
-  it('carries the note body and cover fields from EffectivePage for the Card preview, and none on a folder entry', () => {
+  it('carries the note body and the cover focal point as payload, and none on a folder entry', () => {
     const active = makeFolder({ id: 'folder-1' });
     const sub = makeFolder({ id: 'folder-2', name: 'Sub', path: `${ROOT}/Sub`, parentId: 'folder-1' });
     const page = makePage({
@@ -244,7 +244,6 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
       metadata: {
         ...defaultPageMetadata,
         cover: 'Assets/hero.png',
-        coverHidden: true,
         coverLayout: 'side',
         coverPositionAbove: 20,
         coverPositionSide: 80,
@@ -265,17 +264,16 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
 
     expect(model.notes[0]).toMatchObject({
       markdown: '# Body only\n\ntext',
-      cover: 'Assets/hero.png',
-      coverHidden: true,
       // The *above* focal position, even though this note's own layout is 'side'.
       coverPositionAbove: 20,
     });
+    // The cover itself is a property VALUE: raw, shown.
+    expect(model.notes[0]!.values.cover).toBe('Assets/hero.png');
     expect(model.folders[0]).toMatchObject({
       markdown: undefined,
-      cover: undefined,
-      coverHidden: undefined,
       coverPositionAbove: undefined,
     });
+    expect(model.folders[0]!.values.cover).toBeUndefined();
   });
 
   it('does not show the raw auto-generated filename for an unnamed note — falls to the placeholder, not body content', () => {
@@ -302,7 +300,7 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     );
 
     expect(model.notes).toEqual([
-      expect.objectContaining({ id: 'page-1', title: 'New Note' }),
+      expect.objectContaining({ id: 'page-1', values: expect.objectContaining({ name: 'New Note' }) }),
     ]);
   });
 });
@@ -339,7 +337,7 @@ describe('toCollectionPageModel — draft-only pages appear immediately (ARCHITE
     );
 
     expect(model.notes).toEqual([
-      expect.objectContaining({ id: draftId, title: 'My Draft', type: 'note' }),
+      expect.objectContaining({ id: draftId, values: expect.objectContaining({ name: 'My Draft' }), type: 'note' }),
     ]);
   });
 
@@ -679,5 +677,72 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
     // resolve every occurrence of that tag in the opened note and request
     // a reveal — see CollectionPageActions.onOpenNote's own doc comment.
     expect(onOpenNote).toHaveBeenCalledWith('page-1', 'project');
+  });
+});
+
+describe('toCollectionPageModel — the entry\'s collection property values (the domain adapter)', () => {
+  const build = (page: Page) => {
+    const active = makeFolder({ id: 'folder-1' });
+    const sub = makeFolder({ id: 'folder-2', name: 'Sub', path: `${ROOT}/Sub`, parentId: 'folder-1' });
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active, sub], [page]);
+
+    return toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
+    });
+  };
+
+  it('a note carries its description, cover and Created / Last edited / Archived as RAW values (ISO instants, never display text)', () => {
+    const model = build(
+      makePage({
+        name: 'Plan',
+        metadata: {
+          ...defaultPageMetadata,
+          description: 'About the plan',
+          cover: 'Assets/hero.png',
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-02-02T11:00:00.000Z',
+          archivedAt: '2026-03-03T12:00:00.000Z',
+        },
+      })
+    );
+
+    expect(model.notes[0]!.values).toEqual({
+      name: 'Plan',
+      description: 'About the plan',
+      cover: 'Assets/hero.png',
+      created: '2026-01-01T10:00:00.000Z',
+      updated: '2026-02-02T11:00:00.000Z',
+      archived: '2026-03-03T12:00:00.000Z',
+    });
+  });
+
+  it('a value the note does not have is absent, not blank', () => {
+    const model = build(makePage({ name: 'Plain', metadata: defaultPageMetadata }));
+
+    expect(Object.keys(model.notes[0]!.values)).toEqual(['name']);
+  });
+
+  it('a HIDDEN cover is no cover value — it is shown nowhere and does not count when sorting by Cover image', () => {
+    const model = build(
+      makePage({ name: 'Hidden', metadata: { ...defaultPageMetadata, cover: 'Assets/hero.png', coverHidden: true } })
+    );
+
+    expect(model.notes[0]!.values.cover).toBeUndefined();
+  });
+
+  it('a folder carries only its name: it has no dates, and nothing in the collection shows a folder\'s description or cover', () => {
+    const model = build(makePage({ name: 'Anything', metadata: defaultPageMetadata }));
+
+    expect(model.folders[0]!.values).toEqual({ name: 'Sub' });
+  });
+
+  it('the entry no longer carries the old per-property fields beside `values`', () => {
+    const entry = build(makePage({ name: 'Plan', metadata: { ...defaultPageMetadata, description: 'x', createdAt: '2026-01-01T00:00:00.000Z' } })).notes[0]!;
+
+    for (const retired of ['title', 'created', 'createdAt', 'updated', 'updatedAt', 'archived', 'archivedAt', 'description', 'cover', 'coverHidden']) {
+      expect(entry, retired).not.toHaveProperty(retired);
+    }
   });
 });
