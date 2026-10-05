@@ -60,8 +60,6 @@ export interface CollectionPropertyVisibility {
   title: boolean;
   /** Assets' Card layout only — show each card's file size line. Ignored everywhere else (Created / Last edited reuse `created` / `updated`). */
   size: boolean;
-  /** Assets' List / Table only — show each item's kind (the Type column / the kind in the row's metadata). Ignored everywhere else. */
-  type: boolean;
 }
 
 export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
@@ -73,7 +71,6 @@ export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibilit
   preview: true,
   title: true,
   size: true,
-  type: true,
 };
 
 /**

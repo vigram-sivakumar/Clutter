@@ -418,13 +418,13 @@ describe('CollectionViewMenu — assets properties (every layout)', () => {
     return { ...utils, onPropertiesChange };
   };
 
-  it('Card offers Title, File size, Created and Last edited — in that order, no Type (the preview shows the kind), and nothing note-specific', () => {
+  it('Card offers Title, File size, Created and Last edited — in that order, and nothing note-specific', () => {
     const { getByText, queryByText } = renderAssetMenu('card');
 
     openPropertiesSubmenu(getByText);
     const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
     expect(labels).toEqual(['Title', 'File size', 'Created', 'Last edited']);
-    for (const absent of ['Type', 'Description', 'Cover image', 'Content preview']) {
+    for (const absent of ['Description', 'Cover image', 'Content preview']) {
       expect(queryByText(absent)).not.toBeInTheDocument();
     }
   });
@@ -446,13 +446,13 @@ describe('CollectionViewMenu — assets properties (every layout)', () => {
     }
   });
 
-  it('List and Table offer Type, File size, Created and Last edited — the card\'s toggles plus Type, without Title (the name is always there)', () => {
+  it('List and Table offer Type, File size, Created and Last edited — the card\'s toggles, without Title (the name is always there)', () => {
     for (const viewMode of ['list', 'table'] as const) {
       const { getByText, queryByText, unmount } = renderAssetMenu(viewMode);
 
       openPropertiesSubmenu(getByText);
       const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
-      expect(labels).toEqual(['Type', 'File size', 'Created', 'Last edited']);
+      expect(labels).toEqual(['File size', 'Created', 'Last edited']);
       for (const absent of ['Title', 'Description', 'Cover image']) {
         expect(queryByText(absent)).not.toBeInTheDocument();
       }

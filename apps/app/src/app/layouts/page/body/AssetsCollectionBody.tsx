@@ -89,8 +89,8 @@ export function AssetsCollectionBody({
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !properties.title;
   const assets = sort ? sortAssets(unsorted, sort) : unsorted;
-  // The Properties (Type, File size, Created, Last edited) govern List and Table (the card takes Title, File size, Created, Last edited): list metadata and table columns.
-  const fileFacts = { type: properties.type, size: properties.size, created: properties.created, updated: properties.updated };
+  // The file-fact Properties (File size, Created, Last edited) govern every layout alike: card lines, list metadata, table columns.
+  const fileFacts = { size: properties.size, created: properties.created, updated: properties.updated };
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.
   const urlFor = (asset: Asset): string | undefined =>
     asset.source === 'remote' ? asset.url : resolveResourceUrl?.(asset.resource.path);
