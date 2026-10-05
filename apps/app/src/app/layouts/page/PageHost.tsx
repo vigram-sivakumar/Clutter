@@ -1723,7 +1723,7 @@ export function PageHost({
         }}
         onEditDescription={() => onOpenDescriptionEditor(activePageId)}
         breadcrumbs={
-          <>
+          <div className="topbar__breadcrumbs">
             <Breadcrumbs
               items={
                 draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
@@ -2020,7 +2020,7 @@ export function PageHost({
       // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
       // off (core/featureFlags.ts) only the note's own crumb is shown.
       breadcrumbs={
-        <>
+        <div className="topbar__breadcrumbs">
           <Breadcrumbs
             items={
               page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
