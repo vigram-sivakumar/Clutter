@@ -66,7 +66,7 @@ describe('createWikiLinkPreviewRenderer', () => {
 
     expect(container.querySelector('.card-title')).toBeNull();
     expect(queryByText('My Project')).toBeNull();
-    expect(container.querySelector('.page-canvas-preview')).not.toBeNull();
+    expect(container.querySelector('.note-page-canvas')).not.toBeNull();
   });
 
   it('by default an unresolved link previews as an empty note with no header', () => {
@@ -113,7 +113,7 @@ describe('createWikiLinkPreviewRenderer', () => {
     expect(getPage).toHaveBeenCalledWith('p1');
     expect(getByText('My Project')).toBeInTheDocument();
     expect(container.querySelector('.note-preview-card__empty')).toBeNull();
-    expect(container.querySelector('.document-preview')).not.toBeNull();
+    expect(container.querySelector('.note-page-canvas')).not.toBeNull();
   });
 
   it("shows the page's current (renamed) name, since it is loaded by id", () => {
@@ -149,7 +149,7 @@ describe('createWikiLinkPreviewRenderer', () => {
       renderPreview({ kind: 'resolved', pageId: 'p1' })
     );
 
-    const title = container.querySelector('.card-title')!.textContent!;
+    const title = container.querySelector('.card-title-section__title')!.textContent!;
     expect(title).toContain('October 2026');
     expect(title).not.toContain('2026-10-04');
   });
@@ -180,7 +180,7 @@ describe('createWikiLinkPreviewRenderer', () => {
     expect(
       container.querySelector('.note-preview-card__empty')
     ).toHaveTextContent('Empty note');
-    expect(container.querySelector('.document-preview')).toBeNull();
+    expect(container.querySelector('.note-page-canvas')).toBeNull();
     expect(getPage).not.toHaveBeenCalled();
     expect(getEffective).not.toHaveBeenCalled();
   });

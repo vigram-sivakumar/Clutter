@@ -36,8 +36,7 @@
  * .page__content (Page.tsx) — this :has() reaches forward from the
  * header to check whether the body it precedes is a collection body, the
  * same forward-:has() pattern already used elsewhere in this codebase
- * (Entry.css's .entry__trailing:has(.entry__actions), NoteTableRow.css's
- * :has(.collection-entry--selected)).
+ * (Entry.css's .entry__trailing:has(.entry__actions)).
  */
 .page__header:has(+ .page__body .collection__content) .page-title-section {
   max-width: var(--collection-width-max);

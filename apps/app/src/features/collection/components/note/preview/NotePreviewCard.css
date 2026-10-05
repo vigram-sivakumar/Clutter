@@ -1,0 +1,26 @@
+/*
+ * The read-only note preview (WikiLink hover): a floating surface with 6px
+ * padding at a fixed size. The page canvas inside is NotePageCanvas (scaled to
+ * fit).
+ */
+.note-preview-card {
+  display: flex;
+  flex-direction: column;
+  /* A collection card's shape: 3:4 at the middle of its 200–280px column range, and its section gap. */
+  gap: var(--space-8);
+  width: 240px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+
+  padding: var(--space-6);
+  /* Opaque like a menu (it floats over text), not the grid card's translucent tint. */
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+}
+.note-preview-card__empty {
+  padding-inline: var(--space-4);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-tertiary);
+}

@@ -7,7 +7,7 @@ export interface CollectionRowListProps extends HTMLAttributes<HTMLDivElement> {
 
 /**
  * A flat list of full-width rows (tasks, resources) — the same role
- * FolderGrid and the collection table already play as the single flex child of
+ * the folder grid and the collection table already play as the single flex child of
  * `.collection__content` (CollectionBody.css), so `.collection__content`'s
  * own `gap: 40px` (meant to separate a handful of major sections) lands
  * between this list and its siblings, never between the individual rows

@@ -92,8 +92,8 @@
   --editor-width-max: 720px;
 
   /* Collection width — same side-inset as every other body (--content-width),
-     wider cap: collection Table rows (--collection-table-column,
-     CollectionEntry.css) need ~920px minimum before columns compress. */
+     wider cap: collection Table rows (the columns' own widths,
+     buildNoteTableColumns) need ~920px minimum before columns compress. */
   --collection-width-max: 1280px;
 
   /* icon size */

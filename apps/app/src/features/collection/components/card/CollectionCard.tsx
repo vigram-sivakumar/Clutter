@@ -1,62 +1,94 @@
-import { forwardRef, type HTMLAttributes } from 'react';
-
+import { forwardRef, type CSSProperties, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
+import { buildActivationProps } from '@shared/interaction';
+import '../collectionTokens.css';
 import './CollectionCard.css';
 
-export interface CollectionCardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onClick'> {
+export interface CollectionCardProps
+  extends Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'title' | 'onClick'> {
+  /** The card's heading — normally a CardTitleSection, but the card does not know or care. */
+  header?: ReactNode;
+  /** `stack`: a banner between the header and the content. `overlay`: fills the whole card, behind the header. */
+  media?: ReactNode;
+  /** The main content. In `stack` it fills whatever height the header and media leave. */
+  children?: ReactNode;
+
+  /** `stack` (default): header, media, content in order. `overlay`: media fills the card, the header sits over its bottom edge. */
+  layout?: 'stack' | 'overlay';
+
+  /** The card's fixed shape: a width / height number, or a CSS ratio such as `'3 / 4'`. Omit and the card is as tall as its content. */
+  aspectRatio?: number | string;
+
   isSelected?: boolean;
-  /** Drops the fixed card shape: the card is only as tall as its content. */
-  compact?: boolean;
-  /** Drops the card's padding and gap: a section can run to the card edge, and sections that want inset provide their own padding. */
-  flush?: boolean;
-  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+
+  /**
+   * An empty slot-card (the "add something" card): a quieter surface, with its `children` centred
+   * in the card — typically just a plus icon.
+   */
+  isEmpty?: boolean;
+
+  /** Opens the card. Without it the card is inert: no role, not focusable, no key handling. */
+  onClick?: (event: MouseEvent<HTMLDivElement>) => void;
 }
 
 /**
- * The interactive shell every collection card shares: one open-the-item target
- * (`role="button"`, focusable, Enter/Space on the card itself — never on a
- * descendant — dispatching a real click, the same pattern CollectionEntry uses
- * for a row), the card surface/border/padding/gap, and the fixed card shape.
- * Collection-specific cards (NoteCard, AssetCard) compose it with their own
- * sections; nothing about notes or assets lives here.
+ * A bounded card surface — fill, border, radius, hover, selected, focus — with
+ * three slots (header, media, children) it arranges but never looks
+ * inside. What a card shows is the caller's content; what it does when
+ * clicked is the caller's `onClick`, wired through the shared activation
+ * behavior (nested controls keep their own clicks).
  */
-export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(
-  function CollectionCard(
-    { isSelected = false, compact = false, flush = false, onClick, className, children, ...props },
-    ref
-  ) {
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-      if (event.target !== event.currentTarget) {
-        return;
-      }
-      event.preventDefault();
-      event.currentTarget.click();
-    };
+export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(function CollectionCard(
+  {
+    header,
+    media,
+    children,
+    layout = 'stack',
+    aspectRatio,
+    isSelected = false,
+    isEmpty = false,
+    onClick,
+    className,
+    style,
+    role,
+    tabIndex,
+    ...props
+  },
+  ref
+) {
+  const cardStyle: CSSProperties | undefined =
+    aspectRatio === undefined ? style : { aspectRatio: String(aspectRatio), ...style };
 
-    return (
-      <div
-        {...props}
-        ref={ref}
-        className={[
-          'collection-card',
-          compact && 'collection-card--compact',
-          flush && 'collection-card--flush',
-          isSelected && 'collection-card--selected',
-          className,
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={handleKeyDown}
-      >
-        {children}
-      </div>
-    );
-  }
-);
+  return (
+    <div
+      {...props}
+      {...buildActivationProps<HTMLDivElement>({ onActivate: onClick, role, tabIndex })}
+      ref={ref}
+      className={[
+        'collection-card',
+        `collection-card--layout-${layout}`,
+        isSelected && 'collection-card--selected',
+        isEmpty && 'collection-card--empty',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={cardStyle}
+    >
+      {layout === 'overlay' ? (
+        <>
+          {media && <div className="collection-card__media">{media}</div>}
+          {header && <div className="collection-card__header">{header}</div>}
+          {children && <div className="collection-card__content">{children}</div>}
+        </>
+      ) : (
+        <>
+          {header && <div className="collection-card__header">{header}</div>}
+          {media && <div className="collection-card__media">{media}</div>}
+          {children && <div className="collection-card__content">{children}</div>}
+        </>
+      )}
+    </div>
+  );
+});
 
 CollectionCard.displayName = 'CollectionCard';

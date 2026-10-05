@@ -1,21 +1,23 @@
-import { useRef, useState, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import { useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { AppIcon } from '@shared/icon';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
-import {
-  NoteTableNewRow,
-  toNoteTableRow,
-} from '@features/collection/components/note/table/noteTableRows';
+import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
+import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
-import { toNoteListItem } from '@features/collection/components/note/list/noteListItems';
-import { NoteCardGrid } from '@features/collection/components/note/card/NoteCardGrid';
-import { NoteCard } from '@features/collection/components/note/card/NoteCard';
-import type { DocumentPreviewResolvers } from '@features/collection/components/note/card/DocumentPreview';
-import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
-import { FolderCard } from '@features/collection/components/folder/card/FolderCard';
+import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
+import { toNoteListItem } from '@features/collection/components/note/toNoteListItem';
+import { toNoteTableRow } from '@features/collection/components/note/toNoteTableRow';
+import {
+  NOTE_CARD_ASPECT_RATIO,
+  NOTE_GRID,
+  toNoteCardProps,
+} from '@features/collection/components/note/toNoteCardProps';
+import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
+import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
 import {
   buildNoteTableColumns,
   type NoteTableColumnVisibility,
-} from '@features/collection/components/note/table/noteTableColumns';
+} from '@features/collection/components/note/noteTableColumns';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import './CollectionBody.css';
 
@@ -25,16 +27,14 @@ import { PageBody } from './Page.Body';
  * Collection-view wiring. Two independent axes, not one:
  *
  *  - View mode ('list' | 'table' | 'card') — how *notes* lay out.
- *  - Item type ('folder' | 'note') — folders always render as FolderGrid/
- *    FolderCard, regardless of viewMode; only the notes section switches
- *    between the generic CollectionDataList and CollectionDataTable.
- *    FolderCard is an item renderer (a CollectionEntry row with a
- *    background/radius/shadow treatment), and FolderGrid is its matching
- *    container — not "the Card/Grid collection view" (a separate, not-yet-built feature
- *    this wiring doesn't touch). Folders have no table rows yet (the
- *    table's header cell could draw one, but folders carry no table
- *    columns' worth of data), which is why they don't switch with the
- *    notes section.
+ *  - Item type ('folder' | 'note') — folders always render as cards in their
+ *    own grid, regardless of viewMode; only the notes section switches
+ *    between the generic CollectionDataList, CollectionDataTable and a grid
+ *    of CollectionCards. Folders have no table rows (they carry no table
+ *    columns' worth of data), which is why they don't switch with the notes
+ *    section. What a note or folder shows is decided by the domain mappers
+ *    (toNoteCardProps, toNoteListItem, toNoteTableRow, toFolderCardProps);
+ *    drawing it is the generic Collection primitives' job.
  */
 export type CollectionViewMode = 'list' | 'table' | 'card';
 
@@ -42,7 +42,7 @@ export type CollectionViewMode = 'list' | 'table' | 'card';
  * Which note properties the collection UI currently shows — the
  * "Properties" section of the Configure menu (CollectionViewMenu.tsx),
  * distinct from view mode. Folder rows have no equivalent fields today
- * (FolderCard shows subfolder/note counts instead), so this only ever
+ * (a folder card shows subfolder/note counts instead), so this only ever
  * gates note rendering.
 
  */
@@ -201,8 +201,8 @@ export interface CollectionBodyProps {
    */
   onCreateFolder?: () => void;
   /**
-   * Wires each view mode's trailing "New Note" row (see NoteTableNewRow's
-   * and the notes list's `newItem`) — same "presence is the capability
+   * Wires each view mode's trailing "New Note" row (the table's and the list's `newItem`, or
+   * the card grid's empty "+" card) — same "presence is the capability
    * gate" convention as onCreateFolder above. Without it no row is drawn
    * in any mode (a "New Note" row that does nothing is a dead control).
    * With it, table mode renders its row regardless of note count; list
@@ -223,62 +223,17 @@ export interface CollectionBodyProps {
    */
   foldersInGivenOrder?: boolean;
   /**
-   * Resolution for Card mode's read-only DocumentPreview (WikiLink/Tag/
+   * Resolution for Card mode's read-only NotePageCanvas (WikiLink/Tag/
    * embed/image/cover) — composed in PageHost from the editor's own
    * resolver factories. Only consulted when `viewMode === 'card'`.
    */
-  previewResolvers?: DocumentPreviewResolvers;
+  previewResolvers?: NotePreviewResolvers;
   /**
    * The Cover image thumbnail — a column in Table mode, the trailing media in
    * List mode: shows each note's cover and opens the cover picker for that note
    * when it is clicked. Absent, it isn't offered. Never consulted in Card mode.
    */
   noteCover?: NoteCoverActions;
-}
-
-/**
- * Exported so ArchiveCollectionBody can render the same folder rows every
- * other collection page shows, without a second implementation. `actions`,
- * when supplied, reuses FolderCard's hover-gated `actions` slot
- * (CollectionEntry's `actions` prop). Folder rows have no
- * CollectionPropertyVisibility-gated fields — see this file's own doc
- * comment on that type.
- */
-export function renderFolderCard(entry: CollectionEntryModel, actions?: ReactNode) {
-  return (
-    <FolderCard
-      key={entry.id}
-      title={entry.title}
-      emoji={entry.emoji ?? undefined}
-      subfolderCount={entry.subfolderCount}
-      noteCount={entry.noteCount}
-      isSelected={entry.selected}
-      onClick={entry.onClick}
-      actions={actions}
-    />
-  );
-}
-
-/**
- * The permanent "Create folder" grid card — always the last item in the
- * folders grid (CollectionBody appends it after every real FolderCard).
- * Reuses FolderCard itself (icon="plus", title "New folder", no counts so its
- * metadata row never renders — see FolderCard's own doc comments) rather than a
- * second card component; `folder-card--create` is the one thing that
- * distinguishes it, so it can be styled independently without
- * touching every other FolderCard.
- */
-function renderCreateFolderCard(onCreateFolder: () => void) {
-  return (
-    <FolderCard
-      key="create-folder"
-      icon="plus"
-      title="New folder"
-      className="folder-card--create"
-      aria-label="Create folder"
-      onClick={onCreateFolder}
-    />
-  );
 }
 
 export interface RenderNoteListOptions {
@@ -291,8 +246,6 @@ export interface RenderNoteListOptions {
     url: string | null;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   };
-  /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
-  actionsFor?: (entry: CollectionEntryModel) => ReactNode;
   /** The list's trailing "New Note" row's handler; absent, none renders. */
   onCreateNote?: () => void;
 }
@@ -313,7 +266,7 @@ export interface RenderNoteListOptions {
 export function renderNoteList(
   entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  { coverFor, actionsFor, onCreateNote }: RenderNoteListOptions = {}
+  { coverFor, onCreateNote }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -325,43 +278,10 @@ export function renderNoteList(
             updated: properties.updated,
             archived: properties.archived,
           },
-          actions: actionsFor?.(entry),
           cover: properties.cover ? coverFor?.(entry) : undefined,
         })
       )}
       newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
-    />
-  );
-}
-
-/**
- * Card-mode note rendering — same plain-string title caveat and
- * `properties` gating as renderNoteList for the edited date (a card
- * shows no created date — the menu doesn't offer it in Card
- * mode), the description (one line above it, hidden when the note has none —
- * no "No description" placeholder, unlike Table). A card always shows the
- * note's cover and content (its page canvas) — the Cover image / Content
- * preview properties no longer apply to it.
- */
-export function renderNoteCard(
-  entry: CollectionEntryModel,
-  properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  previewResolvers?: DocumentPreviewResolvers
-) {
-  return (
-    <NoteCard
-      key={entry.id}
-      title={entry.title}
-      emoji={entry.emoji ?? undefined}
-      isSelected={entry.selected}
-      description={properties.description ? entry.description : undefined}
-      updated={properties.updated ? entry.updated : undefined}
-      markdown={entry.markdown}
-      cover={entry.cover}
-      coverHidden={entry.coverHidden}
-      coverPositionAbove={entry.coverPositionAbove}
-      previewResolvers={previewResolvers}
-      onClick={entry.onClick}
     />
   );
 }
@@ -372,12 +292,10 @@ export interface RenderNoteTableOptions {
     url: string | null;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   };
-  /** Hover-revealed trailing actions per note (Archive's Restore / Delete). */
-  actionsFor?: (entry: CollectionEntryModel) => ReactNode;
   /** Archive collection only — adds the Archived column (and its cells). */
   showArchived?: boolean;
-  /** The table's trailing row — an ordinary collection's "New Note"; absent, none renders (the Archive has nothing to create). */
-  footer?: ReactNode;
+  /** The table's trailing "New Note" row's handler — an ordinary collection's; absent, none renders (the Archive has nothing to create). */
+  onCreateNote?: () => void;
 }
 
 /**
@@ -385,13 +303,13 @@ export interface RenderNoteTableOptions {
  * CollectionDataTable. Same plain-string title caveat and `properties` gating
  * as renderNoteList: an unchecked property removes its column from the
  * header and from every row, not just its values. Exported so
- * ArchiveCollectionBody renders the same table (with its Archived column and
- * row actions) instead of a second implementation.
+ * ArchiveCollectionBody renders the same table (with its Archived column)
+ * instead of a second implementation.
  */
 export function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  { coverFor, actionsFor, showArchived = false, footer }: RenderNoteTableOptions = {}
+  { coverFor, showArchived = false, onCreateNote }: RenderNoteTableOptions = {}
 ) {
   const columns = toTableColumns(properties, showArchived, coverFor !== undefined);
 
@@ -402,12 +320,31 @@ export function renderNoteTable(
         toNoteTableRow(entry, {
           showDescription: properties.description,
           columns,
-          actions: actionsFor?.(entry),
           cover: coverFor?.(entry),
         })
       )}
-      footer={footer}
+      newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
     />
+  );
+}
+
+/**
+ * The folders grid: one generic card per folder, and — when a folder can be
+ * created here — a trailing empty "+" card. Exported so ArchiveCollectionBody
+ * renders the same folder cards every other collection page shows.
+ */
+export function renderFolderGrid(entries: readonly CollectionEntryModel[], onCreateFolder?: () => void) {
+  return (
+    <CollectionGrid {...FOLDER_GRID}>
+      {entries.map((entry) => (
+        <CollectionCard key={entry.id} {...toFolderCardProps(entry)} />
+      ))}
+      {onCreateFolder && (
+        <CollectionCard isEmpty aria-label="Create folder" onClick={onCreateFolder}>
+          <AppIcon icon="plus" />
+        </CollectionCard>
+      )}
+    </CollectionGrid>
   );
 }
 
@@ -452,17 +389,25 @@ export function CollectionBody({
   const noteSection =
     viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
       // Only when notes can be created here: a "New Note" row that does nothing is a dead control.
-      footer: onCreateNote ? <NoteTableNewRow onClick={onCreateNote} /> : undefined,
+      onCreateNote,
       coverFor,
     }) : viewMode === 'card' ? (
-      <NoteCardGrid
-        onCreateNote={sortedNotes.length > 0 ? onCreateNote : undefined}
-        headerLines={(properties.description ? 1 : 0) + (properties.updated ? 1 : 0)}
-      >
-        {sortedNotes.map((entry) =>
-          renderNoteCard(entry, properties, previewResolvers)
+      <CollectionGrid columns={NOTE_GRID}>
+        {sortedNotes.map((entry) => (
+          <CollectionCard
+            key={entry.id}
+            {...toNoteCardProps(entry, {
+              show: { description: properties.description, updated: properties.updated },
+              resolvers: previewResolvers,
+            })}
+          />
+        ))}
+        {onCreateNote && sortedNotes.length > 0 && (
+          <CollectionCard isEmpty aspectRatio={NOTE_CARD_ASPECT_RATIO} aria-label="New Note" onClick={onCreateNote}>
+            <AppIcon icon="plus" />
+          </CollectionCard>
         )}
-      </NoteCardGrid>
+      </CollectionGrid>
     ) : renderNoteList(sortedNotes, properties, {
       onCreateNote: sortedNotes.length > 0 ? onCreateNote : undefined,
       coverFor,
@@ -470,12 +415,7 @@ export function CollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {(sortedFolders.length > 0 || onCreateFolder) && (
-        <FolderGrid>
-          {sortedFolders.map((entry) => renderFolderCard(entry))}
-          {onCreateFolder && renderCreateFolderCard(onCreateFolder)}
-        </FolderGrid>
-      )}
+      {(sortedFolders.length > 0 || onCreateFolder) && renderFolderGrid(sortedFolders, onCreateFolder)}
       {showNotes && noteSection}
       {noteCover && viewMode !== 'card' && coverNote && (
         <CoverPickerOverlay

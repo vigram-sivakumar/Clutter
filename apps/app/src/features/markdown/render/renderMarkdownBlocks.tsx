@@ -11,7 +11,7 @@ import { DEFAULT_PREVIEW_LIMITS, extractPreviewBlocks, type PreviewLimits } from
  * Block-level, read-only React rendering of a whole Markdown document — the
  * counterpart to `renderCompactMarkdown`'s single-inline-run output, for
  * surfaces that show document *structure* without CodeMirror (currently the
- * Card view's `DocumentPreview`).
+ * Card view's `NotePageCanvas`).
  *
  * Not a second Markdown implementation: the tree comes from
  * `sharedMarkdownParser` (the exact grammar the editor parses with), every
@@ -23,7 +23,7 @@ import { DEFAULT_PREVIEW_LIMITS, extractPreviewBlocks, type PreviewLimits } from
  * `<span>`, never an `<a>`.
  *
  * Vertical spacing is plain CSS owned by the card preview
- * (`DocumentPreview.css`, a small semantic scale per block type) — not the
+ * (`NotePageCanvas.css`, a small semantic scale per block type) — not the
  * editor's separator algorithm, which needs an `EditorState`. The one
  * structural concession to how a note reads: a paragraph's soft line breaks
  * render as separate lines (`markdown-blocks__line`), since the editor shows

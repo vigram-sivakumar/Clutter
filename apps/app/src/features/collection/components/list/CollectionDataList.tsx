@@ -1,62 +1,66 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-
 import type { SystemIcon } from '@shared/icon';
-
-import type { CollectionRowAttributes } from '../collectionRowAttributes';
 import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionMedia';
-import { CollectionListGrid } from './CollectionListGrid';
-import { CollectionListRow } from './CollectionListRow';
+import { CollectionRow } from '../row/CollectionRow';
+import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
+import './CollectionDataList.css';
 
-/**
- * One item of a collection list, described by data only: the same handful of
- * values for every collection, so every List view looks and behaves the same.
- */
+/** One item of a collection list, described by data only. */
 export interface CollectionDataListItem {
   readonly id: string;
+
   readonly icon?: SystemIcon;
   readonly emoji?: string;
+  /** Replaces the icon/emoji box — a thumbnail (`CollectionMedia fillHeight`) in front of the title, for one. */
+  readonly leading?: ReactNode;
+
   readonly title: string;
   /** Replaces the plain-text title — an inline rename editor, most commonly. */
   readonly titleContent?: ReactNode;
+
   readonly description?: string;
-  /** The muted trailing line(s) — dates, a kind label. One entry per value; none renders no metadata at all. */
+
+  /** The muted trailing values (dates, a kind label), one per entry; none draws no metadata. */
   readonly metadata?: readonly string[];
-  /**
-   * A thumbnail at the row's trailing end, after the metadata (dates) — the same
-   * frame (`CollectionMedia`) the table's media column draws, so a cover or
-   * preview looks identical in either layout. Absent, the row has no media.
-   */
+
+  /** A thumbnail at the row's trailing end, in the shared media frame. */
   readonly media?: CollectionMediaProps;
+
   readonly isSelected?: boolean;
-  /** Hover-revealed trailing slot (Archive's Restore / Delete). */
-  readonly actions?: ReactNode;
+
   /** Opens the item (click / Enter / Space). */
   readonly onClick?: () => void;
+
+  /** Extra `data-*` / ARIA attributes for the row. */
   readonly props?: CollectionRowAttributes;
 }
 
 export interface CollectionDataListProps extends HTMLAttributes<HTMLDivElement> {
   readonly items: readonly CollectionDataListItem[];
-  /** A trailing "New …" row (`label` is its whole title); absent, none renders. */
-  readonly newItem?: { readonly label: string; readonly onClick: () => void };
+
+  /** A trailing "New …" row (`label` is its whole title); absent, none is drawn. */
+  readonly newItem?: {
+    readonly label: string;
+    readonly onClick: () => void;
+  };
 }
 
 /**
- * The one list every collection renders in List mode — notes, assets, the
- * Archive. A collection supplies only data (a `CollectionDataListItem` per
- * item); this draws the shared list grid and one shared row per item, with no
- * styling of its own. It knows nothing about notes, assets or any other item
- * type.
+ * A list from data: one `CollectionRow` per item in a flush column. The
+ * caller supplies values only; this draws them. It knows nothing about what
+ * an item is.
  */
-export function CollectionDataList({ items, newItem, ...props }: CollectionDataListProps) {
+export function CollectionDataList({ items, newItem, className, ...props }: CollectionDataListProps) {
   return (
-    <CollectionListGrid {...props}>
+    <div {...props} className={['collection-list', className].filter(Boolean).join(' ')}>
       {items.map((item) => (
-        <CollectionListRow
+        <CollectionRow
           {...item.props}
           key={item.id}
+          layout="list"
           icon={item.icon}
           emoji={item.emoji}
+          leading={item.leading}
           title={item.title}
           titleContent={item.titleContent}
           description={item.description}
@@ -77,19 +81,18 @@ export function CollectionDataList({ items, newItem, ...props }: CollectionDataL
             ) : undefined
           }
           isSelected={item.isSelected}
-          actions={item.actions}
-          onClick={item.onClick}
+          onClick={item.onClick ? () => item.onClick?.() : undefined}
         />
       ))}
-
       {newItem && (
-        <CollectionListRow
-          className="collection-list-grid__new-item"
+        <CollectionRow
+          layout="list"
+          tone="action"
           icon="plus"
           title={newItem.label}
           onClick={newItem.onClick}
         />
       )}
-    </CollectionListGrid>
+    </div>
   );
 }

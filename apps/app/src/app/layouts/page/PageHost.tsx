@@ -1394,7 +1394,6 @@ export function PageHost({
           body={
             isArchiveView ? (
               <ArchiveCollectionBody
-                vault={vault}
                 folders={model.folders}
                 notes={model.notes}
                 viewMode={collectionViewMode}
@@ -1407,18 +1406,6 @@ export function PageHost({
                 }
                 onDeleteResource={(id) =>
                   void application.resourceOperations.deleteResource(id)
-                }
-                onRestoreFolder={(id) =>
-                  void application.folderOperations.restore(id)
-                }
-                onDeleteFolder={(id) =>
-                  void application.folderOperations.delete(id)
-                }
-                onRestoreNote={(id) =>
-                  void application.pageOperations.restore(id)
-                }
-                onDeleteNote={(id) =>
-                  void application.pageOperations.delete(id)
                 }
               />
             ) : (

@@ -1,23 +1,17 @@
 /*
- * The shared thumbnail frame (CollectionMedia) — used by the table's media
- * cell and the list's media slot. A 30 × 20 landscape frame (3:2), so a cover
- * or preview reads as a miniature of the real thing; change the two size
- * variables below to resize every thumbnail in every layout at once. What goes
- * inside is styled by whoever fills it (AssetThumbnail.css,
- * NoteCoverThumbnail.css). Per CLAUDE.md, no `margin` — spacing is padding only.
+ * The thumbnail frame. Its parent sets the size with --collection-media-width
+ * and --collection-media-height (default 32 × 24); `contain: size` keeps what
+ * is inside (an image's intrinsic size) from driving it. Spacing is padding only
+ * (CLAUDE.md: no margin on anything the collection layout manages).
  */
-:root {
-  --collection-media-width: var(--space-32);
-  --collection-media-height: var(--space-24);
-}
-
 .collection-media {
   display: flex;
+  contain: size;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--collection-media-width);
-  height: var(--collection-media-height);
+  width: var(--collection-media-width, var(--space-32));
+  height: var(--collection-media-height, var(--space-24));
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -25,7 +19,6 @@
   user-select: none;
 }
 
-/* A clickable thumbnail (given an onClick): a button that looks like the frame. */
 .collection-media--interactive {
   appearance: none;
   background: none;

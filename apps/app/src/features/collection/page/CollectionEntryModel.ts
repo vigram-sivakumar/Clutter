@@ -15,7 +15,7 @@ export interface CollectionEntryModel {
    * undefined rather than fabricating a value. A formatted string (via
    * `formatDateDisplay`), not a raw ISO timestamp — display-only, never
    * round-tripped into a write. `subfolderCount`/`noteCount` are the
-   * reverse: only ever set for a `folder` entry, consumed by FolderCard's
+   * reverse: only ever set for a `folder` entry, consumed by the folder card's
    * metadata line.
    */
   readonly created?: string;
@@ -56,7 +56,7 @@ export interface CollectionEntryModel {
   /**
    * The note's Markdown body (EffectivePage.markdown — body-only, no
    * frontmatter, and the live editing-session text when the note is open)
-   * for the Card view's read-only DocumentPreview. Only ever set for a
+   * for the Card view's read-only NotePageCanvas. Only ever set for a
    * `note` entry. Consumers other than Card mode never read it.
    */
   readonly markdown?: string;
@@ -66,7 +66,7 @@ export interface CollectionEntryModel {
    * the Card view's injected resolver, never here. `coverHidden` and
    * `coverPositionAbove` mirror the metadata fields of the same name; the
    * Card preview always renders a cover at the top, so only the *above*
-   * focal position is ever carried (see DocumentPreview).
+   * focal position is ever carried (see NotePageCanvas).
    */
   readonly cover?: string;
   readonly coverHidden?: boolean;

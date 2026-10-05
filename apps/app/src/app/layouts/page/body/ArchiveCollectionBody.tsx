@@ -3,16 +3,12 @@ import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { Dialog } from '@components/dialog/Dialog';
 import { AppIcon } from '@shared/icon';
-import {
-  getFolderDeleteConfirmation,
-  PAGE_DELETE_CONFIRMATION_MESSAGE,
-} from '@features/notes/helpers/folderActionConfirmation';
+import { PAGE_DELETE_CONFIRMATION_MESSAGE } from '@features/notes/helpers/folderActionConfirmation';
 import { Resource } from '@features/notes/sidebar/Resource';
 import type { VaultResource } from '@core/vault/models/VaultResource';
-import type { Vault } from '@core/vault/models/Vault';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import {
-  renderFolderCard,
+  renderFolderGrid,
   renderNoteList,
   renderNoteTable,
   sortCollectionEntries,
@@ -22,12 +18,10 @@ import {
   type CollectionPropertyVisibility,
   type CollectionSortState,
 } from './CollectionBody';
-import { FolderGrid } from '@features/collection/components/folder/grid/FolderGrid';
 
 import { PageBody } from './Page.Body';
 
 export interface ArchiveCollectionBodyProps {
-  vault: Vault;
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
   viewMode?: CollectionViewMode;
@@ -38,49 +32,28 @@ export interface ArchiveCollectionBodyProps {
   onOpenResource?(resource: VaultResource): void;
   onRestoreResource(resourceId: string): void;
   onDeleteResource(resourceId: string): void;
-  /**
-   * FolderOperations.restore()/delete() — the archived-folder counterpart
-   * to onRestoreResource/onDeleteResource, same shape. Available alongside
-   * (not instead of) the existing topbar Restore/Delete a folder still
-   * gets once opened — both paths reach the same two operations, per the
-   * approved UX decision keeping the topbar path unchanged.
-   */
-  onRestoreFolder(folderId: string): void;
-  onDeleteFolder(folderId: string): void;
-  /**
-   * PageOperations.restore()/delete() — covers both Notes and Daily Notes
-   * identically (a Daily Note is a Page; toCollectionPageModel's
-   * getVisibleChildPages already renders both as the same 'note'-typed
-   * CollectionEntryModel, so there is no separate Daily Note case here).
-   * Same "alongside the topbar, not instead of it" shape as folders.
-   */
-  onRestoreNote(pageId: string): void;
-  onDeleteNote(pageId: string): void;
 }
 
 /**
  * The page-body rendering for the Archive folder view — folders/notes
  * render through the exact same components every other collection page
- * uses (renderFolderCard/renderNoteList/renderNoteTable, exported
- * from CollectionBody, one rendering per entry shape, not a second
- * implementation): folders always via FolderGrid/FolderCard, notes via
+ * uses (renderFolderGrid/renderNoteList/renderNoteTable, exported from
+ * CollectionBody, one rendering per entry shape, not a second
+ * implementation): folders always as generic cards in their grid, notes via
  * the generic CollectionDataList (List) or CollectionDataTable (Table) — same
  * "folders don't switch with viewMode" rule CollectionBody itself follows.
- * Restore/Delete reuse the `actions` slot those components now carry
- * (CollectionEntry's `actions` prop). Resources (images/PDFs) stay on the
+ * A folder or note is restored or deleted from its own page (the topbar) once
+ * opened; the rows carry no inline actions. Resources (images/PDFs) stay on the
  * sidebar's own `Resource` row component regardless of viewMode —
  * CollectionEntryModel is folder/note-shaped, with no room for a
  * resource's `kind`, the same reasoning AssetsCollectionBody/
- * TasksCollectionBody already established for their own collections.
- *
- * Every folder/note row here gets exactly two hover-only icon buttons
- * (Restore, Delete permanently); a resource row instead uses Resource's
- * own `archiveActions` prop (unchanged from before). Delete's confirmation
- * reuses the exact same useConfirmationSurface/Confirmation/Dialog
- * primitive every other archived-delete flow already uses.
+ * TasksCollectionBody already established for their own collections. A
+ * resource row uses Resource's own `archiveActions` prop (Restore, Delete
+ * permanently); Delete's confirmation reuses the exact same
+ * useConfirmationSurface/Confirmation/Dialog primitive every other
+ * archived-delete flow already uses.
  */
 export function ArchiveCollectionBody({
-  vault,
   folders = [],
   notes = [],
   viewMode = 'table',
@@ -90,10 +63,6 @@ export function ArchiveCollectionBody({
   onOpenResource,
   onRestoreResource,
   onDeleteResource,
-  onRestoreFolder,
-  onDeleteFolder,
-  onRestoreNote,
-  onDeleteNote,
 }: ArchiveCollectionBodyProps) {
   const confirmation = useConfirmationSurface();
 
@@ -101,12 +70,9 @@ export function ArchiveCollectionBody({
     confirmation.request({ title, message, confirmLabel: 'Delete', onConfirm });
   }
 
-  // CollectionEntry's and CollectionTableRow's own click handlers already refuse
-  // to fire the row's onClick when the click target is a nested <button>
-  // (the same interactive-descendant guard Entry.tsx originally
-  // established) — the same reason Resource.tsx's archiveActions buttons
-  // (below) never needed stopPropagation either. No new event-isolation
-  // mechanism here, folder/note rows included.
+  // The Resource row's click handling already refuses to fire when the click
+  // target is a nested <button> (the same interactive-descendant guard every
+  // activatable row shares), so these buttons need no stopPropagation.
   function hoverActions(onRestore: () => void, onDeleteClick: () => void) {
     return (
       <>
@@ -134,43 +100,17 @@ export function ArchiveCollectionBody({
     );
   }
 
-  function folderActions(entry: CollectionEntryModel) {
-    return hoverActions(
-      () => onRestoreFolder(entry.id),
-      () =>
-        requestDelete(
-          'Delete permanently?',
-          getFolderDeleteConfirmation(vault, entry.id).message,
-          () => onDeleteFolder(entry.id)
-        )
-    );
-  }
-
-  function noteActions(entry: CollectionEntryModel) {
-    return hoverActions(
-      () => onRestoreNote(entry.id),
-      () =>
-        requestDelete('Delete permanently?', PAGE_DELETE_CONFIRMATION_MESSAGE, () =>
-          onDeleteNote(entry.id)
-        )
-    );
-  }
-
   const sortedFolders = sortCollectionEntries(folders, sort);
   const sortedNotes = sortCollectionEntries(notes, sort);
 
   return (
     <>
       <PageBody className="collection__content">
-        {sortedFolders.length > 0 && (
-          <FolderGrid>
-            {sortedFolders.map((entry) => renderFolderCard(entry, folderActions(entry)))}
-          </FolderGrid>
-        )}
+        {sortedFolders.length > 0 && renderFolderGrid(sortedFolders)}
         {viewMode === 'table' ? (
-          renderNoteTable(sortedNotes, properties, { actionsFor: noteActions, showArchived: true })
+          renderNoteTable(sortedNotes, properties, { showArchived: true })
         ) : (
-          renderNoteList(sortedNotes, properties, { actionsFor: noteActions })
+          renderNoteList(sortedNotes, properties)
         )}
         {resources.map((resource) => (
           <Resource

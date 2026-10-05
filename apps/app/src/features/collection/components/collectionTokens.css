@@ -1,0 +1,9 @@
+/*
+ * Tokens shared by the Collection components (card, row, table row).
+ */
+:root {
+  /* The selected-item tint. */
+  --surface-selected: rgba(35, 131, 226, 0.15);
+  /* A quiet "empty / create" surface: half the card surface (its border is --border-subtle). */
+  --surface-action: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+}

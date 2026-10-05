@@ -10,16 +10,21 @@ import {
   type CollectionSortState,
   type CollectionViewMode,
 } from './CollectionBody';
+import { EditableText } from '@components/editable-text/EditableText';
+import { AppIcon } from '@shared/icon';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
-import { CollectionCardGrid } from '@features/collection/components/card/CollectionCardGrid';
-import { toAssetListItem } from '@features/collection/components/asset/list/toAssetListItem';
-import { toAssetTableRow } from '@features/collection/components/asset/table/toAssetTableRow';
-import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/table/assetTableColumns';
-import { AssetCard } from '@features/collection/components/asset/card/AssetCard';
-import { AssetUploadCard } from '@features/collection/components/asset/card/AssetUploadCard';
-import '@features/collection/components/asset/card/AssetCardGrid.css';
-import { AssetRenameField } from '@features/collection/components/asset/AssetRenameField';
+import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
+import { CollectionCard } from '@features/collection/components/card/CollectionCard';
+import { toAssetListItem } from '@features/collection/components/asset/toAssetListItem';
+import { toAssetTableRow } from '@features/collection/components/asset/toAssetTableRow';
+import { ASSET_TABLE_COLUMNS } from '@features/collection/components/asset/assetTableColumns';
+import {
+  ASSET_CARD_ASPECT_RATIO,
+  ASSET_GRID,
+  toAssetCardProps,
+} from '@features/collection/components/asset/toAssetCardProps';
 import { sortAssets } from '@features/collection/components/asset/sortAssets';
 import type { Asset } from '@core/vault/models/Asset';
 
@@ -64,8 +69,7 @@ export interface AssetsCollectionBodyProps {
 
 /**
  * The Assets collection's body: the shared List, Table and Card layouts filled
- * with asset items (the generic data list's and data table's asset rows, and
- * `AssetCard`). The same
+ * with asset items (the asset mappers' list items, table rows and card props). The same
  * items open the same way in every layout, and rename the same way: press F2
  * on a focused item and its name becomes an inline editor. The collection's
  * header controls (Settings, view mode, Add) are not here — they come from the
@@ -107,10 +111,15 @@ export function AssetsCollectionBody({
   const clickFor = (asset: Asset) =>
     asset.source === 'local' && editingId === asset.resource.id ? undefined : onOpenAsset;
 
+  // The inline rename editor an asset's title becomes: EditableText seeded with the
+  // extension-free display name, committing through `ResourceOperations.renameResource`
+  // — the same in list rows, table rows and cards.
   const titleContentFor = (asset: Asset): ReactNode =>
     asset.source === 'local' && editingId === asset.resource.id ? (
-      <AssetRenameField
-        resource={asset.resource}
+      <EditableText
+        value={getResourceDisplayName(asset.resource)}
+        className="editable-text--nowrap"
+        autoFocus
         onCommit={(name) => onRenameResource(asset.resource.id, name)}
         onEditingEnd={() => setEditingId(null)}
       />
@@ -119,24 +128,29 @@ export function AssetsCollectionBody({
   let layout: ReactNode;
   if (viewMode === 'card' && resolveResourceUrl) {
     layout = (
-      <CollectionCardGrid className="asset-card-grid" onKeyDown={handleKeyDown}>
+      <CollectionGrid columns={ASSET_GRID} onKeyDown={handleKeyDown}>
         {assets.map((asset) => (
-          <AssetCard
+          <CollectionCard
             key={asset.id}
-            asset={asset}
-            url={urlFor(asset)!}
-            showTitle={properties.title}
-            metadataVisibility={{
-              size: properties.size,
-              created: properties.created,
-              updated: properties.updated,
-            }}
-            onClick={clickFor(asset)}
-            titleContent={titleContentFor(asset)}
+            {...toAssetCardProps(asset, {
+              url: urlFor(asset),
+              showTitle: properties.title,
+              metadataVisibility: {
+                size: properties.size,
+                created: properties.created,
+                updated: properties.updated,
+              },
+              onClick: clickFor(asset),
+              titleContent: titleContentFor(asset),
+            })}
           />
         ))}
-        {onUpload && <AssetUploadCard onClick={onUpload} />}
-      </CollectionCardGrid>
+        {onUpload && (
+          <CollectionCard isEmpty aspectRatio={ASSET_CARD_ASPECT_RATIO} aria-label="Upload" onClick={onUpload}>
+            <AppIcon icon="upload" />
+          </CollectionCard>
+        )}
+      </CollectionGrid>
     );
   } else if (viewMode === 'table') {
     layout = (

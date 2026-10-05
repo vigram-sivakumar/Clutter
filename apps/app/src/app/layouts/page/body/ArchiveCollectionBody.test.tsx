@@ -6,11 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY } from './CollectionBody';
 import { ArchiveCollectionBody } from './ArchiveCollectionBody';
-import { Vault } from '@core/vault/models/Vault';
-import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
-import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { VaultResource } from '@core/vault/models/VaultResource';
-import type { Folder } from '@core/vault/models/Folder';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 class ResizeObserverMock {
@@ -32,41 +28,6 @@ afterEach(() => {
 });
 
 const ROOT = '/vault';
-
-function makeFolder(overrides: Partial<Folder> & Pick<Folder, 'id' | 'path'>): Folder {
-  return {
-    name: overrides.path.split('/').pop() ?? '',
-    parentId: null,
-    metadata: {
-      icon: null,
-      favorite: false,
-      description: '',
-      cover: null,
-      coverHidden: false,
-      coverLayout: 'side' as const,
-      coverPositionAbove: 50,
-      coverPositionSide: 50,
-      status: 'active',
-      archivedAt: null,
-      originalPath: null,
-      originalParentId: null,
-    },
-    ...overrides,
-  };
-}
-
-function makeVault(folders: Folder[] = []): Vault {
-  return new Vault(
-    ROOT,
-    [],
-    folders,
-    [],
-    [],
-    [],
-    new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
-  );
-}
 
 function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
   return {
@@ -108,14 +69,12 @@ function makeNoteEntry(overrides: Partial<CollectionEntryModel> = {}): Collectio
 function renderArchive(
   props: Partial<Omit<Parameters<typeof ArchiveCollectionBody>[0], 'resources'>> & {
     resources: VaultResource[];
-    vault?: Vault;
   }
 ) {
   return render(
     <ArchiveCollectionBody
-      vault={makeVault()}
       // Most of this file's assertions target List-mode selectors
-      // ('.collection-list-row', per actionButtonsFor's own comment below) —
+      // ('.collection-row', per actionButtonsFor's own comment below) —
       // ArchiveCollectionBody itself now defaults to Table (matching
       // CollectionBody's own new default), so tests are pinned to List
       // here explicitly rather than relying on a default that changed
@@ -123,25 +82,9 @@ function renderArchive(
       viewMode="list"
       onRestoreResource={vi.fn()}
       onDeleteResource={vi.fn()}
-      onRestoreFolder={vi.fn()}
-      onDeleteFolder={vi.fn()}
-      onRestoreNote={vi.fn()}
-      onDeleteNote={vi.fn()}
       {...props}
     />
   );
-}
-
-// A folder row renders via FolderCard ('.folder-card'), a note row via
-// NoteList ('.collection-list-row') — List mode, the default every test below
-// renders with; neither is '.entry' (that's still Resource's own row,
-// unchanged). Table-mode tests below use '.collection-table-row'/'.folder-card' directly.
-function actionButtonsFor(rowTitle: string): { restore: HTMLElement; deleteBtn: HTMLElement } {
-  const row = screen.getByText(rowTitle).closest('.folder-card, .collection-list-row')!;
-  const buttons = Array.from(row.querySelectorAll('button'));
-  const restore = buttons.find((b) => b.getAttribute('aria-label') === 'Restore')!;
-  const deleteBtn = buttons.find((b) => b.getAttribute('aria-label') === 'Delete permanently')!;
-  return { restore, deleteBtn };
 }
 
 describe('ArchiveCollectionBody: rendering every entry shape', () => {
@@ -159,24 +102,24 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
     expect(screen.getByText('spec')).toBeInTheDocument();
   });
 
-  it('the folder row click behavior works through FolderCard', () => {
+  it('the folder card click behavior works through the generic card', () => {
     const onClick = vi.fn();
     const folder = makeFolderEntry({ onClick });
 
     renderArchive({ folders: [folder], resources: [] });
 
-    fireEvent.click(screen.getByText('Old Project').closest('.folder-card')!);
+    fireEvent.click(screen.getByText('Old Project').closest('.collection-card')!);
 
     expect(onClick).toHaveBeenCalled();
   });
 
-  it('the note row click behavior works through NoteList', () => {
+  it('the note row click behavior works through the generic list', () => {
     const onClick = vi.fn();
     const note = makeNoteEntry({ onClick });
 
     renderArchive({ notes: [note], resources: [] });
 
-    fireEvent.click(screen.getByText('Old Note').closest('.collection-list-row')!);
+    fireEvent.click(screen.getByText('Old Note').closest('.collection-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -184,12 +127,12 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
   it('renders correctly with no folders, notes, or resources', () => {
     const { container } = renderArchive({ resources: [] });
 
-    expect(container.querySelectorAll('.collection-list-row')).toHaveLength(0);
-    expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-row')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-card')).toHaveLength(0);
     expect(container.querySelectorAll('.entry')).toHaveLength(0);
   });
 
-  it('table mode renders notes as rows of the generic table; folders stay on FolderGrid/FolderCard', () => {
+  it('table mode renders notes as rows of the generic table; folders stay as generic cards in their grid', () => {
     const folder = makeFolderEntry();
     const note = makeNoteEntry();
 
@@ -202,8 +145,8 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
 
     expect(container.querySelector('.collection-table')).toBeInTheDocument();
     expect(screen.getByText('Old Note').closest('.collection-table-row')).toBeInTheDocument();
-    expect(screen.getByText('Old Project').closest('.folder-card')).toBeInTheDocument();
-    expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+    expect(screen.getByText('Old Project').closest('.collection-card')).toBeInTheDocument();
+    expect(container.querySelector('.collection-grid')).toBeInTheDocument();
   });
 
   it('table mode has no "New Note" row — there is nothing to create in the Archive', () => {
@@ -224,7 +167,15 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
   });
 });
 
-describe('ArchiveCollectionBody: hover actions — resources', () => {
+describe('ArchiveCollectionBody: hover actions — resources (folders and notes carry none)', () => {
+  it('a folder card and a note row carry no inline actions — they are restored or deleted from their own page', () => {
+    const { container } = renderArchive({ folders: [makeFolderEntry()], notes: [makeNoteEntry()], resources: [] });
+
+    expect(container.querySelector('.collection-card button, .collection-row button')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete permanently' })).toBeNull();
+  });
+
   it('renders exactly two action buttons for an archived image resource: Restore and Delete', () => {
     const resource = makeResource({ kind: 'image' });
 
@@ -263,41 +214,6 @@ describe('ArchiveCollectionBody: hover actions — resources', () => {
   });
 });
 
-describe('ArchiveCollectionBody: hover actions — folders and notes now get them too', () => {
-  it('an archived folder row shows Restore and Delete on hover, alongside its existing (unchanged) click-to-open behavior', () => {
-    const folder = makeFolderEntry();
-
-    renderArchive({ folders: [folder], resources: [] });
-
-    const { restore, deleteBtn } = actionButtonsFor('Old Project');
-    expect(restore).toBeInTheDocument();
-    expect(deleteBtn).toBeInTheDocument();
-  });
-
-  it('an archived note row shows Restore and Delete on hover, alongside its existing (unchanged) click-to-open behavior', () => {
-    const note = makeNoteEntry();
-
-    renderArchive({ notes: [note], resources: [] });
-
-    const { restore, deleteBtn } = actionButtonsFor('Old Note');
-    expect(restore).toBeInTheDocument();
-    expect(deleteBtn).toBeInTheDocument();
-  });
-
-  it('a folder/note row still gets no three-dot menu — only the two action buttons, same as resources', () => {
-    const folder = makeFolderEntry();
-    const note = makeNoteEntry();
-
-    const { container } = renderArchive({ folders: [folder], notes: [note], resources: [] });
-
-    expect(screen.queryByRole('button', { name: /more|overflow/i })).toBeNull();
-    // Scoped to .collection-entry__actions (FolderCard's/NoteList's shared
-    // actions slot) — the row itself is also role="button" (it's clickable
-    // to open), so an unscoped button count would double-count it.
-    expect(container.querySelectorAll('.collection-entry__actions button')).toHaveLength(4);
-  });
-});
-
 describe('ArchiveCollectionBody: Restore', () => {
   it('resource: clicking Restore calls onRestoreResource with the resource id', () => {
     const onRestoreResource = vi.fn();
@@ -330,34 +246,6 @@ describe('ArchiveCollectionBody: Restore', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
 
     expect(onRestoreResource).toHaveBeenCalledWith('resource-pdf');
-  });
-
-  it('folder: clicking Restore calls onRestoreFolder with the folder id, without opening the folder', () => {
-    const onRestoreFolder = vi.fn();
-    const onClick = vi.fn();
-    const folder = makeFolderEntry({ onClick });
-
-    renderArchive({ folders: [folder], resources: [], onRestoreFolder });
-
-    const { restore } = actionButtonsFor('Old Project');
-    fireEvent.click(restore);
-
-    expect(onRestoreFolder).toHaveBeenCalledWith('folder-1');
-    expect(onClick).not.toHaveBeenCalled();
-  });
-
-  it('note: clicking Restore calls onRestoreNote with the page id, without opening the note (also covers Daily Notes, which render as the same \'note\'-typed entry)', () => {
-    const onRestoreNote = vi.fn();
-    const onClick = vi.fn();
-    const note = makeNoteEntry({ onClick });
-
-    renderArchive({ notes: [note], resources: [], onRestoreNote });
-
-    const { restore } = actionButtonsFor('Old Note');
-    fireEvent.click(restore);
-
-    expect(onRestoreNote).toHaveBeenCalledWith('page-1');
-    expect(onClick).not.toHaveBeenCalled();
   });
 });
 
@@ -422,116 +310,6 @@ describe('ArchiveCollectionBody: Delete (permanent) — resources', () => {
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     expect(onDeleteResource).toHaveBeenCalledWith('resource-pdf');
-  });
-});
-
-describe('ArchiveCollectionBody: Delete (permanent) — notes', () => {
-  it('clicking Delete shows a confirmation using the plain page-delete message, not the folder-descendant one', () => {
-    const onDeleteNote = vi.fn();
-    const note = makeNoteEntry();
-
-    renderArchive({ notes: [note], resources: [], onDeleteNote });
-
-    const { deleteBtn } = actionButtonsFor('Old Note');
-    fireEvent.click(deleteBtn);
-
-    expect(onDeleteNote).not.toHaveBeenCalled();
-    expect(screen.getByText('Delete permanently?')).toBeInTheDocument();
-    expect(screen.getByText('This cannot be undone.')).toBeInTheDocument();
-  });
-
-  it('Cancel leaves the note untouched', () => {
-    const onDeleteNote = vi.fn();
-    const note = makeNoteEntry();
-
-    renderArchive({ notes: [note], resources: [], onDeleteNote });
-
-    fireEvent.click(actionButtonsFor('Old Note').deleteBtn);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(onDeleteNote).not.toHaveBeenCalled();
-  });
-
-  it('Confirm invokes onDeleteNote with the page id, without opening the note', () => {
-    const onDeleteNote = vi.fn();
-    const onClick = vi.fn();
-    const note = makeNoteEntry({ onClick });
-
-    renderArchive({ notes: [note], resources: [], onDeleteNote });
-
-    fireEvent.click(actionButtonsFor('Old Note').deleteBtn);
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
-
-    expect(onDeleteNote).toHaveBeenCalledWith('page-1');
-    expect(onClick).not.toHaveBeenCalled();
-  });
-});
-
-describe('ArchiveCollectionBody: Delete (permanent) — folders reuse the existing descendant-aware confirmation copy', () => {
-  it('an empty archived folder gets the plain "cannot be undone" message', () => {
-    const vault = makeVault([
-      makeFolder({ id: 'folder-1', path: `${ROOT}/Archive/Old Project` }),
-    ]);
-    const folder = makeFolderEntry();
-
-    renderArchive({ vault, folders: [folder], resources: [], onDeleteFolder: vi.fn() });
-
-    fireEvent.click(actionButtonsFor('Old Project').deleteBtn);
-
-    expect(screen.getByText('This cannot be undone.')).toBeInTheDocument();
-  });
-
-  it('a non-empty archived folder gets the existing descendant-count message, matching the topbar\'s own folder-delete confirmation', () => {
-    const archived = makeFolder({ id: 'folder-1', path: `${ROOT}/Archive/Old Project` });
-    const nested = makeFolder({
-      id: 'folder-nested',
-      path: `${ROOT}/Archive/Old Project/Nested`,
-      parentId: 'folder-1',
-    });
-    const vault = makeVault([archived, nested]);
-    const folder = makeFolderEntry();
-
-    renderArchive({ vault, folders: [folder], resources: [], onDeleteFolder: vi.fn() });
-
-    fireEvent.click(actionButtonsFor('Old Project').deleteBtn);
-
-    expect(
-      screen.getByText(/Delete this folder and everything inside it\?/)
-    ).toBeInTheDocument();
-  });
-
-  it('Confirm invokes onDeleteFolder with the folder id, without opening the folder', () => {
-    const vault = makeVault([
-      makeFolder({ id: 'folder-1', path: `${ROOT}/Archive/Old Project` }),
-    ]);
-    const onDeleteFolder = vi.fn();
-    const onClick = vi.fn();
-    const folder = makeFolderEntry({ onClick });
-
-    renderArchive({ vault, folders: [folder], resources: [], onDeleteFolder });
-
-    fireEvent.click(actionButtonsFor('Old Project').deleteBtn);
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
-
-    expect(onDeleteFolder).toHaveBeenCalledWith('folder-1');
-    expect(onClick).not.toHaveBeenCalled();
-  });
-
-  it('Cancel leaves the folder untouched', () => {
-    const vault = makeVault([
-      makeFolder({ id: 'folder-1', path: `${ROOT}/Archive/Old Project` }),
-    ]);
-    const onDeleteFolder = vi.fn();
-    const folder = makeFolderEntry();
-
-    renderArchive({ vault, folders: [folder], resources: [], onDeleteFolder });
-
-    fireEvent.click(actionButtonsFor('Old Project').deleteBtn);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(onDeleteFolder).not.toHaveBeenCalled();
   });
 });
 
@@ -608,7 +386,7 @@ describe('ArchiveCollectionBody: Archived column', () => {
       sort: { key: 'archived', direction: 'down' },
     });
 
-    const titles = [...document.querySelectorAll('.collection-list-row')].map((el) => el.textContent);
+    const titles = [...document.querySelectorAll('.collection-row')].map((el) => el.textContent);
     expect(titles[0]).toContain('Newer');
     expect(titles[1]).toContain('Older');
   });

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CollectionMedia } from '../media/CollectionMedia';
 import { CollectionDataList, type CollectionDataListItem } from './CollectionDataList';
 
 afterEach(cleanup);
@@ -16,126 +17,130 @@ const item = (overrides: Partial<CollectionDataListItem> = {}): CollectionDataLi
 });
 
 describe('CollectionDataList', () => {
-  it('draws each item as one shared list row inside the shared list grid', () => {
-    const { container, getByText } = render(
-      <CollectionDataList items={[item(), item({ id: 'i2', title: 'Other' })]} />
-    );
+  it('draws each item as one list row inside the list container, in order', () => {
+    const { container } = render(<CollectionDataList items={[item(), item({ id: 'i2', title: 'Other' })]} />);
 
-    const rows = container.querySelectorAll('.collection-list-grid > .collection-list-row');
+    const rows = container.querySelectorAll('.collection-list > .collection-row');
     expect(rows).toHaveLength(2);
-    expect(getByText('Plan').closest('.collection-list-row')).toBe(rows[0]);
-    expect(rows[0]!.querySelector('.collection-entry__icon')).not.toBeNull();
+    expect(rows[0]).toHaveTextContent('Plan');
+    expect(rows[1]).toHaveTextContent('Other');
+    expect(rows[0]).toHaveClass('collection-row--layout-list');
   });
 
-  it('renders description, emoji and each metadata value as its own span — and no metadata when there is none', () => {
-    const { container, getByText } = render(
+  it('maps icon, emoji, title, description and titleContent onto the row', () => {
+    const { container } = render(
       <CollectionDataList
-        items={[item({ emoji: '🌊', description: 'Q4 goals', metadata: ['Today', 'Yesterday'] }), item({ id: 'i2', metadata: [] })]}
+        items={[
+          item({ emoji: '🌊', description: 'Q4 goals' }),
+          item({ id: 'i2', title: 'Hidden', titleContent: <input aria-label="Rename" /> }),
+        ]}
       />
     );
+    const [first, second] = [...container.querySelectorAll('.collection-row')];
 
-    const [first, second] = [...container.querySelectorAll('.collection-list-row')];
-    expect(getByText('Q4 goals')).toHaveClass('collection-entry__description');
-    expect(first!.querySelector('.collection-entry__emoji')).not.toBeNull();
-    expect([...first!.querySelectorAll('.collection-entry__metadata span')].map((s) => s.textContent)).toEqual([
+    expect(first!.querySelector('.emoji-icon')).toHaveTextContent('🌊');
+    expect(first!.querySelector('.collection-row__description')).toHaveTextContent('Q4 goals');
+    expect(second!.querySelector('.collection-row__title input')).not.toBeNull();
+    expect(screen.queryByText('Hidden')).toBeNull();
+  });
+
+  it('leading replaces the icon with a thumbnail', () => {
+    const { container } = render(
+      <CollectionDataList
+        items={[
+          item({
+            leading: <CollectionMedia><img alt="" data-testid="thumb" /></CollectionMedia>,
+            description: 'Vault',
+          }),
+        ]}
+      />
+    );
+    const row = container.querySelector('.collection-row')!;
+
+    expect(row.querySelector('.collection-row__leading .collection-media [data-testid="thumb"]')).not.toBeNull();
+    expect(row.querySelector('svg')).toBeNull();
+  });
+
+  it('draws each metadata value as its own span — and no metadata when there is none', () => {
+    const { container } = render(
+      <CollectionDataList items={[item({ metadata: ['Today', 'Yesterday'] }), item({ id: 'i2', metadata: [] })]} />
+    );
+    const [first, second] = [...container.querySelectorAll('.collection-row')];
+
+    expect([...first!.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual([
       'Today',
       'Yesterday',
     ]);
-    expect(second!.querySelector('.collection-entry__metadata')).toBeNull();
+    expect(second!.querySelector('.collection-row__metadata')).toBeNull();
   });
 
-  it('opens an item on click, hosts its actions, marks selection, and carries data attributes', () => {
-    const onClick = vi.fn();
-    const { container, getByText } = render(
+  it('draws media in the shared frame; a clickable one is a labelled button that does not open the row', () => {
+    const onOpen = vi.fn();
+    const onMedia = vi.fn();
+    const { container } = render(
+      <CollectionDataList
+        items={[
+          item({ onClick: onOpen, media: { children: <img alt="" />, onClick: onMedia, label: 'Change cover' } }),
+          item({ id: 'i2', media: { children: <img alt="" /> } }),
+        ]}
+      />
+    );
+
+    expect(container.querySelectorAll('.collection-row__media .collection-media')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
+    expect(onMedia).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('marks selected items and carries extra row attributes', () => {
+    const { container } = render(
       <CollectionDataList
         items={[
           item({
-            onClick,
             isSelected: true,
-            actions: <button>Restore</button>,
-            props: { 'data-resource-id': 'abc' },
+            props: { 'data-resource-id': 'r1', 'aria-label': 'Plan row' },
           }),
         ]}
       />
     );
+    const row = container.querySelector('.collection-row')!;
 
-    const row = container.querySelector('.collection-list-row')!;
-    expect(row).toHaveAttribute('data-resource-id', 'abc');
-    expect(row).toHaveClass('collection-entry--selected');
-    expect(row.querySelector('.collection-entry__actions')).toContainElement(getByText('Restore'));
-
-    fireEvent.click(getByText('Plan'));
-    expect(onClick).toHaveBeenCalledTimes(1);
-    fireEvent.click(getByText('Restore'));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(row).toHaveClass('collection-row--selected');
+    expect(row).toHaveAttribute('data-resource-id', 'r1');
+    expect(row).toHaveAttribute('aria-label', 'Plan row');
   });
 
-  it('draws an item\'s media in the shared thumbnail frame at the row\'s trailing end, after its metadata (the dates)', () => {
+  it('opens an item on click and on Enter; an item without onClick is inert', () => {
     const onClick = vi.fn();
-    const rowClick = vi.fn();
-    const { container, getByLabelText } = render(
-      <CollectionDataList
-        items={[
-          item({
-            onClick: rowClick,
-            metadata: ['Today'],
-            actions: <button>Restore</button>,
-            media: { children: <img alt="" src="app://x.png" />, onClick, label: 'Change cover image' },
-          }),
-          item({ id: 'i2', media: { children: <i data-testid="visual" /> } }),
-          item({ id: 'i3' }),
-        ]}
-      />
-    );
+    const { container } = render(<CollectionDataList items={[item({ onClick }), item({ id: 'i2' })]} />);
+    const [first, second] = [...container.querySelectorAll('.collection-row')];
 
-    const [withButton, visual, none] = [...container.querySelectorAll('.collection-list-row')];
-    const slot = withButton!.querySelector('.collection-entry__media')!;
-    expect(slot.querySelector('button.collection-media')).toBe(getByLabelText('Change cover image'));
-    expect(withButton!.querySelector('.collection-entry__content')).not.toContainElement(slot as HTMLElement);
-    expect(slot.parentElement).toHaveClass('collection-entry__metadata');
-    expect(slot.previousElementSibling).toHaveTextContent('Today');
-    expect(slot.parentElement!.nextElementSibling).toHaveClass('collection-entry__actions');
-
-    // A purely visual thumbnail is hidden from assistive tech; an item without media has no slot.
-    expect(visual!.querySelector('.collection-entry__media .collection-media')).toHaveAttribute('aria-hidden', 'true');
-    expect(none!.querySelector('.collection-entry__media')).toBeNull();
-
-    // Clicking the thumbnail does its own thing — it never opens the row.
-    fireEvent.click(getByLabelText('Change cover image'));
-    expect(onClick).toHaveBeenCalledTimes(1);
-    expect(rowClick).not.toHaveBeenCalled();
+    fireEvent.click(first!);
+    fireEvent.keyDown(first!, { key: 'Enter' });
+    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(second).not.toHaveAttribute('role');
   });
 
-  it('replaces the title with titleContent (an inline rename editor)', () => {
-    const { getByTestId, queryByText } = render(
-      <CollectionDataList items={[item({ titleContent: <input data-testid="rename" /> })]} />
-    );
+  it('draws no "new" row unless asked; the new row is an action row whose label is its whole title', () => {
+    const { container, rerender } = render(<CollectionDataList items={[item()]} />);
+    expect(container.querySelectorAll('.collection-row')).toHaveLength(1);
 
-    expect(getByTestId('rename')).toBeInTheDocument();
-    expect(queryByText('Plan')).toBeNull();
-  });
-
-  it('ends with a "New …" row only when given one, and it fires its handler', () => {
     const onClick = vi.fn();
-    const withNew = render(<CollectionDataList items={[item()]} newItem={{ label: 'New Note', onClick }} />);
-    const grid = withNew.container.querySelector('.collection-list-grid')!;
-    const last = grid.lastElementChild!;
-    expect(last).toHaveClass('collection-list-grid__new-item');
+    rerender(<CollectionDataList items={[item()]} newItem={{ label: 'New Note', onClick }} />);
+    const rows = container.querySelectorAll('.collection-row');
+    const last = rows[rows.length - 1] as HTMLElement;
+
+    expect(rows).toHaveLength(2);
+    expect(last).toHaveClass('collection-row--tone-action');
     expect(last).toHaveTextContent('New Note');
-
     fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);
-    cleanup();
-
-    const without = render(<CollectionDataList items={[item()]} />);
-    expect(without.container.querySelector('.collection-list-grid__new-item')).toBeNull();
   });
 
-  it('forwards container props (the Assets body\'s F2 handler) to the grid', () => {
-    const onKeyDown = vi.fn();
-    const { container } = render(<CollectionDataList items={[item()]} onKeyDown={onKeyDown} />);
+  it('passes className and attributes to the container', () => {
+    const { container } = render(<CollectionDataList items={[]} className="mine" data-x="1" />);
 
-    fireEvent.keyDown(container.querySelector('.collection-list-row')!, { key: 'F2' });
-    expect(onKeyDown).toHaveBeenCalled();
+    expect(container.firstElementChild).toHaveClass('collection-list', 'mine');
+    expect(container.firstElementChild).toHaveAttribute('data-x', '1');
   });
 });

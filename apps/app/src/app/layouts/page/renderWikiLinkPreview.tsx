@@ -2,8 +2,8 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
-import { NotePreviewCard } from '@features/collection/components/note/card/NotePreviewCard';
-import type { DocumentPreviewResolvers } from '@features/collection/components/note/card/DocumentPreview';
+import { NotePreviewCard } from '@features/collection/components/note/preview/NotePreviewCard';
+import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import type { RenderWikiLinkPreview } from '@features/markdown/editor/codemirror/wikilink/WikiLinkPreviewPopover';
 
 import { resolvePageIdentityIcon } from './resolvePageIdentityIcon';
@@ -29,7 +29,7 @@ import { resolvePageIdentityIcon } from './resolvePageIdentityIcon';
 export function createWikiLinkPreviewRenderer(
   vault: Vault,
   effectivePageState: EffectivePageState,
-  resolvers: DocumentPreviewResolvers,
+  resolvers: NotePreviewResolvers,
   { showHeader = false }: { showHeader?: boolean } = {}
 ): RenderWikiLinkPreview {
   return (request) => {

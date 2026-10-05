@@ -109,7 +109,7 @@ describe('CollectionBody — Table: Cover image column', () => {
       );
 
       expect(coverCell(container).querySelector('img')).toBeNull();
-      expect(coverCell(container).querySelector('.note-cover-thumbnail__empty')).not.toBeNull();
+      expect(coverCell(container).querySelector('.note-cover-image__empty')).not.toBeNull();
       expect(coverButton(container)).toHaveAttribute('aria-label', 'Add cover image');
       cleanup();
     }
@@ -230,7 +230,7 @@ describe('CollectionBody — Table: Cover image column', () => {
 
 describe('CollectionBody — List: Cover image media', () => {
   const listMedia = (container: HTMLElement) =>
-    container.querySelector<HTMLButtonElement>('.collection-list-row .collection-entry__media button.collection-media')!;
+    container.querySelector<HTMLButtonElement>('.collection-row .collection-row__media button.collection-media')!;
 
   it('shows each note\'s resolved cover as the row\'s trailing media, framed at its focal point', () => {
     const { container } = render(
@@ -254,7 +254,7 @@ describe('CollectionBody — List: Cover image media', () => {
       );
 
       expect(listMedia(container).querySelector('img')).toBeNull();
-      expect(listMedia(container).querySelector('.note-cover-thumbnail__empty')).not.toBeNull();
+      expect(listMedia(container).querySelector('.note-cover-image__empty')).not.toBeNull();
       expect(listMedia(container)).toHaveAttribute('aria-label', 'Add cover image');
       cleanup();
     }

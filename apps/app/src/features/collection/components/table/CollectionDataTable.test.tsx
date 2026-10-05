@@ -1,103 +1,162 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { CollectionTableColumn } from './collectionTableColumns';
 import { CollectionDataTable, type CollectionDataTableRow } from './CollectionDataTable';
+import type { CollectionTableColumn } from './collectionTableColumns';
 
 afterEach(cleanup);
 
 const columns: CollectionTableColumn[] = [
-  { id: 'name', label: 'Name', width: 'minmax(100px, 1fr)', className: 'h-name', cellClassName: 'c-name' },
-  { id: 'created', label: 'Created', width: '90px', cellClassName: 'c-created' },
-  { id: 'preview', label: 'Preview', width: '50px', cellClassName: 'c-preview' },
-  { id: 'type', label: 'Type', width: '70px', cellClassName: 'c-type' },
+  { id: 'name', label: 'Name', width: 'minmax(400px, 1fr)' },
+  { id: 'preview', label: 'Preview', width: '80px', cellClassName: 'col-preview' },
+  { id: 'type', label: 'Type', width: '140px', cellClassName: 'col-type' },
+  { id: 'created', label: 'Created', width: '140px' },
 ];
 
 const row = (overrides: Partial<CollectionDataTableRow> = {}): CollectionDataTableRow => ({
   id: 'r1',
   cells: {
-    name: { kind: 'header', icon: 'note', title: 'Plan', description: 'Q4' },
-    created: { kind: 'date', value: 'Today', dateTime: '2026-10-03' },
-    preview: { kind: 'media', children: <i /> },
-    type: { kind: 'text', value: 'PDF' },
+    name: { variant: 'header', icon: 'note', title: 'Plan', description: 'Q4' },
+    preview: { variant: 'media', children: <img alt="" data-testid="thumb" /> },
+    type: { variant: 'text', value: 'Image' },
+    created: { variant: 'text', value: 'Today', dateTime: '2026-10-05T10:00:00.000Z' },
   },
   ...overrides,
 });
 
 describe('CollectionDataTable', () => {
-  it('draws each column\'s cell with the generic cell its value names, applying the column\'s cell class', () => {
-    const { container } = render(<CollectionDataTable columns={columns} rows={[row()]} />);
-
-    const r = container.querySelector('.collection-table-row')!;
-    const cells = [...r.children];
-    expect(cells).toHaveLength(4);
-    expect(cells[0]).toHaveClass('collection-table-cell--header', 'collection-table-row__entry', 'c-name');
-    expect(cells[1]).toHaveClass('collection-table-cell--date', 'c-created');
-    expect(cells[2]).toHaveClass('collection-table-cell--media', 'c-preview');
-    expect(cells[3]).toHaveClass('collection-table-cell--text', 'c-type');
-  });
-
-  it('builds the header and every row from the same columns, so they share one grid', () => {
+  it('draws the header from the columns, and a row per entry on the same grid', () => {
     const { container } = render(<CollectionDataTable columns={columns} rows={[row(), row({ id: 'r2' })]} />);
 
-    const expected = 'minmax(100px, 1fr) 90px 50px 70px';
-    expect((container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns).toBe(expected);
-    for (const r of container.querySelectorAll<HTMLElement>('.collection-table-row')) {
-      expect(r.style.gridTemplateColumns).toBe(expected);
-    }
+    const grid = (container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns;
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
-      'Created',
       'Preview',
       'Type',
+      'Created',
     ]);
+    const rows = container.querySelectorAll('.collection-table-row');
+    expect(rows).toHaveLength(2);
+    expect((rows[0] as HTMLElement).style.gridTemplateColumns).toBe(grid);
   });
 
-  it('renders an empty cell for a column the row has no value for, so the grid stays aligned', () => {
+  it('draws each cell with the variant its value names, in column order', () => {
+    const { container } = render(<CollectionDataTable columns={columns} rows={[row()]} />);
+    const cells = [...container.querySelectorAll('.collection-table-row > .collection-table-cell')];
+
+    expect(cells).toHaveLength(4);
+    expect(cells[0]).toHaveClass('collection-table-cell--header');
+    expect(cells[1]).toHaveClass('collection-table-cell--media');
+    expect(cells[2]).toHaveClass('collection-table-cell--text');
+    expect(cells[0]).toHaveTextContent('Plan');
+    expect(cells[2]).toHaveTextContent('Image');
+  });
+
+  it('draws text cells with dateTime as data-date', () => {
+    const { container } = render(<CollectionDataTable columns={columns} rows={[row()]} />);
+
+    const created = container.querySelectorAll('.collection-table-row > .collection-table-cell')[3]!;
+    expect(created).toHaveAttribute('data-date', '2026-10-05T10:00:00.000Z');
+    expect(created).toHaveTextContent('Today');
+  });
+
+  it('applies the column’s cellClassName to its cell in every row', () => {
+    const { container } = render(<CollectionDataTable columns={columns} rows={[row(), row({ id: 'r2' })]} />);
+
+    expect(container.querySelectorAll('.collection-table-cell.col-type')).toHaveLength(2);
+    expect(container.querySelectorAll('.collection-table-cell.col-preview')).toHaveLength(2);
+  });
+
+  it('a column with no value renders an empty cell, so the grid stays aligned', () => {
     const { container } = render(
       <CollectionDataTable
         columns={columns}
-        rows={[{ id: 'r', cells: { name: { kind: 'header', title: 'Only name' } } }]}
+        rows={[row({ cells: { name: { variant: 'header', title: 'Plan' } } })]}
       />
     );
+    const cells = container.querySelectorAll('.collection-table-row > *');
 
-    const r = container.querySelector('.collection-table-row')!;
-    expect(r.children).toHaveLength(4);
-    expect(r.children[1]).toHaveClass('c-created');
+    expect(cells).toHaveLength(4);
+    expect(cells[2]).toBeEmptyDOMElement();
+    expect(cells[2]).toHaveClass('col-type');
   });
 
-  it('opens the row on click, hosts the actions overlay, and carries data attributes', () => {
-    const onClick = vi.fn();
-    const { container, getByText } = render(
+  it('draws media cells as the shared frame; a clickable one does not open the row', () => {
+    const onOpen = vi.fn();
+    const onMedia = vi.fn();
+    render(
       <CollectionDataTable
         columns={columns}
-        rows={[row({ onClick, actions: <button>Restore</button>, props: { 'data-resource-id': 'abc' } })]}
+        rows={[
+          row({
+            onClick: onOpen,
+            cells: {
+              name: { variant: 'header', title: 'Plan' },
+              preview: { variant: 'media', onClick: onMedia, label: 'Change cover', children: 'x' },
+            },
+          }),
+        ]}
       />
     );
 
-    const r = container.querySelector('.collection-table-row')!;
-    expect(r).toHaveAttribute('data-resource-id', 'abc');
-    expect(r.querySelector('.collection-table-row__actions')).toContainElement(getByText('Restore'));
+    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
+    expect(onMedia).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(getByText('Plan'));
-    expect(onClick).toHaveBeenCalledTimes(1);
+  it('opens a row on click and Enter; a row without onClick is inert', () => {
+    const onClick = vi.fn();
+    const { container } = render(<CollectionDataTable columns={columns} rows={[row({ onClick }), row({ id: 'r2' })]} />);
+    const [first, second] = [...container.querySelectorAll('.collection-table-row')];
 
-    fireEvent.click(getByText('Restore'));
+    fireEvent.click(first!);
+    fireEvent.keyDown(first!, { key: 'Enter' });
+    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(second).not.toHaveAttribute('role');
+  });
+
+  it('marks selected rows and carries extra row attributes', () => {
+    const { container } = render(
+      <CollectionDataTable
+        columns={columns}
+        rows={[
+          row({
+            isSelected: true,
+            props: { 'data-resource-id': 'r1' },
+          }),
+        ]}
+      />
+    );
+    const tableRow = container.querySelector('.collection-table-row')!;
+
+    expect(tableRow).toHaveClass('collection-table-row--selected');
+    expect(tableRow).toHaveAttribute('data-resource-id', 'r1');
+  });
+
+  it('draws no "new" row unless asked; the new row is the last, an action row spanning the table', () => {
+    const { container, rerender } = render(<CollectionDataTable columns={columns} rows={[row()]} />);
+    expect(container.querySelectorAll('.collection-table-row')).toHaveLength(1);
+
+    const onClick = vi.fn();
+    rerender(<CollectionDataTable columns={columns} rows={[row()]} newItem={{ label: 'New Note', onClick }} />);
+    const rows = container.querySelectorAll('.collection-table-row');
+    const last = rows[rows.length - 1] as HTMLElement;
+
+    expect(rows).toHaveLength(2);
+    expect(last).toHaveClass('collection-table-row--new-item');
+    expect(last).toHaveTextContent('New Note');
+    expect(last.querySelector('.collection-row--tone-action')).not.toBeNull();
+    fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
-  it('renders rows then the footer inside the body, and no footer unless given', () => {
-    const withFooter = render(
-      <CollectionDataTable columns={columns} rows={[row()]} footer={<div data-testid="footer" />} />
-    );
-    const body = withFooter.container.querySelector('.collection-table__body')!;
-    expect([...body.children].map((c) => c.getAttribute('data-testid') ?? 'row')).toEqual(['row', 'footer']);
-    cleanup();
+  it('draws only the header for no rows', () => {
+    const { container } = render(<CollectionDataTable columns={columns} rows={[]} />);
 
-    const without = render(<CollectionDataTable columns={columns} rows={[]} />);
-    expect(without.container.querySelector('.collection-table__body')!.children).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-table__header-cell')).toHaveLength(4);
+    expect(container.querySelectorAll('.collection-table-row')).toHaveLength(0);
   });
 });

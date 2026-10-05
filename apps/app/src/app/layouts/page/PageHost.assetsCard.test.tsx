@@ -232,16 +232,16 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
 
-    expect(document.querySelectorAll('.collection-card-grid > .asset-card')).toHaveLength(2);
-    expect(document.querySelector('.collection-list-grid, .collection-table')).toBeNull();
+    expect(document.querySelectorAll('.collection-grid > .collection-card--layout-overlay')).toHaveLength(2);
+    expect(document.querySelector('.collection-list, .collection-table')).toBeNull();
   });
 
   it('a saved List is honoured over the default — the shared list rows notes use', async () => {
     render(<AppLayout application={setup([image(), pdf()], 'list')} />);
     await flush();
 
-    expect(document.querySelectorAll('.collection-list-grid > .collection-list-row')).toHaveLength(2);
-    expect(document.querySelector('.collection-card-grid, .collection-table')).toBeNull();
+    expect(document.querySelectorAll('.collection-list > .collection-row')).toHaveLength(2);
+    expect(document.querySelector('.collection-grid, .collection-table')).toBeNull();
     expect(document.body.textContent).toContain('hero');
     expect(document.body.textContent).toContain('doc');
   });
@@ -269,21 +269,21 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.querySelectorAll('.collection-table__body > .collection-table-row')).toHaveLength(2);
   });
 
-  it('Card renders the shared card grid with a dedicated AssetCard per asset', async () => {
+  it('Card renders the generic grid with a generic overlay card per asset', async () => {
     render(<AppLayout application={setup([image(), pdf()])} />);
     await flush();
     await pick('Card');
 
-    const grid = document.querySelector('.collection-card-grid');
+    const grid = document.querySelector('.collection-grid');
     expect(grid).not.toBeNull();
-    const cards = [...grid!.querySelectorAll('.asset-card')];
+    const cards = [...grid!.querySelectorAll('.collection-card--layout-overlay')];
     expect(cards).toHaveLength(2);
     for (const card of cards) {
       expect(card).toHaveClass('collection-card');
     }
     // Not a note card, and none of the note-specific preview machinery.
-    expect(document.querySelector('.note-card')).toBeNull();
-    expect(document.querySelector('.document-preview')).toBeNull();
+    expect(document.querySelector('.collection-card:not(.collection-card--layout-overlay):not(.collection-card--empty)')).toBeNull();
+    expect(document.querySelector('.note-page-canvas')).toBeNull();
   });
 
   it('an image asset renders its resolved image (the existing resource-URL resolver), fitted without a crop', async () => {
@@ -292,7 +292,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
     await pick('Card');
 
-    const img = document.querySelector<HTMLImageElement>('.asset-card__image')!;
+    const img = document.querySelector<HTMLImageElement>('.collection-card__media img')!;
     expect(img.getAttribute('src')).toBe(application.resolveResourceImageUrl(`${ROOT}/hero.png`));
   });
 
@@ -301,9 +301,9 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
     await pick('Card');
 
-    expect(document.querySelector('.asset-card__pdf')).not.toBeNull();
-    expect(document.querySelector('.asset-card__image')).toBeNull();
-    await waitFor(() => expect(document.querySelector('.asset-card__pdf .pdf-viewer__page')).not.toBeNull());
+    expect(document.querySelector('.asset-pdf-preview')).not.toBeNull();
+    expect(document.querySelector('.collection-card__media img')).toBeNull();
+    await waitFor(() => expect(document.querySelector('.asset-pdf-preview .pdf-viewer__page')).not.toBeNull());
   });
 
   it('clicking an asset card opens it through the same handler as a row (the PDF overlay for a PDF)', async () => {
@@ -311,7 +311,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
     await pick('Card');
 
-    fireEvent.click(document.querySelector('.asset-card')!);
+    fireEvent.click(document.querySelector('.collection-card--layout-overlay')!);
 
     await waitFor(() => expect(document.querySelector('.pdf-overlay .pdf-viewer')).not.toBeNull());
   });
@@ -340,7 +340,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     render(<AppLayout application={application} />);
     await flush();
 
-    const row = document.querySelector<HTMLElement>('.collection-list-row')!;
+    const row = document.querySelector<HTMLElement>('.collection-row')!;
     row.focus();
     fireEvent.keyDown(row, { key: 'F2' });
     await flush();
@@ -364,7 +364,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     const order = () =>
-      [...document.querySelectorAll<HTMLElement>('.collection-list-row')].map((row) => row.dataset.resourceId);
+      [...document.querySelectorAll<HTMLElement>('.collection-row')].map((row) => row.dataset.resourceId);
     expect(order()).toEqual(['pdf-a', 'img-b']); // Name A→Z by default
 
     await openMenu();
@@ -388,7 +388,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     expect(
-      [...document.querySelectorAll<HTMLElement>('.collection-list-row')].map((row) => row.dataset.resourceId)
+      [...document.querySelectorAll<HTMLElement>('.collection-row')].map((row) => row.dataset.resourceId)
     ).toEqual(['img-a', 'img-z']);
   });
 });

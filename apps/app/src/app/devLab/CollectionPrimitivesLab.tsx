@@ -15,19 +15,19 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 
 import { AppIcon } from '@shared/icon';
-import { CollectionGrid } from '@features/collection/primitives/grid/CollectionGrid';
-import { CollectionCard } from '@features/collection/primitives/card/CollectionCard';
-import { CardTitleSection } from '@features/collection/primitives/card/CardTitleSection';
-import { CollectionRow } from '@features/collection/primitives/row/CollectionRow';
-import { CollectionDataList, type CollectionDataListItem } from '@features/collection/primitives/list/CollectionDataList';
+import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
+import { CollectionCard } from '@features/collection/components/card/CollectionCard';
+import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
+import { CollectionRow } from '@features/collection/components/row/CollectionRow';
+import { CollectionDataList, type CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 import {
   CollectionDataTable,
   type CollectionDataTableRow,
-} from '@features/collection/primitives/table/CollectionDataTable';
-import type { CollectionTableColumn } from '@features/collection/primitives/table/collectionTableColumns';
-import { CollectionMedia } from '@features/collection/primitives/media/CollectionMedia';
-import { CollectionImage } from '@features/collection/primitives/media/CollectionImage';
-import { ScaledCanvas } from '@features/collection/primitives/scale/ScaledCanvas';
+} from '@features/collection/components/table/CollectionDataTable';
+import type { CollectionTableColumn } from '@features/collection/components/table/collectionTableColumns';
+import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
+import { CollectionImage } from '@features/collection/components/media/CollectionImage';
+import { ScaledCanvas } from '@features/collection/components/scale/ScaledCanvas';
 
 import './CollectionPrimitivesLab.css';
 

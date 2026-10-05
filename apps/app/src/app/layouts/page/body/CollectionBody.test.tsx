@@ -42,14 +42,14 @@ function folderEntry(overrides: Partial<CollectionEntryModel> = {}): CollectionE
 }
 
 describe('CollectionBody — List mode (viewMode="list")', () => {
-  it('renders a folder as FolderCard and a note as NoteList, both inside a NoteListGrid', () => {
+  it('renders a folder as a generic card and a note as a generic list row, inside the generic list', () => {
     const { container, getByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
     );
 
-    expect(container.querySelector('.collection-list-grid')).toBeInTheDocument();
-    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
-    expect(getByText('My note').closest('.collection-list-row')).toBeInTheDocument();
+    expect(container.querySelector('.collection-list')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
+    expect(getByText('My note').closest('.collection-row')).toBeInTheDocument();
   });
 
   it('renders a note title verbatim — no Markdown resolution (NoteList has no such slot)', () => {
@@ -66,7 +66,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody notes={[noteEntry({ onClick })]} viewMode="list" />
     );
 
-    fireEvent.click(getByText('My note').closest('.collection-list-row')!);
+    fireEvent.click(getByText('My note').closest('.collection-row')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -77,7 +77,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody folders={[folderEntry({ onClick })]} viewMode="list" />
     );
 
-    fireEvent.click(getByText('My Folder').closest('.folder-card')!);
+    fireEvent.click(getByText('My Folder').closest('.collection-card')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -97,8 +97,8 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
   it('renders an empty collection with no rows and no crash', () => {
     const { container } = render(<CollectionBody folders={[]} notes={[]} viewMode="list" />);
 
-    expect(container.querySelectorAll('.collection-list-row')).toHaveLength(0);
-    expect(container.querySelectorAll('.folder-card')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-row')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-card')).toHaveLength(0);
   });
 });
 
@@ -107,10 +107,10 @@ describe('CollectionBody — Table mode (the default)', () => {
     const { container } = render(<CollectionBody notes={[noteEntry()]} />);
 
     expect(container.querySelector('.collection-table')).toBeInTheDocument();
-    expect(container.querySelector('.collection-list-grid')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-list')).not.toBeInTheDocument();
   });
 
-  it('renders notes as rows of the generic table, folders still as FolderCard', () => {
+  it('renders notes as rows of the generic table, folders still as cards', () => {
     const { container, getByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="table" />
     );
@@ -118,9 +118,9 @@ describe('CollectionBody — Table mode (the default)', () => {
     expect(container.querySelector('.collection-table')).toBeInTheDocument();
     expect(getByText('My note').closest('.collection-table-row')).toBeInTheDocument();
     // Folders don't switch with viewMode — they have no table columns'
-    // worth of data, so they stay on FolderGrid/FolderCard.
-    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
-    expect(container.querySelector('.folder-grid')).toBeInTheDocument();
+    // worth of data, so they stay as cards in their grid.
+    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
+    expect(container.querySelector('.collection-grid')).toBeInTheDocument();
   });
 
   it('draws every note\'s name and dates with the generic header and date cells', () => {
@@ -129,8 +129,8 @@ describe('CollectionBody — Table mode (the default)', () => {
     );
 
     const row = container.querySelector('.collection-table-row')!;
-    expect(row.querySelector('.collection-table-cell--header.collection-table-row__entry')).not.toBeNull();
-    expect(row.querySelectorAll('.collection-table-cell--date')).toHaveLength(2);
+    expect(row.querySelector('.collection-table-cell--header.collection-table-cell--header')).not.toBeNull();
+    expect(row.querySelectorAll('.collection-table-cell--text')).toHaveLength(2);
     expect(row.querySelector('.collection-table-row__created')).toHaveTextContent('Today');
     expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent('Yesterday');
   });
@@ -141,7 +141,7 @@ describe('CollectionBody — Table mode (the default)', () => {
       <CollectionBody notes={[]} viewMode="table" onCreateNote={onCreateNote} />
     );
 
-    const row = getByText('New Note').closest('.collection-table__new-item')!;
+    const row = getByText('New Note').closest('.collection-table-row--new-item')!;
     expect(container.querySelector('.collection-table__body')!.lastElementChild).toBe(row);
 
     fireEvent.click(row);
@@ -173,16 +173,16 @@ describe('CollectionBody — Table mode (the default)', () => {
 });
 
 describe('CollectionBody — Card mode (viewMode="card")', () => {
-  it('renders notes as NoteCards inside a NoteCardGrid, folders still as FolderCard', () => {
+  it('renders notes as generic cards inside the generic grid, folders still as cards', () => {
     const { container, getByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="card" />
     );
 
-    expect(container.querySelector('.note-card-grid')).toBeInTheDocument();
-    expect(container.querySelector('.collection-list-grid')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-grid')).toBeInTheDocument();
+    expect(container.querySelector('.collection-list')).not.toBeInTheDocument();
     expect(container.querySelector('.collection-table')).not.toBeInTheDocument();
-    expect(getByText('My note').closest('.note-card')).toBeInTheDocument();
-    expect(getByText('My Folder').closest('.folder-card')).toBeInTheDocument();
+    expect(getByText('My note').closest('.collection-card')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
   });
 
   it('clicking a card fires that note\'s own onClick', () => {
@@ -198,7 +198,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       />
     );
 
-    fireEvent.click(getByText('Second').closest('.note-card')!);
+    fireEvent.click(getByText('Second').closest('.collection-card')!);
 
     expect(second).toHaveBeenCalledTimes(1);
     expect(first).not.toHaveBeenCalled();
@@ -228,7 +228,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       <CollectionBody notes={[entry]} viewMode="card" />
     );
     const lines = () =>
-      [...container.querySelectorAll('.note-card .card-description, .note-card .card-metadata > span')].map((l) => l.textContent);
+      [...container.querySelectorAll('.collection-card .card-title-section__description, .collection-card .card-title-section__metadata-item')].map((l) => l.textContent);
     expect(lines()).toEqual(['About this note', 'Edited 12 Aug 2026']);
 
     rerender(<CollectionBody notes={[noteEntry({ updated: '12 Aug 2026' })]} viewMode="card" />);
@@ -257,43 +257,28 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     it('a card always shows the cover and the content, together on one page canvas', () => {
       const container = renderCard();
 
-      expect(container.querySelector('.document-preview__canvas .page-canvas-preview__cover')).toBeInTheDocument();
-      expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
+      expect(container.querySelector('.note-page-canvas__page .note-page-canvas__cover')).toBeInTheDocument();
+      expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 
     it('ignores the Cover image / Content preview properties (no longer offered for cards), even from a saved view config', () => {
       const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
 
-      expect(container.querySelector('.page-canvas-preview__cover')).toBeInTheDocument();
-      expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
-      expect(container.querySelector('.note-card')).not.toHaveClass('note-card--header-only');
+      expect(container.querySelector('.note-page-canvas__cover')).toBeInTheDocument();
+      expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
     });
 
-    it('only the New Note card is header-only (no canvas); a note card never is', () => {
+    it('only the trailing empty card has no canvas; a note card always has one', () => {
       const container = render(
         <CollectionBody notes={[entry()]} viewMode="card" onCreateNote={() => {}} previewResolvers={resolvers} />
       ).container;
 
-      const cards = [...container.querySelectorAll('.note-card')];
+      const cards = [...container.querySelectorAll('.collection-card')];
       expect(cards).toHaveLength(2);
-      expect(cards[0]).not.toHaveClass('note-card--header-only');
-      expect(cards[0]!.querySelector('.document-preview')).toBeInTheDocument();
-      expect(cards[1]).toHaveClass('note-card--new');
-      expect(cards[1]).toHaveClass('note-card--header-only');
-      expect(cards[1]!.querySelector('.document-preview')).toBeNull();
-    });
-
-    it('tells the grid how many metadata lines to reserve (one per Description / Last edited that is on)', () => {
-      const lines = (properties: typeof DEFAULT_COLLECTION_PROPERTY_VISIBILITY) =>
-        render(<CollectionBody notes={[entry()]} viewMode="card" properties={properties} />).container
-          .querySelector<HTMLElement>('.note-card-grid')!
-          .style.getPropertyValue('--note-card-header-lines');
-
-      expect(lines(DEFAULT_COLLECTION_PROPERTY_VISIBILITY)).toBe('2');
-      cleanup();
-      expect(lines({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false })).toBe('1');
-      cleanup();
-      expect(lines({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false, updated: false })).toBe('0');
+      expect(cards[0]).not.toHaveClass('collection-card--empty');
+      expect(cards[0]!.querySelector('.note-page-canvas')).toBeInTheDocument();
+      expect(cards[1]).toHaveClass('collection-card--empty');
+      expect(cards[1]!.querySelector('.note-page-canvas')).toBeNull();
     });
 
     it('does not affect List or Table', () => {
@@ -319,27 +304,27 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       />
     );
 
-    expect(container.querySelector('.document-preview h1')?.textContent).toBe('Live heading');
+    expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Live heading');
   });
 
   it('appends a New Note card only once there is a note, and it fires onCreateNote', () => {
     const onCreateNote = vi.fn();
     const empty = render(<CollectionBody notes={[]} viewMode="card" onCreateNote={onCreateNote} />);
-    expect(empty.queryByText('New Note')).not.toBeInTheDocument();
+    expect(empty.queryByLabelText('New Note')).not.toBeInTheDocument();
     cleanup();
 
-    const { getByText } = render(
+    const { getByLabelText } = render(
       <CollectionBody notes={[noteEntry()]} viewMode="card" onCreateNote={onCreateNote} />
     );
-    const newCard = getByText('New Note').closest('.note-card');
+    const newCard = getByLabelText('New Note');
     expect(newCard).toBeInTheDocument();
-    expect(newCard).toHaveClass('note-card--new');
-    // Same shell as every other card, but no body: just the title section.
-    expect(newCard!.querySelector('.note-card__header')).toBeInTheDocument();
-    expect(newCard!.querySelector('.document-preview')).not.toBeInTheDocument();
-    expect(newCard!.querySelector('.page-canvas-preview__cover')).not.toBeInTheDocument();
+    expect(newCard).toHaveClass('collection-card--empty');
+    // Same shell and shape as every other card, but empty: just a centred "+" — no header, no canvas.
+    expect(newCard.querySelector('.collection-card__header')).not.toBeInTheDocument();
+    expect(newCard.querySelector('.note-page-canvas')).not.toBeInTheDocument();
+    expect(newCard.querySelector('.app-icon svg')).toBeInTheDocument();
 
-    fireEvent.click(getByText('New Note'));
+    fireEvent.click(newCard);
     expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 
@@ -348,8 +333,8 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       const { container } = render(
         <CollectionBody notes={[noteEntry({ markdown: '# x' })]} viewMode={viewMode} />
       );
-      expect(container.querySelector('.note-card')).not.toBeInTheDocument();
-      expect(container.querySelector('.document-preview')).not.toBeInTheDocument();
+      expect(container.querySelector('.collection-card')).not.toBeInTheDocument();
+      expect(container.querySelector('.note-page-canvas')).not.toBeInTheDocument();
       cleanup();
     }
   });
@@ -407,7 +392,7 @@ describe('CollectionBody — Properties visibility', () => {
     expect(list.queryByText('Yesterday')).not.toBeInTheDocument();
   });
 
-  it('never affects folder rows — FolderCard has no description/created/updated fields', () => {
+  it('never affects folder cards — they have no description/created/updated fields', () => {
     const { getByText } = render(
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
@@ -525,7 +510,7 @@ describe('sortCollectionEntries', () => {
       />
     );
 
-    const titles = [...container.querySelectorAll('.collection-table-row__entry .collection-entry__title')].map(
+    const titles = [...container.querySelectorAll('.collection-table-cell--header .collection-row__title')].map(
       (el) => el.textContent
     );
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
@@ -578,7 +563,7 @@ describe('CollectionBody — foldersInGivenOrder', () => {
     folderEntry({ id: 'c', title: '2025' }),
   ];
   const titles = (container: HTMLElement) =>
-    Array.from(container.querySelectorAll('.folder-card')).map((card) => card.textContent);
+    Array.from(container.querySelectorAll('.collection-card .card-title-section__title')).map((title) => title.textContent);
 
   it('sorts folders by the Configure menu\'s sort by default (name, ascending here)', () => {
     const { container } = render(
@@ -604,7 +589,7 @@ describe('CollectionBody — no create actions when none are given', () => {
     const { container, queryByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
     );
-    expect(container.querySelector('.folder-card--create')).not.toBeInTheDocument();
+    expect(container.querySelector('.collection-card--empty')).not.toBeInTheDocument();
     expect(queryByText('New Note')).not.toBeInTheDocument();
   });
 });

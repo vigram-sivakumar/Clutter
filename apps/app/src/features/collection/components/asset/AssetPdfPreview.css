@@ -1,0 +1,21 @@
+/*
+ * A PDF's first page: fit to the preview's width, top-aligned and clipped by
+ * whatever frames it (a card, a thumbnail). The wrapper fills that frame.
+ */
+.asset-pdf-preview {
+  align-self: flex-start;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+/* The viewer's own page chrome (margins, shadow) is unwanted in a preview — an override of PdfViewer.css. */
+.asset-pdf-preview .pdf-viewer__page {
+  margin: 0;
+  box-shadow: none;
+}
+.asset-pdf-preview__fallback-icon {
+  color: var(--foreground-tertiary);
+}

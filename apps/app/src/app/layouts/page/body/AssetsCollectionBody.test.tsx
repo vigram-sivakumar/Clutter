@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -70,9 +68,9 @@ function renderAssets(
 
 /** The item element for each layout — the shared layer's own row/card class. */
 const ITEM_SELECTOR: Record<CollectionViewMode, string> = {
-  list: '.collection-list-row',
+  list: '.collection-row',
   table: '.collection-table-row',
-  card: '.asset-card',
+  card: '.collection-card--layout-overlay',
 };
 const LAYOUTS: CollectionViewMode[] = ['list', 'table', 'card'];
 
@@ -111,7 +109,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     });
 
     if (viewMode === 'card') {
-      expect(container.querySelector('.card-metadata')).toBeNull();
+      expect(container.querySelector('.card-title-section__metadata')).toBeNull();
       expect(screen.queryByText('Image')).toBeNull();
       expect(screen.queryByText('PDF')).toBeNull();
       return;
@@ -130,7 +128,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
     });
 
     const icon = (index: number) =>
-      itemFor(container, viewMode, index).querySelector('.collection-entry__icon svg, .card-title-section__icon svg')?.outerHTML;
+      itemFor(container, viewMode, index).querySelector('.collection-row__leading svg, .card-title-section__leading svg')?.outerHTML;
     expect(icon(0)).toBeTruthy();
     expect(icon(1)).toBeTruthy();
     expect(icon(0)).not.toBe(icon(1));
@@ -249,8 +247,8 @@ describe('AssetsCollectionBody — which layout renders', () => {
   it('List uses the shared list grid + list rows (the same ones notes use)', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'list' });
 
-    expect(container.querySelector('.collection-list-grid > .collection-list-row')).not.toBeNull();
-    expect(container.querySelector('.collection-table, .collection-card-grid')).toBeNull();
+    expect(container.querySelector('.collection-list > .collection-row')).not.toBeNull();
+    expect(container.querySelector('.collection-table, .collection-grid')).toBeNull();
   });
 
   it('Table uses the generic table with Name, Preview, Type and Source columns', () => {
@@ -264,7 +262,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
     ]);
     expect(container.querySelector('.collection-table__body > .collection-table-row')).not.toBeNull();
     // No "new item" footer row: an asset has no "New" row of its own (Add lives in the header).
-    expect(container.querySelector('.collection-table__new-item')).toBeNull();
+    expect(container.querySelector('.collection-table-row--new-item')).toBeNull();
   });
 
   it('List shows each asset\'s preview as the row\'s trailing media, in the same frame the table uses', () => {
@@ -276,12 +274,12 @@ describe('AssetsCollectionBody — which layout renders', () => {
       viewMode: 'list',
     });
 
-    const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-list-row')];
-    expect(imageRow!.querySelector('.collection-entry__media .collection-media img')).toHaveAttribute(
+    const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-row')];
+    expect(imageRow!.querySelector('.collection-row__media .collection-media img')).toHaveAttribute(
       'src',
       'app://vault/Assets/house.png'
     );
-    expect(pdfRow!.querySelector('.collection-entry__media .collection-media .asset-thumbnail__pdf')).not.toBeNull();
+    expect(pdfRow!.querySelector('.collection-row__media .collection-media .asset-pdf-preview')).not.toBeNull();
   });
 
   it('Table draws each asset with the generic header, media (thumbnail) and text cells', () => {
@@ -307,7 +305,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
       'src',
       'app://vault/Assets/house.png'
     );
-    expect(pdfRow!.querySelector('.collection-media .asset-thumbnail__pdf')).not.toBeNull();
+    expect(pdfRow!.querySelector('.collection-media .asset-pdf-preview')).not.toBeNull();
   });
 
   it('Table shows the kind icon in the Preview column when there is no URL resolver', () => {
@@ -318,22 +316,22 @@ describe('AssetsCollectionBody — which layout renders', () => {
     });
 
     expect(container.querySelector('.collection-media img')).toBeNull();
-    expect(container.querySelector('.collection-media .asset-thumbnail__icon')).not.toBeNull();
+    expect(container.querySelector('.collection-media .app-icon')).not.toBeNull();
   });
 
-  it('Card uses the shared card grid with a dedicated AssetCard per asset', () => {
+  it('Card uses the generic grid of generic overlay cards — one per asset, no asset-specific card', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'card' });
 
-    const card = container.querySelector('.collection-card-grid > .asset-card');
+    const card = container.querySelector('.collection-grid > .collection-card');
     expect(card).not.toBeNull();
-    expect(card).toHaveClass('collection-card');
-    expect(container.querySelector('.note-card, .document-preview')).toBeNull();
+    expect(card).toHaveClass('collection-card--layout-overlay');
+    expect(container.querySelector('.note-page-canvas')).toBeNull();
   });
 
   it('defaults to List when no layout is given', () => {
     const { container } = renderAssets({ resources: resources() });
 
-    expect(container.querySelector('.collection-list-grid')).not.toBeNull();
+    expect(container.querySelector('.collection-list')).not.toBeNull();
   });
 });
 
@@ -344,7 +342,7 @@ describe('AssetsCollectionBody — Card previews', () => {
       viewMode: 'card',
     });
 
-    expect(container.querySelector('.asset-card__image')).toHaveAttribute('src', 'app://vault/house.png');
+    expect(container.querySelector('.collection-card__media img')).toHaveAttribute('src', 'app://vault/house.png');
   });
 
   it('a pdf card gets the PDF preview slot, not an image', () => {
@@ -353,8 +351,8 @@ describe('AssetsCollectionBody — Card previews', () => {
       viewMode: 'card',
     });
 
-    expect(container.querySelector('.asset-card__pdf')).not.toBeNull();
-    expect(container.querySelector('.asset-card__image')).toBeNull();
+    expect(container.querySelector('.asset-pdf-preview')).not.toBeNull();
+    expect(container.querySelector('.collection-card__media img')).toBeNull();
   });
 });
 
@@ -404,7 +402,7 @@ describe('AssetsCollectionBody — Title property', () => {
   it('hides each card title in Card layout when the Title property is off', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
 
-    expect(container.querySelector('.asset-card')).not.toBeNull();
+    expect(container.querySelector('.collection-card--layout-overlay')).not.toBeNull();
     expect(container.querySelector('.card-title-section')).toBeNull();
   });
 
@@ -422,7 +420,7 @@ describe('AssetsCollectionBody — Title property', () => {
 
   it('F2 does not start a rename while the card title is hidden', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
-    const card = container.querySelector<HTMLElement>('.asset-card')!;
+    const card = container.querySelector<HTMLElement>('.collection-card--layout-overlay')!;
 
     card.focus();
     fireEvent.keyDown(card, { key: 'F2' });
@@ -436,9 +434,9 @@ describe('AssetsCollectionBody — metadata properties', () => {
     metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
   });
   const lines = (container: HTMLElement) =>
-    [...container.querySelectorAll('.asset-card__meta')].map(
+    [...container.querySelectorAll('.card-title-section__metadata-item')].map(
       (row) =>
-        `${row.querySelector('.asset-card__meta-label')?.textContent}: ${row.querySelector('.asset-card__meta-value')?.textContent}`
+        `${row.querySelector('.card-title-section__metadata-label')?.textContent}: ${row.querySelector('.card-title-section__metadata-value')?.textContent}`
     );
 
   it('shows none of them on a card by default (a first-time user), though the title stays', () => {
@@ -527,55 +525,43 @@ describe('AssetsCollectionBody — remote assets', () => {
 });
 
 describe('AssetsCollectionBody — Card grid', () => {
-  it('uses the asset grid (6 columns), not the shared one', () => {
+  it('uses the asset grid — up to 6 columns, at least 140px each — and the 4:5 card shape, set through the generic grid and card props', () => {
     const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card' });
 
-    expect(container.querySelector('.collection-card-grid')).toHaveClass('asset-card-grid');
-  });
-
-  it('the asset grid fits up to 6 columns, at least 140px each, with a 4:5 card — overriding only those variables', () => {
-    const css = readFileSync(
-      join(process.cwd(), 'src/features/collection/components/asset/card/AssetCardGrid.css'),
-      'utf8'
-    ).replace(/\/\*[\s\S]*?\*\//g, '');
-
-    expect(css).toMatch(/\.collection-card-grid\.asset-card-grid\s*\{/);
-    expect(css).toMatch(/--collection-card-aspect-ratio:\s*4 \/ 5/);
-    expect(css).toMatch(/--collection-grid-columns:/);
-    expect(css).toMatch(/5 \* var\(--collection-grid-gap\)\) \/ 6/);
-    expect(css).toMatch(/max\(140px/);
-    // Nothing else of the shared grid is restyled (no direct aspect-ratio, columns or gap).
-    expect(css).not.toMatch(/(^|[;{\s])(grid-template-columns|gap|aspect-ratio)\s*:/);
+    const grid = container.querySelector<HTMLElement>('.collection-grid')!;
+    expect(grid.style.getPropertyValue('--collection-grid-min')).toBe('140px');
+    expect(grid.style.getPropertyValue('--collection-grid-max')).toBe('6');
+    expect(container.querySelector<HTMLElement>('.collection-card')!.style.aspectRatio).toBe('4 / 5');
   });
 });
 
 describe('AssetsCollectionBody — Upload card', () => {
-  it('ends the Card grid with an Upload card that calls onUpload — after every asset', () => {
+  it('ends the Card grid with an empty "+"-style Upload card that calls onUpload — after every asset', () => {
     const onUpload = vi.fn();
-    const { container, getByText } = renderAssets({ resources: [makeResource(), makeResource({ id: 'r2', name: 'b.png' })], viewMode: 'card', onUpload });
+    const { container, getByLabelText } = renderAssets({ resources: [makeResource(), makeResource({ id: 'r2', name: 'b.png' })], viewMode: 'card', onUpload });
 
-    const grid = container.querySelector('.collection-card-grid')!;
-    expect(grid.lastElementChild).toHaveClass('asset-upload-card');
-    expect(grid.querySelectorAll('.asset-card')).toHaveLength(2);
+    const grid = container.querySelector('.collection-grid')!;
+    expect(grid.lastElementChild).toHaveClass('collection-card--empty');
+    expect(grid.querySelectorAll('.collection-card--layout-overlay')).toHaveLength(2);
 
-    fireEvent.click(getByText('Upload'));
+    fireEvent.click(getByLabelText('Upload'));
     expect(onUpload).toHaveBeenCalledTimes(1);
   });
 
   it('is still there with no assets at all', () => {
     const { container } = renderAssets({ resources: [], viewMode: 'card', onUpload: vi.fn() });
 
-    expect(container.querySelectorAll('.asset-card')).toHaveLength(0);
-    expect(container.querySelector('.asset-upload-card')).not.toBeNull();
+    expect(container.querySelectorAll('.collection-card--layout-overlay')).toHaveLength(0);
+    expect(container.querySelector('.collection-card--empty')).not.toBeNull();
   });
 
   it('is not rendered without an upload handler, nor in List or Table', () => {
-    expect(renderAssets({ resources: [makeResource()], viewMode: 'card' }).container.querySelector('.asset-upload-card')).toBeNull();
+    expect(renderAssets({ resources: [makeResource()], viewMode: 'card' }).container.querySelector('.collection-card--empty')).toBeNull();
     cleanup();
 
     for (const viewMode of ['list', 'table'] as const) {
       const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, onUpload: vi.fn() });
-      expect(container.querySelector('.asset-upload-card')).toBeNull();
+      expect(container.querySelector('.collection-card--empty')).toBeNull();
       unmount();
     }
   });

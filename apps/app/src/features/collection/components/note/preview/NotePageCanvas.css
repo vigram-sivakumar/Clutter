@@ -1,0 +1,452 @@
+/*
+ * The note's page canvas as a card/preview section: the page (cover + body)
+ * is laid out at a fixed width and scaled to fit by ScaledCanvas; this is the
+ * viewport it is seen through. No padding of its own beyond a 4px inline inset
+ * (it lines the text up under the header's icon glyph): the card owns the
+ * padding around and the gap between its header and this. Its size is whatever
+ * the card (a fixed-ratio box) has left — never the document — so a short and a
+ * very long note occupy identical boxes. Everything that leaves the box is clipped.
+ */
+.note-page-canvas {
+  position: relative;
+  width: 100%;
+  /* Fills what's left of the card's fixed shape (a flex child of the card), so every card is the same height. */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding-inline: var(--space-4);
+
+  /* No background of its own: the card's surface shows through. */
+  /* Header/preview divider hidden on purpose (try-out) — restore `border-top: 1px solid var(--border-default)` to bring it back. */
+
+  /*
+   * Bottom fade. A mask (not an overlay colored like the card) so it fades
+   * to whatever the card surface is — the card's background is translucent,
+   * so a solid gradient could never match it.
+   */
+  --note-page-canvas-fade: 56px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--note-page-canvas-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--note-page-canvas-fade)),
+    transparent
+  );
+}
+
+/*
+ * The page: ALWAYS laid out at the canvas width (NOTE_CANVAS_WIDTH, 600px, set
+ * by ScaledCanvas), never a percentage of the card, so the Markdown lays out
+ * identically — same line breaks, same block heights — at every card size; the
+ * card width only changes the scale (ScaledCanvas, measured in JS). Inert: the
+ * card is the only click target.
+ */
+.note-page-canvas__page {
+  /*
+   * Block spacing scale, in document pixels (the surface is scaled, so these
+   * shrink with it). Owned by the preview — not the editor's separator
+   * algorithm. Sibling vertical margins collapse, so the gap between two
+   * blocks is the larger of the two margins: that is what makes
+   * "paragraph -> list" a md gap and "paragraph -> code" a lg gap without
+   * any per-pair rules.
+   */
+  --note-page-canvas-space-sm: var(--space-12);
+  --note-page-canvas-space-md: var(--space-20);
+  --note-page-canvas-space-lg: var(--space-28);
+  /* Gap between list items (and lines within one) — 0: the 1.5 line height alone separates rows. Raise to open lists up. */
+  --note-page-canvas-list-item-gap: 0px;
+
+  font-family: var(--font-sans);
+  font-size: var(--cm-content);
+  line-height: var(--lh-cm-content);
+  color: var(--foreground-primary);
+
+  /*
+   * Reading typography — inherited by every block. Because the canvas lays
+   * out at one fixed width, these decide the same line breaks at every card
+   * size. Each is a progressive enhancement: a webview that doesn't know a
+   * property ignores it and keeps its default text, never a broken layout.
+   * (`-webkit-font-smoothing` only has an effect on macOS/WKWebView.)
+   */
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * The reading column inside the page: line length is set here, in document
+ * pixels, never by the card. It is the full canvas width so the text lines up
+ * under the header.
+ */
+.note-page-canvas__body {
+  width: 100%;
+  max-width: 100%;
+  /* No padding: the card owns it. */
+  /* Only a single unbreakable token (a long URL) is broken, and only when it would overflow — never mid-word otherwise (no `anywhere`, no `break-all`, no hyphenation). */
+  overflow-wrap: break-word;
+}
+
+/*
+ * Line-ending quality. `pretty` avoids short last lines (orphans) in body
+ * text; `balance` evens out heading lines. Both only change *where* a line
+ * breaks inside the fixed 600px layout, so they cost nothing at scale.
+ */
+.note-page-canvas .markdown-blocks__paragraph,
+.note-page-canvas .markdown-blocks__line,
+.note-page-canvas .markdown-blocks__list-item {
+  text-wrap: pretty;
+}
+.note-page-canvas .markdown-blocks__heading {
+  text-wrap: balance;
+}
+
+/* ---- Block structure (markdown/render/renderMarkdownBlocks.tsx) ---- */
+
+/* paragraph -> paragraph: small gap. */
+.note-page-canvas .markdown-blocks__paragraph {
+  margin-block: var(--note-page-canvas-space-sm);
+}
+/* A paragraph's soft line breaks: one line per source line, as in the note. */
+.note-page-canvas .markdown-blocks__line {
+  display: block;
+}
+.note-page-canvas .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: var(--note-page-canvas-space-sm);
+}
+/* Soft line breaks inside a quote stay tight (the editor keeps contiguous quote lines gapless so the bar is unbroken), and inside list items they use the item gap. */
+.note-page-canvas .markdown-blocks__quote .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: 0;
+}
+.note-page-canvas .markdown-blocks__list-item .markdown-blocks__line + .markdown-blocks__line {
+  margin-top: var(--note-page-canvas-list-item-gap);
+}
+/* embed (image, PDF, note) -> surrounding content: larger gap. */
+.note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-image),
+.note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-image-missing),
+.note-page-canvas .markdown-blocks__paragraph:has(> .compact-markdown-embed) {
+  margin-block: var(--note-page-canvas-space-lg);
+}
+
+.note-page-canvas .markdown-blocks__heading {
+  /* heading -> content and heading -> heading: moderate gap. */
+  margin-block: var(--note-page-canvas-space-md);
+  font-weight: var(--fw-bold);
+  color: var(--foreground-primary);
+}
+.note-page-canvas h1 {
+  font-size: var(--text-heading-1);
+  line-height: var(--lh-heading-1);
+}
+.note-page-canvas h2 {
+  font-size: var(--text-heading-2);
+  line-height: var(--lh-heading-2);
+}
+.note-page-canvas h3 {
+  font-size: var(--text-heading-3);
+  line-height: var(--lh-heading-3);
+}
+.note-page-canvas h4 {
+  font-size: var(--text-heading-4);
+  line-height: var(--lh-heading-4);
+}
+.note-page-canvas h5 {
+  font-size: var(--text-heading-5);
+  line-height: var(--lh-heading-5);
+}
+.note-page-canvas h6 {
+  font-size: var(--text-heading-6);
+  line-height: var(--lh-heading-6);
+}
+.note-page-canvas .markdown-blocks__list {
+  /* list -> surrounding content: moderate gap. */
+  margin-block: var(--note-page-canvas-space-md);
+  padding-inline-start: var(--space-24);
+}
+/*
+ * Unordered lists draw their own dot (the native marker can be neither
+ * measured nor positioned) so it shares one gutter column with the task
+ * checkbox: both are centered at half the list's 24px padding, i.e. 12px
+ * left of the item's content edge. Ordered lists keep their native numbers.
+ */
+.note-page-canvas ul.markdown-blocks__list:not(.markdown-blocks__list--emoji) > .markdown-blocks__list-item {
+  list-style: none;
+  position: relative;
+}
+.note-page-canvas
+  ul.markdown-blocks__list:not(.markdown-blocks__list--emoji)
+  > .markdown-blocks__list-item:not(.markdown-blocks__list-item--task)::before {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  inset-inline-start: calc(-1 * var(--space-12) - 2.5px);
+  /* Vertically centered on the item's first line. */
+  top: calc((1lh - 5px) / 2);
+}
+.note-page-canvas .markdown-blocks__list--emoji {
+  list-style: none;
+  padding-inline-start: 0;
+}
+/*
+ * Adjacent lists (of any marker or kind — bullet, ordered, task) read as one: `-`, `*` and `+` (and task items,
+ * which are bullet items too) parse as separate lists, but in a note they
+ * look like a single run — so no block gap between them, just the gap
+ * between items.
+ */
+.note-page-canvas .markdown-blocks__list + .markdown-blocks__list {
+  margin-top: var(--note-page-canvas-list-item-gap);
+}
+/* The same for the first list's bottom margin: sibling margins collapse to the larger, so zeroing only the second list's top left the first's block gap standing between `-` and `*` items. */
+.note-page-canvas .markdown-blocks__list:has(+ .markdown-blocks__list) {
+  margin-bottom: 0;
+}
+.note-page-canvas .markdown-blocks__list-item + .markdown-blocks__list-item {
+  margin-top: var(--note-page-canvas-list-item-gap);
+}
+/* Everything inside a list item (its paragraph, a nested list) hugs the item. */
+.note-page-canvas .markdown-blocks__list-item > * {
+  margin-block: 0;
+}
+.note-page-canvas .markdown-blocks__list-item > * + * {
+  margin-top: var(--note-page-canvas-list-item-gap);
+}
+
+.note-page-canvas .markdown-blocks__list-item--task {
+  /*
+   * The checkbox is the marker: no bullet dot, and the 16px box is centered
+   * on the same gutter column the dot uses (24px padding - 20px = box left at
+   * 4px, so its center is at 12px, matching the dot's).
+   */
+  list-style: none;
+  margin-inline-start: calc(-1 * var(--space-20));
+}
+
+.note-page-canvas .markdown-blocks__task {
+  /* Two columns: the fixed checkbox, then the text column — so a wrapped line stays under the text, never under the box. */
+  display: flex;
+  align-items: flex-start;
+}
+.note-page-canvas .markdown-blocks__task-text {
+  flex: 1 1 0;
+  /* Lets the column shrink below its content so long text wraps (a long unbroken token breaks via the body's overflow-wrap). */
+  min-width: 0;
+}
+.note-page-canvas .markdown-blocks__task-box {
+  /* Same glyph geometry as the editor's task checkbox (16px circle). */
+  width: 16px;
+  height: 16px;
+  /* Centered on the first line of text (a flex item no longer baseline-aligns). */
+  margin-top: calc((1lh - 16px) / 2);
+  /* Clear gap between the circle and the text (the editor's `gap - 5px` offsets its wider button box, not a bare glyph — it computes negative here). */
+  margin-inline-end: var(--space-8);
+  flex-shrink: 0;
+  color: var(--foreground-tertiary);
+}
+.note-page-canvas .markdown-blocks__task[data-checked='true'] {
+  color: var(--foreground-tertiary);
+}
+.note-page-canvas .markdown-blocks__task[data-checked='true'] .markdown-blocks__task-box {
+  color: var(--checkbox-accent);
+}
+
+.note-page-canvas .markdown-blocks__quote {
+  /* blockquote -> surrounding content: moderate gap. */
+  margin-block: var(--note-page-canvas-space-md);
+  /* <blockquote> carries a UA margin-inline (40px): zero it, or the text is pushed in. */
+  margin-inline: 0;
+  position: relative;
+  /* The bar lives inside the quote's own box (starting at the body's left edge, not hanging out into the gutter); this padding clears it. */
+  padding-inline-start: var(--space-16);
+  /* Text keeps its normal color — the editor's `.cm-quote` is `color: inherit`. */
+  color: inherit;
+}
+/* The editor's quote bar (`.cm-quote-line::before`): 4px, primary foreground, small radius. */
+.note-page-canvas .markdown-blocks__quote::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: var(--foreground-primary);
+  border-radius: var(--radius-sm);
+}
+
+.note-page-canvas .markdown-blocks__code {
+  /* code block -> surrounding content: larger gap. */
+  margin-block: var(--note-page-canvas-space-lg);
+  padding: var(--space-12) var(--space-16);
+  overflow: hidden;
+
+  background: var(--fenced-code-surface);
+  border-radius: var(--radius-md);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.note-page-canvas .markdown-blocks__table {
+  margin-block: var(--note-page-canvas-space-md);
+  width: 100%;
+  border-collapse: collapse;
+}
+.note-page-canvas .markdown-blocks__table th,
+.note-page-canvas .markdown-blocks__table td {
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border-strong);
+  text-align: start;
+}
+.note-page-canvas .markdown-blocks__table th {
+  font-weight: var(--fw-bold);
+}
+
+.note-page-canvas .markdown-blocks__rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  /* horizontal rule -> surrounding content: larger gap. */
+  margin-block: var(--note-page-canvas-space-lg);
+}
+.note-page-canvas .markdown-blocks__rule::before,
+.note-page-canvas .markdown-blocks__rule::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--md-hr-line);
+}
+.note-page-canvas .markdown-blocks__rule:not(:has(.markdown-blocks__rule-label))::after {
+  display: none;
+}
+.note-page-canvas .markdown-blocks__rule[data-variant='double']::before,
+.note-page-canvas .markdown-blocks__rule[data-variant='double']::after {
+  border-top-style: double;
+  border-top-width: 3px;
+}
+.note-page-canvas .markdown-blocks__rule[data-variant='dotted']::before,
+.note-page-canvas .markdown-blocks__rule[data-variant='dotted']::after {
+  border-top-style: dotted;
+  border-top-width: 2px;
+}
+.note-page-canvas .markdown-blocks__rule[data-variant='wavy']::before,
+.note-page-canvas .markdown-blocks__rule[data-variant='wavy']::after {
+  border-top-style: dashed;
+}
+.note-page-canvas .markdown-blocks__rule-label {
+  color: var(--foreground-tertiary);
+}
+
+/* ---- Inline (the compact renderer's classes; its own stylesheet is intentionally minimal) ---- */
+
+.note-page-canvas strong {
+  font-weight: 700;
+}
+.note-page-canvas em {
+  font-style: italic;
+}
+.note-page-canvas s,
+.note-page-canvas .compact-markdown-struck {
+  text-decoration: line-through;
+}
+.note-page-canvas .compact-markdown-highlight {
+  background: var(--md-highlight-surface);
+  color: inherit;
+}
+.note-page-canvas .compact-markdown-code {
+  padding: 0.1em 0.35em;
+  background: var(--md-inline-code-surface);
+  color: var(--md-inline-code-foreground);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+.note-page-canvas .compact-markdown-link {
+  color: var(--md-link-foreground);
+}
+.note-page-canvas .compact-markdown-link-title {
+  text-decoration: underline;
+  text-decoration-color: var(--md-link-underline);
+}
+.note-page-canvas .compact-markdown-wikilink {
+  color: var(--md-wiki-foreground);
+}
+.note-page-canvas .compact-markdown-wikilink-title {
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+}
+.note-page-canvas .compact-markdown-tag {
+  padding-inline: 0.3em;
+  background: var(--md-tag-surface);
+  color: var(--md-tag-foreground);
+  border-radius: var(--md-badge-radius);
+  font-size: 0.9em;
+  font-weight: var(--fw-medium);
+}
+.note-page-canvas .compact-markdown-date {
+  color: var(--md-date-foreground);
+}
+
+/* Images: constrained to the document column, never overflowing the viewport. */
+.note-page-canvas .compact-markdown-image {
+  display: block;
+  /*
+   * Space above and below the image itself, wherever it sits: inside a list
+   * item (whose children are zeroed to hug it), or sharing a paragraph with
+   * other lines, where the image-only paragraph rule above never matches. In
+   * the image-only case it collapses into that rule's larger margin, so those
+   * stay as they were.
+   */
+  margin-block: var(--note-page-canvas-space-md);
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+.note-page-canvas .compact-markdown-image-missing {
+  color: var(--foreground-tertiary);
+}
+
+/*
+ * Nothing hangs off the top or bottom of the content section. Last in the file
+ * and with a longer selector than any block's own margin rule above, so it
+ * wins for every block type (a heading, list, quote, code block, table or rule
+ * as the first block would otherwise keep its own top margin).
+ */
+.note-page-canvas .note-page-canvas__body > :first-child {
+  margin-top: 0;
+}
+.note-page-canvas .note-page-canvas__body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ...but not at the very top or bottom of the content, where nothing hangs off the section. */
+.note-page-canvas .note-page-canvas__body > :first-child > .compact-markdown-image:first-child {
+  margin-top: 0;
+}
+.note-page-canvas .note-page-canvas__body > :last-child > .compact-markdown-image:last-child {
+  margin-bottom: 0;
+}
+
+/* No header above: the viewport's 4px side inset needs the matching 4px at the top. */
+.note-page-canvas--headless {
+  padding-top: var(--space-4);
+}
+
+/*
+ * The cover: full canvas width, in canvas pixels, so it scales with the text.
+ * 154 canvas px comes out at ~56px at a normal card width (a 240px card's
+ * ~218px content width is a ~0.36 scale) — the cover strip the card has
+ * always had. Raise it for a taller, more page-like banner.
+ */
+.note-page-canvas__cover {
+  display: block;
+  width: 100%;
+  height: var(--page-canvas-cover-height, 154px);
+  overflow: hidden;
+  /* ~6px (the old cover radius) at the card scale. */
+  border-radius: var(--space-16);
+  margin-bottom: var(--space-20);
+}

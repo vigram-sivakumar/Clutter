@@ -122,8 +122,8 @@ function toCollectionEntry(
  * discovery mechanism. A template that was never created (the folder is lazy,
  * ADR-030) simply yields none.
  *
- * Each entry is the ordinary note entry (so the picker renders the same
- * NoteCard a collection does), except that choosing it does not open the
+ * Each entry is the ordinary note entry (so the picker lists the same
+ * notes a collection does), except that choosing it does not open the
  * template: `onUse` receives the template's body Markdown instead.
  */
 export function toTemplateEntries(

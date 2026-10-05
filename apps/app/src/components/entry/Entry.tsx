@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes } from 'react';
+import { buildActivationProps } from '@shared/interaction';
 import './Entry.css';
 
 export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
@@ -54,49 +55,16 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
   },
   ref
 ) {
-  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (disabled) {
-      return;
-    }
-
-    const target = event.target as HTMLElement;
-
-    const interactiveElement = target.closest(
-      'button, a, input, select, textarea, [role="button"]'
-    );
-
-    if (interactiveElement && interactiveElement !== event.currentTarget) {
-      return;
-    }
-
-    onClick?.(event);
-  };
-
-  // A role="button" <div> has no native Enter/Space activation the way a
-  // real <button> does (unlike e.g. Caret's own <button>, which needs no
-  // equivalent handler). Dispatches a real click at the row itself rather
-  // than calling onClick directly, so keyboard activation goes through the
-  // exact same path — and the same disabled/interactive-descendant guard —
-  // as a mouse click, instead of a second, parallel implementation of it.
-  // target !== currentTarget means focus (and thus this keydown) is on a
-  // nested interactive element (e.g. the caret button) — its own native
-  // handling already covers that case, so this must not double-fire.
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (disabled) {
-      return;
-    }
-
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return;
-    }
-
-    if (event.target !== event.currentTarget) {
-      return;
-    }
-
-    event.preventDefault();
-    event.currentTarget.click();
-  };
+  // The row opens through the one shared activation behavior: a click, or
+  // Enter / Space on the row itself (a role="button" <div> has no native
+  // activation), ignoring clicks that land on a nested control (the caret
+  // button, the actions) and never firing while disabled.
+  const activation = buildActivationProps<HTMLDivElement>({
+    onActivate: onClick,
+    disabled,
+    role,
+    tabIndex,
+  });
 
   return (
     <div
@@ -119,10 +87,9 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
       ]
         .filter(Boolean)
         .join(' ')}
-      onClick={handleClick}
-      onKeyDown={onClick ? handleKeyDown : undefined}
-      role={role ?? (onClick ? 'button' : undefined)}
-      tabIndex={tabIndex ?? (onClick && !disabled ? 0 : undefined)}
+      {...activation}
+      role={activation.role ?? role}
+      tabIndex={activation.tabIndex ?? tabIndex}
       aria-disabled={disabled || undefined}
     >
       {leading && <div className="entry__leading">{leading}</div>}

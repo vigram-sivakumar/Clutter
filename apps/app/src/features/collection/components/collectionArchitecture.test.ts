@@ -6,71 +6,129 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Architecture guards for the collection layer, checked against the source
- * itself: the Assets collection plugs into the shared collection
- * infrastructure instead of growing a mini collection architecture of its own.
+ * itself: the generic presentation components stay domain-free, every
+ * collection (notes, folders, assets) reaches them only through a mapper
+ * function, each component owns only its own CSS, and there is one
+ * activation behavior.
+ *
+ *   Domain -> mapper (note/ folder/ asset/) -> generic components
+ *                                              (grid/ card/ row/ list/ table/ media/ scale/)
  */
-const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const COMPONENTS = dirname(fileURLToPath(import.meta.url));
+const SRC = join(COMPONENTS, '..', '..', '..');
+const GENERIC_DIRS = ['grid', 'card', 'row', 'list', 'table', 'media', 'scale'];
+const DOMAIN_DIRS = ['note', 'folder', 'asset'];
 
-function sourceFiles(dir: string): string[] {
+function filesOf(dir: string, pattern: RegExp): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) {
-      return sourceFiles(path);
+      return filesOf(path, pattern);
     }
-    return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
+    return pattern.test(name) ? [path] : [];
   });
 }
 
-/** Code only: comments are free to *name* the shared pieces they rely on. */
-const stripComments = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-const read = (path: string) => stripComments(readFileSync(join(SRC, path), 'utf8'));
-const ALL = sourceFiles(SRC).map((path) => ({
-  rel: relative(SRC, path),
-  text: stripComments(readFileSync(path, 'utf8')),
+/** Code only: comments are free to *name* things. */
+const strip = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const importsOf = (text: string) => [...text.matchAll(/(?:from|import)\s+'([^']+)'/g)].map((m) => m[1]!);
+const read = (path: string) => strip(readFileSync(join(SRC, path), 'utf8'));
+
+const sourcesIn = (dirs: string[]) =>
+  dirs
+    .flatMap((dir) => filesOf(join(COMPONENTS, dir), /\.(ts|tsx)$/))
+    .filter((path) => !/\.test\.tsx?$/.test(path))
+    .map((path) => ({ rel: relative(COMPONENTS, path), text: strip(readFileSync(path, 'utf8')) }));
+const GENERIC = sourcesIn(GENERIC_DIRS);
+const DOMAIN = sourcesIn(DOMAIN_DIRS);
+const STYLESHEETS = GENERIC_DIRS.flatMap((dir) => filesOf(join(COMPONENTS, dir), /\.css$/)).map((path) => ({
+  rel: relative(COMPONENTS, path),
+  text: readFileSync(path, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''),
 }));
-function sourceFilesOfKind(dir: string, pattern: RegExp): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? sourceFilesOfKind(path, pattern) : pattern.test(name) ? [path] : [];
-  });
-}
-const importsOf = (text: string) => [...text.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]!);
+const ALL_SRC = filesOf(SRC, /\.(ts|tsx)$/)
+  .filter((path) => !/\.test\.tsx?$/.test(path))
+  .map((path) => ({ rel: relative(SRC, path), text: strip(readFileSync(path, 'utf8')) }));
 
-describe('Assets use the shared collection infrastructure', () => {
-  it('AssetCard shares the card shell with NoteCard and imports nothing note-specific', () => {
-    const asset = read('features/collection/components/asset/card/AssetCard.tsx');
-    const note = read('features/collection/components/note/card/NoteCard.tsx');
+const FORBIDDEN_IN_GENERIC =
+  /^@core(\/|$)|^@app(\/|$)|^@features\/(notes|tasks|markdown|pdf)(\/|$)|(^|\/)(note|asset|folder|page|view)(\/|$)/;
 
-    expect(importsOf(asset)).toContain('../../card/CollectionCard');
-    expect(importsOf(note)).toContain('../../card/CollectionCard');
-    for (const forbidden of ['NoteCard', 'DocumentPreview', 'renderMarkdownBlocks', 'extractPreviewBlocks', '/note/']) {
-      expect(importsOf(asset).filter((spec) => spec.includes(forbidden))).toEqual([]);
-    }
-    // ...and the reverse: NoteCard never reaches into assets.
-    expect(importsOf(note).filter((spec) => spec.includes('/asset/'))).toEqual([]);
+describe('the generic collection components are domain-free', () => {
+  it('finds the components it is guarding', () => {
+    expect(GENERIC.length).toBeGreaterThan(10);
+    expect(DOMAIN.length).toBeGreaterThan(8);
+    expect(STYLESHEETS.length).toBeGreaterThan(8);
   });
 
-  it('nothing under features/collection/components/asset imports from the note components', () => {
-    const offenders = ALL.filter(
-      (file) =>
-        file.rel.startsWith('features/collection/components/asset/') &&
-        importsOf(file.text).some((spec) => /\/note\/|NoteCard|NoteList|NoteTable/.test(spec))
-    ).map((file) => file.rel);
+  it('import nothing domain-specific: @core, @app, note/asset/folder/page/view, notes/tasks/markdown/pdf', () => {
+    const offenders = GENERIC.flatMap((file) =>
+      importsOf(file.text)
+        .filter((spec) => FORBIDDEN_IN_GENERIC.test(spec))
+        .map((spec) => `${file.rel} -> ${spec}`)
+    );
 
     expect(offenders).toEqual([]);
   });
 
-  it('notes and assets render their lists, tables and cards with the same generic layers', () => {
-    const uses = (path: string, spec: string) => importsOf(read(path)).includes(spec);
+  it('only reach outside themselves for shared primitives (@shared/icon, @shared/interaction) and React', () => {
+    const outside = GENERIC.flatMap((file) =>
+      importsOf(file.text)
+        .filter((spec) => !spec.startsWith('.') && spec !== 'react')
+        .map((spec) => ({ file: file.rel, spec }))
+    );
 
-    // List mode: one generic list for every collection — no per-type list, row or grid components.
-    expect(uses('app/layouts/page/body/CollectionBody.tsx', '@features/collection/components/list/CollectionDataList')).toBe(true);
-    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/list/CollectionDataList')).toBe(true);
-    // Table mode: one generic table for every collection — no per-type table, row or cell components.
-    expect(uses('app/layouts/page/body/CollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
-    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/table/CollectionDataTable')).toBe(true);
-    expect(uses('features/collection/components/note/card/NoteCardGrid.tsx', '../../card/CollectionCardGrid')).toBe(true);
-    expect(uses('app/layouts/page/body/AssetsCollectionBody.tsx', '@features/collection/components/card/CollectionCardGrid')).toBe(true);
+    expect(outside.filter(({ spec }) => !/^@shared\/(icon|interaction)$/.test(spec))).toEqual([]);
+  });
+
+  it('are never imported back by the page models or the view layer (dependencies point down)', () => {
+    const offenders = ALL_SRC.filter(
+      (file) =>
+        /^features\/collection\/(page|view)\//.test(file.rel) &&
+        importsOf(file.text).some((spec) => /collection\/components\/(grid|card|row|list|table|media|scale)\//.test(spec))
+    ).map((file) => file.rel);
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('every collection reaches the generic components through mappers, not components of its own', () => {
+  it('note/, folder/ and asset/ define no card, row, list, table, cell or grid component', () => {
+    // NotePreviewCard is the one exception: the floating WikiLink hover preview, which is not a collection card.
+    // (A `to*Row` / `to*CardProps` file is a mapper function, not a component: component files are PascalCase.)
+    const perType = DOMAIN.filter((file) => /(^|\/)(?!to[A-Z])[A-Z]\w*(Card|Row|List|Table|Cell|Grid)\.tsx$/.test(file.rel))
+      .map((file) => file.rel)
+      .filter((rel) => rel !== 'note/preview/NotePreviewCard.tsx');
+
+    expect(perType).toEqual([]);
+  });
+
+  it('the domain folders do not import each other', () => {
+    const offenders = DOMAIN.flatMap((file) => {
+      const own = file.rel.split('/')[0]!;
+      return importsOf(file.text)
+        .filter((spec) => DOMAIN_DIRS.some((dir) => dir !== own && new RegExp(`(^|/)${dir}/`).test(spec)))
+        .map((spec) => `${file.rel} -> ${spec}`);
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('the notes, assets and archive bodies render their lists, tables and cards with the same generic components', () => {
+    const uses = (path: string, spec: string) => importsOf(read(path)).includes(spec);
+    const generic = (name: string) => `@features/collection/components/${name}`;
+
+    for (const body of ['app/layouts/page/body/CollectionBody.tsx', 'app/layouts/page/body/AssetsCollectionBody.tsx']) {
+      expect(uses(body, generic('list/CollectionDataList')), body).toBe(true);
+      expect(uses(body, generic('table/CollectionDataTable')), body).toBe(true);
+      expect(uses(body, generic('grid/CollectionGrid')), body).toBe(true);
+      expect(uses(body, generic('card/CollectionCard')), body).toBe(true);
+    }
+
+    // The Archive renders its folders and notes through CollectionBody's own helpers — no second implementation.
+    const archive = read('app/layouts/page/body/ArchiveCollectionBody.tsx');
+    expect(archive).toContain('renderFolderGrid(');
+    expect(archive).toContain('renderNoteTable(');
+    expect(archive).toContain('renderNoteList(');
+    expect(importsOf(archive).filter((spec) => /collection\/components\/(grid|card|row|list|table)\//.test(spec))).toEqual([]);
   });
 
   it('the Assets body defines no Add, Settings, view-mode or header controls of its own', () => {
@@ -90,7 +148,7 @@ describe('Assets use the shared collection infrastructure', () => {
   });
 
   it('no Asset-specific component re-implements Add / Settings / View mode / the collection header', () => {
-    const assetFiles = ALL.filter(
+    const assetFiles = ALL_SRC.filter(
       (file) =>
         file.rel.startsWith('features/collection/components/asset/') ||
         file.rel === 'app/layouts/page/body/AssetsCollectionBody.tsx'
@@ -103,7 +161,7 @@ describe('Assets use the shared collection infrastructure', () => {
   });
 
   it('CollectionViewMenu has exactly one consumer outside tests — the shared CollectionHeaderActions', () => {
-    const consumers = ALL.filter(
+    const consumers = ALL_SRC.filter(
       (file) => file.rel !== 'app/layouts/page/body/CollectionViewMenu.tsx' && /CollectionViewMenu/.test(file.text)
     )
       .filter((file) => importsOf(file.text).some((spec) => spec.endsWith('CollectionViewMenu')))
@@ -124,70 +182,67 @@ describe('Assets use the shared collection infrastructure', () => {
   });
 });
 
-describe('the collection table is generic', () => {
-  const importsFor = (path: string) => importsOf(read(path));
+describe('the collection components share one activation behavior', () => {
+  it('the Enter/Space → click dispatch and the nested-control guard live only in @shared/interaction', () => {
+    const copies = ALL_SRC.filter((file) => /currentTarget\.click\(\)|button, a, input, select/.test(file.text))
+      .map((file) => file.rel)
+      .filter((rel) => !rel.startsWith('shared/interaction/'));
 
-  it('every collection renders Table mode through CollectionDataTable — never its own table, row or cell component', () => {
-    for (const body of [
-      'app/layouts/page/body/CollectionBody.tsx',
-      'app/layouts/page/body/AssetsCollectionBody.tsx',
-    ]) {
-      expect(importsFor(body), body).toContain('@features/collection/components/table/CollectionDataTable');
+    expect(copies).toEqual([]);
+  });
+
+  it('every component that takes an onClick builds its interaction with buildActivationProps', () => {
+    for (const rel of ['card/CollectionCard.tsx', 'row/CollectionRow.tsx', 'table/CollectionTableRow.tsx']) {
+      const file = GENERIC.find((candidate) => candidate.rel === rel)!;
+      expect(importsOf(file.text), rel).toContain('@shared/interaction');
+      expect(file.text, rel).toContain('buildActivationProps');
     }
+  });
+});
 
-    // The Archive renders its notes table through CollectionBody's renderNoteTable, the same one ordinary collections use.
-    expect(importsFor('app/layouts/page/body/ArchiveCollectionBody.tsx')).not.toContain(
-      '@features/collection/components/table/CollectionDataTable'
-    );
-    expect(read('app/layouts/page/body/ArchiveCollectionBody.tsx')).toContain('renderNoteTable(');
-    expect(importsFor('app/layouts/page/body/ArchiveCollectionBody.tsx')).not.toContain(
-      '@features/collection/components/list/CollectionDataList'
-    );
-    expect(read('app/layouts/page/body/ArchiveCollectionBody.tsx')).toContain('renderNoteList(');
+describe('the generic collection components own only their own CSS', () => {
+  // Each stylesheet's root class; every class in it must be that root or its __element / --modifier.
+  const OWN: Record<string, string> = {
+    'grid/CollectionGrid.css': 'collection-grid',
+    'card/CollectionCard.css': 'collection-card',
+    'card/CardTitleSection.css': 'card-title-section',
+    'row/CollectionRow.css': 'collection-row',
+    'list/CollectionDataList.css': 'collection-list',
+    'table/CollectionTable.css': 'collection-table',
+    'table/CollectionTableRow.css': 'collection-table-row',
+    'table/cells/CollectionTableCell.css': 'collection-table-cell',
+    'media/CollectionMedia.css': 'collection-media',
+    'media/CollectionImage.css': 'collection-image',
+    'scale/ScaledCanvas.css': 'scaled-canvas',
+  };
 
-    const perTypeTableComponents = ALL.filter((file) =>
-      /(^|\/)(note|asset)\/table\/[A-Z][A-Za-z]*Table(Row|Cell)?\.tsx$/.test(file.rel)
-    ).map((file) => file.rel);
-    expect(perTypeTableComponents).toEqual([]);
+  it('has a declared owner for every stylesheet', () => {
+    expect(STYLESHEETS.map((sheet) => sheet.rel).sort()).toEqual(Object.keys(OWN).sort());
   });
 
-  it('every collection renders List mode through CollectionDataList — never its own list, row or grid component, and no list CSS of its own', () => {
-    const perTypeListComponents = ALL.filter((file) =>
-      /(^|\/)(note|asset)\/list\/[A-Z][A-Za-z]*\.tsx$/.test(file.rel)
-    ).map((file) => file.rel);
-    expect(perTypeListComponents).toEqual([]);
-
-    const perTypeListStyles = sourceFilesOfKind(join(SRC, 'features/collection/components'), /\.css$/)
-      .map((path) => relative(SRC, path))
-      .filter((rel) => /\/(note|asset)\/list\//.test(rel));
-    expect(perTypeListStyles).toEqual([]);
-  });
-
-  it('nothing under components/list imports from a specific collection (note, asset, folder, tasks)', () => {
-    const offenders = ALL.filter((file) => file.rel.startsWith('features/collection/components/list/')).flatMap((file) =>
-      importsOf(file.text)
-        .filter((spec) => /\/(note|asset|folder|tasks)\/|@core\/vault|@features\/(notes|tasks)/.test(spec))
-        .map((spec) => `${file.rel} -> ${spec}`)
-    );
+  it('every class in a stylesheet belongs to that component — no descendant selector reaches into another', () => {
+    const offenders: string[] = [];
+    for (const sheet of STYLESHEETS) {
+      const own = new RegExp(`^${OWN[sheet.rel]!}(__[a-z-]+)?(--[a-z-]+)?$`);
+      // Only selector text (before `{`), not declaration values.
+      const selectors = [...sheet.text.matchAll(/([^{}]+)\{/g)].map((match) => match[1]!);
+      for (const selector of selectors) {
+        for (const [, name] of selector.matchAll(/\.([A-Za-z_][\w-]*)/g)) {
+          if (!own.test(name!)) {
+            offenders.push(`${sheet.rel}: .${name}`);
+          }
+        }
+      }
+    }
 
     expect(offenders).toEqual([]);
   });
 
-  it('nothing under components/table imports from a specific collection (note, asset, folder, tasks)', () => {
-    const offenders = ALL.filter((file) => file.rel.startsWith('features/collection/components/table/')).flatMap((file) =>
-      importsOf(file.text)
-        .filter((spec) => /\/(note|asset|folder|tasks)\/|@core\/vault|@features\/(notes|tasks)/.test(spec))
-        .map((spec) => `${file.rel} -> ${spec}`)
+  it('never use margin (CLAUDE.md)', () => {
+    const offenders = STYLESHEETS.filter((sheet) => /(^|[\s;{])margin(-[a-z]+)?\s*:/.test(sheet.text)).map(
+      (sheet) => sheet.rel
     );
 
     expect(offenders).toEqual([]);
-  });
-
-  it('the generic cells draw every cell of every collection: header, date, text, media', () => {
-    const table = read('features/collection/components/table/CollectionDataTable.tsx');
-
-    for (const cell of ['CollectionTableHeaderCell', 'CollectionTableDateCell', 'CollectionTableTextCell', 'CollectionTableMediaCell']) {
-      expect(table).toContain(cell);
-    }
   });
 });

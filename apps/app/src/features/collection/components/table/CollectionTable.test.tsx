@@ -1,68 +1,60 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { buildCollectionTableGridTemplateColumns } from './collectionTableColumns';
 import { CollectionTable } from './CollectionTable';
-import { CollectionTableRow } from './CollectionTableRow';
+import { buildCollectionTableGridTemplateColumns, type CollectionTableColumn } from './collectionTableColumns';
 
 afterEach(cleanup);
 
-const columns = [
-  { id: 'name', label: 'Name', width: 'minmax(100px, 1fr)', className: 'name-col' },
-  { id: 'type', label: 'Type', width: '80px' },
+const columns: CollectionTableColumn[] = [
+  { id: 'name', label: 'Name', width: 'minmax(400px, 1fr)' },
+  { id: 'type', label: 'Type', width: '140px', className: 'type-header' },
 ];
 
-describe('shared table layer', () => {
-  it('builds the grid template from the columns, the single source for header and rows', () => {
-    expect(buildCollectionTableGridTemplateColumns(columns)).toBe('minmax(100px, 1fr) 80px');
+describe('collectionTableColumns', () => {
+  it('builds one grid-template-columns value from the columns, in order', () => {
+    expect(buildCollectionTableGridTemplateColumns(columns)).toBe('minmax(400px, 1fr) 140px');
+    expect(buildCollectionTableGridTemplateColumns([])).toBe('');
   });
+});
 
-  it('renders one header cell per column, each with its own class, on the shared grid', () => {
+describe('CollectionTable', () => {
+  it('draws a header cell per column, in order, with the column hook class', () => {
     const { container } = render(<CollectionTable columns={columns} />);
 
     const cells = [...container.querySelectorAll('.collection-table__header-cell')];
-    expect(cells.map((c) => c.textContent)).toEqual(['Name', 'Type']);
-    expect(cells[0]).toHaveClass('name-col');
+    expect(cells.map((cell) => cell.textContent)).toEqual(['Name', 'Type']);
+    expect(cells[1]).toHaveClass('type-header');
+  });
+
+  it('puts the same grid on the header that rows are given', () => {
+    const { container } = render(<CollectionTable columns={columns} />);
+
     expect((container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns).toBe(
-      'minmax(100px, 1fr) 80px'
+      'minmax(400px, 1fr) 140px'
     );
   });
 
-  it('renders rows then the optional footer inside the body — and no footer unless given', () => {
-    const withFooter = render(
+  it('renders its rows, then the footer, inside the body', () => {
+    const { container } = render(
       <CollectionTable columns={columns} footer={<div data-testid="footer" />}>
-        <div data-testid="row" />
+        <div data-testid="row1" />
+        <div data-testid="row2" />
       </CollectionTable>
     );
-    const body = withFooter.container.querySelector('.collection-table__body')!;
-    expect([...body.children].map((c) => c.getAttribute('data-testid'))).toEqual(['row', 'footer']);
-    cleanup();
 
-    const without = render(<CollectionTable columns={columns} />);
-    expect(without.container.querySelector('.collection-table__body')!.children).toHaveLength(0);
+    const body = container.querySelector('.collection-table__body')!;
+    expect([...body.children].map((c) => c.getAttribute('data-testid'))).toEqual(['row1', 'row2', 'footer']);
+    expect(screen.queryByTestId('footer')).toBeInTheDocument();
   });
 
-  it('CollectionTableRow applies the grid, opens on click/Enter, ignores clicks on nested buttons, and hosts the actions overlay', () => {
-    const onClick = vi.fn();
-    const { container } = render(
-      <CollectionTableRow gridTemplateColumns="1fr 80px" onClick={onClick} actions={<button>act</button>}>
-        <span>cell</span>
-      </CollectionTableRow>
-    );
-    const row = container.firstElementChild as HTMLElement;
+  it('passes className and attributes to the container', () => {
+    const { container } = render(<CollectionTable columns={columns} className="mine" data-x="1" />);
 
-    expect(row).toHaveClass('collection-table-row');
-    expect(row.style.gridTemplateColumns).toBe('1fr 80px');
-    expect(row).toHaveAttribute('role', 'button');
-    fireEvent.click(row);
-    fireEvent.keyDown(row, { key: 'Enter' });
-    expect(onClick).toHaveBeenCalledTimes(2);
-
-    onClick.mockClear();
-    fireEvent.click(container.querySelector('.collection-table-row__actions button')!);
-    expect(onClick).not.toHaveBeenCalled();
+    expect(container.firstElementChild).toHaveClass('collection-table', 'mine');
+    expect(container.firstElementChild).toHaveAttribute('data-x', '1');
   });
 });

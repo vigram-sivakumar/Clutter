@@ -1,64 +1,112 @@
 /*
- * The shared card shell. The card owns all the padding, and a single gap
- * between its sections; the sections have none of their own, so hiding one
- * removes it and its gap and everything else stays consistent. 6px matches
- * CollectionEntry's own padding, i.e. FolderCard's. Every card is one fixed
- * shape (--collection-card-aspect-ratio, CollectionCardGrid.css); the
- * collection's own main section absorbs the other sections' differences.
+ * The card surface. The card owns all the padding and one gap between its
+ * sections (stack); the sections have none of their own. Per CLAUDE.md, no
+ * `margin` anywhere. It restyles its header only through the custom properties
+ * CardTitleSection documents (layout="overlay").
  */
 .collection-card {
+  --collection-card-gap: var(--space-8);
+
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   min-width: 0;
-  aspect-ratio: var(--collection-card-aspect-ratio);
   overflow: hidden;
-
   padding: var(--space-6);
   gap: var(--collection-card-gap);
-
   background: var(--surface-subtle);
-  border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
-  cursor: pointer;
+  border-radius: var(--radius-lg);
   transition: background-color 120ms ease;
 }
 
-.collection-card:hover {
-  background: color-mix(
-    in srgb,
-    var(--surface-subtle) 99%,
-    rgb(var(--state-base)) 1%
-  );
+/* Only a card that opens something looks and feels clickable. */
+.collection-card[role='button'] {
+  cursor: pointer;
 }
-
+.collection-card:hover {
+  background: color-mix(in srgb, var(--surface-subtle) 99%, rgb(var(--state-base)) 1%);
+}
 .collection-card:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 1px;
 }
-
-.collection-card--selected {
-  background: rgba(35, 131, 226, 0.15);
+.collection-card--selected,
+.collection-card--selected:hover {
+  background: var(--surface-selected);
 }
 
-/* A card with no main section (nothing to fill the fixed shape): just its content's height. */
-.collection-card--compact {
-  aspect-ratio: auto;
+/* ---- slots ---- */
+.collection-card__header {
+  flex: none;
+  min-width: 0;
+}
+.collection-card__media {
+  flex: none;
+  min-width: 0;
+}
+.collection-card__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
-/*
- * No card padding or gap: a section (e.g. an asset's media) runs flush to the
- * card edge, which clips it to the rounded corners; sections that want inset
- * carry their own padding. Also the positioned ancestor for a section laid
- * over the card (an asset's title over its media).
- */
-.collection-card--flush {
-  position: relative;
+/* ---- layout: overlay — media fills the card, the header sits over its bottom edge ---- */
+.collection-card--layout-overlay {
   padding: 0;
   gap: 0;
+  --card-title-color: rgb(255 255 255);
+  --card-title-leading-color: rgb(255 255 255);
+  --card-description-color: rgb(255 255 255 / 0.78);
+  --card-metadata-value-color: rgb(255 255 255);
+}
+.collection-card--layout-overlay > .collection-card__media {
+  position: absolute;
+  inset: 0;
+}
+/*
+ * The header sits over the media's bottom edge on a dark scrim so its text stays readable on any
+ * picture. The scrim and the text are deliberately fixed colours, not theme tokens: it sits over a
+ * picture, so it is dark and the text light in both themes. The gradient is eased (alpha follows
+ * 0.72 × (1 − smoothstep), sampled every 10%) so it has no visible edge at either end.
+ */
+.collection-card--layout-overlay > .collection-card__header {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: var(--space-32) var(--space-6) var(--space-6);
+  background: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.72) 0%,
+    rgb(0 0 0 / 0.7) 10%,
+    rgb(0 0 0 / 0.645) 20%,
+    rgb(0 0 0 / 0.564) 30%,
+    rgb(0 0 0 / 0.467) 40%,
+    rgb(0 0 0 / 0.36) 50%,
+    rgb(0 0 0 / 0.253) 60%,
+    rgb(0 0 0 / 0.156) 70%,
+    rgb(0 0 0 / 0.075) 80%,
+    rgb(0 0 0 / 0.02) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
 }
 
-/* A collection entry used as a card's header (stacked layout) has no padding of its own: the card provides it. */
-.collection-card > .collection-entry {
-  padding: 0;
+/* ---- empty: the quiet "add something" card, its content centred ---- */
+.collection-card--empty {
+  background: var(--surface-action);
+  border-color: var(--border-subtle);
+}
+.collection-card--empty:hover {
+  background: var(--surface-subtle);
+}
+.collection-card--empty > .collection-card__content {
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-tertiary);
 }
