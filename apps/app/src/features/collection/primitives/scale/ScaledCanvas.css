@@ -1,0 +1,17 @@
+/* The viewport takes the width it is given; its height is set by the component to the scaled content's. */
+.cx-scaled-canvas {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* `transform` doesn't change layout size, so the canvas is pinned to the corner and the viewport sizes itself. */
+.cx-scaled-canvas__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(var(--cx-scaled-canvas-scale, 1));
+  transform-origin: top left;
+}

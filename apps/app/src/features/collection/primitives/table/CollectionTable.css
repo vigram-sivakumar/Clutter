@@ -1,0 +1,36 @@
+.cx-collection-table {
+  width: 100%;
+
+  /*
+   * The table is the horizontal-scroll container, not the page: its header and
+   * rows may grow past 100% (`width: fit-content; min-width: 100%`) and this
+   * contains that overflow locally. Vertical scrolling stays with the page,
+   * so overflow-y is hidden and overscroll-behavior-y restores normal
+   * chaining (base.css sets `overscroll-behavior: none` globally, which would
+   * otherwise swallow a vertical wheel over the table).
+   */
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-y: auto;
+  /* As a flex item, overflow != visible would let flex-shrink squeeze (and clip) the table; keep its natural height. */
+  flex-shrink: 0;
+}
+
+.cx-collection-table__header {
+  position: relative;
+  display: grid;
+  align-items: center;
+  width: fit-content;
+  min-width: 100%;
+
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+  color: var(--foreground-tertiary);
+}
+
+.cx-collection-table__header-cell {
+  padding-block: var(--space-8);
+  padding-inline: var(--space-6);
+}

@@ -1,0 +1,111 @@
+/*
+ * The card surface. The card owns all the padding and one gap between its
+ * sections (stack); the sections have none of their own. Per CLAUDE.md, no
+ * `margin` anywhere. It restyles its header only through the custom properties
+ * CardTitleSection documents (tone="action", layout="overlay").
+ */
+.cx-collection-card {
+  --cx-collection-card-gap: var(--space-8);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: var(--space-6);
+  gap: var(--cx-collection-card-gap);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  transition: background-color 120ms ease;
+}
+
+/* Only a card that opens something looks and feels clickable. */
+.cx-collection-card[role='button'] {
+  cursor: pointer;
+}
+.cx-collection-card:hover {
+  background: color-mix(in srgb, var(--surface-subtle) 99%, rgb(var(--state-base)) 1%);
+}
+.cx-collection-card:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+.cx-collection-card--selected,
+.cx-collection-card--selected:hover {
+  background: var(--cx-surface-selected);
+}
+
+/* ---- slots ---- */
+.cx-collection-card__header {
+  flex: none;
+  min-width: 0;
+}
+.cx-collection-card__media {
+  flex: none;
+  min-width: 0;
+}
+.cx-collection-card__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ---- layout: overlay — media fills the card, the header sits over its bottom edge ---- */
+.cx-collection-card--layout-overlay {
+  padding: 0;
+  gap: 0;
+  --cx-card-title-color: #fff;
+  --cx-card-title-leading-color: #fff;
+  --cx-card-description-color: rgba(255, 255, 255, 0.78);
+}
+.cx-collection-card--layout-overlay > .cx-collection-card__media {
+  position: absolute;
+  inset: 0;
+}
+.cx-collection-card--layout-overlay > .cx-collection-card__header {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: var(--space-24) var(--space-6) var(--space-6);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+}
+
+/* ---- tone: action — the quiet "create something" card ---- */
+.cx-collection-card--tone-action {
+  justify-content: center;
+  background: var(--cx-surface-action);
+  border-color: var(--border-subtle);
+  --cx-card-title-color: var(--foreground-tertiary);
+  --cx-card-title-weight: var(--fw-regular);
+  --cx-card-title-leading-color: var(--foreground-tertiary);
+  --cx-card-title-justify: center;
+}
+.cx-collection-card--tone-action:hover {
+  background: var(--surface-subtle);
+}
+
+/* ---- actions: revealed on hover / focus ---- */
+.cx-collection-card__actions {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.cx-collection-card:hover > .cx-collection-card__actions,
+.cx-collection-card:focus-within > .cx-collection-card__actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}

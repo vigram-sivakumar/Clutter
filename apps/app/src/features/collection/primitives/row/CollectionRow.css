@@ -1,0 +1,148 @@
+/*
+ * One generic row. Per CLAUDE.md, no `margin`. Layout modifiers: `list` (a row
+ * on its own: side-by-side title/description, trailing metadata and media, own
+ * hover) and `cell` (a table's name cell: stacked, the table row owns hover).
+ */
+.cx-collection-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-6);
+  transition: background-color 120ms ease;
+}
+
+.cx-collection-row[role='button'] {
+  cursor: pointer;
+}
+.cx-collection-row:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.cx-collection-row__leading {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-sm);
+  aspect-ratio: 1;
+  color: var(--foreground-secondary);
+}
+
+.cx-collection-row__content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.cx-collection-row__primary {
+  display: flex;
+  min-width: 0;
+}
+
+.cx-collection-row__title {
+  min-width: 0;
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+  letter-spacing: var(--ls-body-small);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-collection-row__description,
+.cx-collection-row__metadata {
+  min-width: 0;
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+  color: var(--foreground-tertiary);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-collection-row__description--placeholder {
+  color: var(--foreground-placeholder);
+}
+.cx-collection-row__metadata {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+.cx-collection-row__media {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+/* ---- layout: list ---- */
+.cx-collection-row--layout-list {
+  border-radius: var(--radius-lg);
+}
+.cx-collection-row--layout-list > .cx-collection-row__content {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+.cx-collection-row--layout-list .cx-collection-row__primary {
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-12);
+}
+.cx-collection-row--layout-list .cx-collection-row__trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--height-sm);
+}
+.cx-collection-row--layout-list:hover {
+  background: var(--state-hover-medium);
+}
+
+/* ---- layout: cell ---- */
+.cx-collection-row--layout-cell > .cx-collection-row__content {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cx-collection-row--layout-cell .cx-collection-row__primary {
+  flex-direction: column;
+  gap: var(--space-0);
+}
+
+/* ---- tone: action ---- */
+.cx-collection-row--tone-action .cx-collection-row__title {
+  color: var(--foreground-tertiary);
+  font-weight: var(--fw-regular);
+}
+
+/* ---- selected ---- */
+.cx-collection-row--selected,
+.cx-collection-row--selected:hover {
+  background: var(--cx-surface-selected);
+}
+
+/* ---- actions: revealed on hover / focus ---- */
+.cx-collection-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.cx-collection-row:hover > .cx-collection-row__actions,
+.cx-collection-row:focus-within > .cx-collection-row__actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}

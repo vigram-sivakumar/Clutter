@@ -1,0 +1,98 @@
+import type { CSSProperties, ReactNode } from 'react';
+import { AppIcon, type SystemIcon } from '@shared/icon';
+import './CardTitleSection.css';
+
+export type CardMetadataItem = string | { readonly label: string; readonly value: string };
+
+export interface CardTitleSectionProps {
+  icon?: SystemIcon;
+  /** Drawn instead of `icon` when set. */
+  emoji?: string;
+
+  title?: string;
+  /** Replaces the plain-text `title` (an inline rename editor, most commonly); the title row is unchanged. */
+  titleContent?: ReactNode;
+
+  /** One truncated line, between the title and the metadata. */
+  description?: string;
+
+  /** One entry per item: a string, or a label with its value ("Size" "4 MB"). Each truncates on its own. */
+  metadata?: readonly CardMetadataItem[];
+  /** `horizontal`: items on one line; `vertical`: one item per line. */
+  metadataLayout?: 'horizontal' | 'vertical';
+  /**
+   * Reserves room for at least this many metadata lines even when there are fewer (or none), so
+   * cards whose headers carry different amounts of metadata still come out the same height.
+   */
+  minMetadataLines?: number;
+
+  className?: string;
+}
+
+/**
+ * A card's header text: leading icon or emoji and the title, then an optional
+ * description and metadata. A generic visual header — it knows nothing about
+ * what the card is. It has no padding (the card provides it), and a part that
+ * isn't supplied renders nothing.
+ *
+ * Customizable by its host through CSS custom properties it reads (all
+ * optional): --cx-card-title-color, --cx-card-title-weight,
+ * --cx-card-title-leading-color, --cx-card-title-justify,
+ * --cx-card-description-color.
+ */
+export function CardTitleSection({
+  icon,
+  emoji,
+  title,
+  titleContent,
+  description,
+  metadata,
+  metadataLayout = 'horizontal',
+  minMetadataLines = 0,
+  className,
+}: CardTitleSectionProps) {
+  const hasTitle = titleContent !== undefined || Boolean(title);
+  const hasLeading = Boolean(icon || emoji);
+  const items = metadata ?? [];
+  const reservesMetadata = items.length > 0 || minMetadataLines > 0;
+
+  return (
+    <div className={['cx-card-title-section', className].filter(Boolean).join(' ')}>
+      {(hasLeading || hasTitle) && (
+        <div className="cx-card-title-section__heading">
+          {hasLeading && (
+            <span className="cx-card-title-section__leading">
+              <AppIcon icon={icon} emoji={emoji} />
+            </span>
+          )}
+          {hasTitle && <div className="cx-card-title-section__title">{titleContent ?? title}</div>}
+        </div>
+      )}
+
+      {description && <div className="cx-card-title-section__description">{description}</div>}
+
+      {reservesMetadata && (
+        <div
+          className={[
+            'cx-card-title-section__metadata',
+            `cx-card-title-section__metadata--${metadataLayout}`,
+          ].join(' ')}
+          style={{ '--cx-card-title-section-min-lines': minMetadataLines } as CSSProperties}
+        >
+          {items.map((item, index) =>
+            typeof item === 'string' ? (
+              <span key={`${index}:${item}`} className="cx-card-title-section__metadata-item">
+                {item}
+              </span>
+            ) : (
+              <span key={`${index}:${item.label}`} className="cx-card-title-section__metadata-item">
+                <span className="cx-card-title-section__metadata-label">{item.label}</span>
+                <span className="cx-card-title-section__metadata-value">{item.value}</span>
+              </span>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

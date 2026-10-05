@@ -2,6 +2,7 @@
 import { createRoot } from 'react-dom/client';
 
 import { CardScaleLab } from './CardScaleLab';
+import { CollectionPrimitivesLab } from './CollectionPrimitivesLab';
 import { DevLab } from './DevLab';
 
 export function mountDevLab(): void {
@@ -12,6 +13,7 @@ export function mountDevLab(): void {
     <>
       <DevLab />
       <CardScaleLab />
+      <CollectionPrimitivesLab />
     </>
   );
 }

@@ -1,0 +1,12 @@
+/*
+ * Tokens shared by the Collection primitives. `--cx-` is the temporary prefix
+ * of the parallel implementation (see primitives/README note in the task that
+ * introduced it): nothing here collides with the live Collection CSS. When the
+ * old components are retired these become theme tokens.
+ */
+:root {
+  /* The selected-item tint (live CSS repeats this literal four times). */
+  --cx-surface-selected: rgba(35, 131, 226, 0.15);
+  /* A quiet "create" surface: half the card surface, with the subtler border. */
+  --cx-surface-action: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+}

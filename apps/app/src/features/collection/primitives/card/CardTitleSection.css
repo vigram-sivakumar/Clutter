@@ -1,0 +1,96 @@
+/*
+ * A card's header text. 24px icon box + body-small medium title, label-small
+ * tertiary description/metadata, 2px between lines, description and metadata
+ * inset 4px to line up under the icon glyph (a 16px glyph centred in its 24px
+ * box). No padding of its own: the card provides it. A host restyles it only
+ * through the custom properties read below (documented in CardTitleSection.tsx).
+ */
+.cx-card-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-card-title-section__heading {
+  display: flex;
+  align-items: center;
+  justify-content: var(--cx-card-title-justify, flex-start);
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.cx-card-title-section__leading {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-sm);
+  aspect-ratio: 1;
+  color: var(--cx-card-title-leading-color, var(--foreground-secondary));
+}
+
+.cx-card-title-section__title {
+  min-width: 0;
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+  letter-spacing: var(--ls-body-small);
+  font-weight: var(--cx-card-title-weight, var(--fw-medium));
+  color: var(--cx-card-title-color, var(--foreground-primary));
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-card-title-section__description,
+.cx-card-title-section__metadata {
+  min-width: 0;
+  padding-inline-start: var(--space-4);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+  color: var(--cx-card-description-color, var(--foreground-tertiary));
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-card-title-section__metadata {
+  display: flex;
+  gap: var(--space-6);
+  /* Room for --cx-card-title-section-min-lines lines (a line plus its 2px gap each). */
+  min-height: calc(
+    var(--cx-card-title-section-min-lines, 0) * (var(--lh-label-small) + var(--space-2))
+  );
+}
+.cx-card-title-section__metadata--horizontal {
+  flex-direction: row;
+  align-items: center;
+}
+.cx-card-title-section__metadata--vertical {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* Each item truncates on its own. */
+.cx-card-title-section__metadata-item {
+  display: inline-flex;
+  gap: var(--space-4);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-card-title-section__metadata-label {
+  flex: none;
+}
+.cx-card-title-section__metadata-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--foreground-secondary);
+}

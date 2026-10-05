@@ -1,0 +1,6 @@
+/* The list's container: a flush column of rows. */
+.cx-collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+}
