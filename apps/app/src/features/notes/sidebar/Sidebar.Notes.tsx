@@ -349,7 +349,7 @@ export function Notes({
     onOpenMenu: (id) => setFavoriteOpenMenuId(id),
     onCloseMenu: () => setFavoriteOpenMenuId(null),
   };
-  const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
+  const onShortcut = buildNotesShortcutHandler(navigation, pageOperations, folderOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState, (folderId) =>
     membershipSelector.isInTemplatesFolder(folderId)
   );

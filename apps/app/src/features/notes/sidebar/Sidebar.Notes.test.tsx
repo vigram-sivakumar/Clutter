@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { testIds } from '@shared/testing/selectors';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Notes } from './Sidebar.Notes';
@@ -475,6 +476,60 @@ describe('Sidebar Notes: the "Favorites" section header only expands/collapses',
     expect(deps.workspace.isSectionExpanded('favorites')).toBe(true);
 
     expect(deps.navigation.openFavorites).not.toHaveBeenCalled();
+  });
+});
+
+describe('Sidebar Notes: the global New shortcut always creates in Inbox', () => {
+  const INBOX_ID = 'inbox-folder-id';
+
+  function clickNew(deps: ReturnType<typeof setup>) {
+    const ensure = vi
+      .spyOn(deps.folderOperations, 'ensureReservedFolder')
+      .mockResolvedValue({ id: INBOX_ID } as Folder);
+    const openDraft = vi.spyOn(deps.pageOperations, 'openDraft').mockResolvedValue('draft-1');
+    renderNotes(deps);
+    fireEvent.click(screen.getByTestId(testIds.sidebar.createNoteButton));
+    return { ensure, openDraft };
+  }
+
+  it('resolves Inbox through ensureReservedFolder and opens a draft in it (not root)', async () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    const { ensure, openDraft } = clickNew(deps);
+
+    await waitFor(() => expect(openDraft).toHaveBeenCalledTimes(1));
+    expect(ensure).toHaveBeenCalledWith('inbox');
+    expect(openDraft).toHaveBeenCalledWith({ folderId: INBOX_ID });
+  });
+
+  it('still targets Inbox when another folder is the active one', async () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    deps.workspace.openFolder('folder-a');
+    const { openDraft } = clickNew(deps);
+
+    await waitFor(() => expect(openDraft).toHaveBeenCalledTimes(1));
+    expect(openDraft).toHaveBeenCalledWith({ folderId: INBOX_ID });
+  });
+
+  it('still targets Inbox when a Collection page (filtered view) is open', async () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    deps.workspace.openFilteredView({ kind: 'workspace' });
+    const { openDraft } = clickNew(deps);
+
+    await waitFor(() => expect(openDraft).toHaveBeenCalledTimes(1));
+    expect(openDraft).toHaveBeenCalledWith({ folderId: INBOX_ID });
+  });
+
+  it("a folder row's own + still creates in that folder, not Inbox", () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    const ensure = vi.spyOn(deps.folderOperations, 'ensureReservedFolder');
+    const openDraft = vi.spyOn(deps.pageOperations, 'openDraft').mockResolvedValue('draft-1');
+    renderNotes(deps);
+
+    const row = screen.getByText('Alpha').closest('.entry') as HTMLElement;
+    fireEvent.click(row.querySelector('.entry__actions button') as HTMLElement);
+
+    expect(openDraft).toHaveBeenCalledWith({ folderId: 'folder-a' });
+    expect(ensure).not.toHaveBeenCalled();
   });
 });
 
