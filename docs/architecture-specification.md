@@ -308,14 +308,14 @@ Reconcile filesystem changes made outside the app into the Vault.
 ```
 
 ### Internal collaborators
-`- VaultSyncCoordinator` (generic per-key async exclusion, no domain knowledge), `- ArchiveMetadataReconciler`, `- reconcileArchiveMetadata`, and the shared `- writeParseRebuildReplace` helper (new — see below).
+`- VaultSyncCoordinator` (generic per-key async exclusion, no domain knowledge), `- ArchiveMetadataReconciler`, `- reconcileArchiveMetadata`, `- reconcileTemplateMetadata` (ADR-041), and the shared `- writeParseRebuildReplace` helper (new — see below).
 
 ### Lifecycle
 Constructed once at the Composition Root, after the Vault exists. Subscribes to the watcher immediately; unsubscribes on `Application.close()`. Runs for the entire app session with no other state transitions.
 
 ### Invariants
 - Every external event is serialized per-path through `VaultSyncCoordinator` before touching the `Vault` — two external events for the same path never race.
-- Sync never initiates a write that the app itself didn't already make on disk — it only *reacts* (to a watcher event, or, per ADR-040, to the app saying "this exact path changed"), it never originates a change. (The one exception, archive-metadata repair, rewrites frontmatter to match an already-external move — it does not change the user's content.)
+- Sync never initiates a write that the app itself didn't already make on disk — it only *reacts* (to a watcher event, or, per ADR-040, to the app saying "this exact path changed"), it never originates a change. (The exceptions — archive-metadata repair and, per [ADR-041](./adr/041-template-marker-reconciliation.md), template-marker repair (`kind: template` follows the reserved `Templates/` folder) — rewrite frontmatter to match an already-external move; they do not change the user's content or body.)
 - Sync's write step for metadata repair uses the same `- writeParseRebuildReplace` internal helper the Persistence Gate uses for its own writes (see §5) — one implementation of "write → parse → rebuild → replace," shared, even though the two triggers (external event vs. app-initiated) remain separate entry points with separate queues.
 
 ### Concurrency model
@@ -984,6 +984,7 @@ OS file event → notify (Rust) → vault_watcher.rs classify + rename-pair
           → [deleted]  Vault.removePage
           → [moved]    Vault.updatePagePath
           → reconcileArchiveMetadata (if the move crossed the Archive/ boundary)
+          → reconcileTemplateMetadata (if the page is in/out of Templates/ — ADR-041; also after a rebuild and at startup)
       → Vault.notify() → React re-renders
 ```
 
