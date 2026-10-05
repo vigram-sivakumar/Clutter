@@ -61,7 +61,11 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
     // `resolveWikiLink.ts`'s own resolved WikiLink form uses, so the two
     // constructs can never silently diverge. See that module's own doc
     // comment for the full rationale.
-    const { icon, emoji } = resolvePageIdentityIcon(page, effective);
+    const { icon, emoji } = resolvePageIdentityIcon(
+      page,
+      effective,
+      vault.isFolderWithinReservedFolder(page.parentId, 'templates')
+    );
 
     if (headingQuery === null) {
       return { status: 'resolved', pageId: page.id, title: pageTitle, markdown, icon, emoji };

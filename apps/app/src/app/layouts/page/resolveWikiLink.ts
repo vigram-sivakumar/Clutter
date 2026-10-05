@@ -59,7 +59,11 @@ export function createWikiLinkResolver(
     // show." `effectivePageState?.getPage()` is synchronous and side-
     // effect-free (safe to call once per render), same as
     // `resolvePageEmbed.ts`'s own identical call.
-    const { icon, emoji } = resolvePageIdentityIcon(page, effectivePageState?.getPage(page.id));
+    const { icon, emoji } = resolvePageIdentityIcon(
+      page,
+      effectivePageState?.getPage(page.id),
+      vault.isFolderWithinReservedFolder(page.parentId, 'templates')
+    );
 
     return {
       status: 'resolved',

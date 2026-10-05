@@ -4,8 +4,8 @@ import { getPageIcon } from '@core/presentation/getPageIcon';
 import { isToday } from '@shared/helpers/time';
 
 export interface PageIdentityIcon {
-  /** The page type's own canonical default (`getPageIcon`) — a daily note gets its calendar icon, never the plain note glyph. Always present, regardless of `emoji`. */
-  readonly icon: 'note' | 'calendarNote' | 'calendarDot';
+  /** The page's own canonical default (`getPageIcon`) — a daily note gets its calendar icon, a note in Templates the template icon, never the plain note glyph. Always present, regardless of `emoji` (which overrides it when set). */
+  readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
   /** The page's own assigned emoji override, `null` when none is assigned. */
   readonly emoji: string | null;
 }
@@ -21,6 +21,10 @@ export interface PageIdentityIcon {
  * app (sidebar rows, breadcrumbs) — reused as plain data here, not a new
  * icon vocabulary.
  *
+ * `inTemplates` — whether the page lives in the reserved Templates folder
+ * (`Vault.isFolderWithinReservedFolder`): a note there shows the template
+ * icon when it has no emoji of its own.
+ *
  * `effective` is `EffectivePageState.getPage(page.id)` — session-wins-
  * over-committed (ADR-020's existing precedence, the same source
  * `markdown`/title-computation callers already read) — `undefined` when
@@ -30,16 +34,21 @@ export interface PageIdentityIcon {
  * `buildBreadcrumbs.ts`'s own convention of keying `isToday` off the
  * *entry's* own raw name rather than a display-formatted title.
  */
-export function resolvePageIdentityIcon(page: Page, effective: EffectivePage | undefined): PageIdentityIcon {
+export function resolvePageIdentityIcon(
+  page: Page,
+  effective: EffectivePage | undefined,
+  inTemplates = false
+): PageIdentityIcon {
   const emoji = effective?.icon ?? page.metadata.icon;
   // Cast is safe: `page.type` is always `PageType` here (never the
   // `'folder' | 'tag'` extra members `getPageIcon` also accepts for its
   // other callers), so its own return type is always narrowed in
   // practice to exactly the two page-type branches — `'note'` or one of
   // the two calendar variants.
-  const icon = getPageIcon(page.type, page.type === 'daily-note' && isToday(effective?.name ?? page.name)) as
-    | 'note'
-    | 'calendarNote'
-    | 'calendarDot';
+  const icon = (
+    page.type === 'note' && inTemplates
+      ? 'template'
+      : getPageIcon(page.type, page.type === 'daily-note' && isToday(effective?.name ?? page.name))
+  ) as PageIdentityIcon['icon'];
   return { icon, emoji };
 }

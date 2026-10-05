@@ -43,7 +43,7 @@ export type PageEmbedResolution =
       readonly pageId: string;
       readonly title: string;
       readonly markdown: string;
-      readonly icon: 'note' | 'calendarNote' | 'calendarDot';
+      readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
       readonly emoji: string | null;
     }
   | { readonly status: 'ambiguous'; readonly displayLabel: string }

@@ -31,7 +31,7 @@ export type WikiLinkResolution =
       readonly status: 'resolved';
       readonly displayLabel: string;
       readonly activate: () => void;
-      readonly icon: 'note' | 'calendarNote' | 'calendarDot';
+      readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
       readonly emoji: string | null;
     }
   | { readonly status: 'unresolved'; readonly displayLabel: string; readonly activate: () => void }
