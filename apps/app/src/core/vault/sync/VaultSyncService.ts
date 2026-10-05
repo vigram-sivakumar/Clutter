@@ -27,6 +27,7 @@ import {
   reconcilePageArchiveMetadata,
   reconcileFolderArchiveMetadata,
 } from './reconcileArchiveMetadata';
+import { reconcilePageTemplateMarker } from './reconcileTemplateMetadata';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
 
 export class VaultSyncService {
@@ -1093,19 +1094,24 @@ export class VaultSyncService {
       parentId: resolvedParentId,
     };
 
-    const reconciled = await reconcilePageArchiveMetadata(
-      {
-        vault: this.vault,
-        fileSystem: this.fileSystem,
-        serializer: this.frontmatterSerializer,
-        parser: this.frontmatterParser,
-        rebuilder: this.pageRebuilder,
-      },
-      candidatePage
-    );
+    const reconcileDeps = {
+      vault: this.vault,
+      fileSystem: this.fileSystem,
+      serializer: this.frontmatterSerializer,
+      parser: this.frontmatterParser,
+      rebuilder: this.pageRebuilder,
+    };
+    const archiveReconciled = await reconcilePageArchiveMetadata(reconcileDeps, candidatePage);
+    // ADR-041: the template marker follows the destination path, evaluated
+    // on whatever the archive step produced so each repair is one commit
+    // carrying the final state, never a moved-then-corrected pair.
+    const reconciled = await reconcilePageTemplateMarker(
+      reconcileDeps,
+      archiveReconciled ?? candidatePage
+    ) ?? archiveReconciled;
 
     if (!reconciled) {
-      // No archive repair needed: preserve normal move behavior exactly —
+      // No repair needed: preserve normal move behavior exactly —
       // one Vault mutation, one `page-moved` notification, no extra I/O.
       this.vault.updatePagePath(page.id, absoluteTo, resolvedParentId);
       return;
@@ -1132,11 +1138,35 @@ export class VaultSyncService {
       page
     );
 
-    if (!rebuiltPage) {
+    if (rebuiltPage) {
+      this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
+    }
+
+    await this.reconcileTemplateMarkerForPage(pageId);
+  }
+
+  /** ADR-041 — the template-marker counterpart of reconcileArchiveMetadataForPage, run right after it. */
+  private async reconcileTemplateMarkerForPage(pageId: string): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
       return;
     }
 
-    this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
+    const rebuiltPage = await reconcilePageTemplateMarker(
+      {
+        vault: this.vault,
+        fileSystem: this.fileSystem,
+        serializer: this.frontmatterSerializer,
+        parser: this.frontmatterParser,
+        rebuilder: this.pageRebuilder,
+      },
+      page
+    );
+
+    if (rebuiltPage) {
+      this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
+    }
   }
 
   private resolveParentId(directoryPath: string): string | null | undefined {

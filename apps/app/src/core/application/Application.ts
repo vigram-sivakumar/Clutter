@@ -46,6 +46,7 @@ import { VaultEntryDuplicator } from '../vault/persistence/VaultEntryDuplicator'
 import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { reconcileVaultArchiveMetadata } from '../vault/sync/reconcileArchiveMetadata';
+import { reconcileVaultTemplateMetadata } from '../vault/sync/reconcileTemplateMetadata';
 import { persistSyncedPageDocument } from '../vault/sync/persistSyncedPageDocument';
 import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlResolver';
@@ -340,13 +341,16 @@ export class Application {
       );
     }
 
-    await reconcileVaultArchiveMetadata({
+    const reconcileDeps = {
       vault,
       fileSystem,
       serializer: new FrontmatterSerializer(),
       parser: new FrontmatterParser(),
       rebuilder: new PageRebuilder(),
-    });
+    };
+    await reconcileVaultArchiveMetadata(reconcileDeps);
+    // ADR-041: same startup pass for the template marker (moves made while the app was closed).
+    await reconcileVaultTemplateMetadata(reconcileDeps);
 
     const application = new Application(
       vault,
