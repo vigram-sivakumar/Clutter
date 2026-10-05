@@ -2306,6 +2306,62 @@ describe('PageOperations.move()', () => {
   });
 });
 
+describe('PageOperations.move() — kind: template marker', () => {
+  const templatesFolder = (): Folder => ({
+    ...makeFolder('templates', `${ROOT}/Templates`),
+    name: 'Templates',
+  });
+  const withKind = (page: Page, lines: string[]): Page => ({
+    ...page,
+    metadata: { ...page.metadata, unownedFrontmatter: lines },
+  });
+  const markerLines = (vault: Vault, id: string) =>
+    vault.getPage(id)!.metadata.unownedFrontmatter ?? [];
+
+  it('adds `kind: template` when a note moves into Templates', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
+
+    await pageOperations.move(page.id, 'templates');
+
+    expect(markerLines(vault, page.id)).toContain('kind: template');
+  });
+
+  it('updates an existing `kind` line instead of adding a second one', async () => {
+    const page = withKind(buildPage(), ['kind: book']);
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
+
+    await pageOperations.move(page.id, 'templates');
+
+    const lines = markerLines(vault, page.id);
+    expect(lines.filter((line) => line.startsWith('kind'))).toEqual(['kind: template']);
+  });
+
+  it('removes `kind: template` when the note moves out of Templates', async () => {
+    const page = withKind(buildPage(), ['kind: template']);
+    const projects = makeFolder('projects', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      templatesFolder(),
+      projects,
+    ]);
+
+    await pageOperations.move(page.id, 'projects');
+
+    expect(markerLines(vault, page.id).some((line) => line.startsWith('kind'))).toBe(false);
+  });
+
+  it("leaves a user's own `kind` value alone when moving between ordinary folders", async () => {
+    const page = withKind(buildPage(), ['kind: book']);
+    const projects = makeFolder('projects', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), projects]);
+
+    await pageOperations.move(page.id, 'projects');
+
+    expect(markerLines(vault, page.id)).toContain('kind: book');
+  });
+});
+
 describe('PageOperations.rename() (completes spec §6 rename())', () => {
   it('renames the page in place, updating its path and name, without reparenting', async () => {
     const page = buildPage();

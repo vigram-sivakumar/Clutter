@@ -276,6 +276,31 @@ export class Vault {
   }
 
   /**
+   * Whether `folderId` is the reserved folder `id` itself or sits anywhere
+   * beneath it (null = vault root, never inside one). The one ancestry
+   * walk for "is this content inside Templates/Archive/…".
+   */
+  isFolderWithinReservedFolder(folderId: string | null, id: ReservedFolderId): boolean {
+    const reserved = this.getReservedFolder(id);
+
+    if (!reserved) {
+      return false;
+    }
+
+    let current = folderId;
+
+    while (current) {
+      if (current === reserved.id) {
+        return true;
+      }
+
+      current = this.getFolder(current)?.parentId ?? null;
+    }
+
+    return false;
+  }
+
+  /**
    * Returns true when the folder is a top-level reserved application
    * infrastructure folder (Archive, Templates, Daily Notes, .clutter).
    * Nested folders under reserved roots are not reserved.

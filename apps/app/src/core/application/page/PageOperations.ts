@@ -24,7 +24,10 @@ import {
   setSectionHiddenLines,
 } from '../../vault/ingest/frontmatter/propertyLines';
 import {
+  addCustomProperty,
+  readCustomProperties,
   removeCustomListItem,
+  removeCustomProperty,
   renameCustomProperty,
   setCustomListValue,
   setCustomScalarValue,
@@ -78,6 +81,10 @@ export class MutateBodyAbandonedError extends Error {
     this.name = 'MutateBodyAbandonedError';
   }
 }
+
+/** The frontmatter line that marks a page living in Templates — see PageOperations.syncTemplateMarker. */
+const TEMPLATE_MARKER_KEY = 'kind';
+const TEMPLATE_MARKER_VALUE = 'template';
 
 export interface CreatePageOptions {
   readonly folderId: string | null;
@@ -2099,6 +2106,52 @@ export class PageOperations {
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
     }
+
+    await this.syncTemplateMarker(pageId);
+  }
+
+  /**
+   * Keeps the page's `kind: template` frontmatter in step with where it
+   * now lives: inside the reserved Templates folder (or beneath it) it is
+   * set — updating the value when a `kind` line already exists, appending
+   * one otherwise; outside it, a `kind: template` line is removed (a
+   * `kind` with any other value is the user's own and is left alone). `kind`,
+   * not `type`: lowercase `type` is a retired owned key the serializer drops
+   * on every save, so it could not hold this. A no-op (no write) when the
+   * frontmatter already says the right thing, so an unrelated move never
+   * costs a save.
+   */
+  private async syncTemplateMarker(pageId: string): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page || page.metadata.status === 'archived') {
+      return;
+    }
+
+    const inTemplates = this.vault.isFolderWithinReservedFolder(page.parentId, 'templates');
+
+    await this.saveCustomFrontmatter(pageId, (lines) => {
+      const existing = readCustomProperties(lines).find(
+        (property) => property.key === TEMPLATE_MARKER_KEY
+      );
+      const isMarked =
+        existing?.type === 'text' && existing.value === TEMPLATE_MARKER_VALUE;
+
+      if (inTemplates) {
+        if (isMarked) {
+          return null;
+        }
+
+        return existing
+          ? setCustomScalarValue(lines, TEMPLATE_MARKER_KEY, 'text', TEMPLATE_MARKER_VALUE)
+          : addCustomProperty(lines, TEMPLATE_MARKER_KEY, {
+              type: 'text',
+              value: TEMPLATE_MARKER_VALUE,
+            });
+      }
+
+      return isMarked ? removeCustomProperty(lines, TEMPLATE_MARKER_KEY) : null;
+    });
   }
 
   /**

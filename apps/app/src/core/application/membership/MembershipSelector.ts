@@ -143,23 +143,7 @@ export class MembershipSelector {
    * so a draft (which only has a folderId) asks the same question.
    */
   public isInTemplatesFolder(folderId: string | null): boolean {
-    const templatesFolder = this.vault.getReservedFolder('templates');
-
-    if (!templatesFolder) {
-      return false;
-    }
-
-    let current = folderId;
-
-    while (current) {
-      if (current === templatesFolder.id) {
-        return true;
-      }
-
-      current = this.vault.getFolder(current)?.parentId ?? null;
-    }
-
-    return false;
+    return this.vault.isFolderWithinReservedFolder(folderId, 'templates');
   }
 
   /**
