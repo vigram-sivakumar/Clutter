@@ -137,6 +137,32 @@ export class MembershipSelector {
   }
 
   /**
+   * Whether content in the given containing folder (null = vault root) is
+   * a template: the folder is the reserved Templates folder, or sits
+   * anywhere beneath it. Takes the containing folder id rather than a Page
+   * so a draft (which only has a folderId) asks the same question.
+   */
+  public isInTemplatesFolder(folderId: string | null): boolean {
+    const templatesFolder = this.vault.getReservedFolder('templates');
+
+    if (!templatesFolder) {
+      return false;
+    }
+
+    let current = folderId;
+
+    while (current) {
+      if (current === templatesFolder.id) {
+        return true;
+      }
+
+      current = this.vault.getFolder(current)?.parentId ?? null;
+    }
+
+    return false;
+  }
+
+  /**
    * ADR-026 §5: a page or folder nested inside an archived folder must not
    * appear in ordinary workspace views even though its own `status` is
    * left untouched by folder archive (ADR-026 §2 — only the archived

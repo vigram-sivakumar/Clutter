@@ -34,6 +34,7 @@ import {
   buildResourceMoveDestinationItems,
 } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
+import { Pill } from '@components/property-list/Pill';
 import {
   toResourcePageModel,
   toDraftPageModel,
@@ -1722,13 +1723,18 @@ export function PageHost({
         }}
         onEditDescription={() => onOpenDescriptionEditor(activePageId)}
         breadcrumbs={
-          <Breadcrumbs
-            items={
-              draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
-                ? draftBreadcrumbs.slice(-1)
-                : draftBreadcrumbs
-            }
-          />
+          <>
+            <Breadcrumbs
+              items={
+                draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+                  ? draftBreadcrumbs.slice(-1)
+                  : draftBreadcrumbs
+              }
+            />
+            {application.membershipSelector.isInTemplatesFolder(draft.folderId) && (
+              <Pill>Template</Pill>
+            )}
+          </>
         }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
@@ -2014,13 +2020,18 @@ export function PageHost({
       // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
       // off (core/featureFlags.ts) only the note's own crumb is shown.
       breadcrumbs={
-        <Breadcrumbs
-          items={
-            page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
-              ? breadcrumbs.slice(-1)
-              : breadcrumbs
-          }
-        />
+        <>
+          <Breadcrumbs
+            items={
+              page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+                ? breadcrumbs.slice(-1)
+                : breadcrumbs
+            }
+          />
+          {application.membershipSelector.isInTemplatesFolder(page.parentId) && (
+            <Pill>Template</Pill>
+          )}
+        </>
       }
       actions={topBar.actions}
       // Page-header-controls configuration: a Note is user-owned (its

@@ -415,6 +415,38 @@ describe('MembershipSelector.isArchivedPage', () => {
   });
 });
 
+describe('MembershipSelector.isInTemplatesFolder', () => {
+  const templates = makeFolder({ id: 'templates', name: 'Templates', path: `${ROOT}/Templates` });
+  const nested = makeFolder({
+    id: 'nested',
+    name: 'Meetings',
+    path: `${ROOT}/Templates/Meetings`,
+    parentId: 'templates',
+  });
+  const projects = makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects` });
+
+  it('is true for the Templates folder itself and any folder beneath it', () => {
+    const { membershipSelector } = setup([templates, nested, projects]);
+
+    expect(membershipSelector.isInTemplatesFolder('templates')).toBe(true);
+    expect(membershipSelector.isInTemplatesFolder('nested')).toBe(true);
+  });
+
+  it('is false for the vault root, an ordinary folder, and an unknown folder', () => {
+    const { membershipSelector } = setup([templates, nested, projects]);
+
+    expect(membershipSelector.isInTemplatesFolder(null)).toBe(false);
+    expect(membershipSelector.isInTemplatesFolder('projects')).toBe(false);
+    expect(membershipSelector.isInTemplatesFolder('missing')).toBe(false);
+  });
+
+  it('is false when the vault has no Templates folder', () => {
+    const { membershipSelector } = setup([projects]);
+
+    expect(membershipSelector.isInTemplatesFolder('projects')).toBe(false);
+  });
+});
+
 describe('MembershipSelector.isEffectivelyArchived (ADR-026 §5)', () => {
   it('is false for the vault root (null)', () => {
     const { membershipSelector } = setup();
