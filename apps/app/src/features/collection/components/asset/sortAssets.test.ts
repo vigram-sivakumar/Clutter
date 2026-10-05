@@ -25,12 +25,53 @@ describe('sortAssets', () => {
     expect(ids(sortAssets(resources(), { key: 'name', direction: 'up' }))).toEqual(['1', '3', '4', '2']);
   });
 
-  it('Type down groups by kind label (Image, then PDF), with the name breaking ties', () => {
-    expect(ids(sortAssets(resources(), { key: 'type', direction: 'down' }))).toEqual(['3', '1', '2', '4']);
-  });
+  describe('file facts — File size, Created, Last edited', () => {
+    const withFacts = (id: string, name: string, size: number | undefined, createdAt: string | null, modifiedAt: string | null): Asset =>
+      localAsset({
+        id,
+        kind: 'image',
+        name,
+        path: `/vault/${name}`,
+        parentId: null,
+        metadata: size === undefined ? undefined : { size, createdAt, modifiedAt },
+      });
+    const facts = () => [
+      withFacts('s', 'small.png', 10, '2020-01-01T00:00:00.000Z', '2021-05-01T00:00:00.000Z'),
+      withFacts('l', 'large.png', 5000, '2022-03-01T00:00:00.000Z', '2020-02-01T00:00:00.000Z'),
+      withFacts('m', 'medium.png', 700, '2021-06-01T00:00:00.000Z', '2023-07-01T00:00:00.000Z'),
+      withFacts('x', 'nofacts.png', undefined, null, null),
+    ];
+    const remote: Asset = {
+      id: 'remote:https://example.com/r.jpg',
+      source: 'remote',
+      kind: 'image',
+      name: 'r.jpg',
+      url: 'https://example.com/r.jpg',
+      references: [],
+    };
 
-  it('Type up reverses it (PDFs first, then images, names Z→A within each)', () => {
-    expect(ids(sortAssets(resources(), { key: 'type', direction: 'up' }))).toEqual(['4', '2', '1', '3']);
+    it('File size down is largest first, up is smallest first', () => {
+      expect(ids(sortAssets(facts(), { key: 'size', direction: 'down' }))).toEqual(['l', 'm', 's', 'x']);
+      expect(ids(sortAssets(facts(), { key: 'size', direction: 'up' }))).toEqual(['s', 'm', 'l', 'x']);
+    });
+
+    it('Created down is newest first, up is oldest first', () => {
+      expect(ids(sortAssets(facts(), { key: 'created', direction: 'down' }))).toEqual(['l', 'm', 's', 'x']);
+      expect(ids(sortAssets(facts(), { key: 'created', direction: 'up' }))).toEqual(['s', 'm', 'l', 'x']);
+    });
+
+    it('Last edited orders by the modified time, newest first for down', () => {
+      expect(ids(sortAssets(facts(), { key: 'updated', direction: 'down' }))).toEqual(['m', 's', 'l', 'x']);
+      expect(ids(sortAssets(facts(), { key: 'updated', direction: 'up' }))).toEqual(['l', 's', 'm', 'x']);
+    });
+
+    it('an asset with no such fact (a remote asset, or a part not reported) always sorts last, whichever way — name breaking ties', () => {
+      for (const direction of ['down', 'up'] as const) {
+        const sorted = sortAssets([remote, ...facts()], { key: 'size', direction });
+        // 'nofacts' before 'r' (the remote asset): name order among those with nothing to order by.
+        expect(ids(sorted).slice(-2)).toEqual(['x', remote.id]);
+      }
+    });
   });
 
   it('is locale-aware and case-insensitive in practice (Apple before banana)', () => {
@@ -39,9 +80,10 @@ describe('sortAssets', () => {
     expect(ids(sortAssets(list, { key: 'name', direction: 'down' }))).toEqual(['a', 'b']);
   });
 
-  it('a key assets do not have (a date) leaves the order as given — no invented comparison', () => {
-    expect(ids(sortAssets(resources(), { key: 'created', direction: 'down' }))).toEqual(['1', '2', '3', '4']);
-    expect(ids(sortAssets(resources(), { key: 'updated', direction: 'up' }))).toEqual(['1', '2', '3', '4']);
+  it('a key assets do not have (a description, a cover, a type) leaves the order as given — no invented comparison', () => {
+    for (const key of ['description', 'cover', 'type']) {
+      expect(ids(sortAssets(resources(), { key, direction: 'down' }))).toEqual(['1', '2', '3', '4']);
+    }
   });
 
   it('never mutates its input', () => {

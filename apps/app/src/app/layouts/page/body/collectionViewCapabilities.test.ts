@@ -16,7 +16,7 @@ describe('collection view capabilities', () => {
       layouts: ['list', 'table', 'card'],
       defaultLayout: 'table',
       properties: true,
-      sortKeys: ['name', 'created', 'updated', 'archived'],
+      sortKeys: ['name', 'description', 'cover', 'created', 'updated', 'archived'],
     });
   });
 
@@ -29,8 +29,8 @@ describe('collection view capabilities', () => {
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.properties).toBe(true);
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toEqual(['title', 'size', 'created', 'updated']);
     expect(NOTE_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toBeUndefined();
-    // Sort by offers the two things an asset has.
-    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.sortKeys).toEqual(['name', 'type']);
+    // Sort by offers Name and the file facts the Properties show.
+    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.sortKeys).toEqual(['name', 'size', 'created', 'updated']);
   });
 
   it('resolveSupportedLayout keeps a supported persisted layout and otherwise returns the default', () => {
@@ -49,15 +49,19 @@ describe('collection view capabilities', () => {
   it('resolveSupportedSort keeps a sort the collection offers and otherwise falls back', () => {
     const fallback: CollectionSortState = { key: 'name', direction: 'down' };
 
-    expect(resolveSupportedSort({ key: 'type', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
-      key: 'type',
+    expect(resolveSupportedSort({ key: 'size', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+      key: 'size',
       direction: 'up',
     });
-    // Assets have no dates: a date sort persisted for them is not honoured.
-    expect(resolveSupportedSort({ key: 'created', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+    expect(resolveSupportedSort({ key: 'created', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
+      key: 'created',
+      direction: 'up',
+    });
+    // Assets have no description or cover: a persisted sort by one is not honoured.
+    expect(resolveSupportedSort({ key: 'description', direction: 'up' }, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
     expect(resolveSupportedSort(undefined, ASSET_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
-    // Notes never offered "type": a stray one falls back for them too.
-    expect(resolveSupportedSort({ key: 'type', direction: 'down' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
+    // Notes have no file size: a stray one falls back for them too.
+    expect(resolveSupportedSort({ key: 'size', direction: 'down' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toBe(fallback);
     expect(resolveSupportedSort({ key: 'updated', direction: 'up' }, NOTE_COLLECTION_VIEW_CAPABILITIES, fallback)).toEqual({
       key: 'updated',
       direction: 'up',

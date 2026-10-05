@@ -246,12 +246,12 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(document.body.textContent).toContain('doc');
   });
 
-  it('offers the same three layouts notes have (List, Table, Card), Sort by Name / Type, and Properties (Card layout, for the Title toggle)', async () => {
+  it('offers the same three layouts notes have (List, Table, Card), Sort by (Name and the Properties: File size, Created, Last edited), and Properties', async () => {
     render(<AppLayout application={setup([image()])} />);
     await flush();
     await openMenu();
 
-    expect(menuLabels()).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'Type']);
+    expect(menuLabels()).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'File size', 'Created', 'Last edited']);
     expect(document.body.textContent).toMatch(/Sort by/);
   });
 
@@ -349,11 +349,11 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(rename).toHaveBeenCalledWith('img-1', 'banner');
   });
 
-  it('Sort by works through the standard menu: Type reorders the items and the choice is persisted under the Assets key', async () => {
+  it('Sort by works through the standard menu: File size reorders the items and the choice is persisted under the Assets key', async () => {
     const application = setup(
       [
-        makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', path: `${ROOT}/alpha.pdf` }),
-        makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', path: `${ROOT}/beta.png` }),
+        makeResource({ id: 'pdf-a', kind: 'pdf', name: 'alpha.pdf', path: `${ROOT}/alpha.pdf`, metadata: { size: 10, createdAt: null, modifiedAt: null } }),
+        makeResource({ id: 'img-b', kind: 'image', name: 'beta.png', path: `${ROOT}/beta.png`, metadata: { size: 900, createdAt: null, modifiedAt: null } }),
       ],
       'list'
     );
@@ -365,14 +365,14 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(order()).toEqual(['pdf-a', 'img-b']); // Name A→Z by default
 
     await openMenu();
-    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Type')!);
+    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'File size')!);
     await flush();
 
-    expect(order()).toEqual(['img-b', 'pdf-a']); // Image before PDF
-    expect(application.collectionViewConfigStore.get('view:assets')?.sort).toEqual({ key: 'type', direction: 'down' });
+    expect(order()).toEqual(['img-b', 'pdf-a']); // Largest first
+    expect(application.collectionViewConfigStore.get('view:assets')?.sort).toEqual({ key: 'size', direction: 'down' });
   });
 
-  it('a persisted sort Assets do not offer (a date) falls back to Name', async () => {
+  it('a persisted sort Assets do not offer (a description) falls back to Name', async () => {
     const application = setup(
       [
         makeResource({ id: 'img-z', kind: 'image', name: 'zeta.png', path: `${ROOT}/zeta.png` }),
@@ -380,7 +380,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
       ],
       'list'
     );
-    application.collectionViewConfigStore.update('view:assets', { sort: { key: 'updated', direction: 'up' } });
+    application.collectionViewConfigStore.update('view:assets', { sort: { key: 'description', direction: 'up' } });
     render(<AppLayout application={application} />);
     await flush();
 

@@ -378,13 +378,27 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
     expect(order(up.container)).toEqual(['z', 'm', 'a']);
   });
 
-  it('sorts by Type: images first (names A→Z within), then PDFs; up reverses', () => {
-    const down = renderAssets({ resources: resources(), viewMode, sort: { key: 'type', direction: 'down' } });
-    expect(order(down.container)).toEqual(['m', 'z', 'a']);
-    cleanup();
+  it('sorts by File size (largest first for down), Created and Last edited (newest first) — the file facts the Properties show', () => {
+    const sized = (id: string, size: number, createdAt: string, modifiedAt: string) =>
+      localAsset(makeResource({ id, name: `${id}.png`, path: `/vault/${id}.png`, metadata: { size, createdAt, modifiedAt } }));
+    const assets = [
+      sized('a', 10, '2020-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000Z'),
+      sized('b', 900, '2022-01-01T00:00:00.000Z', '2021-01-01T00:00:00.000Z'),
+      sized('c', 50, '2021-01-01T00:00:00.000Z', '2022-01-01T00:00:00.000Z'),
+    ];
 
-    const up = renderAssets({ resources: resources(), viewMode, sort: { key: 'type', direction: 'up' } });
-    expect(order(up.container)).toEqual(['a', 'z', 'm']);
+    for (const [key, down] of [
+      ['size', ['b', 'c', 'a']],
+      ['created', ['b', 'c', 'a']],
+      ['updated', ['a', 'c', 'b']],
+    ] as const) {
+      const shown = renderAssets({ assets, viewMode, sort: { key, direction: 'down' } });
+      expect(order(shown.container)).toEqual([...down]);
+      cleanup();
+      const up = renderAssets({ assets, viewMode, sort: { key, direction: 'up' } });
+      expect(order(up.container)).toEqual([...down].reverse());
+      cleanup();
+    }
   });
 
   it('does not reorder the caller’s array', () => {

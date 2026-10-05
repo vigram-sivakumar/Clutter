@@ -337,12 +337,12 @@ describe('CollectionViewConfigStore — archived column', () => {
     warn.mockRestore();
   });
 
-  it("accepts the Assets sort key 'type' and still rejects unknown keys", async () => {
+  it("accepts the Properties sort keys (size, description, cover…) and rejects any other key — including the retired 'type'", async () => {
     const fileSystem = new InMemoryVaultFileSystem({
       [WORKSPACE_PATH]: JSON.stringify({
         collectionViewConfig: {
-          'view:assets': { sort: { key: 'type', direction: 'up' } },
-          'view:bad': { sort: { key: 'size-ish', direction: 'up' } },
+          'view:assets': { sort: { key: 'size', direction: 'up' } },
+          'view:bad': { sort: { key: 'type', direction: 'up' } },
         },
       }),
     });
@@ -350,7 +350,7 @@ describe('CollectionViewConfigStore — archived column', () => {
 
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
-    expect(store.get('view:assets')).toEqual({ sort: { key: 'type', direction: 'up' } });
+    expect(store.get('view:assets')).toEqual({ sort: { key: 'size', direction: 'up' } });
     expect(store.get('view:bad')).toBeUndefined();
     warn.mockRestore();
   });

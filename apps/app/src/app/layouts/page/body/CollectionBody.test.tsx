@@ -481,6 +481,41 @@ describe('sortCollectionEntries', () => {
     expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);
   });
 
+  describe('the other Properties — Sort by is the Properties list', () => {
+    const described = (title: string, description?: string, cover?: string, coverHidden?: boolean) =>
+      noteEntry({ id: title, title, description, cover, coverHidden });
+    const [x, y, z] = [described('X', 'banana'), described('Y', 'apple'), described('Z')];
+
+    it('Description: down = A→Z, up = Z→A; a note without one always sorts last', () => {
+      expect(sortCollectionEntries([x, z, y], { key: 'description', direction: 'down' }).map((e) => e.title)).toEqual(['Y', 'X', 'Z']);
+      expect(sortCollectionEntries([x, z, y], { key: 'description', direction: 'up' }).map((e) => e.title)).toEqual(['X', 'Y', 'Z']);
+    });
+
+    it('Cover image: down puts the notes that show a cover first (a hidden cover does not count); ties keep name order', () => {
+      const withCover = described('B', undefined, 'Assets/b.png');
+      const hidden = described('C', undefined, 'Assets/c.png', true);
+      const none = described('A');
+      const another = described('D', undefined, 'Assets/d.png');
+
+      expect(sortCollectionEntries([none, hidden, another, withCover], { key: 'cover', direction: 'down' }).map((e) => e.title)).toEqual([
+        'B',
+        'D',
+        'A',
+        'C',
+      ]);
+      expect(sortCollectionEntries([none, hidden, another, withCover], { key: 'cover', direction: 'up' }).map((e) => e.title)).toEqual([
+        'A',
+        'C',
+        'B',
+        'D',
+      ]);
+    });
+
+    it('File size is no property of a note, so it leaves the order as given', () => {
+      expect(sortCollectionEntries([x, z, y], { key: 'size', direction: 'down' }).map((e) => e.title)).toEqual(['X', 'Z', 'Y']);
+    });
+  });
+
   it('sorts by updated, down = newest first', () => {
     const sorted = sortCollectionEntries([charlie, alpha, bravo], { key: 'updated', direction: 'down' });
     expect(sorted.map((e) => e.title)).toEqual(['Charlie', 'Bravo', 'Alpha']);

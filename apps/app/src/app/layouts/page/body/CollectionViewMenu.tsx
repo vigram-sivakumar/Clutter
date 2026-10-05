@@ -69,21 +69,17 @@ const ARCHIVED_PROPERTY_ITEM = {
   label: collectionFieldLabel('archived'),
 } as const;
 
-// Deliberately the same labels as the Properties list (Name is the one
-// exception, Properties has no such field) — the product spec is
-// explicit that Sort by reuses the existing Properties labels verbatim,
-// not "Last Viewed"/"Date Created"/"Date Updated".
-const SORT_ITEMS: ReadonlyArray<{ key: CollectionSortKey; label: string }> = [
-  { key: 'name', label: 'Name' },
-  { key: 'type', label: 'Type' },
-  { key: 'created', label: collectionFieldLabel('created') },
-  { key: 'updated', label: collectionFieldLabel('updated') },
-];
-
-const ARCHIVED_SORT_ITEM = {
-  key: 'archived',
-  label: collectionFieldLabel('archived'),
-} as const;
+// Sort by is the Properties list: Name (the one field Properties has no
+// item for — the name is always shown), then every Property the layout
+// offers, under the same label and in the same order. Title is Name.
+const SORT_KEY_OF_PROPERTY: Partial<Record<keyof CollectionPropertyVisibility, CollectionSortKey>> = {
+  description: 'description',
+  cover: 'cover',
+  size: 'size',
+  created: 'created',
+  updated: 'updated',
+  archived: 'archived',
+};
 
 type ConfigureMenuView = 'root' | 'properties';
 
@@ -149,10 +145,13 @@ export function CollectionViewMenu({
   const propertyItems = capabilities.propertyKeys
     ? allPropertyItems.filter(({ key }) => capabilities.propertyKeys!.includes(key))
     : allPropertyItems.filter(({ key }) => key !== 'title' && key !== 'size');
-  // Only the keys this collection offers, in the canonical order; Archived joins them in the Archive collection only.
-  const sortItems = [
-    ...SORT_ITEMS.filter(({ key }) => capabilities.sortKeys.includes(key)),
-    ...(showArchived ? [ARCHIVED_SORT_ITEM] : []),
+  // Exactly the Properties list: Name, then each offered Property (that this collection can sort by), same labels and order.
+  const sortItems: Array<{ key: CollectionSortKey; label: string }> = [
+    { key: 'name', label: 'Name' },
+    ...propertyItems.flatMap(({ key, label }) => {
+      const sortKey = SORT_KEY_OF_PROPERTY[key];
+      return sortKey !== undefined && capabilities.sortKeys.includes(sortKey) ? [{ key: sortKey, label }] : [];
+    }),
   ];
   const showSort = capabilities.sortKeys.length > 0;
   const [open, setOpen] = useState(false);

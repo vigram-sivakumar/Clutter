@@ -97,12 +97,21 @@ export function toTableColumns(
  * "Sort by" — the Configure menu's third section. `key` picks which field
  * to order by; `direction` is deliberately `'down' | 'up'`, not
  * `'asc' | 'desc'` — it names the arrow shown, not an abstract ordering,
- * because what "down" *means* differs per key (Name: A→Z; the three date
- * keys: newest-first) per the product spec. `sortCollectionEntries` below
+ * because what "down" *means* differs per key (Name and Description: A→Z;
+ * the date keys: newest-first; File size: largest first; Cover image:
+ * those with a cover first) per the product spec. Every key but Name is one of
+ * the collection's Properties — Sort by offers exactly the Properties list. `sortCollectionEntries` below
  * is the one place that translates `direction` into an actual comparison
  * for each key.
  */
-export type CollectionSortKey = 'name' | 'type' | 'created' | 'updated' | 'archived';
+export type CollectionSortKey =
+  | 'name'
+  | 'description'
+  | 'cover'
+  | 'size'
+  | 'created'
+  | 'updated'
+  | 'archived';
 export type CollectionSortDirection = 'down' | 'up';
 
 export interface CollectionSortState {
@@ -151,15 +160,38 @@ export function sortCollectionEntries(
 ): CollectionEntryModel[] {
   const copy = [...entries];
 
-  copy.sort((a, b) => {
-    if (sort.key === 'name') {
-      const cmp = a.title.localeCompare(b.title);
-      return sort.direction === 'down' ? cmp : -cmp;
-    }
+  const byName = (x: CollectionEntryModel, y: CollectionEntryModel) => x.title.localeCompare(y.title);
+  const direct = (cmp: number) => (sort.direction === 'down' ? cmp : -cmp);
 
-    const field =
-      sort.key === 'created' ? 'createdAt' : sort.key === 'archived' ? 'archivedAt' : 'updatedAt';
-    return compareRawDates(a[field], b[field], sort.direction);
+  copy.sort((a, b) => {
+    switch (sort.key) {
+      case 'name':
+        return direct(byName(a, b));
+
+      case 'description': {
+        // A missing description always sorts last, whichever way the list is ordered.
+        const [x, y] = [a.description?.trim(), b.description?.trim()];
+        if (!x && !y) return byName(a, b);
+        if (!x) return 1;
+        if (!y) return -1;
+        return direct(x.localeCompare(y)) || byName(a, b);
+      }
+
+      case 'cover': {
+        // "down" puts the notes that show a cover first; ties keep name order.
+        const [x, y] = [Boolean(a.cover && !a.coverHidden), Boolean(b.cover && !b.coverHidden)];
+        return x === y ? byName(a, b) : direct(x ? -1 : 1);
+      }
+
+      case 'size':
+        // Notes and folders have no file size: the honest no-op, like a folder's dates.
+        return 0;
+
+      default: {
+        const field = sort.key === 'created' ? 'createdAt' : sort.key === 'archived' ? 'archivedAt' : 'updatedAt';
+        return compareRawDates(a[field], b[field], sort.direction);
+      }
+    }
   });
 
   return copy;
