@@ -1723,23 +1723,25 @@ export function PageHost({
         }}
         onEditDescription={() => onOpenDescriptionEditor(activePageId)}
         breadcrumbs={
-          <div className="topbar__breadcrumbs">
-            <Breadcrumbs
-              items={
-                draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
-                  ? draftBreadcrumbs.slice(-1)
-                  : draftBreadcrumbs
-              }
-            />
-            {application.membershipSelector.isInTemplatesFolder(draft.folderId) && (
-              <Pill size="small">Template</Pill>
-            )}
-          </div>
+          <Breadcrumbs
+            items={
+              draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+                ? draftBreadcrumbs.slice(-1)
+                : draftBreadcrumbs
+            }
+          />
         }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
         // don't apply until this draft is actually persisted.
-        actions={draftTopBar.actions}
+        actions={
+          <>
+            {application.membershipSelector.isInTemplatesFolder(draft.folderId) && (
+              <Pill size="small">Editing template</Pill>
+            )}
+            {draftTopBar.actions}
+          </>
+        }
         // Same user-owned-vs-Daily-Note gating as the persisted branch
         // below (page.type === 'note' there, draft.type === 'note' here)
         // — a fresh Daily Note draft never offers an emoji control either.
@@ -2020,20 +2022,22 @@ export function PageHost({
       // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
       // off (core/featureFlags.ts) only the note's own crumb is shown.
       breadcrumbs={
-        <div className="topbar__breadcrumbs">
-          <Breadcrumbs
-            items={
-              page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
-                ? breadcrumbs.slice(-1)
-                : breadcrumbs
-            }
-          />
-          {application.membershipSelector.isInTemplatesFolder(page.parentId) && (
-            <Pill size="small">Template</Pill>
-          )}
-        </div>
+        <Breadcrumbs
+          items={
+            page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+              ? breadcrumbs.slice(-1)
+              : breadcrumbs
+          }
+        />
       }
-      actions={topBar.actions}
+      actions={
+        <>
+          {application.membershipSelector.isInTemplatesFolder(page.parentId) && (
+            <Pill size="small">Editing template</Pill>
+          )}
+          {topBar.actions}
+        </>
+      }
       // Page-header-controls configuration: a Note is user-owned (its
       // metadata.icon, when set, always shows; More actions is
       // hover-revealed). A Daily Note shows neither emoji nor icon — its

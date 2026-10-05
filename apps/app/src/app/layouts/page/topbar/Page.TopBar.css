@@ -32,14 +32,6 @@
   gap: var(--space-12);
 }
 
-/* The breadcrumbs plus anything attached to them (the Template pill) — one
-   unit in the leading group, so no gap between a crumb and its pill. */
-.topbar__breadcrumbs {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
 .topbar--trailing {
   gap: 0px;
   color: var(--foreground-tertiary);
