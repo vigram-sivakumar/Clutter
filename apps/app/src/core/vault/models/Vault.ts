@@ -302,7 +302,7 @@ export class Vault {
 
   /**
    * Returns true when the folder is a top-level reserved application
-   * infrastructure folder (Archive, Templates, Daily Notes, .clutter).
+   * infrastructure folder (Archive, Inbox, Templates, Daily Notes, .clutter).
    * Nested folders under reserved roots are not reserved.
    */
   isReservedFolder(folder: Folder): boolean {

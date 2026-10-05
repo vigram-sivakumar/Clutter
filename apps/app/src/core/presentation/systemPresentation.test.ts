@@ -14,6 +14,7 @@ import {
 // 'page-header' surface, regardless of which group a given id is in.
 const FOLDER_BACKED_LOCATIONS: readonly SystemLocationId[] = [
   'archive',
+  'inbox',
   'templates',
   'daily-notes',
 ];

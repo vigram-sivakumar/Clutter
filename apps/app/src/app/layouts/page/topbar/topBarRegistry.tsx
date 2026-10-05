@@ -119,7 +119,7 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
   />
 );
 
-// A reserved folder (Assets, Archive, Templates, Daily Notes root,
+// A reserved folder (Inbox, Assets, Archive, Templates, Daily Notes root,
 // etc.) currently has no meaningful topbar actions at all, so it renders no
 // trigger rather than an overflow button that opens onto nothing. This stays
 // its own registry entry (rather than collapsing into 'folder' or omitting

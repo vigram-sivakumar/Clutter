@@ -186,6 +186,10 @@ export class NavigationRouter {
     void this.openReservedFolder('archive');
   }
 
+  public openInbox(): void {
+    void this.openReservedFolder('inbox');
+  }
+
   public openTemplates(): void {
     void this.openReservedFolder('templates');
   }
@@ -196,7 +200,7 @@ export class NavigationRouter {
    * Assets/ storage folder (that folder is Clutter's managed default
    * import location, a filesystem detail; the Assets collection is the
    * logical set of every resource regardless of where it physically
-   * lives). Grouped with the location shortcuts above (Archive/
+   * lives). Grouped with the location shortcuts above (Archive/Inbox/
    * Templates) rather than with Workspace/Favorites below — Assets is
    * a shortcut destination in the same sidebar group as those three, even
    * though, like Workspace/Favorites, it has no backing reserved Folder to
@@ -302,7 +306,7 @@ export class NavigationRouter {
   }
 
   /**
-   * required → ensure → use: reserved folders (Archive, Templates)
+   * required → ensure → use: reserved folders (Archive, Inbox, Templates)
    * are definitions, not guaranteed-to-exist state (see
    * ReservedResources.ts's own header comment). Opening one is the point
    * at which the feature actually requires it, so this ensures it via the

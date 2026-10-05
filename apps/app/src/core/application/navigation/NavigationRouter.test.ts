@@ -122,6 +122,7 @@ const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe('NavigationRouter', () => {
   it.each([
     ['openArchive', 'archive'] as const,
+    ['openInbox', 'inbox'] as const,
     ['openTemplates', 'templates'] as const,
   ])('%s ensures the missing %s reserved folder, then opens it', async (method, id) => {
     const openFolder = vi.fn();
@@ -159,18 +160,18 @@ describe('NavigationRouter', () => {
       folderOperations: { open: openFolder, ensureReservedFolder: fake.ensureReservedFolder },
     });
 
-    navigation.openTemplates();
+    navigation.openInbox();
     await flushMicrotasks();
-    navigation.openTemplates();
+    navigation.openInbox();
     await flushMicrotasks();
-    navigation.openTemplates();
+    navigation.openInbox();
     await flushMicrotasks();
 
     expect(fake.getCreateCount()).toBe(1);
     expect(openFolder).toHaveBeenCalledTimes(3);
-    expect(openFolder).toHaveBeenNthCalledWith(1, 'folder-templates');
-    expect(openFolder).toHaveBeenNthCalledWith(2, 'folder-templates');
-    expect(openFolder).toHaveBeenNthCalledWith(3, 'folder-templates');
+    expect(openFolder).toHaveBeenNthCalledWith(1, 'folder-inbox');
+    expect(openFolder).toHaveBeenNthCalledWith(2, 'folder-inbox');
+    expect(openFolder).toHaveBeenNthCalledWith(3, 'folder-inbox');
   });
 
   it('recreates a reserved folder that was deleted externally while the app was running, then opens it', async () => {

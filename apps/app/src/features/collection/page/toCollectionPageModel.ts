@@ -286,7 +286,7 @@ function toFolderCollectionPageModel(
       toCollectionEntry(child, actions, workspace.activePageId === child.id, membershipSelector)
     );
 
-  // A reserved folder (Archive, Templates, Daily Notes) viewed
+  // A reserved folder (Archive, Inbox, Templates, Daily Notes) viewed
   // directly gets its canonical system-location label instead of the raw
   // Vault folder name — same helper buildBreadcrumbs' ancestor handling
   // uses, so the two surfaces can't drift.

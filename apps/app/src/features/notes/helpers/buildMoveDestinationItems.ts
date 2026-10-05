@@ -17,7 +17,7 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * everything Move's contract requires excluded, with no new filtering
  * logic needed here:
  *
- * - Reserved folders (Archive, Daily Notes, Templates, .clutter)
+ * - Reserved folders (Archive, Daily Notes, Inbox, Templates, .clutter)
  *   are never returned by getWorkspaceFolders() (root-level only, and
  *   these all have parentId === null but fail isSystemFolder's negation).
  * - An archived folder is relocated under Archive/ at archive time (ADR-

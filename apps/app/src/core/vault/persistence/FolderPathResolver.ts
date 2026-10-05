@@ -95,7 +95,7 @@ export class FolderPathResolver {
    * same rule, exactly: `folder.metadata.originalPath` (stored verbatim at
    * archive time) is the sole source of truth, never `originalParentId`.
    * If that path's containing directory still exists, restore there; else
-   * vault root. No fallback — exactly two outcomes, same as the page
+   * vault root. No Inbox fallback — exactly two outcomes, same as the page
    * contract this mirrors.
    */
   resolveRestoreDestination(folderId: string): { path: string; parentId: string | null } {

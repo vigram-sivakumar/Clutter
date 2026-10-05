@@ -102,6 +102,10 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   },
   {
     type: 'folder',
+    path: 'Inbox',
+  },
+  {
+    type: 'folder',
     path: 'Templates',
   },
   {
@@ -131,6 +135,7 @@ export const RESERVED_FOLDER_IDS = {
   clutter: '.clutter',
   'daily-notes': 'Daily Notes',
   archive: 'Archive',
+  inbox: 'Inbox',
   templates: 'Templates',
 } as const;
 
@@ -241,6 +246,8 @@ export function isClutterInternalPath(vaultRoot: string, path: string): boolean 
  *   Reserved storage location for archived pages. Archiving is expressed
  *   through page metadata (`status: archived`); residing in Archive/ alone
  *   does not imply archived lifecycle state.
+ * - Inbox
+ *   Default capture location for newly created content.
  * - Templates
  *   Reusable note templates managed by Clutter.
  */

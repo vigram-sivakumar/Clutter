@@ -146,7 +146,7 @@ Not every feature has every folder. That is fine. The rule is: **when a folder e
 | `page/` | Presentation models and builders consumed by `PageHost` |
 | `presentation/` | Functions that transform data into renderable UI models or trees; thread callbacks, never import `NavigationService` |
 | `sidebar/` | Sidebar panels and entry rows for this feature |
-| `shortcuts/` | Shortcut rows at the top of a feature's sidebar tab (Templates, All notes, calendar picker, etc.) |
+| `shortcuts/` | Shortcut rows at the top of a feature's sidebar tab (Inbox, All notes, calendar picker, etc.) |
 
 Each feature with config-driven shortcuts follows:
 

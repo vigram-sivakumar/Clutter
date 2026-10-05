@@ -27,6 +27,7 @@ describe('Fresh app start does not create missing reserved folders', () => {
 
     expect(vault.getReservedFolder('daily-notes')).toBeUndefined();
     expect(vault.getReservedFolder('archive')).toBeUndefined();
+    expect(vault.getReservedFolder('inbox')).toBeUndefined();
     expect(vault.getReservedFolder('templates')).toBeUndefined();
     expect(Array.from(vault.folders())).toHaveLength(0);
 
@@ -34,6 +35,7 @@ describe('Fresh app start does not create missing reserved folders', () => {
     // "discover, don't materialize" holds at the filesystem level too.
     expect(await fileSystem.exists(`${ROOT}/Daily Notes`)).toBe(false);
     expect(await fileSystem.exists(`${ROOT}/Archive`)).toBe(false);
+    expect(await fileSystem.exists(`${ROOT}/Inbox`)).toBe(false);
     expect(await fileSystem.exists(`${ROOT}/Templates`)).toBe(false);
     expect(await fileSystem.exists(`${ROOT}/.clutter`)).toBe(false);
   });
@@ -49,16 +51,17 @@ describe('Fresh app start does not create missing reserved folders', () => {
 
     expect(vault.getReservedFolder('archive')).toBeDefined();
     expect(vault.getReservedFolder('daily-notes')).toBeDefined();
-    // Templates was never created on disk in this fixture, and
+    // Inbox/Templates were never created on disk in this fixture, and
     // scanning must not invent them just because other reserved folders
     // happen to exist.
+    expect(vault.getReservedFolder('inbox')).toBeUndefined();
     expect(vault.getReservedFolder('templates')).toBeUndefined();
   });
 
   it('a vault with every reserved folder already on disk discovers all of them normally, unchanged', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     await fileSystem.createDirectory(ROOT);
-    for (const name of ['Daily Notes', 'Archive', 'Templates']) {
+    for (const name of ['Daily Notes', 'Archive', 'Inbox', 'Templates']) {
       await fileSystem.createDirectory(`${ROOT}/${name}`);
     }
 
@@ -67,6 +70,7 @@ describe('Fresh app start does not create missing reserved folders', () => {
 
     expect(vault.getReservedFolder('daily-notes')).toBeDefined();
     expect(vault.getReservedFolder('archive')).toBeDefined();
+    expect(vault.getReservedFolder('inbox')).toBeDefined();
     expect(vault.getReservedFolder('templates')).toBeDefined();
   });
 });

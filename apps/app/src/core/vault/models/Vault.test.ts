@@ -234,7 +234,7 @@ describe('Vault.getReservedFolder', () => {
   it('returns undefined when the reserved folder is missing', () => {
     const vault = makeVault([], []);
 
-    expect(vault.getReservedFolder('templates')).toBeUndefined();
+    expect(vault.getReservedFolder('inbox')).toBeUndefined();
   });
 });
 
