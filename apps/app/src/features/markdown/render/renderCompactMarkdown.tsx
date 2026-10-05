@@ -370,7 +370,12 @@ function renderEmbedSpan(
       );
     }
   }
-  return renderEmbed(path, resolvers.resolveEmbed);
+  // A hook for surfaces that lay out a block embed (a note or PDF, shown here by its title) differently from running text; unstyled by default.
+  return (
+    <span key={key} className="compact-markdown-embed">
+      {renderEmbed(path, resolvers.resolveEmbed)}
+    </span>
+  );
 }
 
 /**

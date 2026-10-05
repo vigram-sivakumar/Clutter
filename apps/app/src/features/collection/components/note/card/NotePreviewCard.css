@@ -1,0 +1,27 @@
+/*
+ * The read-only note preview (WikiLink hover): the note card's surface —
+ * surface, 6px padding — at a fixed size. The document
+ * canvas inside is DocumentPreview's own (scaled to fit); its width variables
+ * come from the shared rule in NoteCardGrid.css.
+ */
+.note-preview-card {
+  display: flex;
+  flex-direction: column;
+  /* The grid card's own shape (CollectionCardGrid.css): 3:4 at the middle of its 200–280px column range, and its section gap. */
+  gap: var(--space-8);
+  width: 240px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+
+  padding: var(--space-6);
+  /* Opaque like a menu (it floats over text), not the grid card's translucent tint. */
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+}
+.note-preview-card__empty {
+  padding-inline: var(--space-4);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-tertiary);
+}

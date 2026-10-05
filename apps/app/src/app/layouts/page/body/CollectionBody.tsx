@@ -52,9 +52,9 @@ export interface CollectionPropertyVisibility {
   updated: boolean;
   /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
   archived: boolean;
-  /** Card: show the note's cover image at the top of its preview. Table / List: show the Cover image column / media (when the host can change covers). */
+  /** Table / List: show the Cover image column / media (when the host can change covers). Ignored by the note Card layout, which always shows the cover. */
   cover: boolean;
-  /** Card layout only — show the rendered note content in its preview. Ignored in List/Table. */
+  /** No longer offered or read (a note card always shows its content); kept only so previously saved view configs still load unchanged. */
   preview: boolean;
   /** Assets' Card layout only — show each card's title section (icon and name). Ignored everywhere else. */
   title: boolean;
@@ -339,8 +339,9 @@ export function renderNoteList(
  * `properties` gating as renderNoteList for the edited date (a card
  * shows no created date — the menu doesn't offer it in Card
  * mode), the description (one line above it, hidden when the note has none —
- * no "No description" placeholder, unlike Table), plus the card-only Cover
- * image / Content preview toggles.
+ * no "No description" placeholder, unlike Table). A card always shows the
+ * note's cover and content (its page canvas) — the Cover image / Content
+ * preview properties no longer apply to it.
  */
 export function renderNoteCard(
   entry: CollectionEntryModel,
@@ -355,10 +356,8 @@ export function renderNoteCard(
       isSelected={entry.selected}
       description={properties.description ? entry.description : undefined}
       updated={properties.updated ? entry.updated : undefined}
-      markdown={properties.preview ? entry.markdown : ''}
-      cover={properties.cover ? entry.cover : undefined}
-      showCover={properties.cover}
-      showContent={properties.preview}
+      markdown={entry.markdown}
+      cover={entry.cover}
       coverHidden={entry.coverHidden}
       coverPositionAbove={entry.coverPositionAbove}
       previewResolvers={previewResolvers}

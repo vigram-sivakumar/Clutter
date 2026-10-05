@@ -71,6 +71,17 @@ describe('renderMarkdownBlocks — block mapping', () => {
     expect(root.querySelector('input')).toBeNull();
   });
 
+  it('keeps a task\'s text (all its inline spans and lines) in one text column beside the box, so wrapped lines never flow under it', () => {
+    const root = renderBlocks('- [ ] a **bold** and `code` task\n- [ ] first line\n  second line');
+
+    for (const task of root.querySelectorAll('.markdown-blocks__task')) {
+      expect(task.children).toHaveLength(2);
+      expect(task.children[0]).toHaveClass('markdown-blocks__task-box');
+      expect(task.children[1]).toHaveClass('markdown-blocks__task-text');
+    }
+    expect(root.querySelector('.markdown-blocks__task-text strong')).not.toBeNull();
+  });
+
   it('draws the task box as the editor\'s circle checkbox glyphs: outline when open, filled with a tick when done', () => {
     const root = renderBlocks('- [ ] todo\n- [x] done');
 

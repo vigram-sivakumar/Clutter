@@ -1,0 +1,28 @@
+/*
+ * The cell takes the card's fixed shape at whatever width the grid gives it;
+ * the canvas inside is the card at its design width, scaled to fit. Anything
+ * the transform leaves outside the cell is clipped (there is none: the
+ * canvas's scaled size equals the cell's).
+ */
+.scaled-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--collection-card-aspect-ratio);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+/* `transform` doesn't change layout size; the child card keeps its own aspect ratio at the design width. */
+.scaled-card__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(var(--scaled-card-scale, 1));
+  transform-origin: top left;
+}
+
+/* The focus ring stays 2px on screen, not scaled down with the card. */
+.scaled-card__canvas > .collection-card:focus-visible {
+  outline-width: calc(2px / var(--scaled-card-scale, 1));
+  outline-offset: calc(1px / var(--scaled-card-scale, 1));
+}

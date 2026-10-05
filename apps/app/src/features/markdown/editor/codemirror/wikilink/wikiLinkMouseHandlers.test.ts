@@ -37,7 +37,7 @@ function mountView(doc: string, resolver?: ResolveWikiLink): EditorView {
 describe('handleWikiLinkClick', () => {
   it('a plain click on an at-rest WikiLink activates it', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -49,7 +49,7 @@ describe('handleWikiLinkClick', () => {
 
   it('Alt-click on an at-rest WikiLink activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -60,7 +60,7 @@ describe('handleWikiLinkClick', () => {
   });
 
   it('a click that is not on any WikiLink is not handled, letting CM6 fall through to default behavior', () => {
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate: vi.fn() });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate: vi.fn() });
     const view = mountView('Text before [[Projects/Page]]', resolver);
 
     const handled = handleWikiLinkClick(view, 2, false, () => resolver);
@@ -70,7 +70,7 @@ describe('handleWikiLinkClick', () => {
 
   it('clicking an already-engaged WikiLink is not handled — it is just ordinary text at that point', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -122,7 +122,7 @@ describe('handleWikiLinkClick', () => {
 describe('handleWikiLinkClick — cursor inside an enclosing formatting construct but outside the WikiLink itself', () => {
   it('does not activate a click inside the WikiLink text when the selection sits between the ** and the [[', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const doc = '**[[Projects/Page]]**';
     const view = mountView(doc, resolver);
 
@@ -141,7 +141,7 @@ describe('handleWikiLinkClick — cursor inside an enclosing formatting construc
 
   it('does not activate through a Strikethrough ancestor either — the guard is generic, not WikiLink/StrongEmphasis-specific', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const doc = '~~[[Projects/Page]]~~';
     const view = mountView(doc, resolver);
 
@@ -155,7 +155,7 @@ describe('handleWikiLinkClick — cursor inside an enclosing formatting construc
 
   it('still activates a click on the same nested WikiLink when the selection is elsewhere entirely — the guard only fires while genuinely editing', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const doc = 'Before **[[Projects/Page]]** after';
     const view = mountView(doc, resolver);
 
@@ -211,7 +211,7 @@ describe('handleWikiLinkClick — empty/whitespace-only WikiLink is never naviga
 
   it('a normal, non-empty [[Page]] click continues to activate exactly as before — the guard only affects the empty/whitespace-only case', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 

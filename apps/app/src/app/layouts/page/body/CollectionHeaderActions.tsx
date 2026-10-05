@@ -1,13 +1,64 @@
+import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
+import { Menu } from '@components/menu/Menu';
+import { MenuItem } from '@components/menu/MenuItem';
+import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon } from '@shared/icon';
 
-import { CollectionViewMenu, type CollectionViewMenuProps } from './CollectionViewMenu';
+import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
+import { Popover } from '@components/popover/Popover';
+import { PickerCard } from '@components/picker-card/PickerCard';
+import type { PickerListItem } from '@components/picker-list/PickerList.types';
+
+import {
+  CollectionViewMenu,
+  type CollectionViewMenuProps,
+} from './CollectionViewMenu';
+
+const NEW_TEMPLATE_ID = '__new-template__';
+
+/** The template picker's rows: a leading "New template" row, then every template as a flat note row. */
+function templateItems(
+  templates: readonly CollectionEntryModel[]
+): PickerListItem[] {
+  return [
+    {
+      id: NEW_TEMPLATE_ID,
+      title: 'New template',
+      icon: 'plus',
+      level: 0,
+      parentId: null,
+    },
+    ...templates.map((template) => ({
+      id: template.id,
+      title: template.title,
+      emoji: template.emoji,
+      level: 0,
+      parentId: null,
+    })),
+  ];
+}
 
 export interface CollectionHeaderActionsProps {
   /** The standard Configure control (Layout / Properties / Sort) — Settings and the view-mode control. */
   menu: CollectionViewMenuProps;
   /** The standard Add action. Absent -> no Add button (e.g. a collection that can't create items here). */
   onAdd?: () => void;
+  /**
+   * Create a folder here. When present the Add button opens a menu (New note / New folder /
+   * From template) instead of acting directly; absent -> Add stays the single-action button.
+   */
+  onAddFolder?: () => void;
+  /**
+   * Offer From template in the Add menu — one item that swaps the menu for a searchable template list, anchored to the same button;
+   * absent -> the menu has just New note / New folder.
+   */
+  fromTemplate?: {
+    /** The templates to show, read when the menu opens; each entry's `onClick` creates a note from it. */
+    getTemplates: () => CollectionEntryModel[];
+    /** The list's leading "New template" row. */
+    onCreateTemplate: () => void;
+  };
   /** Accessible label of the Add button — "New" for notes, "Add asset" for assets. */
   addLabel?: string;
 }
@@ -23,15 +74,116 @@ export interface CollectionHeaderActionsProps {
 export function CollectionHeaderActions({
   menu,
   onAdd,
+  onAddFolder,
+  fromTemplate,
   addLabel = 'New',
 }: CollectionHeaderActionsProps) {
+  const [open, setOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  // The From template item hands focus to the template list's search field, not back to the Add button.
+  const suppressReturnFocusRef = useRef(false);
+  const hasAddMenu = Boolean(onAdd && onAddFolder);
+  // Read when the picker opens, so it lists the templates as they are now.
+  const templates =
+    templatesOpen && fromTemplate ? fromTemplate.getTemplates() : [];
+
   return (
     <>
       <CollectionViewMenu {...menu} />
       {onAdd && (
-        <Button isIconOnly variant="primary" aria-label={addLabel} onClick={onAdd}>
+        <Button
+          ref={anchorRef}
+          isIconOnly
+          variant="primary"
+          aria-label={addLabel}
+          aria-haspopup={hasAddMenu ? 'menu' : undefined}
+          aria-expanded={hasAddMenu ? open : undefined}
+          onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
+        >
           <AppIcon icon="plus" />
         </Button>
+      )}
+      {hasAddMenu && (
+        <Overlay
+          open={open}
+          onClose={() => setOpen(false)}
+          anchorRef={anchorRef}
+          side="bottom"
+          alignment="end"
+          suppressReturnFocusRef={suppressReturnFocusRef}
+        >
+          <Menu size="medium">
+            <MenuItem
+              leading={<AppIcon icon="note" />}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(false);
+                onAdd?.();
+              }}
+            >
+              New note
+            </MenuItem>
+            <MenuItem
+              leading={<AppIcon icon="folder" />}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(false);
+                onAddFolder?.();
+              }}
+            >
+              New folder
+            </MenuItem>
+            {fromTemplate && (
+              <>
+                <div className="menu__divider" role="separator" />
+                <MenuItem
+                  leading={<AppIcon icon="template" />}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    suppressReturnFocusRef.current = true;
+                    setOpen(false);
+                    setTemplatesOpen(true);
+                  }}
+                >
+                  From template
+                </MenuItem>
+              </>
+            )}
+          </Menu>
+        </Overlay>
+      )}
+      {fromTemplate && (
+        <Popover
+          anchorRef={anchorRef}
+          open={templatesOpen}
+          onClose={() => setTemplatesOpen(false)}
+          returnFocusRef={anchorRef}
+          side="bottom"
+          alignment="end"
+        >
+          <PickerCard
+            title="Templates"
+            // Dismiss (×) goes back to the Add menu it replaced; Escape / an outside click just close.
+            onClose={() => {
+              setTemplatesOpen(false);
+              setOpen(true);
+            }}
+            items={templatesOpen ? templateItems(templates) : []}
+            placeholder="Search templates"
+            leadingIcon="template"
+            onSelect={(item) => {
+              setTemplatesOpen(false);
+              if (item.id === NEW_TEMPLATE_ID) {
+                fromTemplate.onCreateTemplate();
+              } else {
+                templates
+                  .find((template) => template.id === item.id)
+                  ?.onClick();
+              }
+            }}
+          />
+        </Popover>
       )}
     </>
   );

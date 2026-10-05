@@ -263,24 +263,21 @@ describe('CollectionViewMenu — Archived (Archive collection only)', () => {
   });
 });
 
-describe('CollectionViewMenu — Card-only properties', () => {
-  it('offers Content preview in Card mode only, and Cover image in every layout', () => {
+describe('CollectionViewMenu — Cover image property', () => {
+  it('offers Cover image in List and Table only; a Card always shows its cover, and Content preview is gone', () => {
     const card = renderMenu({ viewMode: 'card' });
     openPropertiesSubmenu(card.getByText);
-    expect(card.getByText('Cover image')).toBeInTheDocument();
-    expect(card.getByText('Content preview')).toBeInTheDocument();
+    expect(card.queryByText('Cover image')).not.toBeInTheDocument();
+    expect(card.queryByText('Content preview')).not.toBeInTheDocument();
     cleanup();
 
-    const table = renderMenu({ viewMode: 'table' });
-    openPropertiesSubmenu(table.getByText);
-    expect(table.getByText('Cover image')).toBeInTheDocument();
-    expect(table.queryByText('Content preview')).not.toBeInTheDocument();
-    cleanup();
-
-    const list = renderMenu({ viewMode: 'list' });
-    openPropertiesSubmenu(list.getByText);
-    expect(list.getByText('Cover image')).toBeInTheDocument();
-    expect(list.queryByText('Content preview')).not.toBeInTheDocument();
+    for (const viewMode of ['table', 'list'] as const) {
+      const other = renderMenu({ viewMode });
+      openPropertiesSubmenu(other.getByText);
+      expect(other.getByText('Cover image')).toBeInTheDocument();
+      expect(other.queryByText('Content preview')).not.toBeInTheDocument();
+      cleanup();
+    }
   });
 
   it('does not offer Cover image in the Archive (List or Table) — it has no cover thumbnail', () => {
@@ -292,15 +289,12 @@ describe('CollectionViewMenu — Card-only properties', () => {
     }
   });
 
-  it('toggling them updates only their own key', () => {
-    const { getByText, onPropertiesChange } = renderMenu({ viewMode: 'card' });
+  it('toggling it updates only its own key', () => {
+    const { getByText, onPropertiesChange } = renderMenu({ viewMode: 'table' });
     openPropertiesSubmenu(getByText);
 
     fireEvent.click(getByText('Cover image'));
     expect(onPropertiesChange).toHaveBeenLastCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false });
-
-    fireEvent.click(getByText('Content preview'));
-    expect(onPropertiesChange).toHaveBeenLastCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false });
   });
 });
 
@@ -311,8 +305,6 @@ describe('CollectionViewMenu — Card mode property list', () => {
     expect(card.queryByText('Created')).not.toBeInTheDocument();
     expect(card.getByText('Last edited')).toBeInTheDocument();
     expect(card.getByText('Description')).toBeInTheDocument();
-    expect(card.getByText('Cover image')).toBeInTheDocument();
-    expect(card.getByText('Content preview')).toBeInTheDocument();
     cleanup();
 
     for (const viewMode of ['list', 'table'] as const) {
@@ -338,11 +330,11 @@ describe('CollectionViewMenu — Properties order', () => {
     }
   });
 
-  it('puts the card toggles before the date in Card mode', () => {
+  it('lists just Description and the edited date in Card mode', () => {
     const { getByText } = renderMenu({ viewMode: 'card' });
     openPropertiesSubmenu(getByText);
 
-    expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Content preview', 'Last edited']);
+    expect(propertyLabels()).toEqual(['Description', 'Last edited']);
   });
 });
 

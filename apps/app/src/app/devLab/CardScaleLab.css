@@ -1,0 +1,32 @@
+/* TEMPORARY — see CardScaleLab.tsx. */
+.card-scale-lab {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: auto;
+  padding: var(--space-24);
+  background: var(--surface-primary);
+  color: var(--foreground-primary);
+  font-family: var(--font-sans);
+}
+.card-scale-lab__header { display: flex; align-items: baseline; gap: var(--space-12); }
+.card-scale-lab__header h2 { margin: 0; font-size: var(--text-body); }
+.card-scale-lab__header span { color: var(--foreground-tertiary); font-size: var(--text-label-small); }
+.card-scale-lab h3 { margin: var(--space-24) 0 var(--space-12); font-size: var(--text-label); color: var(--foreground-secondary); font-weight: 500; }
+.card-scale-lab__row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-24); }
+.card-scale-lab__cell { margin: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+.card-scale-lab__label { display: flex; flex-direction: column; font-size: var(--text-label-small); line-height: var(--lh-label-small); white-space: nowrap; }
+.card-scale-lab__label span { color: var(--foreground-tertiary); }
+/* A faint outline so the exact cell box is visible, even at 32px. */
+.card-scale-lab__frame { outline: 1px dashed var(--foreground-tertiary); outline-offset: 2px; flex: none; }
+.card-scale-lab__tabs { display: flex; flex-wrap: wrap; gap: var(--space-6); margin-top: var(--space-16); }
+.card-scale-lab__tabs button { font: inherit; font-size: var(--text-label-small); color: var(--foreground-secondary); background: var(--surface-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: var(--space-4) var(--space-8); cursor: pointer; }
+.card-scale-lab__tabs button[aria-selected='true'] { color: var(--foreground-primary); border-color: var(--border-focus); }
+/* Lab-only property band: a fixed-canvas PropertyList, scaled like the preview body. */
+.card-scale-lab__props { flex: none; overflow: hidden; padding-inline: var(--space-4); }
+.card-scale-lab__props-canvas { transform-origin: top left; pointer-events: none; user-select: none; }
+/* Split mode: the content canvas (cover, properties, body) fills below the unscaled header and carries its own inset. */
+.card-scale-lab__split-viewport { min-height: 0; }
+.card-scale-lab__split-cover { display: block; width: 100%; height: 240px; object-fit: cover; border-radius: var(--radius-lg); margin-bottom: var(--space-20); }
+/* No header: the viewport's 4px side inset has no header above to supply the matching top inset, so add it. */
+.card-scale-lab__split-viewport--no-header { padding-top: var(--space-4); }

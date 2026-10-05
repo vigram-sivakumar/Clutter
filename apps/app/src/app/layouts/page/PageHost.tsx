@@ -30,6 +30,7 @@ import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPa
 import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
+import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
@@ -40,7 +41,7 @@ import {
   toResourcePageModel,
   toDraftPageModel,
 } from '@app/layouts/page/toResourcePageModel';
-import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
+import { toCollectionPageModel, toTemplateEntries } from '@features/collection/page/toCollectionPageModel';
 import {
   getSystemLocationPresentation,
   getSystemLocationForFolder,
@@ -57,6 +58,7 @@ import { createEmbedHeadingSuggester } from '@app/layouts/page/headingSuggestion
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
 import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { createWikiLinkPreviewRenderer } from '@app/layouts/page/renderWikiLinkPreview';
 import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { supportedResourceFileExtensions } from '@core/vault/ingest/SupportedResourceKind';
@@ -87,7 +89,7 @@ import {
   type CollectionSortState,
   type NoteCoverActions,
 } from '@app/layouts/page/body/CollectionBody';
-import { CollectionHeaderActions } from '@app/layouts/page/body/CollectionHeaderActions';
+import { CollectionHeaderActions, type CollectionHeaderActionsProps } from '@app/layouts/page/body/CollectionHeaderActions';
 import {
   ASSET_COLLECTION_VIEW_CAPABILITIES,
   NOTE_COLLECTION_VIEW_CAPABILITIES,
@@ -420,10 +422,14 @@ export function PageHost({
   const renderCollectionHeaderActions = ({
     showArchived = false,
     onAdd,
+    onAddFolder,
+    fromTemplate,
     addLabel,
   }: {
     showArchived?: boolean;
     onAdd?: () => void;
+    onAddFolder?: () => void;
+    fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
     addLabel?: string;
   } = {}) => (
     <CollectionHeaderActions
@@ -438,6 +444,8 @@ export function PageHost({
         capabilities: collectionCapabilities,
       }}
       onAdd={onAdd}
+      onAddFolder={onAddFolder}
+      fromTemplate={fromTemplate}
       addLabel={addLabel}
     />
   );
@@ -565,6 +573,20 @@ export function PageHost({
   const getTagSuggestions = createTagSuggester(vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveDate = createDateResolver(vault, application.pageOperations);
+  // Same per-render glue: the floating WikiLink preview's content (settled hovers only).
+  const renderWikiLinkPreview = createWikiLinkPreviewRenderer(
+    vault,
+    application.effectivePageState,
+    {
+      resolveWikiLink,
+      resolveTag,
+      resolveEmbed: resolvePageEmbed,
+      resolveEmbedImage,
+      resolveImageSrc,
+      resolveCoverImage: (cover) =>
+        application.resolveCoverImageForDisplay(cover),
+    }
+  );
   // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
   // this exact same resolveDate/openAtPath flow — the same one the
   // editor's inline date links and Sidebar's calendar already open
@@ -1026,6 +1048,29 @@ export function PageHost({
     },
   };
 
+  // The Add menu's From template section: the templates come from the Templates folder (the
+  // source of truth), choosing one opens a new note in `targetFolderId` with its body, and the
+  // leading "New template" row opens a new draft inside Templates (created on first use, ADR-030).
+  const buildFromTemplate = (
+    targetFolderId: string | null
+  ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
+    getTemplates: () =>
+      toTemplateEntries(vault, application.membershipSelector, (markdown) => {
+        void createNoteFromTemplate(
+          application.pageOperations,
+          targetFolderId,
+          markdown
+        );
+      }),
+    onCreateTemplate: () => {
+      void (async () => {
+        const templates =
+          await application.folderOperations.ensureReservedFolder('templates');
+        await application.pageOperations.openDraft({ folderId: templates.id });
+      })();
+    },
+  });
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -1238,7 +1283,8 @@ export function PageHost({
     // createAndOpenFolder.ts, the same create-then-open shape
     // duplicateAndOpenPage.ts already established for Duplicate. Creates
     // as a subfolder of the folder currently being viewed.
-    const onCreateSubfolder = !folderSystemLocationId && dailyNotesLevel === null
+    const onCreateSubfolder =
+      (!folderSystemLocationId || folderSystemLocationId === 'templates') && dailyNotesLevel === null
       ? () =>
           void createAndOpenFolder(
             application.folderOperations,
@@ -1305,6 +1351,11 @@ export function PageHost({
           titleActions={renderCollectionHeaderActions({
             showArchived: isArchiveView,
             onAdd: onCreateNote,
+            onAddFolder: onCreateSubfolder,
+            fromTemplate:
+              folderSystemLocationId !== 'templates'
+                ? buildFromTemplate(folder.id)
+                : undefined,
           })}
           emoji={
             folderSystemLocationId
@@ -1622,7 +1673,11 @@ export function PageHost({
               filteredViewSystemLocationId,
               titleProps.title
             )} />}
-        titleActions={renderCollectionHeaderActions({ onAdd: onCreateNote })}
+        titleActions={renderCollectionHeaderActions({
+          onAdd: onCreateNote,
+          onAddFolder: onCreateFolder,
+          fromTemplate: buildFromTemplate(null),
+        })}
         icon={
           getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')
             .icon
@@ -1790,6 +1845,7 @@ export function PageHost({
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
+              renderWikiLinkPreview={renderWikiLinkPreview}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
               getEmbedSuggestions={getEmbedSuggestions}
               getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
@@ -2114,6 +2170,7 @@ export function PageHost({
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}
+              renderWikiLinkPreview={renderWikiLinkPreview}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
             getEmbedSuggestions={getEmbedSuggestions}
             getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}

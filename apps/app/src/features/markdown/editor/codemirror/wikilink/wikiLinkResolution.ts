@@ -29,6 +29,13 @@
 export type WikiLinkResolution =
   | {
       readonly status: 'resolved';
+      /**
+       * The target page's id. Opaque to the editor — it only carries it to
+       * the host (the hover preview loads the page by it, not by searching
+       * for the path again). A link names its target by path or alias, never
+       * by id, so this is whatever that path/alias resolved to *now*.
+       */
+      readonly pageId: string;
       readonly displayLabel: string;
       readonly activate: () => void;
       readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';

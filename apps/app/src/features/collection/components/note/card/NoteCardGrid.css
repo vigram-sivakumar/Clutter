@@ -6,9 +6,9 @@
  * canvas scaled to fit it (DocumentPreview.css), so the document never
  * reflows — it just gets visually larger or smaller.
  */
-.note-card-grid {
-  /* The cover section's height — real pixels. */
-  --note-card-cover-height: 56px;
+/* Shared with the read-only preview card (NotePreviewCard.css), which hosts the same DocumentPreview. */
+.note-card-grid,
+.note-preview-card {
   /*
    * The content's fixed document canvas width, in the document's own pixels.
    * Markdown always lays out against exactly this width, whatever the card

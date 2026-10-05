@@ -33,7 +33,7 @@ function mountViewWithInlineConstructs(doc: string, initialAnchor: number | null
       inlineLivePreviewRegion(
         createInlineLivePreviewParticipants({ resolveTag: () => undefined, resolveDate: () => undefined })
       ),
-      wikiLinkLivePreview(() => () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'Page', activate: () => {} })),
+      wikiLinkLivePreview(() => () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'Page', activate: () => {} })),
       horizontalRuleDecoration(),
     ],
   });

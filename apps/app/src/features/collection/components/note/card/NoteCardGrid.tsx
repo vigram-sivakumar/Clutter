@@ -40,8 +40,7 @@ export function NoteCardGrid({
           className="note-card--new"
           icon="plus"
           title="New Note"
-          showCover={false}
-          showContent={false}
+          headerOnly
           onClick={onCreateNote}
         />
       )}

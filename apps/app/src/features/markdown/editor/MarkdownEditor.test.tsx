@@ -589,7 +589,7 @@ describe('MarkdownEditor: onFlush (blur — a payload-free save request)', () =>
 describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)', () => {
   it('renders without throwing when resolveWikiLink is provided', () => {
     const resolveWikiLink = vi.fn(() => ({
-      status: 'resolved' as const, icon: 'note' as const, emoji: null,
+      status: 'resolved' as const, pageId: 'page-1' as const, icon: 'note' as const, emoji: null,
       displayLabel: 'x',
       activate: vi.fn(),
     }));
@@ -615,7 +615,7 @@ describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)'
     // WikiLink's boundaries, so this test stays about resolver wiring,
     // not that (real, separately-tested) boundary behavior.
     const resolveWikiLink = vi.fn(() => ({
-      status: 'resolved' as const, icon: 'note' as const, emoji: null,
+      status: 'resolved' as const, pageId: 'page-1' as const, icon: 'note' as const, emoji: null,
       displayLabel: 'x',
       activate: vi.fn(),
     }));

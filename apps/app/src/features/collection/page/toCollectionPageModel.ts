@@ -114,6 +114,57 @@ function toCollectionEntry(
   };
 }
 
+/**
+ * The notes the "From template" picker offers: every visible page in the
+ * reserved Templates folder or anywhere beneath it — the folder is the source
+ * of truth for what is a template (ADR-041), so this reads it through the same
+ * MembershipSelector queries a folder's own collection page does, no second
+ * discovery mechanism. A template that was never created (the folder is lazy,
+ * ADR-030) simply yields none.
+ *
+ * Each entry is the ordinary note entry (so the picker renders the same
+ * NoteCard a collection does), except that choosing it does not open the
+ * template: `onUse` receives the template's body Markdown instead.
+ */
+export function toTemplateEntries(
+  vault: Vault,
+  membershipSelector: MembershipSelector,
+  onUse: (markdown: string) => void
+): CollectionEntryModel[] {
+  const root = vault.getReservedFolder('templates');
+
+  if (!root) {
+    return [];
+  }
+
+  const entries: CollectionEntryModel[] = [];
+  const unreachable = (): void => undefined;
+  const collect = (folderId: string): void => {
+    for (const page of membershipSelector.getVisibleChildPages(folderId)) {
+      const entry = toCollectionEntry(
+        page,
+        {
+          onOpenFolder: unreachable,
+          onOpenNote: () => onUse(page.markdown),
+          onOpenDraftNote: () => onUse(page.markdown),
+        },
+        false,
+        membershipSelector
+      );
+
+      entries.push({ ...entry, onClick: () => onUse(page.markdown) });
+    }
+
+    for (const folder of membershipSelector.getVisibleChildFolders(folderId)) {
+      collect(folder.id);
+    }
+  };
+
+  collect(root.id);
+
+  return entries;
+}
+
 function isFolderSource(source: CollectionPageSource): source is Folder {
   return !('view' in source);
 }

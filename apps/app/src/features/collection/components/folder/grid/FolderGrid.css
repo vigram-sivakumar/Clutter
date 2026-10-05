@@ -10,10 +10,9 @@
   justify-content: center;
 }
 
-/* Styled like the New Note card (NoteCard.css): half the surface tint, lifting to a regular card's tint on hover, with a quieter tertiary icon and title in regular weight. */
+/* Styled like the New Note card (NoteCard.css): half the surface tint (its outline is the shared .folder-card inset shadow, same as every folder card — no border of its own), lifting to a regular card's tint on hover, with a quieter tertiary icon and title in regular weight. */
 .folder-card.folder-card--create {
   background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
-  border: 1px solid var(--border-subtle);
 }
 .folder-card.folder-card--create:hover {
   background: var(--surface-subtle);

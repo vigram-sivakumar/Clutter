@@ -30,7 +30,7 @@ function mountView(doc: string, resolver?: ResolveWikiLink): EditorView {
 }
 
 const resolvedAs = (displayLabel: string): ResolveWikiLink => () => ({
-  status: 'resolved', icon: 'note', emoji: null,
+  status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null,
   displayLabel,
   activate: vi.fn(),
 });

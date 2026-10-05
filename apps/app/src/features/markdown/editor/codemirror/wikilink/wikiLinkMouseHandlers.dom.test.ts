@@ -39,7 +39,7 @@ function mountView(doc: string, resolver: ResolveWikiLink): EditorView {
 describe('WikiLink click activation — real DOM event path', () => {
   it('a real mousedown dispatched on the rendered widget reaches wikiLinkMouseHandlers and activates it', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -59,7 +59,7 @@ describe('WikiLink click activation — real DOM event path', () => {
 
   it('a real Alt-click mousedown activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
-    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', pageId: 'page-1', icon: 'note', emoji: null, displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
     const nodeFrom = 'Text before '.length;
 

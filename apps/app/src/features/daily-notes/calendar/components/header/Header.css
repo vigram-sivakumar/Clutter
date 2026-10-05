@@ -15,6 +15,7 @@
 .calendar-year {
   color: var(--calendar-foreground);
   font-size: var(--text-label);
+  font-weight: var(--fw-medium);
 }
 
 .calendar-year {

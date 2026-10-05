@@ -45,7 +45,7 @@ const VIEW_ITEMS: ReadonlyArray<{
 const DESCRIPTION_PROPERTY_ITEM = { key: 'description', label: 'Description' } as const;
 
 // The date properties sit at the bottom of the Properties list, after
-// everything else (Description, and Card's Cover image / Content preview).
+// everything else (Description, and Cover image in List / Table).
 const DATE_PROPERTY_ITEMS: ReadonlyArray<{
   key: keyof CollectionPropertyVisibility;
   label: string;
@@ -54,16 +54,7 @@ const DATE_PROPERTY_ITEMS: ReadonlyArray<{
   { key: 'updated', label: collectionFieldLabel('updated') },
 ];
 
-// Card layout only — they configure what a card's preview shows.
-const CARD_PROPERTY_ITEMS: ReadonlyArray<{
-  key: keyof CollectionPropertyVisibility;
-  label: string;
-}> = [
-  { key: 'cover', label: 'Cover image' },
-  { key: 'preview', label: 'Content preview' },
-];
-
-// List and Table layouts — shows or hides the Cover image thumbnail (Card has its own "Cover image" row above).
+// List and Table layouts — shows or hides the Cover image thumbnail (a Card always shows its note's cover).
 const ROW_PROPERTY_ITEMS: ReadonlyArray<{
   key: keyof CollectionPropertyVisibility;
   label: string;
@@ -142,7 +133,6 @@ export function CollectionViewMenu({
   const allPropertyItems = [
     ...(viewMode === 'card' ? [TITLE_PROPERTY_ITEM, SIZE_PROPERTY_ITEM] : []),
     DESCRIPTION_PROPERTY_ITEM,
-    ...(viewMode === 'card' ? CARD_PROPERTY_ITEMS : []),
     // The Archive has no Cover image thumbnail (covers aren't changed from there), so nothing to toggle.
     ...(viewMode !== 'card' && !showArchived ? ROW_PROPERTY_ITEMS : []),
     // A note card shows only the edited date, so Created isn't offered in Card mode — unless the collection lists its own property keys (an asset card shows Created too).

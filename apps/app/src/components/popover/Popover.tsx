@@ -5,7 +5,7 @@ import './Popover.css';
 
 export interface PopoverProps extends Pick<
   AnchoredOverlayProps,
-  'anchorRef' | 'open' | 'onClose' | 'side' | 'alignment' | 'offset' | 'backdrop'
+  'anchorRef' | 'open' | 'onClose' | 'side' | 'alignment' | 'offset' | 'backdrop' | 'returnFocusRef'
 > {
   size?: 'small' | 'medium' | 'large' | 'fit-content';
 

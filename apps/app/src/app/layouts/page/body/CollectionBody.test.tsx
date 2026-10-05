@@ -245,7 +245,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     expect(getByText('Edited 12 Aug 2026')).toBeInTheDocument();
   });
 
-  describe('Cover image / Content preview properties', () => {
+  describe('Cover and content', () => {
     const entry = () =>
       noteEntry({ markdown: '# Heading\n\nbody', cover: 'Assets/hero.png', coverPositionAbove: 30 });
     const resolvers = { resolveCoverImage: (c: string) => `app://vault/${c}` };
@@ -254,73 +254,33 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
         <CollectionBody notes={[entry()]} viewMode="card" properties={properties} previewResolvers={resolvers} />
       ).container;
 
-    it('shows both by default', () => {
+    it('a card always shows the cover and the content, together on one page canvas', () => {
       const container = renderCard();
 
-      expect(container.querySelector('.note-card__cover-image')).toBeInTheDocument();
+      expect(container.querySelector('.document-preview__canvas .page-canvas-preview__cover')).toBeInTheDocument();
       expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
     });
 
-    it('Cover image off hides only the cover, keeping the content', () => {
-      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false });
+    it('ignores the Cover image / Content preview properties (no longer offered for cards), even from a saved view config', () => {
+      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
 
-      expect(container.querySelector('.note-card__cover-image')).toBeNull();
+      expect(container.querySelector('.page-canvas-preview__cover')).toBeInTheDocument();
       expect(container.querySelector('.document-preview h1')?.textContent).toBe('Heading');
+      expect(container.querySelector('.note-card')).not.toHaveClass('note-card--header-only');
     });
 
-    it('Content preview off hides the content section itself (not just clips it), keeping the cover', () => {
-      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false });
-
-      expect(container.querySelector('.note-card__cover-image')).toBeInTheDocument();
-      expect(container.querySelector('.document-preview__body')).toBeNull();
-      expect(container.textContent).not.toContain('Heading');
-    });
-
-    it('both off leaves a header-only card with no preview region at all', () => {
-      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
-
-      expect(container.querySelector('.note-card__header')).toBeInTheDocument();
-      expect(container.querySelector('.document-preview')).toBeNull();
-    });
-
-    it('marks the header-only card so it is not forced into the card shape', () => {
-      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
-
-      expect(container.querySelector('.note-card')).toHaveClass('note-card--header-only');
-      expect(renderCard().querySelector('.note-card')).not.toHaveClass('note-card--header-only');
-    });
-
-    it('Content preview off with Cover image on puts every note card in cover-fill mode (not header-only); the bodiless New Note card is unaffected', () => {
-      const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, preview: false };
+    it('only the New Note card is header-only (no canvas); a note card never is', () => {
       const container = render(
-        <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} previewResolvers={resolvers} />
+        <CollectionBody notes={[entry()]} viewMode="card" onCreateNote={() => {}} previewResolvers={resolvers} />
       ).container;
 
       const cards = [...container.querySelectorAll('.note-card')];
       expect(cards).toHaveLength(2);
-      expect(cards[0]!.querySelector('.note-card__cover')).toBeInTheDocument();
-      expect(cards[1]!.querySelector('.note-card__cover')).toBeNull();
-      expect(cards[0]).toHaveClass('note-card--cover-only');
       expect(cards[0]).not.toHaveClass('note-card--header-only');
-      // No content section; the cover is what fills the card.
-      expect(cards[0]!.querySelector('.document-preview')).toBeNull();
-      // The New Note card has no body whatever the properties are.
+      expect(cards[0]!.querySelector('.document-preview')).toBeInTheDocument();
       expect(cards[1]).toHaveClass('note-card--new');
+      expect(cards[1]).toHaveClass('note-card--header-only');
       expect(cards[1]!.querySelector('.document-preview')).toBeNull();
-    });
-
-    it('both off: every card, the New Note card included, is header-only with no preview region', () => {
-      const props = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false };
-      const container = render(
-        <CollectionBody notes={[entry()]} viewMode="card" properties={props} onCreateNote={() => {}} />
-      ).container;
-
-      const cards = [...container.querySelectorAll('.note-card')];
-      expect(cards).toHaveLength(2);
-      for (const card of cards) {
-        expect(card).toHaveClass('note-card--header-only');
-        expect(card.querySelector('.document-preview')).toBeNull();
-      }
     });
 
     it('tells the grid how many metadata lines to reserve (one per Description / Last edited that is on)', () => {
@@ -377,7 +337,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     // Same shell as every other card, but no body: just the title section.
     expect(newCard!.querySelector('.note-card__header')).toBeInTheDocument();
     expect(newCard!.querySelector('.document-preview')).not.toBeInTheDocument();
-    expect(newCard!.querySelector('.note-card__cover')).not.toBeInTheDocument();
+    expect(newCard!.querySelector('.page-canvas-preview__cover')).not.toBeInTheDocument();
 
     fireEvent.click(getByText('New Note'));
     expect(onCreateNote).toHaveBeenCalledTimes(1);

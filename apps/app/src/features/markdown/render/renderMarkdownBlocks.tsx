@@ -308,7 +308,7 @@ function renderBlock(node: SyntaxNode, ctx: BlockContext, key: number): ReactNod
       return (
         <p key={key} className="markdown-blocks__paragraph markdown-blocks__task" data-checked={checked}>
           <TaskCheckboxIcon checked={checked} />
-          {renderLines(node, ctx)}
+          <span className="markdown-blocks__task-text">{renderLines(node, ctx)}</span>
         </p>
       );
     }

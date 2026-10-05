@@ -1,8 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
-import { renderMarkdownBlocks } from '@features/markdown/render/renderMarkdownBlocks';
-import { useHasBeenNearViewport } from '../../card/useHasBeenNearViewport';
 import './DocumentPreview.css';
 
 /**
@@ -14,12 +12,6 @@ import './DocumentPreview.css';
  */
 export interface DocumentPreviewResolvers extends CompactMarkdownResolvers {
   readonly resolveCoverImage?: (cover: string) => string | null;
-}
-
-export interface DocumentPreviewProps {
-  /** The note's body Markdown (`EffectivePage.markdown` — no frontmatter). */
-  markdown: string;
-  resolvers?: DocumentPreviewResolvers;
 }
 
 /**
@@ -35,7 +27,7 @@ export interface DocumentPreviewProps {
  * The canvas width itself is read from `--note-card-canvas-width`
  * (NoteCardGrid.css), the one place that number is defined.
  */
-function useCanvasScale(ref: React.RefObject<HTMLElement | null>): number | null {
+export function useCanvasScale(ref: React.RefObject<HTMLElement | null>): number | null {
   const [scale, setScale] = useState<number | null>(null);
 
   useLayoutEffect(() => {
@@ -63,51 +55,4 @@ function useCanvasScale(ref: React.RefObject<HTMLElement | null>): number | null
   }, [ref]);
 
   return scale;
-}
-
-/**
- * The card's content section: a *fixed document canvas* seen through a window,
- * not responsive Markdown. The canvas always lays out at the same width
- * (`--note-card-canvas-width`), so line breaks, block heights, tables and
- * images are identical at every card size; only `transform: scale()` changes
- * (DocumentPreview.css derives the scale from the card width), and the
- * viewport clips whatever the scaled canvas leaves outside. This applies to
- * the content only — the cover is its own section of the card (NoteCard),
- * outside the canvas and not scaled with it.
- *
- * Rendering is `renderMarkdownBlocks` (shared Lezer parser, bounded
- * extraction, no CodeMirror, no EditorView, no anchors), mounted lazily by
- * `useHasBeenNearViewport`. The canvas is `pointer-events: none` and
- * `aria-hidden` — the enclosing card is the only interactive target. No
- * padding of its own beyond a 4px inline inset (icon-glyph alignment): the
- * card owns the padding and the gaps.
- */
-export function DocumentPreview({ markdown, resolvers }: DocumentPreviewProps) {
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const shouldRender = useHasBeenNearViewport(viewportRef);
-
-  const scale = useCanvasScale(viewportRef);
-
-  const body = useMemo(
-    () => (shouldRender ? renderMarkdownBlocks(markdown, resolvers) : null),
-    [shouldRender, markdown, resolvers]
-  );
-
-  return (
-    <div ref={viewportRef} className="document-preview" aria-hidden="true">
-      {shouldRender && (
-        <div
-          className="document-preview__canvas"
-          // Scale is measured, not computed in CSS (see useCanvasScale); hidden until known.
-          style={
-            scale === null
-              ? { visibility: 'hidden' }
-              : ({ '--document-preview-scale': scale } as React.CSSProperties)
-          }
-        >
-          <div className="document-preview__body">{body}</div>
-        </div>
-      )}
-    </div>
-  );
 }

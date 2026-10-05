@@ -55,7 +55,8 @@ export class WikiLinkWidget extends WidgetType {
       this.resolution.displayLabel === other.resolution.displayLabel &&
       (this.resolution.status !== 'resolved' ||
         other.resolution.status !== 'resolved' ||
-        (this.resolution.icon === other.resolution.icon && this.resolution.emoji === other.resolution.emoji)) &&
+        (this.resolution.pageId === other.resolution.pageId &&
+          this.resolution.icon === other.resolution.icon && this.resolution.emoji === other.resolution.emoji)) &&
       this.extraClasses.length === other.extraClasses.length &&
       this.extraClasses.every((cls, i) => cls === other.extraClasses[i])
     );
@@ -72,6 +73,13 @@ export class WikiLinkWidget extends WidgetType {
     span.setAttribute('role', 'link');
     span.setAttribute('aria-label', `${this.resolution.status}: ${this.resolution.displayLabel}`);
     span.dataset.wikilinkStatus = this.resolution.status;
+    if (this.resolution.status === 'resolved') {
+      // The hover preview's only handle on the target (`wikiLinkHoverPreview.ts`).
+      span.dataset.wikilinkPageId = this.resolution.pageId;
+    } else if (this.resolution.status === 'unresolved') {
+      // No page to load: the preview shows an empty note under this title.
+      span.dataset.wikilinkTitle = this.resolution.displayLabel;
+    }
 
     // Every status renders the identical icon+title structure — a
     // resolved WikiLink's own identity icon (its target's assigned emoji,

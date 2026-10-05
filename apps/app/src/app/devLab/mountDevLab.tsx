@@ -1,11 +1,17 @@
 /** TEMPORARY — see DevLab.tsx. Mounts the lab in its own React root, separate from the app's. */
 import { createRoot } from 'react-dom/client';
 
+import { CardScaleLab } from './CardScaleLab';
 import { DevLab } from './DevLab';
 
 export function mountDevLab(): void {
   const host = document.createElement('div');
   host.id = 'dev-lab-root';
   document.body.appendChild(host);
-  createRoot(host).render(<DevLab />);
+  createRoot(host).render(
+    <>
+      <DevLab />
+      <CardScaleLab />
+    </>
+  );
 }

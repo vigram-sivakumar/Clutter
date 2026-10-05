@@ -859,7 +859,7 @@ describe('attachTableOutsideClickHandling — ownership boundary: a click CM6 al
     // the same containment guard, exercised against real widget DOM
     // instead of a plain text node.
     const resolver: ResolveWikiLink = () => ({
-      status: 'resolved',
+      status: 'resolved', pageId: 'page-1',
       icon: 'note',
       emoji: null,
       displayLabel: 'Project A',

@@ -19,7 +19,8 @@ vi.mock('@codemirror/view', async (importOriginal) => {
   return { ...actual, EditorView: SpyEditorView };
 });
 
-import { DocumentPreview, type DocumentPreviewResolvers } from './DocumentPreview';
+import type { DocumentPreviewResolvers } from './DocumentPreview';
+import { PageCanvasPreview } from './PageCanvasPreview';
 import { NoteCard } from './NoteCard';
 
 beforeEach(() => {
@@ -104,10 +105,10 @@ describe('NoteCard', () => {
   });
 });
 
-describe('DocumentPreview — safety', () => {
+describe('PageCanvasPreview — safety', () => {
   it('never constructs an EditorView or mounts CodeMirror DOM', () => {
     const { container } = render(
-      <DocumentPreview markdown={'# T\n\n```ts\ncode\n```\n\n- a\n\n| A |\n|---|\n| 1 |\n\n![[note]]'} />
+      <PageCanvasPreview markdown={'# T\n\n```ts\ncode\n```\n\n- a\n\n| A |\n|---|\n| 1 |\n\n![[note]]'} />
     );
 
     expect(editorViewConstructions.count).toBe(0);
@@ -115,7 +116,7 @@ describe('DocumentPreview — safety', () => {
   });
 
   it('is aria-hidden and pointer-inert so it cannot be an interactive copy of the document', () => {
-    const { container } = render(<DocumentPreview markdown="text" />);
+    const { container } = render(<PageCanvasPreview markdown="text" />);
 
     expect(container.querySelector('.document-preview')).toHaveAttribute('aria-hidden', 'true');
   });
@@ -131,7 +132,7 @@ describe('DocumentPreview — safety', () => {
   });
 });
 
-describe('DocumentPreview — lazy mounting (IntersectionObserver)', () => {
+describe('PageCanvasPreview — lazy mounting (IntersectionObserver)', () => {
   type Callback = (entries: Array<{ isIntersecting: boolean }>) => void;
 
   function stubObserver() {
@@ -149,7 +150,7 @@ describe('DocumentPreview — lazy mounting (IntersectionObserver)', () => {
 
   it('does not render (or parse) the document until the card is near the viewport', () => {
     const observers = stubObserver();
-    const { container } = render(<DocumentPreview markdown="# Far away" />);
+    const { container } = render(<PageCanvasPreview markdown="# Far away" />);
 
     expect(container.querySelector('.document-preview')).toBeInTheDocument();
     expect(container.querySelector('.document-preview__canvas')).toBeNull();
@@ -164,7 +165,7 @@ describe('DocumentPreview — lazy mounting (IntersectionObserver)', () => {
 
   it('stops observing once rendered, so scrolling away never discards or re-parses it', () => {
     const observers = stubObserver();
-    const { container } = render(<DocumentPreview markdown="# Kept" />);
+    const { container } = render(<PageCanvasPreview markdown="# Kept" />);
 
     act(() => observers[0]!.callback([{ isIntersecting: true }]));
 
@@ -174,7 +175,7 @@ describe('DocumentPreview — lazy mounting (IntersectionObserver)', () => {
   });
 });
 
-describe('NoteCard — the sections: header, cover, content', () => {
+describe('NoteCard — the sections: header, then one page canvas', () => {
   const resolvers: DocumentPreviewResolvers = {
     resolveCoverImage: (cover) => (cover.startsWith('Assets/') ? `app://vault/${cover}` : cover),
   };
@@ -182,30 +183,25 @@ describe('NoteCard — the sections: header, cover, content', () => {
     [...container.querySelector('.note-card')!.children].map((el) =>
       el.classList.contains('note-card__header')
         ? 'header'
-        : el.classList.contains('note-card__cover')
-          ? 'cover'
-          : el.classList.contains('document-preview')
-            ? 'content'
-            : 'other'
+        : el.classList.contains('page-canvas-preview')
+          ? 'canvas'
+          : 'other'
     );
 
-  it('lays the sections out as siblings in order: header, cover, content', () => {
-    const { container } = render(
-      <NoteCard title="T" markdown="body" cover="Assets/hero.png" previewResolvers={resolvers} />
-    );
+  it('lays the card out as header then a single page canvas', () => {
+    const { container } = render(<NoteCard title="T" markdown="body" cover="Assets/hero.png" previewResolvers={resolvers} />);
 
-    expect(sections(container)).toEqual(['header', 'cover', 'content']);
-    expect(container.querySelector('.note-card__cover-image')!.getAttribute('src')).toBe('app://vault/Assets/hero.png');
+    expect(sections(container)).toEqual(['header', 'canvas']);
   });
 
-  it('keeps the cover OUT of the content canvas — it is its own section and is not scaled with the document', () => {
-    const { container } = render(
-      <NoteCard title="T" markdown="body" cover="Assets/hero.png" previewResolvers={resolvers} />
-    );
+  it('puts the cover INSIDE the canvas, before the body, so it scales with the document', () => {
+    const { container } = render(<NoteCard title="T" markdown="body" cover="Assets/hero.png" previewResolvers={resolvers} />);
 
-    expect(container.querySelector('.document-preview .note-card__cover')).toBeNull();
-    expect(container.querySelector('.document-preview img')).toBeNull();
-    expect(container.querySelector('.document-preview__canvas .note-card__cover-image')).toBeNull();
+    const canvas = container.querySelector('.document-preview__canvas')!;
+    const img = canvas.querySelector('.page-canvas-preview__cover')!;
+    expect(img.getAttribute('src')).toBe('app://vault/Assets/hero.png');
+    expect(img.nextElementSibling).toHaveClass('document-preview__body');
+    expect(container.querySelector('.note-card__header img')).toBeNull();
   });
 
   it('applies the saved above focal position to the crop', () => {
@@ -213,71 +209,28 @@ describe('NoteCard — the sections: header, cover, content', () => {
       <NoteCard title="T" markdown="" cover="Assets/hero.png" coverPositionAbove={20} previewResolvers={resolvers} />
     );
 
-    expect((container.querySelector('.note-card__cover-image') as HTMLElement).style.objectPosition).toBe('50% 20%');
+    expect((container.querySelector('.page-canvas-preview__cover') as HTMLElement).style.objectPosition).toBe('50% 20%');
   });
 
-  it('omits the cover section when the cover is hidden, absent or unresolvable (content on: no empty slot)', () => {
+  it('omits the cover when it is hidden, absent or unresolvable', () => {
     for (const props of [
       { cover: 'Assets/hero.png', coverHidden: true },
       {},
       { cover: 'Assets/hero.png', previewResolvers: { resolveCoverImage: () => null } },
     ]) {
       const { container } = render(<NoteCard title="T" markdown="x" previewResolvers={resolvers} {...props} />);
-      expect(sections(container)).toEqual(['header', 'content']);
+      expect(container.querySelector('.page-canvas-preview__cover')).toBeNull();
+      expect(sections(container)).toEqual(['header', 'canvas']);
       cleanup();
     }
   });
 
-  it('has no notion of cover layout: a side-positioned note renders the same top banner, before the content', () => {
-    // `coverLayout` is not an input (CollectionEntryModel carries only the above position), so a note whose own
-    // cover sits on the right can only ever produce this one banner, always before the content.
-    const { container } = render(
-      <NoteCard title="T" markdown="body" cover="Assets/hero.png" coverPositionAbove={30} previewResolvers={resolvers} />
-    );
-
-    expect(sections(container)).toEqual(['header', 'cover', 'content']);
-    expect(container.querySelector('.note-card__cover')!.innerHTML).toBe(
-      '<img class="note-card__cover-image" src="app://vault/Assets/hero.png" alt="" draggable="false" loading="lazy" style="object-position: 50% 30%;">'
-    );
-  });
-
-  it('Cover image off removes the cover section; Content preview off removes the content section', () => {
-    const noCover = render(<NoteCard title="T" markdown="x" cover="Assets/hero.png" showCover={false} previewResolvers={resolvers} />);
-    expect(sections(noCover.container)).toEqual(['header', 'content']);
-    cleanup();
-
-    const noContent = render(<NoteCard title="T" markdown="x" cover="Assets/hero.png" showContent={false} previewResolvers={resolvers} />);
-    expect(sections(noContent.container)).toEqual(['header', 'cover']);
-    expect(noContent.container.querySelector('.note-card')).toHaveClass('note-card--cover-only');
-    cleanup();
-
-    const neither = render(<NoteCard title="T" markdown="x" cover="Assets/hero.png" showCover={false} showContent={false} />);
-    expect(sections(neither.container)).toEqual(['header']);
-    expect(neither.container.querySelector('.note-card')).toHaveClass('note-card--header-only');
-  });
-
-  it('with content off, a note WITHOUT a cover has no cover section — the card keeps its shape (the cover fills it when there is one)', () => {
-    const { container } = render(<NoteCard title="T" markdown="x" showContent={false} previewResolvers={resolvers} />);
+  it('headerOnly drops the canvas and shrinks the card to its header', () => {
+    const { container } = render(<NoteCard title="T" markdown="x" cover="Assets/hero.png" headerOnly previewResolvers={resolvers} />);
 
     expect(sections(container)).toEqual(['header']);
-    expect(container.querySelector('.note-card')).toHaveClass('note-card--cover-only');
-    expect(container.querySelector('.note-card')).not.toHaveClass('note-card--header-only');
-  });
-
-  it('with content off and a cover, the cover is the second section and the card is in cover-fill mode', () => {
-    const { container } = render(
-      <NoteCard title="T" markdown="x" cover="Assets/hero.png" showContent={false} previewResolvers={resolvers} />
-    );
-
-    expect(sections(container)).toEqual(['header', 'cover']);
-    expect(container.querySelector('.note-card')).toHaveClass('note-card--cover-only');
-  });
-
-  it('never renders the content (or its blocks) while Content preview is off', () => {
-    const { container } = render(<NoteCard title="T" markdown="# Hidden heading" showContent={false} />);
-
-    expect(container.textContent).not.toContain('Hidden heading');
-    expect(container.querySelector('.document-preview__body')).toBeNull();
+    expect(container.querySelector('.note-card')).toHaveClass('note-card--header-only');
+    expect(container.textContent).not.toContain('x');
   });
 
   it('lays the content canvas out at a fixed width — no inline width or transform; only the measured scale is inline', () => {

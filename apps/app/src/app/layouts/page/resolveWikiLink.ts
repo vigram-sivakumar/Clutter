@@ -67,6 +67,7 @@ export function createWikiLinkResolver(
 
     return {
       status: 'resolved',
+      pageId: page.id,
       displayLabel,
       activate: () => void pageOperations.open(page.id),
       icon,
