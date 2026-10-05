@@ -11,14 +11,13 @@ afterEach(cleanup);
 const cell = (container: HTMLElement) => container.firstElementChild as HTMLElement;
 
 describe('CollectionTableCell — header variant', () => {
-  it('is the row’s name cell: a cell-layout row with icon, title, description and metadata', () => {
+  it('is the row’s name cell: a cell-layout row with icon, title and description', () => {
     const { container } = render(
       <CollectionTableCell
         variant="header"
         icon="note"
         title="Plan"
         description="Q4 goals"
-        metadata={<span>Kind</span>}
         className="col-name"
       />
     );
@@ -33,7 +32,6 @@ describe('CollectionTableCell — header variant', () => {
     expect(cell(container).querySelector('svg')).not.toBeNull();
     expect(screen.getByText('Plan')).toBeInTheDocument();
     expect(screen.getByText('Q4 goals')).toBeInTheDocument();
-    expect(screen.getByText('Kind')).toBeInTheDocument();
   });
 
   it('draws an emoji, a titleContent editor and the description placeholder', () => {

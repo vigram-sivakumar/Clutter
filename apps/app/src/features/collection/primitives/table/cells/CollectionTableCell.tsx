@@ -4,7 +4,7 @@ import { CollectionMedia, type CollectionMediaProps } from '../../media/Collecti
 import { CollectionRow } from '../../row/CollectionRow';
 import './CollectionTableCell.css';
 
-/** The row's primary ("name") cell: icon or emoji, title, description, metadata. */
+/** The row's primary ("name") cell: icon or emoji, title, description. */
 export interface CollectionTableHeaderCellValue {
   readonly variant: 'header';
   readonly icon?: SystemIcon;
@@ -18,8 +18,6 @@ export interface CollectionTableHeaderCellValue {
   readonly description?: string;
   /** Shown, muted, when `description` is empty. Absent, an empty description draws nothing. */
   readonly descriptionPlaceholder?: string;
-  /** Secondary line(s) under the description — a kind label, a path, tags. */
-  readonly metadata?: ReactNode;
   readonly className?: string;
 }
 
@@ -69,7 +67,6 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
           titleContent={props.titleContent}
           description={props.description}
           descriptionPlaceholder={props.descriptionPlaceholder}
-          metadata={props.metadata}
         />
       );
 

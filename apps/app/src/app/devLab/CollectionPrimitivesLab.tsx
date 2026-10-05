@@ -140,7 +140,7 @@ export function CollectionPrimitivesLab() {
       },
       onClick: () => say('open table t2'),
     },
-    { id: 't3', cells: { name: { variant: 'header', icon: 'note', title: 'Inert row', metadata: <span>secondary line</span> } } },
+    { id: 't3', cells: { name: { variant: 'header', icon: 'note', title: 'Inert row' } } },
   ];
 
   return (
@@ -223,7 +223,7 @@ export function CollectionPrimitivesLab() {
         <CollectionRow icon="note" title="list · title and description side by side" description="description" metadata={<span>Today</span>} onClick={() => say('open row')} />
         <CollectionRow emoji="🌊" title="list · selected, with media" isSelected metadata={<span>12 Aug</span>} media={<CollectionMedia><Art hue={120} /></CollectionMedia>} onClick={() => say('open selected row')} />
         <CollectionRow tone="action" icon="plus" title="list · action tone (New Note)" onClick={() => say('new')} />
-        <CollectionRow layout="cell" icon="note" title="cell · stacked" description="description" metadata={<span>metadata line</span>} />
+        <CollectionRow layout="cell" icon="note" title="cell · title over description, icon level with the title" description="description" />
         <CollectionRow layout="cell" icon="note" title="cell · placeholder" descriptionPlaceholder="No description" />
       </div>
 

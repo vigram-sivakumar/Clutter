@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -75,15 +77,31 @@ describe('CollectionRow — layouts', () => {
     expect(trailing.querySelector('.cx-collection-row__media [data-testid="thumb"]')).not.toBeNull();
   });
 
-  it('cell: metadata sits in the content column and media is not drawn', () => {
+  it('cell: stacks the title over the description; metadata and media are not drawn', () => {
     const { container } = render(
-      <CollectionRow layout="cell" title="Plan" metadata={<span>Today</span>} media={<img alt="" data-testid="thumb" />} />
+      <CollectionRow
+        layout="cell"
+        icon="note"
+        title="Plan"
+        description="Q4"
+        metadata={<span>Today</span>}
+        media={<img alt="" data-testid="thumb" />}
+      />
     );
 
     expect(row(container)).toHaveClass('cx-collection-row--layout-cell');
     expect(container.querySelector('.cx-collection-row__trailing')).toBeNull();
-    expect(container.querySelector('.cx-collection-row__content > .cx-collection-row__metadata')).toHaveTextContent('Today');
+    expect(container.querySelector('.cx-collection-row__metadata')).toBeNull();
+    expect(screen.queryByText('Today')).toBeNull();
     expect(screen.queryByTestId('thumb')).toBeNull();
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.getByText('Q4')).toBeInTheDocument();
+  });
+
+  it('cell: the icon is aligned to the title row, not centred on the whole cell', () => {
+    const css = readFileSync(join(__dirname, 'CollectionRow.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(css).toMatch(/\.cx-collection-row--layout-cell\s*\{\s*align-items:\s*flex-start/);
   });
 
   it('tone defaults to default and can be action', () => {

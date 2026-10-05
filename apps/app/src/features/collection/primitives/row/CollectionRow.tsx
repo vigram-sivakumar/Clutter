@@ -8,7 +8,7 @@ export interface CollectionRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   /**
    * Where the row sits. `list`: a row of its own — title and description side by side, the
    * metadata and media trailing, its own hover. `cell`: a table's name cell — title over
-   * description over metadata, no hover of its own (the table row has it); `media` is not drawn.
+   * description, the icon level with the title, no hover of its own (the table row has it); `metadata` and `media` are not drawn.
    */
   layout?: 'list' | 'cell';
   /** `action`: the quiet "create something" row (a muted title and icon). */
@@ -28,7 +28,7 @@ export interface CollectionRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   /** Shown, muted, in the description's place when `description` is empty. Absent, an empty description draws nothing. */
   descriptionPlaceholder?: string;
 
-  /** Trailing in `list`, under the description in `cell`. */
+  /** Trailing, before the media (`list` only). */
   metadata?: ReactNode;
   /** A thumbnail at the trailing end, after the metadata (`list` only). */
   media?: ReactNode;
@@ -119,7 +119,6 @@ export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(func
           )}
         </div>
 
-        {layout === 'cell' && metadata && <div className="cx-collection-row__metadata">{metadata}</div>}
         {showsTrailing && (
           <div className="cx-collection-row__trailing">
             {metadata && <div className="cx-collection-row__metadata">{metadata}</div>}

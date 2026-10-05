@@ -114,10 +114,9 @@
   background: var(--state-hover-medium);
 }
 
-/* ---- layout: cell ---- */
-.cx-collection-row--layout-cell > .cx-collection-row__content {
-  flex-direction: column;
-  gap: var(--space-2);
+/* ---- layout: cell — the icon sits level with the title, not centred on the title + description ---- */
+.cx-collection-row--layout-cell {
+  align-items: flex-start;
 }
 .cx-collection-row--layout-cell .cx-collection-row__primary {
   flex-direction: column;
