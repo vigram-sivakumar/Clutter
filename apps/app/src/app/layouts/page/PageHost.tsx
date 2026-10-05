@@ -119,6 +119,7 @@ import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
+import { foldersOrderOf, showsNotes } from '@core/presentation/collection/collectionBehaviors';
 import {
   isRemoteImageReference,
   useImageFileActions,
@@ -1190,45 +1191,31 @@ export function PageHost({
       ? getSystemLocationPresentation(folderSystemLocationId, 'page-header')
           .icon
       : undefined;
-    // Primary "New note" action handler — wired to the exact same
-    // PageOperations.openDraft({ folderId }) call Sidebar.Notes.tsx's own
-    // "+" row action already uses for "new note in this folder" (ADR-017
-    // draft flow), not a new creation path. Shared by two entry points
-    // below: the title-adjacent Button, and the notes table's always-rendered
-    // trailing "New Note" row (CollectionBody's onCreateNote) — one
-    // handler, two live controls, not two implementations. Only defined
-    // for an ordinary folder or Templates (whose whole purpose is holding
-    // notes you create there): the other reserved ones (Archive, Daily
-    // Notes — folderSystemLocationId truthy) have no established "create a
-    // note here" affordance today (rule 12 — never wire a live control to
+    // What this folder's collection can create, and its named behavior, come from its
+    // CollectionDefinition (core/presentation/collection) — the one place that says an ordinary
+    // folder and Templates can create notes and folders, that Inbox, the Archive and every Daily
+    // Notes level cannot, and that the Daily Notes root and a year list only folders in calendar
+    // order. This page only binds what each capability DOES here.
+    //
+    // "New note" is wired to the exact same PageOperations.openDraft({ folderId }) call
+    // Sidebar.Notes.tsx's own "+" row action already uses for "new note in this folder" (ADR-017
+    // draft flow), not a new creation path. Shared by two entry points below: the title-adjacent
+    // Button, and the notes table's always-rendered trailing "New Note" row (CollectionBody's
+    // onCreateNote) — one handler, two live controls, not two implementations. A capability the
+    // definition does not declare gets no handler at all (rule 12 — never wire a live control to
     // an invented handler).
-    // Where this folder sits in the Daily Notes tree, if it does: the Daily Notes page holds only
-    // years, a year only months, a month only days — made by the calendar, never by hand. So none of
-    // them offers creating a folder or a note (no create-folder card, no "+" in the header).
-    const dailyNotesLevel = DailyNotePath.folderLevel(vault.root, folder.path);
-    const holdsOnlyFolders = dailyNotesLevel === 'root' || dailyNotesLevel === 'year';
-    const dailyNotesFolders =
-      dailyNotesLevel === 'root' || dailyNotesLevel === 'year'
-        ? [...model.folders].sort((a, b) =>
-            DailyNotePath.compareFolderNames(dailyNotesLevel, a.values.name, b.values.name)
-          )
-        : model.folders;
-    const onCreateNote =
-      (!folderSystemLocationId || folderSystemLocationId === 'templates') &&
-      dailyNotesLevel === null
-        ? () => void application.pageOperations.openDraft({ folderId: folder.id })
-        : undefined;
-    // Title-adjacent (PageTitleSection's `actions` slot, after the
-    // Configure/CollectionViewMenu button, at the far right).
-    // Folders grid's "Create folder" card handler (CollectionBody's
-    // onCreateFolder) — same `!folderSystemLocationId` gate as
-    // onCreateNote above (no established "create a folder here" for a
-    // reserved one), reusing FolderOperations.create()/open() via
-    // createAndOpenFolder.ts, the same create-then-open shape
-    // duplicateAndOpenPage.ts already established for Duplicate. Creates
-    // as a subfolder of the folder currently being viewed.
-    const onCreateSubfolder =
-      (!folderSystemLocationId || folderSystemLocationId === 'templates') && dailyNotesLevel === null
+    const foldersOrder = foldersOrderOf(collectionDefinition.behavior);
+    const dailyNotesFolders = foldersOrder
+      ? [...model.folders].sort((a, b) => foldersOrder(a.values.name, b.values.name))
+      : model.folders;
+    const onCreateNote = collectionDefinition.actions.createNote
+      ? () => void application.pageOperations.openDraft({ folderId: folder.id })
+      : undefined;
+    // Folders grid's "Create folder" card handler (CollectionBody's onCreateFolder) — reusing
+    // FolderOperations.create()/open() via createAndOpenFolder.ts, the same create-then-open
+    // shape duplicateAndOpenPage.ts already established for Duplicate. Creates as a subfolder
+    // of the folder currently being viewed.
+    const onCreateSubfolder = collectionDefinition.actions.createFolder
       ? () =>
           void createAndOpenFolder(
             application.folderOperations,
@@ -1295,10 +1282,9 @@ export function PageHost({
           titleActions={renderCollectionHeaderActions({
             onAdd: onCreateNote,
             onAddFolder: onCreateSubfolder,
-            fromTemplate:
-              folderSystemLocationId !== 'templates'
-                ? buildFromTemplate(folder.id)
-                : undefined,
+            fromTemplate: collectionDefinition.actions.fromTemplate
+              ? buildFromTemplate(folder.id)
+              : undefined,
           })}
           emoji={
             folderSystemLocationId
@@ -1353,10 +1339,9 @@ export function PageHost({
               />
             ) : (
               <CollectionBody
-                // Templates is a flat list of notes — no folders section.
-                folders={folderSystemLocationId === 'templates' ? [] : dailyNotesFolders}
-                foldersInGivenOrder={holdsOnlyFolders}
-                showNotes={!holdsOnlyFolders}
+                folders={dailyNotesFolders}
+                foldersInGivenOrder={foldersOrder !== undefined}
+                showNotes={showsNotes(collectionDefinition.behavior)}
                 notes={model.notes}
                 viewMode={collectionView.layout}
                 visible={collectionView.visible}
@@ -1425,7 +1410,7 @@ export function PageHost({
         icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
         titleActions={renderCollectionHeaderActions({
-          onAdd: onAddAsset,
+          onAdd: collectionDefinition.actions.upload ? onAddAsset : undefined,
           addLabel: 'Add asset',
         })}
         body={
@@ -1552,42 +1537,28 @@ export function PageHost({
     // payload's own kind name vs. the presentation table's key).
     const filteredViewSystemLocationId: SystemLocationId =
       view.kind === 'tag' ? 'tags' : view.kind;
-    // "New note" action handler: only for Workspace-root (the vault's own
-    // root note listing), wired to the exact same root-level
-    // PageOperations.openDraft({ folderId: null }) call the sidebar's
-    // "New" shortcut already uses (buildNotesShortcutHandler.ts's
-    // 'new-note' case) — not a new creation path. Shared by the title-
-    // adjacent Button below and the notes table's trailing "New Note" row
-    // (CollectionBody's onCreateNote). Favorites and a Tag's notes are
-    // filters, not containers — Favorites has no existing "create a note in
-    // this view" call to wire to, so per rule 12 (never wire a live
-    // control to an invented handler) it gets none. A Tag's notes reuse
-    // createNoteForTag, the same helper the Tags sidebar row's "+" uses.
-    const onCreateNote =
-      view.kind === 'workspace'
-        ? () => void application.pageOperations.openDraft({ folderId: null })
-        : view.kind === 'tag'
-          ? () => void createNoteForTag(
-                application.pageOperations,
-                application.tagExpansionStore,
-                view.tagName
-              )
-          : undefined;
-    // Title-adjacent "New" action.
-    // Folders grid's "Create folder" card handler — same `view.kind ===
-    // 'workspace'` gate as onCreateNote above, reusing
-    // FolderOperations.create()/open() via createAndOpenFolder.ts.
-    // Creates at the vault root (parentId: null), the same root scope
-    // Workspace-root's own folder listing already shows.
-    const onCreateFolder =
-      view.kind === 'workspace'
+    // What each filtered view can create comes from its CollectionDefinition: Workspace (the
+    // vault's own root listing) a note and a folder, a Tag's notes a note, Favorites nothing —
+    // Favorites is a filter, not a container, with no existing "create a note in this view" call to
+    // wire to (rule 12 — never wire a live control to an invented handler). This page only binds
+    // what each capability does here: a root-level PageOperations.openDraft({ folderId: null }) —
+    // the exact call the sidebar's "New" shortcut already uses (buildNotesShortcutHandler.ts's
+    // 'new-note' case) — for Workspace, and createNoteForTag, the same helper the Tags sidebar
+    // row's "+" uses, for a Tag. Shared by the title-adjacent Button below and the notes table's
+    // trailing "New Note" row (CollectionBody's onCreateNote).
+    const onCreateNote = collectionDefinition.actions.createNote
+      ? view.kind === 'tag'
         ? () =>
-            void createAndOpenFolder(
-              application.folderOperations,
-              getFolderTitlePlaceholder(),
-              null
-            )
-        : undefined;
+            void createNoteForTag(application.pageOperations, application.tagExpansionStore, view.tagName)
+        : () => void application.pageOperations.openDraft({ folderId: null })
+      : undefined;
+    // Folders grid's "Create folder" card handler, reusing FolderOperations.create()/open() via
+    // createAndOpenFolder.ts. Creates at the vault root (parentId: null), the same root scope
+    // Workspace-root's own folder listing already shows.
+    const onCreateFolder = collectionDefinition.actions.createFolder
+      ? () =>
+          void createAndOpenFolder(application.folderOperations, getFolderTitlePlaceholder(), null)
+      : undefined;
 
     return (
       <Page
@@ -1606,7 +1577,7 @@ export function PageHost({
         titleActions={renderCollectionHeaderActions({
           onAdd: onCreateNote,
           onAddFolder: onCreateFolder,
-          fromTemplate: buildFromTemplate(null),
+          fromTemplate: collectionDefinition.actions.fromTemplate ? buildFromTemplate(null) : undefined,
         })}
         icon={
           getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')

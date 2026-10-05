@@ -176,7 +176,7 @@ describe('every collection reaches the generic components through mappers, not c
 
     // folder + Workspace/Favorites/Tag + Assets (the definition is `renderCollectionHeaderActions = (`)
     expect(uses).toHaveLength(3);
-    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onAddAsset,\s*addLabel: 'Add asset'/);
+    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: collectionDefinition\.actions\.upload \? onAddAsset : undefined,\s*addLabel: 'Add asset'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);
   });

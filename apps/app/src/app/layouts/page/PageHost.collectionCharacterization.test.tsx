@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { AppLayout } from '../app-layout/AppLayout';
 import { Application } from '@core/application/Application';
 import { collectionViewKeyForFolder } from '@core/application/collection/collectionViewKey';
+import { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
@@ -30,6 +31,8 @@ import type { Page } from '@core/vault/models/Page';
  *  - "CURRENT BEHAVIOR" = must survive the migration unless a product decision changes it.
  *  - "KNOWN DEFECT:"    = confirmed wrong/inconsistent, deliberately not fixed yet; a tripwire that is
  *                         expected to be rewritten when the defect is fixed.
+ *  - "FIXED BY …"       = was a known defect, fixed by the collection-definition migration; kept to
+ *                         prove it stays fixed.
  *
  * Daily Notes collection pages are already characterized end-to-end by
  * PageHost.dailyNotesCollections.test.tsx (feature-flagged off by default) and are not repeated.
@@ -86,7 +89,7 @@ const INBOX = `${ROOT}/Inbox`;
 const TEMPLATES = `${ROOT}/Templates`;
 const ARCHIVE = `${ROOT}/Archive`;
 
-function makeApplication(): Application {
+function makeApplication(collectionViewConfigStore?: CollectionViewConfigStore): Application {
   const folders = [
     folder(PROJECTS, null),
     folder(INBOX, null),
@@ -113,7 +116,14 @@ function makeApplication(): Application {
     new Map(),
     []
   );
-  const application = new Application(vault, new InMemoryVaultFileSystem(), new SelfWriteRegistry());
+  const application = new Application(
+    vault,
+    new InMemoryVaultFileSystem(),
+    new SelfWriteRegistry(),
+    undefined,
+    undefined,
+    collectionViewConfigStore
+  );
   application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
   return application;
 }
@@ -136,6 +146,23 @@ async function renderFolder(path: string, persistedLayout?: 'list' | 'table' | '
   await flush();
   return application;
 }
+
+/** Opens a folder whose saved Configure state was written by an earlier build or the current one — raw, exactly as in workspace.json. */
+async function renderFolderSavedAs(path: string, savedEntry: Record<string, unknown>): Promise<Application> {
+  const fileSystem = new InMemoryVaultFileSystem({
+    [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({
+      collectionViewConfig: { [collectionViewKeyForFolder(path)]: savedEntry },
+    }),
+  });
+  const application = makeApplication(await CollectionViewConfigStore.load(fileSystem, ROOT));
+  await application.folderOperations.open(path);
+  render(<AppLayout application={application} />);
+  await flush();
+  return application;
+}
+
+const tableHeaders = () =>
+  [...document.querySelectorAll('.collection-table__header-cell')].map((cell) => cell.textContent);
 
 const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-card--empty') !== null;
 const newButton = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]');
@@ -216,21 +243,32 @@ describe('CURRENT BEHAVIOR — a persisted layout applies per folder, to Inbox l
   });
 });
 
-describe('KNOWN DEFECT — Templates offers folders it then never shows', () => {
-  it('KNOWN DEFECT: Templates draws a create-folder card but hides its own subfolders from the page (the folders section is emptied for it)', async () => {
+describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders it lets you create', () => {
+  // Before: PageHost emptied Templates' folders section (`folders=[]`) while still wiring the create-folder
+  // card, so a folder created there never appeared. Templates is now an ordinary folder hierarchy that can
+  // create notes and folders (and is not offered "From template").
+  const folderCards = () =>
+    document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)');
+
+  it('Templates draws its subfolder as a card, beside the create-folder card', async () => {
     await renderFolder(TEMPLATES);
 
-    const folderCards = document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)');
     expect(hasCreateFolderCard()).toBe(true);
-    expect(folderCards).toHaveLength(0); // `Meetings` exists in the vault but is not listed
-    expect(bodyHasText('Meetings')).toBe(false);
+    expect(folderCards()).toHaveLength(1);
+    expect(bodyHasText('Meetings')).toBe(true);
   });
 
-  it('an ordinary folder lists its subfolders next to the same create-folder card', async () => {
+  it('an ordinary folder lists its subfolders next to the same create-folder card — Templates now behaves the same', async () => {
     await renderFolder(PROJECTS);
 
-    expect(document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)')).toHaveLength(1);
+    expect(folderCards()).toHaveLength(1);
     expect(bodyHasText('Sub')).toBe(true);
+  });
+
+  it('Templates still offers New note and New folder, and still no From template', async () => {
+    await renderFolder(TEMPLATES);
+
+    expect(newMenuRows()).toEqual(['New note', 'New folder']);
   });
 });
 
@@ -250,5 +288,85 @@ describe('KNOWN DEFECT — Archive Card through the real composition', () => {
 
     expect(noteRows()).toBe(0);
     expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)').length).toBeGreaterThan(0);
+  });
+});
+
+describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real composition', () => {
+  it('a saved property override hides that property\'s column — and only that one', async () => {
+    await renderFolderSavedAs(PROJECTS, { layout: 'table', propertyOverrides: { cover: false } });
+
+    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited']);
+  });
+
+  it('with nothing saved, a note collection shows every default property it offers', async () => {
+    await renderFolder(PROJECTS);
+
+    // (Cover image is a column only when the host can change covers — a note collection can.)
+    expect(tableHeaders()).toEqual(['Name', 'Cover image', 'Created', 'Last edited']);
+  });
+
+  it('an entry saved before the property registry (the full snapshot) is converted: what the user had hidden stays hidden', async () => {
+    await renderFolderSavedAs(PROJECTS, {
+      layout: 'table',
+      properties: { description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true },
+    });
+
+    expect(tableHeaders()).toEqual(['Name', 'Cover image', 'Last edited']);
+  });
+
+  it('an old snapshot of nothing but defaults changes nothing — including the properties a note collection never offers', async () => {
+    await renderFolderSavedAs(PROJECTS, {
+      properties: { description: true, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true },
+    });
+
+    expect(tableHeaders()).toEqual(['Name', 'Cover image', 'Created', 'Last edited']);
+  });
+
+  it('the Archive\'s old snapshot hides its Archived column when the user had hidden it', async () => {
+    await renderFolderSavedAs(ARCHIVE, {
+      layout: 'table',
+      properties: { description: true, created: true, updated: true, archived: false, cover: true, preview: true, title: true, size: true },
+    });
+
+    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited']);
+  });
+
+  it('the Archive shows its Archived column by default', async () => {
+    await renderFolder(ARCHIVE);
+
+    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited', 'Archived']);
+  });
+
+  it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {
+    await renderFolderSavedAs(PROJECTS, { layout: 'table', propertyOverrides: { name: false } });
+
+    expect(tableHeaders()[0]).toBe('Name');
+  });
+
+  it('an old snapshot\'s `title: false` (the Asset card\'s name toggle) cannot hide a note collection\'s name either', async () => {
+    await renderFolderSavedAs(PROJECTS, {
+      layout: 'table',
+      properties: { description: true, created: true, updated: true, archived: true, cover: true, preview: true, title: false, size: true },
+    });
+
+    expect(tableHeaders()[0]).toBe('Name');
+  });
+
+  it('a saved sort by a property this collection does not offer falls back to its default sort (Name, A→Z)', async () => {
+    await renderFolderSavedAs(INBOX, { layout: 'list', sort: { property: 'size', direction: 'up' } });
+
+    expect(noteRows()).toBe(1);
+    expect(bodyHasText('Captured')).toBe(true);
+  });
+
+  it('Configure shows Name ticked and locked, and the same properties in every layout', async () => {
+    await renderFolder(PROJECTS);
+    fireEvent.click(document.querySelector('button.page-title__button-outline-fill[aria-haspopup="menu"]')!);
+    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent === 'Properties')!);
+
+    const rows = [...document.querySelectorAll('[role="menuitem"]')];
+    expect(rows.map((row) => row.textContent)).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
+    expect(rows[0]).toHaveAttribute('aria-disabled', 'true');
+    expect(rows[1]).not.toHaveAttribute('aria-disabled');
   });
 });
