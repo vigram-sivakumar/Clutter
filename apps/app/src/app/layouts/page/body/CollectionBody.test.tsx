@@ -359,7 +359,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true, type: true }}
       />
     );
 
@@ -380,7 +380,7 @@ describe('CollectionBody — Properties visibility', () => {
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {
     const entry = noteEntry({ created: 'Today', updated: 'Yesterday' });
-    const hidden = { description: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true };
+    const hidden = { description: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true, type: true };
 
     const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
     expect(table.queryByText('Today')).not.toBeInTheDocument();
@@ -397,7 +397,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
         viewMode="table"
-        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true, type: true }}
       />
     );
 
@@ -411,7 +411,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true, type: true }}
       />
     );
 
@@ -424,7 +424,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: 'Today', updated: 'Yesterday' })]}
         viewMode="table"
-        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true, type: true }}
       />
     );
 
@@ -443,7 +443,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true, type: true }}
       />
     );
 

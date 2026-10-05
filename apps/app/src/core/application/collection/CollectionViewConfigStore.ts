@@ -30,6 +30,8 @@ export interface PersistedCollectionProperties {
   readonly title?: boolean;
   /** Assets' Card File size toggle — optional for the same reason; missing resolves to shown. */
   readonly size?: boolean;
+  /** Assets' List / Table Type toggle — optional for the same reason; missing resolves to shown. */
+  readonly type?: boolean;
 }
 
 export type PersistedCollectionSortKey =
@@ -319,7 +321,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     return undefined;
   }
 
-  const { description, created, updated, archived, cover, preview, title, size } = raw as Record<string, unknown>;
+  const { description, created, updated, archived, cover, preview, title, size, type } = raw as Record<string, unknown>;
 
   if (
     typeof description !== 'boolean' ||
@@ -331,7 +333,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
 
   // The optional toggles: absent is fine (older entries), present-but-not-
   // boolean discards the whole entry like any other malformed field.
-  const optional = { archived, cover, preview, title, size };
+  const optional = { archived, cover, preview, title, size, type };
   for (const value of Object.values(optional)) {
     if (value !== undefined && typeof value !== 'boolean') {
       return undefined;
@@ -347,6 +349,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
     ...(preview !== undefined && { preview: preview as boolean }),
     ...(title !== undefined && { title: title as boolean }),
     ...(size !== undefined && { size: size as boolean }),
+    ...(type !== undefined && { type: type as boolean }),
   };
 }
 

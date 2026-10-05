@@ -27,7 +27,7 @@ describe('collection view capabilities', () => {
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('card');
     expect(NOTE_COLLECTION_VIEW_CAPABILITIES.defaultLayout).toBe('table');
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.properties).toBe(true);
-    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toEqual(['title', 'size', 'created', 'updated']);
+    expect(ASSET_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toEqual(['title', 'type', 'size', 'created', 'updated']);
     expect(NOTE_COLLECTION_VIEW_CAPABILITIES.propertyKeys).toBeUndefined();
     // Sort by offers the two things an asset has.
     expect(ASSET_COLLECTION_VIEW_CAPABILITIES.sortKeys).toEqual(['name', 'type']);

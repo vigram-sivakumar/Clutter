@@ -465,7 +465,7 @@ describe('AssetsCollectionBody — metadata properties', () => {
   });
 
   it('hides each one when its property is off', () => {
-    const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
+    const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type: true, size: true, created: true, updated: true };
     const off = (key: 'size' | 'created' | 'updated') => ({ ...on, [key]: false });
 
     expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('size') }).container)).toHaveLength(2);
@@ -515,18 +515,18 @@ describe('AssetsCollectionBody — remote assets', () => {
     expect(container.querySelector('input')).toBeNull();
   });
 
-  it('the list marks a remote asset', () => {
+  it('the list marks a remote asset as a URL', () => {
     const list = renderAssets({ assets: [remote, localAsset(makeResource())], viewMode: 'list' });
 
-    expect(list.container.textContent).toContain('Remote');
+    expect(list.container.textContent).toContain('URL');
   });
 });
 
 describe('AssetsCollectionBody — the file-fact Properties govern List and Table, like the card', () => {
   const FACTS = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
   const file = () => localAsset(makeResource({ metadata: FACTS }));
-  const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
-  const off = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: false, created: false, updated: false };
+  const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type: true, size: true, created: true, updated: true };
+  const off = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type: false, size: false, created: false, updated: false };
   const remote: RemoteAsset = {
     id: 'remote:https://example.com/mountain.jpg',
     source: 'remote',
@@ -553,12 +553,33 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
     const hidden = renderAssets({ assets: [file()], viewMode: 'table', properties: off });
     expect([...hidden.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
-      'Type',
     ]);
+  });
+
+  it('Type is a Property too: turning it off removes the Type column and the kind from the list rows', () => {
+    const table = renderAssets({ assets: [file()], viewMode: 'table', properties: { ...on, type: false } });
+    expect([...table.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+      'Name',
+      'Size',
+      'Created',
+      'Last edited',
+    ]);
+    expect(table.container.querySelector('.collection-table-row__type')).toBeNull();
+    table.unmount();
+
+    const list = renderAssets({ assets: [file()], viewMode: 'list', properties: { ...on, type: false } });
+    expect(list.container.textContent).not.toContain('Image');
+    expect(list.container.textContent).toContain('12 KB');
+    list.unmount();
+
+    // The card has no Type property: it never shows a kind line, whatever the setting.
+    const card = renderAssets({ assets: [file()], viewMode: 'card', properties: on });
+    expect(card.container.textContent).not.toContain('Image');
   });
 
   it('Table: each property turns only its own column on', () => {
     for (const [key, label] of [
+      ['type', 'Type'],
       ['size', 'Size'],
       ['created', 'Created'],
       ['updated', 'Last edited'],
@@ -567,7 +588,6 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
 
       expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
         'Name',
-        'Type',
         label,
       ]);
       unmount();
@@ -591,7 +611,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
     shown.unmount();
 
     const hidden = renderAssets({ assets: [file()], viewMode: 'list', properties: off });
-    expect([...hidden.container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual(['Image']);
+    expect(hidden.container.querySelector('.collection-row__metadata')).toBeNull();
   });
 
   it('the Card still lists the same facts as its own lines, from the same properties', () => {

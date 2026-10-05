@@ -22,7 +22,8 @@ export interface CollectionViewCapabilities {
   /**
    * The Properties this collection offers, in every layout it has — only those
    * (`'title'` is only ever shown in the Card layout, where the name is a
-   * property; List and Table always show it). Absent, the note-shaped list
+   * property; `'type'` only in List and Table — a card's preview already
+   * shows the kind; the name is always shown in List and Table). Absent, the note-shaped list
    * applies (Description, dates, List/Table's Cover image); `'title'` and
    * `'size'` are only ever offered by a collection that lists them here.
    */
@@ -53,15 +54,15 @@ export const NOTE_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
  * Assets: the same three layouts notes have (List, Table, Card), opening in
  * Card for anyone who hasn't chosen otherwise (a collection's first-time
  * default; once a layout is picked it is persisted and wins). Properties offers
- * Title (Card only), File size, Created and Last edited — in every layout: the
- * card's metadata lines, the list's metadata and the table's columns. Sort by
+ * Title (Card only), Type (List and Table only), File size, Created and Last
+ * edited: the card's metadata lines, the list's metadata and the table's columns. Sort by
  * offers the two things an asset has: its Name and its Type.
  */
 export const ASSET_COLLECTION_VIEW_CAPABILITIES: CollectionViewCapabilities = {
   layouts: ['list', 'table', 'card'],
   defaultLayout: 'card',
   properties: true,
-  propertyKeys: ['title', 'size', 'created', 'updated'],
+  propertyKeys: ['title', 'type', 'size', 'created', 'updated'],
   // A first-time view shows just the media/name and the kind; the file facts are opt-in, in every layout.
   defaultProperties: { size: false, created: false, updated: false },
   sortKeys: ['name', 'type'],

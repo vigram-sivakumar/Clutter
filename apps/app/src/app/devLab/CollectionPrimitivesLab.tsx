@@ -237,7 +237,7 @@ export function CollectionPrimitivesLab() {
         <CollectionDataList
           items={[
             { id: 'al1', leading: <CollectionMedia><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault', metadata: ['Image', '2.4 MB'], onClick: () => say('open asset al1') },
-            { id: 'al2', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote', metadata: ['PDF', '810 KB'], onClick: () => say('open asset al2') },
+            { id: 'al2', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'URL', metadata: ['PDF', '810 KB'], onClick: () => say('open asset al2') },
             { id: 'al3', leading: <CollectionMedia><Art hue={300} /></CollectionMedia>, title: 'No description (one-line row)', metadata: ['Image'], isSelected: true },
           ]}
         />
@@ -259,7 +259,7 @@ export function CollectionPrimitivesLab() {
           ]}
           rows={[
             { id: 'a1', cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '2.4 MB' } }, onClick: () => say('open asset a1') },
-            { id: 'a2', cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote' }, type: { variant: 'text', value: 'PDF' }, size: { variant: 'text', value: '810 KB' } }, onClick: () => say('open asset a2') },
+            { id: 'a2', cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'URL' }, type: { variant: 'text', value: 'PDF' }, size: { variant: 'text', value: '810 KB' } }, onClick: () => say('open asset a2') },
             { id: 'a3', isSelected: true, cells: { name: { variant: 'header', leading: <CollectionMedia><Art hue={300} /></CollectionMedia>, title: 'A very long file name that has to be cut off before it reaches the next column.png' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '12 MB' } }, onClick: () => say('open asset a3') },
           ]}
         />

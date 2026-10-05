@@ -53,7 +53,7 @@ export function toAssetTableRow(
         title: getResourceDisplayName(asset),
         titleContent,
       },
-      type: { variant: 'text', value: ASSET_KIND_LABEL[asset.kind] },
+      ...(columns.type ? { type: { variant: 'text' as const, value: ASSET_KIND_LABEL[asset.kind] } } : {}),
       ...(columns.size ? { size: { variant: 'text' as const, value: facts.size } } : {}),
       ...(columns.created
         ? { created: { variant: 'text' as const, value: facts.created, dateTime: facts.createdAt } }
