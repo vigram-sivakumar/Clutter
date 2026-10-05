@@ -47,6 +47,23 @@ describe('CollectionTableCell — header variant', () => {
     expect(screen.getByText('No description')).toHaveClass('cx-collection-row__description--placeholder');
   });
 
+  it('can show a thumbnail in place of the icon (leading), keeping the title and description', () => {
+    const { container } = render(
+      <CollectionTableCell
+        variant="header"
+        icon="note"
+        leading={<span className="cx-collection-media" data-testid="thumb" />}
+        title="photo.png"
+        description="4 MB"
+      />
+    );
+
+    expect(cell(container).querySelector('.cx-collection-row__leading [data-testid="thumb"]')).not.toBeNull();
+    expect(cell(container).querySelector('svg')).toBeNull();
+    expect(screen.getByText('photo.png')).toBeInTheDocument();
+    expect(screen.getByText('4 MB')).toBeInTheDocument();
+  });
+
   it('is inert: the table row, not the cell, opens', () => {
     const { container } = render(<CollectionTableCell variant="header" title="Plan" />);
 

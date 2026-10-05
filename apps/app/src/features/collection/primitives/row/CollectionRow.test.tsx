@@ -20,6 +20,18 @@ describe('CollectionRow — content', () => {
     expect(container.querySelector('.cx-collection-row__leading svg')).toBeNull();
   });
 
+  it('leading replaces the icon and emoji with whatever it is given (a thumbnail), at its own size', () => {
+    const { container } = render(
+      <CollectionRow icon="note" emoji="🌊" title="Plan" leading={<img alt="" data-testid="thumb" />} />
+    );
+
+    const leading = container.querySelector('.cx-collection-row__leading')!;
+    expect(leading).toHaveClass('cx-collection-row__leading--custom');
+    expect(leading.querySelector('[data-testid="thumb"]')).not.toBeNull();
+    expect(container.querySelector('svg')).toBeNull();
+    expect(container.querySelector('.emoji-icon')).toBeNull();
+  });
+
   it('has no leading box without an icon or emoji', () => {
     const { container } = render(<CollectionRow title="Plan" />);
 

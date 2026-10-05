@@ -73,12 +73,19 @@ describe('CollectionCard — layouts', () => {
     expect(order(card(container))).toEqual(['media', 'header']);
   });
 
-  it('tone defaults to default and can be action', () => {
-    const { container, rerender } = render(<CollectionCard header="h" />);
-    expect(card(container)).toHaveClass('cx-collection-card--tone-default');
+  it('is not empty by default; isEmpty marks the quiet "add something" card and keeps its content', () => {
+    const { container, rerender } = render(<CollectionCard>+</CollectionCard>);
+    expect(card(container)).not.toHaveClass('cx-collection-card--empty');
 
-    rerender(<CollectionCard header="h" tone="action" />);
-    expect(card(container)).toHaveClass('cx-collection-card--tone-action');
+    rerender(<CollectionCard isEmpty>+</CollectionCard>);
+    expect(card(container)).toHaveClass('cx-collection-card--empty');
+    expect(container.querySelector('.cx-collection-card__content')).toHaveTextContent('+');
+  });
+
+  it('has no tone prop any more', () => {
+    const { container } = render(<CollectionCard header="h" />);
+
+    expect(card(container).className).not.toMatch(/tone/);
   });
 });
 
@@ -184,6 +191,12 @@ describe('CollectionCard.css', () => {
 
   it('only a card that opens something gets the pointer cursor', () => {
     expect(css).toMatch(/\.cx-collection-card\[role='button'\]\s*\{\s*cursor:\s*pointer/);
+  });
+
+  it('centres the content of an empty card', () => {
+    expect(css).toMatch(
+      /\.cx-collection-card--empty > \.cx-collection-card__content\s*\{[^}]*align-items:\s*center[^}]*justify-content:\s*center/
+    );
   });
 
   it('restyles its header only through custom properties', () => {

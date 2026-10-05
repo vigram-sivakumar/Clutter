@@ -47,4 +47,19 @@ describe('CollectionMedia', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(currentTarget).toBe(button);
   });
+
+  it('fillHeight marks the frame to fill its host (on the visual frame and on the button)', () => {
+    const { container, rerender } = render(<CollectionMedia>x</CollectionMedia>);
+    expect(container.firstElementChild).not.toHaveClass('cx-collection-media--fill-height');
+
+    rerender(<CollectionMedia fillHeight>x</CollectionMedia>);
+    expect(container.firstElementChild).toHaveClass('cx-collection-media', 'cx-collection-media--fill-height');
+
+    rerender(
+      <CollectionMedia fillHeight onClick={() => {}} label="Change">
+        x
+      </CollectionMedia>
+    );
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveClass('cx-collection-media--fill-height');
+  });
 });

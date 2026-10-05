@@ -14,6 +14,7 @@
  */
 import { useEffect, useState, type CSSProperties } from 'react';
 
+import { AppIcon } from '@shared/icon';
 import { CollectionGrid } from '@features/collection/primitives/grid/CollectionGrid';
 import { CollectionCard } from '@features/collection/primitives/card/CollectionCard';
 import { CardTitleSection } from '@features/collection/primitives/card/CardTitleSection';
@@ -108,7 +109,6 @@ export function CollectionPrimitivesLab() {
     {
       id: 'l2', emoji: '🌊', title: 'Trip photos', description: 'Summit weekend', metadata: ['12 Aug 2026'], isSelected: true,
       media: { children: <Art hue={200} />, onClick: () => say('media click (row did not open)'), label: 'Change cover' },
-      actions: <button type="button" className="cx-lab__action" onClick={() => say('Restore')}>Restore</button>,
       onClick: () => say('open list l2'),
     },
     { id: 'l3', icon: 'note', title: 'Inert row (no onClick)', metadata: ['n/a'] },
@@ -124,7 +124,6 @@ export function CollectionPrimitivesLab() {
         created: { variant: 'text', value: 'Today', dateTime: '2026-10-05T10:00:00.000Z' },
       },
       onClick: () => say('open table t1'),
-      actions: <button type="button" className="cx-lab__action" onClick={() => say('table Restore')}>Restore</button>,
     },
     {
       id: 't2', isSelected: true,
@@ -165,7 +164,7 @@ export function CollectionPrimitivesLab() {
       </div>
       <div className="cx-lab__log" aria-live="polite">{log.length ? log.join('\n') : 'activation log — click, or focus + Enter / Space on anything'}</div>
 
-      <h3>CollectionGrid + CollectionCard (stack, overlay, action, header-only, inert)</h3>
+      <h3>CollectionGrid + CollectionCard (stack, overlay, isEmpty, header-only, inert)</h3>
       <p className="cx-lab__note">The grid holds anything; the cards are the only thing it knows nothing about. Drag the sliders.</p>
       <div className="cx-lab__stage" style={stage}>
         <CollectionGrid columns={{ min, max }} rowHeight={rowHeight || undefined}>
@@ -174,7 +173,6 @@ export function CollectionPrimitivesLab() {
             isSelected={selected.has('n1')}
             onClick={() => toggle('n1')}
             header={<CardTitleSection icon="note" title="Stack · header + content" description="Team sync notes" metadata={['Edited today']} metadataLayout="vertical" minMetadataLines={2} />}
-            actions={<button type="button" className="cx-lab__action" onClick={() => say('card action (card did not open)')}>⋯</button>}
           >
             <ScaledCanvas designWidth={DOC_WIDTH}>
               <Doc />
@@ -200,14 +198,11 @@ export function CollectionPrimitivesLab() {
           />
           <CollectionCard
             onClick={() => say('open header-only')}
-            header={<CardTitleSection icon="folder" title="Header-only (a folder tile)" metadata={['3 Subfolders', '12 Notes']} />}
+            header={<CardTitleSection icon="folder" title="Header-only (a folder tile)" description="Projects, planning notes, meeting minutes, roadmaps and everything else that overflows this card" metadata={['3 Subfolders', '12 Notes']} />}
           />
-          <CollectionCard
-            tone="action"
-            aspectRatio="3 / 4"
-            onClick={() => say('create')}
-            header={<CardTitleSection icon="plus" title="New Note" />}
-          />
+          <CollectionCard isEmpty aspectRatio="3 / 4" onClick={() => say('create')}>
+            <AppIcon icon="plus" />
+          </CollectionCard>
           <CollectionCard
             header={<CardTitleSection icon="note" title="Inert card" description="no onClick → no role, no focus" />}
           />
@@ -220,7 +215,7 @@ export function CollectionPrimitivesLab() {
       <h3>CollectionRow — list and cell layouts</h3>
       <div className="cx-lab__stage" style={stage}>
         <CollectionRow icon="note" title="list · title and description side by side" description="description" metadata={<span>Today</span>} onClick={() => say('open row')} />
-        <CollectionRow emoji="🌊" title="list · selected, media, actions" isSelected metadata={<span>12 Aug</span>} media={<CollectionMedia><Art hue={120} /></CollectionMedia>} actions={<button type="button" className="cx-lab__action" onClick={() => say('row action')}>Restore</button>} onClick={() => say('open selected row')} />
+        <CollectionRow emoji="🌊" title="list · selected, with media" isSelected metadata={<span>12 Aug</span>} media={<CollectionMedia><Art hue={120} /></CollectionMedia>} onClick={() => say('open selected row')} />
         <CollectionRow tone="action" icon="plus" title="list · action tone (New Note)" onClick={() => say('new')} />
         <CollectionRow layout="cell" icon="note" title="cell · stacked" description="description" metadata={<span>metadata line</span>} />
         <CollectionRow layout="cell" icon="note" title="cell · placeholder" descriptionPlaceholder="No description" />
@@ -231,9 +226,37 @@ export function CollectionPrimitivesLab() {
         <CollectionDataList items={listItems} newItem={{ label: 'New Note', onClick: () => say('list newItem') }} />
       </div>
 
+      <h3>CollectionDataList — thumbnail leading instead of an icon (the Assets list)</h3>
+      <div className="cx-lab__stage" style={stage}>
+        <CollectionDataList
+          items={[
+            { id: 'al1', leading: <CollectionMedia fillHeight><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault', metadata: ['Image', '2.4 MB'], onClick: () => say('open asset al1') },
+            { id: 'al2', leading: <CollectionMedia fillHeight><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote', metadata: ['PDF', '810 KB'], onClick: () => say('open asset al2') },
+            { id: 'al3', leading: <CollectionMedia fillHeight><Art hue={300} /></CollectionMedia>, title: 'No description (one-line row)', metadata: ['Image'], isSelected: true },
+          ]}
+        />
+      </div>
+
       <h3>CollectionDataTable — one CollectionTableCell: header | text | media (dateTime lives on text)</h3>
       <div className="cx-lab__stage" style={stage}>
         <CollectionDataTable columns={COLUMNS} rows={tableRows} newItem={{ label: 'New Note', onClick: () => say('table newItem') }} />
+      </div>
+
+      <h3>CollectionDataTable — thumbnail in the name cell instead of an icon (the Assets table)</h3>
+      <p className="cx-lab__note">The header variant takes <code>leading</code>: a CollectionMedia (fillHeight: it takes the row’s height) replaces the icon, so no separate preview column is needed.</p>
+      <div className="cx-lab__stage" style={stage}>
+        <CollectionDataTable
+          columns={[
+            { id: 'name', label: 'Name', width: 'minmax(260px, 1fr)' },
+            { id: 'type', label: 'Type', width: '110px' },
+            { id: 'size', label: 'Size', width: '110px' },
+          ]}
+          rows={[
+            { id: 'a1', cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={20} /></CollectionMedia>, title: 'sunrise.png', description: 'Vault' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '2.4 MB' } }, onClick: () => say('open asset a1') },
+            { id: 'a2', cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={200} label="PDF" /></CollectionMedia>, title: 'Quarterly report.pdf', description: 'Remote' }, type: { variant: 'text', value: 'PDF' }, size: { variant: 'text', value: '810 KB' } }, onClick: () => say('open asset a2') },
+            { id: 'a3', isSelected: true, cells: { name: { variant: 'header', leading: <CollectionMedia fillHeight><Art hue={300} /></CollectionMedia>, title: 'A very long file name that has to be cut off before it reaches the next column.png' }, type: { variant: 'text', value: 'Image' }, size: { variant: 'text', value: '12 MB' } }, onClick: () => say('open asset a3') },
+          ]}
+        />
       </div>
 
       <h3>CollectionMedia</h3>

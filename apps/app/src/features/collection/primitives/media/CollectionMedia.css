@@ -37,3 +37,15 @@
   outline: none;
   box-shadow: var(--shadow-inset-focus);
 }
+
+/*
+ * Fill the host's height (the host must stretch it); the width stays fixed, so the frame never
+ * drives the host's height itself — `contain: size` keeps whatever is inside (an image's
+ * intrinsic size) out of that calculation.
+ */
+.cx-collection-media--fill-height {
+  width: var(--cx-collection-media-fill-width, var(--space-32));
+  height: auto;
+  align-self: stretch;
+  contain: size;
+}

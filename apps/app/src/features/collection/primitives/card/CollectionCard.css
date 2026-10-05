@@ -2,7 +2,7 @@
  * The card surface. The card owns all the padding and one gap between its
  * sections (stack); the sections have none of their own. Per CLAUDE.md, no
  * `margin` anywhere. It restyles its header only through the custom properties
- * CardTitleSection documents (tone="action", layout="overlay").
+ * CardTitleSection documents (layout="overlay").
  */
 .cx-collection-card {
   --cx-collection-card-gap: var(--space-8);
@@ -75,18 +75,18 @@
   background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
 }
 
-/* ---- tone: action — the quiet "create something" card ---- */
-.cx-collection-card--tone-action {
-  justify-content: center;
+/* ---- empty: the quiet "add something" card, its content centred ---- */
+.cx-collection-card--empty {
   background: var(--cx-surface-action);
   border-color: var(--border-subtle);
-  --cx-card-title-color: var(--foreground-tertiary);
-  --cx-card-title-weight: var(--fw-regular);
-  --cx-card-title-leading-color: var(--foreground-tertiary);
-  --cx-card-title-justify: center;
 }
-.cx-collection-card--tone-action:hover {
+.cx-collection-card--empty:hover {
   background: var(--surface-subtle);
+}
+.cx-collection-card--empty > .cx-collection-card__content {
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground-tertiary);
 }
 
 /* ---- actions: revealed on hover / focus ---- */

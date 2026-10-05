@@ -17,6 +17,8 @@ export interface CollectionRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   icon?: SystemIcon;
   /** Drawn instead of `icon` when set. */
   emoji?: string;
+  /** Replaces the icon/emoji box entirely — a thumbnail (`CollectionMedia`), for one. */
+  leading?: ReactNode;
 
   title?: string;
   /** Replaces the plain-text title (an inline rename editor, most commonly). */
@@ -52,6 +54,7 @@ export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(func
     tone = 'default',
     icon,
     emoji,
+    leading,
     title,
     titleContent,
     description,
@@ -89,10 +92,14 @@ export const CollectionRow = forwardRef<HTMLDivElement, CollectionRowProps>(func
         .filter(Boolean)
         .join(' ')}
     >
-      {(icon || emoji) && (
-        <span className="cx-collection-row__leading">
-          <AppIcon icon={icon} emoji={emoji} />
-        </span>
+      {leading ? (
+        <span className="cx-collection-row__leading cx-collection-row__leading--custom">{leading}</span>
+      ) : (
+        (icon || emoji) && (
+          <span className="cx-collection-row__leading">
+            <AppIcon icon={icon} emoji={emoji} />
+          </span>
+        )
       )}
 
       <div className="cx-collection-row__content">

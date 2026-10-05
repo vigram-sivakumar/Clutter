@@ -32,6 +32,14 @@
   color: var(--foreground-secondary);
 }
 
+/* A custom leading (a thumbnail) keeps its own size instead of the icon box's square. */
+.cx-collection-row__leading--custom {
+  align-self: stretch;
+  height: auto;
+  min-height: var(--height-sm);
+  aspect-ratio: auto;
+}
+
 .cx-collection-row__content {
   display: flex;
   flex: 1;

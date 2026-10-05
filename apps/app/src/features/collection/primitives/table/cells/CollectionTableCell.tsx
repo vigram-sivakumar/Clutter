@@ -10,6 +10,8 @@ export interface CollectionTableHeaderCellValue {
   readonly icon?: SystemIcon;
   /** Drawn instead of `icon` when set. */
   readonly emoji?: string;
+  /** Replaces the icon/emoji box — a thumbnail (`CollectionMedia`) in front of the name, for one. */
+  readonly leading?: ReactNode;
   readonly title?: string;
   /** Replaces the plain-text title — an inline rename editor, most commonly. */
   readonly titleContent?: ReactNode;
@@ -62,6 +64,7 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
           className={join('cx-collection-table-cell', 'cx-collection-table-cell--header', props.className)}
           icon={props.icon}
           emoji={props.emoji}
+          leading={props.leading}
           title={props.title}
           titleContent={props.titleContent}
           description={props.description}

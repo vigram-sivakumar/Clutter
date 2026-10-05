@@ -11,6 +11,8 @@ export interface CollectionDataListItem {
 
   readonly icon?: SystemIcon;
   readonly emoji?: string;
+  /** Replaces the icon/emoji box — a thumbnail (`CollectionMedia fillHeight`) in front of the title, for one. */
+  readonly leading?: ReactNode;
 
   readonly title: string;
   /** Replaces the plain-text title — an inline rename editor, most commonly. */
@@ -61,6 +63,7 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
           layout="list"
           icon={item.icon}
           emoji={item.emoji}
+          leading={item.leading}
           title={item.title}
           titleContent={item.titleContent}
           description={item.description}

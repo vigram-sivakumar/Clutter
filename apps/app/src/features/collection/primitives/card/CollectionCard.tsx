@@ -16,13 +16,17 @@ export interface CollectionCardProps
 
   /** `stack` (default): header, media, content in order. `overlay`: media fills the card, the header sits over its bottom edge. */
   layout?: 'stack' | 'overlay';
-  /** `action`: the quiet, centred "create something" treatment. */
-  tone?: 'default' | 'action';
 
   /** The card's fixed shape: a width / height number, or a CSS ratio such as `'3 / 4'`. Omit and the card is as tall as its content. */
   aspectRatio?: number | string;
 
   isSelected?: boolean;
+
+  /**
+   * An empty slot-card (the "add something" card): a quieter surface, with its `children` centred
+   * in the card — typically just a plus icon.
+   */
+  isEmpty?: boolean;
 
   /** Opens the card. Without it the card is inert: no role, not focusable, no key handling. */
   onClick?: (event: MouseEvent<HTMLDivElement>) => void;
@@ -42,9 +46,9 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
     children,
     actions,
     layout = 'stack',
-    tone = 'default',
     aspectRatio,
     isSelected = false,
+    isEmpty = false,
     onClick,
     className,
     style,
@@ -65,8 +69,8 @@ export const CollectionCard = forwardRef<HTMLDivElement, CollectionCardProps>(fu
       className={[
         'cx-collection-card',
         `cx-collection-card--layout-${layout}`,
-        `cx-collection-card--tone-${tone}`,
         isSelected && 'cx-collection-card--selected',
+        isEmpty && 'cx-collection-card--empty',
         className,
       ]
         .filter(Boolean)

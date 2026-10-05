@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CollectionMedia } from '../media/CollectionMedia';
 import { CollectionDataList, type CollectionDataListItem } from './CollectionDataList';
 
 afterEach(cleanup);
@@ -41,6 +42,23 @@ describe('CollectionDataList', () => {
     expect(first!.querySelector('.cx-collection-row__description')).toHaveTextContent('Q4 goals');
     expect(second!.querySelector('.cx-collection-row__title input')).not.toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
+  });
+
+  it('leading replaces the icon with a thumbnail that fills the row height', () => {
+    const { container } = render(
+      <CollectionDataList
+        items={[
+          item({
+            leading: <CollectionMedia fillHeight><img alt="" data-testid="thumb" /></CollectionMedia>,
+            description: 'Vault',
+          }),
+        ]}
+      />
+    );
+    const row = container.querySelector('.cx-collection-row')!;
+
+    expect(row.querySelector('.cx-collection-row__leading .cx-collection-media--fill-height [data-testid="thumb"]')).not.toBeNull();
+    expect(row.querySelector('svg')).toBeNull();
   });
 
   it('draws each metadata value as its own span — and no metadata when there is none', () => {

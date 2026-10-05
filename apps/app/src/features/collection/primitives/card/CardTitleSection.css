@@ -15,7 +15,6 @@
 .cx-card-title-section__heading {
   display: flex;
   align-items: center;
-  justify-content: var(--cx-card-title-justify, flex-start);
   gap: var(--space-6);
   min-width: 0;
 }
@@ -35,7 +34,7 @@
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
   letter-spacing: var(--ls-body-small);
-  font-weight: var(--cx-card-title-weight, var(--fw-medium));
+  font-weight: var(--fw-medium);
   color: var(--cx-card-title-color, var(--foreground-primary));
 
   overflow: hidden;
