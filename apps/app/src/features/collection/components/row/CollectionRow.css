@@ -32,16 +32,10 @@
   color: var(--foreground-secondary);
 }
 
-/* A custom leading (a thumbnail) keeps its own size instead of the icon box's square. */
+/* A custom leading (a thumbnail) sits in the same 24px box as an icon, level with the title; a CollectionMedia in it is a 20px square. */
 .collection-row__leading--custom {
-  align-self: stretch;
-  align-items: stretch;
-  height: auto;
-  min-height: var(--height-sm);
-  aspect-ratio: auto;
-  /* A CollectionMedia in here is a 24px-wide thumbnail that takes the row's height (24px × 24px in a one-line row). */
-  --collection-media-width: var(--space-24);
-  --collection-media-height: auto;
+  --collection-media-width: var(--space-20);
+  --collection-media-height: var(--space-20);
 }
 
 .collection-row__content {
