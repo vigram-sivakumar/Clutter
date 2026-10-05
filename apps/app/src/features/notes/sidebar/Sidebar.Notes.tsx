@@ -403,9 +403,9 @@ export function Notes({
         isEmpty={favoriteItems.length === 0}
         title={getSystemLocationPresentation('favorites').label}
         isCollapsible
+        isTitleToggle
         isExpanded={workspace.isSectionExpanded('favorites')}
         onExpandedChange={() => workspace.toggleSectionExpanded('favorites')}
-        onClick={() => navigation.openFavorites()}
       >
         <FavoriteList
           items={favoriteItems}
@@ -433,13 +433,14 @@ export function Notes({
         // that label (tabs, breadcrumbs, Favorites, etc.) stays untouched.
         title={getVaultDisplayName(vault.root)}
         isCollapsible
-        // isTitleToggle
+        // Header click only expands/collapses; the Workspace Collection
+        // page is no longer opened from here.
+        isTitleToggle
         isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('folders', expanded)
         }
-        onClick={() => navigation.openWorkspace()}
         actions={
           <Button
             size="small"

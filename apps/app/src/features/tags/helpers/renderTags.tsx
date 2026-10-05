@@ -183,7 +183,6 @@ function getTagChildren(
 
 function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
   const {
-    onOpenTag,
     onOpenNoteEntry,
     onOpenContextEntry,
     vault,
@@ -227,7 +226,9 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         isExpanded={isExpanded}
         onExpandToggle={() => tagExpansionStore.toggleExpanded(tag.name)}
         onAddClick={onCreateNoteForTag ? () => onCreateNoteForTag(tag.name) : undefined}
-        onClick={isEditing ? undefined : () => onOpenTag(tag.name)}
+        // Row click only expands/collapses; the Tag Collection page is no
+        // longer opened from here (same toggle the caret fires).
+        onClick={isEditing ? undefined : () => tagExpansionStore.toggleExpanded(tag.name)}
         isEditing={isEditing}
         onTitleCommit={
           rowActions ? (value) => rowActions.onCommitRename(tag.name, value) : undefined

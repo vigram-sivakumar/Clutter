@@ -184,6 +184,7 @@ function setup(
   const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
   const navigation = {
     openWorkspace: vi.fn(),
+    openFavorites: vi.fn(),
     openAssets: vi.fn(),
   } as unknown as NavigationRouter;
 
@@ -380,62 +381,100 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
   });
 });
 
-// Section's title/caret split (Section.Header.tsx): the title text is a
-// navigation trigger (Section's own onClick, wired here to
-// navigation.openWorkspace() — the same "clicking a section header
-// navigates there" pattern Favorites already has), while the caret is the
-// sole expand/collapse control (Entry's nested-interactive-element guard
-// stops the caret's click from also bubbling into the row's onClick). This
-// replaced an earlier isTitleToggle-based design where the title itself
-// toggled collapse — see the commented-out `isTitleToggle` prop still
-// sitting next to this Section in Sidebar.Notes.tsx.
-describe('Sidebar Notes: clicking the "Workspace" section header title navigates, the caret toggles collapse', () => {
-  it('clicking the title text calls navigation.openWorkspace() and does not toggle collapse', () => {
+// Section headers are disclosure controls only (Section.Header.tsx's
+// isTitleToggle): clicking the header row — or its caret — expands/collapses
+// and never navigates. The Workspace/Favorites Collection pages are not
+// opened from here.
+describe('Sidebar Notes: the "Workspace" section header only expands/collapses', () => {
+  function headerOf(): HTMLElement {
+    return screen.getByText(getVaultDisplayName(ROOT)).closest('.section-header') as HTMLElement;
+  }
+
+  it('clicking the title toggles the section (collapse, then expand) and never calls openWorkspace()', () => {
+    // Non-empty list, deliberately — see Section.test.tsx on isEmpty defaults.
     const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
-
-    renderNotes(deps);
-
-    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
-
-    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
-
-    expect(deps.navigation.openWorkspace).toHaveBeenCalledTimes(1);
-    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
-  });
-
-  it("toggles the folders section's expanded state via its caret, without navigating", () => {
-    // A non-empty folder list, deliberately — with none, Section's own
-    // isEmpty-default-collapsed behavior (Section.test.tsx) makes the first
-    // click *expand* the visually-collapsed section rather than flip the
-    // already-true stored value, which isn't what this test is checking.
-    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
-
-    // Production always re-renders Notes on a workspace change via
-    // Sidebar.tsx's useWorkspace() subscription (not exercised here, since
-    // this test renders Notes in isolation) — rerender() after each click
-    // stands in for that, so Section sees the updated isExpanded prop it'd
-    // get in the real app, same idiom Section.test.tsx uses for itself.
+    // Production re-renders on workspace change via Sidebar.tsx's
+    // useWorkspace(); rerender() stands in for it here.
     const { rerender } = renderNotes(deps);
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
+    expect(screen.queryByText('Alpha')).not.toBeNull();
 
-    function clickWorkspaceCaret() {
-      const header = screen.getByText(getVaultDisplayName(ROOT)).closest('.section-header') as HTMLElement;
-      const caret = header.querySelector('.section-header__caret') as HTMLElement;
-      fireEvent.click(caret);
-    }
+    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
+    rerender(notesElement(deps));
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
+    expect(screen.queryByText('Alpha')).toBeNull();
+    expect(headerOf().getAttribute('aria-expanded')).toBe('false');
 
-    clickWorkspaceCaret();
+    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
+    rerender(notesElement(deps));
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
+    expect(screen.queryByText('Alpha')).not.toBeNull();
+    expect(headerOf().getAttribute('aria-expanded')).toBe('true');
+
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('the caret still toggles exactly once (it does not double-fire with the row), without navigating', () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    const { rerender } = renderNotes(deps);
+
+    fireEvent.click(headerOf().querySelector('.section-header__caret') as HTMLElement);
     rerender(notesElement(deps));
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
 
-    clickWorkspaceCaret();
-    rerender(notesElement(deps));
+  it('is keyboard-operable: Enter on the focused header toggles it', () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    renderNotes(deps);
+
+    fireEvent.keyDown(headerOf(), { key: 'Enter' });
+
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("the header's '+' action creates a folder and does not toggle the section or navigate", () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+    renderNotes(deps);
+
+    fireEvent.click(headerOf().querySelector('.entry__actions button') as HTMLElement);
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('clicking a child note still opens it', () => {
+    const page = makePage('page-a', `${ROOT}/Idea.md`);
+    const deps = setup([], [page]);
+    const onOpen = vi.fn();
+    render(notesElement(deps, { onOpen }));
+
+    fireEvent.click(screen.getByText('Idea'));
+
+    expect(onOpen).toHaveBeenCalledWith('page-a');
+  });
+});
+
+describe('Sidebar Notes: the "Favorites" section header only expands/collapses', () => {
+  it('clicking it toggles the section and never calls openFavorites()', () => {
+    const page = makePage('page-a', `${ROOT}/Idea.md`, { favorite: true });
+    const deps = setup([], [page]);
+    const { rerender } = renderNotes(deps);
+
+    expect(deps.workspace.isSectionExpanded('favorites')).toBe(true);
+
+    fireEvent.click(screen.getByText('Favorites'));
+    rerender(notesElement(deps));
+    expect(deps.workspace.isSectionExpanded('favorites')).toBe(false);
+
+    fireEvent.click(screen.getByText('Favorites'));
+    rerender(notesElement(deps));
+    expect(deps.workspace.isSectionExpanded('favorites')).toBe(true);
+
+    expect(deps.navigation.openFavorites).not.toHaveBeenCalled();
   });
 });
 

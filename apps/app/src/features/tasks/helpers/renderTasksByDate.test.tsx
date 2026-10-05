@@ -337,54 +337,70 @@ describe('renderTasksByDate', () => {
     });
   });
 
-  it('navigates to Today when the Today section header is clicked', () => {
-    const navigation = fakeNavigation();
+  describe('section headers only expand/collapse — they never navigate', () => {
+    function renderAll(workspace: Workspace, navigation: NavigationRouter) {
+      const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+      const upcoming = task({ text: 'Book flights', dueDate: '2026-08-05' });
+      const ui = () => (
+        <>
+          {renderTasksByDate({
+            tasks: [overdue, upcoming],
+            workspace,
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
+            onDuplicateTask: vi.fn(),
+            onDeleteTask: vi.fn(),
+            navigation,
+          })}
+        </>
+      );
+      return { ...render(ui()), ui };
+    }
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          onChangeDueDate: vi.fn(),
-          onDuplicateTask: vi.fn(),
-          onDeleteTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+    it.each([
+      ['Overdue', 'tasks-overdue', 'Fix navigation'],
+      ['Upcoming', 'tasks-upcoming', 'Book flights'],
+    ])('%s: clicking the header collapses then expands it, with no navigation', (title, id, child) => {
+      const workspace = new Workspace();
+      const navigation = fakeNavigation();
+      const { getByText, queryByText, rerender, ui } = renderAll(workspace, navigation);
 
-    fireEvent.click(getByText('Today'));
+      expect(queryByText(child)).not.toBeNull();
 
-    expect(navigation.openTasksToday).toHaveBeenCalled();
-  });
+      fireEvent.click(getByText(title));
+      rerender(ui());
+      expect(workspace.isSectionExpanded(id)).toBe(false);
+      expect(queryByText(child)).toBeNull();
 
-  it('navigates to Upcoming when the Upcoming section header is clicked', () => {
-    const navigation = fakeNavigation();
-    // The Upcoming section (renderTasksByDate's `upcoming.length > 0` guard)
-    // only renders at all once there's an upcoming task — an empty tasks
-    // list never produces an "Upcoming" header to click.
-    const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+      fireEvent.click(getByText(title));
+      rerender(ui());
+      expect(workspace.isSectionExpanded(id)).toBe(true);
+      expect(queryByText(child)).not.toBeNull();
 
-    const { getByText } = render(
-      <>
-        {renderTasksByDate({
-          tasks: [dueSoon],
-          workspace: new Workspace(),
-          onToggleComplete: vi.fn(),
-          onOpenTask: vi.fn(),
-          onChangeDueDate: vi.fn(),
-          onDuplicateTask: vi.fn(),
-          onDeleteTask: vi.fn(),
-          navigation,
-        })}
-      </>
-    );
+      expect(navigation.openTasksToday).not.toHaveBeenCalled();
+      expect(navigation.openTasksOverdue).not.toHaveBeenCalled();
+      expect(navigation.openTasksUpcoming).not.toHaveBeenCalled();
+    });
 
-    fireEvent.click(getByText('Upcoming'));
+    it('Today (empty, so default-collapsed): clicking expands it, exposes aria-expanded, works from the keyboard, never navigates', () => {
+      const workspace = new Workspace();
+      const navigation = fakeNavigation();
+      const { getByText, rerender, ui } = renderAll(workspace, navigation);
+      const header = () => getByText('Today').closest('.section-header') as HTMLElement;
 
-    expect(navigation.openTasksUpcoming).toHaveBeenCalled();
+      expect(header().getAttribute('aria-expanded')).toBe('false');
+
+      fireEvent.click(getByText('Today'));
+      rerender(ui());
+      expect(header().getAttribute('aria-expanded')).toBe('true');
+
+      fireEvent.keyDown(header(), { key: 'Enter' });
+      rerender(ui());
+      expect(header().getAttribute('aria-expanded')).toBe('false');
+
+      expect(navigation.openTasksToday).not.toHaveBeenCalled();
+    });
   });
 
   describe('the Tasks-view settings action', () => {
@@ -458,7 +474,7 @@ describe('renderTasksByDate', () => {
       expect(queryByText('Overdue')).not.toBeInTheDocument();
     });
 
-    it('navigates to Overdue when the Overdue section header is clicked', () => {
+    it('does not navigate when the Overdue section header is clicked', () => {
       const navigation = fakeNavigation();
       const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
 
@@ -479,7 +495,7 @@ describe('renderTasksByDate', () => {
 
       fireEvent.click(getByText('Overdue'));
 
-      expect(navigation.openTasksOverdue).toHaveBeenCalled();
+      expect(navigation.openTasksOverdue).not.toHaveBeenCalled();
     });
 
     it('places Overdue between Today and Upcoming', () => {

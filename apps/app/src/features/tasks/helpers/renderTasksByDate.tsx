@@ -202,7 +202,8 @@ export function renderUpcomingContent({
 interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
-  readonly navigation: NavigationRouter;
+  /** Unused by the section headers now (they only expand/collapse); kept so callers and the Collection routes stay untouched. */
+  readonly navigation?: NavigationRouter;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
    * — applied identically to every group. Read-only here: the one control
@@ -221,7 +222,6 @@ export function renderTasksByDate({
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
-  navigation,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -239,12 +239,12 @@ export function renderTasksByDate({
         hasHeader
         title="Today"
         isCollapsible
+        isTitleToggle
         isEmpty={today.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('tasks-today', expanded)
         }
-        onClick={() => navigation.openTasksToday()}
       >
         {renderTodayContent({
           today,
@@ -263,12 +263,12 @@ export function renderTasksByDate({
           hasHeader
           title="Overdue"
           isCollapsible
+          isTitleToggle
           isEmpty={overdue.length === 0}
           isExpanded={workspace.isSectionExpanded('tasks-overdue')}
           onExpandedChange={(expanded) =>
             workspace.setSectionExpanded('tasks-overdue', expanded)
           }
-          onClick={() => navigation.openTasksOverdue()}
         >
           {renderOverdueContent({
             overdue,
@@ -288,12 +288,12 @@ export function renderTasksByDate({
           hasHeader
           title="Upcoming"
           isCollapsible
+          isTitleToggle
           isEmpty={upcoming.length === 0}
           isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
           onExpandedChange={(expanded) =>
             workspace.setSectionExpanded('tasks-upcoming', expanded)
           }
-          onClick={() => navigation.openTasksUpcoming()}
         >
           {renderUpcomingContent({
             upcoming,

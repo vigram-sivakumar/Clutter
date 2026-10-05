@@ -38,6 +38,13 @@ const fakeVault = {
   getPage: () => undefined,
 } as unknown as Vault;
 
+/** A store whose toggleExpanded is a spy, to observe the row-click toggle. */
+function spyStore(expanded = false) {
+  const toggleExpanded = vi.fn();
+  const store = { isExpanded: () => expanded, toggleExpanded } as unknown as TagExpansionStore;
+  return { store, toggleExpanded };
+}
+
 const renderOptions = {
   onOpenTag: noop,
   onOpenNoteEntry: noop,
@@ -283,13 +290,60 @@ describe('renderTags', () => {
     expect(screen.getAllByText('design')).toHaveLength(1);
   });
 
-  it('invokes onOpenTag with the tag name when a row is clicked', () => {
+  it('clicking a tag row toggles its expansion and does NOT open the Tag collection', () => {
     const onOpenTag = vi.fn();
-    render(<>{renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>);
+    const { store, toggleExpanded } = spyStore();
+    render(
+      <>
+        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+          ...renderOptions,
+          onOpenTag,
+          tagExpansionStore: store,
+        })}
+      </>
+    );
 
     fireEvent.click(screen.getByText('Project'));
 
-    expect(onOpenTag).toHaveBeenCalledWith('Project');
+    expect(toggleExpanded).toHaveBeenCalledWith('Project');
+    expect(onOpenTag).not.toHaveBeenCalled();
+  });
+
+  it('the row is keyboard-operable: Enter on the focused row toggles it', () => {
+    const { store, toggleExpanded } = spyStore();
+    render(
+      <>
+        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+          ...renderOptions,
+          tagExpansionStore: store,
+        })}
+      </>
+    );
+
+    const row = screen.getByText('Project').closest('.entry') as HTMLElement;
+    fireEvent.keyDown(row, { key: 'Enter' });
+
+    expect(toggleExpanded).toHaveBeenCalledWith('Project');
+  });
+
+  it("clicking the row's add (+) action does not also toggle the row", () => {
+    const onCreateNoteForTag = vi.fn();
+    const { store, toggleExpanded } = spyStore();
+    render(
+      <>
+        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+          ...renderOptions,
+          tagExpansionStore: store,
+          onCreateNoteForTag,
+        })}
+      </>
+    );
+
+    const row = screen.getByText('Project').closest('.entry') as HTMLElement;
+    fireEvent.click(row.querySelector('.entry__actions button') as HTMLElement);
+
+    expect(onCreateNoteForTag).toHaveBeenCalledWith('Project');
+    expect(toggleExpanded).not.toHaveBeenCalled();
   });
 
   describe('display formatting (formatTagDisplayLabel) vs. raw identity', () => {
@@ -311,26 +365,26 @@ describe('renderTags', () => {
       expect(screen.queryByText('Product_design')).toBeNull();
     });
 
-    it('clicking a hyphen-separated tag\'s row still calls onOpenTag with the raw stored name, not the display label', () => {
-      const onOpenTag = vi.fn();
+    it('clicking a hyphen-separated tag\'s row still toggles with the raw stored name, not the display label', () => {
+      const { store, toggleExpanded } = spyStore();
       render(
-        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
+        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore: store })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
 
-      expect(onOpenTag).toHaveBeenCalledWith('Product-design');
+      expect(toggleExpanded).toHaveBeenCalledWith('Product-design');
     });
 
-    it('clicking an underscore-separated tag\'s row still calls onOpenTag with the raw stored name, not the display label', () => {
-      const onOpenTag = vi.fn();
+    it('clicking an underscore-separated tag\'s row still toggles with the raw stored name, not the display label', () => {
+      const { store, toggleExpanded } = spyStore();
       render(
-        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
+        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore: store })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
 
-      expect(onOpenTag).toHaveBeenCalledWith('Product_design');
+      expect(toggleExpanded).toHaveBeenCalledWith('Product_design');
     });
 
     it('a tag name with no separator displays unchanged, exactly as before', () => {
@@ -382,20 +436,20 @@ describe('renderTags', () => {
     });
 
     it('a row NOT matching editingId is unaffected, still a static, clickable row', () => {
-      const onOpenTag = vi.fn();
+      const { store, toggleExpanded } = spyStore();
       const rowActions = fakeRowActions({ editingId: 'design' });
       render(
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { ...renderOptions, onOpenTag, rowActions }
+            { ...renderOptions, tagExpansionStore: store, rowActions }
           )}
         </>
       );
 
       expect(screen.queryByRole('textbox')).toBeNull();
       fireEvent.click(screen.getByText('Product design'));
-      expect(onOpenTag).toHaveBeenCalledWith('Product-design');
+      expect(toggleExpanded).toHaveBeenCalledWith('Product-design');
     });
 
     it('committing the edit calls onCommitRename with the raw old name and the typed value', () => {
@@ -444,21 +498,21 @@ describe('renderTags', () => {
       expect(onRenameEnd).toHaveBeenCalledTimes(1);
     });
 
-    it('clicking a row mid-rename does not also navigate (edit mode suppresses the click-to-open handler)', () => {
-      const onOpenTag = vi.fn();
+    it('clicking a row mid-rename does not also toggle (edit mode suppresses the click handler)', () => {
+      const { store, toggleExpanded } = spyStore();
       const rowActions = fakeRowActions({ editingId: 'Product-design' });
       render(
         <>
           {renderTags(
             [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { ...renderOptions, onOpenTag, rowActions }
+            { ...renderOptions, tagExpansionStore: store, rowActions }
           )}
         </>
       );
 
       fireEvent.click(screen.getByRole('textbox'));
 
-      expect(onOpenTag).not.toHaveBeenCalled();
+      expect(toggleExpanded).not.toHaveBeenCalled();
     });
   });
 
