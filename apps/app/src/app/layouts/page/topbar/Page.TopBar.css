@@ -37,6 +37,12 @@
   color: var(--foreground-tertiary);
 }
 
+/* A pill leading the actions (the "Editing template" pill) keeps a gap from
+   the first button; the group itself stays gap-free for the buttons. */
+.topbar--trailing > .pill {
+  margin-right: var(--space-8);
+}
+
 .button-group {
   background-color: var(--surface-subtle);
   border-radius: var(--radius-lg);
