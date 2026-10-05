@@ -11,6 +11,7 @@ import { getPageIcon } from './getPageIcon';
 import {
   getSystemLocationForFolder,
   getSystemLocationPresentation,
+  type SystemLocationId,
 } from './systemPresentation';
 
 function isPage(entry: Page | Folder): entry is Page {
@@ -104,6 +105,28 @@ function ancestorBreadcrumbs(
   }
 
   return ancestors;
+}
+
+/**
+ * The breadcrumb for a page that is a system location with no backing
+ * Folder (Assets, Tasks views, Workspace, Favorites, a Tag's notes): a
+ * single current-page crumb with the location's canonical icon. The title
+ * defaults to the location's label; a page whose header title differs
+ * (an individual tag) passes its own.
+ */
+export function buildSystemLocationBreadcrumbs(
+  id: SystemLocationId,
+  title?: string
+): Breadcrumb[] {
+  const presentation = getSystemLocationPresentation(id);
+
+  return [
+    {
+      id,
+      title: title ?? presentation.label,
+      icon: presentation.collectionIcon ?? presentation.icon,
+    },
+  ];
 }
 
 export function buildBreadcrumbs(

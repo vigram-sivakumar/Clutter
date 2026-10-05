@@ -11,6 +11,7 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import {
   buildBreadcrumbs,
   buildBreadcrumbsForDraft,
+  buildSystemLocationBreadcrumbs,
 } from '@core/presentation/buildBreadcrumbs';
 import {
   getPageTitlePlaceholder,
@@ -1425,7 +1426,7 @@ export function PageHost({
         onNavigateForward={() => application.navigation.forward()}
         title={getSystemLocationPresentation('assets').label}
         titleEditable={false}
-        breadcrumbs={<Breadcrumbs items={[]} />}
+        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs('assets')} />}
         icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
         titleActions={renderCollectionHeaderActions({
@@ -1478,7 +1479,7 @@ export function PageHost({
         onNavigateForward={() => application.navigation.forward()}
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
-        breadcrumbs={<Breadcrumbs items={[]} />}
+        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />}
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         body={
@@ -1603,7 +1604,10 @@ export function PageHost({
         description={model.description}
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
-        breadcrumbs={<Breadcrumbs items={[]} />}
+        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(
+              filteredViewSystemLocationId,
+              titleProps.title
+            )} />}
         titleActions={renderCollectionHeaderActions({ onAdd: onCreateNote })}
         icon={
           getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')

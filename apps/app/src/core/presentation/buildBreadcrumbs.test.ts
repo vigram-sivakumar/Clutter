@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildBreadcrumbs, buildBreadcrumbsForDraft } from './buildBreadcrumbs';
+import {
+  buildBreadcrumbs,
+  buildBreadcrumbsForDraft,
+  buildSystemLocationBreadcrumbs,
+} from './buildBreadcrumbs';
 import { getPageIcon } from './getPageIcon';
 import { getSystemLocationPresentation } from './systemPresentation';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
@@ -657,5 +661,27 @@ describe("buildBreadcrumbs — today's Daily Note gets the dotted calendar icon"
     );
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
+  });
+});
+
+describe('buildSystemLocationBreadcrumbs', () => {
+  it.each(['assets', 'workspace', 'favorites', 'tasks-today', 'tags'] as const)(
+    'gives %s one current crumb with its canonical label and icon',
+    (id) => {
+      const presentation = getSystemLocationPresentation(id);
+      const crumbs = buildSystemLocationBreadcrumbs(id);
+
+      expect(crumbs).toHaveLength(1);
+      expect(crumbs[0]!.title).toBe(presentation.label);
+      expect(crumbs[0]!.icon).toBe(presentation.collectionIcon ?? presentation.icon);
+      expect(crumbs[0]!.onClick).toBeUndefined();
+    }
+  );
+
+  it('uses a page-specific title when given one, keeping the location icon', () => {
+    const crumbs = buildSystemLocationBreadcrumbs('tags', '#work');
+
+    expect(crumbs[0]!.title).toBe('#work');
+    expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('tags').icon);
   });
 });
