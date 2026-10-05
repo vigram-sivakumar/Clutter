@@ -14,13 +14,13 @@ import {
 } from '@features/collection/components/note/toNoteCardProps';
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
-import {
-  buildNoteTableColumns,
-  type NoteTableColumnVisibility,
-} from '@features/collection/components/note/noteTableColumns';
+import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import { FOLDER_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
+import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import './CollectionBody.css';
 
 import { PageBody } from './Page.Body';
@@ -38,73 +38,12 @@ import { PageBody } from './Page.Body';
  *    (toNoteCardProps, toNoteListItem, toNoteTableRow, toFolderCardProps);
  *    drawing it is the generic Collection primitives' job.
  */
-export type CollectionViewMode = 'list' | 'table' | 'card';
-
 /**
- * Which note properties the collection UI currently shows — the
- * "Properties" section of the Configure menu (CollectionViewMenu.tsx),
- * distinct from view mode. Folder rows have no equivalent fields today
- * (a folder card shows subfolder/note counts instead), so this only ever
- * gates note rendering.
-
+ * What a body shows when the page does not say: the ordinary folder collection's resolved
+ * defaults — read from its `CollectionDefinition`, not restated here. (The page always passes
+ * the resolved view of the collection it is showing.)
  */
-export interface CollectionPropertyVisibility {
-  description: boolean;
-  created: boolean;
-  updated: boolean;
-  /** Archive collection only — ignored (never offered, never rendered) everywhere else. */
-  archived: boolean;
-  /** Table / List: show the Cover image column / media (when the host can change covers). Ignored by the note Card layout, which always shows the cover. */
-  cover: boolean;
-  /** No longer offered or read (a note card always shows its content); kept only so previously saved view configs still load unchanged. */
-  preview: boolean;
-  /** Assets' Card layout only — show each card's title section (icon and name). Ignored everywhere else. */
-  title: boolean;
-  /** Assets' Card layout only — show each card's file size line. Ignored everywhere else (Created / Last edited reuse `created` / `updated`). */
-  size: boolean;
-}
-
-export const DEFAULT_COLLECTION_PROPERTY_VISIBILITY: CollectionPropertyVisibility = {
-  description: true,
-  created: true,
-  updated: true,
-  archived: true,
-  cover: true,
-  preview: true,
-  title: true,
-  size: true,
-};
-
-/**
- * The subset of `properties` that maps to the notes table's actual
- * columns — `description` isn't a separate column (it's nested inside
- * the Name column's own cell, alongside the title), so it's excluded
- * here rather than threaded into a column the table doesn't have.
- */
-export function toTableColumns(
-  properties: CollectionPropertyVisibility,
-  showArchived = false,
-  /** Whether the host can change a note's cover — without it the Cover image column has nothing to offer, so it isn't shown. */
-  canChangeCover = false
-): NoteTableColumnVisibility {
-  return {
-    cover: canChangeCover && properties.cover,
-    created: properties.created,
-    updated: properties.updated,
-    archived: showArchived && properties.archived,
-  };
-}
-
-/**
- * The Sort by state is `{ property, direction }` (`CollectionSort`, core/properties): a
- * property id from the one registry and the arrow shown. What sorting by a property MEANS is
- * that property's own `sort` behavior, implemented once by `sortEntries` — nothing in this
- * file knows how any property is ordered.
- */
-export const DEFAULT_COLLECTION_SORT: CollectionSort = {
-  property: 'name',
-  direction: 'down',
-};
+const DEFAULT_VIEW = resolveCollectionView(FOLDER_COLLECTION);
 
 /**
  * How the notes collections break ties: Description and Cover image fall back to Name, every
@@ -137,8 +76,9 @@ export interface NoteCoverActions {
 export interface CollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
-  viewMode?: CollectionViewMode;
-  properties?: CollectionPropertyVisibility;
+  viewMode?: CollectionLayout;
+  /** The visible properties, from the resolved view (`resolveCollectionView`) — canonical order, required ones included. */
+  visible?: readonly PropertyId[];
   sort?: CollectionSort;
   /**
    * Present only when this page supports creating a folder here (see
@@ -209,27 +149,21 @@ export interface RenderNoteListOptions {
  * A real, existing limitation of the component, not something this wiring
  * introduces.
  *
- * `properties` gates which of description/created/updated/archived are
- * actually passed through — unchecked means omitted, never a blanked-out but
- * still-fetched value. Exported so
+ * `visible` gates which properties are actually passed through — one that
+ * isn't visible is omitted, never a blanked-out but still-fetched value. Exported so
  * ArchiveCollectionBody renders the same list instead of a second one.
  */
 export function renderNoteList(
   entries: readonly CollectionEntryModel[],
-  properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
+  visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
   { coverFor, onCreateNote }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
       items={entries.map((entry) =>
         toNoteListItem(entry, {
-          show: {
-            description: properties.description,
-            created: properties.created,
-            updated: properties.updated,
-            archived: properties.archived,
-          },
-          cover: properties.cover ? coverFor?.(entry) : undefined,
+          visible,
+          cover: visible.includes('cover') ? coverFor?.(entry) : undefined,
         })
       )}
       newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
@@ -243,34 +177,29 @@ export interface RenderNoteTableOptions {
     url: string | null;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   };
-  /** Archive collection only — adds the Archived column (and its cells). */
-  showArchived?: boolean;
   /** The table's trailing "New Note" row's handler — an ordinary collection's; absent, none renders (the Archive has nothing to create). */
   onCreateNote?: () => void;
 }
 
 /**
  * Table-mode note rendering — the notes, as rows of the one generic
- * CollectionDataTable. Same plain-string title caveat and `properties` gating
- * as renderNoteList: an unchecked property removes its column from the
- * header and from every row, not just its values. Exported so
- * ArchiveCollectionBody renders the same table (with its Archived column)
- * instead of a second implementation.
+ * CollectionDataTable. Same plain-string title caveat and `visible` gating
+ * as renderNoteList: a property that isn't visible removes its column from the
+ * header and from every row, not just its values (the Archive's Archived column
+ * is simply a visible property only the Archive offers). Exported so
+ * ArchiveCollectionBody renders the same table instead of a second implementation.
  */
 export function renderNoteTable(
   entries: readonly CollectionEntryModel[],
-  properties: CollectionPropertyVisibility = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  { coverFor, showArchived = false, onCreateNote }: RenderNoteTableOptions = {}
+  visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
+  { coverFor, onCreateNote }: RenderNoteTableOptions = {}
 ) {
-  const columns = toTableColumns(properties, showArchived, coverFor !== undefined);
-
   return (
     <CollectionDataTable
-      columns={buildNoteTableColumns(columns)}
+      columns={buildPropertyTableColumns(visible, { cover: coverFor !== undefined })}
       rows={entries.map((entry) =>
         toNoteTableRow(entry, {
-          showDescription: properties.description,
-          columns,
+          visible,
           cover: coverFor?.(entry),
         })
       )}
@@ -302,9 +231,9 @@ export function renderFolderGrid(entries: readonly CollectionEntryModel[], onCre
 export function CollectionBody({
   folders = [],
   notes = [],
-  viewMode = 'table',
-  properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  sort = DEFAULT_COLLECTION_SORT,
+  viewMode = DEFAULT_VIEW.layout,
+  visible = DEFAULT_VIEW.visible,
+  sort = DEFAULT_VIEW.sort,
   onCreateFolder,
   onCreateNote,
   showNotes = true,
@@ -338,7 +267,7 @@ export function CollectionBody({
     : undefined;
 
   const noteSection =
-    viewMode === 'table' ? renderNoteTable(sortedNotes, properties, {
+    viewMode === 'table' ? renderNoteTable(sortedNotes, visible, {
       // Only when notes can be created here: a "New Note" row that does nothing is a dead control.
       onCreateNote,
       coverFor,
@@ -348,7 +277,7 @@ export function CollectionBody({
           <CollectionCard
             key={entry.id}
             {...toNoteCardProps(entry, {
-              show: { description: properties.description, updated: properties.updated },
+              visible,
               resolvers: previewResolvers,
             })}
           />
@@ -359,7 +288,7 @@ export function CollectionBody({
           </CollectionCard>
         )}
       </CollectionGrid>
-    ) : renderNoteList(sortedNotes, properties, {
+    ) : renderNoteList(sortedNotes, visible, {
       onCreateNote: sortedNotes.length > 0 ? onCreateNote : undefined,
       coverFor,
     });

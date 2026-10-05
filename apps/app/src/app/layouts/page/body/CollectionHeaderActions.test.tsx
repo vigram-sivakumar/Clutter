@@ -6,11 +6,8 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { CollectionHeaderActions } from './CollectionHeaderActions';
-import {
-  ASSET_COLLECTION_VIEW_CAPABILITIES,
-  NOTE_COLLECTION_VIEW_CAPABILITIES,
-} from './collectionViewCapabilities';
-import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, DEFAULT_COLLECTION_SORT } from './CollectionBody';
+import { ASSETS_COLLECTION, FOLDER_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
+import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -25,11 +22,9 @@ function renderActions(props: Partial<Parameters<typeof CollectionHeaderActions>
   return render(
     <CollectionHeaderActions
       menu={{
-        viewMode: 'list',
-        onChange: vi.fn(),
-        properties: DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-        onPropertiesChange: vi.fn(),
-        sort: DEFAULT_COLLECTION_SORT,
+        view: resolveCollectionView(FOLDER_COLLECTION, { layout: 'list' }),
+        onLayoutChange: vi.fn(),
+        onPropertyChange: vi.fn(),
         onSortChange: vi.fn(),
         ...props.menu,
       }}
@@ -66,14 +61,14 @@ describe('CollectionHeaderActions', () => {
     expect(container.querySelector('button[aria-label="New"]')).toBeNull();
   });
 
-  it("passes the collection's capabilities to the menu: Notes offer Properties and Sort, Assets only the layouts", () => {
-    const notes = renderActions({ menu: { capabilities: NOTE_COLLECTION_VIEW_CAPABILITIES } as never });
+  it("passes the collection's resolved view to the menu: each collection's own Sort by rows", () => {
+    const notes = renderActions({ menu: { view: resolveCollectionView(FOLDER_COLLECTION) } as never });
     fireEvent.click(notes.container.querySelector('button[aria-haspopup="menu"]')!);
     const noteLabels = [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
     expect(noteLabels).toEqual(expect.arrayContaining(['List', 'Table', 'Card', 'Properties']));
     cleanup();
 
-    const assets = renderActions({ menu: { capabilities: ASSET_COLLECTION_VIEW_CAPABILITIES } as never });
+    const assets = renderActions({ menu: { view: resolveCollectionView(ASSETS_COLLECTION) } as never });
     fireEvent.click(assets.container.querySelector('button[aria-haspopup="menu"]')!);
     const assetLabels = [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
     // Same three layouts notes have, Properties (the file facts, in every layout), and Sort by (Name, then the same file facts).

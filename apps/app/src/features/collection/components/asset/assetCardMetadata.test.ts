@@ -2,7 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
+import type { PropertyId } from '@core/properties/collectionProperties';
+import { localAsset } from '@core/vault/testing/localAsset';
+
 import { assetCardMetadata } from './assetCardMetadata';
+import { toAssetEntry } from './toAssetEntry';
+
+// Every plain-value property an asset card can draw, visible — what the card shows unless narrowed.
+const ALL: PropertyId[] = ['name', 'size', 'created', 'updated'];
+/** The card's lines for a resource, from the values its adapter produces. */
+const linesOf = (r: VaultResource, visible: PropertyId[] = ALL) => assetCardMetadata(toAssetEntry(localAsset(r)).values, visible);
 
 const NOW = new Date('2026-10-03T12:00:00.000Z');
 
@@ -23,7 +32,7 @@ const resource = (metadata?: VaultResource['metadata']): VaultResource => ({
 
 describe('assetCardMetadata', () => {
   it('is size, Created and Edited, in that order, one item each', () => {
-    const line = assetCardMetadata(
+    const line = linesOf(
       resource({
         size: 12_345,
         createdAt: '2026-10-03T11:25:00.000Z',
@@ -39,27 +48,27 @@ describe('assetCardMetadata', () => {
   });
 
   it('leaves out a part the platform could not report', () => {
-    expect(assetCardMetadata(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toEqual(
+    expect(linesOf(resource({ size: 812, createdAt: null, modifiedAt: '2026-10-03T11:55:00.000Z' }))).toEqual(
       [
         { label: 'Size', value: '812 B' },
         { label: 'Edited', value: '5 minutes ago' },
       ]
     );
-    expect(assetCardMetadata(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual([{ label: 'Size', value: '2 MB' }]);
+    expect(linesOf(resource({ size: 2_000_000, createdAt: null, modifiedAt: null }))).toEqual([{ label: 'Size', value: '2 MB' }]);
   });
 
   it('is empty when the resource has no metadata', () => {
-    expect(assetCardMetadata(resource())).toEqual([]);
+    expect(linesOf(resource())).toEqual([]);
   });
 
   it('leaves out each item its property hides, independently', () => {
     const full = resource({ size: 12_345, createdAt: '2026-10-03T11:25:00.000Z', modifiedAt: '2026-10-03T11:55:00.000Z' });
 
-    const labels = (visibility: Parameters<typeof assetCardMetadata>[1]) => assetCardMetadata(full, visibility).map((item) => item.label);
+    const labels = (visible: PropertyId[]) => linesOf(full, visible).map((item) => item.label);
 
-    expect(labels({ size: false })).toEqual(['Created', 'Edited']);
-    expect(labels({ created: false })).toEqual(['Size', 'Edited']);
-    expect(labels({ updated: false })).toEqual(['Size', 'Created']);
-    expect(labels({ size: false, created: false, updated: false })).toEqual([]);
+    expect(labels(['name', 'created', 'updated'])).toEqual(['Created', 'Edited']);
+    expect(labels(['name', 'size', 'updated'])).toEqual(['Size', 'Edited']);
+    expect(labels(['name', 'size', 'created'])).toEqual(['Size', 'Created']);
+    expect(labels(['name'])).toEqual([]);
   });
 });

@@ -9,6 +9,12 @@ export interface HeaderProps extends Omit<EntryProps, 'children'> {
   isCollapsible?: boolean;
   isExpanded?: boolean;
   onExpandToggle?: () => void;
+  /**
+   * Makes the whole header row the expand/collapse control (click, or
+   * Enter/Space) instead of navigating — any `onClick` passed in
+   * `entryProps` is superseded. The caret and `actions` keep their own
+   * clicks (Entry ignores clicks that land on a nested button).
+   */
   isTitleToggle?: boolean;
 }
 
@@ -21,24 +27,25 @@ export function Header({
   isTitleToggle = false,
   ...entryProps
 }: HeaderProps) {
-  // Treat the title as a button only when it toggles the section.
-  const titleProps =
+  const toggleProps =
     isTitleToggle && onExpandToggle
       ? {
-          role: 'button' as const,
-          tabIndex: 0,
           onClick: onExpandToggle,
+          ...(isCollapsible && { 'aria-expanded': isExpanded }),
         }
       : {};
 
   return (
-    <Entry className="section-header" {...entryProps} actions={actions}>
+    <Entry
+      className="section-header"
+      {...entryProps}
+      {...toggleProps}
+      actions={actions}
+    >
       <div
         className={`section-header__content${isTitleToggle ? ' section-header__content-toggle' : ''}`}
       >
-        <span className="section-header__title" {...titleProps}>
-          {title}
-        </span>
+        <span className="section-header__title">{title}</span>
 
         {isCollapsible && (
           <Caret

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
+import { archiveVisible } from '@features/collection/testing/visibleProperties';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY } from './CollectionBody';
 import { ArchiveCollectionBody } from './ArchiveCollectionBody';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { folderEntry, noteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
@@ -340,7 +340,7 @@ describe('ArchiveCollectionBody: Archived column', () => {
       notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
       resources: [],
       viewMode: 'table',
-      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, archived: false },
+      visible: archiveVisible('archived'),
     });
 
     expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();

@@ -4,33 +4,28 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
-import { collectionFieldLabel } from '@features/collection/collectionFieldLabels';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
-
-import {
-  NOTE_COLLECTION_VIEW_CAPABILITIES,
-  type CollectionViewCapabilities,
-} from './collectionViewCapabilities';
-import type { PropertyId } from '@core/properties/collectionProperties';
+import { propertyLabel, type PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
-import type { CollectionViewMode, CollectionPropertyVisibility } from './CollectionBody';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import type { ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
 
 export interface CollectionViewMenuProps {
-  viewMode: CollectionViewMode;
-  onChange: (mode: CollectionViewMode) => void;
-  properties: CollectionPropertyVisibility;
-  onPropertiesChange: (next: CollectionPropertyVisibility) => void;
-  sort: CollectionSort;
+  /**
+   * The collection's resolved view (`resolveCollectionView`) — the ONE thing every row below is
+   * read from. Properties lists `view.available`; Sort by lists `view.sortable`, which is the
+   * same list filtered to the properties that can be sorted; neither has a list of its own.
+   */
+  view: ResolvedCollectionView;
+  onLayoutChange: (layout: CollectionLayout) => void;
+  /** The user turned a (non-locked) property on or off. */
+  onPropertyChange: (id: PropertyId, visible: boolean) => void;
   onSortChange: (next: CollectionSort) => void;
-  /** Archive collection only — adds the Archived property and sort option, absent everywhere else. */
-  showArchived?: boolean;
-  /** Which standard controls this collection offers (see collectionViewCapabilities.ts); notes' by default. */
-  capabilities?: CollectionViewCapabilities;
 }
 
 const VIEW_ITEMS: ReadonlyArray<{
-  mode: CollectionViewMode;
+  mode: CollectionLayout;
   label: string;
   icon: SystemIcon;
 }> = [
@@ -39,45 +34,6 @@ const VIEW_ITEMS: ReadonlyArray<{
   { mode: 'card', label: 'Card', icon: 'card' },
 ];
 
-const DESCRIPTION_PROPERTY_ITEM = { key: 'description', label: 'Description' } as const;
-
-// The date properties sit at the bottom of the Properties list, after
-// everything else (Description, and Cover image in List / Table).
-const DATE_PROPERTY_ITEMS: ReadonlyArray<{
-  key: keyof CollectionPropertyVisibility;
-  label: string;
-}> = [
-  { key: 'created', label: collectionFieldLabel('created') },
-  { key: 'updated', label: collectionFieldLabel('updated') },
-];
-
-// List and Table layouts — shows or hides the Cover image thumbnail (a Card always shows its note's cover).
-const ROW_PROPERTY_ITEMS: ReadonlyArray<{
-  key: keyof CollectionPropertyVisibility;
-  label: string;
-}> = [{ key: 'cover', label: 'Cover image' }];
-
-// A collection opts in through `capabilities.propertyKeys` (Title only ever shows in the Card layout).
-const TITLE_PROPERTY_ITEM = { key: 'title', label: 'Title' } as const;
-const SIZE_PROPERTY_ITEM = { key: 'size', label: 'File size' } as const;
-
-const ARCHIVED_PROPERTY_ITEM = {
-  key: 'archived',
-  label: collectionFieldLabel('archived'),
-} as const;
-
-// Sort by is the Properties list: Name (the one field Properties has no
-// item for — the name is always shown), then every Property the layout
-// offers, under the same label and in the same order. Title is Name.
-const SORT_KEY_OF_PROPERTY: Partial<Record<keyof CollectionPropertyVisibility, PropertyId>> = {
-  description: 'description',
-  cover: 'cover',
-  size: 'size',
-  created: 'created',
-  updated: 'updated',
-  archived: 'archived',
-};
-
 type ConfigureMenuView = 'root' | 'properties';
 
 /**
@@ -85,13 +41,13 @@ type ConfigureMenuView = 'root' | 'properties';
  * page title (PageTitleSection's `actions` slot), not the top bar.
  *
  * Properties is a nested/replacement view, not a second floating menu —
- * one shared `<Menu>`, its children swapped by `view` state, exactly the
+ * one shared `<Menu>`, its children swapped by `panel` state, exactly the
  * pattern FencedCodeActionsMenu.tsx's Change Language view established
  * (see that file's own, extensively documented comment for the full
  * rationale — this reuses it rather than inventing a second navigation
  * mechanism):
  *
- *  - The render-phase `view` reset on reopen (`wasOpen` compared during
+ *  - The render-phase `panel` reset on reopen (`wasOpen` compared during
  *    render, not in a `useEffect`) — an effect-based reset would commit
  *    and paint one stale frame (the Properties view flashing) before
  *    correcting itself a moment later; this way React corrects the state
@@ -111,60 +67,29 @@ type ConfigureMenuView = 'root' | 'properties';
  * `Menu`'s own default focus/keyboard handling already covers a plain
  * list of `MenuItem`s in both views unchanged.
  *
+ * The rows themselves are never decided here. The root view's Layout rows are
+ * `view.layouts`, Properties is `view.available` (with the layout's required ones locked)
+ * and Sort by is `view.sortable` — the same properties, the same labels (the
+ * registry's), the same canonical order, filtered to the ones that can be sorted.
+ *
  * The trigger icon is `settings` (svg/settings.svg).
  */
-export function CollectionViewMenu({
-  viewMode,
-  onChange,
-  properties,
-  onPropertiesChange,
-  sort,
-  onSortChange,
-  showArchived = false,
-  capabilities = NOTE_COLLECTION_VIEW_CAPABILITIES,
-}: CollectionViewMenuProps) {
-  const allPropertyItems = [
-    ...(viewMode === 'card' ? [TITLE_PROPERTY_ITEM] : []),
-    SIZE_PROPERTY_ITEM,
-    DESCRIPTION_PROPERTY_ITEM,
-    // The Archive has no Cover image thumbnail (covers aren't changed from there), so nothing to toggle.
-    ...(viewMode !== 'card' && !showArchived ? ROW_PROPERTY_ITEMS : []),
-    // A note card shows only the edited date, so Created isn't offered in Card mode — unless the collection lists its own property keys (an asset shows Created in every layout).
-    ...DATE_PROPERTY_ITEMS.filter(
-      ({ key }) =>
-        viewMode !== 'card' ||
-        capabilities.propertyKeys !== undefined ||
-        key !== 'created'
-    ),
-    ...(showArchived ? [ARCHIVED_PROPERTY_ITEM] : []),
-  ];
-  // A collection that lists its `propertyKeys` offers only those, in every layout; Title and File size are offered only that way.
-  const propertyItems = capabilities.propertyKeys
-    ? allPropertyItems.filter(({ key }) => capabilities.propertyKeys!.includes(key))
-    : allPropertyItems.filter(({ key }) => key !== 'title' && key !== 'size');
-  // Exactly the Properties list: Name, then each offered Property (that this collection can sort by), same labels and order.
-  const sortItems: Array<{ key: PropertyId; label: string }> = [
-    { key: 'name', label: 'Name' },
-    ...propertyItems.flatMap(({ key, label }) => {
-      const sortKey = SORT_KEY_OF_PROPERTY[key];
-      return sortKey !== undefined && capabilities.sortKeys.includes(sortKey) ? [{ key: sortKey, label }] : [];
-    }),
-  ];
-  const showSort = capabilities.sortKeys.length > 0;
+export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onSortChange }: CollectionViewMenuProps) {
+  const { sort } = view;
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<ConfigureMenuView>('root');
+  const [panel, setPanel] = useState<ConfigureMenuView>('root');
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   // Every fresh open must start on the root view — CollectionViewMenu
   // itself never unmounts between opens (only its Overlay does), so
-  // `view` would otherwise resume wherever the previous open left off.
+  // `panel` would otherwise resume wherever the previous open left off.
   // See this component's own doc comment for why this runs during
   // render rather than in a `useEffect`.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open && view !== 'root') {
-      setView('root');
+    if (open && panel !== 'root') {
+      setPanel('root');
     }
   }
 
@@ -190,44 +115,44 @@ export function CollectionViewMenu({
         alignment="end"
       >
         <Menu size="medium">
-          {view === 'root' ? (
+          {panel === 'root' ? (
             <>
               <MenuGroupTitle>Layout</MenuGroupTitle>
-              {VIEW_ITEMS.filter(({ mode }) => capabilities.layouts.includes(mode)).map(({ mode, label, icon }) => (
+              {VIEW_ITEMS.filter(({ mode }) => view.layouts.includes(mode)).map(({ mode, label, icon }) => (
                 <MenuItem
                   key={mode}
-                  selected={mode === viewMode}
+                  selected={mode === view.layout}
                   leading={<AppIcon icon={icon} />}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onChange(mode);
+                    onLayoutChange(mode);
                     setOpen(false);
                   }}
                 >
                   {label}
                 </MenuItem>
               ))}
-              {capabilities.properties && propertyItems.length > 0 && (
+              {view.available.length > 0 && (
                 <>
                   <div className="menu__divider" role="separator" />
                   <MenuItem
                     trailing={<AppIcon icon="chevronRight" />}
                     onClick={(event) => {
                       event.stopPropagation();
-                      setView('properties');
+                      setPanel('properties');
                     }}
                   >
                     Properties
                   </MenuItem>
                 </>
               )}
-              {showSort && (
+              {view.sortable.length > 0 && (
                 <>
                   <div className="menu__divider" role="separator" />
                   <MenuGroupTitle>Sort by</MenuGroupTitle>
                 </>
               )}
-              {(showSort ? sortItems : []).map(({ key, label }) => {
+              {view.sortable.map((key) => {
                 const isActive = sort.property === key;
 
                 return (
@@ -269,7 +194,7 @@ export function CollectionViewMenu({
                       );
                     }}
                   >
-                    {label}
+                    {propertyLabel(key)}
                   </MenuItem>
                 );
               })}
@@ -280,7 +205,7 @@ export function CollectionViewMenu({
                 trailing={
                   <Button
                     aria-label="Back to Configure"
-                    onClick={() => setView('root')}
+                    onClick={() => setPanel('root')}
                     isIconOnly
                     variant="ghost"
                     interaction="subtle"
@@ -293,18 +218,22 @@ export function CollectionViewMenu({
                 Properties
               </MenuGroupTitle>
               <div className="menu__divider" role="separator" />
-              {propertyItems.map(({ key, label }) => {
-                const checked = properties[key];
+              {view.available.map((id) => {
+                const checked = view.visible.includes(id);
+                // A property the current layout requires (the name, for a list or a table) is
+                // shown ticked and cannot be turned off — the resolver guarantees it stays
+                // visible whatever is stored; the disabled row is just that, said out loud.
+                const locked = view.locked.includes(id);
                 // Toggling a property doesn't close the menu (unlike a
                 // Layout selection) — these are independent on/off
                 // preferences a user plausibly sets several of in one
                 // sitting, not a single mutually-exclusive choice.
-                const toggle = () =>
-                  onPropertiesChange({ ...properties, [key]: !checked });
+                const toggle = () => onPropertyChange(id, !checked);
 
                 return (
                   <MenuItem
-                    key={key}
+                    key={id}
+                    disabled={locked}
                     // A tick icon when checked, an empty `.app-icon`-sized
                     // span when not — always a non-null `leading` so
                     // Entry's own `.entry__leading` wrapper renders at the
@@ -323,7 +252,7 @@ export function CollectionViewMenu({
                       toggle();
                     }}
                   >
-                    {label}
+                    {propertyLabel(id)}
                   </MenuItem>
                 );
               })}

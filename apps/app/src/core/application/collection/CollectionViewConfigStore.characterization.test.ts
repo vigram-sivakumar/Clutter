@@ -4,15 +4,11 @@ import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 
 /**
- * CHARACTERIZATION of the persisted collection-view shape as it is TODAY, written before the
- * property-registry migration (which will replace `properties` with intent-only overrides and
- * `sort.key` with `sort.property`). The existing CollectionViewConfigStore.test.ts covers the
- * store's mechanics; this file pins the SHAPE decisions a migration has to convert or stay
- * compatible with.
- *
- * "CURRENT BEHAVIOR" tests are what the migration must read (or convert). "KNOWN DEFECT" tests
- * pin shape problems we have confirmed and deliberately not fixed yet; they are tripwires and are
- * expected to be rewritten when the shape changes.
+ * CHARACTERIZATION of the persisted collection-view shape: written before the property-registry
+ * migration to pin what was stored, and KEPT after it as the proof that every entry written in
+ * the old shape is still read (the property snapshot as `legacyProperties`, the sort's `key` as
+ * `property`) and that tolerant loading is unchanged. The existing
+ * CollectionViewConfigStore.test.ts covers the store's mechanics, including the new intent shape.
  */
 
 const ROOT = '/vault';
@@ -39,16 +35,11 @@ const FULL_SNAPSHOT = {
   size: true,
 } as const;
 
-describe('CURRENT BEHAVIOR — the persisted property shape is a full boolean snapshot', () => {
-  it('round-trips all eight keys exactly as written, including `preview` (dead) and keys the collection never offers', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
-    first.update('folder:any', { properties: FULL_SNAPSHOT });
-    await flush();
+describe('LEGACY SHAPE — the retired full boolean property snapshot is still read', () => {
+  it('reads all eight keys as written — including `preview` (dead) and keys the collection never offers — as `legacyProperties`', async () => {
+    const store = await loadWith({ 'folder:any': { properties: FULL_SNAPSHOT } });
 
-    const reloaded = await CollectionViewConfigStore.load(fileSystem, ROOT);
-
-    expect(reloaded.get('folder:any')).toEqual({ properties: FULL_SNAPSHOT });
+    expect(store.get('folder:any')).toEqual({ legacyProperties: FULL_SNAPSHOT });
   });
 
   it('writes exactly what it is given into workspace.json under `collectionViewConfig` — it adds no defaults of its own', async () => {
@@ -70,7 +61,7 @@ describe('CURRENT BEHAVIOR — the persisted property shape is a full boolean sn
       'folder:missing-required': { properties: { description: true, created: true } },
     });
 
-    expect(store.get('folder:minimal')?.properties).toEqual({ description: true, created: true, updated: true });
+    expect(store.get('folder:minimal')?.legacyProperties).toEqual({ description: true, created: true, updated: true });
     expect(store.get('folder:missing-required')).toBeUndefined();
   });
 
@@ -86,7 +77,7 @@ describe('CURRENT BEHAVIOR — the persisted property shape is a full boolean sn
     expect(store.get('folder:bad-title')).toEqual({ layout: 'list' });
     expect(store.get('folder:bad-size')).toEqual({ layout: 'list' });
     expect(store.get('folder:only-bad')).toBeUndefined();
-    expect(store.get('folder:ok')?.properties).toEqual({ ...base, title: false, size: true });
+    expect(store.get('folder:ok')?.legacyProperties).toEqual({ ...base, title: false, size: true });
   });
 });
 
@@ -150,7 +141,7 @@ describe('CURRENT BEHAVIOR — tolerant loading', () => {
       'folder:old': { properties: { description: true, lastOpened: false, created: true, updated: false } },
     });
 
-    expect(store.get('folder:old')?.properties).toEqual({ description: true, created: true, updated: false });
+    expect(store.get('folder:old')?.legacyProperties).toEqual({ description: true, created: true, updated: false });
   });
 
   it('an unknown layout drops that field; an entry left with nothing valid is discarded entirely', async () => {
@@ -201,13 +192,16 @@ describe('CURRENT BEHAVIOR — a shape this build does not know is discarded, no
   });
 });
 
-describe('KNOWN DEFECT — the snapshot shape cannot tell the user\'s choice from a default', () => {
-  it('KNOWN DEFECT: an entry written with every default value is indistinguishable from one the user set deliberately, so a later change of default never reaches it', async () => {
+describe('the snapshot\'s old defect is gone: intent is stored apart from defaults', () => {
+  it('a legacy entry is kept as a snapshot only until its collection is changed — new writes carry intent alone', async () => {
     const allDefaults = { description: true, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true };
-    const store = await loadWith({ 'folder:untouched-but-snapshotted': { properties: allDefaults } });
+    const store = await loadWith({ 'folder:snapshotted': { properties: allDefaults } });
 
-    // The store faithfully keeps all eight keys — including `size` and `title`, which a note collection
-    // never offers. There is no "no opinion" representation for any of them.
-    expect(store.get('folder:untouched-but-snapshotted')?.properties).toEqual(allDefaults);
+    // Read as-is: the store cannot tell a default from a choice (only a definition can) …
+    expect(store.get('folder:snapshotted')?.legacyProperties).toEqual(allDefaults);
+
+    // … and the first write of property intent replaces it with intent alone.
+    store.update('folder:snapshotted', { propertyOverrides: undefined });
+    expect(store.get('folder:snapshotted')).toBeUndefined();
   });
 });

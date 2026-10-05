@@ -36,6 +36,8 @@ import type {
 import { DEFAULT_REQUIRED, type CollectionDefinition } from './collectionDefinitions';
 
 export interface ResolvedCollectionView {
+  /** The layouts the collection offers, in menu order. */
+  readonly layouts: readonly CollectionLayout[];
   readonly layout: CollectionLayout;
   /** Every property the collection offers, in canonical (registry) order. */
   readonly available: readonly PropertyId[];
@@ -74,7 +76,7 @@ export function resolveCollectionView(
   const sort =
     config.sort !== undefined && sortable.includes(config.sort.property) ? config.sort : definition.defaultSort;
 
-  return { layout, available, visible, locked, sortable, sort };
+  return { layouts: definition.layouts, layout, available, visible, locked, sortable, sort };
 }
 
 /**

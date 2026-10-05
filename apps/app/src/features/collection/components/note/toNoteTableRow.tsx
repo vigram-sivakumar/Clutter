@@ -6,25 +6,21 @@ import type {
 } from '@features/collection/components/table/CollectionDataTable';
 
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
-import type { NoteTableColumnVisibility } from './noteTableColumns';
-import { formatPropertyValue } from '../../properties/formatProperty';
+import type { PropertyId } from '@core/properties/collectionProperties';
+import { propertyValueCells } from '../../properties/tableColumns';
 import { toNoteCoverImage } from './toNoteCoverImage';
 
 export interface NoteTableRowOptions {
   /**
-   * Whether the description line (including its "No description" fallback)
-   * is shown at all. A genuinely empty description still falls back to the
-   * placeholder when this is `true` — that is a different case from "hidden
-   * by preference", and this flag is what tells them apart.
+   * The visible properties (from the resolved view) — must be the same ones the table's columns
+   * were built from. Description is not a column: it is drawn inside the Name cell (with its
+   * "No description" fallback) when it is visible.
    */
-  readonly showDescription: boolean;
-  /** Which date columns exist — must be the same visibility the table's columns were built from. */
-  readonly columns: NoteTableColumnVisibility;
+  readonly visible: readonly PropertyId[];
   /**
-   * The Cover image column's cell for this note — only read when
-   * `columns.cover` is on. `url` is the cover resolved to a loadable URL
-   * (null: no visible cover); `onClick` is what the thumbnail does when
-   * clicked (open the cover picker for this note).
+   * The Cover image column's cell for this note — only read when the Cover image is visible.
+   * `url` is the cover resolved to a loadable URL (null: no visible cover); `onClick` is what
+   * the thumbnail does when clicked (open the cover picker for this note).
    */
   readonly cover?: {
     readonly url: string | null;
@@ -34,14 +30,15 @@ export interface NoteTableRowOptions {
 
 /**
  * A note as a row of the generic collection table: its values only, keyed by
- * the column ids `buildNoteTableColumns` declares. The note-specific part is
+ * the column ids `buildPropertyTableColumns` declares. The note-specific part is
  * just this mapping (which field fills which column); drawing the cells and
  * the grid is `CollectionDataTable`'s job.
  */
 export function toNoteTableRow(
   entry: CollectionEntryModel,
-  { showDescription, columns, cover }: NoteTableRowOptions
+  { visible, cover }: NoteTableRowOptions
 ): CollectionDataTableRow {
+  const showDescription = visible.includes('description');
   const cells: Record<string, CollectionTableCellValue> = {
     name: {
       variant: 'header',
@@ -51,25 +48,16 @@ export function toNoteTableRow(
       description: showDescription ? entry.values.description : undefined,
       descriptionPlaceholder: showDescription ? 'No description' : undefined,
     },
+    ...propertyValueCells(visible, entry.values),
   };
 
-  if (columns.cover && cover) {
+  if (visible.includes('cover') && cover) {
     cells.cover = {
       variant: 'media',
       children: toNoteCoverImage(cover.url, entry.coverPositionAbove),
       onClick: cover.onClick,
       label: cover.url ? 'Change cover image' : 'Add cover image',
     };
-  }
-
-  if (columns.created) {
-    cells.created = { variant: 'text', value: formatPropertyValue('created', entry.values), dateTime: entry.values.created };
-  }
-  if (columns.updated) {
-    cells.updated = { variant: 'text', value: formatPropertyValue('updated', entry.values), dateTime: entry.values.updated };
-  }
-  if (columns.archived) {
-    cells.archived = { variant: 'text', value: formatPropertyValue('archived', entry.values), dateTime: entry.values.archived };
   }
 
   return { id: entry.id, cells, isSelected: entry.selected, onClick: entry.onClick };

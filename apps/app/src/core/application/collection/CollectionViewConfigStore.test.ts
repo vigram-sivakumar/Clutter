@@ -11,6 +11,15 @@ async function reload(fileSystem: InMemoryVaultFileSystem): Promise<CollectionVi
   return CollectionViewConfigStore.load(fileSystem, ROOT);
 }
 
+/** A store loaded from the given raw `collectionViewConfig` (a corrupt entry's warning silenced). */
+async function loadWith(collectionViewConfig: Record<string, unknown>): Promise<CollectionViewConfigStore> {
+  const fileSystem = new InMemoryVaultFileSystem({ [WORKSPACE_PATH]: JSON.stringify({ collectionViewConfig }) });
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+  warn.mockRestore();
+  return store;
+}
+
 /** Lets the store's fire-and-forget update() writes complete before assertions. */
 async function flushMicrotasks(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -174,7 +183,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
 
     beforeRestart.update('folder:projects', {
       layout: 'table',
-      properties: { description: true, created: false, updated: true },
+      propertyOverrides: { created: false },
       sort: { property: 'updated', direction: 'down' },
     });
     await flushMicrotasks();
@@ -183,7 +192,7 @@ describe('CollectionViewConfigStore — update()/get() and per-collection scopin
 
     expect(afterRestart.get('folder:projects')).toEqual({
       layout: 'table',
-      properties: { description: true, created: false, updated: true },
+      propertyOverrides: { created: false },
       sort: { property: 'updated', direction: 'down' },
     });
   });
@@ -281,33 +290,12 @@ describe('CollectionViewConfigStore — multi-writer coexistence with FoldStateS
   });
 });
 
-describe('CollectionViewConfigStore — archived column', () => {
-  it('loads a legacy properties entry written before `archived` existed', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
-    first.update('folder:Archive', {
-      properties: { description: true, created: true, updated: true },
-    });
-    await flushMicrotasks();
-
-    const reloaded = await reload(fileSystem);
-
-    expect(reloaded.get('folder:Archive')).toEqual({
-      properties: { description: true, created: true, updated: true },
-    });
-  });
-
-  it('round-trips `archived` visibility and an archived sort key', async () => {
+describe('CollectionViewConfigStore — property overrides (user intent)', () => {
+  it('round-trips an override for each kind of property, and an archived sort', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const first = await CollectionViewConfigStore.load(fileSystem, ROOT);
     const entry = {
-      properties: {
-        description: true,
-       
-        created: true,
-        updated: true,
-        archived: false,
-      },
+      propertyOverrides: { archived: false, cover: false, size: true },
       sort: { property: 'archived', direction: 'down' },
     } as const;
     first.update('folder:Archive', entry);
@@ -316,25 +304,97 @@ describe('CollectionViewConfigStore — archived column', () => {
     expect((await reload(fileSystem)).get('folder:Archive')).toEqual(entry);
   });
 
-  it('loads and persists the optional Card toggles (cover/preview), and an entry without them still loads', async () => {
-    const base = { description: true, created: true, updated: true };
-    const fileSystem = new InMemoryVaultFileSystem({
-      [WORKSPACE_PATH]: JSON.stringify({
-        collectionViewConfig: {
-          'folder:old': { properties: base },
-          'folder:card': { properties: { ...base, cover: false, preview: true } },
-          'folder:bad': { properties: { ...base, cover: 'no' } },
-        },
-      }),
-    });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('writes only the intent — never defaults, capabilities, or the retired keys', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    store.update('folder:a', { propertyOverrides: { cover: false } });
+    await flushMicrotasks();
 
+    const written = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH));
+    expect(written.collectionViewConfig['folder:a']).toEqual({ propertyOverrides: { cover: false } });
+  });
+
+  it('an override is read per property: an unknown id or a non-boolean value is dropped, the valid ones kept', async () => {
+    const store = await loadWith({
+      'folder:mixed': { propertyOverrides: { cover: false, title: false, created: 'no', modified: true, description: true } },
+      'folder:none-valid': { propertyOverrides: { title: false, preview: true } },
+      'folder:not-an-object': { layout: 'list', propertyOverrides: ['cover'] },
+    });
+
+    expect(store.get('folder:mixed')).toEqual({ propertyOverrides: { cover: false, description: true } });
+    expect(store.get('folder:none-valid')).toBeUndefined();
+    expect(store.get('folder:not-an-object')).toEqual({ layout: 'list' });
+  });
+
+  it('clearing the overrides (undefined) removes them; clearing the last field removes the entry', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
-    expect(store.get('folder:old')?.properties).toEqual(base);
-    expect(store.get('folder:card')?.properties).toEqual({ ...base, cover: false, preview: true });
+    store.update('folder:a', { layout: 'list', propertyOverrides: { cover: false } });
+    store.update('folder:a', { propertyOverrides: undefined });
+    expect(store.get('folder:a')).toEqual({ layout: 'list' });
+
+    store.update('folder:b', { propertyOverrides: { cover: false } });
+    store.update('folder:b', { propertyOverrides: undefined });
+    expect(store.get('folder:b')).toBeUndefined();
+  });
+});
+
+describe('CollectionViewConfigStore — an entry written before the property registry (legacy snapshot)', () => {
+  const BASE = { description: true, created: true, updated: true };
+
+  it('is read as `legacyProperties` — it cannot be converted here, because that needs the collection\'s definition', async () => {
+    const store = await loadWith({
+      'folder:old': { properties: BASE },
+      'folder:archived-era': { properties: { ...BASE, archived: false } },
+      'folder:card-era': { properties: { ...BASE, cover: false, preview: true } },
+    });
+
+    expect(store.get('folder:old')).toEqual({ legacyProperties: BASE });
+    expect(store.get('folder:archived-era')).toEqual({ legacyProperties: { ...BASE, archived: false } });
+    expect(store.get('folder:card-era')).toEqual({ legacyProperties: { ...BASE, cover: false, preview: true } });
+  });
+
+  it('a malformed snapshot is dropped as a whole', async () => {
+    const store = await loadWith({ 'folder:bad': { properties: { ...BASE, cover: 'no' } } });
+
     expect(store.get('folder:bad')).toBeUndefined();
-    warn.mockRestore();
+  });
+
+  it('an entry the user has not touched since is written back exactly as it was', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ collectionViewConfig: { 'folder:old': { properties: BASE } } }),
+    });
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    // An unrelated collection changes, which re-writes the whole map.
+    store.update('folder:other', { layout: 'list' });
+    await flushMicrotasks();
+
+    const written = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH));
+    expect(written.collectionViewConfig['folder:old']).toEqual({ properties: BASE });
+  });
+
+  it('writing property intent retires the snapshot (its choices were converted into those overrides)', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ collectionViewConfig: { 'folder:old': { layout: 'table', properties: { ...BASE, cover: false } } } }),
+    });
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    store.update('folder:old', { propertyOverrides: { cover: false } });
+    await flushMicrotasks();
+
+    expect(store.get('folder:old')).toEqual({ layout: 'table', propertyOverrides: { cover: false } });
+    const written = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH));
+    expect(written.collectionViewConfig['folder:old']).toEqual({ layout: 'table', propertyOverrides: { cover: false } });
+  });
+
+  it('changing only the layout or the sort leaves the snapshot in place', async () => {
+    const store = await loadWith({ 'folder:old': { properties: { ...BASE, cover: false } } });
+
+    store.update('folder:old', { layout: 'list' });
+
+    expect(store.get('folder:old')).toEqual({ layout: 'list', legacyProperties: { ...BASE, cover: false } });
   });
 
   it("accepts the Properties sort keys (size, description, cover…) and rejects any other key — including the retired 'type'", async () => {
@@ -375,7 +435,7 @@ describe('CollectionViewConfigStore — retired Last opened', () => {
 
     expect(store.get('folder:old-property')).toEqual({
       layout: 'table',
-      properties: { description: true, created: true, updated: false },
+      legacyProperties: { description: true, created: true, updated: false },
     });
     // The retired sort key is discarded (the collection falls back to its default sort); the layout survives.
     expect(store.get('folder:old-sort')).toEqual({ layout: 'list' });

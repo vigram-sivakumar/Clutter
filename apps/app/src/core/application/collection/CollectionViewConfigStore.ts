@@ -2,74 +2,37 @@ import {
   mergeAndWriteWorkspaceStateFile,
   readWorkspaceStateFileText,
 } from '../../vault/initialize/workspaceStateFile';
-import { isPropertyId } from '../../properties/collectionProperties';
+import { isPropertyId, type PropertyId } from '../../properties/collectionProperties';
 import type { CollectionSort } from '../../properties/collectionSort';
+import {
+  isCollectionLayout,
+  type CollectionViewConfig,
+  type LegacyCollectionProperties,
+  type PersistedCollectionViewConfig,
+  type PropertyOverrides,
+} from '../../properties/collectionViewConfig';
 import { WORKSPACE_STATE_RELATIVE_PATH } from '../../vault/initialize/ReservedResources';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
-export type PersistedCollectionLayout = 'list' | 'table' | 'card';
-
-export interface PersistedCollectionProperties {
-  readonly description: boolean;
-  readonly created: boolean;
-  readonly updated: boolean;
-  /**
-   * The Archive collection's own column. Optional (unlike its siblings): it
-   * was added after the first persisted entries were written, and an entry
-   * without it must still load rather than be discarded as malformed —
-   * the caller resolves a missing value to the default (shown).
-   */
-  readonly archived?: boolean;
-  /**
-   * The Card layout's own toggles — cover image and content preview.
-   * Optional for the same reason as `archived`: added after the first
-   * persisted entries, so an entry without them must still load; the caller
-   * resolves a missing value to the default (shown).
-   */
-  readonly cover?: boolean;
-  readonly preview?: boolean;
-  /** The Card layout's Title toggle (Assets) — optional for the same reason; missing resolves to shown. */
-  readonly title?: boolean;
-  /** Assets' Card File size toggle — optional for the same reason; missing resolves to shown. */
-  readonly size?: boolean;
-}
-
 /**
- * The persisted sort is `{ property, direction }` — a property id from the registry
- * (`core/properties/collectionProperties.ts`) and the arrow shown. Entries written before the
- * registry stored it as `{ key, direction }` under the same ids; both are read, only the new
- * shape is written.
- */
-export type PersistedCollectionSort = CollectionSort;
-
-/**
- * A single collection's persisted Configure-menu state (Layout/Properties/
- * Sort). Every field is optional: an entry is written one field at a time
- * (`update()`'s patch shape, mirroring `TagOperations.updateMetadata()`),
- * and a field a collection never touched simply isn't present, resolved to
- * its ordinary default by the caller (`PageHost.tsx`) — this store has no
- * opinion on what those defaults are (they're `CollectionBody.tsx`'s
- * `DEFAULT_COLLECTION_*` constants, a UI-layer concern this
- * `core/application` store must not import).
+ * A single collection's persisted Configure-menu state — USER INTENT only
+ * (`CollectionViewConfig`, core/properties): the layout, the property
+ * overrides against the collection's defaults, and the sort. Every field is
+ * optional: an entry is written one field at a time (`update()`'s patch
+ * shape, mirroring `TagOperations.updateMetadata()`), and a field a collection
+ * never touched simply isn't present, resolved to the collection's own
+ * default by `resolveCollectionView` — this store has no opinion on what
+ * those defaults are, and never records them.
  *
- * Deliberately its own, independent type shapes — not an import of
- * `CollectionViewMode`/`CollectionPropertyVisibility`/`CollectionSortState`
- * from `apps/app/src/app/layouts/page/body/CollectionBody.tsx` — even
- * though they're structurally identical today: that file is UI/Features
- * layer, and `core/application` must never import from it (dependencies
- * point downward — ARCHITECTURE_RULES.md rule 6/`architecture-target.md`'s
- * dependency diagram). The literal unions happen to match exactly, so no
- * conversion is needed at the call site, the same small, accepted
- * duplication `TagOperations`'s own doc comment already establishes
- * ("the raw object -> normalized Map transform... is duplicated, not
- * shared... if the format ever grows real structure, that's the trigger
- * to factor out a shared primitive, not before").
+ * Two retired shapes are still READ so nobody's saved choices are lost: the
+ * `properties` snapshot (eight booleans, kept as `legacyProperties` until its
+ * collection is next changed — converting it needs the collection's
+ * definition, which this store does not have) and the sort's `{ key,
+ * direction }` (the same ids as `{ property, direction }`, converted on load).
+ * Only the intent shape is written, except for an entry the user has not
+ * touched since, whose legacy snapshot is written back as it was.
  */
-export interface PersistedCollectionViewConfig {
-  readonly layout?: PersistedCollectionLayout;
-  readonly properties?: PersistedCollectionProperties;
-  readonly sort?: PersistedCollectionSort;
-}
+export type { PersistedCollectionViewConfig };
 
 /**
  * Owns the `collectionViewConfig` top-level key of `.clutter/workspace.json`
@@ -188,12 +151,18 @@ export class CollectionViewConfigStore {
    * handler, not an `await`-able flow, and a lost write on an abrupt
    * process kill is a rare, accepted edge case.
    */
-  update(collectionKey: string, patch: Partial<PersistedCollectionViewConfig>): void {
-    const merged: PersistedCollectionViewConfig = {
-      ...this.entries.get(collectionKey),
-      ...patch,
-    };
-    this.entries.set(collectionKey, merged);
+  update(collectionKey: string, patch: Partial<CollectionViewConfig>): void {
+    const existing = this.entries.get(collectionKey);
+    // Writing property intent retires the legacy snapshot: the caller converted it (against the
+    // collection's definition) into the overrides it is now writing, so it must not linger.
+    const base = 'propertyOverrides' in patch ? { ...existing, legacyProperties: undefined } : existing;
+    const merged = compact({ ...base, ...patch });
+
+    if (merged === undefined) {
+      this.entries.delete(collectionKey);
+    } else {
+      this.entries.set(collectionKey, merged);
+    }
     void this.persist();
   }
 
@@ -236,9 +205,11 @@ export class CollectionViewConfigStore {
    * function's own doc comment for the full rationale.
    */
   private async persist(): Promise<void> {
-    const collectionViewConfig: Record<string, PersistedCollectionViewConfig> = {};
+    const collectionViewConfig: Record<string, unknown> = {};
     for (const [key, entry] of this.entries) {
-      collectionViewConfig[key] = entry;
+      const { legacyProperties, ...intent } = entry;
+      // An entry the user has not touched since the migration keeps its legacy snapshot, written back as it was.
+      collectionViewConfig[key] = legacyProperties === undefined ? intent : { ...intent, properties: legacyProperties };
     }
 
     await mergeAndWriteWorkspaceStateFile(this.fileSystem, this.rootPath, {
@@ -247,63 +218,65 @@ export class CollectionViewConfigStore {
   }
 }
 
+/** An entry without its absent (undefined) fields, or `undefined` when nothing is left — so "clear this field" and "no entry" are the same thing. */
+function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewConfig | undefined {
+  const { layout, propertyOverrides, sort, legacyProperties } = entry;
+  const result: PersistedCollectionViewConfig = {
+    ...(layout !== undefined && { layout }),
+    ...(propertyOverrides !== undefined && Object.keys(propertyOverrides).length > 0 && { propertyOverrides }),
+    ...(sort !== undefined && { sort }),
+    ...(legacyProperties !== undefined && { legacyProperties }),
+  };
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
+ * Reads one stored entry, field by field: a malformed field is dropped and the valid ones
+ * kept (a bad `properties` snapshot never costs the user their layout); an entry with no valid
+ * field at all carries no information and is discarded outright.
+ */
 function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewConfig | undefined {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return undefined;
   }
 
-  const { layout, properties, sort } = raw as {
+  const { layout, propertyOverrides, properties, sort } = raw as {
     layout?: unknown;
+    propertyOverrides?: unknown;
     properties?: unknown;
     sort?: unknown;
   };
 
-  const entry: {
-    layout?: PersistedCollectionLayout;
-    properties?: PersistedCollectionProperties;
-    sort?: PersistedCollectionSort;
-  } = {};
-  let sawAnyValidField = false;
-  let sawAnyField = false;
+  return compact({
+    ...(isCollectionLayout(layout) && { layout }),
+    ...(parsePropertyOverrides(propertyOverrides) && { propertyOverrides: parsePropertyOverrides(propertyOverrides) }),
+    ...(parseLegacyProperties(properties) && { legacyProperties: parseLegacyProperties(properties) }),
+    ...(parseSort(sort) && { sort: parseSort(sort) }),
+  });
+}
 
-  if (layout !== undefined) {
-    sawAnyField = true;
-    if (layout === 'list' || layout === 'table' || layout === 'card') {
-      entry.layout = layout;
-      sawAnyValidField = true;
-    }
-  }
-
-  if (properties !== undefined) {
-    sawAnyField = true;
-    const parsedProperties = parseProperties(properties);
-    if (parsedProperties) {
-      entry.properties = parsedProperties;
-      sawAnyValidField = true;
-    }
-  }
-
-  if (sort !== undefined) {
-    sawAnyField = true;
-    const parsedSort = parseSort(sort);
-    if (parsedSort) {
-      entry.sort = parsedSort;
-      sawAnyValidField = true;
-    }
-  }
-
-  // An entry with no recognized fields at all (e.g. `{}`, or every field
-  // malformed) carries no information — discarded outright, matching
-  // FoldStateStore's own per-entry discard-on-malformed posture, rather
-  // than kept as a silently-empty `{}` entry.
-  if (!sawAnyField || !sawAnyValidField) {
+/** `{ <property id>: boolean }`: unknown ids and non-boolean values are dropped one by one; nothing left means no overrides. */
+function parsePropertyOverrides(raw: unknown): PropertyOverrides | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return undefined;
   }
 
-  return entry;
+  const overrides: Partial<Record<PropertyId, boolean>> = {};
+  for (const [id, value] of Object.entries(raw)) {
+    if (isPropertyId(id) && typeof value === 'boolean') {
+      overrides[id] = value;
+    }
+  }
+
+  return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
 
-function parseProperties(raw: unknown): PersistedCollectionProperties | undefined {
+/**
+ * The retired snapshot: description / created / updated are mandatory; the rest are optional
+ * (older entries lack them). Any non-boolean makes the whole snapshot unreadable.
+ */
+function parseLegacyProperties(raw: unknown): LegacyCollectionProperties | undefined {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return undefined;
   }
@@ -339,7 +312,7 @@ function parseProperties(raw: unknown): PersistedCollectionProperties | undefine
   };
 }
 
-function parseSort(raw: unknown): PersistedCollectionSort | undefined {
+function parseSort(raw: unknown): CollectionSort | undefined {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return undefined;
   }

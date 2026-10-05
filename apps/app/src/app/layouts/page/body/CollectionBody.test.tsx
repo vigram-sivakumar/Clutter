@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
+import { noteVisible } from '@features/collection/testing/visibleProperties';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CollectionBody,
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   NOTE_SORT_OPTIONS,
 } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
@@ -203,7 +203,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       <CollectionBody
         notes={[entry]}
         viewMode="card"
-        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, updated: false }}
+        visible={noteVisible('updated')}
       />
     );
     expect(queryByText(/Edited/)).not.toBeInTheDocument();
@@ -225,7 +225,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
       <CollectionBody
         notes={[entry]}
         viewMode="card"
-        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, description: false }}
+        visible={noteVisible('description')}
       />
     );
     expect(queryByText('About this note')).not.toBeInTheDocument();
@@ -236,9 +236,9 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     const entry = () =>
       noteEntry({ markdown: '# Heading\n\nbody', cover: 'Assets/hero.png', coverPositionAbove: 30 });
     const resolvers = { resolveCoverImage: (c: string) => `app://vault/${c}` };
-    const renderCard = (properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) =>
+    const renderCard = (visible = noteVisible()) =>
       render(
-        <CollectionBody notes={[entry()]} viewMode="card" properties={properties} previewResolvers={resolvers} />
+        <CollectionBody notes={[entry()]} viewMode="card" visible={visible} previewResolvers={resolvers} />
       ).container;
 
     it('a card always shows the cover and the content, together on one page canvas', () => {
@@ -249,7 +249,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     });
 
     it('ignores the Cover image / Content preview properties (no longer offered for cards), even from a saved view config', () => {
-      const container = renderCard({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false });
+      const container = renderCard(noteVisible('cover'));
 
       expect(container.querySelector('.note-page-canvas__cover')).toBeInTheDocument();
       expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Heading');
@@ -274,7 +274,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
           <CollectionBody
             notes={[entry()]}
             viewMode={viewMode}
-            properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false, preview: false }}
+            visible={noteVisible('cover')}
           />
         );
         expect(getByText('My note')).toBeInTheDocument();
@@ -346,7 +346,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, created: true, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        visible={noteVisible('description')}
       />
     );
 
@@ -367,14 +367,14 @@ describe('CollectionBody — Properties visibility', () => {
 
   it('hides created/updated when unchecked, in both List and Table mode', () => {
     const entry = noteEntry({ created: CREATED_AT, updated: UPDATED_AT });
-    const hidden = { description: true, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true };
+    const hidden = noteVisible('created', 'updated');
 
-    const table = render(<CollectionBody notes={[entry]} viewMode="table" properties={hidden} />);
+    const table = render(<CollectionBody notes={[entry]} viewMode="table" visible={hidden} />);
     expect(table.queryByText(CREATED_TEXT)).not.toBeInTheDocument();
     expect(table.queryByText(UPDATED_TEXT)).not.toBeInTheDocument();
     table.unmount();
 
-    const list = render(<CollectionBody notes={[entry]} viewMode="list" properties={hidden} />);
+    const list = render(<CollectionBody notes={[entry]} viewMode="list" visible={hidden} />);
     expect(list.queryByText(CREATED_TEXT)).not.toBeInTheDocument();
     expect(list.queryByText(UPDATED_TEXT)).not.toBeInTheDocument();
   });
@@ -384,7 +384,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         folders={[folderEntry({ subfolderCount: 1, noteCount: 2 })]}
         viewMode="table"
-        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        visible={noteVisible('description', 'created', 'updated')}
       />
     );
 
@@ -398,7 +398,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
-        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        visible={noteVisible('created')}
       />
     );
 
@@ -411,7 +411,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
-        properties={{ description: true, created: false, updated: true, archived: true, cover: true, preview: true, title: true, size: true }}
+        visible={noteVisible('created')}
       />
     );
 
@@ -430,7 +430,7 @@ describe('CollectionBody — Properties visibility', () => {
       <CollectionBody
         notes={[noteEntry()]}
         viewMode="table"
-        properties={{ description: false, created: false, updated: false, archived: true, cover: true, preview: true, title: true, size: true }}
+        visible={noteVisible('description', 'created', 'updated')}
       />
     );
 
@@ -545,7 +545,7 @@ describe('CollectionBody: Archived column is Archive-only', () => {
       <CollectionBody
         notes={[noteEntry({ archived: CREATED_AT })]}
         viewMode="table"
-        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
+        visible={noteVisible()}
       />
     );
 

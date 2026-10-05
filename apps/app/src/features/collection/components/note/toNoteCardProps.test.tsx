@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { PropertyId } from '@core/properties/collectionProperties';
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import { formatEntryTimestamp } from '../../properties/formatProperty';
@@ -19,14 +20,14 @@ const entry = (fixture: EntryFixture = {}): CollectionEntryModel =>
 // An entry's dates are ISO instants; the text a card shows is the formatter's.
 const UPDATED_AT = '2026-08-12T14:20:00.000Z';
 const UPDATED_TEXT = formatEntryTimestamp(UPDATED_AT)!;
-const SHOW_ALL: NoteCardOptions['show'] = { description: true, updated: true };
+const VISIBLE_ALL: PropertyId[] = ['name', 'description', 'cover', 'created', 'updated'];
 const resolvers: NotePreviewResolvers = {
   resolveCoverImage: (cover) => (cover.startsWith('Assets/') ? `app://vault/${cover}` : cover),
 };
 
 /** A note as the generic card draws it — the mapper's props through the real primitive. */
 function draw(model: CollectionEntryModel, options: Partial<NoteCardOptions> = {}) {
-  return render(<CollectionCard {...toNoteCardProps(model, { show: SHOW_ALL, resolvers, ...options })} />);
+  return render(<CollectionCard {...toNoteCardProps(model, { visible: VISIBLE_ALL, resolvers, ...options })} />);
 }
 
 describe('toNoteCardProps', () => {
@@ -82,7 +83,7 @@ describe('toNoteCardProps', () => {
 
   it('the Description / Last edited properties turn their lines off', () => {
     const { container } = draw(entry({ description: 'About', updated: UPDATED_AT }), {
-      show: { description: false, updated: false },
+      visible: ['name', 'cover', 'created'],
     });
 
     expect(container.querySelector('.card-title-section__description')).toBeNull();

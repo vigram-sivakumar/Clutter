@@ -1,3 +1,4 @@
+import type { PropertyId } from '@core/properties/collectionProperties';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { getResourceIcon } from '@core/presentation/getResourceIcon';
 import type { Asset } from '@core/vault/models/Asset';
@@ -5,7 +6,8 @@ import { CardTitleSection } from '@features/collection/components/card/CardTitle
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
 import type { ReactNode } from 'react';
-import { assetCardMetadata, type AssetMetadataVisibility } from './assetCardMetadata';
+import { assetCardMetadata } from './assetCardMetadata';
+import { toAssetEntry } from './toAssetEntry';
 import { AssetPreview } from './AssetPreview';
 
 /** The assets card grid: smaller cards than notes (assets are mostly pictures) — between 140px and 1/6 of the row wide. */
@@ -25,10 +27,12 @@ export interface AssetCardOptions {
    * (injected by the collection body; nothing is resolved here), a remote asset's own URL.
    */
   readonly url?: string;
-  /** The Title property: whether the icon and name are shown. The metadata lines are their own properties and stay when it is off. */
-  readonly showTitle?: boolean;
-  /** The File size / Created / Last edited properties: which metadata lines the header shows (all, by default). */
-  readonly metadataVisibility?: AssetMetadataVisibility;
+  /**
+   * The visible properties (from the resolved view). Name decides whether the icon and name are
+   * shown (this card is the one layout where it can be hidden); the plain-value properties
+   * decide which metadata lines the header shows, and stay when the name is hidden.
+   */
+  readonly visible: readonly PropertyId[];
   readonly isSelected?: boolean;
   /** Opens the asset — absent while it is being renamed, so a click in the editor never opens it. */
   readonly onClick?: (asset: Asset) => void;
@@ -46,10 +50,11 @@ export interface AssetCardOptions {
  */
 export function toAssetCardProps(
   asset: Asset,
-  { url, showTitle = true, metadataVisibility, isSelected = false, onClick, titleContent }: AssetCardOptions
+  { url, visible, isSelected = false, onClick, titleContent }: AssetCardOptions
 ): AssetCardProps {
-  // File facts come from the vault file's own metadata; a remote asset has none.
-  const metadata = asset.source === 'local' ? assetCardMetadata(asset.resource, metadataVisibility) : [];
+  const showTitle = visible.includes('name');
+  // The asset's property values: the vault file's own facts; a remote asset has none.
+  const metadata = assetCardMetadata(toAssetEntry(asset).values, visible);
 
   return {
     layout: 'overlay',

@@ -4,14 +4,19 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { CollectionViewMenu } from './CollectionViewMenu';
-import { ASSET_COLLECTION_VIEW_CAPABILITIES, NOTE_COLLECTION_VIEW_CAPABILITIES } from './collectionViewCapabilities';
-import {
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  DEFAULT_COLLECTION_SORT,
-  type CollectionPropertyVisibility,
-} from './CollectionBody';
+import { PROPERTY_IDS, isSortableProperty, propertyLabel, type PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
+import type { CollectionLayout, PropertyOverrides } from '@core/properties/collectionViewConfig';
+import {
+  ALL_COLLECTION_DEFINITIONS,
+  ARCHIVE_COLLECTION,
+  ASSETS_COLLECTION,
+  FOLDER_COLLECTION,
+  type CollectionDefinition,
+} from '@core/presentation/collection/collectionDefinitions';
+import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
+
+import { CollectionViewMenu } from './CollectionViewMenu';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -33,29 +38,35 @@ afterEach(() => {
 
 function renderMenu(
   overrides: {
-    viewMode?: 'list' | 'table' | 'card';
-    properties?: CollectionPropertyVisibility;
+    definition?: CollectionDefinition;
+    layout?: CollectionLayout;
+    propertyOverrides?: PropertyOverrides;
     sort?: CollectionSort;
-    showArchived?: boolean;
+    /** A hand-made view, for a shape no definition produces. */
+    view?: ResolvedCollectionView;
   } = {}
 ) {
-  const onChange = vi.fn();
-  const onPropertiesChange = vi.fn();
+  const onLayoutChange = vi.fn();
+  const onPropertyChange = vi.fn();
   const onSortChange = vi.fn();
+  const view =
+    overrides.view ??
+    resolveCollectionView(overrides.definition ?? FOLDER_COLLECTION, {
+      layout: overrides.layout ?? 'list',
+      propertyOverrides: overrides.propertyOverrides,
+      sort: overrides.sort,
+    });
   const utils = render(
     <CollectionViewMenu
-      viewMode={overrides.viewMode ?? 'list'}
-      onChange={onChange}
-      properties={overrides.properties ?? DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
-      onPropertiesChange={onPropertiesChange}
-      sort={overrides.sort ?? DEFAULT_COLLECTION_SORT}
+      view={view}
+      onLayoutChange={onLayoutChange}
+      onPropertyChange={onPropertyChange}
       onSortChange={onSortChange}
-      showArchived={overrides.showArchived}
     />
   );
   const trigger = utils.container.querySelector('[aria-haspopup="menu"]');
   fireEvent.click(trigger!);
-  return { ...utils, onChange, onPropertiesChange, onSortChange };
+  return { ...utils, onLayoutChange, onPropertyChange, onSortChange };
 }
 
 /** Navigates from the root view into the Properties submenu. */
@@ -63,9 +74,17 @@ function openPropertiesSubmenu(getByText: (text: string) => HTMLElement) {
   fireEvent.click(getByText('Properties'));
 }
 
+const menuLabels = () => [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
+
+/** The Sort by options on the root view: every menu item after the Properties row. */
+const sortLabels = () => {
+  const items = menuLabels();
+  return items.slice(items.indexOf('Properties') + 1);
+};
+
 describe('CollectionViewMenu — root view', () => {
   it('shows Layout, a Properties trigger row (not its options), and Sort by', () => {
-    const { getByText, getAllByText, queryByText } = renderMenu();
+    const { getByText, getAllByText } = renderMenu();
 
     expect(getByText('Layout')).toBeInTheDocument();
     expect(getByText('List')).toBeInTheDocument();
@@ -75,9 +94,8 @@ describe('CollectionViewMenu — root view', () => {
     expect(getByText('Sort by')).toBeInTheDocument();
     expect(getByText('Name')).toBeInTheDocument();
 
-    // Properties' toggles are not in the root view: Description appears once, as a Sort by option (Sort by is the Properties list).
+    // Properties' toggles are not in the root view: Description appears once, as a Sort by option.
     expect(getAllByText('Description')).toHaveLength(1);
-    expect(queryByText('Properties')).toBeInTheDocument();
   });
 
   it('the Properties row has a trailing chevron, matching the fenced-code "Change Language" trigger', () => {
@@ -88,28 +106,33 @@ describe('CollectionViewMenu — root view', () => {
   });
 
   it('shows the Properties row in every layout, Card included', () => {
-    expect(renderMenu({ viewMode: 'card' }).getByText('Properties')).toBeInTheDocument();
-    cleanup();
-    expect(renderMenu({ viewMode: 'list' }).getByText('Properties')).toBeInTheDocument();
-    cleanup();
-    expect(renderMenu({ viewMode: 'table' }).getByText('Properties')).toBeInTheDocument();
+    for (const layout of ['card', 'list', 'table'] as const) {
+      expect(renderMenu({ layout }).getByText('Properties')).toBeInTheDocument();
+      cleanup();
+    }
   });
 
-  it('selecting Card calls onChange with "card" and closes the whole menu', () => {
-    const { getByText, onChange, queryByText } = renderMenu();
+  it('lists the layouts the view offers, in menu order, with the current one selected', () => {
+    renderMenu({ layout: 'table' });
+
+    expect(menuLabels().slice(0, 3)).toEqual(['List', 'Table', 'Card']);
+  });
+
+  it('selecting Card calls onLayoutChange with "card" and closes the whole menu', () => {
+    const { getByText, onLayoutChange, queryByText } = renderMenu();
 
     fireEvent.click(getByText('Card'));
 
-    expect(onChange).toHaveBeenCalledWith('card');
+    expect(onLayoutChange).toHaveBeenCalledWith('card');
     expect(queryByText('Layout')).not.toBeInTheDocument();
   });
 
-  it('selecting Table calls onChange and closes the whole menu', () => {
-    const { getByText, onChange, queryByText } = renderMenu();
+  it('selecting Table calls onLayoutChange and closes the whole menu', () => {
+    const { getByText, onLayoutChange, queryByText } = renderMenu();
 
     fireEvent.click(getByText('Table'));
 
-    expect(onChange).toHaveBeenCalledWith('table');
+    expect(onLayoutChange).toHaveBeenCalledWith('table');
     expect(queryByText('Layout')).not.toBeInTheDocument();
   });
 
@@ -120,15 +143,14 @@ describe('CollectionViewMenu — root view', () => {
     expect(nameRow.querySelector('.entry__leading svg')).toBeInTheDocument();
     expect(nameRow.querySelector('.entry__trailing svg')).toBeInTheDocument();
 
-    // Only Name's row has a trailing arrow — the Properties trigger row's
-    // chevron lives in the same slot but is a distinct, un-conditional
-    // affordance, so this counts svgs scoped to Sort by's own rows only.
+    // Only Name's row has a trailing arrow — the Properties trigger row's chevron lives in the same slot but is
+    // a distinct, un-conditional affordance, so this counts svgs scoped to Sort by's own rows only.
     const sortByRows = [getByText('Name'), getByText('Created'), getByText('Last edited')];
     const arrows = sortByRows.filter((row) => row.closest('.entry')!.querySelector('.entry__trailing svg'));
     expect(arrows).toHaveLength(1);
   });
 
-  it('selecting a different sort key activates it with the default (down) direction, and does not close the menu', () => {
+  it('selecting a different sort option activates it with the default (down) direction, and does not close the menu', () => {
     const { getByText, onSortChange } = renderMenu();
 
     fireEvent.click(getByText('Last edited'));
@@ -138,9 +160,7 @@ describe('CollectionViewMenu — root view', () => {
   });
 
   it('clicking the already-active sort option flips its direction: down to up', () => {
-    const { getByText, onSortChange } = renderMenu({
-      sort: { property: 'created', direction: 'down' },
-    });
+    const { getByText, onSortChange } = renderMenu({ sort: { property: 'created', direction: 'down' } });
 
     fireEvent.click(getByText('Created'));
 
@@ -148,9 +168,7 @@ describe('CollectionViewMenu — root view', () => {
   });
 
   it('clicking the already-active option a second time flips back: up to down', () => {
-    const { getByText, onSortChange } = renderMenu({
-      sort: { property: 'name', direction: 'up' },
-    });
+    const { getByText, onSortChange } = renderMenu({ sort: { property: 'name', direction: 'up' } });
 
     fireEvent.click(getByText('Name'));
 
@@ -159,7 +177,7 @@ describe('CollectionViewMenu — root view', () => {
 });
 
 describe('CollectionViewMenu — Properties submenu', () => {
-  it('clicking the Properties row replaces the menu content with its four options and a back button', () => {
+  it('clicking the Properties row replaces the menu content with its options and a back button', () => {
     const { getByText, queryByText } = renderMenu();
 
     openPropertiesSubmenu(getByText);
@@ -175,9 +193,7 @@ describe('CollectionViewMenu — Properties submenu', () => {
   });
 
   it('shows a tick icon for a checked property and an empty, same-sized indicator for an unchecked one', () => {
-    const { getByText } = renderMenu({
-      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, created: false },
-    });
+    const { getByText } = renderMenu({ propertyOverrides: { created: false } });
     openPropertiesSubmenu(getByText);
 
     const descriptionRow = getByText('Description').closest('.entry')!;
@@ -185,26 +201,31 @@ describe('CollectionViewMenu — Properties submenu', () => {
 
     expect(descriptionRow.querySelector('.entry__leading svg')).toBeInTheDocument();
     expect(createdRow.querySelector('.entry__leading svg')).not.toBeInTheDocument();
-    // Both rows still get the same fixed-width leading wrapper, checked
-    // or not — this is what keeps the label from shifting on toggle.
+    // Both rows still get the same fixed-width leading wrapper, checked or not — this is what keeps the label
+    // from shifting on toggle.
     expect(descriptionRow.querySelector('.entry__leading')).toBeInTheDocument();
     expect(createdRow.querySelector('.entry__leading')).toBeInTheDocument();
   });
 
-  it('toggling a property calls onPropertiesChange with only that key flipped, and keeps the submenu open', () => {
-    const { getByText, onPropertiesChange } = renderMenu();
+  it('toggling a property reports that one property and the new visibility, and keeps the submenu open', () => {
+    const { getByText, onPropertyChange } = renderMenu();
     openPropertiesSubmenu(getByText);
 
     fireEvent.click(getByText('Description'));
 
-    expect(onPropertiesChange).toHaveBeenCalledTimes(1);
-    expect(onPropertiesChange).toHaveBeenCalledWith({
-      ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-      description: false,
-    });
-    // Still on the submenu — Properties is a set of independent toggles,
-    // not a single mutually-exclusive choice that closes the menu.
+    expect(onPropertyChange).toHaveBeenCalledTimes(1);
+    expect(onPropertyChange).toHaveBeenCalledWith('description', false);
+    // Still on the submenu — Properties is a set of independent toggles, not a single mutually-exclusive choice.
     expect(getByText('Description')).toBeInTheDocument();
+  });
+
+  it('turning a hidden property back on reports `true`', () => {
+    const { getByText, onPropertyChange } = renderMenu({ propertyOverrides: { created: false } });
+    openPropertiesSubmenu(getByText);
+
+    fireEvent.click(getByText('Created'));
+
+    expect(onPropertyChange).toHaveBeenCalledWith('created', true);
   });
 
   it('clicking the back button returns to the root view, unchanged', () => {
@@ -229,14 +250,71 @@ describe('CollectionViewMenu — Properties submenu', () => {
     fireEvent.click(trigger); // reopens
 
     expect(getByText('Layout')).toBeInTheDocument();
-    // The root view again: Description is only the Sort by option, not the toggle.
     expect(queryAllByText('Description')).toHaveLength(1);
     expect(queryByText('Properties')).toBeInTheDocument();
   });
 });
 
+describe('CollectionViewMenu — required properties are shown ticked and locked', () => {
+  const nameRow = (getByText: (text: string) => HTMLElement) => getByText('Name').closest('[role="menuitem"]')!;
+
+  it('a note collection lists Name first, ticked and disabled, in every layout', () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      const { getByText } = renderMenu({ layout });
+      openPropertiesSubmenu(getByText);
+
+      expect(menuLabels()[0], layout).toBe('Name');
+      expect(nameRow(getByText).querySelector('.entry__leading svg'), layout).toBeInTheDocument();
+      expect(nameRow(getByText), layout).toHaveAttribute('aria-disabled', 'true');
+      cleanup();
+    }
+  });
+
+  it('clicking a locked Name reports nothing — and the other rows stay toggleable', () => {
+    const { getByText, onPropertyChange } = renderMenu({ layout: 'table' });
+    openPropertiesSubmenu(getByText);
+
+    fireEvent.click(getByText('Name'));
+    expect(onPropertyChange).not.toHaveBeenCalled();
+
+    fireEvent.click(getByText('Created'));
+    expect(onPropertyChange).toHaveBeenCalledWith('created', false);
+    expect(getByText('Created').closest('[role="menuitem"]')).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('a persisted `name: false` does not un-tick a required Name', () => {
+    const { getByText } = renderMenu({ layout: 'table', propertyOverrides: { name: false } });
+    openPropertiesSubmenu(getByText);
+
+    expect(nameRow(getByText).querySelector('.entry__leading svg')).toBeInTheDocument();
+  });
+
+  it('the Asset card is the exception: Name is a normal, toggleable row there — and locked in List and Table', () => {
+    const card = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
+    openPropertiesSubmenu(card.getByText);
+    expect(nameRow(card.getByText)).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(card.getByText('Name'));
+    expect(card.onPropertyChange).toHaveBeenCalledWith('name', false);
+    cleanup();
+
+    for (const layout of ['list', 'table'] as const) {
+      const other = renderMenu({ definition: ASSETS_COLLECTION, layout });
+      openPropertiesSubmenu(other.getByText);
+      expect(nameRow(other.getByText), layout).toHaveAttribute('aria-disabled', 'true');
+      cleanup();
+    }
+  });
+
+  it('an asset card whose name is hidden shows Name un-ticked', () => {
+    const { getByText } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card', propertyOverrides: { name: false } });
+    openPropertiesSubmenu(getByText);
+
+    expect(nameRow(getByText).querySelector('.entry__leading svg')).not.toBeInTheDocument();
+  });
+});
+
 describe('CollectionViewMenu — Archived (Archive collection only)', () => {
-  it('offers no Archived property or sort option by default', () => {
+  it('offers no Archived property or sort option for an ordinary collection', () => {
     const { getByText, queryByText } = renderMenu();
 
     expect(queryByText('Archived')).not.toBeInTheDocument();
@@ -244,270 +322,221 @@ describe('CollectionViewMenu — Archived (Archive collection only)', () => {
     expect(queryByText('Archived')).not.toBeInTheDocument();
   });
 
-  it('offers an Archived sort option when showArchived', () => {
-    const { getByText, onSortChange } = renderMenu({ showArchived: true });
+  it('the Archive offers an Archived sort option', () => {
+    const { getByText, onSortChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
     fireEvent.click(getByText('Archived'));
 
     expect(onSortChange).toHaveBeenCalledWith({ property: 'archived', direction: 'down' });
   });
 
-  it('offers an Archived property toggle when showArchived', () => {
-    const { getByText, onPropertiesChange } = renderMenu({ showArchived: true });
+  it('the Archive offers an Archived property toggle', () => {
+    const { getByText, onPropertyChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
     openPropertiesSubmenu(getByText);
     fireEvent.click(getByText('Archived'));
 
-    expect(onPropertiesChange).toHaveBeenCalledWith({
-      ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-      archived: false,
-      cover: true,
-      preview: true,
-    });
+    expect(onPropertyChange).toHaveBeenCalledWith('archived', false);
   });
 });
 
 describe('CollectionViewMenu — Cover image property', () => {
-  it('offers Cover image in List and Table only; a Card always shows its cover, and Content preview is gone', () => {
-    const card = renderMenu({ viewMode: 'card' });
-    openPropertiesSubmenu(card.getByText);
-    expect(card.queryByText('Cover image')).not.toBeInTheDocument();
-    expect(card.queryByText('Content preview')).not.toBeInTheDocument();
-    cleanup();
+  it('is offered by a note collection in every layout (the same list in each — only what is required differs)', () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      const { getByText, queryByText } = renderMenu({ layout });
+      openPropertiesSubmenu(getByText);
 
-    for (const viewMode of ['table', 'list'] as const) {
-      const other = renderMenu({ viewMode });
-      openPropertiesSubmenu(other.getByText);
-      expect(other.getByText('Cover image')).toBeInTheDocument();
-      expect(other.queryByText('Content preview')).not.toBeInTheDocument();
+      expect(getByText('Cover image'), layout).toBeInTheDocument();
+      expect(queryByText('Content preview'), layout).not.toBeInTheDocument();
       cleanup();
     }
   });
 
-  it('does not offer Cover image in the Archive (List or Table) — it has no cover thumbnail', () => {
-    for (const viewMode of ['list', 'table'] as const) {
-      const archive = renderMenu({ viewMode, showArchived: true });
+  it('is not offered by the Archive — its definition does not select it', () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      const archive = renderMenu({ definition: ARCHIVE_COLLECTION, layout });
       openPropertiesSubmenu(archive.getByText);
-      expect(archive.queryByText('Cover image')).not.toBeInTheDocument();
+      expect(archive.queryByText('Cover image'), layout).not.toBeInTheDocument();
       cleanup();
     }
   });
 
-  it('toggling it updates only its own key', () => {
-    const { getByText, onPropertiesChange } = renderMenu({ viewMode: 'table' });
+  it('toggling it reports only its own property', () => {
+    const { getByText, onPropertyChange } = renderMenu({ layout: 'table' });
     openPropertiesSubmenu(getByText);
 
     fireEvent.click(getByText('Cover image'));
-    expect(onPropertiesChange).toHaveBeenLastCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false });
+    expect(onPropertyChange).toHaveBeenLastCalledWith('cover', false);
   });
 });
 
-describe('CollectionViewMenu — Card mode property list', () => {
-  it('omits Created in Card mode (a card shows only the edited date), keeping them in List and Table', () => {
-    const card = renderMenu({ viewMode: 'card' });
-    openPropertiesSubmenu(card.getByText);
-    expect(card.queryByText('Created')).not.toBeInTheDocument();
-    expect(card.getByText('Last edited')).toBeInTheDocument();
-    expect(card.getByText('Description')).toBeInTheDocument();
-    cleanup();
-
-    for (const viewMode of ['list', 'table'] as const) {
-      const other = renderMenu({ viewMode });
-      openPropertiesSubmenu(other.getByText);
-      expect(other.getByText('Created')).toBeInTheDocument();
-      cleanup();
-    }
-  });
-});
-
-describe('CollectionViewMenu — Properties order', () => {
-  const propertyLabels = () =>
-    [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim());
-
-  it('puts the date properties at the bottom of the list in List and Table, after Cover image', () => {
-    for (const viewMode of ['list', 'table'] as const) {
-      const { getByText } = renderMenu({ viewMode });
+describe('CollectionViewMenu — Properties order is the registry\'s, in every layout', () => {
+  it('lists Name, Description, Cover image, Created, Last edited — the same in List, Table and Card', () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      const { getByText } = renderMenu({ layout });
       openPropertiesSubmenu(getByText);
 
-      expect(propertyLabels()).toEqual(['Description', 'Cover image', 'Created', 'Last edited']);
+      expect(menuLabels(), layout).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
       cleanup();
     }
   });
 
-  it('lists just Description and the edited date in Card mode', () => {
-    const { getByText } = renderMenu({ viewMode: 'card' });
+  it('follows the registry even when a definition lists its properties in another order', () => {
+    const scrambled: CollectionDefinition = {
+      ...FOLDER_COLLECTION,
+      properties: ['updated', 'cover', 'name', 'created', 'description'],
+    };
+    const { getByText } = renderMenu({ definition: scrambled });
     openPropertiesSubmenu(getByText);
 
-    expect(propertyLabels()).toEqual(['Description', 'Last edited']);
+    expect(menuLabels()).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
+  });
+});
+
+describe('CollectionViewMenu — Properties and Sort by are ONE list', () => {
+  it('Sort by is the sortable subset of the available properties — same labels, same order — for every collection and layout', () => {
+    for (const definition of ALL_COLLECTION_DEFINITIONS) {
+      for (const layout of ['list', 'table', 'card'] as const) {
+        const view = resolveCollectionView(definition, { layout });
+        const utils = render(
+          <CollectionViewMenu view={view} onLayoutChange={vi.fn()} onPropertyChange={vi.fn()} onSortChange={vi.fn()} />
+        );
+        fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+        const sorts = sortLabels();
+        openPropertiesSubmenu(utils.getByText);
+        const properties = menuLabels();
+
+        const sortable = view.available.filter((id) => isSortableProperty(id)).map((id) => propertyLabel(id));
+        expect(properties, `${definition.kind} ${layout}`).toEqual(view.available.map((id) => propertyLabel(id)));
+        expect(sorts, `${definition.kind} ${layout}`).toEqual(sortable);
+        // …and so a sorted row is always a property row.
+        expect(sorts.every((label) => properties.includes(label))).toBe(true);
+        utils.unmount();
+      }
+    }
+  });
+
+  it('every row of both lists is a registered property, labelled by the registry', () => {
+    const labels = new Set(PROPERTY_IDS.map((id) => propertyLabel(id)));
+    const { getByText } = renderMenu();
+    const sorts = sortLabels();
+    openPropertiesSubmenu(getByText);
+
+    for (const label of [...sorts, ...menuLabels().filter((l) => l !== 'Properties')]) {
+      expect(labels.has(label ?? ''), String(label)).toBe(true);
+    }
+  });
+
+  it('a property that cannot be sorted is in Properties but not in Sort by', () => {
+    const unsortable: ResolvedCollectionView = {
+      ...resolveCollectionView(FOLDER_COLLECTION),
+      sortable: ['name', 'created'] as PropertyId[],
+    };
+    const { getByText } = renderMenu({ view: unsortable });
+
+    expect(sortLabels()).toEqual(['Name', 'Created']);
+    openPropertiesSubmenu(getByText);
+    expect(getByText('Description')).toBeInTheDocument();
+  });
+
+  it('a collection with nothing sortable shows no Sort by at all', () => {
+    const { queryByText } = renderMenu({ view: { ...resolveCollectionView(ASSETS_COLLECTION), sortable: [] } });
+
+    expect(queryByText('Sort by')).not.toBeInTheDocument();
   });
 });
 
 describe('CollectionViewMenu — Sort by follows the collection', () => {
-  /** The Sort by options on the root view: every menu item after the Properties row. */
-  const sortLabels = () => {
-    const items = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
-    return items.slice(items.indexOf('Properties') + 1);
-  };
-
-  it('Sort by is the Properties list: notes in Table offer Name, Description, Cover image, Created, Last edited — and no Type', () => {
-    const { getByText, queryByText } = renderMenu({ viewMode: 'table' });
-
-    expect(sortLabels()).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
-    expect(getByText('Name')).toBeInTheDocument();
-    expect(queryByText('Type')).not.toBeInTheDocument();
-  });
-
-  it('assets get Sort by with Name and their file facts — File size, Created, Last edited — and the same active-row direction toggle', () => {
-    const onSortChange = vi.fn();
-    const utils = render(
-      <CollectionViewMenu
-        viewMode="list"
-        onChange={vi.fn()}
-        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
-        onPropertiesChange={vi.fn()}
-        sort={DEFAULT_COLLECTION_SORT}
-        onSortChange={onSortChange}
-        capabilities={ASSET_COLLECTION_VIEW_CAPABILITIES}
-      />
-    );
-    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
-
-    expect(utils.getByText('Sort by')).toBeInTheDocument();
-    expect(sortLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited']);
-    expect(utils.queryByText('Type')).not.toBeInTheDocument();
-
-    // Re-clicking the active key (Name, down) flips it; picking File size activates it at 'down'.
-    fireEvent.click(utils.getByText('Name'));
-    expect(onSortChange).toHaveBeenLastCalledWith({ property: 'name', direction: 'up' });
-    fireEvent.click(utils.getByText('File size'));
-    expect(onSortChange).toHaveBeenLastCalledWith({ property: 'size', direction: 'down' });
-  });
-
-  it('every collection and layout: Sort by is Name followed by the Properties list — same labels, same order (Title is the Name)', () => {
-    const cases: Array<[string, 'list' | 'table' | 'card', typeof ASSET_COLLECTION_VIEW_CAPABILITIES, boolean]> = [
-      ['notes', 'list', NOTE_COLLECTION_VIEW_CAPABILITIES, false],
-      ['notes', 'table', NOTE_COLLECTION_VIEW_CAPABILITIES, false],
-      ['notes', 'card', NOTE_COLLECTION_VIEW_CAPABILITIES, false],
-      ['archive', 'table', NOTE_COLLECTION_VIEW_CAPABILITIES, true],
-      ['assets', 'list', ASSET_COLLECTION_VIEW_CAPABILITIES, false],
-      ['assets', 'table', ASSET_COLLECTION_VIEW_CAPABILITIES, false],
-      ['assets', 'card', ASSET_COLLECTION_VIEW_CAPABILITIES, false],
-    ];
-
-    for (const [name, viewMode, capabilities, showArchived] of cases) {
-      const utils = render(
-        <CollectionViewMenu
-          viewMode={viewMode}
-          onChange={vi.fn()}
-          properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
-          onPropertiesChange={vi.fn()}
-          sort={DEFAULT_COLLECTION_SORT}
-          onSortChange={vi.fn()}
-          capabilities={capabilities}
-          showArchived={showArchived}
-        />
-      );
-      fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
-      const sorts = sortLabels();
-      openPropertiesSubmenu(utils.getByText);
-      const properties = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
-
-      expect(sorts, `${name} ${viewMode}`).toEqual(['Name', ...properties.filter((label) => label !== 'Title')]);
-      utils.unmount();
+  it('notes: Name, Description, Cover image, Created, Last edited — in every layout', () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      renderMenu({ layout });
+      expect(sortLabels(), layout).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
+      cleanup();
     }
   });
 
-  it('a collection that offers no sort keys shows no Sort by at all', () => {
-    const utils = render(
-      <CollectionViewMenu
-        viewMode="list"
-        onChange={vi.fn()}
-        properties={DEFAULT_COLLECTION_PROPERTY_VISIBILITY}
-        onPropertiesChange={vi.fn()}
-        sort={DEFAULT_COLLECTION_SORT}
-        onSortChange={vi.fn()}
-        capabilities={{ ...ASSET_COLLECTION_VIEW_CAPABILITIES, sortKeys: [] }}
-      />
-    );
-    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+  it('the Archive: Name, Description, Created, Last edited, Archived', () => {
+    renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
-    expect(utils.queryByText('Sort by')).not.toBeInTheDocument();
+    expect(sortLabels()).toEqual(['Name', 'Description', 'Created', 'Last edited', 'Archived']);
+  });
+
+  it('assets: Name and their file facts — File size, Created, Last edited — with the same active-row direction toggle', () => {
+    const { getByText, onSortChange } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
+
+    expect(sortLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited']);
+    // Nothing note-specific is offered.
+    for (const absent of ['Description', 'Cover image', 'Archived']) {
+      expect(menuLabels()).not.toContain(absent);
+    }
+
+    fireEvent.click(getByText('File size'));
+    expect(onSortChange).toHaveBeenLastCalledWith({ property: 'size', direction: 'down' });
+    cleanup();
+
+    const active = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card', sort: { property: 'size', direction: 'down' } });
+    fireEvent.click(active.getByText('File size'));
+    expect(active.onSortChange).toHaveBeenLastCalledWith({ property: 'size', direction: 'up' });
+  });
+
+  it('a persisted sort the collection cannot offer is replaced by its default, so the active row is always one that exists', () => {
+    const { getByText } = renderMenu({ definition: ASSETS_COLLECTION, sort: { property: 'description', direction: 'up' } });
+
+    expect(getByText('Name').closest('.entry')!.querySelector('.entry__trailing svg')).toBeInTheDocument();
   });
 });
 
-describe('CollectionViewMenu — assets properties (every layout)', () => {
-  const renderAssetMenu = (viewMode: 'list' | 'table' | 'card', properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY) => {
-    const onPropertiesChange = vi.fn();
-    const utils = render(
-      <CollectionViewMenu
-        viewMode={viewMode}
-        onChange={vi.fn()}
-        properties={properties}
-        onPropertiesChange={onPropertiesChange}
-        sort={DEFAULT_COLLECTION_SORT}
-        onSortChange={vi.fn()}
-        capabilities={ASSET_COLLECTION_VIEW_CAPABILITIES}
-      />
-    );
-    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
-    return { ...utils, onPropertiesChange };
-  };
-
-  it('Card offers Title, File size, Created and Last edited — in that order, and nothing note-specific', () => {
-    const { getByText, queryByText } = renderAssetMenu('card');
+describe('CollectionViewMenu — assets properties', () => {
+  it('Card: Name, File size, Created, Last edited — in that order, and nothing note-specific', () => {
+    const { getByText, queryByText } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
 
     openPropertiesSubmenu(getByText);
-    const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
-    expect(labels).toEqual(['Title', 'File size', 'Created', 'Last edited']);
+    expect(menuLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited']);
     for (const absent of ['Description', 'Cover image', 'Content preview']) {
       expect(queryByText(absent)).not.toBeInTheDocument();
     }
   });
 
-  it('toggling each one flips only its own property', () => {
-    for (const [label, key] of [
-      ['Title', 'title'],
+  it('List and Table: the same four, with Name locked — the card\'s toggles plus the always-there name', () => {
+    for (const layout of ['list', 'table'] as const) {
+      const { getByText } = renderMenu({ definition: ASSETS_COLLECTION, layout });
+      openPropertiesSubmenu(getByText);
+
+      expect(menuLabels(), layout).toEqual(['Name', 'File size', 'Created', 'Last edited']);
+      cleanup();
+    }
+  });
+
+  it('toggling each file fact reports only that property; a first-time view starts with them off', () => {
+    for (const [label, id] of [
       ['File size', 'size'],
       ['Created', 'created'],
       ['Last edited', 'updated'],
     ] as const) {
-      const { getByText, onPropertiesChange, unmount } = renderAssetMenu('card');
-
+      const { getByText, onPropertyChange } = renderMenu({ definition: ASSETS_COLLECTION, layout: 'card' });
       openPropertiesSubmenu(getByText);
+      expect(getByText(label).closest('.entry')!.querySelector('.entry__leading svg')).not.toBeInTheDocument();
+
       fireEvent.click(getByText(label));
-
-      expect(onPropertiesChange).toHaveBeenCalledWith({ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, [key]: false });
-      unmount();
+      expect(onPropertyChange).toHaveBeenCalledWith(id, true);
+      cleanup();
     }
   });
 
-  it('List and Table offer Type, File size, Created and Last edited — the card\'s toggles, without Title (the name is always there)', () => {
-    for (const viewMode of ['list', 'table'] as const) {
-      const { getByText, queryByText, unmount } = renderAssetMenu(viewMode);
-
-      openPropertiesSubmenu(getByText);
-      const labels = [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
-      expect(labels).toEqual(['File size', 'Created', 'Last edited']);
-      for (const absent of ['Title', 'Description', 'Cover image']) {
-        expect(queryByText(absent)).not.toBeInTheDocument();
-      }
-      unmount();
-    }
-  });
-
-  it('notes never offer Title or File size', () => {
-    const { getByText, queryByText } = renderMenu({ viewMode: 'card' });
-
+  it('notes never offer File size', () => {
+    const { getByText, queryByText } = renderMenu({ layout: 'card' });
     openPropertiesSubmenu(getByText);
-    expect(queryByText('Title')).not.toBeInTheDocument();
+
     expect(queryByText('File size')).not.toBeInTheDocument();
+    expect(queryByText('Title')).not.toBeInTheDocument();
   });
 });
 
 describe('CollectionViewMenu — Last opened is gone', () => {
   it('is offered neither as a property nor as a Sort by option, in any layout', () => {
-    for (const viewMode of ['list', 'table', 'card'] as const) {
-      const { getByText, queryByText } = renderMenu({ viewMode });
+    for (const layout of ['list', 'table', 'card'] as const) {
+      const { getByText, queryByText } = renderMenu({ layout });
+
       expect(queryByText('Last opened')).not.toBeInTheDocument();
       openPropertiesSubmenu(getByText);
       expect(queryByText('Last opened')).not.toBeInTheDocument();

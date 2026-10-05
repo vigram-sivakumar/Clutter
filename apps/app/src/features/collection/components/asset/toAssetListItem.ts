@@ -1,19 +1,20 @@
 import { createElement, type ReactNode } from 'react';
 
+import type { PropertyId } from '@core/properties/collectionProperties';
+import { formatPropertyValue, valueProperties } from '../../properties/formatProperty';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import type { Asset } from '@core/vault/models/Asset';
 
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 import { CollectionMedia } from '@features/collection/components/media/CollectionMedia';
-import type { AssetTableColumnVisibility } from './assetTableColumns';
-import { assetFileFacts } from './assetCardMetadata';
+import { toAssetEntry } from './toAssetEntry';
 import { AssetPreview } from './AssetPreview';
 
 export interface AssetListItemOptions {
   /** The asset's loadable URL (a local file's `Application.resolveResourceImageUrl(path)`, a remote asset's own URL), for the preview. Absent, the preview shows the kind's icon. */
   readonly url?: string;
-  /** Which file facts the list shows — the same Properties the card and the table use. */
-  readonly show: AssetTableColumnVisibility;
+  /** The visible properties (from the resolved view) — the same ones the card and the table use. */
+  readonly visible: readonly PropertyId[];
   /** Opens the asset — absent while it is being renamed, so a click in the editor never opens it. */
   readonly onClick?: (asset: Asset) => void;
   /** The inline rename editor, while renaming. */
@@ -29,10 +30,10 @@ export interface AssetListItemOptions {
  */
 export function toAssetListItem(
   asset: Asset,
-  { url, show, onClick, titleContent }: AssetListItemOptions
+  { url, visible, onClick, titleContent }: AssetListItemOptions
 ): CollectionDataListItem {
-  // File facts come from the vault file's own metadata; a remote asset has none.
-  const facts = asset.source === 'local' ? assetFileFacts(asset.resource) : {};
+  // The asset's property values: the vault file's own facts; a remote asset has none.
+  const { values } = toAssetEntry(asset);
 
   return {
     id: asset.id,
@@ -40,11 +41,10 @@ export function toAssetListItem(
     leading: createElement(CollectionMedia, null, createElement(AssetPreview, { kind: asset.kind, url })),
     title: getResourceDisplayName(asset),
     titleContent,
-    metadata: [
-      ...(show.size && facts.size ? [facts.size] : []),
-      ...(show.created && facts.created ? [facts.created] : []),
-      ...(show.updated && facts.modified ? [facts.modified] : []),
-    ],
+    // Every visible plain-value property, in canonical order, that this asset has a value for.
+    metadata: valueProperties(visible)
+      .map((id) => formatPropertyValue(id, values))
+      .filter((value): value is string => Boolean(value)),
     onClick: onClick ? () => onClick(asset) : undefined,
     // Only a vault file can be renamed in place, so only it carries the id F2 looks up.
     props: asset.source === 'local' ? { 'data-resource-id': asset.resource.id } : {},

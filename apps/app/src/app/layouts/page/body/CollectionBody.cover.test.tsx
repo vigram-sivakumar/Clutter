@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
+import { noteVisible } from '@features/collection/testing/visibleProperties';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   CollectionBody,
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
   type NoteCoverActions,
 } from './CollectionBody';
 import { noteEntry as makeNoteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
@@ -69,7 +69,7 @@ describe('CollectionBody — Table: Cover image column', () => {
         notes={[noteEntry()]}
         viewMode="table"
         noteCover={coverActions()}
-        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false }}
+        visible={noteVisible('cover')}
       />
     );
     expect(off.container.querySelector('.collection-table-row__cover')).toBeNull();
@@ -271,7 +271,7 @@ describe('CollectionBody — List: Cover image media', () => {
         notes={[noteEntry()]}
         viewMode="list"
         noteCover={coverActions()}
-        properties={{ ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, cover: false }}
+        visible={noteVisible('cover')}
       />
     );
     expect(off.container.querySelector('.collection-media')).toBeNull();

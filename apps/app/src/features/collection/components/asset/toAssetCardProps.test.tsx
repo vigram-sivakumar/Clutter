@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { Asset, RemoteAsset } from '@core/vault/models/Asset';
 import { localAsset } from '@core/vault/testing/localAsset';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 
 import { ASSET_CARD_ASPECT_RATIO, ASSET_GRID, toAssetCardProps, type AssetCardOptions } from './toAssetCardProps';
@@ -28,8 +29,11 @@ const image = (overrides: Partial<VaultResource> = {}): VaultResource => ({
 const pdf = (): VaultResource => ({ id: 'doc', kind: 'pdf', name: 'manual.pdf', path: '/vault/manual.pdf', parentId: null });
 
 /** An asset as the generic card draws it — the mapper's props through the real primitive. */
-function renderCard(asset: Asset, options: AssetCardOptions = {}) {
-  return render(<CollectionCard {...toAssetCardProps(asset, options)} />);
+// Every property an asset card can draw, visible — what a card shows unless a test narrows it.
+const ALL: PropertyId[] = ['name', 'size', 'created', 'updated'];
+
+function renderCard(asset: Asset, options: Partial<AssetCardOptions> = {}) {
+  return render(<CollectionCard {...toAssetCardProps(asset, { visible: ALL, ...options })} />);
 }
 const METADATA = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
 
@@ -119,8 +123,8 @@ describe('toAssetCardProps', () => {
     expect(second!.querySelector('.card-title-section--title-bottom')).not.toBeNull();
   });
 
-  it('showTitle={false} drops the title section and leaves the media', () => {
-    const { container } = renderCard(localAsset(image()), { url: 'x', showTitle: false });
+  it('with the name not visible, drops the title section and leaves the media', () => {
+    const { container } = renderCard(localAsset(image()), { url: 'x', visible: ['size', 'created', 'updated'] });
 
     const card = container.firstElementChild!;
     expect(card.querySelector('.card-title-section')).toBeNull();
@@ -159,7 +163,7 @@ describe('toAssetCardProps', () => {
     it('shows the image from its URL under its extension-free name, with no file metadata line', () => {
       const { container, getByText } = renderCard(remote, {
         url: remote.url,
-        metadataVisibility: { size: true, created: true, updated: true },
+        visible: ALL,
       });
 
       expect(container.querySelector('img')).toHaveAttribute('src', remote.url);
@@ -188,8 +192,7 @@ describe('toAssetCardProps', () => {
   it('hiding the title keeps the metadata lines — they are their own properties', () => {
     const { container, queryByText } = renderCard(localAsset(image({ metadata: METADATA })), {
       url: 'x',
-      showTitle: false,
-      metadataVisibility: { size: true, created: true, updated: true },
+      visible: ['size', 'created', 'updated'],
     });
 
     const header = container.querySelector('.collection-card__header')!;
@@ -206,8 +209,7 @@ describe('toAssetCardProps', () => {
   it('with the title and every metadata line off, nothing is laid over the media', () => {
     const { container } = renderCard(localAsset(image({ metadata: { ...METADATA, size: 1 } })), {
       url: 'x',
-      showTitle: false,
-      metadataVisibility: { size: false, created: false, updated: false },
+      visible: [],
     });
 
     expect(container.querySelector('.collection-card__header')).toBeNull();

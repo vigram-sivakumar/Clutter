@@ -10,6 +10,7 @@
  */
 import {
   COLLECTION_PROPERTIES,
+  PROPERTY_IDS,
   type PropertyId,
   type PropertyValues,
 } from '@core/properties/collectionProperties';
@@ -49,4 +50,19 @@ export function formatPropertyValue(id: PropertyId, values: PropertyValues): str
     default:
       return undefined;
   }
+}
+
+/**
+ * The properties every layout draws in a fixed place of its own rather than as one more
+ * value: the name is the title, the description is the line under it, the cover is the media.
+ * Every OTHER property is a plain value — a date or a size — drawn where a layout draws values
+ * (a table column, a list's trailing line, a card's metadata line). This is the one shared
+ * statement of that split; a property added to the registry is a value in every layout by
+ * default, with no per-layout list to update.
+ */
+const SLOT_PROPERTIES: ReadonlySet<PropertyId> = new Set<PropertyId>(['name', 'description', 'cover']);
+
+/** The visible properties that are drawn as plain values, in canonical order. */
+export function valueProperties(visible: readonly PropertyId[]): PropertyId[] {
+  return PROPERTY_IDS.filter((id) => visible.includes(id) && !SLOT_PROPERTIES.has(id));
 }

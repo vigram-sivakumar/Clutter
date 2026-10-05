@@ -83,23 +83,24 @@ import {
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import {
   CollectionBody,
-  DEFAULT_COLLECTION_SORT,
-  type CollectionViewMode,
-  type CollectionPropertyVisibility,
   type NoteCoverActions,
 } from '@app/layouts/page/body/CollectionBody';
 import { CollectionHeaderActions, type CollectionHeaderActionsProps } from '@app/layouts/page/body/CollectionHeaderActions';
-import {
-  ASSET_COLLECTION_VIEW_CAPABILITIES,
-  NOTE_COLLECTION_VIEW_CAPABILITIES,
-  resolveDefaultProperties,
-  resolveSupportedLayout,
-  resolveSupportedSort,
-  type CollectionViewCapabilities,
-} from '@app/layouts/page/body/collectionViewCapabilities';
-import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
+import type { CollectionLayout, CollectionViewConfig } from '@core/properties/collectionViewConfig';
+import {
+  FOLDER_COLLECTION,
+  collectionDefinitionForFilteredView,
+  collectionDefinitionForFolder,
+  type CollectionDefinition,
+} from '@core/presentation/collection/collectionDefinitions';
+import {
+  resolveCollectionView,
+  setPropertyVisibility,
+  toCollectionViewConfig,
+} from '@core/presentation/collection/resolveCollectionView';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
@@ -219,43 +220,6 @@ function focusEditorOnOpen(title: string): boolean {
   return title !== '';
 }
 
-/** Resolved Configure-menu state for the currently active collection — always fully populated, never partial. */
-interface CollectionViewState {
-  readonly viewMode: CollectionViewMode;
-  readonly properties: CollectionPropertyVisibility;
-  readonly sort: CollectionSort;
-}
-
-/**
- * Resolves a collection's Configure-menu state from
- * `CollectionViewConfigStore`, falling back to today's exact defaults for
- * any field the collection has never persisted (or, when `collectionViewKey`
- * is `undefined` — the active view isn't a collection at all — for every
- * field). The store's own `PersistedCollectionLayout`/
- * `PersistedCollectionProperties`/`PersistedCollectionSort` types are
- * structurally identical to `CollectionViewMode`/`CollectionPropertyVisibility`/
- * `CollectionSort` by design (see `CollectionViewConfigStore`'s own
- * doc comment), so no field-by-field conversion is needed here.
- */
-function resolveCollectionViewState(
-  store: CollectionViewConfigStore,
-  collectionViewKey: string | undefined,
-  capabilities: CollectionViewCapabilities
-): CollectionViewState {
-  const persisted = collectionViewKey
-    ? store.get(collectionViewKey)
-    : undefined;
-
-  return {
-    // A persisted layout the collection doesn't support (e.g. 'table' for Assets) falls back to its default.
-    viewMode: resolveSupportedLayout(persisted?.layout, capabilities),
-    // Nothing persisted yet -> the collection's own starting properties (Assets' card starts with only its title).
-    properties: { ...resolveDefaultProperties(capabilities), ...persisted?.properties },
-    // A persisted sort key the collection doesn't offer falls back to the default (Name).
-    sort: resolveSupportedSort(persisted?.sort, capabilities, DEFAULT_COLLECTION_SORT),
-  };
-}
-
 /**
  * PageHost is the composition root for page rendering.
  *
@@ -341,92 +305,76 @@ export function PageHost({
   // beside the page title (Page's titleActions prop), not the top bar —
   // see CollectionViewMenu's own doc comment.
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
-  // Which standard controls this collection offers — a collection type
-  // declares it here; the header actions/menu below are the same for all.
-  const collectionCapabilities: CollectionViewCapabilities =
-    workspace.activeView?.type === 'filtered-view' &&
-    workspace.activeView.view.kind === 'assets'
-      ? ASSET_COLLECTION_VIEW_CAPABILITIES
-      : NOTE_COLLECTION_VIEW_CAPABILITIES;
+  // Which collection this is: its definition says which global properties it offers, which are
+  // on by default, its layouts, default sort and which properties each layout requires. A page
+  // or a task view is not a collection of this kind and never renders the Configure control, so
+  // the ordinary folder definition stands in for them and is never read.
+  const activeView = workspace.activeView;
+  const activeCollectionFolder = activeView?.type === 'folder' ? vault.getFolder(activeView.id) : undefined;
+  const collectionDefinition: CollectionDefinition =
+    (activeCollectionFolder
+      ? collectionDefinitionForFolder(activeCollectionFolder, vault.root, application.membershipSelector)
+      : activeView?.type === 'filtered-view'
+        ? collectionDefinitionForFilteredView(activeView.view)
+        : undefined) ?? FOLDER_COLLECTION;
 
-  // Render-phase reset when the collection identity changes (navigating
-  // from collection A to collection B, or back) — the same "compare during
-  // render, not in a useEffect" pattern CollectionViewMenu.tsx's own
-  // `wasOpen` reset already uses, so switching collections never paints
-  // one stale frame of the previous collection's configuration before
-  // correcting itself a moment later.
-  const [lastCollectionViewKey, setLastCollectionViewKey] =
-    useState(collectionViewKey);
-  const [collectionViewState, setCollectionViewState] =
-    useState<CollectionViewState>(() =>
-      resolveCollectionViewState(
-        application.collectionViewConfigStore,
-        collectionViewKey,
-        collectionCapabilities
-      )
+  // What the user chose for this collection (intent only: layout, property overrides, sort),
+  // read from the store — converting an entry saved before the property registry, which needs
+  // the collection's definition — and kept as local state so the menu reflects a change without
+  // waiting on a store round trip. Everything the UI shows is `collectionView`, resolved from
+  // definition + intent + registry by one pure function; nothing below resolves anything itself.
+  //
+  // Render-phase reset when the collection identity changes (navigating from collection A to
+  // collection B, or back) — the same "compare during render, not in a useEffect" pattern
+  // CollectionViewMenu.tsx's own `wasOpen` reset already uses, so switching collections never
+  // paints one stale frame of the previous collection's configuration.
+  const readCollectionViewConfig = (): CollectionViewConfig =>
+    toCollectionViewConfig(
+      collectionDefinition,
+      collectionViewKey ? application.collectionViewConfigStore.get(collectionViewKey) : undefined
     );
+  const [lastCollectionViewKey, setLastCollectionViewKey] = useState(collectionViewKey);
+  const [collectionViewConfig, setCollectionViewConfig] = useState<CollectionViewConfig>(readCollectionViewConfig);
   if (collectionViewKey !== lastCollectionViewKey) {
     setLastCollectionViewKey(collectionViewKey);
-    setCollectionViewState(
-      resolveCollectionViewState(
-        application.collectionViewConfigStore,
-        collectionViewKey,
-        collectionCapabilities
-      )
-    );
+    setCollectionViewConfig(readCollectionViewConfig());
   }
 
-  const {
-    viewMode: collectionViewMode,
-    properties: collectionProperties,
-    sort: collectionSort,
-  } = collectionViewState;
+  const collectionView = resolveCollectionView(collectionDefinition, collectionViewConfig);
 
-  // Each handler updates the render-phase-visible local state immediately
-  // (so the menu reflects the change without waiting on a store round
-  // trip) and, when the active view is actually a collection
-  // (collectionViewKey defined), persists it — a page or an out-of-scope
-  // filtered view (tasks/assets) never renders collectionViewMenu at all,
-  // so collectionViewKey is only ever undefined here when these handlers
-  // can't be reached in the first place, but the guard keeps this
-  // correct even so.
-  const setCollectionViewMode = (mode: CollectionViewMode): void => {
-    setCollectionViewState((previous) => ({ ...previous, viewMode: mode }));
+  // Each handler updates the render-phase-visible local state immediately and, when the active
+  // view is actually a collection (collectionViewKey defined), persists the same patch — a page
+  // or an out-of-scope filtered view (tasks) never renders the menu, so collectionViewKey is only
+  // ever undefined here when these handlers can't be reached, but the guard keeps this correct.
+  const updateCollectionViewConfig = (patch: Partial<CollectionViewConfig>): void => {
+    setCollectionViewConfig((previous) => ({ ...previous, ...patch }));
     if (collectionViewKey) {
-      application.collectionViewConfigStore.update(collectionViewKey, {
-        layout: mode,
-      });
+      application.collectionViewConfigStore.update(collectionViewKey, patch);
     }
   };
-  const setCollectionProperties = (
-    next: CollectionPropertyVisibility
-  ): void => {
-    setCollectionViewState((previous) => ({ ...previous, properties: next }));
-    if (collectionViewKey) {
-      application.collectionViewConfigStore.update(collectionViewKey, {
-        properties: next,
-      });
-    }
-  };
-  const setCollectionSort = (next: CollectionSort): void => {
-    setCollectionViewState((previous) => ({ ...previous, sort: next }));
-    if (collectionViewKey) {
-      application.collectionViewConfigStore.update(collectionViewKey, {
-        sort: next,
-      });
-    }
-  };
+  const setCollectionLayout = (layout: CollectionLayout): void => updateCollectionViewConfig({ layout });
+  // A required property can't be turned off, and a property at its default needs no override:
+  // `setPropertyVisibility` is the one place that decides what a toggle writes.
+  const setCollectionProperty = (id: PropertyId, visible: boolean): void =>
+    updateCollectionViewConfig({
+      propertyOverrides: setPropertyVisibility(
+        collectionDefinition,
+        collectionView.layout,
+        collectionViewConfig.propertyOverrides,
+        id,
+        visible
+      ),
+    });
+  const setCollectionSort = (sort: CollectionSort): void => updateCollectionViewConfig({ sort });
 
   // The collection's standard header actions (Settings / view mode + Add):
   // one component for every collection type — see CollectionHeaderActions.
   const renderCollectionHeaderActions = ({
-    showArchived = false,
     onAdd,
     onAddFolder,
     fromTemplate,
     addLabel,
   }: {
-    showArchived?: boolean;
     onAdd?: () => void;
     onAddFolder?: () => void;
     fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
@@ -434,14 +382,10 @@ export function PageHost({
   } = {}) => (
     <CollectionHeaderActions
       menu={{
-        viewMode: collectionViewMode,
-        onChange: setCollectionViewMode,
-        properties: collectionProperties,
-        onPropertiesChange: setCollectionProperties,
-        sort: collectionSort,
+        view: collectionView,
+        onLayoutChange: setCollectionLayout,
+        onPropertyChange: setCollectionProperty,
         onSortChange: setCollectionSort,
-        showArchived,
-        capabilities: collectionCapabilities,
       }}
       onAdd={onAdd}
       onAddFolder={onAddFolder}
@@ -1349,7 +1293,6 @@ export function PageHost({
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
           titleActions={renderCollectionHeaderActions({
-            showArchived: isArchiveView,
             onAdd: onCreateNote,
             onAddFolder: onCreateSubfolder,
             fromTemplate:
@@ -1396,9 +1339,9 @@ export function PageHost({
               <ArchiveCollectionBody
                 folders={model.folders}
                 notes={model.notes}
-                viewMode={collectionViewMode}
-                properties={collectionProperties}
-                sort={collectionSort}
+                viewMode={collectionView.layout}
+                visible={collectionView.visible}
+                sort={collectionView.sort}
                 resources={application.membershipSelector.getArchivedResources()}
                 onOpenResource={openArchivedResourceOverlay}
                 onRestoreResource={(id) =>
@@ -1415,9 +1358,9 @@ export function PageHost({
                 foldersInGivenOrder={holdsOnlyFolders}
                 showNotes={!holdsOnlyFolders}
                 notes={model.notes}
-                viewMode={collectionViewMode}
-                properties={collectionProperties}
-                sort={collectionSort}
+                viewMode={collectionView.layout}
+                visible={collectionView.visible}
+                sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
                 onCreateNote={onCreateNote}
                 noteCover={noteCoverActions}
@@ -1488,9 +1431,9 @@ export function PageHost({
         body={
           <AssetsCollectionBody
             assets={assets}
-            viewMode={collectionViewMode}
-            properties={collectionProperties}
-            sort={collectionSort}
+            viewMode={collectionView.layout}
+            visible={collectionView.visible}
+            sort={collectionView.sort}
             resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
             // A vault file opens in its viewer (with its actions); a remote image in the plain image overlay.
             onOpenAsset={(asset) =>
@@ -1674,9 +1617,9 @@ export function PageHost({
           <CollectionBody
             folders={model.folders}
             notes={model.notes}
-            viewMode={collectionViewMode}
-            properties={collectionProperties}
-            sort={collectionSort}
+            viewMode={collectionView.layout}
+            visible={collectionView.visible}
+            sort={collectionView.sort}
             onCreateFolder={onCreateFolder}
             onCreateNote={onCreateNote}
             noteCover={noteCoverActions}

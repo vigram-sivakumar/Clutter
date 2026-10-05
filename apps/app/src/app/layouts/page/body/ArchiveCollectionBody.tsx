@@ -12,21 +12,22 @@ import {
   renderNoteList,
   renderNoteTable,
   NOTE_SORT_OPTIONS,
-  DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  DEFAULT_COLLECTION_SORT,
-  type CollectionViewMode,
-  type CollectionPropertyVisibility,
 } from './CollectionBody';
 
+import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import { ARCHIVE_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
+import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 
 import { PageBody } from './Page.Body';
 
 export interface ArchiveCollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
-  viewMode?: CollectionViewMode;
-  properties?: CollectionPropertyVisibility;
+  viewMode?: CollectionLayout;
+  /** The visible properties, from the resolved view — the Archive's own, which include Archived. */
+  visible?: readonly PropertyId[];
   sort?: CollectionSort;
   resources: readonly VaultResource[];
   /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
@@ -34,6 +35,9 @@ export interface ArchiveCollectionBodyProps {
   onRestoreResource(resourceId: string): void;
   onDeleteResource(resourceId: string): void;
 }
+
+/** What the body shows when the page does not say: the Archive's resolved defaults, read from its definition. */
+const DEFAULT_VIEW = resolveCollectionView(ARCHIVE_COLLECTION);
 
 /**
  * The page-body rendering for the Archive folder view — folders/notes
@@ -57,9 +61,9 @@ export interface ArchiveCollectionBodyProps {
 export function ArchiveCollectionBody({
   folders = [],
   notes = [],
-  viewMode = 'table',
-  properties = DEFAULT_COLLECTION_PROPERTY_VISIBILITY,
-  sort = DEFAULT_COLLECTION_SORT,
+  viewMode = DEFAULT_VIEW.layout,
+  visible = DEFAULT_VIEW.visible,
+  sort = DEFAULT_VIEW.sort,
   resources,
   onOpenResource,
   onRestoreResource,
@@ -109,9 +113,9 @@ export function ArchiveCollectionBody({
       <PageBody className="collection__content">
         {sortedFolders.length > 0 && renderFolderGrid(sortedFolders)}
         {viewMode === 'table' ? (
-          renderNoteTable(sortedNotes, properties, { showArchived: true })
+          renderNoteTable(sortedNotes, visible)
         ) : (
-          renderNoteList(sortedNotes, properties)
+          renderNoteList(sortedNotes, visible)
         )}
         {resources.map((resource) => (
           <Resource

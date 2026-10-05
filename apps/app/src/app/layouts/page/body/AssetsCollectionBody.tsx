@@ -1,14 +1,6 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { PageBody } from './Page.Body';
-import {
-  ASSET_COLLECTION_VIEW_CAPABILITIES,
-  resolveDefaultProperties,
-} from './collectionViewCapabilities';
-import {
-  type CollectionPropertyVisibility,
-  type CollectionViewMode,
-} from './CollectionBody';
 import { EditableText } from '@components/editable-text/EditableText';
 import { AppIcon } from '@shared/icon';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
@@ -18,14 +10,18 @@ import { CollectionGrid } from '@features/collection/components/grid/CollectionG
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
 import { toAssetListItem } from '@features/collection/components/asset/toAssetListItem';
 import { toAssetTableRow } from '@features/collection/components/asset/toAssetTableRow';
-import { buildAssetTableColumns } from '@features/collection/components/asset/assetTableColumns';
+import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import {
   ASSET_CARD_ASPECT_RATIO,
   ASSET_GRID,
   toAssetCardProps,
 } from '@features/collection/components/asset/toAssetCardProps';
 import { ASSET_SORT_OPTIONS, toAssetEntry } from '@features/collection/components/asset/toAssetEntry';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort } from '@core/properties/collectionSort';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import { ASSETS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
+import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import type { Asset } from '@core/vault/models/Asset';
 
 export interface AssetsCollectionBodyProps {
@@ -35,9 +31,12 @@ export interface AssetsCollectionBodyProps {
    * The collection's selected layout (the standard view-mode control, owned by
    * PageHost): the shared List, Table or Card of asset items.
    */
-  readonly viewMode?: CollectionViewMode;
-  /** The collection's Properties (the standard control, owned by PageHost) — for Assets, `title`, `size`, `created` and `updated`, in the Card layout. */
-  readonly properties?: CollectionPropertyVisibility;
+  readonly viewMode?: CollectionLayout;
+  /**
+   * The visible properties, from the resolved view (`resolveCollectionView`) — for Assets, Name
+   * (hideable only on the Card), File size, Created and Last edited, in canonical order.
+   */
+  readonly visible?: readonly PropertyId[];
   /**
    * The collection's Sort by (the standard control, owned by PageHost) —
    * Name or Type; the same order in every layout. Absent, the resources keep
@@ -75,10 +74,13 @@ export interface AssetsCollectionBodyProps {
  * header controls (Settings, view mode, Add) are not here — they come from the
  * standard collection header actions (PageHost -> CollectionHeaderActions).
  */
+/** What the body shows when the page does not say: the assets collection's resolved defaults, read from its definition. */
+const DEFAULT_VIEW = resolveCollectionView(ASSETS_COLLECTION);
+
 export function AssetsCollectionBody({
   assets: unsorted,
-  viewMode = 'list',
-  properties = resolveDefaultProperties(ASSET_COLLECTION_VIEW_CAPABILITIES),
+  viewMode = DEFAULT_VIEW.layout,
+  visible = DEFAULT_VIEW.visible,
   sort,
   resolveResourceUrl,
   onOpenAsset,
@@ -87,12 +89,10 @@ export function AssetsCollectionBody({
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
-  const titleHidden = viewMode === 'card' && !properties.title;
+  const titleHidden = viewMode === 'card' && !visible.includes('name');
   const assets = sort
     ? sortEntries(unsorted.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset)
     : unsorted;
-  // The file-fact Properties (File size, Created, Last edited) govern every layout alike: card lines, list metadata, table columns.
-  const fileFacts = { size: properties.size, created: properties.created, updated: properties.updated };
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.
   const urlFor = (asset: Asset): string | undefined =>
     asset.source === 'remote' ? asset.url : resolveResourceUrl?.(asset.resource.path);
@@ -138,12 +138,7 @@ export function AssetsCollectionBody({
             key={asset.id}
             {...toAssetCardProps(asset, {
               url: urlFor(asset),
-              showTitle: properties.title,
-              metadataVisibility: {
-                size: properties.size,
-                created: properties.created,
-                updated: properties.updated,
-              },
+              visible,
               onClick: clickFor(asset),
               titleContent: titleContentFor(asset),
             })}
@@ -159,11 +154,12 @@ export function AssetsCollectionBody({
   } else if (viewMode === 'table') {
     layout = (
       <CollectionDataTable
-        columns={buildAssetTableColumns(fileFacts)}
+        // The File size column has always been headed "Size" here (a known wording drift, kept as it was).
+        columns={buildPropertyTableColumns(visible, { headers: { size: 'Size' } })}
         rows={assets.map((asset) =>
           toAssetTableRow(asset, {
             url: urlFor(asset),
-            columns: fileFacts,
+            visible,
             onClick: clickFor(asset),
             titleContent: titleContentFor(asset),
           })
@@ -177,7 +173,7 @@ export function AssetsCollectionBody({
         items={assets.map((asset) =>
           toAssetListItem(asset, {
             url: urlFor(asset),
-            show: fileFacts,
+            visible,
             onClick: clickFor(asset),
             titleContent: titleContentFor(asset),
           })

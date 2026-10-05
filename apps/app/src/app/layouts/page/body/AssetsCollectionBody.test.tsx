@@ -5,7 +5,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AssetsCollectionBody } from './AssetsCollectionBody';
-import { DEFAULT_COLLECTION_PROPERTY_VISIBILITY, type CollectionViewMode } from './CollectionBody';
+import type { CollectionLayout } from '@core/properties/collectionViewConfig';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import type { Asset, RemoteAsset } from '@core/vault/models/Asset';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { localAsset } from '@core/vault/testing/localAsset';
@@ -67,14 +68,14 @@ function renderAssets(
 }
 
 /** The item element for each layout — the shared layer's own row/card class. */
-const ITEM_SELECTOR: Record<CollectionViewMode, string> = {
+const ITEM_SELECTOR: Record<CollectionLayout, string> = {
   list: '.collection-row',
   table: '.collection-table-row',
   card: '.collection-card--layout-overlay',
 };
-const LAYOUTS: CollectionViewMode[] = ['list', 'table', 'card'];
+const LAYOUTS: CollectionLayout[] = ['list', 'table', 'card'];
 
-const itemFor = (container: HTMLElement, viewMode: CollectionViewMode, index = 0) =>
+const itemFor = (container: HTMLElement, viewMode: CollectionLayout, index = 0) =>
   container.querySelectorAll<HTMLElement>(ITEM_SELECTOR[viewMode])[index]!;
 
 describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
@@ -326,10 +327,11 @@ describe('AssetsCollectionBody — which layout renders', () => {
     expect(container.querySelector('.note-page-canvas')).toBeNull();
   });
 
-  it('defaults to List when no layout is given', () => {
+  it('defaults to the collection\'s own default layout (Card, from its definition) when no layout is given', () => {
     const { container } = renderAssets({ resources: resources() });
 
-    expect(container.querySelector('.collection-list')).not.toBeNull();
+    expect(container.querySelector('.collection-card--layout-overlay')).not.toBeNull();
+    expect(container.querySelector('.collection-list')).toBeNull();
   });
 });
 
@@ -408,30 +410,34 @@ describe.each(LAYOUTS)('AssetsCollectionBody — sort (%s layout)', (viewMode) =
   });
 });
 
-describe('AssetsCollectionBody — Title property', () => {
-  const hidden = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, title: false };
+// The visible properties, as the page resolves them: the file facts, with or without the name.
+const FACTS_ON: PropertyId[] = ['name', 'size', 'created', 'updated'];
+const withoutName: PropertyId[] = ['size', 'created', 'updated'];
 
-  it('hides each card title in Card layout when the Title property is off', () => {
-    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
+describe('AssetsCollectionBody — Name property (the card title)', () => {
+  const hidden = withoutName;
+
+  it('hides each card title in Card layout when the Name property is off', () => {
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', visible: hidden });
 
     expect(container.querySelector('.collection-card--layout-overlay')).not.toBeNull();
     expect(container.querySelector('.card-title-section')).toBeNull();
   });
 
-  it('shows it by default, and the property does not affect List or Table', () => {
+  it('shows it by default, and hiding it does not affect List or Table (the name is required there)', () => {
     const shown = renderAssets({ resources: [makeResource()], viewMode: 'card' });
     expect(shown.container.querySelector('.card-title-section')).not.toBeNull();
     shown.unmount();
 
     for (const viewMode of ['list', 'table'] as const) {
-      const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, properties: hidden });
+      const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, visible: hidden });
       expect(container.textContent).toContain('house');
       unmount();
     }
   });
 
   it('F2 does not start a rename while the card title is hidden', () => {
-    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', properties: hidden });
+    const { container } = renderAssets({ resources: [makeResource()], viewMode: 'card', visible: hidden });
     const card = container.querySelector<HTMLElement>('.collection-card--layout-overlay')!;
 
     card.focus();
@@ -462,7 +468,7 @@ describe('AssetsCollectionBody — metadata properties', () => {
     const { container } = renderAssets({
       resources: [withMetadata],
       viewMode: 'card',
-      properties: { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true },
+      visible: FACTS_ON,
     });
 
     const items = lines(container);
@@ -473,15 +479,14 @@ describe('AssetsCollectionBody — metadata properties', () => {
   });
 
   it('hides each one when its property is off', () => {
-    const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
-    const off = (key: 'size' | 'created' | 'updated') => ({ ...on, [key]: false });
+    const off = (key: 'size' | 'created' | 'updated'): PropertyId[] => FACTS_ON.filter((id) => id !== key);
 
-    expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('size') }).container)).toHaveLength(2);
+    expect(lines(renderAssets({ resources: [withMetadata], viewMode: 'card', visible: off('size') }).container)).toHaveLength(2);
     cleanup();
-    const noCreated = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('created') }).container);
+    const noCreated = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', visible: off('created') }).container);
     expect(noCreated.some((line) => line.startsWith('Created:'))).toBe(false);
     cleanup();
-    const noEdited = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', properties: off('updated') }).container);
+    const noEdited = lines(renderAssets({ resources: [withMetadata], viewMode: 'card', visible: off('updated') }).container);
     expect(noEdited.some((line) => line.startsWith('Edited:'))).toBe(false);
   });
 });
@@ -527,8 +532,8 @@ describe('AssetsCollectionBody — remote assets', () => {
 describe('AssetsCollectionBody — the file-fact Properties govern List and Table, like the card', () => {
   const FACTS = { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' };
   const file = () => localAsset(makeResource({ metadata: FACTS }));
-  const on = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: true, created: true, updated: true };
-  const off = { ...DEFAULT_COLLECTION_PROPERTY_VISIBILITY, size: false, created: false, updated: false };
+  const on = FACTS_ON;
+  const off: PropertyId[] = ['name'];
   const remote: RemoteAsset = {
     id: 'remote:https://example.com/mountain.jpg',
     source: 'remote',
@@ -539,7 +544,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
   };
 
   it('Table: File size, Created and Last edited are columns only while their Properties are on', () => {
-    const shown = renderAssets({ assets: [file()], viewMode: 'table', properties: on });
+    const shown = renderAssets({ assets: [file()], viewMode: 'table', visible: on });
     expect([...shown.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Size',
@@ -551,7 +556,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
     expect(shown.container.querySelector('.collection-table-row__updated')).toHaveAttribute('data-date', FACTS.modifiedAt);
     shown.unmount();
 
-    const hidden = renderAssets({ assets: [file()], viewMode: 'table', properties: off });
+    const hidden = renderAssets({ assets: [file()], viewMode: 'table', visible: off });
     expect([...hidden.container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
     ]);
@@ -563,7 +568,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
       ['created', 'Created'],
       ['updated', 'Last edited'],
     ] as const) {
-      const { container, unmount } = renderAssets({ assets: [file()], viewMode: 'table', properties: { ...off, [key]: true } });
+      const { container, unmount } = renderAssets({ assets: [file()], viewMode: 'table', visible: [...off, key] });
 
       expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
         'Name',
@@ -574,7 +579,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
   });
 
   it('Table: a remote asset has no file, so its size and date cells are empty', () => {
-    const { container } = renderAssets({ assets: [remote], viewMode: 'table', properties: on });
+    const { container } = renderAssets({ assets: [remote], viewMode: 'table', visible: on });
 
     for (const column of ['size', 'created', 'updated']) {
       expect(container.querySelector(`.collection-table-row__${column}`)).toBeEmptyDOMElement();
@@ -582,18 +587,18 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
   });
 
   it('List: the same Properties are the row metadata — size, created, last edited — and nothing when they are off', () => {
-    const shown = renderAssets({ assets: [file()], viewMode: 'list', properties: on });
+    const shown = renderAssets({ assets: [file()], viewMode: 'list', visible: on });
     const metadata = [...shown.container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent);
     expect(metadata[0]).toBe('12 KB');
     expect(metadata).toHaveLength(3);
     shown.unmount();
 
-    const hidden = renderAssets({ assets: [file()], viewMode: 'list', properties: off });
+    const hidden = renderAssets({ assets: [file()], viewMode: 'list', visible: off });
     expect(hidden.container.querySelector('.collection-row__metadata')).toBeNull();
   });
 
   it('the Card still lists the same facts as its own lines, from the same properties', () => {
-    const { container } = renderAssets({ assets: [file()], viewMode: 'card', properties: on });
+    const { container } = renderAssets({ assets: [file()], viewMode: 'card', visible: on });
 
     expect([...container.querySelectorAll('.card-title-section__metadata-label')].map((n) => n.textContent)).toEqual([
       'Size',
