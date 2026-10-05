@@ -268,7 +268,56 @@ export function CollectionPrimitivesLab() {
       <h3>CollectionMedia</h3>
       <div className="cx-lab__row">
         <div className="cx-lab__cell"><CollectionMedia><Art hue={40} /></CollectionMedia>visual</div>
-        <div className="cx-lab__cell"><CollectionMedia onClick={() => say('media button')} label="Change"><Art hue={160} /></CollectionMedia>button</div>
+        <div className="cx-lab__cell"><CollectionMedia onClick={() => say('media button')} label="Change"><Art hue={160} /></CollectionMedia>with onClick → button</div>
+      </div>
+
+      <h3>Multiple sizes — the same primitives in containers of 240, 420 and 720px</h3>
+      <p className="cx-lab__note">Fake data, fixed-width stages. Grid columns, rows (truncation), the table (horizontal scroll) and media at each width.</p>
+      <div className="cx-lab__row">
+        {[240, 420, 720].map((w) => (
+          <div className="cx-lab__cell" key={w} style={{ width: w }}>
+            <strong>{w}px</strong>
+            <div className="cx-lab__stage" style={{ width: w, overflow: 'hidden' }}>
+              <CollectionGrid columns={{ min: 100, max: 3 }}>
+                <CollectionCard
+                  aspectRatio="3 / 4"
+                  onClick={() => say(`open card @${w}`)}
+                  header={<CardTitleSection icon="note" title="A long card title that must truncate" description="A long description that must truncate too" metadata={['Edited today']} />}
+                >
+                  <ScaledCanvas designWidth={DOC_WIDTH} lazy={false}>
+                    <Doc />
+                  </ScaledCanvas>
+                </CollectionCard>
+                <CollectionCard layout="overlay" aspectRatio="4 / 5" media={<Art hue={300} />} header={<CardTitleSection icon="image" title="photo.png" metadata={[{ label: 'Size', value: '4 MB' }]} metadataAlign="spread" titlePlacement="bottom" />} />
+                <CollectionCard isEmpty aspectRatio="3 / 4">
+                  <AppIcon icon="plus" />
+                </CollectionCard>
+              </CollectionGrid>
+              <CollectionDataList
+                items={[
+                  { id: `s1-${w}`, icon: 'note', title: 'A long row title that has to truncate', description: 'and a long description beside it', metadata: ['Today', 'Yesterday'], media: { children: <Art hue={20} /> }, onClick: () => say(`open row @${w}`) },
+                  { id: `s2-${w}`, leading: <CollectionMedia fillHeight><Art hue={200} /></CollectionMedia>, title: 'Short', metadata: ['12 Aug'] },
+                ]}
+                newItem={{ label: 'New Note', onClick: () => say('new') }}
+              />
+              <CollectionDataTable
+                columns={[
+                  { id: 'name', label: 'Name', width: 'minmax(160px, 1fr)' },
+                  { id: 'type', label: 'Type', width: '80px' },
+                  { id: 'created', label: 'Created', width: '110px' },
+                ]}
+                rows={[
+                  { id: `t1-${w}`, cells: { name: { variant: 'header', icon: 'note', title: 'A long table title that has to truncate', description: 'and a long description' }, type: { variant: 'text', value: 'Note' }, created: { variant: 'text', value: 'Today', dateTime: '2026-10-05T10:00:00.000Z' } }, onClick: () => say(`open table row @${w}`) },
+                ]}
+              />
+              <div className="cx-lab__row" style={{ marginTop: 12, gap: 12, alignItems: 'center' }}>
+                <CollectionMedia><Art hue={40} /></CollectionMedia>
+                <div style={{ height: 56, display: 'flex' }}><CollectionMedia fillHeight><Art hue={160} /></CollectionMedia></div>
+                <div style={{ width: 120 }}><ScaledCanvas designWidth={DOC_WIDTH} lazy={false}><Doc /></ScaledCanvas></div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <h3>CollectionImage — covers its box, positionY picks the part kept, falls back to an icon</h3>
