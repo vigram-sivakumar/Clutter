@@ -147,7 +147,7 @@ export function AssetsCollectionBody({
         ))}
         {onUpload && (
           <CollectionCard isEmpty aspectRatio={ASSET_CARD_ASPECT_RATIO} aria-label="Upload" onClick={onUpload}>
-            <AppIcon icon="upload" />
+            <AppIcon icon="plus" />
           </CollectionCard>
         )}
       </CollectionGrid>

@@ -544,6 +544,10 @@ describe('AssetsCollectionBody — Upload card', () => {
     expect(grid.lastElementChild).toHaveClass('collection-card--empty');
     expect(grid.querySelectorAll('.collection-card--layout-overlay')).toHaveLength(2);
 
+    // The same empty card as every other collection's: a plain "+" (no custom icon), named for assistive tech.
+    expect(grid.lastElementChild!.querySelector('.app-icon svg')).not.toBeNull();
+    expect(grid.lastElementChild!.querySelector('.collection-card__header')).toBeNull();
+
     fireEvent.click(getByLabelText('Upload'));
     expect(onUpload).toHaveBeenCalledTimes(1);
   });
