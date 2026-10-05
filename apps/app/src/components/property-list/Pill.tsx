@@ -18,6 +18,8 @@ type PillClickAction =
 type PillProps = {
   /** The pill's content (a tag's `#` prefix and label, or a plain value). */
   children: ReactNode;
+  /** `small` is the compact variant (20px, label-small text) for pills beside page chrome, e.g. the Template pill; default is the 24px property-list pill. */
+  size?: 'default' | 'small';
   /** Accessible name of the pill-as-button; used only when it is clickable. */
   label?: string;
   /** Adds a dismiss button, shown while the pill's editor has focus, which fires this. */
@@ -40,6 +42,7 @@ type PillProps = {
  */
 export function Pill({
   children,
+  size = 'default',
   label,
   onNavigate,
   onEdit,
@@ -73,7 +76,7 @@ export function Pill({
 
   return (
     <span
-      className="pill"
+      className={size === 'small' ? 'pill pill--small' : 'pill'}
       // A <span>, not a <button>: it contains the dismiss <button>, and
       // buttons can't nest.
       role={onActivate ? 'button' : undefined}

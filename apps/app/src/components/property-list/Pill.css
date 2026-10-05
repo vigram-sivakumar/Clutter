@@ -35,6 +35,14 @@
   white-space: nowrap;
   overflow: hidden;
 }
+/* Compact variant (Pill's size="small"): beside page chrome rather than in a
+   property value. Same selector pair as the base rule so it wins in both. */
+.pill.pill--small,
+.property-list__value .entry__content .pill.pill--small {
+  --pill-height: 20px;
+
+  font-size: var(--text-label-small);
+}
 .pill__prefix,
 .property-list__value .entry__content .pill__prefix {
   display: inline;

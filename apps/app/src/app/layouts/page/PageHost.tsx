@@ -1732,9 +1732,9 @@ export function PageHost({
               }
             />
             {application.membershipSelector.isInTemplatesFolder(draft.folderId) && (
-              <Pill>Template</Pill>
+              <Pill size="small">Template</Pill>
             )}
-          </>
+          </div>
         }
         // Same page chrome as a persisted page (ADR-017 Decision item 9) —
         // archive/restore/delete render disabled, not omitted, since they
@@ -2029,9 +2029,9 @@ export function PageHost({
             }
           />
           {application.membershipSelector.isInTemplatesFolder(page.parentId) && (
-            <Pill>Template</Pill>
+            <Pill size="small">Template</Pill>
           )}
-        </>
+        </div>
       }
       actions={topBar.actions}
       // Page-header-controls configuration: a Note is user-owned (its
