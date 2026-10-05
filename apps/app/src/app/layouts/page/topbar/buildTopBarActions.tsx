@@ -53,11 +53,12 @@ function buildMenuForType(
   type: PageType,
   state: TopBarPageState,
   isFavorite: boolean,
-  isDeletable: boolean
+  isDeletable: boolean,
+  isTemplate: boolean = false
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
-      return buildNoteTopBarMenu(state, isFavorite, isDeletable);
+      return buildNoteTopBarMenu(state, isFavorite, isDeletable, isTemplate);
     // Daily Notes deliberately do not support favoriting (unlike Note/
     // Folder) — buildDailyNoteTopBarMenu takes no isFavorite param.
     case 'daily-note':
@@ -85,6 +86,8 @@ export interface BuildTopBarActionsOptions {
   onRestore?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  /** The note menu's 'Use as template' — moves the note into the Templates folder. */
+  onUseAsTemplate?: () => void;
   /**
    * ADR-026: set only when archiving `resource` (a folder) needs
    * confirmation first — i.e. it has descendants. Ignored for a page.
@@ -138,7 +141,13 @@ export function buildTopBarActions(
     resource.metadata.status === 'archived' ||
     options.membershipSelector.isEffectivelyArchived(resource.parentId);
   const menu = isPage(resource)
-    ? buildMenuForType(resource.type, resource.metadata.status, isFavorite, isDeletable)
+    ? buildMenuForType(
+        resource.type,
+        resource.metadata.status,
+        isFavorite,
+        isDeletable,
+        options.membershipSelector.isInTemplatesFolder(resource.parentId)
+      )
     : buildFolderTopBarMenu(resource.metadata.status, isFavorite, isDeletable);
 
   // Location-actions pipeline — pure reads of `resource.path`/`options.
@@ -168,6 +177,7 @@ export function buildTopBarActions(
       onRestore: options.onRestore,
       onDelete: options.onDelete,
       onDuplicate: options.onDuplicate,
+      onUseAsTemplate: options.onUseAsTemplate,
       archiveConfirmationMessage: options.archiveConfirmationMessage,
       deleteConfirmationMessage: options.deleteConfirmationMessage,
       moveDestinations: options.moveDestinations,

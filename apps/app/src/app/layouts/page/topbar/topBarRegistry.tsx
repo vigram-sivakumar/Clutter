@@ -13,6 +13,7 @@ export interface TopBarActionsOptions {
   onRestore?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onUseAsTemplate?: () => void;
   /** Present only when `menu` includes a `move-to` item — see ResourceTopBarActions' matching props. */
   moveDestinations?: PickerListItem[];
   onMove?: (destinationFolderId: string | null) => void;
@@ -66,6 +67,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       restore: options?.onRestore,
       delete: options?.onDelete,
       duplicate: options?.onDuplicate,
+      'use-as-template': options?.onUseAsTemplate,
       'toggle-favorite': options?.onToggleFavorite,
       'reveal-in-finder': options?.onRevealInFinder,
       'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),

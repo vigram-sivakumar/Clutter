@@ -46,7 +46,8 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
 export function buildNoteTopBarMenu(
   state: TopBarPageState,
   isFavorite: boolean = false,
-  isDeletable: boolean = false
+  isDeletable: boolean = false,
+  isTemplate: boolean = false
 ): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
 
@@ -62,6 +63,19 @@ export function buildNoteTopBarMenu(
       icon: 'arrowDownRight',
       disabled: !persisted || state === 'archived',
     },
+    // Moves the note into the reserved Templates folder; omitted once the
+    // note already is a template, `disabled` for a draft/archived page
+    // under the same rule as 'move-to' above.
+    ...(isTemplate
+      ? []
+      : [
+          {
+            id: 'use-as-template',
+            label: 'Use as template',
+            icon: 'template',
+            disabled: !persisted || state === 'archived',
+          } satisfies TopBarMenuItemConfig,
+        ]),
     {
       id: 'toggle-favorite',
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,

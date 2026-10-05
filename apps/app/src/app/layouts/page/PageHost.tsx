@@ -27,6 +27,7 @@ import {
   PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import {
@@ -796,6 +797,18 @@ export function PageHost({
     }
 
     void duplicateAndOpenPage(application.pageOperations, activePageId);
+  };
+
+  const onUseAsTemplate = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void moveToTemplatesFolder(
+      application.folderOperations,
+      application.pageOperations,
+      activePageId
+    );
   };
 
   const onToggleFavorite = (): void => {
@@ -1850,6 +1863,7 @@ export function PageHost({
     onRestore,
     onDelete,
     onDuplicate,
+    onUseAsTemplate: page.type === 'note' ? onUseAsTemplate : undefined,
     onToggleFavorite,
     // A note/daily-note delete is only ever reachable here for an
     // archived/Archive-descendant page (buildTopBarActions.tsx's
