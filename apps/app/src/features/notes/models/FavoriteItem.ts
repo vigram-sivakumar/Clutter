@@ -12,4 +12,6 @@ export type FavoriteItem = {
   type: 'note' | 'folder';
   emoji: string | null;
   status?: FolderMetadata['status'];
+  /** A note that lives in Templates — its row offers no Move. Set only when true. */
+  isTemplate?: boolean;
 };

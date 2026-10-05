@@ -5,7 +5,10 @@ import { buildEntryPresentation } from '@core/presentation/buildEntryPresentatio
 
 import type { FavoriteItem } from '../models/FavoriteItem';
 
-function toFavoriteItem(entry: Folder | EffectivePage): FavoriteItem {
+function toFavoriteItem(
+  entry: Folder | EffectivePage,
+  isInTemplates: (folderId: string | null) => boolean
+): FavoriteItem {
   const isPage = 'type' in entry;
   const { title, titleStyle, emoji } = buildEntryPresentation(entry);
 
@@ -16,19 +19,25 @@ function toFavoriteItem(entry: Folder | EffectivePage): FavoriteItem {
     emoji,
     type: isPage ? 'note' : 'folder',
     status: isPage ? undefined : entry.metadata.status,
+    isTemplate: isPage && isInTemplates(entry.folderId) ? true : undefined,
   };
 }
 
 export function toFavoriteItems(
   folders: readonly Folder[],
-  pages: readonly EffectivePage[]
+  pages: readonly EffectivePage[],
+  isInTemplates: (folderId: string | null) => boolean = () => false
 ): FavoriteItem[] {
-  return [...folders.map(toFavoriteItem), ...pages.map(toFavoriteItem)];
+  return [
+    ...folders.map((folder) => toFavoriteItem(folder, isInTemplates)),
+    ...pages.map((page) => toFavoriteItem(page, isInTemplates)),
+  ];
 }
 
 export function getFavoriteItems(
   query: VaultQuery,
-  effectivePageState: EffectivePageState
+  effectivePageState: EffectivePageState,
+  isInTemplates: (folderId: string | null) => boolean = () => false
 ): FavoriteItem[] {
   // Membership is durable-only (a draft can't be favorited — the favorite
   // flag lives in PageMetadata, which a draft never has,
@@ -36,5 +45,9 @@ export function getFavoriteItems(
   // *presentation* still reflects a currently-open session's live content,
   // via EffectivePageState.getFavoritePages() — the single owner of that
   // reconciliation (ADR-022), also used by the Favorites collection page.
-  return toFavoriteItems(query.getFavoriteFolders(), effectivePageState.getFavoritePages());
+  return toFavoriteItems(
+    query.getFavoriteFolders(),
+    effectivePageState.getFavoritePages(),
+    isInTemplates
+  );
 }

@@ -57,12 +57,18 @@ export function buildNoteTopBarMenu(
       label: 'Duplicate',
       icon: 'duplicate',
     },
-    {
-      id: 'move-to',
-      label: 'Move to…',
-      icon: 'arrowDownRight',
-      disabled: !persisted || state === 'archived',
-    },
+    // A template stays in Templates: Move is not offered for one (and the
+    // Move picker never lists Templates as a destination either).
+    ...(isTemplate
+      ? []
+      : [
+          {
+            id: 'move-to',
+            label: 'Move to…',
+            icon: 'arrowDownRight',
+            disabled: !persisted || state === 'archived',
+          } satisfies TopBarMenuItemConfig,
+        ]),
     // Moves the note into the reserved Templates folder; omitted once the
     // note already is a template, `disabled` for a draft/archived page
     // under the same rule as 'move-to' above.

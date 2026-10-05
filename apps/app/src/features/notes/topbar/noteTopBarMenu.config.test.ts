@@ -138,4 +138,11 @@ describe('buildNoteTopBarMenu', () => {
       buildNoteTopBarMenu('active', false, false, true).map((i) => i.id)
     ).not.toContain('use-as-template');
   });
+
+  it("omits 'move-to' for a template — a note in Templates is never moved by hand", () => {
+    expect(
+      buildNoteTopBarMenu('active', false, false, true).map((i) => i.id)
+    ).not.toContain('move-to');
+    expect(buildNoteTopBarMenu('active').map((i) => i.id)).toContain('move-to');
+  });
 });

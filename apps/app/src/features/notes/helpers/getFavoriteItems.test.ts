@@ -252,4 +252,24 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       },
     ]);
   });
+
+  it('flags a favorited note that lives in Templates, using the given folder predicate', () => {
+    const inTemplates = makePage({
+      id: 'page-in-templates',
+      parentId: 'templates',
+      metadata: { ...defaultPageMetadata, favorite: true },
+    });
+    const elsewhere = makePage({
+      id: 'page-elsewhere',
+      path: `${ROOT}/Other.md`,
+      parentId: null,
+      metadata: { ...defaultPageMetadata, favorite: true },
+    });
+    const { query, effectivePageState } = setup([], [inTemplates, elsewhere]);
+
+    const items = getFavoriteItems(query, effectivePageState, (folderId) => folderId === 'templates');
+
+    expect(items.find((item) => item.id === 'page-in-templates')?.isTemplate).toBe(true);
+    expect(items.find((item) => item.id === 'page-elsewhere')?.isTemplate).toBeUndefined();
+  });
 });

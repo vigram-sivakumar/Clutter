@@ -350,7 +350,9 @@ export function Notes({
     onCloseMenu: () => setFavoriteOpenMenuId(null),
   };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
-  const favoriteItems = getFavoriteItems(query, effectivePageState);
+  const favoriteItems = getFavoriteItems(query, effectivePageState, (folderId) =>
+    membershipSelector.isInTemplatesFolder(folderId)
+  );
   // A pending (not-yet-persisted) root-level folder counts as non-empty too
   // — otherwise clicking "+" on an empty section would force it open via
   // the actions button below, only for the empty-guard here to immediately

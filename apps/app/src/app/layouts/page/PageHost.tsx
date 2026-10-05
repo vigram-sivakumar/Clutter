@@ -1856,6 +1856,10 @@ export function PageHost({
   // Note's menu never includes a `move-to` item (dailyNoteTopBarMenu.config.ts),
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
+  // A template (a note in Templates) is never moved by hand — its menu has
+  // no `move-to` item (noteTopBarMenu.config.ts), so no Move props either.
+  const canMoveNote =
+    page.type === 'note' && !application.membershipSelector.isInTemplatesFolder(page.parentId);
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     vaultRoot: vault.root,
@@ -1871,13 +1875,11 @@ export function PageHost({
     // is always passed rather than gated (see PAGE_DELETE_CONFIRMATION_MESSAGE's
     // own doc comment).
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
-    moveDestinations:
-      page.type === 'note'
-        ? buildMoveDestinationItems(application.membershipSelector)
-        : undefined,
-    onMove: page.type === 'note' ? onMoveNote : undefined,
-    onCreateFolder:
-      page.type === 'note'
+    moveDestinations: canMoveNote
+      ? buildMoveDestinationItems(application.membershipSelector)
+      : undefined,
+    onMove: canMoveNote ? onMoveNote : undefined,
+    onCreateFolder: canMoveNote
         ? (name) => application.folderOperations.create(name, null)
         : undefined,
   });

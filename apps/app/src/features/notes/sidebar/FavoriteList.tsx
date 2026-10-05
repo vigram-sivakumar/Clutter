@@ -52,9 +52,13 @@ export function FavoriteList({
       // and always durable (isDraft hardcoded false — a draft can never be
       // favorited, see getFavoriteItems.ts). 'rename' is filtered out: this
       // row has no inline-edit affordance the way FolderTree's rows do, so
-      // leaving it in would be a dead menu entry.
+      // leaving it in would be a dead menu entry. 'move-to' is filtered out
+      // for a template (a note in Templates stays there).
       const menuItems = rowActions
-        ? buildNoteSidebarMenu(false, true).filter((menuItem) => menuItem.id !== 'rename')
+        ? buildNoteSidebarMenu(false, true).filter(
+            (menuItem) =>
+              menuItem.id !== 'rename' && !(item.isTemplate && menuItem.id === 'move-to')
+          )
         : undefined;
 
       return (
