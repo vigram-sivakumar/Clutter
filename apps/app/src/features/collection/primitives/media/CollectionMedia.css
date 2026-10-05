@@ -20,24 +20,6 @@
   user-select: none;
 }
 
-.cx-collection-media--interactive {
-  appearance: none;
-  background: none;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  pointer-events: auto;
-  transition: background-color 120ms ease;
-}
-.cx-collection-media--interactive:hover {
-  background: var(--state-hover-medium);
-}
-.cx-collection-media--interactive:focus-visible {
-  outline: none;
-  box-shadow: var(--shadow-inset-focus);
-}
-
 /*
  * Fill the host's height (the host must stretch it); the width stays fixed, so the frame never
  * drives the host's height itself — `contain: size` keeps whatever is inside (an image's

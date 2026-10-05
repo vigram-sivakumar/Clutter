@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { CollectionTableCell } from './CollectionTableCell';
 
@@ -109,15 +109,13 @@ describe('CollectionTableCell — media variant', () => {
     expect(cell(container).querySelector('.cx-collection-media')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('with onClick the frame is a labelled button', () => {
-    const onClick = vi.fn();
-    render(
-      <CollectionTableCell variant="media" onClick={onClick} label="Change cover image">
+  it('fillHeight makes the frame fill the row', () => {
+    const { container } = render(
+      <CollectionTableCell variant="media" fillHeight>
         x
       </CollectionTableCell>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Change cover image' }));
-    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(cell(container).querySelector('.cx-collection-media')).toHaveClass('cx-collection-media--fill-height');
   });
 });

@@ -78,9 +78,7 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
           }
           media={
             item.media ? (
-              <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
-                {item.media.children}
-              </CollectionMedia>
+              <CollectionMedia fillHeight={item.media.fillHeight}>{item.media.children}</CollectionMedia>
             ) : undefined
           }
           isSelected={item.isSelected}

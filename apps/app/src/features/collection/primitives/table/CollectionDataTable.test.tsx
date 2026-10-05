@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CollectionDataTable, type CollectionDataTableRow } from './CollectionDataTable';
@@ -84,27 +84,14 @@ describe('CollectionDataTable', () => {
     expect(cells[2]).toHaveClass('col-type');
   });
 
-  it('draws media cells as the shared frame; a clickable one does not open the row', () => {
+  it('draws media cells as the shared frame, which never opens or blocks the row', () => {
     const onOpen = vi.fn();
-    const onMedia = vi.fn();
-    render(
-      <CollectionDataTable
-        columns={columns}
-        rows={[
-          row({
-            onClick: onOpen,
-            cells: {
-              name: { variant: 'header', title: 'Plan' },
-              preview: { variant: 'media', onClick: onMedia, label: 'Change cover', children: 'x' },
-            },
-          }),
-        ]}
-      />
-    );
+    const { container } = render(<CollectionDataTable columns={columns} rows={[row({ onClick: onOpen })]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
-    expect(onMedia).toHaveBeenCalledTimes(1);
-    expect(onOpen).not.toHaveBeenCalled();
+    const frame = container.querySelector('.cx-collection-table-cell--media .cx-collection-media')!;
+    expect(frame).not.toBeNull();
+    fireEvent.click(frame);
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it('opens a row on click and Enter; a row without onClick is inert', () => {

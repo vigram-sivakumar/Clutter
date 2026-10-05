@@ -74,22 +74,17 @@ describe('CollectionDataList', () => {
     expect(second!.querySelector('.cx-collection-row__metadata')).toBeNull();
   });
 
-  it('draws media in the shared frame; a clickable one is a labelled button that does not open the row', () => {
-    const onOpen = vi.fn();
-    const onMedia = vi.fn();
+  it('draws media in the shared frame at the row\'s trailing end', () => {
     const { container } = render(
       <CollectionDataList
-        items={[
-          item({ onClick: onOpen, media: { children: <img alt="" />, onClick: onMedia, label: 'Change cover' } }),
-          item({ id: 'i2', media: { children: <img alt="" /> } }),
-        ]}
+        items={[item({ media: { children: <img alt="" /> } }), item({ id: 'i2', media: { children: <img alt="" />, fillHeight: true } })]}
       />
     );
 
-    expect(container.querySelectorAll('.cx-collection-row__media .cx-collection-media')).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
-    expect(onMedia).toHaveBeenCalledTimes(1);
-    expect(onOpen).not.toHaveBeenCalled();
+    const frames = container.querySelectorAll('.cx-collection-row__media .cx-collection-media');
+    expect(frames).toHaveLength(2);
+    expect(frames[0]).not.toHaveClass('cx-collection-media--fill-height');
+    expect(frames[1]).toHaveClass('cx-collection-media--fill-height');
   });
 
   it('marks selected items, draws actions and extra row attributes', () => {
