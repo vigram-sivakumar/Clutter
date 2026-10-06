@@ -27,12 +27,12 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  height: var(--height-sm);
+  height: var(--height-xs);
   aspect-ratio: 1;
   color: var(--foreground-secondary);
 }
 
-/* A custom leading (a thumbnail) sits in the same 24px box as an icon, level with the title; a CollectionMedia in it is a 20px square. */
+/* A custom leading (a thumbnail) sits in the same 20px box as an icon, level with the title; a CollectionMedia in it is a 20px square. */
 .collection-row__leading--custom {
   --collection-media-width: var(--space-20);
   --collection-media-height: var(--space-20);

@@ -1,7 +1,7 @@
 /*
- * A card's header text. 24px icon box + body-small medium title, label-small
+ * A card's header text. 20px icon box + body-small medium title, label-small
  * tertiary description/metadata, 2px between lines, description and metadata
- * inset 4px to line up under the icon glyph (a 16px glyph centred in its 24px
+ * inset 2px to line up under the icon glyph (a 16px glyph centred in its 20px
  * box). No padding of its own: the card provides it. A host restyles it only
  * through the custom properties read below (documented in CardTitleSection.tsx).
  */
@@ -29,7 +29,7 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  height: var(--height-sm);
+  height: var(--height-xs);
   aspect-ratio: 1;
   color: var(--card-title-leading-color, var(--foreground-secondary));
 }
@@ -50,7 +50,7 @@
 .card-title-section__description,
 .card-title-section__metadata {
   min-width: 0;
-  padding-inline-start: var(--space-4);
+  padding-inline-start: var(--space-2);
   font-size: var(--text-label-small);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
