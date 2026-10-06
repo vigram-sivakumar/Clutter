@@ -21,6 +21,13 @@ export function usePillListEditor() {
   const [draft, setDraft] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  // Whether focus is anywhere inside the value (the input, a pill, a pill's editor): the field is
+  // being edited. It decides what clicking an existing pill does — edit it while editing, else its
+  // own action (a tag opens its collection).
+  const [isEditing, setIsEditing] = useState(false);
+  // `isEditing` as it was when the press that became this click began: pressing a pill itself moves
+  // focus onto it, so by the click the field would always look "being edited".
+  const pressedWhileEditingRef = useRef(false);
   // No preferredActiveId: nothing is highlighted until ArrowUp/Down or hover.
   const keyboard = useMenuKeyboard(listRef);
   const idScope = useId();
@@ -34,6 +41,11 @@ export function usePillListEditor() {
     setIsFocused,
     isDismissed,
     setIsDismissed,
+    isEditing,
+    setIsEditing,
+    pressedWhileEditingRef,
+    /** Whether activating an existing pill right now should edit it (the field was already being edited). */
+    shouldEditPill: () => pressedWhileEditingRef.current,
     keyboard,
     idScope,
   };
@@ -86,12 +98,35 @@ export function PillListEditor({
   pills,
   suggestionRows,
 }: PillListEditorProps) {
-  const { inputRef, listRef, draft, setDraft, setIsFocused, setIsDismissed, keyboard } = editor;
+  const {
+    inputRef,
+    listRef,
+    draft,
+    setDraft,
+    setIsFocused,
+    setIsDismissed,
+    setIsEditing,
+    pressedWhileEditingRef,
+    keyboard,
+  } = editor;
 
   return (
     <div
       className={['property-list__value pill-list-editor', className].filter(Boolean).join(' ')}
       onClick={() => inputRef.current?.focus()}
+      onMouseDownCapture={(event) => {
+        pressedWhileEditingRef.current = event.currentTarget.contains(document.activeElement);
+      }}
+      // Enter/Space on a focused pill: it has focus, so the field is being edited.
+      onKeyDownCapture={() => {
+        pressedWhileEditingRef.current = true;
+      }}
+      onFocus={() => setIsEditing(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsEditing(false);
+        }
+      }}
     >
       {pills}
       <Input

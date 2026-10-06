@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { MenuItem } from '@components/menu/MenuItem';
@@ -9,6 +9,7 @@ import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag
 import type { PropertyEditability } from './PropertyList.types';
 import { Pill } from './Pill';
 import { PillListEditor, usePillListEditor } from './PillListEditor';
+import { PillValueEditor } from './PillValueEditor';
 import { PropertyValueCell } from './PropertyValueCell';
 import { useRejectShake } from './useRejectShake';
 
@@ -84,7 +85,11 @@ interface TagPillProps {
   tag: string;
   /** Click (or Enter/Space) on the pill opens the tag's Tag Collection. */
   onOpen?(name: string): void;
+  /** Instead of `onOpen`: click (or Enter/Space) decides itself — edit the tag, or open it (see TagPropertyEditor). */
+  onActivate?(): void;
+  /** Accessible name of the pill-as-button, with `onActivate`. */
   /** Shows the hover dismiss button, which removes the tag. */
+  activateLabel?: string;
   onRemove?(): void;
 }
 
@@ -93,7 +98,22 @@ interface TagPillProps {
  * `#` prefix, `formatTagDisplayLabel` for the label), on the shared Pill.
  * With `onOpen`, the pill is a button opening the tag's Tag Collection.
  */
-function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
+function TagPill({ tag, onOpen, onActivate, activateLabel, onRemove }: TagPillProps) {
+  const content = (
+    <>
+      <span className="pill__prefix">#</span>
+      {formatTagDisplayLabel(tag)}
+    </>
+  );
+
+  if (onActivate) {
+    return (
+      <Pill onEdit={onActivate} label={activateLabel} onRemove={onRemove} removeLabel={`Remove tag ${tag}`}>
+        {content}
+      </Pill>
+    );
+  }
+
   return (
     <Pill
       onNavigate={onOpen && (() => onOpen(tag))}
@@ -101,8 +121,7 @@ function TagPill({ tag, onOpen, onRemove }: TagPillProps) {
       onRemove={onRemove}
       removeLabel={`Remove tag ${tag}`}
     >
-      <span className="pill__prefix">#</span>
-      {formatTagDisplayLabel(tag)}
+      {content}
     </Pill>
   );
 }
@@ -174,6 +193,8 @@ function TagPropertyEditor({
   const editor = usePillListEditor();
   const { draft, setDraft, isFocused, isDismissed, keyboard, idScope } = editor;
   const { shakeClassName, shake } = useRejectShake();
+  // The pill being edited in place, by index, or null.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const suggestions = useMemo(
     () => findSuggestions(getSuggestions, draft, value),
@@ -261,9 +282,38 @@ function TagPropertyEditor({
       menuLabel="Tag suggestions"
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      pills={value.map((tag) => (
-        <TagPill key={tag} tag={tag} onOpen={onOpenTag} onRemove={() => removeTag(tag)} />
-      ))}
+      pills={value.map((tag, index) =>
+        index === editingIndex ? (
+          <PillValueEditor
+            key={`${index}-${tag}`}
+            value={tag}
+            parse={parseTagInput}
+            isTaken={(candidate) =>
+              hasTag(
+                value.filter((_, otherIndex) => otherIndex !== index),
+                candidate
+              )
+            }
+            onCommit={(next) => {
+              setEditingIndex(null);
+              onCommit(value.map((existing, existingIndex) => (existingIndex === index ? next : existing)));
+            }}
+            onCancel={() => setEditingIndex(null)}
+          />
+        ) : (
+          <TagPill
+            key={`${index}-${tag}`}
+            tag={tag}
+            // While the field is being edited a click edits the tag, as an alias does; otherwise it
+            // opens the tag's collection (and, with no way to open one, edits).
+            onActivate={() =>
+              editor.shouldEditPill() || !onOpenTag ? setEditingIndex(index) : onOpenTag(tag)
+            }
+            activateLabel={editor.isEditing || !onOpenTag ? `Edit tag ${tag}` : `Open tag ${tag}`}
+            onRemove={() => removeTag(tag)}
+          />
+        )
+      )}
       suggestionRows={suggestions.map((tag) => {
         const id = suggestionId(idScope, tag);
         return (

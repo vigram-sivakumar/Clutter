@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
-import { Input } from '@components/input/Input';
 import { MenuItem } from '@components/menu/MenuItem';
 
 import type { MultiSelectSuggestion, PropertyEditability } from './PropertyList.types';
 import { Pill } from './Pill';
 import { PillListEditor, usePillListEditor } from './PillListEditor';
+import { PillValueEditor } from './PillValueEditor';
 import { PropertyValueCell } from './PropertyValueCell';
-import { useRejectShake } from './useRejectShake';
 
 type MultiSelectPropertyValueProps = {
   /** The property's name — used only as the input's accessible label. */
@@ -88,107 +87,6 @@ function ValuePill({
   );
 }
 
-interface ValuePillEditorProps {
-  /** The value being edited — the text the input starts with, and what Escape restores. */
-  value: string;
-  /** Whether `text` (already trimmed) would repeat another value on this list. */
-  isTaken(text: string): boolean;
-  /** Fired with the trimmed new text when it is a real, allowed change. */
-  onCommit(text: string): void;
-  /** Ends editing with the value unchanged. */
-  onCancel(): void;
-}
-
-/**
- * A pill being edited in place: a single-line Input standing where the
- * pill was — plain text, no pill surface — its text selected, sized to
- * its content. Same commit rules as
- * the other Property text editors (EditableText's convention): Enter or
- * blur commits; Escape cancels and restores. Text that is unchanged or
- * empty commits nothing (removing is the dismiss button's job). Text that
- * would repeat another value: Enter keeps editing and plays the reject
- * shake; blur restores the original.
- */
-function ValuePillEditor({ value, isTaken, onCommit, onCancel }: ValuePillEditorProps) {
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-  const [draft, setDraft] = useState(value);
-  // Escape/Enter end editing themselves; the blur that follows unmounting
-  // focus must not act a second time.
-  const isDoneRef = useRef(false);
-  const { shakeClassName, shake } = useRejectShake();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-
-  /** Ends editing with the draft; returns false when it was rejected as a repeat. */
-  function finish(): boolean {
-    const text = draft.trim();
-
-    if (text === '' || text === value) {
-      isDoneRef.current = true;
-      onCancel();
-      return true;
-    }
-
-    if (isTaken(text)) {
-      return false;
-    }
-
-    isDoneRef.current = true;
-    onCommit(text);
-    return true;
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.nativeEvent.isComposing) {
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (!finish()) {
-        shake();
-      }
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      isDoneRef.current = true;
-      onCancel();
-    }
-  }
-
-  function handleBlur() {
-    if (isDoneRef.current) {
-      return;
-    }
-
-    if (!finish()) {
-      isDoneRef.current = true;
-      onCancel();
-    }
-  }
-
-  return (
-    <Input
-      ref={inputRef}
-      className={['pill pill--editing', shakeClassName]
-        .filter(Boolean)
-        .join(' ')}
-      hasBackground={false}
-      hasBorder={false}
-      aria-label={`Edit ${value}`}
-      // Grows with the text (field-sizing where supported, else `size`).
-      size={Math.max(draft.length, 1)}
-      value={draft}
-      onClick={(event) => event.stopPropagation()}
-      onChange={(event) => setDraft(event.target.value)}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-    />
-  );
-}
-
 /** DOM id of a suggestion row (useMenuKeyboard addresses rows by id), scoped per editor. */
 function suggestionId(scope: string, index: number): string {
   return `${scope}-suggestion-${index}`;
@@ -212,7 +110,7 @@ interface MultiSelectPropertyEditorProps {
  * - a value already present (ignoring case) is dropped, not doubled;
  * - Backspace in an empty input removes the last pill;
  * - leaving the field adds the pending text;
- * - clicking a pill edits it in place (ValuePillEditor) — the change
+ * - clicking a pill edits it in place (PillValueEditor) — the change
  *   replaces that one value, in position, and nothing else.
  *
  * While typing, `getSuggestions`' matches (minus values already present)
@@ -297,9 +195,10 @@ function MultiSelectPropertyEditor({
       onBlur={() => addValue(draft)}
       pills={value.map((entry, index) =>
         index === editingIndex ? (
-          <ValuePillEditor
+          <PillValueEditor
             key={`${index}-${entry}`}
             value={entry}
+            parse={(text) => text}
             isTaken={(text) =>
               hasValue(
                 value.filter((_, otherIndex) => otherIndex !== index),
