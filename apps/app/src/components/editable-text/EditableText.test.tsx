@@ -610,3 +610,139 @@ describe('EditableText scroll offset on autoFocus', () => {
     }
   });
 });
+
+// jsdom has no layout, so Range geometry is stubbed: a text node's offsets 0–9 sit on the first
+// visual row (top 0), 10+ on the second (top 20) — a two-row field. Like Chrome, a collapsed range
+// anchored on an element (not inside a text node) reports no rects at all.
+function stubTwoRowLayout() {
+  const rect = (top: number) =>
+    ({ top, bottom: top + 20, height: 20, left: 7, right: 7, width: 0, x: 7, y: top }) as DOMRect;
+  const original = Range.prototype.getClientRects;
+  Range.prototype.getClientRects = function (this: Range) {
+    if (!(this.startContainer instanceof Text)) {
+      return [] as unknown as DOMRectList;
+    }
+    return [rect(this.startOffset >= 10 ? 20 : 0)] as unknown as DOMRectList;
+  };
+  return () => {
+    Range.prototype.getClientRects = original;
+  };
+}
+
+function placeCaret(element: HTMLElement, offset: number) {
+  element.focus();
+  const range = document.createRange();
+  range.setStart(element.firstChild as Text, offset);
+  range.collapse(true);
+  const selection = window.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+describe('EditableText vertical navigation (onNavigate)', () => {
+  const TWO_ROWS = 'aaaaaaaaaabbbbbbbbbb';
+  let restoreLayout: () => void;
+
+  afterEach(() => {
+    restoreLayout?.();
+  });
+
+  function setup(onNavigate: (d: 'up' | 'down', x: number) => boolean) {
+    restoreLayout = stubTwoRowLayout();
+    render(<EditableText value={TWO_ROWS} onCommit={() => {}} onNavigate={onNavigate} />);
+    return getEditable();
+  }
+
+  it('ArrowDown on the last row reports a down crossing with the caret x, and cancels the key when handled', () => {
+    const onNavigate = vi.fn(() => true);
+    const editable = setup(onNavigate);
+    placeCaret(editable, 15);
+
+    const notPrevented = fireEvent.keyDown(editable, { key: 'ArrowDown' });
+
+    expect(onNavigate).toHaveBeenCalledWith('down', 7);
+    expect(notPrevented).toBe(false);
+  });
+
+  it('ArrowUp on the first row reports an up crossing', () => {
+    const onNavigate = vi.fn(() => true);
+    const editable = setup(onNavigate);
+    placeCaret(editable, 3);
+
+    fireEvent.keyDown(editable, { key: 'ArrowUp' });
+
+    expect(onNavigate).toHaveBeenCalledWith('up', 7);
+  });
+
+  it('leaves ArrowDown on the first row and ArrowUp on the last row to the browser (moves within the field)', () => {
+    const onNavigate = vi.fn(() => true);
+    const editable = setup(onNavigate);
+
+    placeCaret(editable, 3);
+    expect(fireEvent.keyDown(editable, { key: 'ArrowDown' })).toBe(true);
+
+    placeCaret(editable, 15);
+    expect(fireEvent.keyDown(editable, { key: 'ArrowUp' })).toBe(true);
+
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel the key when nothing took the caret (the handler returns false)', () => {
+    const onNavigate = vi.fn(() => false);
+    const editable = setup(onNavigate);
+    placeCaret(editable, 3);
+
+    expect(fireEvent.keyDown(editable, { key: 'ArrowUp' })).toBe(true);
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores modified arrows (selection extension / word movement)', () => {
+    const onNavigate = vi.fn(() => true);
+    const editable = setup(onNavigate);
+    placeCaret(editable, 3);
+
+    for (const modifier of ['shiftKey', 'altKey', 'ctrlKey', 'metaKey']) {
+      fireEvent.keyDown(editable, { key: 'ArrowUp', [modifier]: true });
+    }
+
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('an empty field is on both edges', () => {
+    restoreLayout = stubTwoRowLayout();
+    const onNavigate = vi.fn((_direction: 'up' | 'down', _x: number) => true);
+    render(<EditableText value="" onCommit={() => {}} onNavigate={onNavigate} />);
+    const editable = getEditable();
+    editable.focus();
+
+    fireEvent.keyDown(editable, { key: 'ArrowUp' });
+    fireEvent.keyDown(editable, { key: 'ArrowDown' });
+
+    expect(onNavigate.mock.calls.map(([direction]) => direction)).toEqual(['up', 'down']);
+  });
+
+  it('does nothing special without onNavigate', () => {
+    restoreLayout = stubTwoRowLayout();
+    render(<EditableText value={TWO_ROWS} onCommit={() => {}} />);
+    const editable = getEditable();
+    placeCaret(editable, 3);
+
+    expect(fireEvent.keyDown(editable, { key: 'ArrowUp' })).toBe(true);
+  });
+
+  it('focusAtEdge focuses the field with a collapsed caret inside it', () => {
+    restoreLayout = stubTwoRowLayout();
+    const ref = createRef<EditableTextHandle>();
+    render(<EditableText ref={ref} value={TWO_ROWS} onCommit={() => {}} />);
+
+    act(() => ref.current?.focusAtEdge('bottom', 100));
+
+    const editable = getEditable();
+    const selection = window.getSelection()!;
+    expect(document.activeElement).toBe(editable);
+    expect(selection.isCollapsed).toBe(true);
+    expect(editable.contains(selection.getRangeAt(0).startContainer)).toBe(true);
+    // No hit-testing in jsdom, so it falls back to the requested edge: the end for 'bottom'.
+    expect(selection.getRangeAt(0).startOffset).toBe(TWO_ROWS.length);
+  });
+});

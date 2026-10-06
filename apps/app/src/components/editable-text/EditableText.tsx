@@ -95,6 +95,128 @@ function placeCaretAtEnd(element: HTMLDivElement | null) {
   element.scrollLeft = element.scrollWidth;
 }
 
+/** The caret's rect, or null when the browser can't measure one (no selection in `element`). */
+function getCaretRect(element: HTMLElement): DOMRect | null {
+  const selection = window.getSelection();
+
+  if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+    return null;
+  }
+
+  const range = selection.getRangeAt(0);
+
+  if (!element.contains(range.startContainer)) {
+    return null;
+  }
+
+  const rect = range.getClientRects()[0] ?? range.getBoundingClientRect();
+
+  return rect.height === 0 && rect.width === 0 && rect.top === 0 ? null : rect;
+}
+
+/**
+ * A collapsed range at the very start/end of the text, anchored inside a text node: a collapsed
+ * range at an *element* boundary has no client rects (so it can't be measured), one inside a text
+ * node does. Null when the field has no text.
+ */
+function getEdgeRange(element: HTMLElement, edge: 'top' | 'bottom'): Range | null {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let target: Text | null = null;
+
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if ((node as Text).length === 0) {
+      continue;
+    }
+
+    target = node as Text;
+
+    if (edge === 'top') {
+      break;
+    }
+  }
+
+  if (!target) {
+    return null;
+  }
+
+  const range = document.createRange();
+  range.setStart(target, edge === 'top' ? 0 : target.length);
+  range.collapse(true);
+
+  return range;
+}
+
+/**
+ * Whether the caret sits on the field's first (`'top'`) or last (`'bottom'`) visual line — the only
+ * place ArrowUp/ArrowDown should leave the field rather than move within it. An empty field is on
+ * both. A caret that can't be measured is treated as *not* on an edge, so the browser's own
+ * movement (never a surprise jump) wins whenever this can't tell.
+ */
+function isCaretOnEdgeLine(element: HTMLElement, edge: 'top' | 'bottom'): boolean {
+  if ((element.textContent ?? '') === '') {
+    return true;
+  }
+
+  const caret = getCaretRect(element);
+
+  if (!caret) {
+    return false;
+  }
+
+  const edgeRect = getEdgeRange(element, edge)?.getClientRects()[0];
+
+  if (!edgeRect) {
+    return false;
+  }
+
+  return Math.abs(caret.top - edgeRect.top) < Math.max(caret.height, edgeRect.height) / 2;
+}
+
+/** Places the caret on `element`'s first/last visual line at the position nearest `clientX`. */
+function placeCaretAtEdge(element: HTMLElement, edge: 'top' | 'bottom', clientX: number) {
+  const selection = window.getSelection();
+
+  if (!selection || (element.textContent ?? '') === '') {
+    return;
+  }
+
+  const edgeRange = getEdgeRange(element, edge);
+
+  if (!edgeRange) {
+    return;
+  }
+
+  const edgeRect = edgeRange.getClientRects()[0];
+  const box = element.getBoundingClientRect();
+  const x = Math.min(Math.max(clientX, box.left + 1), box.right - 1);
+  const y = edgeRect ? edgeRect.top + edgeRect.height / 2 : box.top + 1;
+
+  // `caretRangeFromPoint` (WebKit/Blink) and `caretPositionFromPoint` (Gecko, newer Blink) are the
+  // two spellings of the same hit test; neither exists in jsdom, which falls through to the edge.
+  const doc = document as Document & {
+    caretRangeFromPoint?(x: number, y: number): Range | null;
+    caretPositionFromPoint?(x: number, y: number): { offsetNode: Node; offset: number } | null;
+  };
+  let hit: Range | null = null;
+
+  if (doc.caretRangeFromPoint) {
+    hit = doc.caretRangeFromPoint(x, y);
+  } else if (doc.caretPositionFromPoint) {
+    const position = doc.caretPositionFromPoint(x, y);
+
+    if (position) {
+      hit = document.createRange();
+      hit.setStart(position.offsetNode, position.offset);
+    }
+  }
+
+  const target = hit && element.contains(hit.startContainer) ? hit : edgeRange;
+  target.collapse(true);
+
+  selection.removeAllRanges();
+  selection.addRange(target);
+}
+
 /**
  * A single-line (`editable-text--nowrap`) field scrolls sideways to keep the caret visible. When its
  * box is only as wide as its content — an empty field in a shrink-to-fit parent is a sliver — the
@@ -148,6 +270,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       onCancel,
       onEditingEnd,
       onSubmit,
+      onNavigate,
     },
     ref
   ) {
@@ -178,6 +301,16 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
     useImperativeHandle(ref, () => ({
       focus() {
         editableElementRef.current?.focus();
+      },
+      focusAtEdge(edge, clientX) {
+        const element = editableElementRef.current;
+
+        if (!element) {
+          return;
+        }
+
+        element.focus();
+        placeCaretAtEdge(element, edge, clientX);
       },
     }));
 
@@ -232,6 +365,29 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
 
     function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
       if (isComposingRef.current || event.nativeEvent.isComposing) {
+        return;
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        if (!onNavigate || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+          return;
+        }
+
+        const direction = event.key === 'ArrowUp' ? 'up' : 'down';
+        const element = event.currentTarget;
+
+        if (!isCaretOnEdgeLine(element, direction === 'up' ? 'top' : 'bottom')) {
+          return;
+        }
+
+        // The caret's x, read before focus moves; an empty field has no measurable caret, so it
+        // offers its own left edge.
+        const x = getCaretRect(element)?.left ?? element.getBoundingClientRect().left;
+
+        if (onNavigate(direction, x)) {
+          event.preventDefault();
+        }
+
         return;
       }
 

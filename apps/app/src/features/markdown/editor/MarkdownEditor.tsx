@@ -17,6 +17,7 @@ import {
   setCachedEditorSession,
 } from './codemirror/editorHistoryCache';
 import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
+import { editorExitUp } from './codemirror/editorExitUp';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { tableCellPaste } from './codemirror/table/tablePaste';
@@ -240,6 +241,7 @@ export const MarkdownEditor = forwardRef<
     foldStateStore,
     onEdit,
     onFlush,
+    onExitUp,
     resolveWikiLink,
     renderWikiLinkPreview,
     getWikiLinkSuggestions,
@@ -327,6 +329,8 @@ export const MarkdownEditor = forwardRef<
   onEditRef.current = onEdit;
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
+  const onExitUpRef = useRef(onExitUp);
+  onExitUpRef.current = onExitUp;
 
   // Read by the decoration layer's ViewPlugin on every rebuild via the
   // accessor passed below — same freshness pattern as onEdit/onFlush,
@@ -1411,6 +1415,17 @@ export const MarkdownEditor = forwardRef<
       view.dispatch({ selection: EditorSelection.cursor(pos) });
       view.focus();
     },
+    focusAtTop(clientX) {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      const first = view.coordsAtPos(0);
+      const y = first ? (first.top + first.bottom) / 2 : view.contentDOM.getBoundingClientRect().top + 1;
+      const pos = view.posAtCoords({ x: clientX, y }, false);
+      view.dispatch({ selection: EditorSelection.cursor(pos), scrollIntoView: true });
+      view.focus();
+    },
     revealRange(from, to) {
       const view = viewRef.current;
       if (!view) {
@@ -1496,7 +1511,8 @@ export const MarkdownEditor = forwardRef<
       // `createEditorView()` call above implicitly uses — no explicit
       // `readOnly` option is passed to `createEditorView` for the
       // top-level editor, exactly as before this extraction.
-      extensions: buildEditorExtensions({
+      extensions: [
+        ...buildEditorExtensions({
         resolveWikiLink: () => resolveWikiLinkRef.current,
         getWikiLinkSuggestions: () => getWikiLinkSuggestionsRef.current,
         getEmbedSuggestions: () => getEmbedSuggestionsRef.current,
@@ -1530,6 +1546,8 @@ export const MarkdownEditor = forwardRef<
         getFoldStateStore: () => foldStateStoreRef.current,
         hostPageId: pageId,
       }),
+        editorExitUp(() => onExitUpRef.current),
+      ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),
     });

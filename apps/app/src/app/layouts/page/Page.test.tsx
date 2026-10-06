@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Page } from './Page';
+import { createRef } from 'react';
+import { Page, type PageFocusHandle } from './Page';
 
 afterEach(() => {
   cleanup();
@@ -17,7 +18,8 @@ function makeBodyFocusRef() {
   const focus = vi.fn();
   const focusAtNewLineAtStart = vi.fn();
   const focusAtPoint = vi.fn();
-  return { current: { focus, focusAtNewLineAtStart, focusAtPoint } };
+  const focusAtTop = vi.fn();
+  return { current: { focus, focusAtNewLineAtStart, focusAtPoint, focusAtTop } };
 }
 
 function getDescription(): HTMLElement {
@@ -474,5 +476,135 @@ describe('Page body inert-space focus', () => {
 
     const notPrevented = fireEvent.mouseDown(container.querySelector('.page__body') as HTMLElement);
     expect(notPrevented).toBe(true);
+  });
+});
+
+// One visual row per field (jsdom has no layout): the caret is always on both its first and last
+// row, so every ArrowUp/ArrowDown crosses a boundary — what these tests exercise is which region
+// the crossing lands in. Row-level "stay within the field" behaviour is EditableText's own tests'.
+describe('Page vertical navigation: title → description → body', () => {
+  const originalGetClientRects = Range.prototype.getClientRects;
+
+  function stubSingleRow() {
+    Range.prototype.getClientRects = function (this: Range) {
+      return (this.startContainer instanceof Text
+        ? [{ top: 0, bottom: 20, height: 20, left: 11, right: 11, width: 0, x: 11, y: 0 }]
+        : []) as unknown as DOMRectList;
+    };
+  }
+
+  afterEach(() => {
+    Range.prototype.getClientRects = originalGetClientRects;
+  });
+
+  function setup(options: { description?: string } = {}) {
+    stubSingleRow();
+    const bodyFocusRef = makeBodyFocusRef();
+    const pageFocusRef = createRef<PageFocusHandle>();
+    const hasDescription = options.description !== undefined;
+    render(
+      <Page
+        title="Title"
+        titleEditable
+        description={options.description}
+        descriptionEditable={hasDescription}
+        showDescriptionEditor={hasDescription}
+        body={<div />}
+        bodyFocusRef={bodyFocusRef}
+        pageFocusRef={pageFocusRef}
+      />
+    );
+    const fields = screen.getAllByRole('textbox');
+    const [title, description] = fields as [HTMLElement, HTMLElement | undefined];
+    return { title, description, bodyFocusRef, pageFocusRef };
+  }
+
+  function press(element: HTMLElement, key: 'ArrowUp' | 'ArrowDown') {
+    const range = document.createRange();
+    element.focus();
+    range.selectNodeContents(element);
+    range.collapse(true);
+    if (element.firstChild) {
+      range.setStart(element.firstChild, 0);
+    }
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    return fireEvent.keyDown(element, { key });
+  }
+
+  it('title ArrowDown with no description goes straight to the body, carrying the caret x', () => {
+    const { title, bodyFocusRef } = setup();
+
+    press(title, 'ArrowDown');
+
+    expect(bodyFocusRef.current.focusAtTop).toHaveBeenCalledTimes(1);
+    expect(bodyFocusRef.current.focusAtTop).toHaveBeenCalledWith(11);
+  });
+
+  it('title ArrowDown with a description goes to the description, never skipping it', () => {
+    const { title, description, bodyFocusRef } = setup({ description: 'About' });
+
+    const notPrevented = press(title, 'ArrowDown');
+
+    expect(document.activeElement).toBe(description);
+    expect(bodyFocusRef.current.focusAtTop).not.toHaveBeenCalled();
+    expect(notPrevented).toBe(false);
+  });
+
+  it('description ArrowDown goes to the body', () => {
+    const { description, bodyFocusRef } = setup({ description: 'About' });
+
+    press(description!, 'ArrowDown');
+
+    expect(bodyFocusRef.current.focusAtTop).toHaveBeenCalledWith(11);
+  });
+
+  it('description ArrowUp goes back to the title', () => {
+    const { title, description } = setup({ description: 'About' });
+
+    press(description!, 'ArrowUp');
+
+    expect(document.activeElement).toBe(title);
+  });
+
+  it('an empty (but shown) description is still a stop in the sequence', () => {
+    const { title, description, bodyFocusRef } = setup({ description: '' });
+
+    press(title, 'ArrowDown');
+    expect(document.activeElement).toBe(description);
+
+    press(description!, 'ArrowDown');
+    expect(bodyFocusRef.current.focusAtTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('the body leaves upward into the description when there is one (pageFocusRef)', () => {
+    const { description, pageFocusRef } = setup({ description: 'About' });
+
+    expect(pageFocusRef.current!.focusAboveBody(42)).toBe(true);
+    expect(document.activeElement).toBe(description);
+  });
+
+  it('the body leaves upward straight into the title when there is no description', () => {
+    const { title, pageFocusRef } = setup();
+
+    expect(pageFocusRef.current!.focusAboveBody(42)).toBe(true);
+    expect(document.activeElement).toBe(title);
+  });
+
+  it('with no editable title or description above, leaving the body upward reports false', () => {
+    stubSingleRow();
+    const pageFocusRef = createRef<PageFocusHandle>();
+    render(<Page title="Read-only" body={<div />} bodyFocusRef={makeBodyFocusRef()} pageFocusRef={pageFocusRef} />);
+
+    expect(pageFocusRef.current!.focusAboveBody(0)).toBe(false);
+  });
+
+  it('ArrowUp from the title (nothing above) and ArrowDown with no body are left to the browser', () => {
+    stubSingleRow();
+    render(<Page title="Title" titleEditable body={<div />} />);
+    const title = getTitle();
+
+    expect(press(title, 'ArrowUp')).toBe(true);
+    expect(press(title, 'ArrowDown')).toBe(true);
   });
 });

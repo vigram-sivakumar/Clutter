@@ -132,6 +132,16 @@ export interface EditableTextProps {
    * have already run for this session.
    */
   onSubmit?(): void;
+
+  /**
+   * Called when ArrowUp/ArrowDown is pressed with the caret already on the field's first/last
+   * visual line (a plain, collapsed-selection press — never with a modifier, mid-composition, or
+   * from a line that still has another row to move to). `clientX` is the caret's viewport x, so
+   * the destination can keep the horizontal position. Return `true` if focus moved elsewhere —
+   * the key's default is then cancelled; return `false` (nothing there to go to) and the browser
+   * moves the caret as it always did.
+   */
+  onNavigate?(direction: 'up' | 'down', clientX: number): boolean;
 }
 
 /**
@@ -142,4 +152,9 @@ export interface EditableTextProps {
  */
 export interface EditableTextHandle {
   focus(): void;
+  /**
+   * Focuses with the caret on the first (`'top'`) or last (`'bottom'`) visual line, at the
+   * position closest to `clientX` — how focus arrives from a vertically adjacent field.
+   */
+  focusAtEdge(edge: 'top' | 'bottom', clientX: number): void;
 }

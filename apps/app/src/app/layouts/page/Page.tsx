@@ -1,5 +1,6 @@
 import type { PropertiesControl } from './header/propertiesControl';
-import type { MouseEvent, ReactNode, RefObject } from 'react';
+import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
+import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
 import './Page.css';
@@ -8,6 +9,12 @@ import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
 import { PageTitle } from './header/Page.Title';
 import { PageDescription } from './header/Page.Description';
+
+/** What Page lends its body so ArrowUp at the body's top can continue into the description/title. */
+export interface PageFocusHandle {
+  /** Moves focus to the nearest editable region above the body; false if there is none. */
+  focusAboveBody(clientX: number): boolean;
+}
 
 type PageProps = {
   title: string;
@@ -159,7 +166,13 @@ type PageProps = {
     focus(): void;
     focusAtNewLineAtStart(): void;
     focusAtPoint?(clientX: number, clientY: number): void;
+    focusAtTop?(clientX: number): void;
   } | null>;
+  /**
+   * Populated by Page with the one thing a body needs from the title/description sequence: leaving
+   * the body upward. The body (rendered by the caller) calls it from its own ArrowUp handling.
+   */
+  pageFocusRef?: RefObject<PageFocusHandle | null>;
   /**
    * Fired when a changed title commits (see PageTitle.onCommit). Supplied
    * by the draft branch and the folder branch (FolderOperations.rename(),
@@ -246,6 +259,7 @@ export function Page({
   onSaveCoverPosition,
   coverKey,
   bodyFocusRef,
+  pageFocusRef,
   onTitleCommit,
   onTitleEdit,
   onTitleFlush,
@@ -302,6 +316,51 @@ export function Page({
     />
   );
 
+  // ArrowUp/ArrowDown treat title → description → body as one vertical sequence. Each region only
+  // reports that the caret crossed its own top/bottom edge; this is the single place that decides
+  // which region is next — the nearest one in that direction that is actually mounted and
+  // editable (a read-only title or an absent description is skipped, never a dead end) — and
+  // carries the caret's x across so the landing keeps its horizontal position.
+  const titleRef = useRef<EditableTextHandle>(null);
+  const descriptionRef = useRef<EditableTextHandle>(null);
+
+  const focusNeighbor = (
+    from: 'title' | 'description' | 'body',
+    direction: 'up' | 'down',
+    clientX: number
+  ): boolean => {
+    const order = ['title', 'description', 'body'] as const;
+    const step = direction === 'up' ? -1 : 1;
+
+    for (let index = order.indexOf(from) + step; index >= 0 && index < order.length; index += step) {
+      const region = order[index];
+
+      if (region === 'body') {
+        const body = bodyFocusRef?.current;
+
+        if (body?.focusAtTop) {
+          body.focusAtTop(clientX);
+          return true;
+        }
+
+        continue;
+      }
+
+      const field = (region === 'title' ? titleRef : descriptionRef).current;
+
+      if (field) {
+        field.focusAtEdge(direction === 'up' ? 'bottom' : 'top', clientX);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  useImperativeHandle(pageFocusRef, () => ({
+    focusAboveBody: (clientX) => focusNeighbor('body', 'up', clientX),
+  }));
+
   // A mousedown on the body's own inert space — the gutters beside the editor column, the
   // empty area below the text, the editor wrapper's bottom padding — lands on a box outside
   // `.cm-editor`, so CodeMirror never sees it and the browser just blurs to <body>. Route
@@ -339,6 +398,8 @@ export function Page({
               title={
                 <PageTitle
                   key={titleKey}
+                  ref={titleRef}
+                  onNavigate={(direction, clientX) => focusNeighbor('title', direction, clientX)}
                   editable={titleEditable}
                   placeholder={titlePlaceholder}
                   autoFocus={shouldAutoFocusTitle}
@@ -355,6 +416,8 @@ export function Page({
                 showDescription ? (
                   <PageDescription
                     key={descriptionKey}
+                    ref={descriptionRef}
+                    onNavigate={(direction, clientX) => focusNeighbor('description', direction, clientX)}
                     editable={descriptionEditable}
                     placeholder={descriptionPlaceholder}
                     autoFocus={shouldAutoFocusDescription}

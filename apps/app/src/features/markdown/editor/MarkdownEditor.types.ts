@@ -115,6 +115,13 @@ export interface MarkdownEditorProps {
    */
   readonly onFlush?: () => void;
   /**
+   * ArrowUp on the document's first visual line (or out of a table that opens the document):
+   * hands the caret to whatever editable region sits above the editor, at the closest horizontal
+   * position to `clientX`. Returns whether focus moved; `false`/omitted leaves ArrowUp as plain
+   * editor movement. Supplied by the page, which knows what (if anything) is above.
+   */
+  readonly onExitUp?: (clientX: number) => boolean;
+  /**
    * Resolves a WikiLink's target path (and optional local alias) into a
    * status, display label, and activation behavior — supplied entirely by
    * the feature/app layer. Accepted here (§5) but not yet consumed
@@ -369,6 +376,11 @@ export interface MarkdownEditorHandle {
    * box, so CodeMirror never sees that mousedown itself.
    */
   focusAtPoint(clientX: number, clientY: number): void;
+  /**
+   * Focuses the editor with the caret on its first visual line, at the position closest to
+   * `clientX` — the landing for ArrowDown arriving from the description/title above.
+   */
+  focusAtTop(clientX: number): void;
   /**
    * Single-target convenience wrapper over `revealRanges([{ from, to }])`
    * — see that method's own doc comment for the full behavior (scroll,

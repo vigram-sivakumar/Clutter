@@ -2,6 +2,8 @@ import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
+import { exitEditorUp } from '../editorExitUp';
+
 import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import {
   buildEmptyRowText,
@@ -352,7 +354,14 @@ function buildTableCellCommands(
    */
   function exitAbove(rootView: EditorView, table: SyntaxNode): boolean {
     if (table.from === 0) {
-      return false;
+      // Nothing above to exit onto inside the editor: hand off to whatever sits above it (the
+      // page's description/title), if anything — and only then leave the cell.
+      if (!exitEditorUp(rootView, rootView.coordsAtPos(0)?.left ?? 0)) {
+        return false;
+      }
+      controller.deactivate();
+      rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
+      return true;
     }
     const exitLine = rootView.state.doc.lineAt(table.from - 1);
     controller.deactivate();

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
+import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import { EditableText } from '@components/editable-text/EditableText';
 import { getPageTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 import './Page.Title.css';
@@ -59,9 +60,12 @@ interface PageTitleProps {
    * silently persist later on its own debounce/ceiling schedule.
    */
   onCancel?(): void;
+  /** ArrowUp/ArrowDown pressed at this field's first/last line — see EditableTextProps.onNavigate. */
+  onNavigate?(direction: 'up' | 'down', clientX: number): boolean;
 }
 
-export function PageTitle({
+export const PageTitle = forwardRef<EditableTextHandle, PageTitleProps>(function PageTitle(
+  {
   children,
   editable,
   className,
@@ -78,7 +82,10 @@ export function PageTitle({
   onEdit,
   onFlush,
   onCancel,
-}: PageTitleProps) {
+  onNavigate,
+},
+  ref
+) {
   return (
     <div className={['page-title', className].filter(Boolean).join(' ')}>
       {editable && typeof children === 'string' ? (
@@ -90,6 +97,8 @@ export function PageTitle({
           onEdit={onEdit}
           onFlush={onFlush}
           onCancel={onCancel}
+          onNavigate={onNavigate}
+          ref={ref}
           onSubmit={onSubmit}
         />
       ) : (
@@ -97,4 +106,4 @@ export function PageTitle({
       )}
     </div>
   );
-}
+});

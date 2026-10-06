@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
+import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import { EditableText } from '@components/editable-text/EditableText';
 
 import './Page.Description.css';
@@ -40,6 +41,8 @@ interface PageDescriptionProps {
    * timer.
    */
   onCancel?(): void;
+  /** ArrowUp/ArrowDown pressed at this field's first/last line — see EditableTextProps.onNavigate. */
+  onNavigate?(direction: 'up' | 'down', clientX: number): boolean;
 }
 
 /**
@@ -49,7 +52,8 @@ interface PageDescriptionProps {
  * from before description editing existed; different page types reuse this
  * component whenever the rendering behavior is the same.
  */
-export function PageDescription({
+export const PageDescription = forwardRef<EditableTextHandle, PageDescriptionProps>(function PageDescription(
+  {
   children,
   editable,
   className,
@@ -59,7 +63,10 @@ export function PageDescription({
   onEdit,
   onFlush,
   onCancel,
-}: PageDescriptionProps) {
+  onNavigate,
+},
+  ref
+) {
   return (
     <div className={['page-description', className].filter(Boolean).join(' ')}>
       {editable && typeof children === 'string' ? (
@@ -71,10 +78,12 @@ export function PageDescription({
           onEdit={onEdit}
           onFlush={onFlush}
           onCancel={onCancel}
+          onNavigate={onNavigate}
+          ref={ref}
         />
       ) : (
         children
       )}
     </div>
   );
-}
+});

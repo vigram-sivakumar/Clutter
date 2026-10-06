@@ -51,7 +51,7 @@ import {
   getSystemLocationForFolder,
 } from '@core/presentation/systemPresentation';
 import type { SystemLocationId } from '@core/presentation/systemPresentation';
-import { Page } from '@app/layouts/page/Page';
+import { Page, type PageFocusHandle } from '@app/layouts/page/Page';
 import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNavControls';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
@@ -284,6 +284,8 @@ export function PageHost({
   // Enter (Page's bodyFocusRef) move focus into the editor without Page
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
+  // Page lends the editor "leave upward into the description/title" (ArrowUp on its first line).
+  const pageFocusRef = useRef<PageFocusHandle>(null);
 
   // Which page/folder ids currently have a user-requested-open description
   // editor (see onOpenDescriptionEditor below and Page.tsx's
@@ -1992,6 +1994,7 @@ export function PageHost({
         onRemoveCoverImage={onRemoveCoverImage}
         coverKey={activePageId}
         bodyFocusRef={editorRef}
+        pageFocusRef={pageFocusRef}
         propertiesControl={draftProperties.propertiesControl}
         properties={draftProperties.propertiesSection}
         onTitleCommit={(title) =>
@@ -2010,6 +2013,7 @@ export function PageHost({
               foldStateStore={application.foldStateStore}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
+              onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
               resolveWikiLink={resolveWikiLink}
               renderWikiLinkPreview={renderWikiLinkPreview}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
@@ -2201,6 +2205,7 @@ export function PageHost({
       onSaveCoverPosition={onSaveCoverPosition}
       coverKey={activePageId}
       bodyFocusRef={editorRef}
+        pageFocusRef={pageFocusRef}
       // An archived page is view-only: nothing can be added to it.
       propertiesControl={propertiesControl}
       properties={propertiesSection}
@@ -2217,6 +2222,7 @@ export function PageHost({
             foldStateStore={application.foldStateStore}
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
+              onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
             resolveWikiLink={resolveWikiLink}
               renderWikiLinkPreview={renderWikiLinkPreview}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
