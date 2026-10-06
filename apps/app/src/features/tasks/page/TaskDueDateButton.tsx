@@ -2,29 +2,40 @@ import { useRef, useState } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Button } from '@components/button/Button';
 import { TaskDatePicker } from '../sidebar/TaskDatePicker';
+import { formatTaskDueDateWithYear } from '../helpers/formatTaskDueDate';
 
 interface TaskDueDateButtonProps {
-  /** Sets the task's due date — never moves the task (same contract as the row menu's Change due date). */
-  readonly onSelect: (date: string) => void;
+  /** The task's raw ISO `YYYY-MM-DD` due date; absent, the button is the icon-only "add a due date" control. */
+  readonly date?: string;
+  /** A date string sets it, null clears it — never moves the task (same contract as the row menu's Change due date). */
+  readonly onChange: (date: string | null) => void;
 }
 
 /**
- * The "add a due date" control of a task that has none: an icon-only calendar Button (outline-fill, shown on row hover, next to the title) that opens the
- * same calendar (TaskDatePicker) the task row menu uses. A task that already has a due date shows its date instead.
+ * A task's due date control, always a `Button` that opens the same calendar (TaskDatePicker) the task
+ * row menu used:
+ * - no due date: icon-only outline-fill calendar button, shown on row hover (placed next to the title) to add one;
+ * - a due date: the default-variant button reads the full date ("9 Oct 2026"), always visible (in the trailing slot); the calendar
+ *   opens with that date selected and can change or clear it.
+ * Clicking never opens the row's note.
  */
-export function TaskDueDateButton({ onSelect }: TaskDueDateButtonProps) {
+export function TaskDueDateButton({ date, onChange }: TaskDueDateButtonProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const hasDate = date !== undefined;
 
   return (
     <>
       <Button
         ref={anchorRef}
-        className={['task-row__due-button', open && 'is-open'].filter(Boolean).join(' ')}
-        isIconOnly
-        variant="outline-fill"
+        className={['task-row__due-button', !hasDate && 'task-row__due-button--empty', open && 'is-open']
+          .filter(Boolean)
+          .join(' ')}
+        isIconOnly={!hasDate}
+        // The add-due-date icon button is outline-fill; a set date uses the Button's default variant.
+        variant={hasDate ? undefined : 'outline-fill'}
         size="small"
-        aria-label="Add due date"
+        aria-label={hasDate ? undefined : 'Add due date'}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(event) => {
@@ -33,18 +44,21 @@ export function TaskDueDateButton({ onSelect }: TaskDueDateButtonProps) {
           setOpen(true);
         }}
       >
-        <AppIcon icon="calendarDots" />
+        {hasDate ? formatTaskDueDateWithYear(date) : <AppIcon icon="calendarDots" />}
       </Button>
       <TaskDatePicker
         anchorRef={anchorRef}
         open={open}
         onClose={() => setOpen(false)}
-        date={undefined}
+        date={date}
         onSelect={(selected) => {
           setOpen(false);
-          onSelect(selected);
+          onChange(selected);
         }}
-        onClear={() => setOpen(false)}
+        onClear={() => {
+          setOpen(false);
+          onChange(null);
+        }}
       />
     </>
   );

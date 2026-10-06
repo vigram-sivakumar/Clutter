@@ -154,7 +154,7 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
-  it('renders a dated tasks-all row with its due date as plain text in the trailing slot: no pill, no calendar button, no More actions', () => {
+  it('renders a dated tasks-all row with its due date as a button in the trailing slot: no pill, no add-due-date icon button, no More actions', () => {
     const { getByText, queryByRole, container } = render(
       <TasksCollectionBody
         view="tasks-all"
@@ -253,6 +253,46 @@ describe('TasksCollectionBody', () => {
     vi.unstubAllGlobals();
   });
 
+  it('the due-date button of a dated row opens the calendar to change or clear the date, without opening the note', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+    const onChangeDueDate = vi.fn();
+    const onOpenTask = vi.fn();
+    const target = task({ text: 'Plan trip', dueDate: '2026-08-20' });
+
+    const { getByRole, getByText } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[target]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={onOpenTask}
+        onChangeDueDate={onChangeDueDate}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    fireEvent.click(getByRole('button', { name: '20 Aug 2026' }));
+    expect(onOpenTask).not.toHaveBeenCalled();
+
+    fireEvent.click(getByText('Clear date'));
+    expect(onChangeDueDate).toHaveBeenLastCalledWith(target, null);
+
+    fireEvent.click(getByRole('button', { name: '20 Aug 2026' }));
+    fireEvent.click(getByText('15'));
+    expect(onChangeDueDate).toHaveBeenCalledTimes(2);
+    expect(onChangeDueDate.mock.calls[1]![0]).toBe(target);
+    expect(typeof onChangeDueDate.mock.calls[1]![1]).toBe('string');
+    expect(onOpenTask).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('orders a dated row\'s trailing slot: due date, then the wiki link', () => {
     const { container } = render(
       <TasksCollectionBody
@@ -268,7 +308,9 @@ describe('TasksCollectionBody', () => {
     );
 
     const trailing = container.querySelector('.collection-row__metadata')!;
-    expect(trailing.firstElementChild).toHaveClass('task-row__due-date');
+    expect(trailing.firstElementChild).toHaveClass('task-row__due-button', 'button--ghost');
+    expect(trailing.firstElementChild).not.toHaveClass('button--outline-fill');
+    expect(trailing.firstElementChild).toHaveTextContent('20 Aug 2026');
     expect(trailing.lastElementChild).toHaveClass('task-row__source');
   });
 

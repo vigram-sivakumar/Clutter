@@ -46,14 +46,17 @@
   text-underline-offset: var(--md-underline-offset);
 }
 
-/* The add-due-date calendar button: medium radius, and only there to be reached for — shown while its row is
-   hovered, a control inside the row has keyboard focus, or its calendar is open. */
+/* The due-date control (a Button, medium radius). With no date it is the icon-only calendar button next to the title,
+   and only there to be reached for — shown while its row is hovered, a control inside the row has keyboard focus, or its
+   calendar is open. With a date it reads the date and is always visible. */
 .button.task-row__due-button {
   border-radius: var(--radius-md);
+}
+.button.task-row__due-button--empty {
   opacity: 0;
 }
-.collection-row:hover .task-row__due-button,
-.collection-row:focus-within .task-row__due-button,
-.button.task-row__due-button.is-open {
+.collection-row:hover .task-row__due-button--empty,
+.collection-row:focus-within .task-row__due-button--empty,
+.button.task-row__due-button--empty.is-open {
   opacity: 1;
 }

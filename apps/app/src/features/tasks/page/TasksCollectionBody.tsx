@@ -4,7 +4,6 @@ import { CollectionEmptyState } from '@features/collection/components/empty/Coll
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
-import { formatTaskDueDateWithYear } from '../helpers/formatTaskDueDate';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -217,14 +216,14 @@ export function TasksCollectionBody({
             })}
           </span>
           {/* A task with no due date gets the (hover-only) calendar button right next to its title. */}
-          {!task.dueDate && <TaskDueDateButton onSelect={(date) => onChangeDueDate(task, date)} />}
+          {!task.dueDate && <TaskDueDateButton onChange={(date) => onChangeDueDate(task, date)} />}
         </span>
       ),
-      // Trailing slot, in order: the due date (a task with one), then the note the task lives in as a wiki-link-styled link.
+      // Trailing slot, in order: the due date (a task with one), then the note the task lives in as a wiki-link-styled link. Both are buttons/links that never open the row's note.
       trailing: (
         <>
           {task.dueDate && (
-            <span className="task-row__due-date">{formatTaskDueDateWithYear(task.dueDate)}</span>
+            <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
           )}
           {source && (
             <span
