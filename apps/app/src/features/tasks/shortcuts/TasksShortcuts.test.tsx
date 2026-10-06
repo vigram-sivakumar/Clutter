@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -109,7 +110,7 @@ describe('TasksShortcuts', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('Create is disabled until a non-empty title is typed, and calls onCreateTask with no due date by default', async () => {
+  it('Create is disabled until a non-empty title is typed, and calls onCreateTask with today as the default due date', async () => {
     const { onCreateTask } = renderTasksShortcuts();
 
     fireEvent.click(screen.getByText('New'));
@@ -123,7 +124,7 @@ describe('TasksShortcuts', () => {
     fireEvent.click(createButton);
 
     await waitFor(() => {
-      expect(onCreateTask).toHaveBeenCalledWith('Buy milk', undefined);
+      expect(onCreateTask).toHaveBeenCalledWith('Buy milk', toISODate(new Date()));
     });
 
     // Closes itself once creation resolves.
