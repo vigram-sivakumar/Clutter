@@ -509,7 +509,7 @@ describe('TasksCollectionBody', () => {
       onDeleteTask: vi.fn(),
     };
 
-    it('shows All Tasks, Today, Upcoming, Unscheduled and Completed tabs above the list, All Tasks selected', () => {
+    it('shows All Tasks, Today, Upcoming and Unscheduled tabs above the list, All Tasks selected', () => {
       const { container } = render(
         <TasksCollectionBody view="tasks-all" tasks={[task({ text: 'Plan trip' })]} {...noop} />
       );
@@ -520,7 +520,6 @@ describe('TasksCollectionBody', () => {
         'Today',
         'Upcoming',
         'Unscheduled',
-        'Completed',
       ]);
       expect(tabs.querySelector('.tab--active')).toHaveTextContent('All Tasks');
       expect(container.querySelector('.collection__content')!.firstElementChild).toBe(tabs.parentElement);

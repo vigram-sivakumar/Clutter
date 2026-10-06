@@ -7,7 +7,6 @@ const TASK_TABS = [
   { value: 'today', label: 'Today' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'unscheduled', label: 'Unscheduled' },
-  { value: 'completed', label: 'Completed' },
 ] as const;
 
 /**
