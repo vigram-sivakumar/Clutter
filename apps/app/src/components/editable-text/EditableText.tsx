@@ -96,6 +96,19 @@ function placeCaretAtEnd(element: HTMLDivElement | null) {
 }
 
 /**
+ * A single-line (`editable-text--nowrap`) field scrolls sideways to keep the caret visible. When its
+ * box is only as wide as its content — an empty field in a shrink-to-fit parent is a sliver — the
+ * browser scrolls it on the first keystroke, before the box has grown, and the offset then stays,
+ * clipping the first letters of text that now fits. Once the content fits, there is nothing to scroll:
+ * put the offset back to the start.
+ */
+function resetScrollWhenContentFits(element: HTMLDivElement) {
+  if (element.scrollLeft !== 0 && element.scrollWidth <= element.clientWidth) {
+    element.scrollLeft = 0;
+  }
+}
+
+/**
  * How long the reject-shake CSS animation (EditableText.css's
  * `editable-text--shake`) plays. Exported so another field giving the same
  * "that value isn't accepted" feedback (the date Property input) reuses
@@ -198,6 +211,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
 
     function handleInput(event: FormEvent<HTMLDivElement>) {
       updateEmptyState(event.currentTarget);
+      resetScrollWhenContentFits(event.currentTarget);
       onEdit?.(event.currentTarget.textContent ?? '');
     }
 

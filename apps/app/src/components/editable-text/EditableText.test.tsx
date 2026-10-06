@@ -556,3 +556,30 @@ describe('EditableText — scrolls the caret into view when placed at the end', 
     scrollWidthSpy.mockRestore();
   });
 });
+
+describe('EditableText scroll offset', () => {
+  it('returns a leftover sideways scroll to the start once the typed text fits', () => {
+    render(<EditableText value="" onCommit={vi.fn()} className="editable-text--nowrap" />);
+    const editable = getEditable();
+    Object.defineProperty(editable, 'scrollWidth', { configurable: true, value: 18 });
+    Object.defineProperty(editable, 'clientWidth', { configurable: true, value: 18 });
+    editable.scrollLeft = 6;
+
+    typeText(editable, 'wq');
+
+    expect(editable.scrollLeft).toBe(0);
+  });
+
+  it('keeps the scroll while the text is wider than the box (the caret must stay visible)', () => {
+    render(<EditableText value="" onCommit={vi.fn()} className="editable-text--nowrap" />);
+    const editable = getEditable();
+    Object.defineProperty(editable, 'scrollWidth', { configurable: true, value: 300 });
+    Object.defineProperty(editable, 'clientWidth', { configurable: true, value: 100 });
+    editable.scrollLeft = 200;
+
+    typeText(editable, 'a very long name');
+
+    expect(editable.scrollLeft).toBe(200);
+  });
+});
+
