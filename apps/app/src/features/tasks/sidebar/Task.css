@@ -66,10 +66,9 @@
   gap: 4px;
 }
 
-/* The All Tasks tab strip hugs its tabs: it does not stretch across the page body, and each tab is as wide as its label. */
+/* The All Tasks tab strip (in the page header, before the settings button) hugs its tabs: each tab is as wide as its label. */
 .tasks-tabs {
-  align-self: flex-start;
-  max-width: 100%;
+  flex: none;
 }
 .tasks-tabs .tab {
   width: auto;

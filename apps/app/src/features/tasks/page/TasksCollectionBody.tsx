@@ -6,7 +6,6 @@ import { CollectionDataTable } from '@features/collection/components/table/Colle
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
-import { TasksTabs } from './TasksTabs';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -106,11 +105,9 @@ export interface TasksCollectionBodyProps {
  * scroll space that lets the last row scroll clear of the page's bottom
  * fade. Defined once here so no individual view can forget it.
  */
-function TasksPageBody({ children, tabs = false }: { readonly children: ReactNode; readonly tabs?: boolean }) {
+function TasksPageBody({ children }: { readonly children: ReactNode }) {
   return (
     <PageBody className="collection__content">
-      {/* The All Tasks tab strip, directly under the page title. */}
-      {tabs && <TasksTabs />}
       {children}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
@@ -235,7 +232,7 @@ export function TasksCollectionBody({
 
   if (entries.length === 0) {
     return (
-      <TasksPageBody tabs>
+      <TasksPageBody>
         <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
       </TasksPageBody>
     );
@@ -256,7 +253,7 @@ export function TasksCollectionBody({
 
   if (layout === 'table') {
     return (
-      <TasksPageBody tabs>
+      <TasksPageBody>
         <CollectionDataTable
           columns={buildPropertyTableColumns(visible)}
           rows={entries.map((entry) => ({
@@ -330,7 +327,7 @@ export function TasksCollectionBody({
   });
 
   return (
-    <TasksPageBody tabs>
+    <TasksPageBody>
       <CollectionDataList className="task-list" items={items} />
     </TasksPageBody>
   );
