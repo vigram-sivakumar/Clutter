@@ -123,7 +123,7 @@ export function TasksViewSettingsMenu({
             Show completed
           </MenuItem>
           <MenuItem
-            leading={<AppIcon icon="sort" />}
+            leading={<AppIcon icon="arrowDown" />}
             trailing={
               config.autoSortCompleted ? (
                 <AppIcon icon="tick" className="menu__item-indicator" />

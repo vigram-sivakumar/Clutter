@@ -95,7 +95,6 @@ import Sidebar from './svg/sidebar.svg?react';
 import Slash from './svg/slash.svg?react';
 import Smile from './svg/Smile.svg?react';
 import Square from './svg/square.svg?react';
-import Sort from './svg/sort.svg?react';
 import SquareCheckOutline from './svg/square-check-outline.svg?react';
 import SquareDashed from './svg/square-dashed.svg?react';
 import SquareExpand from './svg/square-expand.svg?react';
@@ -212,7 +211,6 @@ export const iconRegistry = {
   slash: Slash,
   smile: Smile,
   square: Square,
-  sort: Sort,
   squareCheckOutline: SquareCheckOutline,
   squareDashed: SquareDashed,
   squareExpand: SquareExpand,
