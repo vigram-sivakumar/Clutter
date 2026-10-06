@@ -165,3 +165,25 @@ describe('TasksViewConfigStore — multi-writer coexistence with FoldStateStore'
     expect(written.tasksViewConfig).toEqual({ showCompleted: false });
   });
 });
+
+describe('TasksViewConfigStore — hiddenGroups', () => {
+  it('persists hidden sidebar groups and restores them after a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await TasksViewConfigStore.load(fileSystem, ROOT);
+
+    store.update({ hiddenGroups: ['overdue', 'unscheduled'] });
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get()).toEqual({ hiddenGroups: ['overdue', 'unscheduled'] });
+  });
+
+  it('a non-string-array hiddenGroups is discarded as malformed', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ tasksViewConfig: { hiddenGroups: [1] } }),
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect((await TasksViewConfigStore.load(fileSystem, ROOT)).get()).toEqual({});
+    warn.mockRestore();
+  });
+});

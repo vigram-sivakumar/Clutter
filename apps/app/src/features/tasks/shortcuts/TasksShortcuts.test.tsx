@@ -190,7 +190,7 @@ describe('TasksShortcuts', () => {
       expect(onShortcut).not.toHaveBeenCalled();
     });
 
-    it('writes the shared Tasks-view config and closes the menu when a setting is toggled', () => {
+    it('writes the shared Tasks-view config and leaves the menu open when a setting is toggled', () => {
       const { onTasksViewConfigChange } = renderTasksShortcuts({
         tasksViewConfig: { showCompleted: true, autoSortCompleted: false },
       });
@@ -202,7 +202,7 @@ describe('TasksShortcuts', () => {
         showCompleted: true,
         autoSortCompleted: true,
       });
-      expect(screen.queryByText('Auto-sort completed')).not.toBeInTheDocument();
+      expect(screen.getByText('Auto-sort completed')).toBeInTheDocument();
     });
   });
 });

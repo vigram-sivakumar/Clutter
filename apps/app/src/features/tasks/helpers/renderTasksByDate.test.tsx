@@ -550,6 +550,37 @@ describe('renderTasksByDate', () => {
     });
   });
 
+  it('hides the sidebar groups listed in displayConfig.hiddenGroups', () => {
+    const dueToday = task({ text: 'Submit proposal', dueDate: '2026-08-04' });
+    const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+    const undated = task({ text: 'Someday idea' });
+
+    render(
+      <>
+        {renderTasksByDate({
+          tasks: [dueToday, dueSoon, undated],
+          workspace: new Workspace(),
+          onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
+          onDuplicateTask: vi.fn(),
+          onDeleteTask: vi.fn(),
+          navigation: fakeNavigation(),
+          displayConfig: {
+            showCompleted: true,
+            autoSortCompleted: false,
+            hiddenGroups: ['today', 'unscheduled'],
+          },
+        })}
+      </>
+    );
+
+    const titles = Array.from(document.querySelectorAll('.section-header__title')).map(
+      (el) => el.textContent
+    );
+    expect(titles).toEqual(['Upcoming']);
+  });
+
   describe('Show completed / Auto-sort completed', () => {
     it('shows a completed task due today in the Today section when showCompleted is true', () => {
       const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });

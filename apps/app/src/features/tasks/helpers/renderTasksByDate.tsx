@@ -236,9 +236,11 @@ export function renderTasksByDate({
   const { today, overdue, unscheduled } = groups;
   // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
   const upcoming = groups.upcoming.filter((task) => !unscheduled.includes(task));
+  const hidden = displayConfig.hiddenGroups ?? [];
 
   return (
     <Fragment>
+      {!hidden.includes('today') && (
       <Section
         hasHeader
         title="Today"
@@ -267,7 +269,8 @@ export function renderTasksByDate({
           })
         )}
       </Section>
-      {overdue.length > 0 && (
+      )}
+      {!hidden.includes('overdue') && overdue.length > 0 && (
         <Section
           hasHeader
           title="Overdue"
@@ -292,7 +295,7 @@ export function renderTasksByDate({
           })}
         </Section>
       )}
-      {upcoming.length > 0 && (
+      {!hidden.includes('upcoming') && upcoming.length > 0 && (
         <Section
           hasHeader
           title="Upcoming"
@@ -317,7 +320,7 @@ export function renderTasksByDate({
           })}
         </Section>
       )}
-      {unscheduled.length > 0 && (
+      {!hidden.includes('unscheduled') && unscheduled.length > 0 && (
         <Section
           hasHeader
           title="Unscheduled"

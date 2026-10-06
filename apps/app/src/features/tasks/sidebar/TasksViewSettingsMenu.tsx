@@ -3,8 +3,16 @@ import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { AppIcon } from '@shared/icon';
-import type { TaskDisplayConfig } from '../helpers/groupTasks';
+import { TASK_GROUP_IDS, type TaskDisplayConfig, type TaskGroupId } from '../helpers/groupTasks';
+
+const GROUP_LABELS: Record<TaskGroupId, string> = {
+  today: 'Today',
+  overdue: 'Overdue',
+  upcoming: 'Upcoming',
+  unscheduled: 'Unscheduled',
+};
 
 export interface TasksViewSettingsMenuProps {
   readonly config: TaskDisplayConfig;
@@ -22,13 +30,13 @@ export interface TasksViewSettingsMenuProps {
  * Upcoming): both settings apply to every group at once, and placing the
  * control on one group misrepresented that scope.
  *
- * Opens a small, two-item tick-selection menu (Show completed /
- * Auto-sort completed) — the same `Button` + `Overlay` + `Menu`/`MenuItem`
- * tick pattern CollectionViewMenu.tsx's Properties submenu already
- * establishes, except the tick sits in the item's trailing slot (absent
- * when the setting is off) — never a checkbox/radio control. Unlike that Properties submenu, selecting either item here
- * closes the menu (`onOpenChange(false)`, alongside `onConfigChange`) — a
- * deliberate product choice for this menu, not a shared convention with it.
+ * Opens a tick-selection menu — a "Groups" section (Today / Overdue /
+ * Upcoming / Unscheduled, which sidebar sections are shown), a divider,
+ * then Show completed / Auto-sort completed — the same `Button` + `Overlay`
+ * + `Menu`/`MenuItem` tick pattern CollectionViewMenu.tsx's Properties
+ * submenu establishes, with the tick in the item's trailing slot (absent
+ * when off). Like that submenu, toggling an item leaves the menu open so
+ * several can be changed in one visit; it closes on outside click/Escape.
  *
  * `config`/`onConfigChange` are the one shared Tasks-view preference
  * (owned by AppLayout). `open`/`onOpenChange` are owned by the caller (not
@@ -67,6 +75,29 @@ export function TasksViewSettingsMenu({
         alignment="start"
       >
         <Menu size="medium">
+          <MenuGroupTitle>Groups</MenuGroupTitle>
+          {TASK_GROUP_IDS.map((id) => {
+            const hidden = config.hiddenGroups ?? [];
+            const isShown = !hidden.includes(id);
+            return (
+              <MenuItem
+                key={id}
+                trailing={
+                  isShown ? <AppIcon icon="tick" className="menu__item-indicator" /> : undefined
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onConfigChange({
+                    ...config,
+                    hiddenGroups: isShown ? [...hidden, id] : hidden.filter((h) => h !== id),
+                  });
+                }}
+              >
+                {GROUP_LABELS[id]}
+              </MenuItem>
+            );
+          })}
+          <div className="menu__divider" role="separator" />
           <MenuItem
             trailing={
               config.showCompleted ? (
@@ -76,7 +107,6 @@ export function TasksViewSettingsMenu({
             onClick={(event) => {
               event.stopPropagation();
               onConfigChange({ ...config, showCompleted: !config.showCompleted });
-              onOpenChange(false);
             }}
           >
             Show completed
@@ -90,7 +120,6 @@ export function TasksViewSettingsMenu({
             onClick={(event) => {
               event.stopPropagation();
               onConfigChange({ ...config, autoSortCompleted: !config.autoSortCompleted });
-              onOpenChange(false);
             }}
           >
             Auto-sort completed

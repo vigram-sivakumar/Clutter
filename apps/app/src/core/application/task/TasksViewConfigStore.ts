@@ -21,6 +21,8 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 export interface PersistedTasksViewConfig {
   readonly showCompleted?: boolean;
   readonly autoSortCompleted?: boolean;
+  /** Sidebar group ids (`today`/`overdue`/`upcoming`/`unscheduled`) the user has hidden. */
+  readonly hiddenGroups?: readonly string[];
 }
 
 /**
@@ -148,9 +150,10 @@ function parseTasksViewConfig(raw: unknown): PersistedTasksViewConfig | undefine
     return undefined;
   }
 
-  const { showCompleted, autoSortCompleted } = raw as Record<string, unknown>;
+  const { showCompleted, autoSortCompleted, hiddenGroups } = raw as Record<string, unknown>;
 
-  const entry: { showCompleted?: boolean; autoSortCompleted?: boolean } = {};
+  const entry: { showCompleted?: boolean; autoSortCompleted?: boolean; hiddenGroups?: string[] } =
+    {};
   let sawAnyValidField = false;
   let sawAnyField = false;
 
@@ -166,6 +169,14 @@ function parseTasksViewConfig(raw: unknown): PersistedTasksViewConfig | undefine
     sawAnyField = true;
     if (typeof autoSortCompleted === 'boolean') {
       entry.autoSortCompleted = autoSortCompleted;
+      sawAnyValidField = true;
+    }
+  }
+
+  if (hiddenGroups !== undefined) {
+    sawAnyField = true;
+    if (Array.isArray(hiddenGroups) && hiddenGroups.every((id) => typeof id === 'string')) {
+      entry.hiddenGroups = hiddenGroups as string[];
       sawAnyValidField = true;
     }
   }

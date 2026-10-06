@@ -32,7 +32,18 @@ export type TaskGroups = {
 export interface TaskDisplayConfig {
   readonly showCompleted: boolean;
   readonly autoSortCompleted: boolean;
+  /**
+   * Sidebar sections the user has switched off in the All Tasks settings menu. Presentation only:
+   * `groupTasks` ignores it (membership is unchanged) and only the sidebar's `renderTasksByDate`
+   * reads it — the Today/Overdue/Upcoming/Unscheduled pages and their navigation entries are unaffected.
+   * Absent means every group is shown.
+   */
+  readonly hiddenGroups?: readonly TaskGroupId[];
 }
+
+/** The collapsible sections the Tasks sidebar groups tasks into, in display order. */
+export const TASK_GROUP_IDS = ['today', 'overdue', 'upcoming', 'unscheduled'] as const;
+export type TaskGroupId = (typeof TASK_GROUP_IDS)[number];
 
 /** The Tasks-view preference's out-of-the-box defaults — completed tasks shown, in their normal position. */
 export const DEFAULT_TASK_DISPLAY_CONFIG: TaskDisplayConfig = {

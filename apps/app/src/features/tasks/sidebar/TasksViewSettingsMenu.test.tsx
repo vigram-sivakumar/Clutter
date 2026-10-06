@@ -76,12 +76,30 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     return { ...utils, onConfigChange, onOpenChange };
   }
 
-  it('shows exactly two actions: Show completed and Auto-sort completed', () => {
+  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then Show completed and Auto-sort completed', () => {
     const { getByText, getAllByRole } = renderOpenMenu();
 
-    expect(getByText('Show completed')).toBeInTheDocument();
-    expect(getByText('Auto-sort completed')).toBeInTheDocument();
-    expect(getAllByRole('menuitem')).toHaveLength(2);
+    expect(getByText('Groups')).toBeInTheDocument();
+    expect(getAllByRole('menuitem').map((el) => el.textContent)).toEqual([
+      'Today',
+      'Overdue',
+      'Upcoming',
+      'Unscheduled',
+      'Show completed',
+      'Auto-sort completed',
+    ]);
+    expect(getAllByRole('separator')).toHaveLength(1);
+  });
+
+  it('toggling a group writes it into hiddenGroups (and back out) without closing the menu', () => {
+    const { getByText, onConfigChange, onOpenChange } = renderOpenMenu();
+
+    fireEvent.click(getByText('Overdue'));
+
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({ hiddenGroups: ['overdue'] })
+    );
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
   it('uses the tick-selection pattern — a trailing tick icon when enabled, no tick when disabled, nothing in the leading slot (never a checkbox/radio input)', () => {
@@ -142,19 +160,19 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     expect(onConfigChange).toHaveBeenCalledWith({ showCompleted: false, autoSortCompleted: true });
   });
 
-  it('selecting Show completed closes the menu', () => {
+  it('selecting Show completed leaves the menu open', () => {
     const { getByText, onOpenChange } = renderOpenMenu();
 
     fireEvent.click(getByText('Show completed'));
 
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
-  it('selecting Auto-sort completed closes the menu', () => {
+  it('selecting Auto-sort completed leaves the menu open', () => {
     const { getByText, onOpenChange } = renderOpenMenu();
 
     fireEvent.click(getByText('Auto-sort completed'));
 
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 });

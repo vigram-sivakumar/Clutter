@@ -32,7 +32,12 @@ import {
   type ImageFileActions,
 } from '@app/layouts/page/ImageFileActionsContext';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
-import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
+import {
+  DEFAULT_TASK_DISPLAY_CONFIG,
+  TASK_GROUP_IDS,
+  type TaskDisplayConfig,
+  type TaskGroupId,
+} from '@features/tasks/helpers/groupTasks';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
@@ -49,6 +54,10 @@ function resolveTasksViewConfig(store: TasksViewConfigStore): TaskDisplayConfig 
   return {
     showCompleted: persisted.showCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.showCompleted,
     autoSortCompleted: persisted.autoSortCompleted ?? DEFAULT_TASK_DISPLAY_CONFIG.autoSortCompleted,
+    // Unknown ids (a hand-edited or future file) are dropped rather than trusted.
+    hiddenGroups: (persisted.hiddenGroups ?? []).filter((id): id is TaskGroupId =>
+      (TASK_GROUP_IDS as readonly string[]).includes(id)
+    ),
   };
 }
 
