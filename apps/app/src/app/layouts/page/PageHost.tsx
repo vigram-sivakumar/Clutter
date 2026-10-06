@@ -4,7 +4,8 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import { getPageDisplayLabel, toPageDisplayLabelInput } from '@core/presentation/getPageDisplayLabel';
+import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
 
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
@@ -1683,10 +1684,21 @@ export function PageHost({
             onDuplicateTask={(task) => void application.taskOperations.duplicate(task)}
             onDeleteTask={(task) => void application.taskOperations.delete(task)}
             displayConfig={tasksViewConfig}
-            getSourceLabel={(task) => {
-              const sourcePage = application.effectivePageState.getPage(task.sourcePageId);
+            getSource={(task) => {
+              const sourcePage = vault.getPage(task.sourcePageId);
 
-              return sourcePage ? getPageDisplayLabel(sourcePage).text : undefined;
+              if (!sourcePage) {
+                return undefined;
+              }
+
+              const effective = application.effectivePageState.getPage(sourcePage.id);
+              const { icon, emoji } = resolvePageIdentityIcon(
+                sourcePage,
+                effective,
+                vault.isFolderWithinReservedFolder(sourcePage.parentId, 'templates')
+              );
+
+              return { label: getPageDisplayLabel(effective ?? toPageDisplayLabelInput(sourcePage)).text, icon, emoji };
             }}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}

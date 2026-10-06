@@ -382,8 +382,25 @@ export class Vault {
     return this.tagsByName.get(name);
   }
 
+  /**
+   * Every task Clutter shows in a task list. A task inside a template is
+   * not a real task — it is the raw material of a note that doesn't exist
+   * yet — so tasks living in the Templates folder (or anywhere beneath it)
+   * are never yielded; this is the one place that rule lives, so every
+   * task surface (sidebar, collection pages) inherits it. Checked against
+   * the page's current folder at read time, so moving a note into or out
+   * of Templates takes effect immediately.
+   */
   *tasks(): IterableIterator<TaskOccurrence> {
-    yield* this.taskList;
+    for (const task of this.taskList) {
+      const page = this.pagesById.get(task.sourcePageId);
+
+      if (page && this.isFolderWithinReservedFolder(page.parentId, 'templates')) {
+        continue;
+      }
+
+      yield task;
+    }
   }
 
   /**

@@ -252,13 +252,16 @@ describe('TasksCollectionBody', () => {
         onChangeDueDate={vi.fn()}
         onDuplicateTask={vi.fn()}
         onDeleteTask={vi.fn()}
-        getSourceLabel={() => 'Trips'}
+        getSource={() => ({ label: 'Trips', icon: 'note', emoji: '✈️' })}
       />
     );
 
     // Not a pill: only the due date is one, and the link sits in the metadata (trailing) slot.
     expect([...container.querySelectorAll('.pill')].map((pill) => pill.textContent)).toEqual(['20 Aug']);
-    expect(container.querySelector('.collection-row__metadata .task-row__source')).toHaveTextContent('Trips');
+    const link = container.querySelector('.collection-row__metadata .task-row__source');
+    expect(link).toHaveTextContent('Trips');
+    // Identity emoji first, like a WikiLink in the editor.
+    expect(link!.querySelector('.task-row__source-icon')).toHaveTextContent('✈️');
 
     fireEvent.click(getByRole('link', { name: 'Open Trips' }));
     expect(onOpenTask).toHaveBeenCalledTimes(1);

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Vault } from './Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { TagBuilder } from '../knowledge/TagBuilder';
+import { TaskBuilder } from '../knowledge/TaskBuilder';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import type { Page } from './Page';
 import type { Folder } from './Folder';
@@ -1687,5 +1688,53 @@ describe('Vault.getFolderByPathCaseInsensitive / getPageByPathCaseInsensitive', 
 
     expect(vault.getFolderByPathCaseInsensitive('/vault/Nothing')).toBeUndefined();
     expect(vault.getPageByPathCaseInsensitive('/vault/Nothing.md')).toBeUndefined();
+  });
+});
+
+describe('Vault.tasks excludes tasks inside templates', () => {
+  const task = (sourcePageId: string, text: string) => ({ sourcePageId, text, completed: false });
+  const withTask = (page: Page, text: string): Page => ({
+    ...page,
+    analysis: { ...defaultAnalysis, tasks: [task(page.id, text)] },
+  });
+
+  // Like a real scan: the task projection is derived from the pages.
+  const makeTaskVault = (pages: Page[], folders: Folder[]): Vault =>
+    new Vault(
+      '/vault',
+      pages,
+      folders,
+      [],
+      new TaskBuilder().build(pages),
+      [],
+      new KnowledgeGraph([]),
+      new VaultProjectionBuilder()
+    );
+
+  it('hides tasks in the Templates folder and any folder beneath it, but keeps every other task', () => {
+    const templates = makeFolder({ id: 'templates', path: '/vault/Templates' });
+    const nested = makeFolder({ id: 'nested', path: '/vault/Templates/Meetings', parentId: 'templates' });
+    const vault = makeTaskVault(
+      [
+        withTask(makePage({ id: 'p-template', path: '/vault/Templates/Daily.md', parentId: 'templates' }), 'in template'),
+        withTask(makePage({ id: 'p-nested', path: '/vault/Templates/Meetings/Standup.md', parentId: 'nested' }), 'in nested template'),
+        withTask(makePage({ id: 'p-note', path: '/vault/Note.md' }), 'in a note'),
+      ],
+      [templates, nested]
+    );
+
+    expect([...vault.tasks()].map((t) => t.text)).toEqual(['in a note']);
+  });
+
+  it('takes effect when a note moves into Templates', () => {
+    const templates = makeFolder({ id: 'templates', path: '/vault/Templates' });
+    const page = withTask(makePage({ id: 'p1', path: '/vault/Note.md' }), 'moving');
+    const vault = makeTaskVault([page], [templates]);
+
+    expect([...vault.tasks()]).toHaveLength(1);
+
+    vault.updatePagePath(page.id, '/vault/Templates/Note.md', 'templates');
+
+    expect([...vault.tasks()]).toHaveLength(0);
   });
 });

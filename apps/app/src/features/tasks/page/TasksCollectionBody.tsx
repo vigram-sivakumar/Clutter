@@ -2,6 +2,7 @@ import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { TaskDuePill } from './TaskDuePill';
+import { AppIcon } from '@shared/icon';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -37,6 +38,13 @@ const UNSCHEDULED_VIEW_CONFIG: TaskDisplayConfig = {
   autoSortCompleted: false,
 };
 
+/** The note a task lives in, as the wiki-link-style link the row shows: its label and its own identity icon/emoji. */
+export interface TaskSourceLink {
+  readonly label: string;
+  readonly icon: 'note' | 'calendarNote' | 'calendarDot' | 'template';
+  readonly emoji: string | null;
+}
+
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
   readonly tasks: readonly TaskOccurrence[];
@@ -61,8 +69,8 @@ export interface TasksCollectionBodyProps {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
    */
   readonly displayConfig?: TaskDisplayConfig;
-  /** The display name of the note a task lives in (shown as a link pill that opens it); absent or undefined hides the pill. */
-  readonly getSourceLabel?: (task: TaskOccurrence) => string | undefined;
+  /** The note a task lives in (shown as a wiki-link-style link that opens it); absent or undefined hides the link. */
+  readonly getSource?: (task: TaskOccurrence) => TaskSourceLink | undefined;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
@@ -88,7 +96,7 @@ export function TasksCollectionBody({
   onDuplicateTask,
   onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
-  getSourceLabel,
+  getSource,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -178,7 +186,7 @@ export function TasksCollectionBody({
 
   const items = [...tasks.filter((task) => !task.completed), ...getCompletedTasks(tasks)].map(
     (task) => {
-      const sourceLabel = getSourceLabel?.(task);
+      const source = getSource?.(task);
 
       return {
       // Positional, not task.text — see renderTaskRow's key.
@@ -198,12 +206,12 @@ export function TasksCollectionBody({
         </span>
       ),
       // The note the task lives in, as a wiki-link-styled link in the row's trailing slot.
-      trailing: sourceLabel ? (
+      trailing: source ? (
         <span
           className="task-row__source"
           role="link"
           tabIndex={0}
-          aria-label={`Open ${sourceLabel}`}
+          aria-label={`Open ${source.label}`}
           onClick={(event) => {
             event.stopPropagation();
             onOpenTask(task);
@@ -216,7 +224,10 @@ export function TasksCollectionBody({
             }
           }}
         >
-          <span className="task-row__source-title">{sourceLabel}</span>
+          <span className="task-row__source-icon">
+            <AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />
+          </span>
+          <span className="task-row__source-title">{source.label}</span>
         </span>
       ) : undefined,
       onClick: () => onOpenTask(task),

@@ -46,14 +46,22 @@
   color: var(--foreground-tertiary);
 }
 
-/* The note a task lives in, drawn like a wiki link (the editor's .tok-wikilink / __title pair) in the row's trailing slot. */
+/* The note a task lives in, drawn like a wiki link (the editor's .tok-wikilink: identity icon/emoji + underlined title) in the row's trailing slot. */
 .task-row__source {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
   color: var(--md-wiki-foreground);
   cursor: pointer;
+}
+.task-row__source-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--md-wiki-icon-foreground);
 }
 .task-row__source-title {
   text-decoration: underline;
   text-decoration-thickness: var(--md-underline-thickness);
-  text-decoration-color: var(--link-underline);
+  text-decoration-color: var(--md-wiki-underline);
   text-underline-offset: var(--md-underline-offset);
 }
