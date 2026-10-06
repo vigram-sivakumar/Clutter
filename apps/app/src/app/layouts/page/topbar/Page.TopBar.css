@@ -106,3 +106,11 @@
 .app-layout[data-sidebar-collapsed='false'] .topbar {
   transition-timing-function: ease;
 }
+
+/* Experimental bookmark ribbon: the button keeps its normal position and size
+   (aligned with the other topbar icons); only the bookmark glyph is stretched
+   upward — its path runs well above the 16px viewBox — so the ribbon reaches
+   the top edge of the window. The SVG root must not clip it. */
+.topbar__bookmark svg {
+  overflow: visible;
+}

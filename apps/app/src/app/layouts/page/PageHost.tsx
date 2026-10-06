@@ -108,6 +108,7 @@ import {
 } from '@core/presentation/collection/resolveCollectionView';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
+import type { FolderCreation } from '@app/layouts/page/body/collectionFolders';
 import {
   TasksCollectionBody,
   type TasksCollectionView,
@@ -565,6 +566,9 @@ export function PageHost({
   const propertiesConfirmation = useConfirmationSurface();
   // The page whose title "Properties" was just chosen, before its first property.
   const [startingPropertyPageId, setStartingPropertyPageId] = useState<string | null>(null);
+  // The collection (by its view key) in which a folder is being named inline — the card shows only on
+  // that collection's page, and creates nothing until the name is committed.
+  const [namingFolderIn, setNamingFolderIn] = useState<string | null>(null);
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -655,18 +659,34 @@ export function PageHost({
     })();
   };
 
-  // Create folder, for assets: inside the folder the page is showing — or, on the top-level page,
-  // inside `Assets/`, which is created first if the vault has none yet.
-  const createAssetsFolder = (parentFolderId: string | null): void => {
-    void (async () => {
-      const parentId =
-        parentFolderId ??
-        application.membershipSelector.getAssetsStorageFolder()?.id ??
-        (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
+  // Create folder: start naming it inline — the folder itself is made only when the name is committed.
+  const startFolderCreation = (): void => setNamingFolderIn(collectionViewKey ?? '');
 
-      await createAndOpenFolder(application.folderOperations, getFolderTitlePlaceholder(), parentId);
-    })();
-  };
+  // The inline folder card, while this collection is the one naming a folder. `resolveParentId` is read
+  // at commit (Assets/ may not exist yet); `checkParentId` is the parent already known, for the duplicate check.
+  const folderCreationFor = (
+    resolveParentId: () => string | null | Promise<string | null>,
+    checkParentId: string | null
+  ): FolderCreation | undefined =>
+    namingFolderIn !== null && namingFolderIn === (collectionViewKey ?? '')
+      ? {
+          canCreate: (name) => application.folderOperations.canCreate(name, checkParentId),
+          onCommit: (name) => {
+            setNamingFolderIn(null);
+            void (async () => {
+              await createAndOpenFolder(application.folderOperations, name, await resolveParentId());
+            })();
+          },
+          onCancel: () => setNamingFolderIn(null),
+        }
+      : undefined;
+
+  // Where a folder made on an Assets page goes: inside the folder the page shows — or, on the
+  // top-level page, inside `Assets/`, which is created first if the vault has none yet.
+  const assetsParentResolver = (parentFolderId: string | null) => async (): Promise<string | null> =>
+    parentFolderId ??
+    application.membershipSelector.getAssetsStorageFolder()?.id ??
+    (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
 
   // The assets one Assets page lists — only its DIRECT ones: a folder's own files, or on the top-level
   // page everything in the catalog (remote images and files elsewhere in the vault included) except the
@@ -684,11 +704,13 @@ export function PageHost({
     folders: readonly CollectionEntryModel[];
     onCreate?: () => void;
     onCreateFolder?: () => void;
+    folderCreation?: FolderCreation;
   }) => (
     <AssetsCollectionBody
       assets={props.assets}
       folders={props.folders}
       onCreateFolder={props.onCreateFolder}
+      folderCreation={props.folderCreation}
       viewMode={collectionView.layout}
       visible={collectionView.visible}
       sort={collectionView.sort}
@@ -1326,13 +1348,9 @@ export function PageHost({
     // shape duplicateAndOpenPage.ts already established for Duplicate. Creates as a subfolder
     // of the folder currently being viewed.
     const onCreateSubfolder = collectionDefinition.actions.createFolder
-      ? () =>
-          void createAndOpenFolder(
-            application.folderOperations,
-            getFolderTitlePlaceholder(),
-            folder.id
-          )
+      ? startFolderCreation
       : undefined;
+    const subfolderCreation = folderCreationFor(() => folder.id, folder.id);
 
     return (
       <>
@@ -1438,6 +1456,7 @@ export function PageHost({
                 folders: model.folders,
                 onCreate,
                 onCreateFolder: onCreateSubfolder,
+                folderCreation: subfolderCreation,
               })
             ) : isArchiveView ? (
               <ArchiveCollectionBody
@@ -1461,6 +1480,7 @@ export function PageHost({
                 visible={collectionView.visible}
                 sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
+                folderCreation={subfolderCreation}
                 onCreate={onCreate}
                 emptyCreateLabel="Create note"
                 noteCover={noteCoverActions}
@@ -1494,7 +1514,11 @@ export function PageHost({
     // (into Assets/ — a folder inside it is its own page).
     const onCreate = collectionDefinition.actions.create ? () => uploadAssetsInto() : undefined;
     // Create folder: inside Assets/. Declared by the definition like every other collection's.
-    const onCreateFolder = collectionDefinition.actions.createFolder ? () => createAssetsFolder(null) : undefined;
+    const onCreateFolder = collectionDefinition.actions.createFolder ? startFolderCreation : undefined;
+    const folderCreation = folderCreationFor(
+      assetsParentResolver(null),
+      application.membershipSelector.getAssetsStorageFolder()?.id ?? null
+    );
     // The folders in Assets/ — each opens as an Assets page of its own.
     const assetsStorageFolder = application.membershipSelector.getAssetsStorageFolder();
     const assetFolders = assetsStorageFolder
@@ -1535,6 +1559,7 @@ export function PageHost({
           folders: assetFolders,
           onCreate,
           onCreateFolder,
+          folderCreation,
         })}
       />
     );
@@ -1657,9 +1682,9 @@ export function PageHost({
     // createAndOpenFolder.ts. Creates at the vault root (parentId: null), the same root scope
     // Workspace-root's own folder listing already shows.
     const onCreateFolder = collectionDefinition.actions.createFolder
-      ? () =>
-          void createAndOpenFolder(application.folderOperations, getFolderTitlePlaceholder(), null)
+      ? startFolderCreation
       : undefined;
+    const folderCreation = folderCreationFor(() => null, null);
 
     return (
       <Page
@@ -1693,6 +1718,7 @@ export function PageHost({
             visible={collectionView.visible}
             sort={collectionView.sort}
             onCreateFolder={onCreateFolder}
+            folderCreation={folderCreation}
             onCreate={onCreate}
             emptyCreateLabel="Create note"
             noteCover={noteCoverActions}

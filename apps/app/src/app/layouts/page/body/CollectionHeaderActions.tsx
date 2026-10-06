@@ -141,6 +141,8 @@ export function CollectionHeaderActions({
                 leading={<AppIcon icon="folder" />}
                 onClick={(event) => {
                   event.stopPropagation();
+                  // The new folder's name field takes focus; the menu must not hand it back to the button.
+                  suppressReturnFocusRef.current = true;
                   setOpen(false);
                   onAddFolder();
                 }}

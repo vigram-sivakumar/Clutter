@@ -23,7 +23,7 @@ import { resolveCollectionView } from '@core/presentation/collection/resolveColl
 import './CollectionBody.css';
 
 import { CreateCard, createNewItem } from './collectionCreate';
-import { renderFolderGrid } from './collectionFolders';
+import { renderFolderGrid, type FolderCreation } from './collectionFolders';
 import { PageBody } from './Page.Body';
 
 /**
@@ -92,6 +92,8 @@ export interface CollectionBodyProps {
    * (no grid at all when folders is empty).
    */
   onCreateFolder?: () => void;
+  /** A folder being named inline, drawn as a card in the folders section while it lasts. */
+  folderCreation?: FolderCreation;
   /**
    * The collection's one Create handler — what Create DOES is the page's (here: make a note) and
    * the layouts only ever show it as "Create": a trailing row in List and Table, an empty "+" card
@@ -215,6 +217,7 @@ export function CollectionBody({
   visible = DEFAULT_VIEW.visible,
   sort = DEFAULT_VIEW.sort,
   onCreateFolder,
+  folderCreation,
   onCreate,
   emptyCreateLabel,
   showNotes = true,
@@ -278,7 +281,7 @@ export function CollectionBody({
   // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
   // shows the empty state instead of its List, Table or Card: an empty collection offers no Create
   // row or card (the header's Create is the way in).
-  const isEmpty = sortedFolders.length === 0 && (!showNotes || sortedNotes.length === 0);
+  const isEmpty = !folderCreation && sortedFolders.length === 0 && (!showNotes || sortedNotes.length === 0);
   const createAction = onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate } : undefined;
 
   return (
@@ -288,7 +291,7 @@ export function CollectionBody({
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}
-          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
+          {(sortedFolders.length > 0 || folderCreation) && renderFolderGrid(sortedFolders, onCreateFolder, folderCreation)}
           {showNotes && noteSection}
         </>
       )}
