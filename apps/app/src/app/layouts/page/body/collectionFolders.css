@@ -7,3 +7,11 @@
   width: 100%;
   min-width: 0;
 }
+
+/*
+ * The title box of the card is as wide as its content unless told otherwise, so an empty field is a
+ * sliver and the browser scrolls it sideways as the first letters arrive. Let it take the row.
+ */
+.card-title-section__title:has(> .collection-new-folder__name) {
+  flex: 1;
+}
