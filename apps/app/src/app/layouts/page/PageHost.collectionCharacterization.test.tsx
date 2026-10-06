@@ -201,10 +201,11 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(document.querySelectorAll('.collection-grid--fixed-rows')).toHaveLength(0);
   });
 
-  it('Inbox\'s New note row ends its table, like any collection that can create a note', async () => {
+  it('Inbox\'s table ends with the generic Create row, like any collection that can create', async () => {
     await renderFolder(INBOX);
 
-    expect(bodyHasText('New Note')).toBe(true);
+    expect(document.querySelectorAll('.collection-table-row--new-item')).toHaveLength(1);
+    expect(bodyHasText('Create')).toBe(true);
   });
 
   it('Templates: a New menu with New note and New folder — and NO From template (it is the template source); Table by default', async () => {
@@ -378,5 +379,47 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
     expect(rows.map((row) => row.textContent)).toEqual(['Name', 'Description', 'Cover image', 'Created', 'Last edited']);
     expect(rows[0]).toHaveAttribute('aria-disabled', 'true');
     expect(rows[1]).not.toHaveAttribute('aria-disabled');
+  });
+});
+
+describe('CURRENT BEHAVIOR — one Create capability per collection (header and body share the handler)', () => {
+  it('Inbox: the table\'s Create row and the header\'s "New note" both run the same note creation in Inbox', async () => {
+    const application = makeApplication();
+    const openDraft = vi.spyOn(application.pageOperations, 'openDraft').mockResolvedValue(undefined as never);
+    await application.folderOperations.open(INBOX);
+    render(<AppLayout application={application} />);
+    await flush();
+
+    fireEvent.click(document.querySelector('.collection-table-row--new-item')!);
+    expect(openDraft).toHaveBeenCalledTimes(1);
+    expect(openDraft).toHaveBeenLastCalledWith({ folderId: INBOX });
+
+    fireEvent.click(newButton()!);
+    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'New note')!);
+    expect(openDraft).toHaveBeenCalledTimes(2);
+    expect(openDraft).toHaveBeenLastCalledWith({ folderId: INBOX });
+  });
+
+  it('every layout of an ordinary folder ends with the generic Create affordance', async () => {
+    for (const layout of ['list', 'table', 'card'] as const) {
+      await renderFolder(PROJECTS, layout);
+
+      const found =
+        layout === 'list'
+          ? document.querySelector('.collection-list > .collection-row--tone-action')
+          : layout === 'table'
+            ? document.querySelector('.collection-table-row--new-item')
+            : document.querySelector('.collection-grid:not(.collection-grid--fixed-rows) > .collection-card--empty');
+      expect(found, layout).not.toBeNull();
+      cleanup();
+    }
+  });
+
+  it('a completely empty collection shows the empty state and no Create row (the header "+" is the way in)', async () => {
+    await renderFolder(`${PROJECTS}/Sub`);
+
+    expect(document.querySelector('[role="status"]')).not.toBeNull();
+    expect(document.querySelector('.collection-table-row--new-item')).toBeNull();
+    expect(newButton()).not.toBeNull();
   });
 });

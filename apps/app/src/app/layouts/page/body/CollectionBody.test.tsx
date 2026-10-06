@@ -122,17 +122,17 @@ describe('CollectionBody — Table mode (the default)', () => {
     expect(row.querySelector('.collection-table-row__updated')).toHaveTextContent(UPDATED_TEXT);
   });
 
-  it('ends the table with a "New Note" row that fires onCreateNote — even with no notes', () => {
-    const onCreateNote = vi.fn();
+  it('ends the table with a "Create" row that fires onCreate', () => {
+    const onCreate = vi.fn();
     const { container, getByText } = render(
-      <CollectionBody notes={[]} viewMode="table" onCreateNote={onCreateNote} />
+      <CollectionBody notes={[noteEntry()]} viewMode="table" onCreate={onCreate} />
     );
 
-    const row = getByText('New Note').closest('.collection-table-row--new-item')!;
+    const row = getByText('Create').closest('.collection-table-row--new-item')!;
     expect(container.querySelector('.collection-table__body')!.lastElementChild).toBe(row);
 
     fireEvent.click(row);
-    expect(onCreateNote).toHaveBeenCalledTimes(1);
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
   it('clicking a table row fires its onClick', () => {
@@ -257,7 +257,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
 
     it('only the trailing empty card has no canvas; a note card always has one', () => {
       const container = render(
-        <CollectionBody notes={[entry()]} viewMode="card" onCreateNote={() => {}} previewResolvers={resolvers} />
+        <CollectionBody notes={[entry()]} viewMode="card" onCreate={() => {}} previewResolvers={resolvers} />
       ).container;
 
       const cards = [...container.querySelectorAll('.collection-card')];
@@ -294,16 +294,17 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     expect(container.querySelector('.note-page-canvas h1')?.textContent).toBe('Live heading');
   });
 
-  it('appends a New Note card only once there is a note, and it fires onCreateNote', () => {
-    const onCreateNote = vi.fn();
-    const empty = render(<CollectionBody notes={[]} viewMode="card" onCreateNote={onCreateNote} />);
-    expect(empty.queryByLabelText('New Note')).not.toBeInTheDocument();
+  it('appends a Create card after the notes, and it fires onCreate (an empty collection shows the empty state instead)', () => {
+    const onCreate = vi.fn();
+    const empty = render(<CollectionBody notes={[]} viewMode="card" onCreate={onCreate} />);
+    expect(empty.queryByLabelText('Create')).not.toBeInTheDocument();
+    expect(empty.getByRole('status')).toBeInTheDocument();
     cleanup();
 
     const { getByLabelText } = render(
-      <CollectionBody notes={[noteEntry()]} viewMode="card" onCreateNote={onCreateNote} />
+      <CollectionBody notes={[noteEntry()]} viewMode="card" onCreate={onCreate} />
     );
-    const newCard = getByLabelText('New Note');
+    const newCard = getByLabelText('Create');
     expect(newCard).toBeInTheDocument();
     expect(newCard).toHaveClass('collection-card--empty');
     // Same shell and shape as every other card, but empty: just a centred "+" — no header, no canvas.
@@ -312,7 +313,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     expect(newCard.querySelector('.app-icon svg')).toBeInTheDocument();
 
     fireEvent.click(newCard);
-    expect(onCreateNote).toHaveBeenCalledTimes(1);
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
   it('List and Table modes never render a card or a preview', () => {
@@ -571,7 +572,7 @@ describe('CollectionBody — showNotes', () => {
       );
       expect(getByText('My Folder')).toBeInTheDocument();
       expect(queryByText('My note')).not.toBeInTheDocument();
-      expect(queryByText('New Note')).not.toBeInTheDocument();
+      expect(queryByText('Create')).not.toBeInTheDocument();
       expect(container.querySelector('.collection-table')).not.toBeInTheDocument();
       unmount();
     }
@@ -607,12 +608,12 @@ describe('CollectionBody — foldersInGivenOrder', () => {
 });
 
 describe('CollectionBody — no create actions when none are given', () => {
-  it('shows neither the create-folder card nor a New Note row without onCreateFolder / onCreateNote', () => {
+  it('shows neither the create-folder card nor a Create row without onCreateFolder / onCreate', () => {
     const { container, queryByText } = render(
       <CollectionBody folders={[folderEntry()]} notes={[noteEntry()]} viewMode="list" />
     );
     expect(container.querySelector('.collection-card--empty')).not.toBeInTheDocument();
-    expect(queryByText('New Note')).not.toBeInTheDocument();
+    expect(queryByText('Create')).not.toBeInTheDocument();
   });
 });
 

@@ -1197,18 +1197,18 @@ export function PageHost({
     // Notes level cannot, and that the Daily Notes root and a year list only folders in calendar
     // order. This page only binds what each capability DOES here.
     //
-    // "New note" is wired to the exact same PageOperations.openDraft({ folderId }) call
+    // Create is wired to the exact same PageOperations.openDraft({ folderId }) call
     // Sidebar.Notes.tsx's own "+" row action already uses for "new note in this folder" (ADR-017
     // draft flow), not a new creation path. Shared by two entry points below: the title-adjacent
-    // Button, and the notes table's always-rendered trailing "New Note" row (CollectionBody's
-    // onCreateNote) — one handler, two live controls, not two implementations. A capability the
+    // Button, and the collection's trailing Create row (CollectionBody's
+    // onCreate) — one handler, two live controls, not two implementations. A capability the
     // definition does not declare gets no handler at all (rule 12 — never wire a live control to
     // an invented handler).
     const foldersOrder = foldersOrderOf(collectionDefinition.behavior);
     const dailyNotesFolders = foldersOrder
       ? [...model.folders].sort((a, b) => foldersOrder(a.values.name, b.values.name))
       : model.folders;
-    const onCreateNote = collectionDefinition.actions.createNote
+    const onCreate = collectionDefinition.actions.create
       ? () => void application.pageOperations.openDraft({ folderId: folder.id })
       : undefined;
     // Folders grid's "Create folder" card handler (CollectionBody's onCreateFolder) — reusing
@@ -1280,7 +1280,7 @@ export function PageHost({
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
           titleActions={renderCollectionHeaderActions({
-            onAdd: onCreateNote,
+            onAdd: onCreate,
             onAddFolder: onCreateSubfolder,
             fromTemplate: collectionDefinition.actions.fromTemplate
               ? buildFromTemplate(folder.id)
@@ -1347,7 +1347,7 @@ export function PageHost({
                 visible={collectionView.visible}
                 sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
-                onCreateNote={onCreateNote}
+                onCreate={onCreate}
                 noteCover={noteCoverActions}
                 previewResolvers={{
                   resolveWikiLink,
@@ -1382,7 +1382,7 @@ export function PageHost({
     // into the vault's Assets folder via the same import the cover upload uses
     // (`importCoverAsset` -> `importAsset`; collision-free naming), and let the
     // vault's normal ingest/watch pick them up as resources.
-    const onAddAsset = (): void => {
+    const onCreateAsset = (): void => {
       void (async () => {
         const selected = await openFileDialog({
           multiple: true,
@@ -1397,6 +1397,8 @@ export function PageHost({
         }
       })();
     };
+    // The collection's one Create handler, from its declared capability: for assets, the file picker.
+    const onCreate = collectionDefinition.actions.create ? onCreateAsset : undefined;
 
     return (
       <Page
@@ -1410,7 +1412,7 @@ export function PageHost({
         icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
         titleActions={renderCollectionHeaderActions({
-          onAdd: collectionDefinition.actions.upload ? onAddAsset : undefined,
+          onAdd: onCreate,
           addLabel: 'Add asset',
         })}
         body={
@@ -1429,7 +1431,7 @@ export function PageHost({
                     { onSetCoverImage: () => onSetAssetAsCover(asset.url) }
                   )
             }
-            onUpload={onAddAsset}
+            onCreate={onCreate}
             onRenameResource={(id, name) =>
               void application.resourceOperations.renameResource(id, name)
             }
@@ -1545,8 +1547,8 @@ export function PageHost({
     // the exact call the sidebar's "New" shortcut already uses (buildNotesShortcutHandler.ts's
     // 'new-note' case) — for Workspace, and createNoteForTag, the same helper the Tags sidebar
     // row's "+" uses, for a Tag. Shared by the title-adjacent Button below and the notes table's
-    // trailing "New Note" row (CollectionBody's onCreateNote).
-    const onCreateNote = collectionDefinition.actions.createNote
+    // trailing Create row (CollectionBody's onCreate).
+    const onCreate = collectionDefinition.actions.create
       ? view.kind === 'tag'
         ? () =>
             void createNoteForTag(application.pageOperations, application.tagExpansionStore, view.tagName)
@@ -1575,7 +1577,7 @@ export function PageHost({
               titleProps.title
             )} />}
         titleActions={renderCollectionHeaderActions({
-          onAdd: onCreateNote,
+          onAdd: onCreate,
           onAddFolder: onCreateFolder,
           fromTemplate: collectionDefinition.actions.fromTemplate ? buildFromTemplate(null) : undefined,
         })}
@@ -1592,7 +1594,7 @@ export function PageHost({
             visible={collectionView.visible}
             sort={collectionView.sort}
             onCreateFolder={onCreateFolder}
-            onCreateNote={onCreateNote}
+            onCreate={onCreate}
             noteCover={noteCoverActions}
           />
         }

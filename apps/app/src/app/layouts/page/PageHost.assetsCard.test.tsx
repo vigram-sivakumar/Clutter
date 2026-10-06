@@ -240,7 +240,9 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     render(<AppLayout application={setup([image(), pdf()], 'list')} />);
     await flush();
 
-    expect(document.querySelectorAll('.collection-list > .collection-row')).toHaveLength(2);
+    // Two assets, then the collection's trailing Create row.
+    expect(document.querySelectorAll('.collection-list > .collection-row:not(.collection-row--tone-action)')).toHaveLength(2);
+    expect(document.querySelectorAll('.collection-list > .collection-row--tone-action')).toHaveLength(1);
     expect(document.querySelector('.collection-grid, .collection-table')).toBeNull();
     expect(document.body.textContent).toContain('hero');
     expect(document.body.textContent).toContain('doc');
@@ -263,7 +265,9 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect([...document.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
     ]);
-    expect(document.querySelectorAll('.collection-table__body > .collection-table-row')).toHaveLength(2);
+    // Two assets, then the collection's trailing Create row.
+    expect(document.querySelectorAll('.collection-table__body > .collection-table-row:not(.collection-table-row--new-item)')).toHaveLength(2);
+    expect(document.querySelectorAll('.collection-table__body > .collection-table-row--new-item')).toHaveLength(1);
   });
 
   it('Card renders the generic grid with a generic overlay card per asset', async () => {
@@ -361,7 +365,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     const order = () =>
-      [...document.querySelectorAll<HTMLElement>('.collection-row')].map((row) => row.dataset.resourceId);
+      [...document.querySelectorAll<HTMLElement>('.collection-row:not(.collection-row--tone-action)')].map((row) => row.dataset.resourceId);
     expect(order()).toEqual(['pdf-a', 'img-b']); // Name A→Z by default
 
     await openMenu();
@@ -385,7 +389,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     expect(
-      [...document.querySelectorAll<HTMLElement>('.collection-row')].map((row) => row.dataset.resourceId)
+      [...document.querySelectorAll<HTMLElement>('.collection-row:not(.collection-row--tone-action)')].map((row) => row.dataset.resourceId)
     ).toEqual(['img-a', 'img-z']);
   });
 });

@@ -43,16 +43,20 @@ export type CollectionKind =
  */
 export type CollectionBehavior = 'daily-notes-root' | 'daily-notes-year' | 'notes-only';
 
-/** What a collection can create or offer — capability only; the handler is bound by the page. */
+/**
+ * What a collection can create or offer — capability only; the handler is bound by the page.
+ * `create` is the one generic "add an item to this collection" capability: what it DOES is the
+ * domain's (a note collection makes a note, the assets collection opens the file picker and imports
+ * what is chosen) and the generic collection components only ever see a handler labelled "Create".
+ */
 export interface CollectionActions {
-  readonly createNote?: true;
+  readonly create?: true;
   readonly createFolder?: true;
   /**
    * "From template" in the Add menu, next to New note (and New folder where it can be created).
    * Declared only where a note can be created from the page: it is an alternative way to make one.
    */
   readonly fromTemplate?: true;
-  readonly upload?: true;
 }
 
 export interface CollectionDefinition {
@@ -100,14 +104,14 @@ const NOTE_COLLECTION = {
 export const FOLDER_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'folder',
-  actions: { createNote: true, createFolder: true, fromTemplate: true },
+  actions: { create: true, createFolder: true, fromTemplate: true },
 };
 
 /** Reserved: nothing is created in it from its own page (as today). */
 export const INBOX_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'inbox',
-  actions: { createNote: true, fromTemplate: true },
+  actions: { create: true, fromTemplate: true },
   behavior: 'notes-only',
 };
 
@@ -115,7 +119,7 @@ export const INBOX_COLLECTION: CollectionDefinition = {
 export const TEMPLATES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'templates',
-  actions: { createNote: true, createFolder: true },
+  actions: { create: true, createFolder: true },
 };
 
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
@@ -135,7 +139,7 @@ export const DAILY_NOTES_MONTH_COLLECTION: CollectionDefinition = { ...DAILY_NOT
 export const WORKSPACE_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'workspace',
-  actions: { createNote: true, createFolder: true, fromTemplate: true },
+  actions: { create: true, createFolder: true, fromTemplate: true },
 };
 
 /** A filter, not a container: nothing is created in it. */
@@ -148,7 +152,7 @@ export const FAVORITES_COLLECTION: CollectionDefinition = {
 export const TAG_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'tag',
-  actions: { createNote: true },
+  actions: { create: true },
 };
 
 /**
@@ -162,7 +166,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
   layouts: ALL_LAYOUTS,
   defaultLayout: 'card',
   defaultSort: DEFAULT_SORT,
-  actions: { upload: true },
+  actions: { create: true },
   required: { list: ['name'], table: ['name'], card: [] },
 };
 

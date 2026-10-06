@@ -15,6 +15,7 @@ import {
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
+import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
@@ -23,6 +24,7 @@ import { FOLDER_COLLECTION } from '@core/presentation/collection/collectionDefin
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import './CollectionBody.css';
 
+import { CreateCard, createNewItem } from './collectionCreate';
 import { PageBody } from './Page.Body';
 
 /**
@@ -92,16 +94,12 @@ export interface CollectionBodyProps {
    */
   onCreateFolder?: () => void;
   /**
-   * Wires each view mode's trailing "New Note" row (the table's and the list's `newItem`, or
-   * the card grid's empty "+" card) — same "presence is the capability
-   * gate" convention as onCreateFolder above. Without it no row is drawn
-   * in any mode (a "New Note" row that does nothing is a dead control).
-   * With it, table mode renders its row regardless of note count; list
-   * mode only gets one when sortedNotes is non-empty (below) — list's own
-   * empty state is not this row, so it's withheld rather than forwarded
-   * as-is.
+   * The collection's one Create handler — what Create DOES is the page's (here: make a note) and
+   * the layouts only ever show it as "Create": a trailing row in List and Table, an empty "+" card
+   * in Card. Same "presence is the capability gate" convention as onCreateFolder above. A
+   * collection with nothing in it shows the empty state instead, with no Create row or card.
    */
-  onCreateNote?: () => void;
+  onCreate?: () => void;
   /**
    * Whether the notes section is shown at all (default: yes). Off for a page that only holds folders
    * — a Daily Notes year or the Daily Notes root — where an empty notes table would just be noise.
@@ -137,8 +135,8 @@ export interface RenderNoteListOptions {
     url: string | null;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   };
-  /** The list's trailing "New Note" row's handler; absent, none renders. */
-  onCreateNote?: () => void;
+  /** The list's trailing Create row's handler; absent, none renders. */
+  onCreate?: () => void;
 }
 
 /**
@@ -156,7 +154,7 @@ export interface RenderNoteListOptions {
 export function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreateNote }: RenderNoteListOptions = {}
+  { coverFor, onCreate }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -166,7 +164,7 @@ export function renderNoteList(
           cover: visible.includes('cover') ? coverFor?.(entry) : undefined,
         })
       )}
-      newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
+      newItem={createNewItem(onCreate)}
     />
   );
 }
@@ -177,8 +175,8 @@ export interface RenderNoteTableOptions {
     url: string | null;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   };
-  /** The table's trailing "New Note" row's handler — an ordinary collection's; absent, none renders (the Archive has nothing to create). */
-  onCreateNote?: () => void;
+  /** The table's trailing Create row's handler — absent, none renders (the Archive has nothing to create). */
+  onCreate?: () => void;
 }
 
 /**
@@ -192,7 +190,7 @@ export interface RenderNoteTableOptions {
 export function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreateNote }: RenderNoteTableOptions = {}
+  { coverFor, onCreate }: RenderNoteTableOptions = {}
 ) {
   return (
     <CollectionDataTable
@@ -203,7 +201,7 @@ export function renderNoteTable(
           cover: coverFor?.(entry),
         })
       )}
-      newItem={onCreateNote ? { label: 'New Note', onClick: onCreateNote } : undefined}
+      newItem={createNewItem(onCreate)}
     />
   );
 }
@@ -235,7 +233,7 @@ export function CollectionBody({
   visible = DEFAULT_VIEW.visible,
   sort = DEFAULT_VIEW.sort,
   onCreateFolder,
-  onCreateNote,
+  onCreate,
   showNotes = true,
   foldersInGivenOrder = false,
   previewResolvers,
@@ -268,8 +266,8 @@ export function CollectionBody({
 
   const noteSection =
     viewMode === 'table' ? renderNoteTable(sortedNotes, visible, {
-      // Only when notes can be created here: a "New Note" row that does nothing is a dead control.
-      onCreateNote,
+      // Only when something can be created here: a Create row that does nothing is a dead control.
+      onCreate,
       coverFor,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
@@ -282,21 +280,22 @@ export function CollectionBody({
             })}
           />
         ))}
-        {onCreateNote && sortedNotes.length > 0 && (
-          <CollectionCard isEmpty aspectRatio={NOTE_CARD_ASPECT_RATIO} aria-label="New Note" onClick={onCreateNote}>
-            <AppIcon icon="plus" />
-          </CollectionCard>
-        )}
+        {onCreate && <CreateCard onCreate={onCreate} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}
       </CollectionGrid>
     ) : renderNoteList(sortedNotes, visible, {
-      onCreateNote: sortedNotes.length > 0 ? onCreateNote : undefined,
+      onCreate,
       coverFor,
     });
+
+  // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
+  // shows the empty state instead of its List, Table or Card: an empty collection offers no Create
+  // row or card (the header's Create is the way in).
+  const isEmpty = sortedFolders.length === 0 && (!showNotes || sortedNotes.length === 0);
 
   return (
     <PageBody className="collection__content">
       {(sortedFolders.length > 0 || onCreateFolder) && renderFolderGrid(sortedFolders, onCreateFolder)}
-      {showNotes && noteSection}
+      {isEmpty ? <CollectionEmptyState /> : showNotes && noteSection}
       {noteCover && viewMode !== 'card' && coverNote && (
         <CoverPickerOverlay
           open

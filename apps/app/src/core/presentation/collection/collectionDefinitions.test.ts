@@ -122,20 +122,19 @@ describe('actions — what each collection can create (capability only; handlers
   const actions = (definition: { actions: object }) => Object.keys(definition.actions).sort();
 
   it('pins the capabilities that used to be scattered conditionals in PageHost', () => {
-    expect(actions(FOLDER_COLLECTION)).toEqual(['createFolder', 'createNote', 'fromTemplate']);
-    expect(actions(WORKSPACE_COLLECTION)).toEqual(['createFolder', 'createNote', 'fromTemplate']);
-    expect(actions(TEMPLATES_COLLECTION)).toEqual(['createFolder', 'createNote']);
-    expect(actions(TAG_COLLECTION)).toEqual(['createNote']);
+    expect(actions(FOLDER_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
+    expect(actions(WORKSPACE_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
+    expect(actions(TEMPLATES_COLLECTION)).toEqual(['create', 'createFolder']);
+    expect(actions(TAG_COLLECTION)).toEqual(['create']);
     // Inbox: a note can be made blank or from a template — and no folder can be made there.
-    expect(actions(INBOX_COLLECTION)).toEqual(['createNote', 'fromTemplate']);
-    expect(actions(ASSETS_COLLECTION)).toEqual(['upload']);
+    expect(actions(INBOX_COLLECTION)).toEqual(['create', 'fromTemplate']);
+    expect(actions(ASSETS_COLLECTION)).toEqual(['create']);
   });
 
   it('the Archive, Favorites and every Daily Notes level create nothing from their own page', () => {
     for (const definition of [ARCHIVE_COLLECTION, FAVORITES_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
-      expect(definition.actions.createNote, definition.kind).toBeUndefined();
+      expect(definition.actions.create, definition.kind).toBeUndefined();
       expect(definition.actions.createFolder, definition.kind).toBeUndefined();
-      expect(definition.actions.upload, definition.kind).toBeUndefined();
     }
   });
 });

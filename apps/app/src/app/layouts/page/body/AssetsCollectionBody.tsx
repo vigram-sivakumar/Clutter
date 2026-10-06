@@ -1,8 +1,9 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
 
+import { CreateCard, createNewItem } from './collectionCreate';
 import { PageBody } from './Page.Body';
+import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { EditableText } from '@components/editable-text/EditableText';
-import { AppIcon } from '@shared/icon';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
@@ -53,10 +54,11 @@ export interface AssetsCollectionBodyProps {
    */
   readonly onOpenAsset?: (asset: Asset) => void;
   /**
-   * Starts an upload (the collection's Add action). When given, the Card view
-   * ends with an "Upload" card that calls it — shown even for an empty collection.
+   * The collection's one Create handler — for assets, open the file picker and import what is
+   * chosen. The layouts only ever show it as "Create": a trailing row in List and Table, an empty
+   * "+" card in Card. With no assets at all the empty state shows instead, with no Create row or card.
    */
-  readonly onUpload?: () => void;
+  readonly onCreate?: () => void;
   /**
    * `ResourceOperations.renameResource(resourceId, name)` — a single
    * collision-free write, committed once, so this body feeds it the final
@@ -84,7 +86,7 @@ export function AssetsCollectionBody({
   sort,
   resolveResourceUrl,
   onOpenAsset,
-  onUpload,
+  onCreate,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -144,11 +146,7 @@ export function AssetsCollectionBody({
             })}
           />
         ))}
-        {onUpload && (
-          <CollectionCard isEmpty aspectRatio={ASSET_CARD_ASPECT_RATIO} aria-label="Upload" onClick={onUpload}>
-            <AppIcon icon="plus" />
-          </CollectionCard>
-        )}
+        {onCreate && <CreateCard onCreate={onCreate} aspectRatio={ASSET_CARD_ASPECT_RATIO} />}
       </CollectionGrid>
     );
   } else if (viewMode === 'table') {
@@ -164,6 +162,7 @@ export function AssetsCollectionBody({
             titleContent: titleContentFor(asset),
           })
         )}
+        newItem={createNewItem(onCreate)}
         onKeyDown={handleKeyDown}
       />
     );
@@ -178,6 +177,7 @@ export function AssetsCollectionBody({
             titleContent: titleContentFor(asset),
           })
         )}
+        newItem={createNewItem(onCreate)}
         onKeyDown={handleKeyDown}
       />
     );
@@ -185,7 +185,7 @@ export function AssetsCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {layout}
+      {assets.length === 0 ? <CollectionEmptyState /> : layout}
       {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>

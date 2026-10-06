@@ -619,10 +619,10 @@ describe('AssetsCollectionBody — Card grid', () => {
   });
 });
 
-describe('AssetsCollectionBody — Upload card', () => {
-  it('ends the Card grid with an empty "+"-style Upload card that calls onUpload — after every asset', () => {
-    const onUpload = vi.fn();
-    const { container, getByLabelText } = renderAssets({ resources: [makeResource(), makeResource({ id: 'r2', name: 'b.png' })], viewMode: 'card', onUpload });
+describe('AssetsCollectionBody — Create affordance', () => {
+  it('ends the Card grid with an empty "+"-style Create card that calls onCreate — after every asset', () => {
+    const onCreate = vi.fn();
+    const { container, getByLabelText } = renderAssets({ resources: [makeResource(), makeResource({ id: 'r2', name: 'b.png' })], viewMode: 'card', onCreate });
 
     const grid = container.querySelector('.collection-grid')!;
     expect(grid.lastElementChild).toHaveClass('collection-card--empty');
@@ -632,24 +632,45 @@ describe('AssetsCollectionBody — Upload card', () => {
     expect(grid.lastElementChild!.querySelector('.app-icon svg')).not.toBeNull();
     expect(grid.lastElementChild!.querySelector('.collection-card__header')).toBeNull();
 
-    fireEvent.click(getByLabelText('Upload'));
-    expect(onUpload).toHaveBeenCalledTimes(1);
+    fireEvent.click(getByLabelText('Create'));
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('is still there with no assets at all', () => {
-    const { container } = renderAssets({ resources: [], viewMode: 'card', onUpload: vi.fn() });
-
-    expect(container.querySelectorAll('.collection-card--layout-overlay')).toHaveLength(0);
-    expect(container.querySelector('.collection-card--empty')).not.toBeNull();
-  });
-
-  it('is not rendered without an upload handler, nor in List or Table', () => {
-    expect(renderAssets({ resources: [makeResource()], viewMode: 'card' }).container.querySelector('.collection-card--empty')).toBeNull();
-    cleanup();
-
+  it('List and Table end with the same generic "Create" row, which calls the same handler', () => {
     for (const viewMode of ['list', 'table'] as const) {
-      const { container, unmount } = renderAssets({ resources: [makeResource()], viewMode, onUpload: vi.fn() });
+      const onCreate = vi.fn();
+      const { container, getByText, unmount } = renderAssets({ resources: [makeResource()], viewMode, onCreate });
+
+      const row = getByText('Create').closest(viewMode === 'list' ? '.collection-row' : '.collection-table-row--new-item')!;
+      expect(row.closest(viewMode === 'list' ? '.collection-list' : '.collection-table__body')!.lastElementChild).toBe(
+        viewMode === 'list' ? row : row
+      );
       expect(container.querySelector('.collection-card--empty')).toBeNull();
+
+      fireEvent.click(row);
+      expect(onCreate, viewMode).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
+  it('with no assets at all, every layout shows the empty state — and no Create row or card', () => {
+    for (const viewMode of LAYOUTS) {
+      const { container, getByRole, queryByText, queryByLabelText, unmount } = renderAssets({ resources: [], viewMode, onCreate: vi.fn() });
+
+      expect(getByRole('status'), viewMode).toBeInTheDocument();
+      expect(queryByText('Create'), viewMode).toBeNull();
+      expect(queryByLabelText('Create'), viewMode).toBeNull();
+      expect(container.querySelector('.collection-card--empty'), viewMode).toBeNull();
+      unmount();
+    }
+  });
+
+  it('nothing is created without a handler, in any layout', () => {
+    for (const viewMode of LAYOUTS) {
+      const { container, queryByText, unmount } = renderAssets({ resources: [makeResource()], viewMode });
+
+      expect(container.querySelector('.collection-card--empty'), viewMode).toBeNull();
+      expect(queryByText('Create'), viewMode).toBeNull();
       unmount();
     }
   });

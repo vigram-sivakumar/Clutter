@@ -1,0 +1,14 @@
+/*
+ * The empty state fills the room the collection's items would have, centering one muted line.
+ * Per CLAUDE.md, no `margin` anywhere.
+ */
+.collection-empty-state {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: var(--space-8);
+  color: var(--foreground-tertiary);
+  text-align: center;
+}

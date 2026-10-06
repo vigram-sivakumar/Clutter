@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
  */
 const COMPONENTS = dirname(fileURLToPath(import.meta.url));
 const SRC = join(COMPONENTS, '..', '..', '..');
-const GENERIC_DIRS = ['grid', 'card', 'row', 'list', 'table', 'media', 'scale'];
+const GENERIC_DIRS = ['grid', 'card', 'row', 'list', 'table', 'media', 'scale', 'empty'];
 const DOMAIN_DIRS = ['note', 'folder', 'asset'];
 
 function filesOf(dir: string, pattern: RegExp): string[] {
@@ -160,6 +160,36 @@ describe('every collection reaches the generic components through mappers, not c
     }
   });
 
+  it('Create is one generic capability: the bodies take `onCreate` and never a note- or asset-named creation prop', () => {
+    for (const body of ['app/layouts/page/body/CollectionBody.tsx', 'app/layouts/page/body/AssetsCollectionBody.tsx']) {
+      const text = read(body);
+
+      expect(text, body).toMatch(/\bonCreate\b/);
+      for (const forbidden of ['onCreateNote', 'onUpload', 'onCreateAsset', 'New Note', "'Upload'", '"Upload"', 'inbox']) {
+        expect(text, `${body}: ${forbidden}`).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it('the generic Create affordance is labelled "Create" in one place, and no generic component names a domain', () => {
+    expect(read('app/layouts/page/body/collectionCreate.tsx')).toContain("CREATE_LABEL = 'Create'");
+
+    for (const file of GENERIC) {
+      expect(file.text, file.rel).not.toMatch(/onCreateNote|onUpload|inbox|New Note|Upload/i);
+    }
+  });
+
+  it('PageHost gives the header Add and the body Create the SAME onCreate handler, in every branch that can create', () => {
+    const pageHost = read('app/layouts/page/PageHost.tsx');
+    const headers = pageHost.match(/onAdd: onCreate,/g) ?? [];
+    const bodies = pageHost.match(/onCreate=\{onCreate\}/g) ?? [];
+
+    // folder + Workspace/Favorites/Tag + Assets
+    expect(headers).toHaveLength(3);
+    expect(bodies).toHaveLength(3);
+    expect(pageHost).not.toMatch(/onCreateNote|onUpload|actions\.(createNote|upload)/);
+  });
+
   it('CollectionViewMenu has exactly one consumer outside tests — the shared CollectionHeaderActions', () => {
     const consumers = ALL_SRC.filter(
       (file) => file.rel !== 'app/layouts/page/body/CollectionViewMenu.tsx' && /CollectionViewMenu/.test(file.text)
@@ -176,7 +206,7 @@ describe('every collection reaches the generic components through mappers, not c
 
     // folder + Workspace/Favorites/Tag + Assets (the definition is `renderCollectionHeaderActions = (`)
     expect(uses).toHaveLength(3);
-    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: collectionDefinition\.actions\.upload \? onAddAsset : undefined,\s*addLabel: 'Add asset'/);
+    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*addLabel: 'Add asset'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);
   });
@@ -214,6 +244,7 @@ describe('the generic collection components own only their own CSS', () => {
     'media/CollectionMedia.css': 'collection-media',
     'media/CollectionImage.css': 'collection-image',
     'scale/ScaledCanvas.css': 'scaled-canvas',
+    'empty/CollectionEmptyState.css': 'collection-empty-state',
   };
 
   it('has a declared owner for every stylesheet', () => {
