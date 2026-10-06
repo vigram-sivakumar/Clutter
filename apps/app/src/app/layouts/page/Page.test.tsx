@@ -16,7 +16,8 @@ function getTitle(): HTMLElement {
 function makeBodyFocusRef() {
   const focus = vi.fn();
   const focusAtNewLineAtStart = vi.fn();
-  return { current: { focus, focusAtNewLineAtStart } };
+  const focusAtPoint = vi.fn();
+  return { current: { focus, focusAtNewLineAtStart, focusAtPoint } };
 }
 
 function getDescription(): HTMLElement {
@@ -433,5 +434,45 @@ describe('Page — description edit/flush/cancel (continuous channel)', () => {
     fireEvent.keyDown(description, { key: 'Enter' });
 
     expect(onDescriptionCommit).toHaveBeenCalledWith('Weekly sync');
+  });
+});
+
+describe('Page body inert-space focus', () => {
+  it('routes a mousedown on the body itself to bodyFocusRef.focusAtPoint and prevents the native blur', () => {
+    const bodyFocusRef = makeBodyFocusRef();
+    const { container } = render(<Page title="T" body={<div />} bodyFocusRef={bodyFocusRef} />);
+
+    const body = container.querySelector('.page__body') as HTMLElement;
+    const notPrevented = fireEvent.mouseDown(body, { clientX: 12, clientY: 34 });
+
+    expect(bodyFocusRef.current.focusAtPoint).toHaveBeenCalledWith(12, 34);
+    expect(notPrevented).toBe(false);
+  });
+
+  it("routes a mousedown on the body's direct wrapper child (the editor's padding) too", () => {
+    const bodyFocusRef = makeBodyFocusRef();
+    render(
+      <Page title="T" body={<div data-testid="wrapper"><span /></div>} bodyFocusRef={bodyFocusRef} />
+    );
+
+    fireEvent.mouseDown(screen.getByTestId('wrapper'));
+    expect(bodyFocusRef.current.focusAtPoint).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a mousedown on anything deeper (text, buttons, widgets) alone', () => {
+    const bodyFocusRef = makeBodyFocusRef();
+    render(<Page title="T" body={<div><button data-testid="deep" /></div>} bodyFocusRef={bodyFocusRef} />);
+
+    const notPrevented = fireEvent.mouseDown(screen.getByTestId('deep'));
+
+    expect(bodyFocusRef.current.focusAtPoint).not.toHaveBeenCalled();
+    expect(notPrevented).toBe(true);
+  });
+
+  it('does nothing without a body focus handle (e.g. a collection page)', () => {
+    const { container } = render(<Page title="T" body={<div />} />);
+
+    const notPrevented = fireEvent.mouseDown(container.querySelector('.page__body') as HTMLElement);
+    expect(notPrevented).toBe(true);
   });
 });

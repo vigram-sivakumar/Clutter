@@ -1,5 +1,5 @@
 import type { PropertiesControl } from './header/propertiesControl';
-import type { ReactNode, RefObject } from 'react';
+import type { MouseEvent, ReactNode, RefObject } from 'react';
 import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
 import './Page.css';
@@ -155,7 +155,11 @@ type PageProps = {
    * is (MarkdownEditor today, a future page type's own editing surface
    * later), only that it can be focused.
    */
-  bodyFocusRef?: RefObject<{ focus(): void; focusAtNewLineAtStart(): void } | null>;
+  bodyFocusRef?: RefObject<{
+    focus(): void;
+    focusAtNewLineAtStart(): void;
+    focusAtPoint?(clientX: number, clientY: number): void;
+  } | null>;
   /**
    * Fired when a changed title commits (see PageTitle.onCommit). Supplied
    * by the draft branch and the folder branch (FolderOperations.rename(),
@@ -298,6 +302,24 @@ export function Page({
     />
   );
 
+  // A mousedown on the body's own inert space — the gutters beside the editor column, the
+  // empty area below the text, the editor wrapper's bottom padding — lands on a box outside
+  // `.cm-editor`, so CodeMirror never sees it and the browser just blurs to <body>. Route
+  // exactly those (the body itself, or its direct wrapper child) to the body's focus handle;
+  // anything deeper (text, widgets, buttons, menus portalled out of the editor) is untouched.
+  const handleBodyMouseDown = (event: MouseEvent<HTMLElement>) => {
+    const focusAtPoint = bodyFocusRef?.current?.focusAtPoint;
+    if (event.button !== 0 || !focusAtPoint) {
+      return;
+    }
+    const target = event.target as Node;
+    if (target !== event.currentTarget && target.parentNode !== event.currentTarget) {
+      return;
+    }
+    event.preventDefault();
+    focusAtPoint(event.clientX, event.clientY);
+  };
+
   return (
     <div className="page">
       <div className="page__document">
@@ -364,7 +386,9 @@ export function Page({
             />
           </header>
           {properties && <div className="page__properties">{properties}</div>}
-          <main className="page__body">{body}</main>
+          <main className="page__body" onMouseDown={handleBodyMouseDown}>
+            {body}
+          </main>
         </div>
       </div>
       {coverLayout === 'side' && cover}

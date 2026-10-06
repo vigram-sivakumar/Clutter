@@ -361,6 +361,15 @@ export interface MarkdownEditorHandle {
    */
   focusAtNewLineAtStart(): void;
   /**
+   * Focuses the editor with the caret at the document position nearest the
+   * given viewport point (clamped: below the last line is the end of the
+   * document, left/right of a line is its start/end). Used for a click on
+   * the page body's inert space — the gutters beside the editor column and
+   * the empty area below the text — which sits outside `.cm-editor`'s own
+   * box, so CodeMirror never sees that mousedown itself.
+   */
+  focusAtPoint(clientX: number, clientY: number): void;
+  /**
    * Single-target convenience wrapper over `revealRanges([{ from, to }])`
    * — see that method's own doc comment for the full behavior (scroll,
    * highlight, clamping, no-op-when-unmounted). Used by Tasks sidebar

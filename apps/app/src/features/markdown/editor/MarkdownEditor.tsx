@@ -1402,6 +1402,15 @@ export const MarkdownEditor = forwardRef<
       });
       view.focus();
     },
+    focusAtPoint(clientX, clientY) {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+      const pos = view.posAtCoords({ x: clientX, y: clientY }, false);
+      view.dispatch({ selection: EditorSelection.cursor(pos) });
+      view.focus();
+    },
     revealRange(from, to) {
       const view = viewRef.current;
       if (!view) {
