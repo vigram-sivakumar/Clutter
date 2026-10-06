@@ -258,7 +258,7 @@ export function TasksCollectionBody({
 
   return (
     <TasksPageBody>
-      <CollectionDataList items={items} />
+      <CollectionDataList className="task-list" items={items} />
     </TasksPageBody>
   );
 }

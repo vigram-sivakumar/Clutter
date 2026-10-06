@@ -60,3 +60,8 @@
 .button.task-row__due-button--empty.is-open {
   opacity: 1;
 }
+
+/* Task list rows: a tighter gap between the trailing items (due date, note link) than the shared 12px. */
+.task-list .collection-row__metadata {
+  gap: 4px;
+}
