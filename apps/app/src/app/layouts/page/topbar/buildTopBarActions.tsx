@@ -226,7 +226,10 @@ export function buildDraftTopBarActions(type: PageType): TopBarParts {
     actions: renderTopBarActions(type, {
       // A draft has no persisted PageMetadata (ADR-017) — favorite is
       // always false pre-promotion, same as EffectivePage's draft case.
-      menu: buildMenuForType(type, 'draft', false, false),
+      // No menu: every item a draft's menu could hold needs a saved page (Move, Use as template,
+      // Reveal, Copy path, Archive) or has no handler on a draft (Duplicate, Favorite), so it would
+      // be a button of dead entries. It appears once the first save makes the draft a page.
+      menu: [],
     }),
   };
 }

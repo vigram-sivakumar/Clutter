@@ -189,20 +189,23 @@ export function ResourceTopBarActions({
           <AppIcon icon={isFavorite ? 'favouriteFilled' : 'favouriteOutline'} />
         </Button>
       )}
-      <OverflowMenu
-        items={menu}
-        triggerRef={moveTrigger.triggerRef}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onSelect={handleMenuSelect}
-        side={OVERFLOW_SIDE}
-        alignment={OVERFLOW_ALIGNMENT}
-        buttonSize="medium"
-        buttonProps={{
-          interaction: 'default',
-          'aria-label': 'More actions',
-        }}
-      />
+      {/* A menu with no items would be a button that opens nothing — so there is no button. */}
+      {menu.length > 0 && (
+        <OverflowMenu
+          items={menu}
+          triggerRef={moveTrigger.triggerRef}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          onSelect={handleMenuSelect}
+          side={OVERFLOW_SIDE}
+          alignment={OVERFLOW_ALIGNMENT}
+          buttonSize="medium"
+          buttonProps={{
+            interaction: 'default',
+            'aria-label': 'More actions',
+          }}
+        />
+      )}
 
       {moveDestinations !== undefined && (
         <MoveDestinationPicker
