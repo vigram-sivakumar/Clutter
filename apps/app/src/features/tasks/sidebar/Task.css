@@ -14,7 +14,7 @@
   opacity: var(--opacity-subtle);
 } */
 
-/* All Tasks page row: the title (ellipsizing) with its due-date Pill beside it. */
+/* All Tasks page row: the title, ellipsizing. */
 .task-row-title {
   display: flex;
   align-items: center;
@@ -26,24 +26,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* No due date: the pill is only there to be reached for — shown while its row is hovered/focused or its calendar is open. */
-.task-row-title__pill {
-  display: inline-flex;
-  flex: none;
-  opacity: 0;
-}
-.collection-row:hover .task-row-title__pill,
-.collection-row:focus-within .task-row-title__pill,
-.task-row-title__pill.is-open {
-  opacity: 1;
-}
-.task-row-title__pill .pill {
-  /* The calendar AppIcon carries its own inset, so only a 2px left padding. */
-  padding-inline-start: 2px;
-  gap: var(--space-4);
-  color: var(--foreground-tertiary);
-}
-
 /* The note a task lives in, drawn like a wiki link (the editor's .tok-wikilink: identity icon/emoji + underlined title) in the row's trailing slot. */
 .task-row__source {
   display: inline-flex;

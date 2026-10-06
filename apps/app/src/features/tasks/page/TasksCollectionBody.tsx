@@ -1,7 +1,6 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
-import { TaskDuePill } from './TaskDuePill';
 import { AppIcon } from '@shared/icon';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
@@ -171,7 +170,7 @@ export function TasksCollectionBody({
   // completed (newest-completed-first via getCompletedTasks) — reuses
   // the same two building blocks rather than inventing a third ordering.
   // Drawn with the generic collection list (CollectionRow) like every other
-  // collection, one row per task: checkbox, title and a due-date pill.
+  // collection, one row per task: checkbox and title, with the note it lives in trailing.
   if (tasks.length === 0) {
     return (
       <PageBody className="collection__content">
@@ -198,9 +197,6 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
-          {!task.dueDate && (
-            <TaskDuePill onSelect={(date) => onChangeDueDate(task, date)} />
-          )}
         </span>
       ),
       // The note the task lives in, as a wiki-link-styled link in the row's trailing slot.

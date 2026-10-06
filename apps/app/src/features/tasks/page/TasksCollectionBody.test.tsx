@@ -173,40 +173,6 @@ describe('TasksCollectionBody', () => {
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
   });
 
-  it('offers a Due date pill on a tasks-all row with no due date, and picking a date sets it', () => {
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      }
-    );
-    const onChangeDueDate = vi.fn();
-    const target = task({ text: 'Someday' });
-
-    const { getByRole, getByText } = render(
-      <TasksCollectionBody
-        view="tasks-all"
-        tasks={[target]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={vi.fn()}
-        onChangeDueDate={onChangeDueDate}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
-      />
-    );
-
-    expect(getByText('Due date')).not.toBeNull();
-    fireEvent.click(getByRole('button', { name: 'Set due date' }));
-    fireEvent.click(getByText('15'));
-
-    expect(onChangeDueDate).toHaveBeenCalledTimes(1);
-    expect(onChangeDueDate.mock.calls[0]![0]).toBe(target);
-    expect(typeof onChangeDueDate.mock.calls[0]![1]).toBe('string');
-    vi.unstubAllGlobals();
-  });
-
   it('shows the source note as a wiki-link-style link in the trailing slot and opens it on click', () => {
     const onOpenTask = vi.fn();
     const target = task({ text: 'Plan trip', dueDate: '2026-08-20' });
@@ -234,6 +200,23 @@ describe('TasksCollectionBody', () => {
     fireEvent.click(getByRole('link', { name: 'Open Trips' }));
     expect(onOpenTask).toHaveBeenCalledTimes(1);
     expect(onOpenTask).toHaveBeenCalledWith(target);
+  });
+
+  it('shows no due-date pill on an undated tasks-all row either', () => {
+    const { container, queryByText } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[task({ text: 'Someday' })]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector('.pill')).toBeNull();
+    expect(queryByText('Due date')).toBeNull();
   });
 
   it('shows the collection empty state for tasks-all with no tasks', () => {
