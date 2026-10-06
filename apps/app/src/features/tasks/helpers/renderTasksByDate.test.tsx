@@ -523,6 +523,31 @@ describe('renderTasksByDate', () => {
       );
       expect(titles).toEqual(['Today', 'Overdue', 'Upcoming']);
     });
+
+    it('puts tasks with no due date in their own Unscheduled section below Upcoming', () => {
+      const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
+      const undated = task({ text: 'Someday idea' });
+
+      render(
+        <>
+          {renderTasksByDate({
+            tasks: [undated, dueSoon],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
+            onDuplicateTask: vi.fn(),
+            onDeleteTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      const titles = Array.from(document.querySelectorAll('.section-header__title')).map(
+        (el) => el.textContent
+      );
+      expect(titles).toEqual(['Today', 'Upcoming', 'Unscheduled']);
+    });
   });
 
   describe('Show completed / Auto-sort completed', () => {

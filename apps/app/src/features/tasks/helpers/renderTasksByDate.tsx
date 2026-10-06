@@ -232,7 +232,10 @@ export function renderTasksByDate({
   // empty (for default expansion) as well as what to render, and
   // renderTodayContent/renderOverdueContent/renderUpcomingContent take the
   // groups directly so groupTasks never runs a second time for the same tree.
-  const { today, overdue, upcoming } = groupTasks(tasks, displayConfig);
+  const groups = groupTasks(tasks, displayConfig);
+  const { today, overdue, unscheduled } = groups;
+  // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
+  const upcoming = groups.upcoming.filter((task) => !unscheduled.includes(task));
 
   return (
     <Fragment>
@@ -303,6 +306,29 @@ export function renderTasksByDate({
         >
           {renderUpcomingContent({
             upcoming,
+            onToggleComplete,
+            onOpenTask,
+            onChangeDueDate,
+            onDuplicateTask,
+            onDeleteTask,
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })}
+        </Section>
+      )}
+      {unscheduled.length > 0 && (
+        <Section
+          hasHeader
+          title="Unscheduled"
+          isCollapsible
+          isTitleToggle
+          isExpanded={workspace.isSectionExpanded('tasks-unscheduled')}
+          onExpandedChange={(expanded) =>
+            workspace.setSectionExpanded('tasks-unscheduled', expanded)
+          }
+        >
+          {renderTaskList(unscheduled, {
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,

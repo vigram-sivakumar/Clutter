@@ -173,7 +173,9 @@ export function TasksCollectionBody({
   }
 
   if (view === 'tasks-upcoming') {
-    const { upcoming } = groupTasks(tasks, displayConfig);
+    // Unscheduled tasks have their own section/view — Upcoming is the dated ones only.
+    const groups = groupTasks(tasks, displayConfig);
+    const upcoming = groups.upcoming.filter((task) => !groups.unscheduled.includes(task));
     return (
       <TasksPageBody>
         <CollectionRowList>
