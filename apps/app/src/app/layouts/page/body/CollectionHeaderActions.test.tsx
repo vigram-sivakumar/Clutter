@@ -75,6 +75,29 @@ describe('CollectionHeaderActions', () => {
     expect(assetLabels).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'File size', 'Created', 'Last edited']);
   });
 
+  it('the Add button is a menu with New note and From template — and no New folder — when no folder can be created', () => {
+    const { getByLabelText } = renderActions({
+      onAdd: vi.fn(),
+      fromTemplate: { getTemplates: () => [], onCreateTemplate: vi.fn() },
+    });
+
+    fireEvent.click(getByLabelText('New'));
+
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim()).filter((t) => t !== 'List' && t !== 'Table' && t !== 'Card')).toEqual(
+      expect.arrayContaining(['New note', 'From template'])
+    );
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).not.toContain('New folder');
+  });
+
+  it('with neither New folder nor From template, Add stays a single action', () => {
+    const onAdd = vi.fn();
+    const { getByLabelText } = renderActions({ onAdd });
+
+    expect(getByLabelText('New')).not.toHaveAttribute('aria-haspopup');
+    fireEvent.click(getByLabelText('New'));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
   function template(id: string, title: string, onClick = vi.fn()) {
     return noteEntry({ id, title, onClick, markdown: `# ${title}` }) as never;
   }

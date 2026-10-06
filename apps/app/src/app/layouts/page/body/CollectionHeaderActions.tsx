@@ -45,8 +45,8 @@ export interface CollectionHeaderActionsProps {
   /** The standard Add action. Absent -> no Add button (e.g. a collection that can't create items here). */
   onAdd?: () => void;
   /**
-   * Create a folder here. When present the Add button opens a menu (New note / New folder /
-   * From template) instead of acting directly; absent -> Add stays the single-action button.
+   * Create a folder here. Adds New folder to the Add menu; the button is a menu whenever it has
+   * New folder or From template to offer, and stays the single-action button otherwise.
    */
   onAddFolder?: () => void;
   /**
@@ -83,7 +83,8 @@ export function CollectionHeaderActions({
   const anchorRef = useRef<HTMLButtonElement>(null);
   // The From template item hands focus to the template list's search field, not back to the Add button.
   const suppressReturnFocusRef = useRef(false);
-  const hasAddMenu = Boolean(onAdd && onAddFolder);
+  // The Add button is a menu as soon as there is more than one way to add: New folder, or From template.
+  const hasAddMenu = Boolean(onAdd && (onAddFolder || fromTemplate));
   // Read when the picker opens, so it lists the templates as they are now.
   const templates =
     templatesOpen && fromTemplate ? fromTemplate.getTemplates() : [];
@@ -124,16 +125,18 @@ export function CollectionHeaderActions({
             >
               New note
             </MenuItem>
-            <MenuItem
-              leading={<AppIcon icon="folder" />}
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                onAddFolder?.();
-              }}
-            >
-              New folder
-            </MenuItem>
+            {onAddFolder && (
+              <MenuItem
+                leading={<AppIcon icon="folder" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpen(false);
+                  onAddFolder();
+                }}
+              >
+                New folder
+              </MenuItem>
+            )}
             {fromTemplate && (
               <>
                 <div className="menu__divider" role="separator" />

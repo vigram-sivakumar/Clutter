@@ -39,14 +39,18 @@ export type CollectionKind =
  * lives here, what it DOES (the folder ordering, hiding the notes) is implemented in
  * `collectionBehaviors.ts`. The Daily Notes root holds only years and a year only months —
  * made by the calendar, listed in calendar order, never with notes — while a month holds days.
+ * `notes-only` is a collection that lists just its notes: no folders section.
  */
-export type CollectionBehavior = 'daily-notes-root' | 'daily-notes-year';
+export type CollectionBehavior = 'daily-notes-root' | 'daily-notes-year' | 'notes-only';
 
 /** What a collection can create or offer — capability only; the handler is bound by the page. */
 export interface CollectionActions {
   readonly createNote?: true;
   readonly createFolder?: true;
-  /** "From template" in the Add menu (reachable only when the menu itself is: a note AND a folder can be created). */
+  /**
+   * "From template" in the Add menu, next to New note (and New folder where it can be created).
+   * Declared only where a note can be created from the page: it is an alternative way to make one.
+   */
   readonly fromTemplate?: true;
   readonly upload?: true;
 }
@@ -103,7 +107,8 @@ export const FOLDER_COLLECTION: CollectionDefinition = {
 export const INBOX_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'inbox',
-  actions: { fromTemplate: true },
+  actions: { createNote: true, fromTemplate: true },
+  behavior: 'notes-only',
 };
 
 /** The template source: notes and folders can be created in it, and "From template" is not offered from it. */
@@ -118,11 +123,11 @@ export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
   properties: ARCHIVE_PROPERTIES,
   defaultVisible: ARCHIVE_PROPERTIES,
-  actions: { fromTemplate: true },
+  actions: {},
 };
 
 /** The calendar makes these pages' contents; nothing is created by hand at any level. */
-const DAILY_NOTES_BASE = { ...NOTE_COLLECTION, kind: 'daily-notes', actions: { fromTemplate: true } } as const;
+const DAILY_NOTES_BASE = { ...NOTE_COLLECTION, kind: 'daily-notes', actions: {} } as const;
 export const DAILY_NOTES_ROOT_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE, behavior: 'daily-notes-root' };
 export const DAILY_NOTES_YEAR_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE, behavior: 'daily-notes-year' };
 export const DAILY_NOTES_MONTH_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE };
@@ -137,13 +142,13 @@ export const WORKSPACE_COLLECTION: CollectionDefinition = {
 export const FAVORITES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'favorites',
-  actions: { fromTemplate: true },
+  actions: {},
 };
 
 export const TAG_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'tag',
-  actions: { createNote: true, fromTemplate: true },
+  actions: { createNote: true },
 };
 
 /**

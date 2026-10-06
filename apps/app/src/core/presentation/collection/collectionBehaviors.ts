@@ -22,6 +22,11 @@ export function foldersOrderOf(behavior: CollectionBehavior | undefined): ((a: s
   }
 }
 
+/** Whether the collection draws its folders section: not when it lists only its notes (`notes-only`). */
+export function showsFolders(behavior: CollectionBehavior | undefined): boolean {
+  return behavior !== 'notes-only';
+}
+
 /** Whether the collection draws its notes section: the Daily Notes root and a year hold only folders. */
 export function showsNotes(behavior: CollectionBehavior | undefined): boolean {
   return behavior !== 'daily-notes-root' && behavior !== 'daily-notes-year';

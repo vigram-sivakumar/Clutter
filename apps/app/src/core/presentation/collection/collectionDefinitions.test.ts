@@ -22,7 +22,7 @@ import {
   collectionDefinitionForFilteredView,
   collectionDefinitionForFolder,
 } from './collectionDefinitions';
-import { foldersOrderOf, showsNotes } from './collectionBehaviors';
+import { foldersOrderOf, showsFolders, showsNotes } from './collectionBehaviors';
 
 describe('every CollectionDefinition holds the same invariants', () => {
   it.each(ALL_COLLECTION_DEFINITIONS.map((definition) => [definition.kind + (definition.behavior ? `/${definition.behavior}` : ''), definition] as const))(
@@ -125,12 +125,14 @@ describe('actions — what each collection can create (capability only; handlers
     expect(actions(FOLDER_COLLECTION)).toEqual(['createFolder', 'createNote', 'fromTemplate']);
     expect(actions(WORKSPACE_COLLECTION)).toEqual(['createFolder', 'createNote', 'fromTemplate']);
     expect(actions(TEMPLATES_COLLECTION)).toEqual(['createFolder', 'createNote']);
-    expect(actions(TAG_COLLECTION)).toEqual(['createNote', 'fromTemplate']);
+    expect(actions(TAG_COLLECTION)).toEqual(['createNote']);
+    // Inbox: a note can be made blank or from a template — and no folder can be made there.
+    expect(actions(INBOX_COLLECTION)).toEqual(['createNote', 'fromTemplate']);
     expect(actions(ASSETS_COLLECTION)).toEqual(['upload']);
   });
 
-  it('Inbox, Archive, Favorites and every Daily Notes level create nothing from their own page', () => {
-    for (const definition of [INBOX_COLLECTION, ARCHIVE_COLLECTION, FAVORITES_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
+  it('the Archive, Favorites and every Daily Notes level create nothing from their own page', () => {
+    for (const definition of [ARCHIVE_COLLECTION, FAVORITES_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
       expect(definition.actions.createNote, definition.kind).toBeUndefined();
       expect(definition.actions.createFolder, definition.kind).toBeUndefined();
       expect(definition.actions.upload, definition.kind).toBeUndefined();
@@ -139,11 +141,19 @@ describe('actions — what each collection can create (capability only; handlers
 });
 
 describe('named behaviors — declarative identifiers; what they do lives in collectionBehaviors.ts', () => {
-  it('only the Daily Notes root and a year carry one', () => {
+  it('only Inbox (notes only) and the Daily Notes root and a year carry one', () => {
     expect(ALL_COLLECTION_DEFINITIONS.filter((d) => d.behavior !== undefined).map((d) => d.behavior)).toEqual([
+      'notes-only',
       'daily-notes-root',
       'daily-notes-year',
     ]);
+  });
+
+  it('a notes-only collection draws no folders section; every other still does', () => {
+    expect(showsFolders('notes-only')).toBe(false);
+    expect(showsFolders(undefined)).toBe(true);
+    expect(showsFolders('daily-notes-root')).toBe(true);
+    expect(showsNotes('notes-only')).toBe(true);
   });
 
   it('the root lists years latest first, a year lists its months January to December, and neither draws notes', () => {

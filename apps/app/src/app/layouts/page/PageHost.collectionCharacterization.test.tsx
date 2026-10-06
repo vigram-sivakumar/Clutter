@@ -97,6 +97,7 @@ function makeApplication(collectionViewConfigStore?: CollectionViewConfigStore):
     folder(ARCHIVE, null),
     folder(`${PROJECTS}/Sub`, PROJECTS),
     folder(`${TEMPLATES}/Meetings`, TEMPLATES),
+    folder(`${INBOX}/Triage`, INBOX),
   ];
   const pages = [
     pageIn(PROJECTS, 'plan', 'Plan'),
@@ -167,7 +168,8 @@ const tableHeaders = () =>
 const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-card--empty') !== null;
 const newButton = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]');
 const hasTable = () => document.querySelector('.collection-table') !== null;
-const noteRows = () => document.querySelectorAll('.collection-list .collection-row').length;
+// The notes in a List — not its trailing "New Note" action row.
+const noteRows = () => document.querySelectorAll('.collection-list .collection-row:not(.collection-row--tone-action)').length;
 const bodyHasText = (text: string) => (document.body.textContent ?? '').includes(text);
 
 /** Opens the header's "New" menu and returns its rows (empty when "New" is a single-action button). */
@@ -186,15 +188,23 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(hasTable()).toBe(true);
   });
 
-  it('Inbox: NO header action, NO create-folder card, NO New Note row — just the Configure control; Table by default', async () => {
+  it('Inbox: a New menu with New note and From template — no New folder, no create-folder card, no folders section; Table by default', async () => {
     await renderFolder(INBOX);
 
-    expect(newButton()).toBeNull();
+    expect(newButton()).not.toBeNull();
+    expect(newMenuRows()).toEqual(['New note', 'From template']);
     expect(hasCreateFolderCard()).toBe(false);
-    expect(bodyHasText('New Note')).toBe(false);
     expect(hasTable()).toBe(true);
     expect(bodyHasText('Captured')).toBe(true);
-    expect(document.querySelector('[aria-haspopup="menu"]')).not.toBeNull(); // Configure is there
+    // Inbox lists only its notes: the subfolder that exists in the vault is not drawn.
+    expect(bodyHasText('Triage')).toBe(false);
+    expect(document.querySelectorAll('.collection-grid--fixed-rows')).toHaveLength(0);
+  });
+
+  it('Inbox\'s New note row ends its table, like any collection that can create a note', async () => {
+    await renderFolder(INBOX);
+
+    expect(bodyHasText('New Note')).toBe(true);
   });
 
   it('Templates: a New menu with New note and New folder — and NO From template (it is the template source); Table by default', async () => {

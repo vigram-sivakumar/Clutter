@@ -119,7 +119,7 @@ import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { foldersOrderOf, showsNotes } from '@core/presentation/collection/collectionBehaviors';
+import { foldersOrderOf, showsFolders, showsNotes } from '@core/presentation/collection/collectionBehaviors';
 import {
   isRemoteImageReference,
   useImageFileActions,
@@ -1339,7 +1339,7 @@ export function PageHost({
               />
             ) : (
               <CollectionBody
-                folders={dailyNotesFolders}
+                folders={showsFolders(collectionDefinition.behavior) ? dailyNotesFolders : []}
                 foldersInGivenOrder={foldersOrder !== undefined}
                 showNotes={showsNotes(collectionDefinition.behavior)}
                 notes={model.notes}
