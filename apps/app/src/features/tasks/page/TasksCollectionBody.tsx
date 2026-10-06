@@ -216,16 +216,15 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
+          {/* A task with no due date gets the (hover-only) calendar button right next to its title. */}
+          {!task.dueDate && <TaskDueDateButton onSelect={(date) => onChangeDueDate(task, date)} />}
         </span>
       ),
-      // Trailing slot, in order: the calendar button (a task with no due date) or its due date (a task with one), then the
-      // note the task lives in as a wiki-link-styled link.
+      // Trailing slot, in order: the due date (a task with one), then the note the task lives in as a wiki-link-styled link.
       trailing: (
         <>
-          {task.dueDate ? (
+          {task.dueDate && (
             <span className="task-row__due-date">{formatTaskDueDateWithYear(task.dueDate)}</span>
-          ) : (
-            <TaskDueDateButton onSelect={(date) => onChangeDueDate(task, date)} />
           )}
           {source && (
             <span
