@@ -96,7 +96,7 @@ export function AssetsCollectionBody({
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !visible.includes('name');
   const assets = sort
-    ? sortEntries(unsorted.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset)
+    ? sortEntries(unsorted.map((asset) => toAssetEntry(asset)), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset)
     : unsorted;
   // A vault file's preview URL comes from the resolver, a remote asset's is itself.
   const urlFor = (asset: Asset): string | undefined =>

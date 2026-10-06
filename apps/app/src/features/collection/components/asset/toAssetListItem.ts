@@ -19,6 +19,8 @@ export interface AssetListItemOptions {
   readonly onClick?: (asset: Asset) => void;
   /** The inline rename editor, while renaming. */
   readonly titleContent?: ReactNode;
+  /** When the app archived the file — only for a surface that lists archived files (the Archive). */
+  readonly archivedAt?: string;
 }
 
 /**
@@ -30,10 +32,10 @@ export interface AssetListItemOptions {
  */
 export function toAssetListItem(
   asset: Asset,
-  { url, visible, onClick, titleContent }: AssetListItemOptions
+  { url, visible, onClick, titleContent, archivedAt }: AssetListItemOptions
 ): CollectionDataListItem {
   // The asset's property values: the vault file's own facts; a remote asset has none.
-  const { values } = toAssetEntry(asset);
+  const { values } = toAssetEntry(asset, archivedAt);
 
   return {
     id: asset.id,

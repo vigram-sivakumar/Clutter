@@ -277,7 +277,7 @@ describe('PagePersistenceCoordinator: rename-resource', () => {
 
     const entries = await resourceArchiveStore.read();
     expect(entries.has(`${ROOT}/Archive/hero.png`)).toBe(false);
-    expect(entries.get(`${ROOT}/Archive/holiday.png`)).toEqual({
+    expect(entries.get(`${ROOT}/Archive/holiday.png`)).toMatchObject({
       originalPath: `${ROOT}/Projects/hero.png`,
     });
   });
@@ -367,9 +367,23 @@ describe('PagePersistenceCoordinator: archive-resource', () => {
     await coordinator.enqueue(resource.id, { kind: 'archive-resource' });
 
     const entries = await resourceArchiveStore.read();
-    expect(entries.get(`${ROOT}/Archive/hero.png`)).toEqual({
+    expect(entries.get(`${ROOT}/Archive/hero.png`)).toMatchObject({
       originalPath: `${ROOT}/Projects/Website/hero.png`,
     });
+  });
+
+  it('records WHEN the app archived the file (archivedAt) at the moment of the archive', async () => {
+    const archiveFolder = makeArchiveFolder();
+    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`);
+    const { coordinator, resourceArchiveStore } = setup(resource, [archiveFolder, makeFolder('folder-projects', `${ROOT}/Projects`)]);
+    const before = Date.now();
+
+    await coordinator.enqueue(resource.id, { kind: 'archive-resource' });
+
+    const archivedAt = (await resourceArchiveStore.read()).get(`${ROOT}/Archive/hero.png`)?.archivedAt;
+    expect(archivedAt).toBeDefined();
+    expect(Date.parse(archivedAt!)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(archivedAt!)).toBeLessThanOrEqual(Date.now());
   });
 
   it('does not write archive metadata if the filesystem move fails', async () => {
@@ -565,7 +579,7 @@ describe('PagePersistenceCoordinator: restore-resource', () => {
     ).rejects.toThrow('Simulated filesystem failure');
 
     const entries = await resourceArchiveStore.read();
-    expect(entries.get(`${ROOT}/Archive/hero.png`)).toEqual({
+    expect(entries.get(`${ROOT}/Archive/hero.png`)).toMatchObject({
       originalPath: `${ROOT}/Projects/Website/hero.png`,
     });
   });
@@ -800,7 +814,7 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
     ).rejects.toThrow();
 
     const entries = await resourceArchiveStore.read();
-    expect(entries.get(`${ROOT}/Archive/hero.png`)).toEqual({
+    expect(entries.get(`${ROOT}/Archive/hero.png`)).toMatchObject({
       originalPath: `${ROOT}/Projects/hero.png`,
     });
     expect(vault.getResource('resource-1')).toBeDefined();

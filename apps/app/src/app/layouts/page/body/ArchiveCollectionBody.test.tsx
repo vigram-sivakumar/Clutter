@@ -203,6 +203,58 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
   });
 });
 
+describe('ArchiveCollectionBody: a file\'s archive date comes from the archive record', () => {
+  const RECORDED_AT = '2026-09-20T08:00:00.000Z';
+  const RECORDED_TEXT = formatEntryTimestamp(RECORDED_AT)!;
+  const hero = makeResource();
+
+  it('shows the recorded date in the Delete column — and none for a file with no record', () => {
+    const noRecord = makeResource({ id: 'resource-2', name: 'old.png', path: `${ROOT}/Archive/old.png` });
+    const { container } = renderArchive({
+      resources: [hero, noRecord],
+      archivedAtByPath: new Map([[hero.path, RECORDED_AT]]),
+      viewMode: 'table',
+      visible: ['name', 'archived'],
+    });
+
+    const archivedOf = (title: string) =>
+      [...container.querySelectorAll('.collection-table-row')]
+        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
+        ?.querySelector('.collection-table-row__archived');
+
+    expect(archivedOf('hero')).toHaveTextContent(RECORDED_TEXT);
+    expect(archivedOf('hero')).toHaveAttribute('data-date', RECORDED_AT);
+    expect(archivedOf('old')?.textContent).toBe('');
+  });
+
+  it('List shows it as the file\'s metadata, after the Type', () => {
+    const { container } = renderArchive({
+      resources: [hero],
+      archivedAtByPath: new Map([[hero.path, RECORDED_AT]]),
+      viewMode: 'list',
+      visible: ['name', 'archived'],
+    });
+
+    expect([...container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual(['Image', RECORDED_TEXT]);
+  });
+
+  it('files sort with notes and folders by that date: newest first for "down", a file with no date last', () => {
+    const noRecord = makeResource({ id: 'resource-2', name: 'zzz.png', path: `${ROOT}/Archive/zzz.png` });
+    const { container } = renderArchive({
+      notes: [
+        makeNoteEntry({ id: 'older', title: 'Older note', archived: '2026-08-01T10:00:00.000Z' }),
+        makeNoteEntry({ id: 'newer', title: 'Newer note', archived: '2026-10-01T10:00:00.000Z' }),
+      ],
+      resources: [hero, noRecord],
+      archivedAtByPath: new Map([[hero.path, RECORDED_AT]]),
+      viewMode: 'list',
+      sort: { property: 'archived', direction: 'down' },
+    });
+
+    expect(listTitles(container)).toEqual(['Newer note', 'hero', 'Older note', 'zzz']);
+  });
+});
+
 describe('ArchiveCollectionBody: properties and sort come from the resolved view', () => {
   it('Table: a property that is not visible is not a column', () => {
     const visible: PropertyId[] = archiveVisible('archived');

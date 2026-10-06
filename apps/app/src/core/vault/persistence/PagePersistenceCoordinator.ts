@@ -1288,7 +1288,7 @@ export class PagePersistenceCoordinator {
       await this.fileSystem.moveFile(resource.path, destination.path);
     }
 
-    await this.resourceArchiveStore.record(destination.path, originalPath);
+    await this.resourceArchiveStore.record(destination.path, originalPath, new Date().toISOString());
 
     try {
       this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);

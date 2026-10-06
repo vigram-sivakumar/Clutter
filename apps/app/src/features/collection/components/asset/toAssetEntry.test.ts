@@ -11,7 +11,7 @@ import { ASSET_SORT_OPTIONS, toAssetEntry } from './toAssetEntry';
 
 /** What the assets collection does: the asset adapter's values, ordered by the one sort engine. */
 const sortAssets = (assets: readonly Asset[], sort: CollectionSort): Asset[] =>
-  sortEntries(assets.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset);
+  sortEntries(assets.map((asset) => toAssetEntry(asset)), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset);
 
 const r = (id: string, name: string, kind: VaultResource['kind']): Asset =>
   localAsset({ id, kind, name, path: `/vault/${name}`, parentId: null });
@@ -138,6 +138,23 @@ describe('toAssetEntry — where an asset\'s collection property values come fro
     const remote: Asset = { id: 'remote:https://example.com/r.jpg', source: 'remote', kind: 'image', name: 'r.jpg', url: 'https://example.com/r.jpg', references: [] };
 
     expect(toAssetEntry(remote).values).toEqual({ name: 'r' });
+  });
+
+  it('an archived file carries the date the app archived it as its `archived` value — and never as created or updated', () => {
+    const asset = localAsset({ id: 'a', kind: 'image', name: 'h.png', path: '/vault/Archive/h.png', parentId: null, metadata: facts });
+
+    const { values } = toAssetEntry(asset, '2026-10-06T09:30:00.000Z');
+
+    expect(values.archived).toBe('2026-10-06T09:30:00.000Z');
+    expect(values.created).toBe(facts.createdAt);
+    expect(values.updated).toBe(facts.modifiedAt);
+  });
+
+  it('with no archive date (archived before it was recorded, or not an archived file) there is no archived value', () => {
+    const asset = localAsset({ id: 'a', kind: 'image', name: 'h.png', path: '/vault/Archive/h.png', parentId: null });
+
+    expect('archived' in toAssetEntry(asset).values).toBe(false);
+    expect('archived' in toAssetEntry(asset, undefined).values).toBe(false);
   });
 
   it('every value key it can produce is a registered property', () => {

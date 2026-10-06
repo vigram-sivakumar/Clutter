@@ -19,6 +19,8 @@ export interface AssetTableRowOptions {
   readonly onClick?: (asset: Asset) => void;
   /** The inline rename editor, while renaming. */
   readonly titleContent?: ReactNode;
+  /** When the app archived the file — only for a surface that lists archived files (the Archive). */
+  readonly archivedAt?: string;
 }
 
 /**
@@ -31,10 +33,10 @@ export interface AssetTableRowOptions {
  */
 export function toAssetTableRow(
   asset: Asset,
-  { url, visible, onClick, titleContent }: AssetTableRowOptions
+  { url, visible, onClick, titleContent, archivedAt }: AssetTableRowOptions
 ): CollectionDataTableRow {
   // The asset's property values: the vault file's own facts; a remote asset has none.
-  const { values } = toAssetEntry(asset);
+  const { values } = toAssetEntry(asset, archivedAt);
 
   return {
     id: asset.id,

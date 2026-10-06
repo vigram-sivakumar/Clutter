@@ -31,6 +31,11 @@ export interface ArchiveCollectionBodyProps {
   /** The visible properties, from the resolved view — the Archive's own. */
   visible?: readonly PropertyId[];
   sort?: CollectionSort;
+  /**
+   * When each archived file was archived, by its path in the Archive — from the archive record. A file
+   * with no entry (archived before the date was recorded, or moved in outside the app) has no date.
+   */
+  archivedAtByPath?: ReadonlyMap<string, string>;
   /** A vault file's path → a loadable URL, for its thumbnail. */
   resolveResourceUrl?: (path: string) => string;
   /** Opens an archived file (its viewer, where its Restore / Delete live). */
@@ -63,7 +68,7 @@ const FILE_TYPE_LABEL: Record<VaultResource['kind'], string> = { image: 'Image',
  * mapper; the generic components only place what they are given. The Archive adds one thing of its
  * own: a Type (Note, Folder, Image, PDF) — a leading metadata string in the List, a column right
  * after Name in the Table — and it is not a property, so it can be neither toggled nor sorted.
- * Rows carry no inline actions: a folder or note is restored or deleted from its own page, a file
+ * A file's archive date is the one the app recorded when it archived it. Rows carry no inline actions: a folder or note is restored or deleted from its own page, a file
  * from its viewer.
  */
 export function ArchiveCollectionBody({
@@ -73,6 +78,7 @@ export function ArchiveCollectionBody({
   viewMode = DEFAULT_VIEW.layout,
   visible = DEFAULT_VIEW.visible,
   sort = DEFAULT_VIEW.sort,
+  archivedAtByPath,
   resolveResourceUrl,
   onOpenResource,
 }: ArchiveCollectionBodyProps) {
@@ -93,15 +99,17 @@ export function ArchiveCollectionBody({
     })),
     ...resources.map((resource) => {
       const asset = assetOfResource(resource);
+      const archivedAt = archivedAtByPath?.get(resource.path);
       const options = {
         url: resolveResourceUrl?.(resource.path),
         visible,
+        archivedAt,
         onClick: onOpenResource ? () => onOpenResource(resource) : undefined,
       };
 
       return {
         id: resource.id,
-        values: toAssetEntry(asset).values,
+        values: toAssetEntry(asset, archivedAt).values,
         typeLabel: FILE_TYPE_LABEL[resource.kind],
         listItem: toAssetListItem(asset, options),
         tableRow: toAssetTableRow(asset, options),

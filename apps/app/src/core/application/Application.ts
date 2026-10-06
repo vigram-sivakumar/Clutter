@@ -18,6 +18,7 @@ import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations
 import { EffectivePageState } from './page/EffectivePageState';
 import { MembershipSelector } from './membership/MembershipSelector';
 import { FolderOperations } from './folder/FolderOperations';
+import { ResourceArchiveMetadataStore } from '../vault/persistence/ResourceArchiveMetadataStore';
 import { ResourceOperations } from './resource/ResourceOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
@@ -158,6 +159,12 @@ export class Application {
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
+  /**
+   * `.clutter/resource-archive.json` — where each archived file came from and when it was archived.
+   * The same instance the Persistence Gate writes through, so what the Archive page reads is what
+   * was recorded; the UI only reads it (`read()`), never writes.
+   */
+  public resourceArchiveStore!: ResourceArchiveMetadataStore;
   public taskOperations!: TaskOperations;
   public tagOperations!: TagOperations;
   public navigation!: NavigationRouter;
@@ -471,13 +478,15 @@ export class Application {
     // structural mutations, so every write to a given page is serialized
     // through the same per-page queue.
     const frontmatterSerializer = new FrontmatterSerializer();
+    this.resourceArchiveStore = new ResourceArchiveMetadataStore(this.fileSystem, vault.root);
     const persistenceCoordinator = new PagePersistenceCoordinator(
       this.fileSystem,
       vault,
       frontmatterSerializer,
       new FrontmatterParser(),
       new PageRebuilder(),
-      moveService
+      moveService,
+      this.resourceArchiveStore
     );
     // The resource-scoped counterpart to PageOperations/FolderOperations —
     // needs only the Gate itself (rename-resource/archive-resource/

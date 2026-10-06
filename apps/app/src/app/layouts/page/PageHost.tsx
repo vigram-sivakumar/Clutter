@@ -81,6 +81,7 @@ import {
   createTagCollectionRenameHandler,
 } from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
+import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
   CollectionBody,
   type NoteCoverActions,
@@ -342,6 +343,16 @@ export function PageHost({
   }
 
   const collectionView = resolveCollectionView(collectionDefinition, collectionViewConfig);
+
+  // The Archive lists its files with the date each was archived, read from the archive record. Only
+  // that collection reads it; the read is re-done when the set of archived files changes.
+  const isArchiveCollection = collectionDefinition.kind === 'archive';
+  const archivedResources = isArchiveCollection ? application.membershipSelector.getArchivedResources() : [];
+  const archivedAtByPath = useArchivedResourceDates(
+    application,
+    archivedResources.map((resource) => resource.path),
+    isArchiveCollection
+  );
 
   // Each handler updates the render-phase-visible local state immediately and, when the active
   // view is actually a collection (collectionViewKey defined), persists the same patch — a page
@@ -1328,7 +1339,8 @@ export function PageHost({
                 viewMode={collectionView.layout}
                 visible={collectionView.visible}
                 sort={collectionView.sort}
-                resources={application.membershipSelector.getArchivedResources()}
+                resources={archivedResources}
+                archivedAtByPath={archivedAtByPath}
                 resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
                 onOpenResource={openArchivedResourceOverlay}
               />

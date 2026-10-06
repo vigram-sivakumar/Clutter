@@ -82,7 +82,7 @@ const folder = (title: string, fixture: EntryFixture = {}): CollectionEntryModel
 const sortCollectionEntries = (entries: readonly CollectionEntryModel[], sort: CollectionSort) =>
   sortEntries(entries, sort, NOTE_SORT_OPTIONS);
 const sortAssets = (assets: readonly Asset[], sort: CollectionSort): Asset[] =>
-  sortEntries(assets.map(toAssetEntry), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset);
+  sortEntries(assets.map((asset) => toAssetEntry(asset)), sort, ASSET_SORT_OPTIONS).map((entry) => entry.asset);
 
 const titles = (entries: readonly CollectionEntryModel[]) => entries.map((entry) => entry.values.name);
 

@@ -7,6 +7,13 @@ import {
 
 export interface ResourceArchiveMetadataEntry {
   readonly originalPath: string;
+  /**
+   * The ISO instant the app archived the file — set once, at the moment of the archive, and gone with
+   * the record when the file is restored. Absent for a file archived before this was recorded (there
+   * is nothing to infer it from: moving a file keeps its filesystem dates), and for a file that was
+   * moved into Archive/ outside the app.
+   */
+  readonly archivedAt?: string;
 }
 
 /**
@@ -21,7 +28,7 @@ export interface ResourceArchiveMetadataEntry {
  * TagOperations.updateMetadata()'s own `ensureClutterDirectory` call.
  *
  * Records, for each VaultResource currently sitting in Archive/, the path
- * Restore should return it to — current archive provenance only, not an
+ * Restore should return it to and the date it was archived — current archive provenance only, not an
  * append-only history/log: once a resource is restored (or its record is
  * otherwise removed), nothing here remembers it was ever archived.
  *
@@ -67,10 +74,14 @@ export class ResourceArchiveMetadataStore {
    * targets a collision-free destination), same last-write-wins shape
    * TagOperations.updateMetadata() already uses for a tag entry.
    */
-  async record(archivedPath: string, originalPath: string): Promise<void> {
+  async record(
+    archivedPath: string,
+    originalPath: string,
+    archivedAt: string = new Date().toISOString()
+  ): Promise<void> {
     const entries = await this.readEntries();
 
-    entries.set(archivedPath, { originalPath });
+    entries.set(archivedPath, { originalPath, archivedAt });
 
     await this.writeEntries(entries);
   }

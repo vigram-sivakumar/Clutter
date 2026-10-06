@@ -31,7 +31,11 @@ export function assetOfResource(resource: VaultResource): LocalAsset {
  * facts (`VaultResource.metadata`, read once by Ingest/Sync — nothing is stat'd here). A remote
  * asset is a URL with no file, and a platform may not report every part: each is simply absent.
  */
-export function toAssetEntry(asset: Asset): AssetEntry {
+export function toAssetEntry(
+  asset: Asset,
+  /** When the app archived the file (from the archive record), for a surface that lists archived files. Absent for any other. */
+  archivedAt?: string
+): AssetEntry {
   const metadata = asset.source === 'local' ? asset.resource.metadata : undefined;
 
   return {
@@ -41,6 +45,7 @@ export function toAssetEntry(asset: Asset): AssetEntry {
       ...(metadata && Number.isFinite(metadata.size) && { size: metadata.size }),
       ...(metadata?.createdAt && { created: metadata.createdAt }),
       ...(metadata?.modifiedAt && { updated: metadata.modifiedAt }),
+      ...(archivedAt && { archived: archivedAt }),
     },
   };
 }
