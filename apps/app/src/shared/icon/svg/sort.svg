@@ -1,14 +1,12 @@
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
-    d="M5.5 13V3M5.5 3L3 5.5M5.5 3L8 5.5"
+    d="M3 5C3 5 4.47 3.5 5 3.5M5 3.5C5.53 3.5 7 5 7 5M5 3.5V12.5"
     stroke="currentColor"
     stroke-linecap="round"
-    stroke-linejoin="round"
   />
   <path
-    d="M10.5 3V13M10.5 13L8 10.5M10.5 13L13 10.5"
+    d="M9 11C9 11 10.47 12.5 11 12.5M11 12.5C11.53 12.5 13 11 13 11M11 12.5V3.5"
     stroke="currentColor"
     stroke-linecap="round"
-    stroke-linejoin="round"
   />
 </svg>
