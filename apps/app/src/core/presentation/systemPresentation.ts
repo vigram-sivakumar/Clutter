@@ -99,7 +99,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   },
   'tasks-all': {
     id: 'tasks-all',
-    label: 'All Tasks',
+    label: 'Tasks',
     icon: 'squareCheckOutline',
   },
   'tasks-unscheduled': {
