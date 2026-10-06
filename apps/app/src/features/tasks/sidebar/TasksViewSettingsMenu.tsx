@@ -4,7 +4,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
-import { AppIcon } from '@shared/icon';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 import { TASK_GROUP_IDS, type TaskDisplayConfig, type TaskGroupId } from '../helpers/groupTasks';
 
 const GROUP_LABELS: Record<TaskGroupId, string> = {
@@ -12,6 +12,15 @@ const GROUP_LABELS: Record<TaskGroupId, string> = {
   overdue: 'Overdue',
   upcoming: 'Upcoming',
   unscheduled: 'Unscheduled',
+};
+
+// Today/Upcoming/Unscheduled match the Tasks navigation's icons. There is no alarm icon in the
+// registry yet, so Overdue uses `exclamation` as a stand-in.
+const GROUP_ICONS: Record<TaskGroupId, SystemIcon> = {
+  today: 'calendarToday',
+  overdue: 'exclamation',
+  upcoming: 'calendarDots',
+  unscheduled: 'clock',
 };
 
 export interface TasksViewSettingsMenuProps {
@@ -82,6 +91,7 @@ export function TasksViewSettingsMenu({
             return (
               <MenuItem
                 key={id}
+                leading={<AppIcon icon={GROUP_ICONS[id]} />}
                 trailing={
                   isShown ? <AppIcon icon="tick" className="menu__item-indicator" /> : undefined
                 }
@@ -99,6 +109,7 @@ export function TasksViewSettingsMenu({
           })}
           <div className="menu__divider" role="separator" />
           <MenuItem
+            leading={<AppIcon icon="circleTick" />}
             trailing={
               config.showCompleted ? (
                 <AppIcon icon="tick" className="menu__item-indicator" />
@@ -112,6 +123,7 @@ export function TasksViewSettingsMenu({
             Show completed
           </MenuItem>
           <MenuItem
+            leading={<AppIcon icon="sort" />}
             trailing={
               config.autoSortCompleted ? (
                 <AppIcon icon="tick" className="menu__item-indicator" />

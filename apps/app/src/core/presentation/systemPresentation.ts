@@ -94,7 +94,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   },
   'tasks-completed': {
     id: 'tasks-completed',
-    label: 'Done',
+    label: 'Completed',
     icon: 'tick',
   },
   'tasks-all': {

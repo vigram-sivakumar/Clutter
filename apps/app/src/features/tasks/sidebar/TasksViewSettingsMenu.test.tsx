@@ -80,7 +80,8 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     const { getByText, getAllByRole } = renderOpenMenu();
 
     expect(getByText('Groups')).toBeInTheDocument();
-    expect(getAllByRole('menuitem').map((el) => el.textContent)).toEqual([
+    expect(// The Today calendar icon renders the current date's number as text — strip it.
+    getAllByRole('menuitem').map((el) => (el.textContent ?? '').replace(/^\d+/, ''))).toEqual([
       'Today',
       'Overdue',
       'Upcoming',
@@ -102,7 +103,7 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
-  it('uses the tick-selection pattern — a trailing tick icon when enabled, no tick when disabled, nothing in the leading slot (never a checkbox/radio input)', () => {
+  it('uses the tick-selection pattern — a trailing tick icon when enabled, no tick when disabled, an icon in the leading slot (never a checkbox/radio input)', () => {
     const { getByText, container } = renderOpenMenu({
       showCompleted: true,
       autoSortCompleted: false,
@@ -113,8 +114,9 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
 
     expect(showRow.querySelector('.entry__meta svg')).toBeInTheDocument();
     expect(sortRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
-    expect(showRow.querySelector('.entry__leading')).not.toBeInTheDocument();
-    expect(sortRow.querySelector('.entry__leading')).not.toBeInTheDocument();
+    // Every item carries a leading icon; the tick (trailing) is the only on/off signal.
+    expect(showRow.querySelector('.entry__leading svg')).toBeInTheDocument();
+    expect(sortRow.querySelector('.entry__leading svg')).toBeInTheDocument();
     expect(container.querySelectorAll('input[type="checkbox"], input[type="radio"]')).toHaveLength(0);
   });
 

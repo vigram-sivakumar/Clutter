@@ -41,6 +41,7 @@ import Check from './svg/check.svg?react';
 import Copy from './svg/copy.svg?react';
 import Duplicate from './svg/duplicate.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
+import CircleTick from './svg/circle-tick.svg?react';
 import Clock from './svg/clock.svg?react';
 import Code from './svg/code.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
@@ -94,6 +95,7 @@ import Sidebar from './svg/sidebar.svg?react';
 import Slash from './svg/slash.svg?react';
 import Smile from './svg/Smile.svg?react';
 import Square from './svg/square.svg?react';
+import Sort from './svg/sort.svg?react';
 import SquareCheckOutline from './svg/square-check-outline.svg?react';
 import SquareDashed from './svg/square-dashed.svg?react';
 import SquareExpand from './svg/square-expand.svg?react';
@@ -157,6 +159,7 @@ export const iconRegistry = {
   copy: Copy,
   duplicate: Duplicate,
   circleDashed: CircleDashed,
+  circleTick: CircleTick,
   clock: Clock,
   code: Code,
   dismiss: Dismiss,
@@ -209,6 +212,7 @@ export const iconRegistry = {
   slash: Slash,
   smile: Smile,
   square: Square,
+  sort: Sort,
   squareCheckOutline: SquareCheckOutline,
   squareDashed: SquareDashed,
   squareExpand: SquareExpand,
