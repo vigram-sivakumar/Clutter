@@ -3,6 +3,8 @@ import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { AppIcon } from '@shared/icon';
+import { TaskDueDateButton } from './TaskDueDateButton';
+import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -216,31 +218,41 @@ export function TasksCollectionBody({
           </span>
         </span>
       ),
-      // The note the task lives in, as a wiki-link-styled link in the row's trailing slot.
-      trailing: source ? (
-        <span
-          className="task-row__source"
-          role="link"
-          tabIndex={0}
-          aria-label={`Open ${source.label}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenTask(task);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              event.stopPropagation();
-              onOpenTask(task);
-            }
-          }}
-        >
-          <span className="task-row__source-icon">
-            <AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />
-          </span>
-          <span className="task-row__source-title">{source.label}</span>
-        </span>
-      ) : undefined,
+      // Trailing slot, in order: the calendar button (a task with no due date) or its due date (a task with one), then the
+      // note the task lives in as a wiki-link-styled link.
+      trailing: (
+        <>
+          {task.dueDate ? (
+            <span className="task-row__due-date">{formatTaskDueDate(task.dueDate)}</span>
+          ) : (
+            <TaskDueDateButton onSelect={(date) => onChangeDueDate(task, date)} />
+          )}
+          {source && (
+            <span
+              className="task-row__source"
+              role="link"
+              tabIndex={0}
+              aria-label={`Open ${source.label}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenTask(task);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onOpenTask(task);
+                }
+              }}
+            >
+              <span className="task-row__source-icon">
+                <AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />
+              </span>
+              <span className="task-row__source-title">{source.label}</span>
+            </span>
+          )}
+        </>
+      ),
       onClick: () => onOpenTask(task),
       };
     }

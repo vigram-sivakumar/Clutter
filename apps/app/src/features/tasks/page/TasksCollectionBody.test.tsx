@@ -154,8 +154,8 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
-  it('renders a dated tasks-all row as checkbox + title with no due-date pill and no More actions', () => {
-    const { getByText, queryByText, queryByRole, container } = render(
+  it('renders a dated tasks-all row with its due date as plain text in the trailing slot: no pill, no calendar button, no More actions', () => {
+    const { getByText, queryByRole, container } = render(
       <TasksCollectionBody
         view="tasks-all"
         tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
@@ -168,8 +168,10 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByText('Plan trip')).not.toBeNull();
-    expect(queryByText('20 Aug')).toBeNull();
+    expect(container.querySelector('.collection__bottom-spacer')).not.toBeNull();
+    expect(container.querySelector('.collection-row__metadata')).toHaveTextContent('20 Aug');
     expect(container.querySelector('.pill')).toBeNull();
+    expect(queryByRole('button', { name: 'Add due date' })).toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
   });
 
@@ -202,21 +204,69 @@ describe('TasksCollectionBody', () => {
     expect(onOpenTask).toHaveBeenCalledWith(target);
   });
 
-  it('shows no due-date pill on an undated tasks-all row either', () => {
-    const { container, queryByText } = render(
+  it('gives an undated tasks-all row an icon-only outline-fill calendar button that opens the calendar and assigns a due date, without opening the note', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+    const onChangeDueDate = vi.fn();
+    const onOpenTask = vi.fn();
+    const target = task({ text: 'Someday' });
+
+    const { getByRole, getByText, container } = render(
       <TasksCollectionBody
         view="tasks-all"
-        tasks={[task({ text: 'Someday' })]}
+        tasks={[target]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={onOpenTask}
+        onChangeDueDate={onChangeDueDate}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+        getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
+      />
+    );
+
+    const button = getByRole('button', { name: 'Add due date' });
+    expect(button).toHaveClass('button--outline-fill', 'button--icon');
+    expect(button).toHaveTextContent('');
+    expect(container.querySelector('.pill')).toBeNull();
+
+    // Trailing order: calendar button, then the wiki link.
+    const trailing = container.querySelector('.collection-row__metadata')!;
+    expect(trailing.firstElementChild).toBe(button);
+    expect(trailing.lastElementChild).toHaveClass('task-row__source');
+
+    fireEvent.click(button);
+    expect(onOpenTask).not.toHaveBeenCalled();
+
+    fireEvent.click(getByText('15'));
+    expect(onChangeDueDate).toHaveBeenCalledTimes(1);
+    expect(onChangeDueDate.mock.calls[0]![0]).toBe(target);
+    expect(typeof onChangeDueDate.mock.calls[0]![1]).toBe('string');
+    vi.unstubAllGlobals();
+  });
+
+  it('orders a dated row\'s trailing slot: due date, then the wiki link', () => {
+    const { container } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
         onDuplicateTask={vi.fn()}
         onDeleteTask={vi.fn()}
+        getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
       />
     );
 
-    expect(container.querySelector('.pill')).toBeNull();
-    expect(queryByText('Due date')).toBeNull();
+    const trailing = container.querySelector('.collection-row__metadata')!;
+    expect(trailing.firstElementChild).toHaveClass('task-row__due-date');
+    expect(trailing.lastElementChild).toHaveClass('task-row__source');
   });
 
   it.each([
