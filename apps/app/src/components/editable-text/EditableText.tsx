@@ -100,10 +100,14 @@ function placeCaretAtEnd(element: HTMLDivElement | null) {
  * box is only as wide as its content — an empty field in a shrink-to-fit parent is a sliver — the
  * browser scrolls it on the first keystroke, before the box has grown, and the offset then stays,
  * clipping the first letters of text that now fits. Once the content fits, there is nothing to scroll:
- * put the offset back to the start.
+ * put the offset back to the start. (A caret at the very end of a box exactly as wide as its text
+ * sits just past the edge; that overhang is not a reason to scroll, so a couple of pixels are allowed.)
+ * Also run just after an autoFocus mount: the box may still have been settling when focus scrolled it.
  */
+const CARET_ALLOWANCE_PX = 2;
+
 function resetScrollWhenContentFits(element: HTMLDivElement) {
-  if (element.scrollLeft !== 0 && element.scrollWidth <= element.clientWidth) {
+  if (element.scrollLeft !== 0 && element.scrollWidth - element.clientWidth <= CARET_ALLOWANCE_PX) {
     element.scrollLeft = 0;
   }
 }
@@ -205,6 +209,9 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
         const element = editableElementRef.current;
         element?.focus();
         placeCaretAtEnd(element);
+        if (element) {
+          requestAnimationFrame(() => resetScrollWhenContentFits(element));
+        }
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

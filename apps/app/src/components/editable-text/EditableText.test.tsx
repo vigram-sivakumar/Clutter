@@ -583,3 +583,30 @@ describe('EditableText scroll offset', () => {
   });
 });
 
+
+describe('EditableText scroll offset on autoFocus', () => {
+  it('returns the start to view after mounting in edit mode, once the box has settled wide enough', async () => {
+    const original = HTMLElement.prototype.focus;
+    // The box is still narrower than its text when focus scrolls it; by the next frame it has its width.
+    let settled = false;
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get: () => 80 });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => (settled ? 80 : 60) });
+    HTMLElement.prototype.focus = function (this: HTMLElement) {
+      original.call(this);
+      this.scrollLeft = 20;
+    };
+    try {
+      render(<EditableText value="Autodesk" onCommit={vi.fn()} className="editable-text--nowrap" autoFocus />);
+      const editable = getEditable();
+      editable.scrollLeft = 20;
+      settled = true;
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+
+      expect(editable.scrollLeft).toBe(0);
+    } finally {
+      HTMLElement.prototype.focus = original;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+    }
+  });
+});
