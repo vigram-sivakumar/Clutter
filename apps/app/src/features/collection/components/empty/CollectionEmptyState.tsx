@@ -1,3 +1,5 @@
+import { Button } from '@components/button/Button';
+import { AppIcon } from '@shared/icon';
 import './CollectionEmptyState.css';
 
 export interface CollectionEmptyAction {
@@ -19,14 +21,21 @@ export interface CollectionEmptyStateProps {
  * placeholder — it knows nothing about what the collection holds or what the action creates, and
  * its visual design is a separate, later piece of work.
  */
-export function CollectionEmptyState({ message = 'Nothing here yet', action }: CollectionEmptyStateProps) {
+export function CollectionEmptyState({
+  message = 'Nothing here yet',
+  action,
+}: CollectionEmptyStateProps) {
   return (
     <div className="collection-empty-state" role="status">
       <span>{message}</span>
       {action && (
-        <button type="button" className="collection-empty-state__action" onClick={action.onClick}>
+        <Button
+          variant="outline-fill"
+          leading={<AppIcon icon="plus" />}
+          onClick={action.onClick}
+        >
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   );

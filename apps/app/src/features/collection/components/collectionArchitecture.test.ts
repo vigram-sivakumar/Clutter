@@ -69,14 +69,19 @@ describe('the generic collection components are domain-free', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('only reach outside themselves for shared primitives (@shared/icon, @shared/interaction) and React', () => {
+  it('only reach outside themselves for shared primitives (@shared/icon, @shared/interaction) and React — plus the design-system Button, in the empty states only', () => {
     const outside = GENERIC.flatMap((file) =>
       importsOf(file.text)
         .filter((spec) => !spec.startsWith('.') && spec !== 'react')
         .map((spec) => ({ file: file.rel, spec }))
     );
 
-    expect(outside.filter(({ spec }) => !/^@shared\/(icon|interaction)$/.test(spec))).toEqual([]);
+    // The one exception: an empty state's call to action is the design system's own Button, which is
+    // as domain-free as the icon primitive — no other generic component takes it.
+    const allowed = ({ file, spec }: { file: string; spec: string }) =>
+      /^@shared\/(icon|interaction)$/.test(spec) || (file.startsWith('empty/') && spec === '@components/button/Button');
+
+    expect(outside.filter((entry) => !allowed(entry))).toEqual([]);
   });
 
   it('are never imported back by the page models or the view layer (dependencies point down)', () => {

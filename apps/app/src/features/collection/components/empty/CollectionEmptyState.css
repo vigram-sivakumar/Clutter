@@ -14,13 +14,3 @@
   color: var(--foreground-tertiary);
   text-align: center;
 }
-
-.collection-empty-state__action {
-  padding: var(--space-4) var(--space-8);
-  color: var(--foreground-primary);
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font: inherit;
-  cursor: pointer;
-}
