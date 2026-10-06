@@ -5,7 +5,8 @@ import type { Page } from '../models';
 function makePage(
   name: string,
   tagNames: readonly string[],
-  type: Page['type'] = 'note'
+  type: Page['type'] = 'note',
+  frontmatterTags?: readonly string[]
 ): Page {
   return {
     id: `page-${name}`,
@@ -28,6 +29,7 @@ function makePage(
       originalPath: null,
       createdAt: null,
       updatedAt: null,
+      ...(frontmatterTags && { tags: frontmatterTags }),
     },
     source: { markdown: '' },
     analysis: {
@@ -245,5 +247,39 @@ describe('TagBuilder', () => {
       expect(tags.find((tag) => tag.name === 'project')?.usageCount).toBe(2);
       expect(tags.find((tag) => tag.name === 'design')?.usageCount).toBe(1);
     });
+  });
+});
+
+describe('TagBuilder: tags from frontmatter (Properties)', () => {
+  it('a tag only in a note\'s frontmatter is a Tag, used by that one note', () => {
+    const tags = new TagBuilder().build([makePage('a', [], 'note', ['design', 'research'])]);
+
+    expect(tags.map((tag) => [tag.name, tag.usageCount])).toEqual([
+      ['design', 1],
+      ['research', 1],
+    ]);
+  });
+
+  it('the same tag inline and in frontmatter is one Tag, and one note of it', () => {
+    const tags = new TagBuilder().build([makePage('a', ['design'], 'note', ['design'])]);
+
+    expect(tags).toHaveLength(1);
+    expect(tags[0]!.usageCount).toBe(1);
+  });
+
+  it('inline tags and frontmatter tags across notes both contribute, merged under the identity rule', () => {
+    const tags = new TagBuilder().build([
+      makePage('a', ['Design']),
+      makePage('b', [], 'note', ['design', 'research']),
+    ]);
+
+    expect(tags.map((tag) => [tag.name, tag.usageCount])).toEqual([
+      ['Design', 2],
+      ['research', 1],
+    ]);
+  });
+
+  it('no note using the tag any more means no Tag', () => {
+    expect(new TagBuilder().build([makePage('a', [], 'note', [])])).toEqual([]);
   });
 });

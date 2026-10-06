@@ -142,12 +142,12 @@ describe('TagPropertyValue — editable', () => {
     expect(document.activeElement).not.toBe(getInput());
   });
 
-  it('turns a typed #tag into a pill on Space, and clears the input', () => {
+  it('turns a typed #tag into a pill on Enter, and clears the input', () => {
     render(<StatefulTags initial={[]} />);
 
     act(() => getInput().focus());
     type('#design');
-    const notCancelled = press(' ');
+    const notCancelled = press('Enter');
 
     expect(notCancelled).toBe(false);
     expect(storedValue()).toEqual(['design']);
@@ -156,7 +156,45 @@ describe('TagPropertyValue — editable', () => {
     expect(document.activeElement).toBe(getInput());
   });
 
-  it('also accepts a tag typed without # and committed with Enter', () => {
+  it('Space does not commit: the text stays in the input, nothing is added, and Space is left to the input', () => {
+    const onCommit = vi.fn();
+    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+
+    type('design');
+    const notCancelled = press(' ');
+
+    expect(notCancelled).toBe(true); // not intercepted: the input's own Space handling
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(getInput().value).toBe('design');
+    expect(isShaking()).toBe(false);
+
+    press('Enter');
+    expect(onCommit).toHaveBeenCalledWith(['design']);
+  });
+
+  it('a draft containing a space is not a tag: Enter rejects it, keeping the text', () => {
+    const onCommit = vi.fn();
+    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+
+    type('design research');
+    press('Enter');
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(isShaking()).toBe(true);
+    expect(getInput().value).toBe('design research');
+  });
+
+  it('Enter on an empty input adds nothing and does not shake', () => {
+    const onCommit = vi.fn();
+    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+
+    press('Enter');
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(isShaking()).toBe(false);
+  });
+
+  it('also accepts a tag typed without #', () => {
     render(<StatefulTags initial={[]} />);
 
     type('product');
@@ -169,11 +207,11 @@ describe('TagPropertyValue — editable', () => {
     render(<StatefulTags initial={['design']} />);
 
     type('#ui');
-    press(' ');
+    press('Enter');
     type('#product');
-    press(' ');
+    press('Enter');
     type('#research');
-    press(' ');
+    press('Enter');
 
     expect(storedValue()).toEqual(['design', 'ui', 'product', 'research']);
   });
@@ -186,22 +224,22 @@ describe('TagPropertyValue — editable', () => {
 
     for (const text of ['#design', '#DESIGN', '#product_ui', '#Product-UI']) {
       type(text);
-      press(' ');
+      press('Enter');
       expect(getInput().value).toBe('');
     }
 
     expect(onCommit).not.toHaveBeenCalled();
   });
 
-  it('never makes a pill from empty or whitespace-only input, and Space types nothing', () => {
+  it('never makes a pill from empty or whitespace-only input', () => {
     const onCommit = vi.fn();
     render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
 
-    expect(press(' ')).toBe(false);
+    expect(press('Enter')).toBe(false);
     type('   ');
-    press(' ');
+    press('Enter');
     type('#');
-    press(' ');
+    press('Enter');
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(isShaking()).toBe(true);
@@ -212,7 +250,7 @@ describe('TagPropertyValue — editable', () => {
     render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
 
     type('#a.b');
-    press(' ');
+    press('Enter');
 
     expect(isShaking()).toBe(true);
     expect(getInput().value).toBe('#a.b');
@@ -360,16 +398,16 @@ describe('TagPropertyValue — autocomplete', () => {
     expect(activeSuggestion()).toBeNull();
   });
 
-  it('Space adds exactly what was typed — a new tag when nothing matches', () => {
+  it('Enter adds exactly what was typed — a new tag when nothing matches', () => {
     render(<SuggestingTags initial={[]} />);
 
     act(() => getInput().focus());
     type('#newtag');
-    press(' ');
+    press('Enter');
     expect(storedValue()).toEqual(['newtag']);
 
     type('#pro');
-    press(' ');
+    press('Enter');
     expect(storedValue()).toEqual(['newtag', 'pro']);
   });
 
@@ -389,7 +427,7 @@ describe('TagPropertyValue — autocomplete', () => {
     type('#product');
 
     expect(suggestionLabels()).toEqual(['#product design']);
-    press(' ');
+    press('Enter');
     expect(onCommit).not.toHaveBeenCalled();
   });
 

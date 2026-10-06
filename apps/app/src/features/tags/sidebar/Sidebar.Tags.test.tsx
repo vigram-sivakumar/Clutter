@@ -383,3 +383,39 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
     expect(screen.getByText('Product design')).toBeInTheDocument();
   });
 });
+
+describe('Sidebar Tags — tags added through Properties (frontmatter) are listed', () => {
+  const withPropertyTags = (page: Page, tags: string[]): Page => ({
+    ...page,
+    metadata: { ...page.metadata, tags },
+  });
+  const renderSidebar = (pages: Page[]) =>
+    render(
+      <Tags
+        vault={makeVault(pages)}
+        navigation={fakeNavigation()}
+        tagOperations={fakeTagOperations(() => Promise.resolve())}
+        {...extraPanelProps()}
+      />
+    );
+
+  it('lists a tag that exists only in a note\'s Properties', () => {
+    renderSidebar([withPropertyTags(makePage('p1', []), ['design', 'research'])]);
+
+    expect(screen.getByText('design')).toBeInTheDocument();
+    expect(screen.getByText('research')).toBeInTheDocument();
+  });
+
+  it('lists a tag used inline and in Properties once', () => {
+    renderSidebar([withPropertyTags(makePage('p1', ['design']), ['design'])]);
+
+    expect(screen.getAllByText('design')).toHaveLength(1);
+  });
+
+  it('lists body tags and Properties tags together', () => {
+    renderSidebar([makePage('p1', ['body']), withPropertyTags(makePage('p2', []), ['property'])]);
+
+    expect(screen.getByText('body')).toBeInTheDocument();
+    expect(screen.getByText('property')).toBeInTheDocument();
+  });
+});

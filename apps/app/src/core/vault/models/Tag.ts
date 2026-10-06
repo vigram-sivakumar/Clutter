@@ -1,6 +1,6 @@
 // Vault-wide projection of a unique tag.
 // A Tag represents a unique tag aggregated from all TagOccurrences in the
-// vault, enriched with presentation metadata assigned separately by the
+// vault and every note's frontmatter `tags`, enriched with presentation metadata assigned separately by the
 // user (see TagMetadataEntry) — never parsed from markdown, never stored
 // on individual occurrences.
 export interface Tag {

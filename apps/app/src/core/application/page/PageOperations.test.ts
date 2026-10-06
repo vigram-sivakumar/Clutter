@@ -3072,6 +3072,56 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
 // feature depends on: same id across promotion, no duplicate page, and
 // existing (already-persisted) resources are unaffected by the widened
 // draft-promotion trigger.
+describe('Tags written through Properties reach the vault tag list (what the Tags sidebar shows)', () => {
+  const tagNames = (vault: { tags(): Iterable<{ name: string; usageCount: number }> }) =>
+    [...vault.tags()].map((tag) => `${tag.name}:${tag.usageCount}`);
+
+  it('adding a tag through Properties lists it, live — and removing it unlists it', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.updateMetadata(id, { tags: ['design', 'research'] });
+
+    expect(tagNames(vault)).toEqual(['design:1', 'research:1']);
+
+    await pageOperations.updateMetadata(id, { tags: ['design'] });
+    expect(tagNames(vault)).toEqual(['design:1']);
+
+    await pageOperations.updateMetadata(id, { tags: [] });
+    expect(tagNames(vault)).toEqual([]);
+  });
+
+  it('the same tag in the body and in Properties is one tag, used by one note', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.save(id, 'Plan #design');
+    await pageOperations.updateMetadata(id, { tags: ['design'] });
+
+    expect(tagNames(vault)).toEqual(['design:1']);
+  });
+
+  it('a body tag and a Properties tag both count; removing the body tag leaves the Properties one', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.save(id, 'Plan #body');
+    await pageOperations.updateMetadata(id, { tags: ['property'] });
+
+    expect(tagNames(vault)).toEqual(['body:1', 'property:1']);
+
+    await pageOperations.save(id, 'Plan');
+    expect(tagNames(vault)).toEqual(['property:1']);
+  });
+
+  it('deleting the note takes its tags with it', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.updateMetadata(id, { tags: ['design'] });
+
+    await pageOperations.delete(id);
+
+    expect(tagNames(vault)).toEqual([]);
+  });
+});
+
 describe('PageOperations: custom properties on a draft', () => {
   it('a first custom property promotes the draft: one file, created already holding the property, same id', async () => {
     const { vault, fileSystem, pageOperations } = setupEmpty();

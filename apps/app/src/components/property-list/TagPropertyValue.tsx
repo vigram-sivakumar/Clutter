@@ -146,9 +146,9 @@ interface TagPropertyEditorProps {
 
 /**
  * Editable state: the pills, then an inline Input. Clicking anywhere in the
- * value focuses the input. Typing `#name` and pressing Space (or Enter)
- * turns it into a pill and leaves the input ready for the next tag:
- * - whitespace-only text never makes a pill (and Space isn't inserted);
+ * value focuses the input. Typing `#name` and pressing Enter turns it into a pill and leaves the
+ * input ready for the next tag — Space does not commit, it is ordinary text (as in the Aliases editor):
+ * - whitespace-only text never makes a pill;
  * - an invalid name keeps the text and plays EditableText's reject shake;
  * - a name already present (by normalizeTagName) is dropped, not doubled;
  * - Backspace in an empty input removes the last pill;
@@ -162,8 +162,7 @@ interface TagPropertyEditorProps {
  * runs on) and hands its state to the rows through MenuContext, exactly
  * what `Menu` provides them. Nothing starts highlighted; ArrowUp/Down (or
  * hover) highlight a suggestion, and Enter or a click adds it — with no
- * highlight, Enter adds the typed text, like Space. Space always adds exactly what was typed — a new tag if no
- * existing one matches. Escape closes the popover until typing resumes.
+ * highlight, Enter adds exactly what was typed — a new tag if no existing one matches. Escape closes the popover until typing resumes.
  */
 function TagPropertyEditor({
   name,
@@ -229,7 +228,9 @@ function TagPropertyEditor({
       }
     }
 
-    if (event.key === ' ' || event.key === 'Enter') {
+    // Only Enter commits (as in the Aliases editor): Space is ordinary text, left to the input. A
+    // draft with a space in it is not a valid tag name, so Enter then rejects it like any invalid one.
+    if (event.key === 'Enter') {
       event.preventDefault();
 
       if (!commitDraft()) {

@@ -11,9 +11,9 @@ interface TagAccumulator {
 
 export class TagBuilder {
   /**
-   * Markdown determines what tags exist — this loop only ever iterates
-   * occurrences, never tagMetadata's keys, so a metadata-only entry with no
-   * occurrence anywhere in the vault never manufactures a Tag (see
+   * The notes determine what tags exist — inline `#tag` occurrences and frontmatter `tags` — and this
+   * loop only ever iterates those, never tagMetadata's keys, so a metadata-only entry that no note
+   * uses anywhere in the vault never manufactures a Tag (see
    * .clutter/tags.json's "only tags with metadata exist" / orphan-entry
    * handling). tagMetadata is enrichment consulted per normalized name,
    * once per unique tag — never a second source of tag existence.
@@ -33,12 +33,20 @@ export class TagBuilder {
     const byNormalizedName = new Map<string, TagAccumulator>();
 
     for (const page of pages) {
-      for (const occurrence of page.analysis.tags) {
-        const key = normalizeTagName(occurrence.name);
+      // A tag a note uses is either an inline `#tag` in its body or a name in its frontmatter `tags`
+      // (what the Properties Tags editor writes) — both are the persisted note, and the same tag
+      // under normalizeTagName. A page holding it both ways is one page of that tag (pageIds is a Set).
+      const names = [
+        ...page.analysis.tags.map((occurrence) => occurrence.name),
+        ...(page.metadata.tags ?? []),
+      ];
+
+      for (const name of names) {
+        const key = normalizeTagName(name);
         let accumulator = byNormalizedName.get(key);
 
         if (!accumulator) {
-          accumulator = { name: occurrence.name, pageIds: new Set() };
+          accumulator = { name, pageIds: new Set() };
           byNormalizedName.set(key, accumulator);
         }
 
