@@ -1,4 +1,19 @@
 /* Muted, like an entry's own secondary text: an empty list is a hint, not a row to read. */
 .empty-entry {
-  --entry-foreground: var(--foreground-tertiary);
+  --entry-foreground: var(--foreground-secondary);
+  font-size: var(--text-label-small);
+}
+
+/* An empty-state sentence is prose, not a title: it wraps onto as many lines as it needs instead
+   of ellipsizing, and the row grows with it (never shorter than a normal row). */
+.empty-entry {
+  height: auto;
+  min-height: var(--height-lg);
+}
+.empty-entry .entry__content {
+  height: auto;
+  padding-block: var(--space-6);
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
 }

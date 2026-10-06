@@ -1,9 +1,24 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { testIds } from '@shared/testing/selectors';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { Notes } from './Sidebar.Notes';
 import { useWorkspace } from '@app/hooks/useWorkspace';
@@ -93,7 +108,11 @@ function makeFolder(id: string, path: string): Folder {
   };
 }
 
-function makePage(id: string, path: string, overrides?: { favorite?: boolean }): Page {
+function makePage(
+  id: string,
+  path: string,
+  overrides?: { favorite?: boolean }
+): Page {
   return new PageBuilder().build({
     parentId: null,
     page: {
@@ -180,8 +199,17 @@ function setup(
     () => {}
   );
   const resourceOperations = new ResourceOperations(coordinator);
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
-  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
+  const membershipSelector = new MembershipSelector(
+    vault,
+    query,
+    effectivePageState
+  );
   const navigation = {
     openWorkspace: vi.fn(),
     openFavorites: vi.fn(),
@@ -319,7 +347,7 @@ describe('Sidebar Notes: Assets shortcut', () => {
 });
 
 describe('Sidebar Notes: only one row menu is open at a time', () => {
-  it('opening a second row\'s menu closes the first', () => {
+  it("opening a second row's menu closes the first", () => {
     const folderA = makeFolder('folder-a', `${ROOT}/Alpha`);
     const folderB = makeFolder('folder-b', `${ROOT}/Beta`);
     const deps = setup([folderA, folderB]);
@@ -336,7 +364,7 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
   });
 
-  it('clicking the same row\'s overflow button again closes its own menu', () => {
+  it("clicking the same row's overflow button again closes its own menu", () => {
     const folderA = makeFolder('folder-a', `${ROOT}/Alpha`);
     const deps = setup([folderA]);
 
@@ -350,8 +378,8 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
   });
 });
 
-describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row have independent menu state', () => {
-  it('opening the Favorites row\'s overflow menu does not also open the Workspace row\'s menu for the same page ID', () => {
+describe("Sidebar Notes: a favorited page's Favorites row and Workspace row have independent menu state", () => {
+  it("opening the Favorites row's overflow menu does not also open the Workspace row's menu for the same page ID", () => {
     // A favorited root-level page renders twice — once under Favorites,
     // once under Workspace — both referencing the same page ID. Each is
     // still its own Entry instance and must own its own menu state.
@@ -387,7 +415,9 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
 // opened from here.
 describe('Sidebar Notes: the "Folders" section header only expands/collapses', () => {
   function headerOf(): HTMLElement {
-    return screen.getByText('Folders').closest('.section-header') as HTMLElement;
+    return screen
+      .getByText('Folders')
+      .closest('.section-header') as HTMLElement;
   }
 
   it('clicking the title toggles the section (collapse, then expand) and never calls openWorkspace()', () => {
@@ -419,7 +449,9 @@ describe('Sidebar Notes: the "Folders" section header only expands/collapses', (
     const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
     const { rerender } = renderNotes(deps);
 
-    fireEvent.click(headerOf().querySelector('.section-header__caret') as HTMLElement);
+    fireEvent.click(
+      headerOf().querySelector('.section-header__caret') as HTMLElement
+    );
     rerender(notesElement(deps));
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
@@ -440,7 +472,9 @@ describe('Sidebar Notes: the "Folders" section header only expands/collapses', (
     const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
     renderNotes(deps);
 
-    fireEvent.click(headerOf().querySelector('.entry__actions button') as HTMLElement);
+    fireEvent.click(
+      headerOf().querySelector('.entry__actions button') as HTMLElement
+    );
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
@@ -485,7 +519,9 @@ describe('Sidebar Notes: the global New shortcut always creates in Inbox', () =>
     const ensure = vi
       .spyOn(deps.folderOperations, 'ensureReservedFolder')
       .mockResolvedValue({ id: INBOX_ID } as Folder);
-    const openDraft = vi.spyOn(deps.pageOperations, 'openDraft').mockResolvedValue('draft-1');
+    const openDraft = vi
+      .spyOn(deps.pageOperations, 'openDraft')
+      .mockResolvedValue('draft-1');
     renderNotes(deps);
     fireEvent.click(screen.getByTestId(testIds.sidebar.createNoteButton));
     return { ensure, openDraft };
@@ -521,7 +557,9 @@ describe('Sidebar Notes: the global New shortcut always creates in Inbox', () =>
   it("a folder row's own + still creates in that folder, not Inbox", () => {
     const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
     const ensure = vi.spyOn(deps.folderOperations, 'ensureReservedFolder');
-    const openDraft = vi.spyOn(deps.pageOperations, 'openDraft').mockResolvedValue('draft-1');
+    const openDraft = vi
+      .spyOn(deps.pageOperations, 'openDraft')
+      .mockResolvedValue('draft-1');
     renderNotes(deps);
 
     const row = screen.getByText('Alpha').closest('.entry') as HTMLElement;
@@ -534,7 +572,11 @@ describe('Sidebar Notes: the global New shortcut always creates in Inbox', () =>
 
 describe('Sidebar Notes: empty-vault detection considers root resources', () => {
   it('a vault with only a root-level resource (no folders, no pages) does not default the Workspace section to collapsed', () => {
-    const resource = makeResource({ id: 'resource-1', name: 'photo.png', parentId: null });
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'photo.png',
+      parentId: null,
+    });
     const deps = setup([], [], [resource]);
 
     renderNotes(deps);
@@ -546,26 +588,28 @@ describe('Sidebar Notes: empty-vault detection considers root resources', () => 
   });
 });
 
-describe('Sidebar Notes: an empty Folders section offers "New Folder"', () => {
-  it('shows a New Folder row (not collapsed away) when the vault has no folders, pages or files', () => {
+describe('Sidebar Notes: an empty Folders section explains itself', () => {
+  const MESSAGE = 'Create a folder to keep your notes organized.';
+
+  it('shows the hint (not collapsed away) when the vault has no folders, pages or files', () => {
     renderNotes(setup([]));
 
-    expect(screen.getByText('New Folder')).toBeInTheDocument();
+    expect(screen.getByText(MESSAGE)).toBeInTheDocument();
   });
 
-  it('clicking it opens the inline name row, and the New Folder row steps aside', () => {
+  it('is plain text, not a button — the section\'s "+" is the way to create', () => {
     renderNotes(setup([]));
 
-    fireEvent.click(screen.getByText('New Folder'));
-
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: MESSAGE })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('New Folder')).not.toBeInTheDocument();
   });
 
   it('is not shown once the section has anything in it', () => {
     renderNotes(setup([makeFolder('folder-a', `${ROOT}/Alpha`)]));
 
-    expect(screen.queryByText('New Folder')).not.toBeInTheDocument();
+    expect(screen.queryByText(MESSAGE)).not.toBeInTheDocument();
   });
 });
 
@@ -576,7 +620,7 @@ describe('Sidebar Notes: an empty Folders section offers "New Folder"', () => {
 // app/layouts/page/topbar/ResourceTopBarActions.test.tsx.
 
 describe('Sidebar Notes: Duplicate leaves the current selection untouched', () => {
-  it('a note row\'s Duplicate calls PageOperations.duplicate but never opens or selects the result', async () => {
+  it("a note row's Duplicate calls PageOperations.duplicate but never opens or selects the result", async () => {
     const page = makePage('page-a', `${ROOT}/Idea.md`);
     const deps = setup([], [page]);
     const duplicateSpy = vi
@@ -603,7 +647,7 @@ describe('Sidebar Notes: Duplicate leaves the current selection untouched', () =
     expect(deps.workspace.activePageId).toBeNull();
   });
 
-  it('regression: Note A open, sidebar-duplicating Note B leaves Note A open (the reported bug — Note B\'s own row was incorrectly opening)', async () => {
+  it("regression: Note A open, sidebar-duplicating Note B leaves Note A open (the reported bug — Note B's own row was incorrectly opening)", async () => {
     const noteA = makePage('page-a', `${ROOT}/Note A.md`);
     const noteB = makePage('page-b', `${ROOT}/Note B.md`);
     const deps = setup([], [noteA, noteB]);
@@ -643,7 +687,9 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
   it('note archive calls PageOperations.archive() directly, with no confirmation dialog', () => {
     const page = makePage('page-1', `${ROOT}/Note.md`);
     const deps = setup([], [page]);
-    const archiveSpy = vi.spyOn(deps.pageOperations, 'archive').mockResolvedValue(undefined);
+    const archiveSpy = vi
+      .spyOn(deps.pageOperations, 'archive')
+      .mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Note'));
@@ -656,7 +702,9 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
   it('empty folder archive calls FolderOperations.archive() directly, with no confirmation dialog', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const deps = setup([folder]);
-    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    const archiveSpy = vi
+      .spyOn(deps.folderOperations, 'archive')
+      .mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
@@ -668,9 +716,14 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
 
   it('non-empty folder archive: shows the shared Confirmation dialog, Cancel does not archive', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const note = {
+      ...makePage('page-1', `${ROOT}/Projects/Note.md`),
+      parentId: 'folder-1',
+    };
     const deps = setup([folder], [note]);
-    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    const archiveSpy = vi
+      .spyOn(deps.folderOperations, 'archive')
+      .mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
@@ -682,35 +735,51 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(archiveSpy).not.toHaveBeenCalled();
-    expect(screen.queryByText('Move this folder to Trash?')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Move this folder to Trash?')
+    ).not.toBeInTheDocument();
   });
 
   it('non-empty folder archive: Confirm invokes FolderOperations.archive()', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const note = {
+      ...makePage('page-1', `${ROOT}/Projects/Note.md`),
+      parentId: 'folder-1',
+    };
     const deps = setup([folder], [note]);
-    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    const archiveSpy = vi
+      .spyOn(deps.folderOperations, 'archive')
+      .mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
     fireEvent.click(screen.getByText('Move to Trash'));
-    const confirmButtons = screen.getAllByRole('button', { name: 'Move to Trash' });
+    const confirmButtons = screen.getAllByRole('button', {
+      name: 'Move to Trash',
+    });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     expect(archiveSpy).toHaveBeenCalledWith('folder-1');
-    expect(screen.queryByText('Move this folder to Trash?')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Move this folder to Trash?')
+    ).not.toBeInTheDocument();
   });
 
   it('never calls navigation.openWorkspace() for any archive flow — the deprecated fallback must not resurface', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const note = {
+      ...makePage('page-1', `${ROOT}/Projects/Note.md`),
+      parentId: 'folder-1',
+    };
     const deps = setup([folder], [note]);
     vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
     fireEvent.click(screen.getByText('Move to Trash'));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Move to Trash' }).at(-1)!);
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Move to Trash' }).at(-1)!
+    );
 
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
   });
@@ -790,7 +859,11 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
   });
 
   it('a pdf resource shows the same overflow menu as an image resource', () => {
-    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'pdf',
+      name: 'contract.pdf',
+    });
     const deps = setup([], [], [resource]);
     renderNotes(deps);
 
@@ -859,7 +932,11 @@ describe('Sidebar Notes: Resource rename', () => {
   });
 
   it('a pdf resource supports rename the same way an image resource does', () => {
-    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'pdf',
+      name: 'contract.pdf',
+    });
     const deps = setup([], [], [resource]);
     const renameSpy = vi
       .spyOn(deps.resourceOperations, 'renameResource')
@@ -894,7 +971,11 @@ describe('Sidebar Notes: Resource archive', () => {
   });
 
   it('a pdf resource supports archive the same way an image resource does', () => {
-    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'pdf',
+      name: 'contract.pdf',
+    });
     const deps = setup([], [], [resource]);
     const archiveSpy = vi
       .spyOn(deps.resourceOperations, 'archiveResource')
@@ -910,7 +991,11 @@ describe('Sidebar Notes: Resource archive', () => {
 
 describe('Sidebar Notes: Resource existing behavior unchanged', () => {
   it('clicking an image resource row still opens the existing image overlay wiring (onOpenResource)', () => {
-    const resource = makeResource({ id: 'resource-1', kind: 'image', name: 'photo.png' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'image',
+      name: 'photo.png',
+    });
     const deps = setup([], [], [resource]);
     const onOpenResource = vi.fn();
 
@@ -938,7 +1023,11 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
   });
 
   it('clicking a pdf resource row invokes onOpenResource, reaching the PdfOverlay wiring', () => {
-    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'pdf',
+      name: 'contract.pdf',
+    });
     const deps = setup([], [], [resource]);
     const onOpenResource = vi.fn();
 
@@ -988,13 +1077,19 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
 
   function makeNestedFolders(): Folder[] {
     const grandparent = makeFolder('grandparent', `${ROOT}/Projects`);
-    const parent = { ...makeFolder('parent', `${ROOT}/Projects/Work`), parentId: 'grandparent' };
+    const parent = {
+      ...makeFolder('parent', `${ROOT}/Projects/Work`),
+      parentId: 'grandparent',
+    };
     return [grandparent, parent];
   }
 
   it('expands every ancestor folder required to make the revealed note visible', () => {
     const folders = makeNestedFolders();
-    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const page = {
+      ...makePage('p1', `${ROOT}/Projects/Work/Note.md`),
+      parentId: 'parent',
+    };
     const deps = setup(folders, [page]);
     // Both ancestors start collapsed — folders default to expanded, so
     // this is the only way to actually prove the reveal forces them open
@@ -1007,7 +1102,9 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
     // useWorkspace subscription is already established long before any
     // "Reveal in Clutter" click, rather than racing to subscribe on the
     // very same mount that triggers the expand.
-    const { rerender } = render(<ReactiveNotes deps={deps} overrides={{ revealPageId: null }} />);
+    const { rerender } = render(
+      <ReactiveNotes deps={deps} overrides={{ revealPageId: null }} />
+    );
     rerender(<ReactiveNotes deps={deps} overrides={{ revealPageId: 'p1' }} />);
 
     expect(deps.workspace.isFolderExpanded('grandparent')).toBe(true);
@@ -1017,19 +1114,27 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
 
   it('applies the temporary flash-highlight class to the revealed row', () => {
     const folders = makeNestedFolders();
-    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const page = {
+      ...makePage('p1', `${ROOT}/Projects/Work/Note.md`),
+      parentId: 'parent',
+    };
     const deps = setup(folders, [page]);
 
     render(notesElement(deps, { revealPageId: 'p1' }));
 
     const row = screen.getByTestId('sidebar.noteItem.p1');
     expect(row.classList.contains('entry-reveal-highlight')).toBe(true);
-    expect(row.classList.contains('entry-reveal-highlight--visible')).toBe(true);
+    expect(row.classList.contains('entry-reveal-highlight--visible')).toBe(
+      true
+    );
   });
 
   it('calls onRevealHandled once the row has been located and flashed', () => {
     const folders = makeNestedFolders();
-    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const page = {
+      ...makePage('p1', `${ROOT}/Projects/Work/Note.md`),
+      parentId: 'parent',
+    };
     const deps = setup(folders, [page]);
     const onRevealHandled = vi.fn();
 
@@ -1040,7 +1145,10 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
 
   it('never opens the note, selects it, or changes the active page', () => {
     const folders = makeNestedFolders();
-    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const page = {
+      ...makePage('p1', `${ROOT}/Projects/Work/Note.md`),
+      parentId: 'parent',
+    };
     const deps = setup(folders, [page]);
     const openSpy = vi.spyOn(deps.pageOperations, 'open');
 
@@ -1049,14 +1157,19 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
     expect(openSpy).not.toHaveBeenCalled();
     expect(deps.workspace.activePageId).toBeNull();
     // Not the "selected/active" treatment — just the temporary flash.
-    expect(screen.getByTestId('sidebar.noteItem.p1').classList.contains('entry-selected')).toBe(
-      false
-    );
+    expect(
+      screen
+        .getByTestId('sidebar.noteItem.p1')
+        .classList.contains('entry-selected')
+    ).toBe(false);
   });
 
   it('does nothing when revealPageId is absent', () => {
     const folders = makeNestedFolders();
-    const page = { ...makePage('p1', `${ROOT}/Projects/Work/Note.md`), parentId: 'parent' };
+    const page = {
+      ...makePage('p1', `${ROOT}/Projects/Work/Note.md`),
+      parentId: 'parent',
+    };
     const deps = setup(folders, [page]);
     deps.workspace.toggleFolderExpanded('grandparent');
 
@@ -1070,7 +1183,9 @@ describe('Sidebar Notes: revealPageId ("Reveal in Clutter")', () => {
     const deps = setup([]);
     const onRevealHandled = vi.fn();
 
-    render(notesElement(deps, { revealPageId: 'nonexistent', onRevealHandled }));
+    render(
+      notesElement(deps, { revealPageId: 'nonexistent', onRevealHandled })
+    );
 
     expect(onRevealHandled).toHaveBeenCalledTimes(1);
   });

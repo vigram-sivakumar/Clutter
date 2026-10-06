@@ -175,7 +175,12 @@ export function Notes({
   // Reused here so a row's compact Markdown rendering resolves
   // WikiLinks/Tags/embeds identically to the open page, not via a second
   // resolution implementation.
-  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations, effectivePageState);
+  const resolveWikiLink = createWikiLinkResolver(
+    vault,
+    pageOperations,
+    folderOperations,
+    effectivePageState
+  );
   const resolveTag = createTagResolver(navigation, vault);
   const resolveEmbed = createPageEmbedResolver(vault, effectivePageState);
 
@@ -224,7 +229,11 @@ export function Notes({
       return;
     }
 
-    const representations = getLocationPathRepresentations(entity, kind, vault.root);
+    const representations = getLocationPathRepresentations(
+      entity,
+      kind,
+      vault.root
+    );
     const value = pickLocationPathRepresentation(representations, format);
 
     if (value !== null) {
@@ -306,7 +315,10 @@ export function Notes({
     // *Operations.move), plus the Assets/ folder appended as a selectable
     // destination — see buildResourceMoveDestinationItems' own doc comment
     // for why that's specific to Resource Move.
-    resourceMoveDestinations: buildResourceMoveDestinationItems(membershipSelector, query),
+    resourceMoveDestinations: buildResourceMoveDestinationItems(
+      membershipSelector,
+      query
+    ),
     onMoveResource: (resourceId, destinationFolderId) =>
       void resourceOperations.moveResource(resourceId, destinationFolderId),
 
@@ -349,9 +361,15 @@ export function Notes({
     onOpenMenu: (id) => setFavoriteOpenMenuId(id),
     onCloseMenu: () => setFavoriteOpenMenuId(null),
   };
-  const onShortcut = buildNotesShortcutHandler(navigation, pageOperations, folderOperations);
-  const favoriteItems = getFavoriteItems(query, effectivePageState, (folderId) =>
-    membershipSelector.isInTemplatesFolder(folderId)
+  const onShortcut = buildNotesShortcutHandler(
+    navigation,
+    pageOperations,
+    folderOperations
+  );
+  const favoriteItems = getFavoriteItems(
+    query,
+    effectivePageState,
+    (folderId) => membershipSelector.isInTemplatesFolder(folderId)
   );
   // A pending (not-yet-persisted) root-level folder counts as non-empty too
   // — otherwise clicking "+" on an empty section would force it open via
@@ -363,7 +381,7 @@ export function Notes({
     membershipSelector.getRootResources().length === 0 &&
     pendingNewFolder?.parentId !== null;
 
-  // The section's "+" and, while the section is empty, its "New Folder" row: open the section if it
+  // The section's "+": open the section if it
   // was collapsed, then show the inline name row.
   const startNewRootFolder = () => {
     if (!workspace.isSectionExpanded('folders')) {
@@ -484,11 +502,9 @@ export function Notes({
             void pageOperations.openDraft({ folderId });
           }}
         />
-        {/* An empty section is not collapsed away: it offers the one thing it can do. */}
+        {/* An empty section is not collapsed away: it explains itself; the section's "+" creates. */}
         {isFoldersEmpty && (
-          <EmptyEntry leading={<AppIcon icon="plus" />} onClick={startNewRootFolder}>
-            New Folder
-          </EmptyEntry>
+          <EmptyEntry>Create a folder to keep your notes organized.</EmptyEntry>
         )}
       </Section>
       <Dialog

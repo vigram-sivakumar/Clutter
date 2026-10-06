@@ -116,6 +116,12 @@
 .collection-row--layout-cell {
   align-items: flex-start;
 }
+/* The cell top-aligns the icon, so its box is as tall as the title's line (24px) and centres the 20px icon in it — level with the title, as in the list. */
+.collection-row--layout-cell .collection-row__leading {
+  width: var(--height-xs);
+  height: var(--lh-body-small);
+  aspect-ratio: auto;
+}
 .collection-row--layout-cell .collection-row__primary {
   flex-direction: column;
   gap: var(--space-0);
