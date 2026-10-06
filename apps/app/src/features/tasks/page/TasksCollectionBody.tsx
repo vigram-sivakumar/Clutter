@@ -1,8 +1,7 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
-import { Pill } from '@components/property-list/Pill';
-import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
+import { TaskDuePill } from './TaskDuePill';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -185,7 +184,12 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
-          {task.dueDate && <Pill size="small">{formatTaskDueDate(task.dueDate)}</Pill>}
+          {task.dueDate && (
+            <TaskDuePill
+              date={task.dueDate}
+              onChange={(date) => onChangeDueDate(task, date)}
+            />
+          )}
         </span>
       ),
       onClick: () => onOpenTask(task),

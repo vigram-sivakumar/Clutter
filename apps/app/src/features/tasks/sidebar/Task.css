@@ -26,3 +26,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.task-row-title__pill {
+  display: inline-flex;
+  flex: none;
+}

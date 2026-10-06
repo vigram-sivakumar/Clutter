@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TasksCollectionBody } from './TasksCollectionBody';
@@ -170,6 +170,39 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Plan trip')).not.toBeNull();
     expect(getByText('20 Aug').closest('.pill')).not.toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
+  });
+
+  it('clicking a tasks-all row\'s date pill opens the calendar and changes the due date without opening the note', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+    const onChangeDueDate = vi.fn();
+    const onOpenTask = vi.fn();
+    const target = task({ text: 'Plan trip', dueDate: '2026-08-20' });
+
+    const { getByRole, getByText } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[target]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={onOpenTask}
+        onChangeDueDate={onChangeDueDate}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    fireEvent.click(getByRole('button', { name: 'Change due date' }));
+    expect(onOpenTask).not.toHaveBeenCalled();
+
+    fireEvent.click(getByText('Clear date'));
+    expect(onChangeDueDate).toHaveBeenCalledWith(target, null);
+    vi.unstubAllGlobals();
   });
 
   it('shows the collection empty state for tasks-all with no tasks', () => {
