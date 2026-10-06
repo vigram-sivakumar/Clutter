@@ -166,7 +166,7 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
 
     expect(container.querySelector('button[aria-haspopup="menu"]')).toBeNull();
     expect(container.querySelector('[role="menu"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Add asset"], button[aria-label="New"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Upload"], button[aria-label="New"]')).toBeNull();
   });
 
   describe('rename (F2 on a focused item)', () => {

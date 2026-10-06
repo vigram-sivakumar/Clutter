@@ -691,6 +691,42 @@ describe('MembershipSelector.isAssetsStorageFolder', () => {
   });
 });
 
+describe('MembershipSelector — folders inside Assets/ belong to the Assets collection', () => {
+  const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+  const trips = makeFolder({ id: 'trips', name: 'Trips', path: `${ROOT}/Assets/Trips`, parentId: 'assets-folder' });
+  const paris = makeFolder({ id: 'paris', name: 'Paris', path: `${ROOT}/Assets/Trips/Paris`, parentId: 'trips' });
+  const projects = makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects`, parentId: null });
+  const nestedAssets = makeFolder({ id: 'nested', name: 'Assets', path: `${ROOT}/Projects/Assets`, parentId: 'projects' });
+
+  it('getAssetsStorageFolder finds the root-level Assets folder, or nothing when the vault has none yet', () => {
+    expect(setup([assets, trips]).membershipSelector.getAssetsStorageFolder()?.id).toBe('assets-folder');
+    expect(setup([projects, nestedAssets]).membershipSelector.getAssetsStorageFolder()).toBeUndefined();
+    expect(setup([]).membershipSelector.getAssetsStorageFolder()).toBeUndefined();
+  });
+
+  it('isAssetsFolder is true for Assets/ itself and for a folder at any depth inside it — and for nothing else', () => {
+    const { membershipSelector } = setup([assets, trips, paris, projects, nestedAssets]);
+
+    expect([assets, trips, paris].map((f) => membershipSelector.isAssetsFolder(f))).toEqual([true, true, true]);
+    expect([projects, nestedAssets].map((f) => membershipSelector.isAssetsFolder(f))).toEqual([false, false]);
+  });
+
+  it('isInAssetsSubfolder: a file in a folder INSIDE Assets/ — not in Assets/ itself, not elsewhere in the vault', () => {
+    const { membershipSelector } = setup(
+      [assets, trips, paris, projects],
+      [],
+      []
+    );
+
+    const file = (parentId: string | null) => makeResource({ parentId });
+    expect(membershipSelector.isInAssetsSubfolder(file('trips'))).toBe(true);
+    expect(membershipSelector.isInAssetsSubfolder(file('paris'))).toBe(true);
+    expect(membershipSelector.isInAssetsSubfolder(file('assets-folder'))).toBe(false);
+    expect(membershipSelector.isInAssetsSubfolder(file('projects'))).toBe(false);
+    expect(membershipSelector.isInAssetsSubfolder(file(null))).toBe(false);
+  });
+});
+
 describe('MembershipSelector.getWorkspaceFolders excludes the physical Assets folder', () => {
   it('the Assets folder does not appear among workspace folders, even though it is fully present in VaultQuery', () => {
     const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });

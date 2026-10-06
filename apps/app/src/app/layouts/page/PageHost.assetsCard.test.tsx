@@ -213,12 +213,12 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     expect(settingsButton()).not.toBeNull();
-    expect(document.querySelector('button[aria-label="Add asset"]')).not.toBeNull();
+    expect(document.querySelector('button[aria-label="Upload"]')).not.toBeNull();
     // Same two controls, same order, as every other collection: Settings, then the primary Add.
-    const actions = document.querySelector('button[aria-label="Add asset"]')!.parentElement!;
+    const actions = document.querySelector('button[aria-label="Upload"]')!.parentElement!;
     expect([...actions.children].map((el) => el.getAttribute('aria-label') ?? el.getAttribute('aria-haspopup'))).toEqual([
       'menu',
-      'Add asset',
+      'Upload',
     ]);
   });
 

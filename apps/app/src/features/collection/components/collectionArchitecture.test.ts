@@ -148,7 +148,7 @@ describe('every collection reaches the generic components through mappers, not c
       'CollectionHeaderActions',
       'Button',
       'aria-label="New"',
-      'Add asset',
+      'Upload',
       'plugin-dialog',
       'titleActions',
     ]) {
@@ -191,11 +191,14 @@ describe('every collection reaches the generic components through mappers, not c
   it('PageHost gives the header Add and the body Create the SAME onCreate handler, in every branch that can create', () => {
     const pageHost = read('app/layouts/page/PageHost.tsx');
     const headers = pageHost.match(/onAdd: onCreate,/g) ?? [];
-    const bodies = pageHost.match(/onCreate=\{onCreate\}/g) ?? [];
+    // The notes bodies take it as a prop; the Assets page (top level and a folder inside Assets/) hands it to renderAssetsBody.
+    const noteBodies = pageHost.match(/onCreate=\{onCreate\}/g) ?? [];
+    const assetBodies = pageHost.match(/\n\s+onCreate,\n\s+onCreateFolder/g) ?? [];
 
     // folder + Workspace/Favorites/Tag + Assets
     expect(headers).toHaveLength(3);
-    expect(bodies).toHaveLength(3);
+    expect(noteBodies).toHaveLength(2);
+    expect(assetBodies).toHaveLength(2);
     expect(pageHost).not.toMatch(/onCreateNote|onUpload|actions\.(createNote|upload)/);
   });
 
@@ -215,7 +218,7 @@ describe('every collection reaches the generic components through mappers, not c
 
     // folder + Workspace/Favorites/Tag + Assets (the definition is `renderCollectionHeaderActions = (`)
     expect(uses).toHaveLength(3);
-    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*addLabel: 'Add asset'/);
+    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*onAddFolder: onCreateFolder,\s*menuLabels: assetMenuLabels,\s*addLabel: 'Upload'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);
   });

@@ -3,7 +3,7 @@ import { Button } from '@components/button/Button';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
-import { AppIcon } from '@shared/icon';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { Popover } from '@components/popover/Popover';
@@ -39,6 +39,8 @@ function templateItems(
   ];
 }
 
+const NOTE_MENU_LABELS = { create: 'New note', createFolder: 'New folder' } as const;
+
 export interface CollectionHeaderActionsProps {
   /** The standard Configure control (Layout / Properties / Sort) — Settings and the view-mode control. */
   menu: CollectionViewMenuProps;
@@ -59,8 +61,15 @@ export interface CollectionHeaderActionsProps {
     /** The list's leading "New template" row. */
     onCreateTemplate: () => void;
   };
-  /** Accessible label of the Add button — "New" for notes, "Add asset" for assets. */
+  /**
+   * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
+   * note" and "New folder" for notes, "Upload" and "Create folder" for assets). Absent: the notes' words.
+   */
+  menuLabels?: { readonly create: string; readonly createFolder: string; readonly createIcon?: SystemIcon };
+  /** Accessible label of the Add button — "New" for notes, "Upload" for assets. */
   addLabel?: string;
+  /** Icon of the Add button — the page passes it; absent, a plus. */
+  addIcon?: SystemIcon;
 }
 
 /**
@@ -76,7 +85,9 @@ export function CollectionHeaderActions({
   onAdd,
   onAddFolder,
   fromTemplate,
+  menuLabels = NOTE_MENU_LABELS,
   addLabel = 'New',
+  addIcon = 'plus',
 }: CollectionHeaderActionsProps) {
   const [open, setOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -102,7 +113,7 @@ export function CollectionHeaderActions({
           aria-expanded={hasAddMenu ? open : undefined}
           onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
         >
-          <AppIcon icon="plus" />
+          <AppIcon icon={addIcon} />
         </Button>
       )}
       {hasAddMenu && (
@@ -116,14 +127,14 @@ export function CollectionHeaderActions({
         >
           <Menu size="medium">
             <MenuItem
-              leading={<AppIcon icon="note" />}
+              leading={<AppIcon icon={menuLabels.createIcon ?? 'note'} />}
               onClick={(event) => {
                 event.stopPropagation();
                 setOpen(false);
                 onAdd?.();
               }}
             >
-              New note
+              {menuLabels.create}
             </MenuItem>
             {onAddFolder && (
               <MenuItem
@@ -134,7 +145,7 @@ export function CollectionHeaderActions({
                   onAddFolder();
                 }}
               >
-                New folder
+                {menuLabels.createFolder}
               </MenuItem>
             )}
             {fromTemplate && (

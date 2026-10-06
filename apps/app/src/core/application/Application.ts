@@ -54,6 +54,7 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { importAsset } from '../vault/asset/importAsset';
 import type { Page } from '../vault/models/Page';
 import { findRemoteImageDisplayName } from './asset/remoteImageDisplayName';
 import { rewriteRemoteAssetReferences } from './asset/rewriteRemoteAssetReferences';
@@ -757,6 +758,19 @@ export class Application {
     await this.pageOperations.openAtPath(todayNotePath, {
       type: 'daily-note',
     });
+  }
+
+  /**
+   * Imports an external file into the vault's Assets — into `Assets/` itself, or into the folder
+   * inside it that the Assets page is showing (`destinationFolderPath`, absolute) — and registers it
+   * with the Vault through Sync, like any imported asset. Returns the vault-relative reference.
+   */
+  public async importAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
+    const reference = await importAsset(this.fileSystem, this.rootPath, sourceAbsolutePath, destinationFolderPath);
+
+    await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
+
+    return reference;
   }
 
   /**

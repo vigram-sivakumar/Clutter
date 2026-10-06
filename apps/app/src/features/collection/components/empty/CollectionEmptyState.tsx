@@ -1,11 +1,13 @@
 import { Button } from '@components/button/Button';
-import { AppIcon } from '@shared/icon';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 import './CollectionEmptyState.css';
 
 export interface CollectionEmptyAction {
-  /** What the one call to action says — decided by the page ("Create note", "Add asset"), never by this component. */
+  /** What the one call to action says — decided by the page ("Create note", "Upload"), never by this component. */
   readonly label: string;
   readonly onClick: () => void;
+  /** The icon leading the label — the page passes it (an upload icon for assets); absent, a plus. */
+  readonly icon?: SystemIcon;
 }
 
 export interface CollectionEmptyStateProps {
@@ -31,7 +33,7 @@ export function CollectionEmptyState({
       {action && (
         <Button
           variant="outline-fill"
-          leading={<AppIcon icon="plus" />}
+          leading={<AppIcon icon={action.icon ?? 'plus'} />}
           onClick={action.onClick}
         >
           {action.label}

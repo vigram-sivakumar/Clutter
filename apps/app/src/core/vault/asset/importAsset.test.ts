@@ -77,4 +77,36 @@ describe('importAsset', () => {
 
     expect(reference).toBe('Assets/scan.jpeg');
   });
+
+  it('imports into a folder inside Assets/ when one is given, with a reference relative to the vault', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    fileSystem.seedFile('/external/photo.png', 'bytes');
+    await fileSystem.createDirectory(`${ROOT}/Assets`);
+    await fileSystem.createDirectory(`${ROOT}/Assets/Trips`);
+
+    const reference = await importAsset(fileSystem, ROOT, '/external/photo.png', `${ROOT}/Assets/Trips`);
+
+    expect(reference).toBe('Assets/Trips/photo.png');
+    expect(fileSystem.getFileSync(`${ROOT}/Assets/Trips/photo.png`)).toBe('bytes');
+    expect(await fileSystem.exists(`${ROOT}/Assets/photo.png`)).toBe(false);
+  });
+
+  it('names collisions against THAT folder only, not against Assets/', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    fileSystem.seedFile('/external/photo.png', 'new');
+    await fileSystem.createDirectory(`${ROOT}/Assets`);
+    await fileSystem.createDirectory(`${ROOT}/Assets/Trips`);
+    fileSystem.seedFile(`${ROOT}/Assets/photo.png`, 'top-level');
+    fileSystem.seedFile(`${ROOT}/Assets/Trips/photo.png`, 'in-folder');
+
+    expect(await importAsset(fileSystem, ROOT, '/external/photo.png', `${ROOT}/Assets/Trips`)).toBe('Assets/Trips/photo 2.png');
+  });
+
+  it('still creates Assets/ itself when importing to it for the first time', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    fileSystem.seedFile('/external/photo.png', 'bytes');
+
+    expect(await importAsset(fileSystem, ROOT, '/external/photo.png', `${ROOT}/Assets`)).toBe('Assets/photo.png');
+    expect(await fileSystem.exists(`${ROOT}/Assets`)).toBe(true);
+  });
 });

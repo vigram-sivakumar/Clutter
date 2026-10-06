@@ -30,6 +30,9 @@ import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPa
 import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
+import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
+import type { Asset } from '@core/vault/models/Asset';
+import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import {
@@ -386,11 +389,13 @@ export function PageHost({
     onAdd,
     onAddFolder,
     fromTemplate,
+    menuLabels,
     addLabel,
   }: {
     onAdd?: () => void;
     onAddFolder?: () => void;
     fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
+    menuLabels?: CollectionHeaderActionsProps['menuLabels'];
     addLabel?: string;
   } = {}) => (
     <CollectionHeaderActions
@@ -403,6 +408,7 @@ export function PageHost({
       onAdd={onAdd}
       onAddFolder={onAddFolder}
       fromTemplate={fromTemplate}
+      menuLabels={menuLabels}
       addLabel={addLabel}
     />
   );
@@ -619,8 +625,89 @@ export function PageHost({
     if (!isDailyNotesCollectionPagesEnabled() && isDailyNotesTreeFolder(id)) {
       return;
     }
+    // The physical Assets/ folder IS the Assets collection: opening it opens that page.
+    const target = vault.getFolder(id);
+    if (target && application.membershipSelector.isAssetsStorageFolder(target)) {
+      application.navigation.openAssets();
+      return;
+    }
     application.folderOperations.open(id);
   };
+
+  // ── Assets: every folder inside Assets/ is itself an Assets page ──────────────────────────
+  // What the Assets header's Add menu calls its entries (this collection's wording, not the notes').
+  const assetMenuLabels = { create: 'Upload', createFolder: 'Create folder', createIcon: 'upload' } as const;
+
+  // Create, for assets: pick files and copy them into the folder the page is showing — `Assets/`
+  // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
+  // and let the vault's normal ingest/watch pick them up as resources.
+  const uploadAssetsInto = (destinationFolderPath?: string): void => {
+    void (async () => {
+      const selected = await openFileDialog({
+        multiple: true,
+        directory: false,
+        filters: [{ name: 'Images and PDFs', extensions: supportedResourceFileExtensions() }],
+      });
+      const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
+      for (const sourcePath of paths) {
+        await application.importAsset(sourcePath, destinationFolderPath);
+      }
+    })();
+  };
+
+  // Create folder, for assets: inside the folder the page is showing — or, on the top-level page,
+  // inside `Assets/`, which is created first if the vault has none yet.
+  const createAssetsFolder = (parentFolderId: string | null): void => {
+    void (async () => {
+      const parentId =
+        parentFolderId ??
+        application.membershipSelector.getAssetsStorageFolder()?.id ??
+        (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
+
+      await createAndOpenFolder(application.folderOperations, getFolderTitlePlaceholder(), parentId);
+    })();
+  };
+
+  // The assets one Assets page lists — only its DIRECT ones: a folder's own files, or on the top-level
+  // page everything in the catalog (remote images and files elsewhere in the vault included) except the
+  // files that live in a folder inside Assets/, which show in that folder instead.
+  const assetsOfPage = (folderId: string | null): Asset[] =>
+    application.membershipSelector.getAllAssets().filter((asset) =>
+      folderId === null
+        ? !(asset.source === 'local' && application.membershipSelector.isInAssetsSubfolder(asset.resource))
+        : asset.source === 'local' && asset.resource.parentId === folderId
+    );
+
+  // The body of an Assets page (top-level or a folder): same list/table/card, a folders section at the top.
+  const renderAssetsBody = (props: {
+    assets: readonly Asset[];
+    folders: readonly CollectionEntryModel[];
+    onCreate?: () => void;
+    onCreateFolder?: () => void;
+  }) => (
+    <AssetsCollectionBody
+      assets={props.assets}
+      folders={props.folders}
+      onCreateFolder={props.onCreateFolder}
+      viewMode={collectionView.layout}
+      visible={collectionView.visible}
+      sort={collectionView.sort}
+      resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+      // A vault file opens in its viewer (with its actions); a remote image in the plain image overlay.
+      onOpenAsset={(asset) =>
+        asset.source === 'local'
+          ? onOpenResource(asset.resource)
+          : onOpenImageOverlay(
+              { url: asset.url, alt: getResourceDisplayName(asset) },
+              { onSetCoverImage: () => onSetAssetAsCover(asset.url) }
+            )
+      }
+      onCreate={props.onCreate}
+      emptyCreateLabel="Upload"
+      emptyCreateIcon="upload"
+      onRenameResource={(id, name) => void application.resourceOperations.renameResource(id, name)}
+    />
+  );
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
   // no persistence. Durable-stage persistence is a separate, payload-free
   // request (onRequestSave below), fired on blur.
@@ -1226,8 +1313,13 @@ export function PageHost({
     const dailyNotesFolders = foldersOrder
       ? [...model.folders].sort((a, b) => foldersOrder(a.values.name, b.values.name))
       : model.folders;
+    // What Create DOES here is the collection's: a note in a note folder; for a folder inside Assets/ —
+    // an Assets page — the file picker, importing into this folder.
+    const isAssetsFolderPage = collectionDefinition.kind === 'assets';
     const onCreate = collectionDefinition.actions.create
-      ? () => void application.pageOperations.openDraft({ folderId: folder.id })
+      ? isAssetsFolderPage
+        ? () => uploadAssetsInto(folder.path)
+        : () => void application.pageOperations.openDraft({ folderId: folder.id })
       : undefined;
     // Folders grid's "Create folder" card handler (CollectionBody's onCreateFolder) — reusing
     // FolderOperations.create()/open() via createAndOpenFolder.ts, the same create-then-open
@@ -1303,6 +1395,7 @@ export function PageHost({
             fromTemplate: collectionDefinition.actions.fromTemplate
               ? buildFromTemplate(folder.id)
               : undefined,
+            ...(isAssetsFolderPage && { menuLabels: assetMenuLabels, addLabel: 'Upload' }),
           })}
           emoji={
             folderSystemLocationId
@@ -1339,7 +1432,14 @@ export function PageHost({
           onSaveCoverPosition={onSaveFolderCoverPosition}
           coverKey={folder.id}
           body={
-            isArchiveView ? (
+            isAssetsFolderPage ? (
+              renderAssetsBody({
+                assets: assetsOfPage(folder.id),
+                folders: model.folders,
+                onCreate,
+                onCreateFolder: onCreateSubfolder,
+              })
+            ) : isArchiveView ? (
               <ArchiveCollectionBody
                 folders={model.folders}
                 notes={model.notes}
@@ -1390,30 +1490,28 @@ export function PageHost({
     workspace.activeView?.type === 'filtered-view' &&
     workspace.activeView.view.kind === 'assets'
   ) {
-    // Every asset Clutter knows about or uses: the vault's files plus the remote images notes and covers reference.
-    const assets = application.membershipSelector.getAllAssets();
-
-    // The collection's standard Add action, for assets: pick files, copy them
-    // into the vault's Assets folder via the same import the cover upload uses
-    // (`importCoverAsset` -> `importAsset`; collision-free naming), and let the
-    // vault's normal ingest/watch pick them up as resources.
-    const onCreateAsset = (): void => {
-      void (async () => {
-        const selected = await openFileDialog({
-          multiple: true,
-          directory: false,
-          filters: [
-            { name: 'Images and PDFs', extensions: supportedResourceFileExtensions() },
-          ],
-        });
-        const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
-        for (const sourcePath of paths) {
-          await application.importCoverAsset(sourcePath);
-        }
-      })();
-    };
-    // The collection's one Create handler, from its declared capability: for assets, the file picker.
-    const onCreate = collectionDefinition.actions.create ? onCreateAsset : undefined;
+    // The collection's one Create handler, from its declared capability: for assets, the file picker
+    // (into Assets/ — a folder inside it is its own page).
+    const onCreate = collectionDefinition.actions.create ? () => uploadAssetsInto() : undefined;
+    // Create folder: inside Assets/. Declared by the definition like every other collection's.
+    const onCreateFolder = collectionDefinition.actions.createFolder ? () => createAssetsFolder(null) : undefined;
+    // The folders in Assets/ — each opens as an Assets page of its own.
+    const assetsStorageFolder = application.membershipSelector.getAssetsStorageFolder();
+    const assetFolders = assetsStorageFolder
+      ? toCollectionPageModel(
+          assetsStorageFolder,
+          vault,
+          application.query,
+          application.effectivePageState,
+          application.membershipSelector,
+          workspace,
+          {
+            onOpenFolder,
+            onOpenNote: openNoteFromCollection,
+            onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+          }
+        ).folders
+      : [];
 
     return (
       <Page
@@ -1428,31 +1526,16 @@ export function PageHost({
         showMoreActions={false}
         titleActions={renderCollectionHeaderActions({
           onAdd: onCreate,
-          addLabel: 'Add asset',
+          onAddFolder: onCreateFolder,
+          menuLabels: assetMenuLabels,
+          addLabel: 'Upload',
         })}
-        body={
-          <AssetsCollectionBody
-            assets={assets}
-            viewMode={collectionView.layout}
-            visible={collectionView.visible}
-            sort={collectionView.sort}
-            resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
-            // A vault file opens in its viewer (with its actions); a remote image in the plain image overlay.
-            onOpenAsset={(asset) =>
-              asset.source === 'local'
-                ? onOpenResource(asset.resource)
-                : onOpenImageOverlay(
-                    { url: asset.url, alt: getResourceDisplayName(asset) },
-                    { onSetCoverImage: () => onSetAssetAsCover(asset.url) }
-                  )
-            }
-            onCreate={onCreate}
-            emptyCreateLabel="Add asset"
-            onRenameResource={(id, name) =>
-              void application.resourceOperations.renameResource(id, name)
-            }
-          />
-        }
+        body={renderAssetsBody({
+          assets: assetsOfPage(null),
+          folders: assetFolders,
+          onCreate,
+          onCreateFolder,
+        })}
       />
     );
   }

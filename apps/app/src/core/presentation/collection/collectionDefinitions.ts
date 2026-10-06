@@ -173,7 +173,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
   layouts: ALL_LAYOUTS,
   defaultLayout: 'card',
   defaultSort: DEFAULT_SORT,
-  actions: { create: true },
+  actions: { create: true, createFolder: true },
   required: { list: ['name'], table: ['name'], card: [] },
 };
 
@@ -192,6 +192,9 @@ export function collectionDefinitionForFolder(
   if (dailyNotesLevel === 'root') return DAILY_NOTES_ROOT_COLLECTION;
   if (dailyNotesLevel === 'year') return DAILY_NOTES_YEAR_COLLECTION;
   if (dailyNotesLevel === 'month') return DAILY_NOTES_MONTH_COLLECTION;
+
+  // A folder inside Assets/ is part of the Assets collection: it opens as an Assets page.
+  if (membershipSelector.isAssetsFolder(folder)) return ASSETS_COLLECTION;
 
   switch (getSystemLocationForFolder(folder, membershipSelector)) {
     case 'archive':

@@ -132,7 +132,8 @@ describe('actions — what each collection can create (capability only; handlers
     expect(actions(TAG_COLLECTION)).toEqual(['create']);
     // Inbox: a note can be made blank or from a template — and no folder can be made there.
     expect(actions(INBOX_COLLECTION)).toEqual(['create', 'fromTemplate']);
-    expect(actions(ASSETS_COLLECTION)).toEqual(['create']);
+    // Assets: Create is the file picker; a folder can be created inside Assets/ too.
+    expect(actions(ASSETS_COLLECTION)).toEqual(['create', 'createFolder']);
   });
 
   it('the Archive, Favorites and every Daily Notes level create nothing from their own page', () => {
@@ -180,8 +181,9 @@ describe('which definition a page is', () => {
   const ROOT = '/vault';
   const folderAt = (path: string): Folder =>
     folderBuilder.build({ parentId: null, directory: { path, parentPath: null, frontmatter: null } });
-  const reserved = { isSystemFolder: () => true } as unknown as MembershipSelector;
-  const ordinary = { isSystemFolder: () => false } as unknown as MembershipSelector;
+  const reserved = { isSystemFolder: () => true, isAssetsFolder: () => false } as unknown as MembershipSelector;
+  const ordinary = { isSystemFolder: () => false, isAssetsFolder: () => false } as unknown as MembershipSelector;
+  const insideAssets = { isSystemFolder: () => false, isAssetsFolder: () => true } as unknown as MembershipSelector;
 
   it('reserved folders resolve to their own collection', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Archive`), ROOT, reserved)).toBe(ARCHIVE_COLLECTION);
@@ -197,6 +199,10 @@ describe('which definition a page is', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes`), ROOT, reserved)).toBe(DAILY_NOTES_ROOT_COLLECTION);
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes/2026`), ROOT, ordinary)).toBe(DAILY_NOTES_YEAR_COLLECTION);
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes/2026/October`), ROOT, ordinary)).toBe(DAILY_NOTES_MONTH_COLLECTION);
+  });
+
+  it('a folder inside Assets/ is an Assets collection page, whatever its name', () => {
+    expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Assets/Trips`), ROOT, insideAssets)).toBe(ASSETS_COLLECTION);
   });
 
   it('filtered views resolve to their collection; the task views are not collections of this kind', () => {

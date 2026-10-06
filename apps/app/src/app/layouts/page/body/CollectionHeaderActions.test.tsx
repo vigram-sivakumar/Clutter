@@ -47,9 +47,9 @@ describe('CollectionHeaderActions', () => {
 
   it('Add calls onAdd and uses the collection-supplied label', () => {
     const onAdd = vi.fn();
-    const { getByLabelText } = renderActions({ onAdd, addLabel: 'Add asset' });
+    const { getByLabelText } = renderActions({ onAdd, addLabel: 'Upload' });
 
-    fireEvent.click(getByLabelText('Add asset'));
+    fireEvent.click(getByLabelText('Upload'));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
   });

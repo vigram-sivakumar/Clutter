@@ -19,12 +19,15 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
 export async function importAsset(
   fileSystem: VaultFileSystem,
   vaultRoot: string,
-  sourceAbsolutePath: string
+  sourceAbsolutePath: string,
+  /** The absolute folder the file goes into — a folder inside `Assets/`. Absent: `Assets/` itself. */
+  destinationFolderPath?: string
 ): Promise<string> {
   const { destinationAbsolutePath, reference } = await resolveAssetDestination(
     fileSystem,
     vaultRoot,
-    VaultPath.filename(sourceAbsolutePath)
+    VaultPath.filename(sourceAbsolutePath),
+    destinationFolderPath
   );
 
   await fileSystem.copyFile(sourceAbsolutePath, destinationAbsolutePath);
@@ -42,11 +45,13 @@ export async function importAsset(
 export async function resolveAssetDestination(
   fileSystem: VaultFileSystem,
   vaultRoot: string,
-  fileName: string
+  fileName: string,
+  /** The absolute folder the file goes into — `Assets/` itself, or a folder inside it. Absent: `Assets/`. */
+  destinationFolderPath?: string
 ): Promise<{ readonly destinationAbsolutePath: string; readonly reference: string }> {
   await ensureAssetsDirectory(fileSystem, vaultRoot);
 
-  const assetsDir = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
+  const assetsDir = destinationFolderPath ?? `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
   const dotIndex = fileName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
   const extension = dotIndex > 0 ? fileName.slice(dotIndex) : '';
@@ -65,6 +70,7 @@ export async function resolveAssetDestination(
 
   return {
     destinationAbsolutePath: `${assetsDir}/${destinationFileName}`,
-    reference: `${ASSETS_DIRECTORY_NAME}/${destinationFileName}`,
+    // Vault-relative: `Assets/photo.png`, or `Assets/Trips/photo.png` for a folder inside it.
+    reference: `${assetsDir.slice(vaultRoot.length + 1)}/${destinationFileName}`,
   };
 }

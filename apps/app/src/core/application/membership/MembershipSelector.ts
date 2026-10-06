@@ -222,6 +222,39 @@ export class MembershipSelector {
     return folder.parentId === null && folder.name === ASSETS_DIRECTORY_NAME;
   }
 
+  /** The physical Assets/ storage folder, if the vault has one (it is created with the first import). */
+  public getAssetsStorageFolder(): Folder | undefined {
+    return this.query.getRootFolders().find((folder) => this.isAssetsStorageFolder(folder));
+  }
+
+  /**
+   * Whether `folder` is the Assets storage folder or lies anywhere inside it — a folder the Assets
+   * collection owns: it opens as an Assets page of its own files and subfolders.
+   */
+  public isAssetsFolder(folder: Folder): boolean {
+    let current: Folder | undefined = folder;
+
+    while (current) {
+      if (this.isAssetsStorageFolder(current)) {
+        return true;
+      }
+
+      current = current.parentId ? this.vault.getFolder(current.parentId) : undefined;
+    }
+
+    return false;
+  }
+
+  /**
+   * Whether a vault file sits in a folder INSIDE Assets/ (not in Assets/ itself, nor anywhere else):
+   * the Assets page lists such a file in its own folder, not at the top level.
+   */
+  public isInAssetsSubfolder(resource: VaultResource): boolean {
+    const parent = resource.parentId ? this.vault.getFolder(resource.parentId) : undefined;
+
+    return parent !== undefined && !this.isAssetsStorageFolder(parent) && this.isAssetsFolder(parent);
+  }
+
   /** Every root folder that belongs to Workspace — see isWorkspaceFolder. */
   public getWorkspaceFolders(): Folder[] {
     return this.query.getRootFolders().filter((folder) => this.isWorkspaceFolder(folder));

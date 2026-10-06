@@ -1,6 +1,10 @@
 import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import type { SystemIcon } from '@shared/icon';
 
 import { CreateCard, createNewItem } from './collectionCreate';
+import { renderFolderGrid } from './collectionFolders';
+import { NOTE_SORT_OPTIONS } from './CollectionBody';
+import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { PageBody } from './Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { EditableText } from '@components/editable-text/EditableText';
@@ -26,6 +30,13 @@ import { resolveCollectionView } from '@core/presentation/collection/resolveColl
 import type { Asset } from '@core/vault/models/Asset';
 
 export interface AssetsCollectionBodyProps {
+  /**
+   * The folders inside this Assets page (the subfolders of `Assets/`, or of the folder being viewed),
+   * drawn as a folders section at the top. Each is itself an Assets page.
+   */
+  readonly folders?: readonly CollectionEntryModel[];
+  /** Creates a folder here. The folders' "+" card is drawn only once there is at least one folder. */
+  readonly onCreateFolder?: () => void;
   /** The collection's assets (`MembershipSelector.getAllAssets`): vault files and the remote images Clutter uses. */
   readonly assets: readonly Asset[];
   /**
@@ -59,8 +70,10 @@ export interface AssetsCollectionBodyProps {
    * "+" card in Card. With no assets at all the empty state shows instead, with no Create row or card.
    */
   readonly onCreate?: () => void;
-  /** What the empty state's call to action says ("Add asset"), decided by the page like the handler itself. */
+  /** What the empty state's call to action says ("Upload"), decided by the page like the handler itself. */
   readonly emptyCreateLabel?: string;
+  /** The icon leading that call to action, passed by the page. */
+  readonly emptyCreateIcon?: SystemIcon;
   /**
    * `ResourceOperations.renameResource(resourceId, name)` — a single
    * collision-free write, committed once, so this body feeds it the final
@@ -82,6 +95,8 @@ export interface AssetsCollectionBodyProps {
 const DEFAULT_VIEW = resolveCollectionView(ASSETS_COLLECTION);
 
 export function AssetsCollectionBody({
+  folders = [],
+  onCreateFolder,
   assets: unsorted,
   viewMode = DEFAULT_VIEW.layout,
   visible = DEFAULT_VIEW.visible,
@@ -90,8 +105,10 @@ export function AssetsCollectionBody({
   onOpenAsset,
   onCreate,
   emptyCreateLabel,
+  emptyCreateIcon,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
+  const sortedFolders = sort ? sortEntries(folders, sort, NOTE_SORT_OPTIONS) : folders;
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
   const titleHidden = viewMode === 'card' && !visible.includes('name');
@@ -188,10 +205,13 @@ export function AssetsCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {assets.length === 0 ? (
-        <CollectionEmptyState action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate } : undefined} />
+      {assets.length === 0 && folders.length === 0 ? (
+        <CollectionEmptyState action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
       ) : (
-        layout
+        <>
+          {folders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
+          {assets.length > 0 && layout}
+        </>
       )}
       {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />

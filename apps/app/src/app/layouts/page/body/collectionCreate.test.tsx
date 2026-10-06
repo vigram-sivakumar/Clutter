@@ -142,14 +142,22 @@ describe('Create — a completely empty collection', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('assets: the empty state\'s action is the page\'s label ("Add asset") and calls the same handler', () => {
+  it('assets: the empty state\'s action is the page\'s label ("Upload") and calls the same handler', () => {
     const onCreate = vi.fn();
     const { getByText } = render(
-      <AssetsCollectionBody assets={[]} resolveResourceUrl={(path) => path} onRenameResource={vi.fn()} onCreate={onCreate} emptyCreateLabel="Add asset" />
+      <AssetsCollectionBody assets={[]} resolveResourceUrl={(path) => path} onRenameResource={vi.fn()} onCreate={onCreate} emptyCreateLabel="Upload" />
     );
 
-    fireEvent.click(getByText('Add asset'));
+    fireEvent.click(getByText('Upload'));
     expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('assets: the empty state\'s call to action carries the icon the page passes', () => {
+    const { container } = render(
+      <AssetsCollectionBody assets={[]} resolveResourceUrl={(path) => path} onRenameResource={vi.fn()} onCreate={vi.fn()} emptyCreateLabel="Upload" emptyCreateIcon="upload" />
+    );
+
+    expect(container.querySelector('.collection-empty-state button svg, .collection-empty-state button img')).not.toBeNull();
   });
 
   it('each section offers Create only once it has an item: folders get the create-folder card only when a folder exists', () => {

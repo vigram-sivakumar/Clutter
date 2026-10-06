@@ -1,5 +1,4 @@
 import { useRef, useState, type MouseEvent, type RefObject } from 'react';
-import { AppIcon } from '@shared/icon';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
@@ -13,7 +12,6 @@ import {
   toNoteCardProps,
 } from '@features/collection/components/note/toNoteCardProps';
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
-import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
@@ -25,6 +23,7 @@ import { resolveCollectionView } from '@core/presentation/collection/resolveColl
 import './CollectionBody.css';
 
 import { CreateCard, createNewItem } from './collectionCreate';
+import { renderFolderGrid } from './collectionFolders';
 import { PageBody } from './Page.Body';
 
 /**
@@ -206,25 +205,6 @@ function renderNoteTable(
       )}
       newItem={createNewItem(onCreate)}
     />
-  );
-}
-
-/**
- * The folders grid: one generic card per folder, and — when a folder can be
- * created here — a trailing empty "+" card.
- */
-function renderFolderGrid(entries: readonly CollectionEntryModel[], onCreateFolder?: () => void) {
-  return (
-    <CollectionGrid {...FOLDER_GRID}>
-      {entries.map((entry) => (
-        <CollectionCard key={entry.id} {...toFolderCardProps(entry)} />
-      ))}
-      {onCreateFolder && (
-        <CollectionCard isEmpty aria-label="Create folder" onClick={onCreateFolder}>
-          <AppIcon icon="plus" />
-        </CollectionCard>
-      )}
-    </CollectionGrid>
   );
 }
 
