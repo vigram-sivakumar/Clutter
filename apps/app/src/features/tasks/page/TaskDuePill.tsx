@@ -13,7 +13,7 @@ interface TaskDuePillProps {
 
 /**
  * A task's due date as a Pill; clicking it opens the same calendar (TaskDatePicker) the task row menu uses.
- * Without a date it is a calendar icon + "Due date" pill that appears on row hover (and stays while its calendar is open).
+ * Always a calendar-icon pill: the formatted date when set; without one, "Due date", shown only on row hover (and while its calendar is open).
  */
 export function TaskDuePill({ date, onChange }: TaskDuePillProps) {
   const [open, setOpen] = useState(false);
@@ -36,14 +36,10 @@ export function TaskDuePill({ date, onChange }: TaskDuePillProps) {
           label={date === undefined ? 'Set due date' : 'Change due date'}
           onEdit={() => setOpen(true)}
         >
-          {date === undefined ? (
-            <>
-              <AppIcon icon="calendarDots" />
-              <span className="task-row-title__pill-label">Due date</span>
-            </>
-          ) : (
-            formatTaskDueDate(date)
-          )}
+          <AppIcon icon="calendarDots" />
+          <span className="task-row-title__pill-label">
+            {date === undefined ? 'Due date' : formatTaskDueDate(date)}
+          </span>
         </Pill>
       </span>
       <TaskDatePicker

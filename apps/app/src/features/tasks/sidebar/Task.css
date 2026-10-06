@@ -39,10 +39,12 @@
 .task-row-title__pill--empty.is-open {
   opacity: 1;
 }
-.task-row-title__pill--empty .pill {
+.task-row-title__pill .pill {
   /* The calendar AppIcon carries its own inset, so only a 2px left padding. */
   padding-inline-start: 2px;
   gap: var(--space-4);
+}
+.task-row-title__pill--empty .pill {
   color: var(--foreground-tertiary);
 }
 
