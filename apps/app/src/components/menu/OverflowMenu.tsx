@@ -406,6 +406,7 @@ function OverflowSubmenuTrigger({
         backdrop={false}
         side="right"
         alignment="start"
+        offset={12}
         returnFocusRef={parentMenuRef}
         className={submenuClassName}
       >
