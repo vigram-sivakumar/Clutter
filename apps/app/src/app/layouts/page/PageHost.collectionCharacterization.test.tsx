@@ -283,15 +283,20 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
   });
 });
 
-describe('KNOWN DEFECT — Archive Card through the real composition', () => {
-  it('KNOWN DEFECT: a persisted Card layout on the Archive renders its notes as a LIST, not cards', async () => {
+describe('FIXED BY THE ARCHIVE MIGRATION — the Archive has no Card', () => {
+  it('a persisted Card layout on the Archive resolves to its default, the Table', async () => {
     await renderFolder(ARCHIVE, 'card');
 
-    expect(hasTable()).toBe(false);
-    expect(noteRows()).toBe(1); // the archived note, as a list row
+    expect(hasTable()).toBe(true);
     expect(bodyHasText('Old note')).toBe(true);
-    // No note card is drawn: the only cards on the page would be folder cards, and the Archive has none here.
     expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)')).toHaveLength(0);
+  });
+
+  it('a persisted List layout on the Archive is honoured', async () => {
+    await renderFolder(ARCHIVE, 'list');
+
+    expect(hasTable()).toBe(false);
+    expect(noteRows()).toBe(1);
   });
 
   it('the same persisted Card layout on an ordinary folder DOES draw note cards (so the fallback is the Archive\'s alone)', async () => {
@@ -339,13 +344,15 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
       properties: { description: true, created: true, updated: true, archived: false, cover: true, preview: true, title: true, size: true },
     });
 
-    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited']);
+    // The snapshot hid Archived and showed Created / Last edited — all three are real choices against the Archive's defaults.
+    expect(tableHeaders()).toEqual(['Name', 'Type', 'File size', 'Created', 'Last edited']);
   });
 
   it('the Archive shows its Archived column by default', async () => {
     await renderFolder(ARCHIVE);
 
-    expect(tableHeaders()).toEqual(['Name', 'Created', 'Last edited', 'Archived']);
+    // Name, then the Archive's own Type column, then its visible properties in registry order.
+    expect(tableHeaders()).toEqual(['Name', 'Type', 'File size', 'Archived']);
   });
 
   it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {

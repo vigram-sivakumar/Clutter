@@ -455,10 +455,10 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     }
   });
 
-  it('the Archive: Name, Description, Created, Last edited, Archived', () => {
+  it('the Archive: Name, File size, Created, Last edited, Archived — no Description, no Cover image', () => {
     renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
-    expect(sortLabels()).toEqual(['Name', 'Description', 'Created', 'Last edited', 'Archived']);
+    expect(sortLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited', 'Archived']);
   });
 
   it('assets: Name and their file facts — File size, Created, Last edited — with the same active-row direction toggle', () => {

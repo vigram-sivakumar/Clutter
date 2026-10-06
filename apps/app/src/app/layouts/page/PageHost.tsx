@@ -1329,13 +1329,8 @@ export function PageHost({
                 visible={collectionView.visible}
                 sort={collectionView.sort}
                 resources={application.membershipSelector.getArchivedResources()}
+                resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
                 onOpenResource={openArchivedResourceOverlay}
-                onRestoreResource={(id) =>
-                  void application.resourceOperations.restoreResource(id)
-                }
-                onDeleteResource={(id) =>
-                  void application.resourceOperations.deleteResource(id)
-                }
               />
             ) : (
               <CollectionBody

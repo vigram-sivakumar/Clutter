@@ -173,7 +173,7 @@ describe('CURRENT BEHAVIOR — Configure: the Layout / Properties / Sort by list
   const NOTES = FOLDER_COLLECTION;
   const ASSETS = ASSETS_COLLECTION;
   const NOTE_ROWS = ['Name', 'Description', 'Cover image', 'Created', 'Last edited'];
-  const ARCHIVE_ROWS = ['Name', 'Description', 'Created', 'Last edited', 'Archived'];
+  const ARCHIVE_ROWS = ['Name', 'File size', 'Created', 'Last edited', 'Archived'];
   const ASSET_ROWS = ['Name', 'File size', 'Created', 'Last edited'];
 
   /**
@@ -196,7 +196,6 @@ describe('CURRENT BEHAVIOR — Configure: the Layout / Properties / Sort by list
     { name: 'notes', definition: NOTES, viewMode: 'card', properties: NOTE_ROWS, sort: NOTE_ROWS },
     { name: 'archive', definition: ARCHIVE_COLLECTION, viewMode: 'list', properties: ARCHIVE_ROWS, sort: ARCHIVE_ROWS },
     { name: 'archive', definition: ARCHIVE_COLLECTION, viewMode: 'table', properties: ARCHIVE_ROWS, sort: ARCHIVE_ROWS },
-    { name: 'archive', definition: ARCHIVE_COLLECTION, viewMode: 'card', properties: ARCHIVE_ROWS, sort: ARCHIVE_ROWS },
     { name: 'assets', definition: ASSETS, viewMode: 'list', properties: ASSET_ROWS, sort: ASSET_ROWS },
     { name: 'assets', definition: ASSETS, viewMode: 'table', properties: ASSET_ROWS, sort: ASSET_ROWS },
     { name: 'assets', definition: ASSETS, viewMode: 'card', properties: ASSET_ROWS, sort: ASSET_ROWS },
@@ -210,10 +209,10 @@ describe('CURRENT BEHAVIOR — Configure: the Layout / Properties / Sort by list
     expect(readPropertiesSubmenu(getByText)).toEqual(row.properties);
   });
 
-  it('every collection offers the same three layouts in the same order — List, Table, Card (Archive included)', () => {
+  it('every collection offers List, Table and Card in that order — except the Archive, which has no Card', () => {
     for (const definition of [NOTES, ARCHIVE_COLLECTION, ASSETS]) {
       renderMenu({ viewMode: 'table', definition });
-      expect(readRootMenu().layouts).toEqual(['List', 'Table', 'Card']);
+      expect(readRootMenu().layouts).toEqual(definition === ARCHIVE_COLLECTION ? ['List', 'Table'] : ['List', 'Table', 'Card']);
       cleanup();
     }
   });
@@ -322,9 +321,9 @@ describe('CURRENT BEHAVIOR — what a Properties toggle reports and persists (ch
     expect(onPropertyChange).toHaveBeenCalledWith('created', false);
   });
 
-  it('the first-time defaults: notes show name, description, cover, created, last edited; assets show only the name', () => {
+  it('the first-time defaults: notes show name, description, cover, created, last edited; the Archive name, file size, archived; assets only the name', () => {
     expect(resolveCollectionView(FOLDER_COLLECTION).visible).toEqual(['name', 'description', 'cover', 'created', 'updated']);
-    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'description', 'created', 'updated', 'archived']);
+    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'size', 'archived']);
     expect(resolveCollectionView(ASSETS_COLLECTION).visible).toEqual(['name']);
   });
 });
@@ -548,7 +547,7 @@ describe('CURRENT BEHAVIOR — which persisted sort a collection honours', () =>
 // C. LAYOUT — Archive, Note Card, label drift
 // --------------------------------------------------------------------------------------------
 
-describe('CURRENT BEHAVIOR — Archive layouts', () => {
+describe('CURRENT BEHAVIOR — Archive layouts (changed by the Archive migration: List and Table only, one unified list)', () => {
   const renderArchive = (viewMode: Layout) =>
     render(
       <ArchiveCollectionBody
@@ -556,33 +555,28 @@ describe('CURRENT BEHAVIOR — Archive layouts', () => {
         notes={[note('Old note')]}
         viewMode={viewMode}
         resources={[]}
-        onRestoreResource={vi.fn()}
-        onDeleteResource={vi.fn()}
       />
     );
 
-  it('List draws notes as rows and Table draws them as table rows; folders are always cards', () => {
+  it('List and Table draw folders AND notes as rows of the one generic layout — folders are no longer a card grid', () => {
     const list = renderArchive('list');
-    expect(list.container.querySelectorAll('.collection-row')).toHaveLength(1);
+    expect(list.container.querySelectorAll('.collection-list .collection-row')).toHaveLength(2);
     expect(list.container.querySelector('.collection-table')).toBeNull();
-    expect(list.container.querySelectorAll('.collection-card')).toHaveLength(1);
+    expect(list.container.querySelector('.collection-card')).toBeNull();
     list.unmount();
 
     const table = renderArchive('table');
-    expect(table.container.querySelector('.collection-table')).not.toBeNull();
-    expect(table.container.querySelectorAll('.collection-card')).toHaveLength(1);
+    expect(table.container.querySelectorAll('.collection-table-row')).toHaveLength(2);
+    expect(table.container.querySelector('.collection-card')).toBeNull();
   });
 
-  it('KNOWN DEFECT: the Archive offers Card in its layout menu but its body has no Card — it silently draws the notes as a List', () => {
-    // The menu half: the Archive's definition offers all three layouts, so Card is a choice.
+  it('FIXED BY THE ARCHIVE MIGRATION: the Archive no longer offers Card, so it can no longer silently draw a list for it', () => {
     renderMenu({ viewMode: 'table', definition: ARCHIVE_COLLECTION });
-    expect(readRootMenu().layouts).toContain('Card');
+    expect(readRootMenu().layouts).toEqual(['List', 'Table']);
     cleanup();
 
-    // The body half: `ArchiveCollectionBody` only branches on 'table'; anything else (Card) is List.
-    const { container } = renderArchive('card');
-    expect(container.querySelectorAll('.collection-row')).toHaveLength(1); // the note, as a LIST ROW
-    expect(container.querySelectorAll('.collection-card')).toHaveLength(1); // the folder only — no note card
+    // A saved Card layout resolves to the Archive's default (Table).
+    expect(resolveCollectionView(ARCHIVE_COLLECTION, { layout: 'card' }).layout).toBe('table');
   });
 });
 

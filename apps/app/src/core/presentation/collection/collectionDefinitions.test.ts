@@ -70,9 +70,11 @@ describe('membership — which global properties each collection offers (order i
     }
   });
 
-  it('the Archive offers Archived instead of a Cover image', () => {
-    expect([...ARCHIVE_COLLECTION.properties].sort()).toEqual(['archived', 'created', 'description', 'name', 'updated']);
+  it('the Archive offers Name, File size, Created, Last edited and Archived — no Description, no Cover image — and starts with Name, File size and Archived', () => {
+    expect([...ARCHIVE_COLLECTION.properties].sort()).toEqual(['archived', 'created', 'name', 'size', 'updated']);
+    expect([...ARCHIVE_COLLECTION.defaultVisible].sort()).toEqual(['archived', 'name', 'size']);
     expect(ARCHIVE_COLLECTION.properties).not.toContain('cover');
+    expect(ARCHIVE_COLLECTION.properties).not.toContain('description');
   });
 
   it('assets offer Name, File size, Created and Last edited — and start showing only the name', () => {
@@ -89,9 +91,9 @@ describe('membership — which global properties each collection offers (order i
 });
 
 describe('layouts and defaults', () => {
-  it('every collection offers List, Table and Card', () => {
+  it('every collection offers List, Table and Card — except the Archive, which offers List and Table only', () => {
     for (const definition of ALL_COLLECTION_DEFINITIONS) {
-      expect([...definition.layouts]).toEqual(['list', 'table', 'card']);
+      expect([...definition.layouts], definition.kind).toEqual(definition.kind === 'archive' ? ['list', 'table'] : ['list', 'table', 'card']);
     }
   });
 
@@ -107,8 +109,9 @@ describe('required properties — Name is required everywhere except the Asset c
     expect(DEFAULT_REQUIRED).toEqual({ list: ['name'], table: ['name'], card: ['name'] });
   });
 
-  it('every note-shaped collection uses the base rule (no override)', () => {
-    for (const definition of ALL_COLLECTION_DEFINITIONS.filter((d) => d.kind !== 'assets')) {
+  it('every note-shaped collection uses the base rule (no override); the Archive states Name for its two layouts', () => {
+    expect(ARCHIVE_COLLECTION.required).toEqual({ list: ['name'], table: ['name'] });
+    for (const definition of ALL_COLLECTION_DEFINITIONS.filter((d) => d.kind !== 'assets' && d.kind !== 'archive')) {
       expect(definition.required, definition.kind).toBeUndefined();
     }
   });

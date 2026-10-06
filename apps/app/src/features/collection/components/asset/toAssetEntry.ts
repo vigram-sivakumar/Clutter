@@ -1,5 +1,6 @@
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import type { Asset } from '@core/vault/models/Asset';
+import type { Asset, LocalAsset } from '@core/vault/models/Asset';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { SortOptions } from '@core/properties/collectionSort';
 
@@ -13,6 +14,15 @@ import type { CollectionEntryValues } from '../../page/CollectionEntryModel';
 export interface AssetEntry {
   readonly asset: Asset;
   readonly values: CollectionEntryValues;
+}
+
+/**
+ * A vault file as a local asset, for a surface that shows files without the catalog's usage
+ * references (the Archive lists its archived files as rows). Same shape the asset catalog builds,
+ * with no references.
+ */
+export function assetOfResource(resource: VaultResource): LocalAsset {
+  return { id: resource.id, source: 'local', kind: resource.kind, name: resource.name, references: [], resource };
 }
 
 /**

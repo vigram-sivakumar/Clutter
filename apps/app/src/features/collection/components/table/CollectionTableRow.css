@@ -35,8 +35,3 @@
   background: var(--border-default);
   pointer-events: none;
 }
-
-/* The trailing "new item" row. */
-.collection-table-row--new-item {
-  padding-block: var(--space-8);
-}

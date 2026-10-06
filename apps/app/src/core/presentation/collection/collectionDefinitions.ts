@@ -90,9 +90,6 @@ const DEFAULT_SORT: CollectionSort = { property: 'name', direction: 'down' };
 /** What every note-shaped collection offers, all of it on by default. */
 const NOTE_PROPERTIES: readonly PropertyId[] = ['name', 'description', 'cover', 'created', 'updated'];
 
-/** Archived notes have no cover thumbnail (covers aren't changed from there) and add their Archived date. */
-const ARCHIVE_PROPERTIES: readonly PropertyId[] = ['name', 'description', 'created', 'updated', 'archived'];
-
 const NOTE_COLLECTION = {
   properties: NOTE_PROPERTIES,
   defaultVisible: NOTE_PROPERTIES,
@@ -122,12 +119,21 @@ export const TEMPLATES_COLLECTION: CollectionDefinition = {
   actions: { create: true, createFolder: true },
 };
 
+/**
+ * One unified collection of everything archived — folders, notes and files, as rows of the generic
+ * List or Table (there is no Card). A file has no description and no archive date is recorded for
+ * it, so its cells for those are simply empty. The Type each row shows (Note, Folder, Image, PDF)
+ * is the Archive's own presentation, not a property: it can't be toggled or sorted.
+ */
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
-  ...NOTE_COLLECTION,
   kind: 'archive',
-  properties: ARCHIVE_PROPERTIES,
-  defaultVisible: ARCHIVE_PROPERTIES,
+  properties: ['name', 'size', 'created', 'updated', 'archived'],
+  defaultVisible: ['name', 'archived', 'size'],
+  layouts: ['list', 'table'],
+  defaultLayout: 'table',
+  defaultSort: DEFAULT_SORT,
   actions: {},
+  required: { list: ['name'], table: ['name'] },
 };
 
 /** The calendar makes these pages' contents; nothing is created by hand at any level. */

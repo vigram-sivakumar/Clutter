@@ -27,11 +27,17 @@ export interface PropertyTableColumnOptions {
    * assets table uses it: its File size column has always been headed "Size".
    */
   readonly headers?: Partial<Record<PropertyId, string>>;
+  /**
+   * Columns that are NOT properties — presentation a collection adds itself (the Archive's Type) —
+   * placed right after Name. They can't be toggled or sorted, because they aren't in the registry;
+   * the rows supply their cells under the same ids.
+   */
+  readonly extraColumns?: readonly { readonly id: string; readonly label: string }[];
 }
 
 export function buildPropertyTableColumns(
   visible: readonly PropertyId[],
-  { cover = false, headers = {} }: PropertyTableColumnOptions = {}
+  { cover = false, headers = {}, extraColumns = [] }: PropertyTableColumnOptions = {}
 ): CollectionTableColumn[] {
   const columns: CollectionTableColumn[] = [
     {
@@ -41,6 +47,16 @@ export function buildPropertyTableColumns(
       className: 'collection-table__header-cell--name',
     },
   ];
+
+  for (const { id, label } of extraColumns) {
+    columns.push({
+      id,
+      label,
+      width: '140px',
+      className: `collection-table__header-cell--${id}`,
+      cellClassName: `collection-table-row__${id}`,
+    });
+  }
 
   for (const id of PROPERTY_IDS) {
     if (id === 'cover') {

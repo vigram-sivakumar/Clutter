@@ -131,7 +131,7 @@ export interface CollectionBodyProps {
   noteCover?: NoteCoverActions;
 }
 
-export interface RenderNoteListOptions {
+interface RenderNoteListOptions {
   /**
    * Each note's cover thumbnail at the row's trailing end — present only when
    * the host can change covers (see `NoteCoverActions`); shown while the Cover
@@ -154,10 +154,9 @@ export interface RenderNoteListOptions {
  * introduces.
  *
  * `visible` gates which properties are actually passed through — one that
- * isn't visible is omitted, never a blanked-out but still-fetched value. Exported so
- * ArchiveCollectionBody renders the same list instead of a second one.
+ * isn't visible is omitted, never a blanked-out but still-fetched value.
  */
-export function renderNoteList(
+function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
   { coverFor, onCreate }: RenderNoteListOptions = {}
@@ -175,7 +174,7 @@ export function renderNoteList(
   );
 }
 
-export interface RenderNoteTableOptions {
+interface RenderNoteTableOptions {
   /** The Cover image column's per-note cell — present only when the host can change covers (see `NoteCoverActions`). */
   coverFor?: (entry: CollectionEntryModel) => {
     url: string | null;
@@ -190,10 +189,9 @@ export interface RenderNoteTableOptions {
  * CollectionDataTable. Same plain-string title caveat and `visible` gating
  * as renderNoteList: a property that isn't visible removes its column from the
  * header and from every row, not just its values (the Archive's Archived column
- * is simply a visible property only the Archive offers). Exported so
- * ArchiveCollectionBody renders the same table instead of a second implementation.
+ * is simply a visible property only the Archive offers).
  */
-export function renderNoteTable(
+function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
   { coverFor, onCreate }: RenderNoteTableOptions = {}
@@ -214,10 +212,9 @@ export function renderNoteTable(
 
 /**
  * The folders grid: one generic card per folder, and — when a folder can be
- * created here — a trailing empty "+" card. Exported so ArchiveCollectionBody
- * renders the same folder cards every other collection page shows.
+ * created here — a trailing empty "+" card.
  */
-export function renderFolderGrid(entries: readonly CollectionEntryModel[], onCreateFolder?: () => void) {
+function renderFolderGrid(entries: readonly CollectionEntryModel[], onCreateFolder?: () => void) {
   return (
     <CollectionGrid {...FOLDER_GRID}>
       {entries.map((entry) => (

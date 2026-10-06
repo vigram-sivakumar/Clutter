@@ -32,6 +32,15 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
 }
 
 /**
+ * A folder's collection property values: its name — and, once it has been archived, the date it
+ * was (`FolderMetadata.archivedAt`, null everywhere but the Archive). A folder has no created or
+ * last-edited dates, and nothing in a collection shows its description or cover.
+ */
+function toFolderValues(name: string, folder: Folder): CollectionEntryValues {
+  return { name, ...(folder.metadata.archivedAt && { archived: folder.metadata.archivedAt }) };
+}
+
+/**
  * A note's collection property values, from its `EffectivePage` — the one place that knows
  * where each comes from (the page's own frontmatter timestamps, its description, its cover).
  * A value the note does not have is left out; a HIDDEN cover is no cover (it is shown nowhere
@@ -81,7 +90,7 @@ function toCollectionEntry(
     icon,
     emoji,
     selected,
-    values: isFolder(entry) ? { name: title } : toNoteValues(title, entry),
+    values: isFolder(entry) ? toFolderValues(title, entry) : toNoteValues(title, entry),
     markdown: isFolder(entry) ? undefined : entry.markdown,
     coverPositionAbove: isFolder(entry) ? undefined : entry.coverPositionAbove,
     subfolderCount: isFolder(entry)

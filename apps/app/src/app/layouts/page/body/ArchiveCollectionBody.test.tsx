@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 
-import { archiveVisible } from '@features/collection/testing/visibleProperties';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { ArchiveCollectionBody } from './ArchiveCollectionBody';
+import type { PropertyId } from '@core/properties/collectionProperties';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { folderEntry, noteEntry, type EntryFixture } from '@features/collection/testing/collectionEntry';
 import { formatEntryTimestamp } from '@features/collection/properties/formatProperty';
+import { archiveVisible } from '@features/collection/testing/visibleProperties';
+
+import { ArchiveCollectionBody } from './ArchiveCollectionBody';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -41,7 +43,8 @@ function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
   };
 }
 
-const makeFolderEntry = (overrides: EntryFixture = {}) => folderEntry({ id: 'folder-1', title: 'Old Project', ...overrides });
+const makeFolderEntry = (overrides: EntryFixture = {}) =>
+  folderEntry({ id: 'folder-1', title: 'Old Project', subfolderCount: 0, noteCount: 2, ...overrides });
 const makeNoteEntry = (overrides: EntryFixture = {}) => noteEntry({ id: 'page-1', title: 'Old Note', ...overrides });
 
 // An entry's dates are ISO instants; the text a layout shows is the formatter's.
@@ -49,327 +52,262 @@ const ARCHIVED_AT = '2026-08-12T14:20:00.000Z';
 const ARCHIVED_TEXT = formatEntryTimestamp(ARCHIVED_AT)!;
 
 function renderArchive(
-  props: Partial<Omit<Parameters<typeof ArchiveCollectionBody>[0], 'resources'>> & {
-    resources: VaultResource[];
-  }
+  props: Partial<Omit<Parameters<typeof ArchiveCollectionBody>[0], 'resources'>> & { resources?: VaultResource[] }
 ) {
-  return render(
-    <ArchiveCollectionBody
-      // Most of this file's assertions target List-mode selectors
-      // ('.collection-row', per actionButtonsFor's own comment below) —
-      // ArchiveCollectionBody itself now defaults to Table (matching
-      // CollectionBody's own new default), so tests are pinned to List
-      // here explicitly rather than relying on a default that changed
-      // out from under them. Table-mode tests override this per-call.
-      viewMode="list"
-      onRestoreResource={vi.fn()}
-      onDeleteResource={vi.fn()}
-      {...props}
-    />
-  );
+  return render(<ArchiveCollectionBody resources={[]} resolveResourceUrl={(path) => `app://vault${path}`} {...props} />);
 }
 
-describe('ArchiveCollectionBody: rendering every entry shape', () => {
-  it('renders an archived folder, an archived note, an archived image, and an archived pdf together', () => {
-    const folder = makeFolderEntry();
-    const note = makeNoteEntry();
-    const image = makeResource({ id: 'resource-image', name: 'hero.png', kind: 'image' });
-    const pdf = makeResource({ id: 'resource-pdf', name: 'spec.pdf', kind: 'pdf' });
+/** The rows of the generic list / table, in order — the table's "New" row (there is none here) excluded. */
+const listTitles = (container: HTMLElement) =>
+  [...container.querySelectorAll('.collection-list .collection-row .collection-row__title')].map((el) => el.textContent);
+const tableTitles = (container: HTMLElement) =>
+  [...container.querySelectorAll('.collection-table-row .collection-row__title')].map((el) => el.textContent);
 
-    renderArchive({ folders: [folder], notes: [note], resources: [image, pdf] });
+const EVERYTHING = {
+  folders: [makeFolderEntry({ archived: ARCHIVED_AT })],
+  notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
+  resources: [
+    makeResource(),
+    makeResource({ id: 'resource-2', kind: 'pdf', name: 'manual.pdf', path: `${ROOT}/Archive/manual.pdf` }),
+  ],
+};
 
-    expect(screen.getByText('Old Project')).toBeInTheDocument();
-    expect(screen.getByText('Old Note')).toBeInTheDocument();
-    expect(screen.getByText('hero')).toBeInTheDocument();
-    expect(screen.getByText('spec')).toBeInTheDocument();
+describe('ArchiveCollectionBody: ONE unified collection drawn by the generic List and Table', () => {
+  it('List draws a folder, a note, an image and a pdf as rows of the one generic list — no folder cards, no separate groups', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list' });
+
+    expect(container.querySelectorAll('.collection-list')).toHaveLength(1);
+    expect(container.querySelector('.collection-card')).toBeNull();
+    expect(listTitles(container).sort()).toEqual(['Old Note', 'Old Project', 'hero', 'manual']);
   });
 
-  it('the folder card click behavior works through the generic card', () => {
-    const onClick = vi.fn();
-    const folder = makeFolderEntry({ onClick });
+  it('Table draws the same four as rows of the one generic table', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
 
-    renderArchive({ folders: [folder], resources: [] });
-
-    fireEvent.click(screen.getByText('Old Project').closest('.collection-card')!);
-
-    expect(onClick).toHaveBeenCalled();
+    expect(container.querySelectorAll('.collection-table')).toHaveLength(1);
+    expect(container.querySelector('.collection-card')).toBeNull();
+    expect(tableTitles(container).sort()).toEqual(['Old Note', 'Old Project', 'hero', 'manual']);
   });
 
-  it('the note row click behavior works through the generic list', () => {
-    const onClick = vi.fn();
-    const note = makeNoteEntry({ onClick });
-
-    renderArchive({ notes: [note], resources: [] });
-
-    fireEvent.click(screen.getByText('Old Note').closest('.collection-row')!);
-
-    expect(onClick).toHaveBeenCalled();
-  });
-
-  it('renders correctly with no folders, notes, or resources', () => {
-    const { container } = renderArchive({ resources: [] });
-
-    expect(container.querySelectorAll('.collection-row')).toHaveLength(0);
-    expect(container.querySelectorAll('.collection-card')).toHaveLength(0);
-    expect(container.querySelectorAll('.entry')).toHaveLength(0);
-  });
-
-  it('table mode renders notes as rows of the generic table; folders stay as generic cards in their grid', () => {
-    const folder = makeFolderEntry();
-    const note = makeNoteEntry();
-
+  it('is sorted TOGETHER — folders, notes and files interleave by the sort, never grouped by kind', () => {
     const { container } = renderArchive({
-      folders: [folder],
-      notes: [note],
-      resources: [],
-      viewMode: 'table',
-    });
-
-    expect(container.querySelector('.collection-table')).toBeInTheDocument();
-    expect(screen.getByText('Old Note').closest('.collection-table-row')).toBeInTheDocument();
-    expect(screen.getByText('Old Project').closest('.collection-card')).toBeInTheDocument();
-    expect(container.querySelector('.collection-grid')).toBeInTheDocument();
-  });
-
-  it('table mode has no "New Note" row — there is nothing to create in the Archive', () => {
-    renderArchive({ notes: [makeNoteEntry()], resources: [], viewMode: 'table' });
-
-    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
-  });
-
-  it('table mode: clicking a row still fires its onClick', () => {
-    const onClick = vi.fn();
-    const note = makeNoteEntry({ onClick });
-
-    renderArchive({ notes: [note], resources: [], viewMode: 'table' });
-
-    fireEvent.click(screen.getByText('Old Note').closest('.collection-table-row')!);
-
-    expect(onClick).toHaveBeenCalled();
-  });
-});
-
-describe('ArchiveCollectionBody: hover actions — resources (folders and notes carry none)', () => {
-  it('a folder card and a note row carry no inline actions — they are restored or deleted from their own page', () => {
-    const { container } = renderArchive({ folders: [makeFolderEntry()], notes: [makeNoteEntry()], resources: [] });
-
-    expect(container.querySelector('.collection-card button, .collection-row button')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Restore' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Delete permanently' })).toBeNull();
-  });
-
-  it('renders exactly two action buttons for an archived image resource: Restore and Delete', () => {
-    const resource = makeResource({ kind: 'image' });
-
-    renderArchive({ resources: [resource] });
-
-    expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeInTheDocument();
-  });
-
-  it('renders exactly two action buttons for an archived pdf resource: Restore and Delete', () => {
-    const resource = makeResource({ kind: 'pdf', name: 'spec.pdf' });
-
-    renderArchive({ resources: [resource] });
-
-    expect(screen.getByRole('button', { name: 'Restore' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeInTheDocument();
-  });
-
-  it('shows no three-dot/overflow menu button for an archived resource — only the two action buttons', () => {
-    const resource = makeResource();
-
-    renderArchive({ resources: [resource] });
-
-    expect(screen.queryByRole('button', { name: /more|overflow/i })).toBeNull();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
-  });
-
-  it('the action buttons live inside Entry\'s existing hover-only .entry__actions slot, not a new always-visible element', () => {
-    const resource = makeResource();
-
-    const { container } = renderArchive({ resources: [resource] });
-
-    const actionsSlot = container.querySelector('.entry__actions');
-    expect(actionsSlot).not.toBeNull();
-    expect(actionsSlot!.querySelectorAll('button')).toHaveLength(2);
-  });
-});
-
-describe('ArchiveCollectionBody: Restore', () => {
-  it('resource: clicking Restore calls onRestoreResource with the resource id', () => {
-    const onRestoreResource = vi.fn();
-    const resource = makeResource();
-
-    renderArchive({ resources: [resource], onRestoreResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-
-    expect(onRestoreResource).toHaveBeenCalledWith('resource-1');
-  });
-
-  it('resource: clicking Restore does not also trigger the row click (image overlay)', () => {
-    const onOpenResource = vi.fn();
-    const resource = makeResource({ kind: 'image' });
-
-    renderArchive({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-
-    expect(onOpenResource).not.toHaveBeenCalled();
-  });
-
-  it('resource: works identically for a pdf resource', () => {
-    const onRestoreResource = vi.fn();
-    const resource = makeResource({ id: 'resource-pdf', kind: 'pdf', name: 'spec.pdf' });
-
-    renderArchive({ resources: [resource], onRestoreResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
-
-    expect(onRestoreResource).toHaveBeenCalledWith('resource-pdf');
-  });
-});
-
-describe('ArchiveCollectionBody: Delete (permanent) — resources', () => {
-  it('clicking Delete does not immediately delete — shows a confirmation instead', () => {
-    const onDeleteResource = vi.fn();
-    const resource = makeResource();
-
-    renderArchive({ resources: [resource], onDeleteResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
-
-    expect(onDeleteResource).not.toHaveBeenCalled();
-    expect(screen.getByText('Delete permanently?')).toBeInTheDocument();
-  });
-
-  it('Cancel leaves the resource untouched — onDeleteResource is never called', () => {
-    const onDeleteResource = vi.fn();
-    const resource = makeResource();
-
-    renderArchive({ resources: [resource], onDeleteResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(onDeleteResource).not.toHaveBeenCalled();
-    expect(screen.queryByText('Delete permanently?')).not.toBeInTheDocument();
-  });
-
-  it('Confirm invokes onDeleteResource with the resource id', () => {
-    const onDeleteResource = vi.fn();
-    const resource = makeResource();
-
-    renderArchive({ resources: [resource], onDeleteResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
-
-    expect(onDeleteResource).toHaveBeenCalledWith('resource-1');
-  });
-
-  it('clicking Delete does not also trigger the row click (image overlay)', () => {
-    const onOpenResource = vi.fn();
-    const resource = makeResource({ kind: 'image' });
-
-    renderArchive({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
-
-    expect(onOpenResource).not.toHaveBeenCalled();
-  });
-
-  it('works identically for a pdf resource', () => {
-    const onDeleteResource = vi.fn();
-    const resource = makeResource({ id: 'resource-pdf', kind: 'pdf', name: 'spec.pdf' });
-
-    renderArchive({ resources: [resource], onDeleteResource });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
-
-    expect(onDeleteResource).toHaveBeenCalledWith('resource-pdf');
-  });
-});
-
-describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', () => {
-  it('clicking an archived image resource row invokes onOpenResource', () => {
-    const onOpenResource = vi.fn();
-    const resource = makeResource({ kind: 'image' });
-
-    renderArchive({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByText('hero').closest('.entry')!);
-
-    expect(onOpenResource).toHaveBeenCalledWith(resource);
-  });
-
-  it('clicking an archived pdf resource row invokes onOpenResource, reaching PdfOverlay', () => {
-    const onOpenResource = vi.fn();
-    const resource = makeResource({ kind: 'pdf', name: 'spec.pdf' });
-
-    renderArchive({ resources: [resource], onOpenResource });
-
-    fireEvent.click(screen.getByText('spec').closest('.entry')!);
-
-    expect(onOpenResource).toHaveBeenCalledWith(resource);
-  });
-});
-
-describe('ArchiveCollectionBody: Archived column', () => {
-  it('table mode shows an Archived header and each note\'s archived time', () => {
-    const note = makeNoteEntry({ archived: ARCHIVED_AT });
-
-    const { container } = renderArchive({
-      notes: [note],
-      resources: [],
-      viewMode: 'table',
-    });
-
-    expect(container.querySelector('.collection-table__header-cell--archived')).toHaveTextContent(
-      'Archived'
-    );
-    expect(screen.getByText(ARCHIVED_TEXT).closest('.collection-table-row__archived')).toBeInTheDocument();
-  });
-
-  it('table mode hides the column when the Archived property is unchecked', () => {
-    const { container } = renderArchive({
-      notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
-      resources: [],
-      viewMode: 'table',
-      visible: archiveVisible('archived'),
-    });
-
-    expect(container.querySelector('.collection-table__header-cell--archived')).not.toBeInTheDocument();
-    expect(screen.queryByText(ARCHIVED_TEXT)).not.toBeInTheDocument();
-  });
-
-  it('list mode shows the archived time in the note metadata', () => {
-    renderArchive({
-      notes: [makeNoteEntry({ archived: ARCHIVED_AT })],
-      resources: [],
+      folders: [makeFolderEntry({ id: 'f', title: 'Bravo' })],
+      notes: [makeNoteEntry({ id: 'n', title: 'Alpha' }), makeNoteEntry({ id: 'n2', title: 'Delta' })],
+      resources: [makeResource({ name: 'charlie.png' })],
       viewMode: 'list',
     });
 
-    expect(screen.getByText(ARCHIVED_TEXT)).toBeInTheDocument();
+    expect(listTitles(container)).toEqual(['Alpha', 'Bravo', 'charlie', 'Delta']);
   });
 
-  it('sorts by the raw archived instant, newest first for "down"', () => {
-    renderArchive({
+  it('draws the Archive\'s default view without being told: a table', () => {
+    const { container } = renderArchive({ ...EVERYTHING });
+
+    expect(container.querySelector('.collection-table')).not.toBeNull();
+  });
+
+  it('shows the empty state — and nothing else — when nothing is archived', () => {
+    const { container } = renderArchive({ folders: [], notes: [], resources: [] });
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(container.querySelector('.collection-table, .collection-list')).toBeNull();
+  });
+});
+
+describe('ArchiveCollectionBody: Type — the Archive\'s own presentation, not a property', () => {
+  it('List shows the Type as the first metadata string of every row: Folder, Note, Image, PDF', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list' });
+
+    const firstMetadata = (title: string) =>
+      [...container.querySelectorAll('.collection-row')]
+        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
+        ?.querySelector('.collection-row__metadata span')?.textContent;
+
+    expect(firstMetadata('Old Project')).toBe('Folder');
+    expect(firstMetadata('Old Note')).toBe('Note');
+    expect(firstMetadata('hero')).toBe('Image');
+    expect(firstMetadata('manual')).toBe('PDF');
+  });
+
+  it('Table has a Type column right after Name, then the configured properties', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
+
+    // The Archive's default visible properties are Name, File size and Archived (registry order).
+    expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
+      'Name',
+      'Type',
+      'File size',
+      'Archived',
+    ]);
+    expect([...container.querySelectorAll('.collection-table-row__type')].map((c) => c.textContent).sort()).toEqual([
+      'Folder',
+      'Image',
+      'Note',
+      'PDF',
+    ]);
+  });
+
+  it('Type is not a property: hiding every property leaves it, and no property is called Type', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible: ['name'] });
+
+    expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual(['Name', 'Type']);
+  });
+});
+
+describe('ArchiveCollectionBody: a folder\'s row says what it holds', () => {
+  const folderRow = (container: HTMLElement) => container.querySelector('.collection-row, .collection-table-row')!;
+
+  it('shows "0 subfolders · 2 notes" where a description would be — in List and Table', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({ folders: [makeFolderEntry()], viewMode });
+
+      expect(folderRow(container).textContent, viewMode).toContain('0 subfolders · 2 notes');
+      cleanup();
+    }
+  });
+
+  it('pluralizes: "1 subfolder · 1 note"', () => {
+    const { container } = renderArchive({ folders: [makeFolderEntry({ subfolderCount: 1, noteCount: 1 })], viewMode: 'list' });
+
+    expect(container.textContent).toContain('1 subfolder · 1 note');
+  });
+
+  it('is the folder\'s contents, not a Description property — there is no Description in the Archive at all', () => {
+    const { container } = renderArchive({ folders: [makeFolderEntry({ description: 'About this folder' })], viewMode: 'list' });
+
+    expect(container.textContent).not.toContain('About this folder');
+  });
+});
+
+describe('ArchiveCollectionBody: files have no description, and no archive date', () => {
+  it('a file row has no description line and no placeholder — in List or Table', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({ resources: [makeResource()], viewMode });
+
+      expect(container.querySelector('.collection-row__description'), viewMode).toBeNull();
+      expect(container.textContent, viewMode).not.toMatch(/No description/);
+      cleanup();
+    }
+  });
+
+  it('shows File size and Created / Last edited from the file\'s own facts, when those properties are visible', () => {
+    const resource = makeResource({
+      metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
+    });
+    const { container } = renderArchive({ resources: [resource], viewMode: 'table', visible: ['name', 'size', 'created', 'updated'] });
+
+    expect(container.querySelector('.collection-table-row__size')).toHaveTextContent('12 KB');
+    expect(container.querySelector('.collection-table-row__created')).toHaveAttribute('data-date', '2020-01-02T03:04:05.000Z');
+    expect(container.querySelector('.collection-table-row__updated')).toHaveAttribute('data-date', '2020-02-03T04:05:06.000Z');
+  });
+
+  it('the archive date is empty for a file (none is recorded) and filled for a note and a folder', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible: ['name', 'archived'] });
+
+    const archivedOf = (title: string) =>
+      [...container.querySelectorAll('.collection-table-row')]
+        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
+        ?.querySelector('.collection-table-row__archived')?.textContent;
+
+    expect(archivedOf('Old Note')).toBe(ARCHIVED_TEXT);
+    expect(archivedOf('Old Project')).toBe(ARCHIVED_TEXT);
+    expect(archivedOf('hero')).toBe('');
+  });
+});
+
+describe('ArchiveCollectionBody: properties and sort come from the resolved view', () => {
+  it('Table: a property that is not visible is not a column', () => {
+    const visible: PropertyId[] = archiveVisible('size', 'archived');
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
+
+    expect(container.querySelector('.collection-table__header-cell--archived')).toBeNull();
+    expect(container.querySelector('.collection-table__header-cell--size')).toBeNull();
+  });
+
+  it('List: the archived time is part of a row\'s metadata only while Archived is visible', () => {
+    const shown = renderArchive({ notes: [makeNoteEntry({ archived: ARCHIVED_AT })], viewMode: 'list', visible: ['name', 'archived'] });
+    expect(shown.container.textContent).toContain(ARCHIVED_TEXT);
+    shown.unmount();
+
+    const hidden = renderArchive({ notes: [makeNoteEntry({ archived: ARCHIVED_AT })], viewMode: 'list', visible: ['name'] });
+    expect(hidden.container.textContent).not.toContain(ARCHIVED_TEXT);
+  });
+
+  it('sorts by the raw archived instant, newest first for "down" — and a file with no archive date goes last', () => {
+    const { container } = renderArchive({
       notes: [
         makeNoteEntry({ id: 'a', title: 'Older', archived: '2026-08-01T10:00:00.000Z' }),
         makeNoteEntry({ id: 'b', title: 'Newer', archived: '2026-09-01T10:00:00.000Z' }),
       ],
-      resources: [],
+      resources: [makeResource({ name: 'aaa.png' })],
       viewMode: 'list',
       sort: { property: 'archived', direction: 'down' },
     });
 
-    const titles = [...document.querySelectorAll('.collection-row')].map((el) => el.textContent);
-    expect(titles[0]).toContain('Newer');
-    expect(titles[1]).toContain('Older');
+    expect(listTitles(container)).toEqual(['Newer', 'Older', 'aaa']);
+  });
+
+  it('sorts by File size, largest first for "down" (a note has none, so it goes last)', () => {
+    const small = makeResource({ id: 's', name: 'small.png', metadata: { size: 10, createdAt: null, modifiedAt: null } });
+    const large = makeResource({ id: 'l', name: 'large.png', metadata: { size: 9000, createdAt: null, modifiedAt: null } });
+    const { container } = renderArchive({
+      notes: [makeNoteEntry({ title: 'A note' })],
+      resources: [small, large],
+      viewMode: 'list',
+      sort: { property: 'size', direction: 'down' },
+    });
+
+    expect(listTitles(container)).toEqual(['large', 'small', 'A note']);
+  });
+});
+
+describe('ArchiveCollectionBody: opening rows, and no inline actions', () => {
+  it('clicking a folder or a note fires its own onClick', () => {
+    const onFolder = vi.fn();
+    const onNote = vi.fn();
+    renderArchive({
+      folders: [makeFolderEntry({ onClick: onFolder })],
+      notes: [makeNoteEntry({ onClick: onNote })],
+      viewMode: 'list',
+    });
+
+    fireEvent.click(screen.getByText('Old Project'));
+    fireEvent.click(screen.getByText('Old Note'));
+
+    expect(onFolder).toHaveBeenCalledTimes(1);
+    expect(onNote).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking a file opens it — images and PDFs alike — in both layouts', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const onOpenResource = vi.fn();
+      const image = makeResource();
+      const pdf = makeResource({ id: 'resource-2', kind: 'pdf', name: 'manual.pdf', path: `${ROOT}/Archive/manual.pdf` });
+      renderArchive({ resources: [image, pdf], viewMode, onOpenResource });
+
+      fireEvent.click(screen.getByText('hero'));
+      fireEvent.click(screen.getByText('manual'));
+
+      expect(onOpenResource, viewMode).toHaveBeenNthCalledWith(1, image);
+      expect(onOpenResource, viewMode).toHaveBeenNthCalledWith(2, pdf);
+      cleanup();
+    }
+  });
+
+  it('no row carries an inline action — no Restore, no Delete, no hover-actions slot, no confirmation', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({ ...EVERYTHING, viewMode });
+
+      expect(screen.queryByLabelText('Restore'), viewMode).toBeNull();
+      expect(screen.queryByLabelText('Delete permanently'), viewMode).toBeNull();
+      expect(container.querySelector('.entry__actions, button'), viewMode).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('has no "New" row — there is nothing to create in the Archive', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
+
+    expect(container.querySelector('.collection-table-row--new-item')).toBeNull();
   });
 });

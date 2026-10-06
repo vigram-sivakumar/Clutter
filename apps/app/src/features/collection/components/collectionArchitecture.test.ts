@@ -123,12 +123,16 @@ describe('every collection reaches the generic components through mappers, not c
       expect(uses(body, generic('card/CollectionCard')), body).toBe(true);
     }
 
-    // The Archive renders its folders and notes through CollectionBody's own helpers — no second implementation.
+    // The Archive is one unified list/table of folders, notes and files through the same generic List and Table —
+    // every kind enters through its own domain mapper; there is no Archive/Folder/Asset list component.
     const archive = read('app/layouts/page/body/ArchiveCollectionBody.tsx');
-    expect(archive).toContain('renderFolderGrid(');
-    expect(archive).toContain('renderNoteTable(');
-    expect(archive).toContain('renderNoteList(');
-    expect(importsOf(archive).filter((spec) => /collection\/components\/(grid|card|row|list|table)\//.test(spec))).toEqual([]);
+    expect(uses('app/layouts/page/body/ArchiveCollectionBody.tsx', generic('list/CollectionDataList'))).toBe(true);
+    expect(uses('app/layouts/page/body/ArchiveCollectionBody.tsx', generic('table/CollectionDataTable'))).toBe(true);
+    for (const mapper of ['toFolderListItem', 'toNoteListItem', 'toAssetListItem', 'toFolderTableRow', 'toNoteTableRow', 'toAssetTableRow']) {
+      expect(archive, mapper).toContain(mapper);
+    }
+    // No card grid in the Archive (it has no Card layout).
+    expect(importsOf(archive).filter((spec) => /collection\/components\/(grid|card)\//.test(spec))).toEqual([]);
   });
 
   it('the Assets body defines no Add, Settings, view-mode or header controls of its own', () => {
