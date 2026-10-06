@@ -169,7 +169,7 @@ describe('TasksCollectionBody', () => {
 
     expect(getByText('Plan trip')).not.toBeNull();
     expect(container.querySelector('.collection__bottom-spacer')).not.toBeNull();
-    expect(container.querySelector('.collection-row__metadata')).toHaveTextContent('20 Aug');
+    expect(container.querySelector('.collection-row__metadata')).toHaveTextContent('20 Aug 2026');
     expect(container.querySelector('.pill')).toBeNull();
     expect(queryByRole('button', { name: 'Add due date' })).toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();

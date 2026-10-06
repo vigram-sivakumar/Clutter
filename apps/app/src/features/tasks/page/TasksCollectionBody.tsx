@@ -4,7 +4,7 @@ import { CollectionEmptyState } from '@features/collection/components/empty/Coll
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
-import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
+import { formatTaskDueDateWithYear } from '../helpers/formatTaskDueDate';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -223,7 +223,7 @@ export function TasksCollectionBody({
       trailing: (
         <>
           {task.dueDate ? (
-            <span className="task-row__due-date">{formatTaskDueDate(task.dueDate)}</span>
+            <span className="task-row__due-date">{formatTaskDueDateWithYear(task.dueDate)}</span>
           ) : (
             <TaskDueDateButton onSelect={(date) => onChangeDueDate(task, date)} />
           )}
