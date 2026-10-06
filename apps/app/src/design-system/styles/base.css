@@ -64,6 +64,13 @@ button {
   align-items: center;
   justify-content: center;
 }
+
+/* A disabled control never shows the pointer (nor a "not allowed" cursor): the pointer is how a
+   user knows something is clickable, so its absence is the whole signal. */
+button:disabled,
+[aria-disabled='true'] {
+  cursor: default;
+}
 a {
   color: var(--foreground-secondary);
   text-decoration-line: underline;

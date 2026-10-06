@@ -150,7 +150,7 @@
 
 .entry-disabled {
   opacity: var(--opacity-disabled);
-  cursor: not-allowed;
+  cursor: default;
 }
 
 /*
