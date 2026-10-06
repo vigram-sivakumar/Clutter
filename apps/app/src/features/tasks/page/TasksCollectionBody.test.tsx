@@ -205,6 +205,40 @@ describe('TasksCollectionBody', () => {
     vi.unstubAllGlobals();
   });
 
+  it('offers a Due date pill on a tasks-all row with no due date, and picking a date sets it', () => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+    const onChangeDueDate = vi.fn();
+    const target = task({ text: 'Someday' });
+
+    const { getByRole, getByText } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[target]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={onChangeDueDate}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    expect(getByText('Due date')).not.toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Set due date' }));
+    fireEvent.click(getByText('15'));
+
+    expect(onChangeDueDate).toHaveBeenCalledTimes(1);
+    expect(onChangeDueDate.mock.calls[0]![0]).toBe(target);
+    expect(typeof onChangeDueDate.mock.calls[0]![1]).toBe('string');
+    vi.unstubAllGlobals();
+  });
+
   it('shows the collection empty state for tasks-all with no tasks', () => {
     const { getByRole } = render(
       <TasksCollectionBody

@@ -30,3 +30,16 @@
   display: inline-flex;
   flex: none;
 }
+/* No due date: the pill is only there to be reached for — shown while its row is hovered/focused or its calendar is open. */
+.task-row-title__pill--empty {
+  opacity: 0;
+}
+.collection-row:hover .task-row-title__pill--empty,
+.collection-row:focus-within .task-row-title__pill--empty,
+.task-row-title__pill--empty.is-open {
+  opacity: 1;
+}
+.task-row-title__pill--empty .pill {
+  gap: var(--space-4);
+  color: var(--foreground-tertiary);
+}

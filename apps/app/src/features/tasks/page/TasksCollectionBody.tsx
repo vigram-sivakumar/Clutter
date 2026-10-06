@@ -184,12 +184,10 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
-          {task.dueDate && (
-            <TaskDuePill
-              date={task.dueDate}
-              onChange={(date) => onChangeDueDate(task, date)}
-            />
-          )}
+          <TaskDuePill
+            date={task.dueDate}
+            onChange={(date) => onChangeDueDate(task, date)}
+          />
         </span>
       ),
       onClick: () => onOpenTask(task),
