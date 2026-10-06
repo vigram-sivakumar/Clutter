@@ -504,7 +504,7 @@ export function Notes({
         />
         {/* An empty section is not collapsed away: it explains itself; the section's "+" creates. */}
         {isFoldersEmpty && (
-          <EmptyEntry>Create a folder to keep your notes organized.</EmptyEntry>
+          <EmptyEntry>Create a folder to keep your notes organized</EmptyEntry>
         )}
       </Section>
       <Dialog

@@ -589,7 +589,7 @@ describe('Sidebar Notes: empty-vault detection considers root resources', () => 
 });
 
 describe('Sidebar Notes: an empty Folders section explains itself', () => {
-  const MESSAGE = 'Create a folder to keep your notes organized.';
+  const MESSAGE = 'Create a folder to keep your notes organized';
 
   it('shows the hint (not collapsed away) when the vault has no folders, pages or files', () => {
     renderNotes(setup([]));
