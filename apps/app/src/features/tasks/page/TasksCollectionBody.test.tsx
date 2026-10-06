@@ -154,6 +154,40 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
+  it('renders tasks-all rows as checkbox + title only: no due date and no More actions', () => {
+    const { getByText, queryByText, queryByRole } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    expect(getByText('Plan trip')).not.toBeNull();
+    expect(queryByText('20 Aug')).toBeNull();
+    expect(queryByRole('button', { name: /more actions/i })).toBeNull();
+  });
+
+  it('shows the collection empty state for tasks-all with no tasks', () => {
+    const { getByRole } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    expect(getByRole('status')).toHaveTextContent('Tasks from your notes will appear here');
+  });
+
   it('renders only incomplete tasks with no due date for the tasks-unscheduled view, regardless of displayConfig', () => {
     const unscheduled = task({ text: 'No due date' });
     const scheduled = task({ text: 'Has due date', dueDate: '2026-08-10' });

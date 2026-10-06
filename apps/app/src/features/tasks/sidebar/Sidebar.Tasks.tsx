@@ -7,15 +7,13 @@ import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
-import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { toDate } from '@shared/helpers/time/helpers/toDate';
-import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { buildTasksShortcutHandler } from '@features/tasks/shortcuts/buildTasksShortcutHandler';
 import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { createTaskInDailyNote } from '../helpers/createTaskInDailyNote';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
 import type { TaskDisplayConfig } from '../helpers/groupTasks';
 
@@ -113,29 +111,9 @@ export function Tasks({
     void taskOperations.duplicate(task);
   };
 
-  // New Task's target Daily Note: the selected due date's, or today's when
-  // none was picked — the task's canonical location (its containing Daily
-  // Note), per TaskBuilder's existing implicit-due-date fallback, which is
-  // also why no inline @date is ever written by TaskOperations.create().
-  // Same PageOperations.openAtPath(DailyNotePath.absoluteFrom(...))
-  // resolve-or-draft call Sidebar.tsx's own DailyNotes "onOpenDate" and
-  // resolveDate.ts already use — not a second Daily-Note-opening
-  // mechanism. Awaited (not fire-and-forget, unlike onToggleComplete/
-  // onDateChange above): NewTaskContent needs to know whether creation
-  // succeeded before deciding to close itself. requestSave() forces the
-  // promoted draft (or already-persisted page)'s new content to the
-  // Durable stage immediately, rather than waiting on the body's ordinary
-  // autosave debounce — the same explicit-flush call PageHost's onBlur
-  // already makes — so the task is visible in the Daily Notes sidebar via
-  // Vault's own notify() as soon as this resolves, no reload needed.
-  const onCreateTask = async (title: string, dueDate: string | undefined): Promise<void> => {
-    const targetDate = dueDate ?? toISODate(new Date());
-    const path = DailyNotePath.absoluteFrom(vault.root, toDate(targetDate));
-    const pageId = await pageOperations.openAtPath(path, { type: 'daily-note' });
-
-    await taskOperations.create(pageId, title);
-    await pageOperations.requestSave(pageId);
-  };
+  // New Task's creation path is shared with the All Tasks page — see createTaskInDailyNote.
+  const onCreateTask = (title: string, dueDate: string | undefined): Promise<void> =>
+    createTaskInDailyNote({ vault, pageOperations, taskOperations }, title, dueDate);
 
   return (
     <View

@@ -122,6 +122,8 @@ import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
+import { NewTaskButton } from '@features/tasks/page/NewTaskButton';
+import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
   MarkdownEditor,
@@ -1645,6 +1647,23 @@ export function PageHost({
         breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />}
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
+        titleActions={
+          view === 'tasks-all' ? (
+            <NewTaskButton
+              onCreateTask={(title, dueDate) =>
+                createTaskInDailyNote(
+                  {
+                    vault,
+                    pageOperations: application.pageOperations,
+                    taskOperations: application.taskOperations,
+                  },
+                  title,
+                  dueDate
+                )
+              }
+            />
+          ) : undefined
+        }
         body={
           <TasksCollectionBody
             view={view}

@@ -1,4 +1,10 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
+import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
+import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
+import { Checkbox } from '@components/checkbox/Checkbox';
+import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
+import { formatTaskTitle } from '../helpers/formatTaskTitle';
+import '../sidebar/Task.css';
 import { CollectionRowList } from '@app/layouts/page/body/CollectionRowList';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -152,15 +158,38 @@ export function TasksCollectionBody({
   // tasks-all — every task, incomplete first (natural order), then
   // completed (newest-completed-first via getCompletedTasks) — reuses
   // the same two building blocks rather than inventing a third ordering.
-  const incomplete = tasks.filter((task) => !task.completed);
+  // Drawn with the generic collection list (CollectionRow) like every other
+  // collection, one bare row per task: checkbox + title, nothing else.
+  if (tasks.length === 0) {
+    return (
+      <PageBody className="collection__content">
+        <CollectionEmptyState message="Tasks from your notes will appear here" />
+      </PageBody>
+    );
+  }
+
+  const items = [...tasks.filter((task) => !task.completed), ...getCompletedTasks(tasks)].map(
+    (task) => ({
+      // Positional, not task.text — see renderTaskRow's key.
+      id: `${task.sourcePageId}:${task.startOffset ?? task.text}`,
+      title: task.text,
+      leading: <Checkbox isChecked={task.completed} onCheckedChange={() => onToggleComplete(task)} />,
+      titleContent: (
+        <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
+          {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })}
+        </span>
+      ),
+      onClick: () => onOpenTask(task),
+    })
+  );
 
   return (
     <PageBody className="collection__content">
-      <CollectionRowList>
-        {[...incomplete, ...getCompletedTasks(tasks)].map((task) =>
-          renderTaskRow(task, rowCallbacks)
-        )}
-      </CollectionRowList>
+      <CollectionDataList items={items} />
     </PageBody>
   );
 }

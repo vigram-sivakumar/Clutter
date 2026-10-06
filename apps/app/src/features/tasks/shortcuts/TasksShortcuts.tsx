@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
-import { Dialog } from '@components/dialog/Dialog';
 import { TasksViewSettingsMenu } from '../sidebar/TasksViewSettingsMenu';
 import type { TaskDisplayConfig } from '../helpers/groupTasks';
 
 import { tasksShortcuts, type TasksShortcutId } from './tasksShortcuts.config';
-import { NewTaskContent } from './NewTaskContent';
+import { NewTaskDialog } from './NewTaskDialog';
 
 interface TasksShortcutsProps {
   onShortcut: (id: TasksShortcutId) => void;
@@ -78,16 +77,7 @@ export function TasksShortcuts({
         />
       ))}
 
-      <Dialog
-        open={isNewTaskOpen}
-        onClose={closeNewTask}
-        size="large"
-        top={240}
-        scrim="strong"
-        dismissible={false}
-      >
-        <NewTaskContent onClose={closeNewTask} onSubmit={onCreateTask} />
-      </Dialog>
+      <NewTaskDialog open={isNewTaskOpen} onClose={closeNewTask} onCreateTask={onCreateTask} />
     </Section>
   );
 }
