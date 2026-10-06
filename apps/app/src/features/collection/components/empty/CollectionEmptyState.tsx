@@ -13,6 +13,8 @@ export interface CollectionEmptyAction {
 export interface CollectionEmptyStateProps {
   /** What the empty collection says. Absent, the generic line. */
   readonly message?: string;
+  /** An optional quieter second line under the message, saying what to do about it. */
+  readonly description?: string;
   /** An optional call to action. Absent, none is drawn. */
   readonly action?: CollectionEmptyAction;
 }
@@ -25,11 +27,13 @@ export interface CollectionEmptyStateProps {
  */
 export function CollectionEmptyState({
   message = 'Nothing here yet',
+  description,
   action,
 }: CollectionEmptyStateProps) {
   return (
     <div className="collection-empty-state" role="status">
       <span>{message}</span>
+      {description && <span className="collection-empty-state__description">{description}</span>}
       {action && (
         <Button
           variant="outline-fill"

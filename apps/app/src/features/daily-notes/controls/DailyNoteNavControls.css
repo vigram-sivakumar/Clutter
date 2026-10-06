@@ -22,3 +22,6 @@
   align-items: center;
   gap: var(--space-2);
 }
+.daily-note__calendar-button {
+  border-radius: var(--radius-md);
+}

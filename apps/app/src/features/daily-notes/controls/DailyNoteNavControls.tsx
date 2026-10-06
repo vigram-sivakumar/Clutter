@@ -38,14 +38,15 @@ export function DailyNoteNavControls({
   return (
     <div className="daily-note-nav-controls">
       <Button
+        className="daily-note__calendar-button"
         ref={calendar.anchorRef}
         isIconOnly
         size="small"
-        variant="ghost"
+        variant="outline-fill"
         aria-label="Open calendar"
         onClick={calendar.toggle}
       >
-        <AppIcon icon="calendarDots" />
+        <AppIcon icon="calendar" />
       </Button>
       <div className="daily-note__date-nav">
         <Button
@@ -58,13 +59,13 @@ export function DailyNoteNavControls({
           <AppIcon icon="arrowLeft" />
         </Button>
         <Button
-          isIconOnly
           size="small"
           variant="ghost"
           aria-label="Today"
           onClick={() => onNavigateToDate(toISODate(new Date()))}
         >
-          <AppIcon icon="calendarDot" />
+          {/* <AppIcon icon="calendarDot" /> */}
+          Today
         </Button>
         <Button
           isIconOnly

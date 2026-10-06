@@ -1534,7 +1534,9 @@ export function PageHost({
                 onCreateFolder={onCreateSubfolder}
                 folderCreation={subfolderCreation}
                 onCreate={onCreate}
-                emptyCreateLabel="Create note"
+                emptyCreateLabel={collectionDefinition.kind === 'templates' ? 'Create template' : 'Create note'}
+                emptyMessage={collectionDefinition.kind === 'templates' ? 'No templates yet' : undefined}
+                emptyDescription={collectionDefinition.kind === 'templates' ? 'Create a template to get started' : undefined}
                 noteCover={noteCoverActions}
                 previewResolvers={{
                   resolveWikiLink,
