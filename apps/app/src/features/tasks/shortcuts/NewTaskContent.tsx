@@ -4,6 +4,8 @@ import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { TaskDatePicker } from '@features/tasks/sidebar/TaskDatePicker';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
+import type { ISODate } from '@shared/helpers/time/types';
 import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
 
 import './NewTaskContent.css';
@@ -31,7 +33,7 @@ export interface NewTaskContentProps {
  */
 export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
   const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState<string | undefined>(undefined);
+  const [dueDate, setDueDate] = useState<ISODate | undefined>(() => toISODate(new Date()));
   const datePicker = useOverlay<HTMLButtonElement>();
 
   // Disables the submit button while a request is in flight (prevents a
