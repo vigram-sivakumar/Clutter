@@ -5,6 +5,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import { DailyNotesSidebarState } from '@core/application/daily-notes/DailyNotesSidebarState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
@@ -57,6 +58,23 @@ afterAll(() => {
 afterEach(() => {
   cleanup();
 });
+
+// Rows are titled with their full date ("5 October 2026"), so a month/year heading lookup must
+// not match them.
+const ROW_TITLES = '.daily-note__title, .daily-note__title *';
+
+/**
+ * A Daily Note's row in this panel is always its canonical date title (formatDailyNoteTitle) —
+ * never the generic empty-title placeholder, a description or the body.
+ */
+function expectDateTitleRows(count: number): void {
+  expect(screen.queryByText('Start typing...')).toBeNull();
+  const titles = Array.from(document.querySelectorAll('.daily-note__title')).map((el) => el.textContent ?? '');
+  expect(titles).toHaveLength(count);
+  for (const title of titles) {
+    expect(title).toMatch(/\d{4}$/);
+  }
+}
 
 const ROOT = '/vault';
 
@@ -295,7 +313,7 @@ describe('DailyNotesList — empty month sections', () => {
     // Nothing else is populated (besides the virtual Today entry, in the
     // current month) — the empty past month counts as no earlier month at
     // all, so the "Show earlier" row itself doesn't render.
-    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeNull();
     expect(screen.queryByText('Show earlier')).toBeNull();
   });
 
@@ -314,8 +332,8 @@ describe('DailyNotesList — empty month sections', () => {
     // The calendar above the list already identifies the current month —
     // no heading renders for it. Two rows: the persisted note and the
     // virtual Today entry (no real page/draft exists for today here).
-    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false, ignore: ROW_TITLES })).toBeNull();
+    expectDateTitleRows(2);
   });
 });
 
@@ -347,7 +365,7 @@ describe('DailyNotesList — a Note nested inside a valid month folder is not re
     // — the stray Note is excluded here regardless of sharing the same
     // month folder as a real Daily Note. Two rows render: the real Daily
     // Note plus the virtual Today entry.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expectDateTitleRows(2);
     expect(screen.queryByText('Test file')).not.toBeInTheDocument();
   });
 });
@@ -397,7 +415,7 @@ describe('DailyNotesList — malformed month folders do not crash discovery', ()
 
     // The valid month's Daily Note still renders normally, alongside the
     // virtual Today entry.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expectDateTitleRows(2);
   });
 });
 
@@ -418,7 +436,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
     // A folder-less draft in the current month renders directly (no
     // heading), alongside the virtual Today entry (this draft isn't dated
     // today).
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expectDateTitleRows(2);
   });
 
   it('an unplaced draft folds into an existing month section covering the same date, rather than rendering a duplicate header', async () => {
@@ -446,8 +464,8 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
 
     // No heading, no duplicate rendering — the persisted note, the draft,
     // and the virtual Today entry all render as three plain rows.
-    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
-    expect(screen.getAllByText('Start typing...')).toHaveLength(3);
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false, ignore: ROW_TITLES })).toBeNull();
+    expectDateTitleRows(3);
   });
 
   it('an unplaced (folder-less) past month renders under "Show earlier" with a plain, non-interactive heading', async () => {
@@ -469,7 +487,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
     showEarlier();
 
     const pastHeader = screen
-      .getByText(monthNameOf(pastMonthIso), { exact: false })
+      .getByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })
       .closest('.section-header') as HTMLElement;
 
     // No collapse caret, and the header itself isn't an interactive row —
@@ -502,11 +520,8 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    // The draft renders, alongside the virtual Today entry. A daily-note's
-    // filename is never shown as its title (getPageDisplayLabel's own
-    // rule), and it has no description/body yet, so both fall to the
-    // shared placeholder.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    // The draft renders, alongside the virtual Today entry, each titled by its date.
+    expectDateTitleRows(2);
   });
 
   it('clicking a draft Daily Note invokes onOpenDraft, not onOpen', async () => {
@@ -564,7 +579,7 @@ describe('DailyNotesList — one global draft across Daily Note dates (PageOpera
     renderList({ vault, query, membershipSelector, workspace });
 
     // The one draft, plus the virtual Today entry — two rows.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expectDateTitleRows(2);
   });
 });
 
@@ -581,7 +596,7 @@ describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false, ignore: ROW_TITLES })).toBeNull();
   });
 
   it('orders rows within the current month oldest to newest, top to bottom', () => {
@@ -637,8 +652,8 @@ describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
     const { container } = renderList({ vault, query, membershipSelector, workspace });
 
     // Only the current month's rows are visible initially.
-    expect(screen.queryByText(monthNameOf(lastMonthIso), { exact: false })).toBeNull();
-    expect(screen.queryByText(monthNameOf(nextMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText(monthNameOf(lastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeNull();
+    expect(screen.queryByText(monthNameOf(nextMonthIso), { exact: false, ignore: ROW_TITLES })).toBeNull();
 
     showEarlier();
     showUpcoming();
@@ -685,18 +700,19 @@ describe('DailyNotesList — current month vs. Earlier/Upcoming months', () => {
     renderList({ vault, query, membershipSelector, workspace });
     showEarlier();
 
-    expect(screen.queryByText(yearOf(pastYearMonthIso), { exact: true })).toBeNull();
-    expect(screen.getByText(new RegExp(yearOf(pastYearMonthIso)))).toBeInTheDocument();
+    expect(screen.queryByText(yearOf(pastYearMonthIso), { exact: true, ignore: ROW_TITLES })).toBeNull();
+    expect(screen.getByText(new RegExp(yearOf(pastYearMonthIso)), { ignore: ROW_TITLES })).toBeInTheDocument();
   });
 });
 
 describe('DailyNotesList — virtual Today entry (Today is always represented)', () => {
-  it('renders a placeholder-styled row for today when no real page or draft exists for it yet', () => {
+  it('renders a row for today, titled with its date, when no real page or draft exists for it yet', () => {
     const { vault, query, membershipSelector, workspace } = setup([], []);
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    expect(screen.getByText(formatDailyNoteTitle(TODAY))).toBeInTheDocument();
+    expectDateTitleRows(1);
   });
 
   it('does not duplicate today when a real draft for today already exists', async () => {
@@ -709,7 +725,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
+    expectDateTitleRows(1);
   });
 
   it("clicking the virtual Today row calls onOpenDate with today's date, not onOpen/onOpenDraft", () => {
@@ -721,7 +737,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
 
     renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft, onOpenDate });
 
-    fireEvent.click(screen.getByText('Start typing...'));
+    fireEvent.click(screen.getByText(formatDailyNoteTitle(TODAY)));
 
     expect(onOpenDate).toHaveBeenCalledWith(TODAY);
     expect(onOpen).not.toHaveBeenCalled();
@@ -773,7 +789,7 @@ describe('DailyNotesList — Earlier/Upcoming expansion (owned by DailyNotesSide
     renderList({ vault, query, membershipSelector, workspace });
 
     expect(screen.getByText('Show earlier')).toBeInTheDocument();
-    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeNull();
   });
 
   it('"Show earlier" reveals past months and records the expansion on DailyNotesSidebarState', () => {
@@ -783,7 +799,7 @@ describe('DailyNotesList — Earlier/Upcoming expansion (owned by DailyNotesSide
     renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
     fireEvent.click(screen.getByText('Show earlier'));
 
-    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeInTheDocument();
     expect(screen.getByText('Hide earlier')).toBeInTheDocument();
     expect(dailyNotesSidebarState.earlierExpanded).toBe(true);
   });
@@ -801,7 +817,7 @@ describe('DailyNotesList — Earlier/Upcoming expansion (owned by DailyNotesSide
     unmount();
     renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
 
-    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeInTheDocument();
   });
 
   it('renders already expanded when the state was seeded expanded (a restored session)', () => {
@@ -811,7 +827,7 @@ describe('DailyNotesList — Earlier/Upcoming expansion (owned by DailyNotesSide
 
     renderList({ vault, query, membershipSelector, workspace, dailyNotesSidebarState });
 
-    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false, ignore: ROW_TITLES })).toBeInTheDocument();
   });
 });
 
@@ -879,5 +895,52 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
     renderList({ vault, query, membershipSelector, workspace, rowActions });
 
     expect(screen.queryByText('Reveal in Finder')).not.toBeInTheDocument();
+  });
+});
+
+describe("DailyNotesList — a Daily Note's row is always its date", () => {
+  function setupWithNote(overrides: { description?: string | null; markdown?: string }) {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const date = dayInMonth(TODAY, 3) === TODAY ? dayInMonth(TODAY, 4) : dayInMonth(TODAY, 3);
+    const base = makeDailyNote('daily-1', date, 'month');
+    const note: Page = {
+      ...base,
+      metadata: { ...base.metadata, description: overrides.description ?? null },
+      source: { markdown: overrides.markdown ?? '' },
+    };
+    return { date, ...setup([note], [dailyNotesRoot, year, month]) };
+  }
+
+  it('shows the formatted date for an empty note — never the generic empty-title placeholder', () => {
+    const { date, vault, query, membershipSelector, workspace } = setupWithNote({});
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText(formatDailyNoteTitle(date))).toBeInTheDocument();
+    expect(screen.queryByText('Start typing...')).toBeNull();
+  });
+
+  it('shows the date, not the body, for a note that has content', () => {
+    const { date, vault, query, membershipSelector, workspace } = setupWithNote({
+      markdown: 'Meeting notes',
+    });
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText(formatDailyNoteTitle(date))).toBeInTheDocument();
+    expect(screen.queryByText('Meeting notes')).toBeNull();
+  });
+
+  it('shows the date, not the description, for a note that has one', () => {
+    const { date, vault, query, membershipSelector, workspace } = setupWithNote({
+      description: 'Planning day',
+    });
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText(formatDailyNoteTitle(date))).toBeInTheDocument();
+    expect(screen.queryByText('Planning day')).toBeNull();
   });
 });

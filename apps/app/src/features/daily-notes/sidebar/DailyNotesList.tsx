@@ -17,10 +17,7 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { ISODate } from '@shared/helpers/time/types';
-import {
-  getPageDisplayLabel,
-  getPageDisplayLabelStyle,
-} from '@core/presentation/getPageDisplayLabel';
+import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 
 import { DailyNote } from './DailyNote';
 import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
@@ -450,7 +447,10 @@ export const DailyNotesList = forwardRef<
 
   const renderPages = (pages: TimelineEntry[]) =>
     pages.map((entry) => {
-      const label = getPageDisplayLabel(entry);
+      // A Daily Note's row in this panel is always its date — never its description or body, and
+      // never the generic empty-title placeholder (that belongs to ordinary notes). The same
+      // canonical formatter the page header uses; the row's own leading day badge sits beside it.
+      const title = formatDailyNoteTitle(entry.name);
 
       return (
         <div
@@ -465,8 +465,7 @@ export const DailyNotesList = forwardRef<
         >
           <DailyNote
             key={entry.id}
-            title={label.text}
-            titleStyle={getPageDisplayLabelStyle(label)}
+            title={title}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
             resolveEmbed={resolveEmbed}
