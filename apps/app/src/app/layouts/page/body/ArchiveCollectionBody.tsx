@@ -26,6 +26,8 @@ export interface ArchiveCollectionBodyProps {
   notes?: readonly CollectionEntryModel[];
   /** The archived vault files (images, PDFs). */
   resources: readonly VaultResource[];
+  /** The one line shown when nothing is archived (the Archive definition's `emptyMessage`). */
+  emptyMessage?: string;
   /** List or Table — the Archive has no Card; the page passes its resolved layout. */
   viewMode?: CollectionLayout;
   /** The visible properties, from the resolved view — the Archive's own. */
@@ -75,6 +77,7 @@ export function ArchiveCollectionBody({
   folders = [],
   notes = [],
   resources,
+  emptyMessage,
   viewMode = DEFAULT_VIEW.layout,
   visible = DEFAULT_VIEW.visible,
   sort = DEFAULT_VIEW.sort,
@@ -121,7 +124,7 @@ export function ArchiveCollectionBody({
   return (
     <PageBody className="collection__content">
       {rows.length === 0 ? (
-        <CollectionEmptyState />
+        <CollectionEmptyState message={emptyMessage} />
       ) : viewMode === 'table' ? (
         <CollectionDataTable
           columns={buildPropertyTableColumns(visible, { extraColumns: [{ id: 'type', label: 'Type' }] })}

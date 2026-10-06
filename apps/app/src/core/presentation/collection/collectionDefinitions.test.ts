@@ -28,6 +28,9 @@ describe('every CollectionDefinition holds the same invariants', () => {
   it.each(ALL_COLLECTION_DEFINITIONS.map((definition) => [definition.kind + (definition.behavior ? `/${definition.behavior}` : ''), definition] as const))(
     '%s',
     (_name, definition) => {
+      // an empty collection always says one line of its own
+      expect(definition.emptyMessage.trim().length).toBeGreaterThan(0);
+
       // membership: real registry ids, listed once each
       expect(definition.properties.every((id) => PROPERTY_IDS.includes(id))).toBe(true);
       expect(new Set(definition.properties).size).toBe(definition.properties.length);

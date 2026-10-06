@@ -74,6 +74,7 @@ export interface AssetsCollectionBodyProps {
   readonly onCreate?: () => void;
   /** What the empty state's call to action says ("Upload"), decided by the page like the handler itself. */
   readonly emptyCreateLabel?: string;
+  readonly emptyMessage?: string;
   /** The icon leading that call to action, passed by the page. */
   readonly emptyCreateIcon?: SystemIcon;
   /**
@@ -108,6 +109,7 @@ export function AssetsCollectionBody({
   onOpenAsset,
   onCreate,
   emptyCreateLabel,
+  emptyMessage,
   emptyCreateIcon,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
@@ -209,7 +211,7 @@ export function AssetsCollectionBody({
   return (
     <PageBody className="collection__content">
       {assets.length === 0 && folders.length === 0 && !folderCreation ? (
-        <CollectionEmptyState action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
+        <CollectionEmptyState message={emptyMessage} action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
       ) : (
         <>
           {(folders.length > 0 || folderCreation) && renderFolderGrid(sortedFolders, onCreateFolder, folderCreation)}

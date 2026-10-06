@@ -70,6 +70,8 @@ export interface CollectionDefinition {
   readonly defaultSort: CollectionSort;
   readonly actions: CollectionActions;
   readonly behavior?: CollectionBehavior;
+  /** The one line an empty collection shows: what will appear here, or how to make the first item. */
+  readonly emptyMessage: string;
   /**
    * Properties a layout always shows and the user cannot hide. Omitted, `DEFAULT_REQUIRED`
    * applies. A layout with no entry requires nothing.
@@ -101,6 +103,7 @@ const NOTE_COLLECTION = {
 export const FOLDER_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'folder',
+  emptyMessage: 'Create notes or folders to organise your notes',
   actions: { create: true, createFolder: true, fromTemplate: true },
 };
 
@@ -108,6 +111,7 @@ export const FOLDER_COLLECTION: CollectionDefinition = {
 export const INBOX_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'inbox',
+  emptyMessage: 'Notes that aren\'t in any folder will appear here',
   actions: { create: true, fromTemplate: true },
   behavior: 'notes-only',
 };
@@ -116,6 +120,7 @@ export const INBOX_COLLECTION: CollectionDefinition = {
 export const TEMPLATES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'templates',
+  emptyMessage: 'Create templates to start new notes faster',
   actions: { create: true, createFolder: true },
 };
 
@@ -128,6 +133,7 @@ export const TEMPLATES_COLLECTION: CollectionDefinition = {
  */
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
+  emptyMessage: 'Deleted items will appear here',
   properties: ['name', 'archived'],
   defaultVisible: ['name', 'archived'],
   layouts: ['list', 'table'],
@@ -138,7 +144,12 @@ export const ARCHIVE_COLLECTION: CollectionDefinition = {
 };
 
 /** The calendar makes these pages' contents; nothing is created by hand at any level. */
-const DAILY_NOTES_BASE = { ...NOTE_COLLECTION, kind: 'daily-notes', actions: {} } as const;
+const DAILY_NOTES_BASE = {
+  ...NOTE_COLLECTION,
+  kind: 'daily-notes',
+  actions: {},
+  emptyMessage: 'Your daily notes will appear here as you write them',
+} as const;
 export const DAILY_NOTES_ROOT_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE, behavior: 'daily-notes-root' };
 export const DAILY_NOTES_YEAR_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE, behavior: 'daily-notes-year' };
 export const DAILY_NOTES_MONTH_COLLECTION: CollectionDefinition = { ...DAILY_NOTES_BASE };
@@ -146,6 +157,7 @@ export const DAILY_NOTES_MONTH_COLLECTION: CollectionDefinition = { ...DAILY_NOT
 export const WORKSPACE_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'workspace',
+  emptyMessage: 'Create a note or folder to get started',
   actions: { create: true, createFolder: true, fromTemplate: true },
 };
 
@@ -153,12 +165,14 @@ export const WORKSPACE_COLLECTION: CollectionDefinition = {
 export const FAVORITES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'favorites',
+  emptyMessage: 'Notes and folders you star will appear here',
   actions: {},
 };
 
 export const TAG_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'tag',
+  emptyMessage: 'Notes you tag will appear here',
   actions: { create: true },
 };
 
@@ -168,6 +182,7 @@ export const TAG_COLLECTION: CollectionDefinition = {
  */
 export const ASSETS_COLLECTION: CollectionDefinition = {
   kind: 'assets',
+  emptyMessage: 'Images and PDFs you\'ve uploaded will appear here, ready to use in your notes',
   properties: ['name', 'size', 'created', 'updated'],
   defaultVisible: ['name'],
   layouts: ALL_LAYOUTS,

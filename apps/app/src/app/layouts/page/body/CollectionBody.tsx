@@ -106,9 +106,8 @@ export interface CollectionBodyProps {
    * itself. Without it (or without `onCreate`) an empty collection offers no action.
    */
   emptyCreateLabel?: string;
-  /** What an empty collection says instead of the generic line, with an optional second line. */
+  /** The one line an empty collection says (the collection definition's `emptyMessage`). */
   emptyMessage?: string;
-  emptyDescription?: string;
   /**
    * Whether the notes section is shown at all (default: yes). Off for a page that only holds folders
    * — a Daily Notes year or the Daily Notes root — where an empty notes table would just be noise.
@@ -224,7 +223,6 @@ export function CollectionBody({
   onCreate,
   emptyCreateLabel,
   emptyMessage,
-  emptyDescription,
   showNotes = true,
   foldersInGivenOrder = false,
   previewResolvers,
@@ -292,7 +290,7 @@ export function CollectionBody({
   return (
     <PageBody className="collection__content">
       {isEmpty ? (
-        <CollectionEmptyState message={emptyMessage} description={emptyDescription} action={createAction} />
+        <CollectionEmptyState message={emptyMessage} action={createAction} />
       ) : (
         <>
           {/* The folders' Create card is likewise only for adding to folders that are there. */}

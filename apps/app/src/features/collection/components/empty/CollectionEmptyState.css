@@ -14,7 +14,3 @@
   color: var(--foreground-tertiary);
   text-align: center;
 }
-
-.collection-empty-state__description {
-  opacity: 0.8;
-}

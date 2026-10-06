@@ -103,6 +103,8 @@ import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
 import type { CollectionLayout, CollectionViewConfig } from '@core/properties/collectionViewConfig';
 import {
+  ASSETS_COLLECTION,
+  ARCHIVE_COLLECTION,
   FOLDER_COLLECTION,
   collectionDefinitionForFilteredView,
   collectionDefinitionForFolder,
@@ -744,6 +746,7 @@ export function PageHost({
       }
       onCreate={props.onCreate}
       emptyCreateLabel="Upload"
+      emptyMessage={ASSETS_COLLECTION.emptyMessage}
       emptyCreateIcon="upload"
       onRenameResource={(id, name) => void application.resourceOperations.renameResource(id, name)}
     />
@@ -1512,6 +1515,7 @@ export function PageHost({
               })
             ) : isArchiveView ? (
               <ArchiveCollectionBody
+                emptyMessage={ARCHIVE_COLLECTION.emptyMessage}
                 folders={model.folders}
                 notes={model.notes}
                 viewMode={collectionView.layout}
@@ -1535,8 +1539,7 @@ export function PageHost({
                 folderCreation={subfolderCreation}
                 onCreate={onCreate}
                 emptyCreateLabel={collectionDefinition.kind === 'templates' ? 'Create template' : 'Create note'}
-                emptyMessage={collectionDefinition.kind === 'templates' ? 'No templates yet' : undefined}
-                emptyDescription={collectionDefinition.kind === 'templates' ? 'Create a template to get started' : undefined}
+                emptyMessage={collectionDefinition.emptyMessage}
                 noteCover={noteCoverActions}
                 previewResolvers={{
                   resolveWikiLink,
@@ -1775,6 +1778,7 @@ export function PageHost({
             folderCreation={folderCreation}
             onCreate={onCreate}
             emptyCreateLabel="Create note"
+            emptyMessage={collectionDefinition.emptyMessage}
             noteCover={noteCoverActions}
           />
         }
