@@ -182,7 +182,7 @@ export const TAG_COLLECTION: CollectionDefinition = {
  */
 export const ASSETS_COLLECTION: CollectionDefinition = {
   kind: 'assets',
-  emptyMessage: 'Images and PDFs you\'ve uploaded will appear here, ready to use in your notes',
+  emptyMessage: 'Images and PDFs from your notes will appear here',
   properties: ['name', 'size', 'created', 'updated'],
   defaultVisible: ['name'],
   layouts: ALL_LAYOUTS,
