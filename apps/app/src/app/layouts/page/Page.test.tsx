@@ -599,6 +599,34 @@ describe('Page vertical navigation: title → description → body', () => {
     expect(pageFocusRef.current!.focusAboveBody(0)).toBe(false);
   });
 
+  it('a static (Daily Note) title is a navigation boundary: nothing above the description to enter, and never made editable', () => {
+    stubSingleRow();
+    const pageFocusRef = createRef<PageFocusHandle>();
+    render(
+      <Page
+        title="Thursday, August 28"
+        titleEditable={false}
+        description="About"
+        descriptionEditable
+        showDescriptionEditor
+        body={<div />}
+        bodyFocusRef={makeBodyFocusRef()}
+        pageFocusRef={pageFocusRef}
+      />
+    );
+    const [description] = screen.getAllByRole('textbox') as [HTMLElement];
+    const title = document.querySelector<HTMLElement>('.page-title')!;
+
+    // ArrowUp from the description has no editable region above it: the key is left to the browser.
+    expect(press(description, 'ArrowUp')).toBe(true);
+    expect(title.contains(document.activeElement)).toBe(false);
+
+    // Leaving the body upward lands on the description, never on the title.
+    expect(pageFocusRef.current!.focusAboveBody(0)).toBe(true);
+    expect(document.activeElement).toBe(description);
+    expect(title.querySelector('[contenteditable], [role="textbox"], input, textarea')).toBeNull();
+  });
+
   it('ArrowUp from the title (nothing above) and ArrowDown with no body are left to the browser', () => {
     stubSingleRow();
     render(<Page title="Title" titleEditable body={<div />} />);

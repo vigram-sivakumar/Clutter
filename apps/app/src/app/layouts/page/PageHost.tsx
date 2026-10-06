@@ -13,6 +13,7 @@ import {
   buildBreadcrumbsForDraft,
   buildSystemLocationBreadcrumbs,
 } from '@core/presentation/buildBreadcrumbs';
+import { isPageTitleEditable } from '@core/presentation/isPageTitleEditable';
 import {
   getPageTitlePlaceholder,
   getFolderTitlePlaceholder,
@@ -1923,7 +1924,7 @@ export function PageHost({
         onNavigateForward={() => application.navigation.forward()}
         title={model.title}
         description={draftDescription}
-        titleEditable
+        titleEditable={isPageTitleEditable(draft.type)}
         titlePlaceholder={getPageTitlePlaceholder(draft.type)}
         descriptionEditable
         showDescriptionEditor={descriptionEditorRequestedIds.has(activePageId)}
@@ -1997,8 +1998,10 @@ export function PageHost({
         pageFocusRef={pageFocusRef}
         propertiesControl={draftProperties.propertiesControl}
         properties={draftProperties.propertiesSection}
-        onTitleCommit={(title) =>
-          void application.pageOperations.updateDraftTitle(activePageId, title)
+        onTitleCommit={
+          isPageTitleEditable(draft.type)
+            ? (title) => void application.pageOperations.updateDraftTitle(activePageId, title)
+            : undefined
         }
         body={
           <MarkdownBody>
@@ -2115,7 +2118,7 @@ export function PageHost({
   // DailyNoteService/Application.openFallbackPage resolve by date, so it
   // stays view-only here the same way a reserved folder's title does
   // (isRenameable above). Notes have no such constraint.
-  const isRenameable = page.type !== 'daily-note';
+  const isRenameable = isPageTitleEditable(page.type);
 
   const { propertiesControl, propertiesSection } = buildPropertiesSection(page);
 
