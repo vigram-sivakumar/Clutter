@@ -14,10 +14,10 @@ import {
 } from './collectionProperties';
 
 describe('the collection property registry', () => {
-  it('pins the canonical order: name, description, cover, size, created, updated, archived', () => {
+  it('pins the canonical order: name, description, cover, size, created, updated, archived, dueDate, source', () => {
     // This order is what the Configure menu, a table's columns, a card's metadata lines and the
     // Sort by list all follow. Changing it is a product change, not a refactor — hence the pin.
-    expect(PROPERTY_IDS).toEqual(['name', 'description', 'cover', 'size', 'created', 'updated', 'archived']);
+    expect(PROPERTY_IDS).toEqual(['name', 'description', 'cover', 'size', 'created', 'updated', 'archived', 'dueDate', 'source']);
   });
 
   it('derives the id list from the registry itself — one declaration, no second ordering', () => {
@@ -38,6 +38,8 @@ describe('the collection property registry', () => {
       created: 'Created',
       updated: 'Last edited',
       archived: 'Delete',
+      dueDate: 'Due date',
+      source: 'Source',
     });
   });
 
@@ -50,6 +52,9 @@ describe('the collection property registry', () => {
       created: 'date',
       updated: 'date',
       archived: 'date',
+      // a calendar day, not an instant — formatted as a day, ordered like a date
+      dueDate: 'day',
+      source: 'text',
     });
   });
 
@@ -62,6 +67,8 @@ describe('the collection property registry', () => {
       created: 'date',
       updated: 'date',
       archived: 'date',
+      dueDate: 'date',
+      source: 'text',
     });
   });
 
@@ -82,7 +89,7 @@ describe('the collection property registry', () => {
 
   it('the type of an id is the registry key (compile-time: PropertyId is derived, not declared again)', () => {
     const ids: PropertyId[] = [...PROPERTY_IDS];
-    expect(ids).toHaveLength(7);
+    expect(ids).toHaveLength(9);
   });
 });
 

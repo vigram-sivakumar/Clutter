@@ -15,7 +15,8 @@ import {
   type PropertyValues,
 } from '@core/properties/collectionProperties';
 import { formatFileSize } from '@shared/helpers/fileSize';
-import { formatRelativeTimestamp } from '@shared/helpers/time/dateDisplay';
+import { formatDateDisplay, formatRelativeTimestamp } from '@shared/helpers/time/dateDisplay';
+import type { ISODate } from '@shared/helpers/time/types';
 
 /**
  * Formats a persisted timestamp (a full ISO instant, e.g. `2026-07-08T14:03:00.000Z`) for the
@@ -43,6 +44,9 @@ export function formatPropertyValue(id: PropertyId, values: PropertyValues): str
   switch (COLLECTION_PROPERTIES[id].type) {
     case 'date':
       return formatEntryTimestamp(value as string);
+    case 'day':
+      // A calendar day, not an instant: the shared date label with the year always shown.
+      return formatDateDisplay(value as ISODate, 'condensedFullYear');
     case 'number':
       return formatFileSize(value as number) || undefined;
     case 'text':

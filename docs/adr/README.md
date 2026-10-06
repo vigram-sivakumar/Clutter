@@ -42,3 +42,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [042](./042-trashed-daily-note-identity-and-restore-conflict.md) | A trashed Daily Note keeps its identity; a restore that finds its day taken asks instead of failing | Accepted |
 | [043](./043-sync-never-trusts-a-paired-rename-destination.md) | Sync never trusts a paired rename's destination — an external delete must not become a move onto an unrelated path | Accepted |
 | [044](./044-task-due-date-is-explicit-never-implied-by-its-note.md) | A task's due date is explicit — never implied by the Daily Note it lives in; New Task always lands in today's note | Accepted |
+| [045](./045-all-tasks-is-a-configurable-collection.md) | All Tasks is a configurable collection — it plugs into the shared collection settings (definition, registry properties, store key, List/Table) | Accepted |

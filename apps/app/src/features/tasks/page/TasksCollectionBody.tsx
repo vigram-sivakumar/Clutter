@@ -2,11 +2,18 @@ import type { ReactNode } from 'react';
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
+import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
+import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
+import { taskPropertyValues } from '../helpers/taskPropertyValues';
+import { sortEntries } from '@core/properties/collectionSort';
+import type { PropertyValues } from '@core/properties/collectionProperties';
+import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
+import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import '../sidebar/Task.css';
 import { CollectionRowList } from '@app/layouts/page/body/CollectionRowList';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
@@ -46,6 +53,14 @@ export interface TaskSourceLink {
   readonly emoji: string | null;
 }
 
+/** One All Tasks row's worth of data: the task, where it lives, and its raw property values (what the shared sort engine and layouts read). */
+interface TaskEntry {
+  readonly id: string;
+  readonly task: TaskOccurrence;
+  readonly source: TaskSourceLink | undefined;
+  readonly values: PropertyValues;
+}
+
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
   readonly tasks: readonly TaskOccurrence[];
@@ -70,6 +85,11 @@ export interface TasksCollectionBodyProps {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
    */
   readonly displayConfig?: TaskDisplayConfig;
+  /**
+   * The tasks-all page's resolved Configure state (layout, visible properties, sort) — the same
+   * `resolveCollectionView` result every collection page draws from. Absent: the collection's defaults.
+   */
+  readonly collectionView?: ResolvedCollectionView;
   /** The note a task lives in (shown as a wiki-link-style link that opens it); absent or undefined hides the link. */
   readonly getSource?: (task: TaskOccurrence) => TaskSourceLink | undefined;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -113,6 +133,7 @@ export function TasksCollectionBody({
   onDuplicateTask,
   onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
+  collectionView,
   getSource,
   resolveWikiLink,
   resolveTag,
@@ -184,48 +205,98 @@ export function TasksCollectionBody({
     );
   }
 
-  // tasks-all — every task, incomplete first (natural order), then
-  // completed (newest-completed-first via getCompletedTasks) — reuses
-  // the same two building blocks rather than inventing a third ordering.
-  // Drawn with the generic collection list (CollectionRow) like every other
-  // collection, one row per task: checkbox and title, with the note it lives in trailing.
+  // tasks-all — the configurable All Tasks collection: the page's resolved view (layout, visible
+  // properties, sort — the same Configure state every collection uses) decides how it is drawn. Tasks
+  // are mapped to the shared property `values` and ordered by the one sort engine; incomplete tasks
+  // come first, then completed (newest-completed-first before sorting) — each group sorted by the
+  // chosen property, as the page has always shown completed tasks last.
   if (tasks.length === 0) {
     return (
       <TasksPageBody>
-        <CollectionEmptyState message="Tasks from your notes will appear here" />
+        <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
       </TasksPageBody>
     );
   }
 
-  const items = [...tasks.filter((task) => !task.completed), ...getCompletedTasks(tasks)].map(
-    (task) => {
-      const source = getSource?.(task);
+  const { layout, visible, sort } = collectionView ?? resolveCollectionView(TASKS_COLLECTION);
 
-      return {
+  const toEntry = (task: TaskOccurrence): TaskEntry => {
+    const source = getSource?.(task);
+
+    return {
+      task,
+      source,
       // Positional, not task.text — see renderTaskRow's key.
       id: `${task.sourcePageId}:${task.startOffset ?? task.text}`,
+      values: taskPropertyValues(task, source?.label),
+    };
+  };
+  const entries = [
+    ...sortEntries(tasks.filter((task) => !task.completed).map(toEntry), sort),
+    ...sortEntries(getCompletedTasks(tasks).map(toEntry), sort),
+  ];
+
+  const titleOf = ({ task }: TaskEntry) => (
+    <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
+      {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
+        resolveWikiLink,
+        resolveTag,
+        resolveEmbed,
+      })}
+    </span>
+  );
+  const checkboxOf = ({ task }: TaskEntry) => (
+    <Checkbox isChecked={task.completed} onCheckedChange={() => onToggleComplete(task)} />
+  );
+
+  if (layout === 'table') {
+    return (
+      <TasksPageBody>
+        <CollectionDataTable
+          columns={buildPropertyTableColumns(visible)}
+          rows={entries.map((entry) => ({
+            id: entry.id,
+            cells: {
+              name: {
+                variant: 'header' as const,
+                leading: checkboxOf(entry),
+                titleContent: titleOf(entry),
+              },
+              ...propertyValueCells(visible, entry.values),
+            },
+            onClick: () => onOpenTask(entry.task),
+          }))}
+        />
+      </TasksPageBody>
+    );
+  }
+
+  const showDueDate = visible.includes('dueDate');
+  const showSource = visible.includes('source');
+
+  const items = entries.map((entry) => {
+    const { task, source } = entry;
+
+    return {
+      id: entry.id,
       title: task.text,
-      leading: <Checkbox isChecked={task.completed} onCheckedChange={() => onToggleComplete(task)} />,
+      leading: checkboxOf(entry),
       titleContent: (
         <span className="task-row-title">
-          <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
-            {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
-              resolveWikiLink,
-              resolveTag,
-              resolveEmbed,
-            })}
-          </span>
+          {titleOf(entry)}
           {/* A task with no due date gets the (hover-only) calendar button right next to its title. */}
-          {!task.dueDate && <TaskDueDateButton onChange={(date) => onChangeDueDate(task, date)} />}
+          {showDueDate && !task.dueDate && (
+            <TaskDueDateButton onChange={(date) => onChangeDueDate(task, date)} />
+          )}
         </span>
       ),
       // Trailing slot, in order: the due date (a task with one), then the note the task lives in as a wiki-link-styled link. Both are buttons/links that never open the row's note.
       trailing: (
         <>
-          {task.dueDate && (
+          {showDueDate && task.dueDate && (
             <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
           )}
-          {source && (
+          {showSource && source && (
             <span
               className="task-row__source"
               role="link"
@@ -252,9 +323,8 @@ export function TasksCollectionBody({
         </>
       ),
       onClick: () => onOpenTask(task),
-      };
-    }
-  );
+    };
+  });
 
   return (
     <TasksPageBody>

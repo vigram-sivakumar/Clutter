@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TasksCollectionBody } from './TasksCollectionBody';
+import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
+import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 
 afterEach(() => {
@@ -353,6 +355,149 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
+  });
+
+  describe('the All Tasks collection follows the shared Configure state', () => {
+    const noop = {
+      onToggleComplete: vi.fn(),
+      onOpenTask: vi.fn(),
+      onChangeDueDate: vi.fn(),
+      onDuplicateTask: vi.fn(),
+      onDeleteTask: vi.fn(),
+    };
+    const source = (task: { sourcePageId: string }) => ({
+      label: task.sourcePageId === 'p-b' ? 'Beta note' : 'Alpha note',
+      icon: 'note' as const,
+      emoji: null,
+    });
+
+    it('draws the Table layout through the generic table: Name (checkbox + title), Due date and Source columns', () => {
+      const view = resolveCollectionView(TASKS_COLLECTION, { layout: 'table' });
+      const { container, getAllByRole } = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
+          collectionView={view}
+          getSource={source}
+          {...noop}
+        />
+      );
+
+      expect(container.querySelector('.collection-table')).not.toBeNull();
+      expect(container.querySelector('.collection-list')).toBeNull();
+      expect([...container.querySelectorAll('.collection-table__header-cell')].map((cell) => cell.textContent)).toEqual([
+        'Name',
+        'Due date',
+        'Source',
+      ]);
+      const row = container.querySelector('.collection-table-row:not(.collection-table__header)') ?? container.querySelectorAll('.collection-table-row')[1];
+      expect(row).toHaveTextContent('Plan trip');
+      expect(row).toHaveTextContent('20 Aug 2026');
+      expect(row).toHaveTextContent('Alpha note');
+      expect(getAllByRole('checkbox')).toHaveLength(1);
+    });
+
+    it('Table completion still works: the checkbox toggles the task without opening it', () => {
+      const onToggleComplete = vi.fn();
+      const onOpenTask = vi.fn();
+      const target = task({ text: 'Plan trip' });
+      const { getByRole } = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={[target]}
+          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table' })}
+          {...noop}
+          onToggleComplete={onToggleComplete}
+          onOpenTask={onOpenTask}
+        />
+      );
+
+      fireEvent.click(getByRole('checkbox'));
+      expect(onToggleComplete).toHaveBeenCalledWith(target);
+    });
+
+    it('a hidden property reserves nothing: Due date and Source off removes their table columns', () => {
+      const view = resolveCollectionView(TASKS_COLLECTION, {
+        layout: 'table',
+        propertyOverrides: { dueDate: false, source: false },
+      });
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
+          collectionView={view}
+          getSource={source}
+          {...noop}
+        />
+      );
+
+      expect([...container.querySelectorAll('.collection-table__header-cell')].map((cell) => cell.textContent)).toEqual(['Name']);
+    });
+
+    it('List layout: the Due date and Source properties drive the due-date controls and the source link', () => {
+      const view = resolveCollectionView(TASKS_COLLECTION, { propertyOverrides: { dueDate: false, source: false } });
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' }), task({ text: 'Someday' })]}
+          collectionView={view}
+          getSource={source}
+          {...noop}
+        />
+      );
+
+      expect(container.querySelector('.task-row__due-button')).toBeNull();
+      expect(container.querySelector('.task-row__source')).toBeNull();
+      expect(container.querySelectorAll('.collection-row')).toHaveLength(2);
+    });
+
+    it('sorts by the chosen property with the shared engine, incomplete tasks before completed ones', () => {
+      const tasks = [
+        task({ text: 'Banana', startOffset: 0 }),
+        task({ text: 'Apple', startOffset: 1 }),
+        task({ text: 'Cherry (done)', completed: true, completedAt: '2026-08-01', startOffset: 2 }),
+        task({ text: 'Avocado (done)', completed: true, completedAt: '2026-08-02', startOffset: 3 }),
+      ];
+      const titles = (sort: { property: 'name' | 'dueDate' | 'source'; direction: 'down' | 'up' }) => {
+        const { container, unmount } = render(
+          <TasksCollectionBody
+            view="tasks-all"
+            tasks={tasks}
+            collectionView={resolveCollectionView(TASKS_COLLECTION, { sort })}
+            {...noop}
+          />
+        );
+        const result = [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+        unmount();
+        return result;
+      };
+
+      expect(titles({ property: 'name', direction: 'down' })).toEqual(['Apple', 'Banana', 'Avocado (done)', 'Cherry (done)']);
+      expect(titles({ property: 'name', direction: 'up' })).toEqual(['Banana', 'Apple', 'Cherry (done)', 'Avocado (done)']);
+    });
+
+    it('sorts by Due date: dated tasks in date order, undated ones last', () => {
+      const tasks = [
+        task({ text: 'No date', startOffset: 0 }),
+        task({ text: 'Later', dueDate: '2026-09-01', startOffset: 1 }),
+        task({ text: 'Sooner', dueDate: '2026-08-10', startOffset: 2 }),
+      ];
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={tasks}
+          // 'up' on a date property is oldest first (its arrow semantics: 'down' is newest first).
+          collectionView={resolveCollectionView(TASKS_COLLECTION, { sort: { property: 'dueDate', direction: 'up' } })}
+          {...noop}
+        />
+      );
+
+      expect([...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent)).toEqual([
+        'Sooner',
+        'Later',
+        'No date',
+      ]);
+    });
   });
 
   it('shows the collection empty state for tasks-all with no tasks', () => {

@@ -17,6 +17,7 @@ import {
   FOLDER_COLLECTION,
   INBOX_COLLECTION,
   TAG_COLLECTION,
+  TASKS_COLLECTION,
   TEMPLATES_COLLECTION,
   WORKSPACE_COLLECTION,
   collectionDefinitionForFilteredView,
@@ -94,16 +95,24 @@ describe('membership — which global properties each collection offers (order i
   });
 });
 
+describe('the Tasks collection', () => {
+  it('offers a task\'s own properties — Name, Due date and Source — all on by default; no created/edited time', () => {
+    expect([...TASKS_COLLECTION.properties].sort()).toEqual(['dueDate', 'name', 'source']);
+    expect([...TASKS_COLLECTION.defaultVisible].sort()).toEqual(['dueDate', 'name', 'source']);
+    expect(TASKS_COLLECTION.defaultSort).toEqual({ property: 'name', direction: 'down' });
+  });
+});
+
 describe('layouts and defaults', () => {
-  it('every collection offers List, Table and Card — except the Archive, which offers List and Table only', () => {
+  it('every collection offers List, Table and Card — except the Archive and the Tasks collection, which offer List and Table only', () => {
     for (const definition of ALL_COLLECTION_DEFINITIONS) {
-      expect([...definition.layouts], definition.kind).toEqual(definition.kind === 'archive' ? ['list', 'table'] : ['list', 'table', 'card']);
+      expect([...definition.layouts], definition.kind).toEqual(definition.kind === 'archive' || definition.kind === 'tasks' ? ['list', 'table'] : ['list', 'table', 'card']);
     }
   });
 
-  it('notes default to Table and assets to Card', () => {
+  it('notes default to Table, assets to Card and tasks to List', () => {
     for (const definition of ALL_COLLECTION_DEFINITIONS) {
-      expect(definition.defaultLayout, definition.kind).toBe(definition.kind === 'assets' ? 'card' : 'table');
+      expect(definition.defaultLayout, definition.kind).toBe(definition.kind === 'assets' ? 'card' : definition.kind === 'tasks' ? 'list' : 'table');
     }
   });
 });
@@ -113,9 +122,10 @@ describe('required properties — Name is required everywhere except the Asset c
     expect(DEFAULT_REQUIRED).toEqual({ list: ['name'], table: ['name'], card: ['name'] });
   });
 
-  it('every note-shaped collection uses the base rule (no override); the Archive states Name for its two layouts', () => {
+  it('every note-shaped collection uses the base rule (no override); the Archive and Tasks state Name for their two layouts', () => {
     expect(ARCHIVE_COLLECTION.required).toEqual({ list: ['name'], table: ['name'] });
-    for (const definition of ALL_COLLECTION_DEFINITIONS.filter((d) => d.kind !== 'assets' && d.kind !== 'archive')) {
+    expect(TASKS_COLLECTION.required).toEqual({ list: ['name'], table: ['name'] });
+    for (const definition of ALL_COLLECTION_DEFINITIONS.filter((d) => d.kind !== 'assets' && d.kind !== 'archive' && d.kind !== 'tasks')) {
       expect(definition.required, definition.kind).toBeUndefined();
     }
   });
@@ -137,6 +147,8 @@ describe('actions — what each collection can create (capability only; handlers
     expect(actions(INBOX_COLLECTION)).toEqual(['create', 'fromTemplate']);
     // Assets: Create is the file picker; a folder can be created inside Assets/ too.
     expect(actions(ASSETS_COLLECTION)).toEqual(['create', 'createFolder']);
+    // Tasks: Create is the New task dialog.
+    expect(actions(TASKS_COLLECTION)).toEqual(['create']);
   });
 
   it('the Archive, Favorites and every Daily Notes level create nothing from their own page', () => {
@@ -208,11 +220,14 @@ describe('which definition a page is', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Assets/Trips`), ROOT, insideAssets)).toBe(ASSETS_COLLECTION);
   });
 
-  it('filtered views resolve to their collection; the task views are not collections of this kind', () => {
+  it('filtered views resolve to their collection; All Tasks is the Tasks collection and the other task views are not collections of this kind', () => {
     expect(collectionDefinitionForFilteredView({ kind: 'workspace' })).toBe(WORKSPACE_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'favorites' })).toBe(FAVORITES_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'tag', tagName: 'todo' })).toBe(TAG_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'assets' })).toBe(ASSETS_COLLECTION);
-    expect(collectionDefinitionForFilteredView({ kind: 'tasks-all' })).toBeUndefined();
+    expect(collectionDefinitionForFilteredView({ kind: 'tasks-all' })).toBe(TASKS_COLLECTION);
+    for (const kind of ['tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-completed', 'tasks-unscheduled'] as const) {
+      expect(collectionDefinitionForFilteredView({ kind })).toBeUndefined();
+    }
   });
 });

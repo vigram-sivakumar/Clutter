@@ -50,13 +50,17 @@ describe('deriveCollectionViewKey', () => {
     expect(collectionViewKeyForFilteredView('assets')).toBe('view:assets');
   });
 
-  it('out-of-scope filtered views (tasks-*) — undefined, since they render TasksCollectionBody, never CollectionViewMenu', () => {
+  it('All Tasks is a configurable collection keyed like any other filtered view', () => {
+    expect(collectionViewKeyForFilteredView('tasks-all')).toBe('view:tasks-all');
+    expect(deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'tasks-all' } })).toBe('view:tasks-all');
+  });
+
+  it('the other task views — undefined, since they are not configurable collections and never render CollectionViewMenu', () => {
     const kinds: ActiveView[] = [
       { type: 'filtered-view', view: { kind: 'tasks-today' } },
       { type: 'filtered-view', view: { kind: 'tasks-overdue' } },
       { type: 'filtered-view', view: { kind: 'tasks-upcoming' } },
       { type: 'filtered-view', view: { kind: 'tasks-completed' } },
-      { type: 'filtered-view', view: { kind: 'tasks-all' } },
       { type: 'filtered-view', view: { kind: 'tasks-unscheduled' } },
     ];
 

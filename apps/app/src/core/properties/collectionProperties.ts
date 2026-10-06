@@ -27,12 +27,12 @@
 import { systemPropertyLabel } from './systemProperties';
 
 /** What kind of value a collection property holds. */
-export type CollectionPropertyType = 'text' | 'date' | 'number' | 'media';
+export type CollectionPropertyType = 'text' | 'date' | 'day' | 'number' | 'media';
 
 /**
  * How a property is ordered — see `collectionSort.ts` for each behavior's exact rule.
  *  - `text`: plain `localeCompare`; "down" is A→Z.
- *  - `date`: ISO instants; "down" is newest first.
+ *  - `date`: ISO instants; "down" is newest first (also used by `day`, whose ISO calendar days order the same way).
  *  - `number`: "down" is largest first.
  *  - `presence`: whether the item has a value at all (a cover); "down" is has-a-value first.
  */
@@ -60,6 +60,10 @@ export const COLLECTION_PROPERTIES = {
   created: { label: systemPropertyLabel('created'), type: 'date', sort: 'date' },
   updated: { label: systemPropertyLabel('modified'), type: 'date', sort: 'date' },
   archived: { label: 'Delete', type: 'date', sort: 'date' },
+  // A task's own properties: its explicit due date (a calendar day, not an instant) and its
+  // source — the note it lives in.
+  dueDate: { label: 'Due date', type: 'day', sort: 'date' },
+  source: { label: 'Source', type: 'text', sort: 'text' },
 } as const satisfies Record<string, CollectionPropertyDefinition>;
 
 export type PropertyId = keyof typeof COLLECTION_PROPERTIES;
@@ -86,9 +90,9 @@ export function isSortableProperty(id: PropertyId): boolean {
 
 /**
  * The raw (never display-formatted) value each type holds: text → string, date → an ISO
- * instant, number → a number, media → the reference to the media (a cover reference).
+ * instant, day → an ISO calendar day (`YYYY-MM-DD`), number → a number, media → the reference to the media (a cover reference).
  */
-type ValueOfType = { text: string; date: string; number: number; media: string };
+type ValueOfType = { text: string; date: string; day: string; number: number; media: string };
 
 /**
  * One item's raw property values. A key is ABSENT when the item has no such value — a

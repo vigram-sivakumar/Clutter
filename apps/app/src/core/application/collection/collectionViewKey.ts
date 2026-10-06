@@ -12,10 +12,9 @@ import type { ActiveView } from '../../workspace/Workspace';
  *    backing `Folder` (ADR-022) → `view:workspace` / `view:favorites`.
  *  - A tag — a filtered view parameterized by name → `tag:<tagName>`.
  *
- * The `tasks-*` and `assets` filtered views are deliberately out of scope:
- * neither renders `CollectionViewMenu`/`CollectionBody` (PageHost.tsx
- * dispatches them to `TasksCollectionBody`/`AssetsCollectionBody` instead),
- * so there is no Layout/Properties/Sort configuration to key for them.
+ * `tasks-all` (the All Tasks collection) is keyed like any other filtered
+ * view: `view:tasks-all`. The other `tasks-*` views are not configurable
+ * collections and have no Layout/Properties/Sort to key.
  */
 export type CollectionViewKey = string;
 
@@ -30,7 +29,7 @@ export function collectionViewKeyForFolder(folderId: string): CollectionViewKey 
 }
 
 export function collectionViewKeyForFilteredView(
-  kind: 'workspace' | 'favorites' | 'assets'
+  kind: 'workspace' | 'favorites' | 'assets' | 'tasks-all'
 ): CollectionViewKey {
   return `${COLLECTION_VIEW_KEY_PREFIX.filteredView}${kind}`;
 }
@@ -67,7 +66,7 @@ export function deriveCollectionViewKey(
   if (activeView.type === 'filtered-view') {
     const { view } = activeView;
 
-    if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets') {
+    if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets' || view.kind === 'tasks-all') {
       return collectionViewKeyForFilteredView(view.kind);
     }
 

@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
+import { collectionViewKeyForFilteredView } from './collectionViewKey';
+import { TASKS_COLLECTION } from '../../presentation/collection/collectionDefinitions';
+import { resolveCollectionView, toCollectionViewConfig } from '../../presentation/collection/resolveCollectionView';
 
 const ROOT = '/vault';
 const WORKSPACE_PATH = `${ROOT}/.clutter/workspace.json`;
@@ -440,5 +443,38 @@ describe('CollectionViewConfigStore — retired Last opened', () => {
     // The retired sort key is discarded (the collection falls back to its default sort); the layout survives.
     expect(store.get('folder:old-sort')).toEqual({ layout: 'list' });
     warn.mockRestore();
+  });
+});
+
+describe('CollectionViewConfigStore — the All Tasks collection (view:tasks-all)', () => {
+  it('persists layout, property overrides and sort for All Tasks, and restores them after a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    const key = collectionViewKeyForFilteredView('tasks-all');
+
+    store.update(key, { layout: 'table' });
+    store.update(key, { propertyOverrides: { source: false } });
+    store.update(key, { sort: { property: 'dueDate', direction: 'up' } });
+    await flushMicrotasks();
+
+    const restarted = await reload(fileSystem);
+    const view = resolveCollectionView(TASKS_COLLECTION, toCollectionViewConfig(TASKS_COLLECTION, restarted.get(key)));
+
+    expect(view.layout).toBe('table');
+    expect(view.visible).toEqual(['name', 'dueDate']);
+    expect(view.sort).toEqual({ property: 'dueDate', direction: 'up' });
+  });
+
+  it('keeps All Tasks separate from every other collection', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    store.update(collectionViewKeyForFilteredView('tasks-all'), { layout: 'table' });
+    await flushMicrotasks();
+
+    const restarted = await reload(fileSystem);
+
+    expect(restarted.get(collectionViewKeyForFilteredView('workspace'))).toBeUndefined();
+    expect(restarted.get(collectionViewKeyForFilteredView('tasks-all'))?.layout).toBe('table');
   });
 });

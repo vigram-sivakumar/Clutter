@@ -124,7 +124,7 @@ import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
-import { NewTaskButton } from '@features/tasks/page/NewTaskButton';
+import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
@@ -329,6 +329,8 @@ export function PageHost({
   // same one-instance reasoning editorRef above already relies on. Lives
   // beside the page title (Page's titleActions prop), not the top bar —
   // see CollectionViewMenu's own doc comment.
+  // Whether the All Tasks page's New task dialog is open — local UI state, like the description-editor ids above.
+  const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
   // Which collection this is: its definition says which global properties it offers, which are
   // on by default, its layouts, default sort and which properties each layout requires. A page
@@ -1650,20 +1652,30 @@ export function PageHost({
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         titleActions={
+          // The All Tasks collection gets the same header actions as every collection (Configure +
+          // Add); Add opens the New task dialog.
           view === 'tasks-all' ? (
-            <NewTaskButton
-              onCreateTask={(title, dueDate) =>
-                createTaskInDailyNote(
-                  {
-                    vault,
-                    pageOperations: application.pageOperations,
-                    taskOperations: application.taskOperations,
-                  },
-                  title,
-                  dueDate
-                )
-              }
-            />
+            <>
+              {renderCollectionHeaderActions({
+                onAdd: () => setIsNewTaskOpen(true),
+                addLabel: 'New task',
+              })}
+              <NewTaskDialog
+                open={isNewTaskOpen}
+                onClose={() => setIsNewTaskOpen(false)}
+                onCreateTask={(title, dueDate) =>
+                  createTaskInDailyNote(
+                    {
+                      vault,
+                      pageOperations: application.pageOperations,
+                      taskOperations: application.taskOperations,
+                    },
+                    title,
+                    dueDate
+                  )
+                }
+              />
+            </>
           ) : undefined
         }
         body={
@@ -1684,6 +1696,7 @@ export function PageHost({
             onDuplicateTask={(task) => void application.taskOperations.duplicate(task)}
             onDeleteTask={(task) => void application.taskOperations.delete(task)}
             displayConfig={tasksViewConfig}
+            collectionView={collectionView}
             getSource={(task) => {
               const sourcePage = vault.getPage(task.sourcePageId);
 

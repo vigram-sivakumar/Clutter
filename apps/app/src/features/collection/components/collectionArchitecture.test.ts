@@ -212,12 +212,13 @@ describe('every collection reaches the generic components through mappers, not c
     expect(consumers).toEqual(['app/layouts/page/body/CollectionHeaderActions.tsx']);
   });
 
-  it('PageHost gives notes AND assets their header controls through the one renderCollectionHeaderActions', () => {
+  it('PageHost gives notes, assets AND tasks their header controls through the one renderCollectionHeaderActions', () => {
     const pageHost = read('app/layouts/page/PageHost.tsx');
     const uses = pageHost.match(/renderCollectionHeaderActions\(/g) ?? [];
 
-    // folder + Workspace/Favorites/Tag + Assets (the definition is `renderCollectionHeaderActions = (`)
-    expect(uses).toHaveLength(3);
+    // folder + Workspace/Favorites/Tag + Assets + All Tasks (the definition is `renderCollectionHeaderActions = (`)
+    expect(uses).toHaveLength(4);
+    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: \(\) => setIsNewTaskOpen\(true\),\s*addLabel: 'New task'/);
     expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*onAddFolder: onCreateFolder,\s*menuLabels: assetMenuLabels,\s*addLabel: 'Upload'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);

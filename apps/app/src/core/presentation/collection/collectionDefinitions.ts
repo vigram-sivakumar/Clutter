@@ -32,7 +32,8 @@ export type CollectionKind =
   | 'workspace'
   | 'favorites'
   | 'tag'
-  | 'assets';
+  | 'assets'
+  | 'tasks';
 
 /**
  * A named behavior a collection has that no other has. Declarative on purpose: the identifier
@@ -193,6 +194,25 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 };
 
 /**
+ * The All Tasks collection: every task, as rows of the generic List (the default) or Table — there
+ * is no Card. A task's properties are its Name (the title), Due date and Source (the note it lives in); all
+ * three are on by default, which is exactly what the List row has always shown (title, the due-date
+ * control and the source link). A task has no created/edited time, so those are not offered. Creating
+ * a task is the page's New task action.
+ */
+export const TASKS_COLLECTION: CollectionDefinition = {
+  kind: 'tasks',
+  emptyMessage: 'Tasks from your notes will appear here',
+  properties: ['name', 'dueDate', 'source'],
+  defaultVisible: ['name', 'dueDate', 'source'],
+  layouts: ['list', 'table'],
+  defaultLayout: 'list',
+  defaultSort: DEFAULT_SORT,
+  actions: { create: true },
+  required: { list: ['name'], table: ['name'] },
+};
+
+/**
  * Which collection a folder page is: a Daily Notes level (decided by where it sits in the
  * calendar tree — years and months are ordinary-looking folders), a reserved folder, or an
  * ordinary one.
@@ -223,7 +243,7 @@ export function collectionDefinitionForFolder(
   }
 }
 
-/** Which collection a filtered view is — `undefined` for the task views, which are not collections of this kind. */
+/** Which collection a filtered view is — `undefined` for the other task views, which are not collections of this kind. */
 export function collectionDefinitionForFilteredView(view: FilteredView): CollectionDefinition | undefined {
   switch (view.kind) {
     case 'workspace':
@@ -234,6 +254,8 @@ export function collectionDefinitionForFilteredView(view: FilteredView): Collect
       return TAG_COLLECTION;
     case 'assets':
       return ASSETS_COLLECTION;
+    case 'tasks-all':
+      return TASKS_COLLECTION;
     default:
       return undefined;
   }
@@ -252,4 +274,5 @@ export const ALL_COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   FAVORITES_COLLECTION,
   TAG_COLLECTION,
   ASSETS_COLLECTION,
+  TASKS_COLLECTION,
 ];
