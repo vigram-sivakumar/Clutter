@@ -210,17 +210,10 @@ export function TasksCollectionBody({
 
   // tasks-all — the configurable All Tasks collection: the page's resolved view (layout, visible
   // properties, sort — the same Configure state every collection uses) decides how it is drawn. Tasks
-  // are mapped to the shared property `values` and ordered by the one sort engine; incomplete tasks
-  // come first, then completed (newest-completed-first before sorting) — each group sorted by the
-  // chosen property, as the page has always shown completed tasks last.
-  if (tasks.length === 0) {
-    return (
-      <TasksPageBody tabs>
-        <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
-      </TasksPageBody>
-    );
-  }
-
+  // are mapped to the shared property `values` and ordered by the one sort engine. The shared Tasks-view
+  // display preference applies too: Show completed off drops completed tasks; Auto-sort completed on
+  // moves them (newest-completed-first before sorting) below the incomplete ones, each group sorted by
+  // the chosen property, and off leaves them in their sorted place among the rest.
   const { layout, visible, sort } = collectionView ?? resolveCollectionView(TASKS_COLLECTION);
 
   const toEntry = (task: TaskOccurrence): TaskEntry => {
@@ -234,10 +227,19 @@ export function TasksCollectionBody({
       values: taskPropertyValues(task, source?.label),
     };
   };
-  const entries = [
-    ...sortEntries(tasks.filter((task) => !task.completed).map(toEntry), sort),
-    ...sortEntries(getCompletedTasks(tasks).map(toEntry), sort),
-  ];
+  const incompleteEntries = tasks.filter((task) => !task.completed).map(toEntry);
+  const completedEntries = displayConfig.showCompleted ? getCompletedTasks(tasks).map(toEntry) : [];
+  const entries = displayConfig.autoSortCompleted
+    ? [...sortEntries(incompleteEntries, sort), ...sortEntries(completedEntries, sort)]
+    : sortEntries([...incompleteEntries, ...completedEntries], sort);
+
+  if (entries.length === 0) {
+    return (
+      <TasksPageBody tabs>
+        <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
+      </TasksPageBody>
+    );
+  }
 
   const titleOf = ({ task }: TaskEntry) => (
     <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>

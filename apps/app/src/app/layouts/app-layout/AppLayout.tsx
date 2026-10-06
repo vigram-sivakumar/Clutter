@@ -309,6 +309,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onSetAssetAsCover={askForCoverNote}
           onShowToast={showToast}
           tasksViewConfig={tasksViewConfig}
+          onTasksViewConfigChange={updateTasksViewConfig}
           pendingReveal={pendingReveal}
           onRequestReveal={setPendingReveal}
           onRevealHandled={() => setPendingReveal(null)}

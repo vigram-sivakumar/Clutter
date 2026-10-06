@@ -186,6 +186,8 @@ interface PageHostProps {
    * TasksViewSettingsMenu's doc comment).
    */
   readonly tasksViewConfig: TaskDisplayConfig;
+  /** Persists a change to the shared Tasks-view display preference (owned by AppLayout). */
+  readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /**
    * A pending "land on this content" request — from Sidebar's Tasks panel,
    * or from this component's own Tag collection "Open note" click (see
@@ -260,6 +262,7 @@ export function PageHost({
   onSetAssetAsCover,
   onShowToast,
   tasksViewConfig,
+  onTasksViewConfigChange,
   pendingReveal,
   onRequestReveal,
   onRevealHandled,
@@ -412,7 +415,9 @@ export function PageHost({
     fromTemplate,
     menuLabels,
     addLabel,
+    toggles,
   }: {
+    toggles?: CollectionHeaderActionsProps['menu']['toggles'];
     onAdd?: () => void;
     onAddFolder?: () => void;
     fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
@@ -425,6 +430,7 @@ export function PageHost({
         onLayoutChange: setCollectionLayout,
         onPropertyChange: setCollectionProperty,
         onSortChange: setCollectionSort,
+        toggles,
       }}
       onAdd={onAdd}
       onAddFolder={onAddFolder}
@@ -1659,6 +1665,21 @@ export function PageHost({
               {renderCollectionHeaderActions({
                 onAdd: () => setIsNewTaskOpen(true),
                 addLabel: 'New task',
+                // The Tasks view's own display preferences — the same shared setting the Tasks sidebar edits.
+                toggles: [
+                  {
+                    id: 'show-completed',
+                    label: 'Show completed',
+                    checked: tasksViewConfig.showCompleted,
+                    onChange: (showCompleted) => onTasksViewConfigChange({ ...tasksViewConfig, showCompleted }),
+                  },
+                  {
+                    id: 'auto-sort-completed',
+                    label: 'Auto-sort completed',
+                    checked: tasksViewConfig.autoSortCompleted,
+                    onChange: (autoSortCompleted) => onTasksViewConfigChange({ ...tasksViewConfig, autoSortCompleted }),
+                  },
+                ],
               })}
               <NewTaskDialog
                 open={isNewTaskOpen}

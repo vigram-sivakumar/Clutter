@@ -544,3 +544,55 @@ describe('CollectionViewMenu — Last opened is gone', () => {
     }
   });
 });
+
+describe('CollectionViewMenu — extra toggles (All Tasks: Show completed / Auto-sort completed)', () => {
+  function renderWithToggles(checked: { show: boolean; auto: boolean }) {
+    const onShow = vi.fn();
+    const onAuto = vi.fn();
+    const utils = render(
+      <CollectionViewMenu
+        view={resolveCollectionView(FOLDER_COLLECTION, { layout: 'list' })}
+        onLayoutChange={vi.fn()}
+        onPropertyChange={vi.fn()}
+        onSortChange={vi.fn()}
+        toggles={[
+          { id: 'show', label: 'Show completed', checked: checked.show, onChange: onShow },
+          { id: 'auto', label: 'Auto-sort completed', checked: checked.auto, onChange: onAuto },
+        ]}
+      />
+    );
+    fireEvent.click(utils.container.querySelector('[aria-haspopup="menu"]')!);
+    return { ...utils, onShow, onAuto };
+  }
+
+  it('lists the toggles after Sort by, separated by a divider, with a tick on the checked ones', () => {
+    renderWithToggles({ show: true, auto: false });
+
+    const labels = menuLabels();
+    expect(labels.slice(-2)).toEqual(['Show completed', 'Auto-sort completed']);
+
+    const rows = [...document.querySelectorAll('[role="menuitem"]')];
+    const show = rows.find((row) => row.textContent?.trim() === 'Show completed')!;
+    const auto = rows.find((row) => row.textContent?.trim() === 'Auto-sort completed')!;
+    expect(show.querySelector('svg')).not.toBeNull();
+    expect(auto.querySelector('svg')).toBeNull();
+    expect(document.querySelectorAll('[role="separator"]').length).toBeGreaterThan(0);
+  });
+
+  it('flipping one reports the new value and keeps the menu open', () => {
+    const { getByText, onShow, onAuto } = renderWithToggles({ show: true, auto: false });
+
+    fireEvent.click(getByText('Show completed'));
+    fireEvent.click(getByText('Auto-sort completed'));
+
+    expect(onShow).toHaveBeenCalledWith(false);
+    expect(onAuto).toHaveBeenCalledWith(true);
+    expect(getByText('Layout')).toBeInTheDocument();
+  });
+
+  it('draws nothing extra without toggles (every other collection)', () => {
+    renderMenu();
+
+    expect(menuLabels()).not.toContain('Show completed');
+  });
+});

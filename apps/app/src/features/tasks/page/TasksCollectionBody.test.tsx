@@ -451,7 +451,7 @@ describe('TasksCollectionBody', () => {
       expect(container.querySelectorAll('.collection-row')).toHaveLength(2);
     });
 
-    it('sorts by the chosen property with the shared engine, incomplete tasks before completed ones', () => {
+    it('sorts by the chosen property with the shared engine; with Auto-sort completed on, incomplete tasks come before completed ones', () => {
       const tasks = [
         task({ text: 'Banana', startOffset: 0 }),
         task({ text: 'Apple', startOffset: 1 }),
@@ -464,6 +464,7 @@ describe('TasksCollectionBody', () => {
             view="tasks-all"
             tasks={tasks}
             collectionView={resolveCollectionView(TASKS_COLLECTION, { sort })}
+            displayConfig={{ showCompleted: true, autoSortCompleted: true }}
             {...noop}
           />
         );
@@ -474,6 +475,44 @@ describe('TasksCollectionBody', () => {
 
       expect(titles({ property: 'name', direction: 'down' })).toEqual(['Apple', 'Banana', 'Avocado (done)', 'Cherry (done)']);
       expect(titles({ property: 'name', direction: 'up' })).toEqual(['Banana', 'Apple', 'Cherry (done)', 'Avocado (done)']);
+    });
+
+    describe('the Tasks-view display preference (Show completed / Auto-sort completed)', () => {
+      const tasks = [
+        task({ text: 'Banana', startOffset: 0 }),
+        task({ text: 'Apple (done)', completed: true, completedAt: '2026-08-02', startOffset: 1 }),
+        task({ text: 'Cherry', startOffset: 2 }),
+      ];
+      const titles = (displayConfig: { showCompleted: boolean; autoSortCompleted: boolean }) => {
+        const { container, unmount } = render(
+          <TasksCollectionBody view="tasks-all" tasks={tasks} displayConfig={displayConfig} {...noop} />
+        );
+        const result = [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+        unmount();
+        return result;
+      };
+
+      it('Show completed off drops completed tasks', () => {
+        expect(titles({ showCompleted: false, autoSortCompleted: false })).toEqual(['Banana', 'Cherry']);
+      });
+
+      it('Auto-sort completed off leaves completed tasks in their sorted place; on moves them last', () => {
+        expect(titles({ showCompleted: true, autoSortCompleted: false })).toEqual(['Apple (done)', 'Banana', 'Cherry']);
+        expect(titles({ showCompleted: true, autoSortCompleted: true })).toEqual(['Banana', 'Cherry', 'Apple (done)']);
+      });
+
+      it('shows the empty state when Show completed hides every task', () => {
+        const { getByRole } = render(
+          <TasksCollectionBody
+            view="tasks-all"
+            tasks={[task({ text: 'Done', completed: true, completedAt: '2026-08-01' })]}
+            displayConfig={{ showCompleted: false, autoSortCompleted: false }}
+            {...noop}
+          />
+        );
+
+        expect(getByRole('status')).toHaveTextContent('Tasks from your notes will appear here');
+      });
     });
 
     it('sorts by Due date: dated tasks in date order, undated ones last', () => {
