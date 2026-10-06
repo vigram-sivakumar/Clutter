@@ -34,7 +34,6 @@ import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmatio
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
-import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
@@ -424,14 +423,10 @@ export function Notes({
       </FavoritesSection>
       <Section
         hasHeader
-        // The root-folders section header shows the vault's own physical
-        // folder name (getVaultDisplayName), not the generic 'workspace'
-        // system-location label — this section literally represents the
-        // vault root's own folder. The Workspace Collection page title
-        // makes the same exception for the same reason (ADR-022 Amendment
-        // 2, toCollectionPageModel.ts); every other system-location use of
-        // that label (tabs, breadcrumbs, Favorites, etc.) stays untouched.
-        title={getVaultDisplayName(vault.root)}
+        // The root-folders section header reads "Folders". The vault's own folder name is still
+        // available from getVaultDisplayName (the Workspace Collection page title uses it), kept
+        // for where the sidebar will want it again.
+        title="Folders"
         isCollapsible
         // Header click only expands/collapses; the Workspace Collection
         // page is no longer opened from here.

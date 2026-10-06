@@ -38,7 +38,6 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
-import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -386,9 +385,9 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
 // isTitleToggle): clicking the header row — or its caret — expands/collapses
 // and never navigates. The Workspace/Favorites Collection pages are not
 // opened from here.
-describe('Sidebar Notes: the "Workspace" section header only expands/collapses', () => {
+describe('Sidebar Notes: the "Folders" section header only expands/collapses', () => {
   function headerOf(): HTMLElement {
-    return screen.getByText(getVaultDisplayName(ROOT)).closest('.section-header') as HTMLElement;
+    return screen.getByText('Folders').closest('.section-header') as HTMLElement;
   }
 
   it('clicking the title toggles the section (collapse, then expand) and never calls openWorkspace()', () => {
@@ -401,13 +400,13 @@ describe('Sidebar Notes: the "Workspace" section header only expands/collapses',
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
     expect(screen.queryByText('Alpha')).not.toBeNull();
 
-    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
+    fireEvent.click(screen.getByText('Folders'));
     rerender(notesElement(deps));
     expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
     expect(screen.queryByText('Alpha')).toBeNull();
     expect(headerOf().getAttribute('aria-expanded')).toBe('false');
 
-    fireEvent.click(screen.getByText(getVaultDisplayName(ROOT)));
+    fireEvent.click(screen.getByText('Folders'));
     rerender(notesElement(deps));
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
     expect(screen.queryByText('Alpha')).not.toBeNull();
