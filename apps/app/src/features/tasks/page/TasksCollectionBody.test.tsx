@@ -500,6 +500,58 @@ describe('TasksCollectionBody', () => {
     });
   });
 
+  describe('the All Tasks tab strip (presentation only)', () => {
+    const noop = {
+      onToggleComplete: vi.fn(),
+      onOpenTask: vi.fn(),
+      onChangeDueDate: vi.fn(),
+      onDuplicateTask: vi.fn(),
+      onDeleteTask: vi.fn(),
+    };
+
+    it('shows All Tasks, Today, Upcoming, Unscheduled and Completed tabs above the list, All Tasks selected', () => {
+      const { container } = render(
+        <TasksCollectionBody view="tasks-all" tasks={[task({ text: 'Plan trip' })]} {...noop} />
+      );
+
+      const tabs = container.querySelector('.collection__content > .tasks-tabs > .tabs')!;
+      expect([...tabs.querySelectorAll('.tab')].map((tab) => tab.textContent)).toEqual([
+        'All Tasks',
+        'Today',
+        'Upcoming',
+        'Unscheduled',
+        'Completed',
+      ]);
+      expect(tabs.querySelector('.tab--active')).toHaveTextContent('All Tasks');
+      expect(container.querySelector('.collection__content')!.firstElementChild).toBe(tabs.parentElement);
+    });
+
+    it('clicking a tab only moves the highlight: the list and the task callbacks are untouched', () => {
+      const tasks = [task({ text: 'Plan trip' }), task({ text: 'Done thing', completed: true, completedAt: '2026-08-01' })];
+      const { container, getByText } = render(<TasksCollectionBody view="tasks-all" tasks={tasks} {...noop} />);
+      const titlesBefore = [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+
+      fireEvent.click(getByText('Today'));
+
+      expect(container.querySelector('.tab--active')).toHaveTextContent('Today');
+      expect([...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent)).toEqual(titlesBefore);
+      expect(noop.onToggleComplete).not.toHaveBeenCalled();
+      expect(noop.onOpenTask).not.toHaveBeenCalled();
+    });
+
+    it('appears on an empty All Tasks page too, and not on the other task views', () => {
+      const empty = render(<TasksCollectionBody view="tasks-all" tasks={[]} {...noop} />);
+      expect(empty.container.querySelector('.tabs')).not.toBeNull();
+      empty.unmount();
+
+      for (const view of ['tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-completed', 'tasks-unscheduled'] as const) {
+        const { container, unmount } = render(<TasksCollectionBody view={view} tasks={[]} {...noop} />);
+        expect(container.querySelector('.tabs'), view).toBeNull();
+        unmount();
+      }
+    });
+  });
+
   it('shows the collection empty state for tasks-all with no tasks', () => {
     const { getByRole } = render(
       <TasksCollectionBody

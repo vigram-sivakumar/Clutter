@@ -6,6 +6,7 @@ import { CollectionDataTable } from '@features/collection/components/table/Colle
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
+import { TasksTabs } from './TasksTabs';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -105,9 +106,11 @@ export interface TasksCollectionBodyProps {
  * scroll space that lets the last row scroll clear of the page's bottom
  * fade. Defined once here so no individual view can forget it.
  */
-function TasksPageBody({ children }: { readonly children: ReactNode }) {
+function TasksPageBody({ children, tabs = false }: { readonly children: ReactNode; readonly tabs?: boolean }) {
   return (
     <PageBody className="collection__content">
+      {/* The All Tasks tab strip, directly under the page title. */}
+      {tabs && <TasksTabs />}
       {children}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
@@ -212,7 +215,7 @@ export function TasksCollectionBody({
   // chosen property, as the page has always shown completed tasks last.
   if (tasks.length === 0) {
     return (
-      <TasksPageBody>
+      <TasksPageBody tabs>
         <CollectionEmptyState message={TASKS_COLLECTION.emptyMessage} />
       </TasksPageBody>
     );
@@ -251,7 +254,7 @@ export function TasksCollectionBody({
 
   if (layout === 'table') {
     return (
-      <TasksPageBody>
+      <TasksPageBody tabs>
         <CollectionDataTable
           columns={buildPropertyTableColumns(visible)}
           rows={entries.map((entry) => ({
@@ -325,7 +328,7 @@ export function TasksCollectionBody({
   });
 
   return (
-    <TasksPageBody>
+    <TasksPageBody tabs>
       <CollectionDataList className="task-list" items={items} />
     </TasksPageBody>
   );
