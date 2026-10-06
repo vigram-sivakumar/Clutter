@@ -132,12 +132,11 @@ describe('ArchiveCollectionBody: Type — the Archive\'s own presentation, not a
   it('Table has a Type column right after Name, then the configured properties', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
 
-    // The Archive's default visible properties are Name, File size and Archived (registry order).
+    // The Archive's default visible properties are Name and its date, labelled "Delete".
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Type',
-      'File size',
-      'Archived',
+      'Delete',
     ]);
     expect([...container.querySelectorAll('.collection-table-row__type')].map((c) => c.textContent).sort()).toEqual([
       'Folder',
@@ -190,17 +189,6 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
     }
   });
 
-  it('shows File size and Created / Last edited from the file\'s own facts, when those properties are visible', () => {
-    const resource = makeResource({
-      metadata: { size: 12_345, createdAt: '2020-01-02T03:04:05.000Z', modifiedAt: '2020-02-03T04:05:06.000Z' },
-    });
-    const { container } = renderArchive({ resources: [resource], viewMode: 'table', visible: ['name', 'size', 'created', 'updated'] });
-
-    expect(container.querySelector('.collection-table-row__size')).toHaveTextContent('12 KB');
-    expect(container.querySelector('.collection-table-row__created')).toHaveAttribute('data-date', '2020-01-02T03:04:05.000Z');
-    expect(container.querySelector('.collection-table-row__updated')).toHaveAttribute('data-date', '2020-02-03T04:05:06.000Z');
-  });
-
   it('the archive date is empty for a file (none is recorded) and filled for a note and a folder', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible: ['name', 'archived'] });
 
@@ -217,11 +205,10 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
 
 describe('ArchiveCollectionBody: properties and sort come from the resolved view', () => {
   it('Table: a property that is not visible is not a column', () => {
-    const visible: PropertyId[] = archiveVisible('size', 'archived');
+    const visible: PropertyId[] = archiveVisible('archived');
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
 
     expect(container.querySelector('.collection-table__header-cell--archived')).toBeNull();
-    expect(container.querySelector('.collection-table__header-cell--size')).toBeNull();
   });
 
   it('List: the archived time is part of a row\'s metadata only while Archived is visible', () => {
@@ -247,17 +234,20 @@ describe('ArchiveCollectionBody: properties and sort come from the resolved view
     expect(listTitles(container)).toEqual(['Newer', 'Older', 'aaa']);
   });
 
-  it('sorts by File size, largest first for "down" (a note has none, so it goes last)', () => {
-    const small = makeResource({ id: 's', name: 'small.png', metadata: { size: 10, createdAt: null, modifiedAt: null } });
-    const large = makeResource({ id: 'l', name: 'large.png', metadata: { size: 9000, createdAt: null, modifiedAt: null } });
-    const { container } = renderArchive({
-      notes: [makeNoteEntry({ title: 'A note' })],
-      resources: [small, large],
-      viewMode: 'list',
-      sort: { property: 'size', direction: 'down' },
-    });
+  it('sorts by Name, A→Z for "down" and Z→A for "up", folders, notes and files together', () => {
+    const rows = {
+      folders: [makeFolderEntry({ id: 'f', title: 'Bravo' })],
+      notes: [makeNoteEntry({ title: 'Alpha' })],
+      resources: [makeResource({ name: 'charlie.png' })],
+      viewMode: 'list' as const,
+    };
 
-    expect(listTitles(container)).toEqual(['large', 'small', 'A note']);
+    const down = renderArchive({ ...rows, sort: { property: 'name', direction: 'down' } });
+    expect(listTitles(down.container)).toEqual(['Alpha', 'Bravo', 'charlie']);
+    down.unmount();
+
+    const up = renderArchive({ ...rows, sort: { property: 'name', direction: 'up' } });
+    expect(listTitles(up.container)).toEqual(['charlie', 'Bravo', 'Alpha']);
   });
 });
 

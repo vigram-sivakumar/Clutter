@@ -70,11 +70,12 @@ describe('membership — which global properties each collection offers (order i
     }
   });
 
-  it('the Archive offers Name, File size, Created, Last edited and Archived — no Description, no Cover image — and starts with Name, File size and Archived', () => {
-    expect([...ARCHIVE_COLLECTION.properties].sort()).toEqual(['archived', 'created', 'name', 'size', 'updated']);
-    expect([...ARCHIVE_COLLECTION.defaultVisible].sort()).toEqual(['archived', 'name', 'size']);
-    expect(ARCHIVE_COLLECTION.properties).not.toContain('cover');
-    expect(ARCHIVE_COLLECTION.properties).not.toContain('description');
+  it('the Archive offers only Name and the date it was archived (labelled "Delete") — no Description, Cover image, File size, Created or Last edited — and shows both by default', () => {
+    expect([...ARCHIVE_COLLECTION.properties].sort()).toEqual(['archived', 'name']);
+    expect([...ARCHIVE_COLLECTION.defaultVisible].sort()).toEqual(['archived', 'name']);
+    for (const absent of ['cover', 'description', 'size', 'created', 'updated'] as const) {
+      expect(ARCHIVE_COLLECTION.properties).not.toContain(absent);
+    }
   });
 
   it('assets offer Name, File size, Created and Last edited — and start showing only the name', () => {

@@ -121,14 +121,15 @@ export const TEMPLATES_COLLECTION: CollectionDefinition = {
 
 /**
  * One unified collection of everything archived — folders, notes and files, as rows of the generic
- * List or Table (there is no Card). A file has no description and no archive date is recorded for
- * it, so its cells for those are simply empty. The Type each row shows (Note, Folder, Image, PDF)
+ * List or Table (there is no Card). It offers only Name and the date it was archived (labelled
+ * "Delete"): when an item was created or last edited, or how big it is, is not what the Archive is for. A file has no archive date recorded, so
+ * its cell for that is simply empty. The Type each row shows (Note, Folder, Image, PDF)
  * is the Archive's own presentation, not a property: it can't be toggled or sorted.
  */
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
-  properties: ['name', 'size', 'created', 'updated', 'archived'],
-  defaultVisible: ['name', 'archived', 'size'],
+  properties: ['name', 'archived'],
+  defaultVisible: ['name', 'archived'],
   layouts: ['list', 'table'],
   defaultLayout: 'table',
   defaultSort: DEFAULT_SORT,

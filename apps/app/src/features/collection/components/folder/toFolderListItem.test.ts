@@ -47,7 +47,7 @@ describe('buildPropertyTableColumns — columns that are not properties', () => 
       ['name', 'Name'],
       ['type', 'Type'],
       ['size', 'File size'],
-      ['archived', 'Archived'],
+      ['archived', 'Delete'],
     ]);
   });
 });

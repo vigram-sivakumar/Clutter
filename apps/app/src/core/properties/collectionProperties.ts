@@ -59,7 +59,7 @@ export const COLLECTION_PROPERTIES = {
   size: { label: 'File size', type: 'number', sort: 'number' },
   created: { label: systemPropertyLabel('created'), type: 'date', sort: 'date' },
   updated: { label: systemPropertyLabel('modified'), type: 'date', sort: 'date' },
-  archived: { label: 'Archived', type: 'date', sort: 'date' },
+  archived: { label: 'Delete', type: 'date', sort: 'date' },
 } as const satisfies Record<string, CollectionPropertyDefinition>;
 
 export type PropertyId = keyof typeof COLLECTION_PROPERTIES;

@@ -313,28 +313,28 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
   });
 });
 
-describe('CollectionViewMenu — Archived (Archive collection only)', () => {
-  it('offers no Archived property or sort option for an ordinary collection', () => {
+describe('CollectionViewMenu — the archive date, labelled "Delete" (Archive collection only)', () => {
+  it('offers no Delete property or sort option for an ordinary collection', () => {
     const { getByText, queryByText } = renderMenu();
 
-    expect(queryByText('Archived')).not.toBeInTheDocument();
+    expect(queryByText('Delete')).not.toBeInTheDocument();
     openPropertiesSubmenu(getByText);
-    expect(queryByText('Archived')).not.toBeInTheDocument();
+    expect(queryByText('Delete')).not.toBeInTheDocument();
   });
 
-  it('the Archive offers an Archived sort option', () => {
+  it('the Archive offers a Delete sort option', () => {
     const { getByText, onSortChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
-    fireEvent.click(getByText('Archived'));
+    fireEvent.click(getByText('Delete'));
 
     expect(onSortChange).toHaveBeenCalledWith({ property: 'archived', direction: 'down' });
   });
 
-  it('the Archive offers an Archived property toggle', () => {
+  it('the Archive offers a Delete property toggle', () => {
     const { getByText, onPropertyChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
     openPropertiesSubmenu(getByText);
-    fireEvent.click(getByText('Archived'));
+    fireEvent.click(getByText('Delete'));
 
     expect(onPropertyChange).toHaveBeenCalledWith('archived', false);
   });
@@ -455,10 +455,10 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     }
   });
 
-  it('the Archive: Name, File size, Created, Last edited, Archived — no Description, no Cover image', () => {
+  it('the Archive: Name, Delete — no Description, Cover image, File size, Created or Last edited', () => {
     renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
-    expect(sortLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited', 'Archived']);
+    expect(sortLabels()).toEqual(['Name', 'Delete']);
   });
 
   it('assets: Name and their file facts — File size, Created, Last edited — with the same active-row direction toggle', () => {

@@ -344,15 +344,15 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
       properties: { description: true, created: true, updated: true, archived: false, cover: true, preview: true, title: true, size: true },
     });
 
-    // The snapshot hid Archived and showed Created / Last edited — all three are real choices against the Archive's defaults.
-    expect(tableHeaders()).toEqual(['Name', 'Type', 'File size', 'Created', 'Last edited']);
+    // The snapshot hid the archive date: a real choice. Its other choices (Created, Last edited, File size) are ignored — the Archive no longer offers them.
+    expect(tableHeaders()).toEqual(['Name', 'Type']);
   });
 
   it('the Archive shows its Archived column by default', async () => {
     await renderFolder(ARCHIVE);
 
     // Name, then the Archive's own Type column, then its visible properties in registry order.
-    expect(tableHeaders()).toEqual(['Name', 'Type', 'File size', 'Archived']);
+    expect(tableHeaders()).toEqual(['Name', 'Type', 'Delete']);
   });
 
   it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {
