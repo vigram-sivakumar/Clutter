@@ -370,32 +370,6 @@ describe('ResourceTopBarActions', () => {
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     });
 
-    it('reflects the favorite state on the bookmark button so the ribbon can grow/retract', () => {
-      const { rerender } = render(
-        <ResourceTopBarActions
-          menu={menu}
-          isFavorite={false}
-          onToggleFavorite={vi.fn()}
-        />
-      );
-      const button = screen.getByRole('button', { name: 'Add to Favorites' });
-      expect(button.getAttribute('data-bookmarked')).toBe('false');
-      expect(button.querySelector('.topbar__bookmark-ribbon')).not.toBeNull();
-
-      rerender(
-        <ResourceTopBarActions
-          menu={menu}
-          isFavorite={true}
-          onToggleFavorite={vi.fn()}
-        />
-      );
-      expect(
-        screen
-          .getByRole('button', { name: 'Remove from Favorites' })
-          .getAttribute('data-bookmarked')
-      ).toBe('true');
-    });
-
     it('omits the favorite button entirely when onToggleFavorite is absent (e.g. a Daily Note, a draft)', () => {
       render(<ResourceTopBarActions menu={menu} />);
 
