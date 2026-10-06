@@ -16,6 +16,7 @@ import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from 
 import { formatTaskDueDate } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
+import { EmptyEntry } from '@components/entry/EmptyEntry';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
@@ -240,23 +241,28 @@ export function renderTasksByDate({
         title="Today"
         isCollapsible
         isTitleToggle
-        isEmpty={today.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('tasks-today', expanded)
         }
       >
-        {renderTodayContent({
-          today,
-          onToggleComplete,
-          onOpenTask,
-          onChangeDueDate,
-          onDuplicateTask,
-          onDeleteTask,
-          resolveWikiLink,
-          resolveTag,
-          resolveEmbed,
-        })}
+        {/* Nothing due today — never scheduled, or all done with completed tasks hidden — says one line
+            either way. The section stays expanded so it can say it. */}
+        {today.length === 0 ? (
+          <EmptyEntry>You're all clear for today</EmptyEntry>
+        ) : (
+          renderTodayContent({
+            today,
+            onToggleComplete,
+            onOpenTask,
+            onChangeDueDate,
+            onDuplicateTask,
+            onDeleteTask,
+            resolveWikiLink,
+            resolveTag,
+            resolveEmbed,
+          })
+        )}
       </Section>
       {overdue.length > 0 && (
         <Section

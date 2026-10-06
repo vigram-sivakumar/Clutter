@@ -383,21 +383,21 @@ describe('renderTasksByDate', () => {
       expect(navigation.openTasksUpcoming).not.toHaveBeenCalled();
     });
 
-    it('Today (empty, so default-collapsed): clicking expands it, exposes aria-expanded, works from the keyboard, never navigates', () => {
+    it('Today (empty, but expanded so it can say so): clicking collapses it, exposes aria-expanded, works from the keyboard, never navigates', () => {
       const workspace = new Workspace();
       const navigation = fakeNavigation();
       const { getByText, rerender, ui } = renderAll(workspace, navigation);
       const header = () => getByText('Today').closest('.section-header') as HTMLElement;
 
-      expect(header().getAttribute('aria-expanded')).toBe('false');
+      expect(header().getAttribute('aria-expanded')).toBe('true');
 
       fireEvent.click(getByText('Today'));
       rerender(ui());
-      expect(header().getAttribute('aria-expanded')).toBe('true');
+      expect(header().getAttribute('aria-expanded')).toBe('false');
 
       fireEvent.keyDown(header(), { key: 'Enter' });
       rerender(ui());
-      expect(header().getAttribute('aria-expanded')).toBe('false');
+      expect(header().getAttribute('aria-expanded')).toBe('true');
 
       expect(navigation.openTasksToday).not.toHaveBeenCalled();
     });
@@ -669,5 +669,68 @@ describe('renderTasksByDate', () => {
       const titles = Array.from(container.querySelectorAll('.task-title')).map((el) => el.textContent);
       expect(titles).toEqual(['Active task', 'Completed task']);
     });
+  });
+});
+
+describe('renderTasksByDate: Today empty state', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 4)); // 2026-08-04
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderToday(tasks: TaskOccurrence[], displayConfig?: { showCompleted: boolean; autoSortCompleted: boolean }) {
+    return render(
+      <>
+        {renderTasksByDate({
+          tasks,
+          workspace: new Workspace(),
+          onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
+          onDuplicateTask: vi.fn(),
+          onDeleteTask: vi.fn(),
+          navigation: fakeNavigation(),
+          displayConfig,
+        })}
+      </>
+    );
+  }
+
+  const MESSAGE = "You're all clear for today";
+
+  it('says one line when no task is due today, expanded rather than collapsed away', () => {
+    const { getByText } = renderToday([task({ text: 'Later', dueDate: '2026-08-20' })]);
+
+    expect(getByText(MESSAGE)).toBeVisible();
+  });
+
+  it('says the same line when every task due today is completed and completed tasks are hidden', () => {
+    const { getByText, queryByText } = renderToday(
+      [task({ text: 'Done', dueDate: '2026-08-04', completed: true })],
+      { showCompleted: false, autoSortCompleted: false }
+    );
+
+    expect(getByText(MESSAGE)).toBeVisible();
+    expect(queryByText('Done')).toBeNull();
+  });
+
+  it('shows the completed rows, not the line, when completed tasks are shown', () => {
+    const { getByText, queryByText } = renderToday(
+      [task({ text: 'Done', dueDate: '2026-08-04', completed: true })],
+      { showCompleted: true, autoSortCompleted: false }
+    );
+
+    expect(getByText('Done')).toBeVisible();
+    expect(queryByText(MESSAGE)).toBeNull();
+  });
+
+  it('shows no line while a task is still due today', () => {
+    const { queryByText } = renderToday([task({ text: 'Open', dueDate: '2026-08-04' })]);
+
+    expect(queryByText(MESSAGE)).toBeNull();
   });
 });
