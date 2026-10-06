@@ -42,6 +42,7 @@
 .task-row-title__pill--empty .pill {
   /* The calendar AppIcon carries its own inset, so no left padding. */
   padding-inline-start: 0;
+  padding-inline-end: 2px;
   gap: var(--space-4);
   color: var(--foreground-tertiary);
 }
