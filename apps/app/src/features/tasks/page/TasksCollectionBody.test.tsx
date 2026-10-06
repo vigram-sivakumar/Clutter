@@ -231,7 +231,7 @@ describe('TasksCollectionBody', () => {
     );
 
     const button = getByRole('button', { name: 'Add due date' });
-    expect(button).toHaveClass('button--outline-fill', 'button--icon');
+    expect(button).toHaveClass('button--outline-fill', 'button--icon', 'task-row__due-button');
     expect(button).toHaveTextContent('');
     expect(container.querySelector('.pill')).toBeNull();
 

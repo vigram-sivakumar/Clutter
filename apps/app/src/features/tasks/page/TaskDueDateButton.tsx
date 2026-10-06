@@ -9,7 +9,7 @@ interface TaskDueDateButtonProps {
 }
 
 /**
- * The "add a due date" control of a task that has none: an icon-only calendar Button (outline-fill) that opens the
+ * The "add a due date" control of a task that has none: an icon-only calendar Button (outline-fill, shown on row hover) that opens the
  * same calendar (TaskDatePicker) the task row menu uses. A task that already has a due date shows its date instead.
  */
 export function TaskDueDateButton({ onSelect }: TaskDueDateButtonProps) {
@@ -20,6 +20,7 @@ export function TaskDueDateButton({ onSelect }: TaskDueDateButtonProps) {
     <>
       <Button
         ref={anchorRef}
+        className={['task-row__due-button', open && 'is-open'].filter(Boolean).join(' ')}
         isIconOnly
         variant="outline-fill"
         size="small"

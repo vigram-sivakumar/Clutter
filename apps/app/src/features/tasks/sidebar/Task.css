@@ -45,3 +45,15 @@
   text-decoration-color: var(--md-wiki-underline);
   text-underline-offset: var(--md-underline-offset);
 }
+
+/* The add-due-date calendar button: medium radius, and only there to be reached for — shown while its row is
+   hovered, a control inside the row has keyboard focus, or its calendar is open. */
+.button.task-row__due-button {
+  border-radius: var(--radius-md);
+  opacity: 0;
+}
+.collection-row:hover .task-row__due-button,
+.collection-row:focus-within .task-row__due-button,
+.button.task-row__due-button.is-open {
+  opacity: 1;
+}
