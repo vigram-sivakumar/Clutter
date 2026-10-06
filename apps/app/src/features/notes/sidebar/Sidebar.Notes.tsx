@@ -32,6 +32,7 @@ import {
 } from '../helpers/buildMoveDestinationItems';
 import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmation';
 import { Button } from '@components/button/Button';
+import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Dialog } from '@components/dialog/Dialog';
@@ -362,6 +363,15 @@ export function Notes({
     membershipSelector.getRootResources().length === 0 &&
     pendingNewFolder?.parentId !== null;
 
+  // The section's "+" and, while the section is empty, its "New Folder" row: open the section if it
+  // was collapsed, then show the inline name row.
+  const startNewRootFolder = () => {
+    if (!workspace.isSectionExpanded('folders')) {
+      workspace.toggleSectionExpanded('folders');
+    }
+    setPendingNewFolder({ parentId: null });
+  };
+
   // A synchronous pre-check only (FolderOperations.canCreate()) — mirrors
   // onNoteTitleCommit/onFolderTitleCommit above: returning `false` lets
   // NewFolderRow's own EditableText reject the commit (stay open, shake,
@@ -431,7 +441,6 @@ export function Notes({
         // Header click only expands/collapses; the Workspace Collection
         // page is no longer opened from here.
         isTitleToggle
-        isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('folders', expanded)
@@ -442,12 +451,7 @@ export function Notes({
             variant="ghost"
             interaction="subtle"
             isIconOnly
-            onClick={() => {
-              if (!workspace.isSectionExpanded('folders')) {
-                workspace.toggleSectionExpanded('folders');
-              }
-              setPendingNewFolder({ parentId: null });
-            }}
+            onClick={startNewRootFolder}
           >
             <AppIcon icon="plus" />
           </Button>
@@ -480,6 +484,12 @@ export function Notes({
             void pageOperations.openDraft({ folderId });
           }}
         />
+        {/* An empty section is not collapsed away: it offers the one thing it can do. */}
+        {isFoldersEmpty && (
+          <EmptyEntry leading={<AppIcon icon="plus" />} onClick={startNewRootFolder}>
+            New Folder
+          </EmptyEntry>
+        )}
       </Section>
       <Dialog
         open={confirmation.pending !== null}

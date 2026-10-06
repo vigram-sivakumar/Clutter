@@ -546,6 +546,29 @@ describe('Sidebar Notes: empty-vault detection considers root resources', () => 
   });
 });
 
+describe('Sidebar Notes: an empty Folders section offers "New Folder"', () => {
+  it('shows a New Folder row (not collapsed away) when the vault has no folders, pages or files', () => {
+    renderNotes(setup([]));
+
+    expect(screen.getByText('New Folder')).toBeInTheDocument();
+  });
+
+  it('clicking it opens the inline name row, and the New Folder row steps aside', () => {
+    renderNotes(setup([]));
+
+    fireEvent.click(screen.getByText('New Folder'));
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByText('New Folder')).not.toBeInTheDocument();
+  });
+
+  it('is not shown once the section has anything in it', () => {
+    renderNotes(setup([makeFolder('folder-a', `${ROOT}/Alpha`)]));
+
+    expect(screen.queryByText('New Folder')).not.toBeInTheDocument();
+  });
+});
+
 // No "Sidebar Notes: folder delete wiring" describe block — the sidebar
 // folder menu never includes a 'delete' item (deletion-UX product
 // decision), so there is nothing here to dispatch. Permanent Delete moved
