@@ -114,19 +114,64 @@ describe('Create — a completely empty collection', () => {
     expect(AFFORDANCE[layout](container)).toBeNull();
   });
 
-  it('a collection holding only folders is not empty: it keeps its layout and its Create', () => {
+  it('a collection holding only folders is not empty: it keeps its folders and gives the notes section its own empty state', () => {
+    const onCreate = vi.fn();
     const { queryByRole, getByText } = render(
       <CollectionBody
         folders={[{ ...noteEntry({ id: 'f', title: 'Folder' }), type: 'folder' }]}
         notes={[]}
         viewMode="table"
         visible={noteVisible()}
-        onCreate={vi.fn()}
+        onCreate={onCreate}
+        emptyCreateLabel="Create note"
       />
     );
 
+    expect(queryByRole('status')).toBeNull(); // not the whole-collection empty state
+    expect(getByText('Folder')).toBeInTheDocument();
+    expect(getByText('No notes yet')).toBeInTheDocument();
+    fireEvent.click(getByText('Create note'));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a completely empty collection offers the page\'s own call to action — here "Create note" — not the generic "Create"', () => {
+    const onCreate = vi.fn();
+    const { getByText, queryByText } = render(
+      <CollectionBody notes={[]} viewMode="table" visible={noteVisible()} onCreate={onCreate} emptyCreateLabel="Create note" />
+    );
+
+    expect(queryByText(CREATE_LABEL)).toBeNull();
+    fireEvent.click(getByText('Create note'));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('assets: the empty state\'s action is the page\'s label ("Add asset") and calls the same handler', () => {
+    const onCreate = vi.fn();
+    const { getByText } = render(
+      <AssetsCollectionBody assets={[]} resolveResourceUrl={(path) => path} onRenameResource={vi.fn()} onCreate={onCreate} emptyCreateLabel="Add asset" />
+    );
+
+    fireEvent.click(getByText('Add asset'));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a section with no items while the collection has content gets its own empty state: no folders → "Create a folder"', () => {
+    const onCreateFolder = vi.fn();
+    const { getByText, queryByRole } = render(
+      <CollectionBody notes={[noteEntry()]} viewMode="table" visible={noteVisible()} onCreateFolder={onCreateFolder} />
+    );
+
     expect(queryByRole('status')).toBeNull();
-    expect(getByText(CREATE_LABEL)).toBeInTheDocument();
+    expect(getByText('No folders yet')).toBeInTheDocument();
+    expect(getByText('Create a folder to organize your notes.')).toBeInTheDocument();
+    fireEvent.click(getByText('Create folder'));
+    expect(onCreateFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('a collection that cannot create folders shows nothing in the folders\' place', () => {
+    const { queryByText } = render(<CollectionBody notes={[noteEntry()]} viewMode="table" visible={noteVisible()} />);
+
+    expect(queryByText('No folders yet')).toBeNull();
   });
 
   it('a notes section that is not drawn (Daily Notes root) with no folders is empty too', () => {

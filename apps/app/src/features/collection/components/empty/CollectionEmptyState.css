@@ -1,14 +1,26 @@
 /*
- * The empty state fills the room the collection's items would have, centering one muted line.
- * Per CLAUDE.md, no `margin` anywhere.
+ * The empty state fills the room the collection's items would have, centering one muted line and
+ * an optional action under it. Per CLAUDE.md, no `margin` anywhere.
  */
 .collection-empty-state {
   display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-8);
   min-height: 240px;
   padding: var(--space-8);
   color: var(--foreground-tertiary);
   text-align: center;
+}
+
+.collection-empty-state__action {
+  padding: var(--space-4) var(--space-8);
+  color: var(--foreground-primary);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font: inherit;
+  cursor: pointer;
 }

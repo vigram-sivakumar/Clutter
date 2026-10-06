@@ -198,7 +198,9 @@ describe('Daily Notes collection pages (flag on)', () => {
   it('an ordinary folder is unchanged: its create-folder card, "+" and notes section are still there', async () => {
     await renderFolder(`${ROOT}/Projects`);
 
-    expect(hasCreateFolderCard()).toBe(true);
+    // No subfolders yet, so the folders' place holds the section empty state, whose action creates one.
+    expect(hasCreateFolderCard()).toBe(false);
+    expect(document.querySelector('.collection-section-empty')?.textContent).toContain('Create folder');
     expect(hasHeaderPlus()).toBe(true);
     expect(noteRows()).toBe(1);
   });

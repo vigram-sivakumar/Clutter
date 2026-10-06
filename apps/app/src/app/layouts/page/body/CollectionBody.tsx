@@ -16,6 +16,7 @@ import type { NotePreviewResolvers } from '@features/collection/components/note/
 import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
+import { CollectionSectionEmptyState } from '@features/collection/components/empty/CollectionSectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
@@ -100,6 +101,11 @@ export interface CollectionBodyProps {
    * collection with nothing in it shows the empty state instead, with no Create row or card.
    */
   onCreate?: () => void;
+  /**
+   * What the empty state's call to action says ("Create note"), decided by the page like the handler
+   * itself. Without it (or without `onCreate`) an empty collection offers no action.
+   */
+  emptyCreateLabel?: string;
   /**
    * Whether the notes section is shown at all (default: yes). Off for a page that only holds folders
    * — a Daily Notes year or the Daily Notes root — where an empty notes table would just be noise.
@@ -234,6 +240,7 @@ export function CollectionBody({
   sort = DEFAULT_VIEW.sort,
   onCreateFolder,
   onCreate,
+  emptyCreateLabel,
   showNotes = true,
   foldersInGivenOrder = false,
   previewResolvers,
@@ -291,11 +298,36 @@ export function CollectionBody({
   // shows the empty state instead of its List, Table or Card: an empty collection offers no Create
   // row or card (the header's Create is the way in).
   const isEmpty = sortedFolders.length === 0 && (!showNotes || sortedNotes.length === 0);
+  const createAction = onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate } : undefined;
 
   return (
     <PageBody className="collection__content">
-      {(sortedFolders.length > 0 || onCreateFolder) && renderFolderGrid(sortedFolders, onCreateFolder)}
-      {isEmpty ? <CollectionEmptyState /> : showNotes && noteSection}
+      {isEmpty ? (
+        <CollectionEmptyState action={createAction} />
+      ) : (
+        <>
+          {sortedFolders.length > 0 ? (
+            renderFolderGrid(sortedFolders, onCreateFolder)
+          ) : (
+            // Some content, but no folders: a section empty state in the folders' place — only where a
+            // folder can be created (a collection with no folders section has nothing to say).
+            onCreateFolder && (
+              <CollectionSectionEmptyState
+                title="No folders yet"
+                description="Create a folder to organize your notes."
+                action={{ label: 'Create folder', onClick: onCreateFolder }}
+              />
+            )
+          )}
+          {showNotes &&
+            (sortedNotes.length === 0 ? (
+              // Folders but no notes: the notes' own empty state in their place.
+              <CollectionSectionEmptyState title="No notes yet" description="Create a note to get started." action={createAction} />
+            ) : (
+              noteSection
+            ))}
+        </>
+      )}
       {noteCover && viewMode !== 'card' && coverNote && (
         <CoverPickerOverlay
           open

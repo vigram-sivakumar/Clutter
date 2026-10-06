@@ -59,6 +59,8 @@ export interface AssetsCollectionBodyProps {
    * "+" card in Card. With no assets at all the empty state shows instead, with no Create row or card.
    */
   readonly onCreate?: () => void;
+  /** What the empty state's call to action says ("Add asset"), decided by the page like the handler itself. */
+  readonly emptyCreateLabel?: string;
   /**
    * `ResourceOperations.renameResource(resourceId, name)` — a single
    * collision-free write, committed once, so this body feeds it the final
@@ -87,6 +89,7 @@ export function AssetsCollectionBody({
   resolveResourceUrl,
   onOpenAsset,
   onCreate,
+  emptyCreateLabel,
   onRenameResource,
 }: AssetsCollectionBodyProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -185,7 +188,11 @@ export function AssetsCollectionBody({
 
   return (
     <PageBody className="collection__content">
-      {assets.length === 0 ? <CollectionEmptyState /> : layout}
+      {assets.length === 0 ? (
+        <CollectionEmptyState action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate } : undefined} />
+      ) : (
+        layout
+      )}
       {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>

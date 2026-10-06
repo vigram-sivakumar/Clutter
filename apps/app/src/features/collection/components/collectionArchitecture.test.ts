@@ -245,6 +245,7 @@ describe('the generic collection components own only their own CSS', () => {
     'media/CollectionImage.css': 'collection-image',
     'scale/ScaledCanvas.css': 'scaled-canvas',
     'empty/CollectionEmptyState.css': 'collection-empty-state',
+    'empty/CollectionSectionEmptyState.css': 'collection-section-empty',
   };
 
   it('has a declared owner for every stylesheet', () => {

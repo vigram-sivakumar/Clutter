@@ -1348,6 +1348,7 @@ export function PageHost({
                 sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
                 onCreate={onCreate}
+                emptyCreateLabel="Create note"
                 noteCover={noteCoverActions}
                 previewResolvers={{
                   resolveWikiLink,
@@ -1432,6 +1433,7 @@ export function PageHost({
                   )
             }
             onCreate={onCreate}
+            emptyCreateLabel="Add asset"
             onRenameResource={(id, name) =>
               void application.resourceOperations.renameResource(id, name)
             }
@@ -1595,6 +1597,7 @@ export function PageHost({
             sort={collectionView.sort}
             onCreateFolder={onCreateFolder}
             onCreate={onCreate}
+            emptyCreateLabel="Create note"
             noteCover={noteCoverActions}
           />
         }
