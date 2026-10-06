@@ -18,3 +18,13 @@
 .property-list__new-row .property-list__placeholder {
   color: var(--foreground-placeholder);
 }
+
+/* Tertiary at rest, so the button sits quietly under the rows; the button's own (secondary) colour
+   returns on hover. */
+.property-list__add-row .property-list__add-button {
+  color: var(--foreground-tertiary);
+}
+
+.property-list__add-row .property-list__add-button:not(:disabled):hover {
+  color: var(--foreground-secondary);
+}

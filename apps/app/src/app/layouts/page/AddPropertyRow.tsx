@@ -149,6 +149,7 @@ export function AddPropertyRow({
     <>
       <div ref={rowRef} className="property-list__add-row">
         <Button
+          className="property-list__add-button"
           variant="ghost"
           size="medium"
           leading={<AppIcon icon="plus" />}
