@@ -186,7 +186,7 @@ describe('TasksShortcuts', () => {
       fireEvent.click(screen.getByLabelText('Task display settings'));
 
       expect(screen.getByText('Show completed')).toBeInTheDocument();
-      expect(screen.getByText('Auto-sort completed')).toBeInTheDocument();
+      expect(screen.getByText('Sort completed')).toBeInTheDocument();
       expect(onShortcut).not.toHaveBeenCalled();
     });
 
@@ -196,13 +196,13 @@ describe('TasksShortcuts', () => {
       });
 
       fireEvent.click(screen.getByLabelText('Task display settings'));
-      fireEvent.click(screen.getByText('Auto-sort completed'));
+      fireEvent.click(screen.getByText('Sort completed'));
 
       expect(onTasksViewConfigChange).toHaveBeenCalledWith({
         showCompleted: true,
         autoSortCompleted: true,
       });
-      expect(screen.getByText('Auto-sort completed')).toBeInTheDocument();
+      expect(screen.getByText('Sort completed')).toBeInTheDocument();
     });
   });
 });

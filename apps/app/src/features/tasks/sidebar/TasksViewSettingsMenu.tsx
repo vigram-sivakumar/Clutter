@@ -41,7 +41,7 @@ export interface TasksViewSettingsMenuProps {
  *
  * Opens a tick-selection menu — a "Groups" section (Today / Overdue /
  * Upcoming / Unscheduled, which sidebar sections are shown), a divider,
- * then Show completed / Auto-sort completed — the same `Button` + `Overlay`
+ * then Show completed / Sort completed — the same `Button` + `Overlay`
  * + `Menu`/`MenuItem` tick pattern CollectionViewMenu.tsx's Properties
  * submenu establishes, with the tick in the item's trailing slot (absent
  * when off). Like that submenu, toggling an item leaves the menu open so
@@ -134,7 +134,7 @@ export function TasksViewSettingsMenu({
               onConfigChange({ ...config, autoSortCompleted: !config.autoSortCompleted });
             }}
           >
-            Auto-sort completed
+            Sort completed
           </MenuItem>
         </Menu>
       </Overlay>

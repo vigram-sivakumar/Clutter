@@ -76,7 +76,7 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     return { ...utils, onConfigChange, onOpenChange };
   }
 
-  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then Show completed and Auto-sort completed', () => {
+  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then Show completed and Sort completed', () => {
     const { getByText, getAllByRole } = renderOpenMenu();
 
     expect(getByText('Groups')).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
       'Upcoming',
       'Unscheduled',
       'Show completed',
-      'Auto-sort completed',
+      'Sort completed',
     ]);
     expect(getAllByRole('separator')).toHaveLength(1);
   });
@@ -110,7 +110,7 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     });
 
     const showRow = getByText('Show completed').closest('.entry')!;
-    const sortRow = getByText('Auto-sort completed').closest('.entry')!;
+    const sortRow = getByText('Sort completed').closest('.entry')!;
 
     expect(showRow.querySelector('.entry__meta svg')).toBeInTheDocument();
     expect(sortRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
@@ -124,7 +124,7 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     const { getByText } = renderOpenMenu({ showCompleted: true, autoSortCompleted: true });
 
     const showRow = getByText('Show completed').closest('.entry')!;
-    const sortRow = getByText('Auto-sort completed').closest('.entry')!;
+    const sortRow = getByText('Sort completed').closest('.entry')!;
 
     expect(showRow.querySelector('.entry__meta svg')).toBeInTheDocument();
     expect(sortRow.querySelector('.entry__meta svg')).toBeInTheDocument();
@@ -134,13 +134,13 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     const { getByText } = renderOpenMenu({ showCompleted: false, autoSortCompleted: false });
 
     const showRow = getByText('Show completed').closest('.entry')!;
-    const sortRow = getByText('Auto-sort completed').closest('.entry')!;
+    const sortRow = getByText('Sort completed').closest('.entry')!;
 
     expect(showRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
     expect(sortRow.querySelector('.entry__meta svg')).not.toBeInTheDocument();
   });
 
-  it('clicking Show completed flips only that field, keeping Auto-sort completed intact', () => {
+  it('clicking Show completed flips only that field, keeping Sort completed intact', () => {
     const { getByText, onConfigChange } = renderOpenMenu({
       showCompleted: true,
       autoSortCompleted: true,
@@ -151,13 +151,13 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     expect(onConfigChange).toHaveBeenCalledWith({ showCompleted: false, autoSortCompleted: true });
   });
 
-  it('clicking Auto-sort completed flips only that field, keeping Show completed intact', () => {
+  it('clicking Sort completed flips only that field, keeping Show completed intact', () => {
     const { getByText, onConfigChange } = renderOpenMenu({
       showCompleted: false,
       autoSortCompleted: false,
     });
 
-    fireEvent.click(getByText('Auto-sort completed'));
+    fireEvent.click(getByText('Sort completed'));
 
     expect(onConfigChange).toHaveBeenCalledWith({ showCompleted: false, autoSortCompleted: true });
   });
@@ -170,10 +170,10 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
-  it('selecting Auto-sort completed leaves the menu open', () => {
+  it('selecting Sort completed leaves the menu open', () => {
     const { getByText, onOpenChange } = renderOpenMenu();
 
-    fireEvent.click(getByText('Auto-sort completed'));
+    fireEvent.click(getByText('Sort completed'));
 
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
