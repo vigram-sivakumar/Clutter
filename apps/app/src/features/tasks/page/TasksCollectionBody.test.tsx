@@ -239,6 +239,32 @@ describe('TasksCollectionBody', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows the source note as a wiki-link-style link in the trailing slot and opens it on click', () => {
+    const onOpenTask = vi.fn();
+    const target = task({ text: 'Plan trip', dueDate: '2026-08-20' });
+
+    const { getByRole, container } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[target]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={onOpenTask}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+        getSourceLabel={() => 'Trips'}
+      />
+    );
+
+    // Not a pill: only the due date is one, and the link sits in the metadata (trailing) slot.
+    expect([...container.querySelectorAll('.pill')].map((pill) => pill.textContent)).toEqual(['20 Aug']);
+    expect(container.querySelector('.collection-row__metadata .task-row__source')).toHaveTextContent('Trips');
+
+    fireEvent.click(getByRole('link', { name: 'Open Trips' }));
+    expect(onOpenTask).toHaveBeenCalledTimes(1);
+    expect(onOpenTask).toHaveBeenCalledWith(target);
+  });
+
   it('shows the collection empty state for tasks-all with no tasks', () => {
     const { getByRole } = render(
       <TasksCollectionBody

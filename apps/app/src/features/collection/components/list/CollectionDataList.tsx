@@ -23,6 +23,9 @@ export interface CollectionDataListItem {
   /** The muted trailing values (dates, a kind label), one per entry; none draws no metadata. */
   readonly metadata?: readonly string[];
 
+  /** A custom node after the metadata in the trailing slot (a link to somewhere, say); drawn in the same muted metadata run. */
+  readonly trailing?: ReactNode;
+
   /** A thumbnail at the row's trailing end, in the shared media frame. */
   readonly media?: CollectionMediaProps;
 
@@ -65,11 +68,12 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
           titleContent={item.titleContent}
           description={item.description}
           metadata={
-            item.metadata && item.metadata.length > 0 ? (
+            (item.metadata && item.metadata.length > 0) || item.trailing ? (
               <>
-                {item.metadata.map((value, index) => (
+                {item.metadata?.map((value, index) => (
                   <span key={`${index}:${value}`}>{value}</span>
                 ))}
+                {item.trailing}
               </>
             ) : undefined
           }

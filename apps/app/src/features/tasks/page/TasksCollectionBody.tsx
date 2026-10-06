@@ -61,6 +61,8 @@ export interface TasksCollectionBodyProps {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
    */
   readonly displayConfig?: TaskDisplayConfig;
+  /** The display name of the note a task lives in (shown as a link pill that opens it); absent or undefined hides the pill. */
+  readonly getSourceLabel?: (task: TaskOccurrence) => string | undefined;
   /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
@@ -86,6 +88,7 @@ export function TasksCollectionBody({
   onDuplicateTask,
   onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
+  getSourceLabel,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -169,8 +172,15 @@ export function TasksCollectionBody({
     );
   }
 
+  const dueDatePill = (task: TaskOccurrence) => (
+    <TaskDuePill date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
+  );
+
   const items = [...tasks.filter((task) => !task.completed), ...getCompletedTasks(tasks)].map(
-    (task) => ({
+    (task) => {
+      const sourceLabel = getSourceLabel?.(task);
+
+      return {
       // Positional, not task.text — see renderTaskRow's key.
       id: `${task.sourcePageId}:${task.startOffset ?? task.text}`,
       title: task.text,
@@ -184,14 +194,34 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
-          <TaskDuePill
-            date={task.dueDate}
-            onChange={(date) => onChangeDueDate(task, date)}
-          />
+          {dueDatePill(task)}
         </span>
       ),
+      // The note the task lives in, as a wiki-link-styled link in the row's trailing slot.
+      trailing: sourceLabel ? (
+        <span
+          className="task-row__source"
+          role="link"
+          tabIndex={0}
+          aria-label={`Open ${sourceLabel}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenTask(task);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              event.stopPropagation();
+              onOpenTask(task);
+            }
+          }}
+        >
+          <span className="task-row__source-title">{sourceLabel}</span>
+        </span>
+      ) : undefined,
       onClick: () => onOpenTask(task),
-    })
+      };
+    }
   );
 
   return (

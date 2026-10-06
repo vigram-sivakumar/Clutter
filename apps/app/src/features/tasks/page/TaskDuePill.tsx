@@ -33,7 +33,6 @@ export function TaskDuePill({ date, onChange }: TaskDuePillProps) {
           .join(' ')}
       >
         <Pill
-          size="small"
           label={date === undefined ? 'Set due date' : 'Change due date'}
           onEdit={() => setOpen(true)}
         >

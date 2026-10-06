@@ -4,6 +4,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
@@ -1682,6 +1683,11 @@ export function PageHost({
             onDuplicateTask={(task) => void application.taskOperations.duplicate(task)}
             onDeleteTask={(task) => void application.taskOperations.delete(task)}
             displayConfig={tasksViewConfig}
+            getSourceLabel={(task) => {
+              const sourcePage = application.effectivePageState.getPage(task.sourcePageId);
+
+              return sourcePage ? getPageDisplayLabel(sourcePage).text : undefined;
+            }}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
             resolveEmbed={resolvePageEmbed}
