@@ -1658,8 +1658,8 @@ export function PageHost({
         breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />}
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
-        // On All Tasks the tab strip takes the title's place (presentation only).
-        titleContent={view === 'tasks-all' ? <TasksTabs /> : undefined}
+        // On All Tasks the tab strip sits below the title (presentation only).
+        belowDescription={view === 'tasks-all' ? <TasksTabs /> : undefined}
         titleActions={
           // The All Tasks collection gets the same header actions as every collection (Configure +
           // Add); Add opens the New task dialog.

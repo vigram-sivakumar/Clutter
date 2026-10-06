@@ -67,12 +67,6 @@ type PageProps = {
    */
   titleActions?: ReactNode;
   /**
-   * Replaces the page title heading entirely: when given, this is drawn in the title's place (the
-   * header's actions stay at the trailing end) and no `PageTitle` renders. Only the All Tasks page
-   * (its tab strip) currently supplies it.
-   */
-  titleContent?: ReactNode;
-  /**
    * Forwarded to PageTitleSection's own `belowDescription` slot — the
    * generic "below title/description" area. Only a Daily Note (real or
    * draft) currently supplies anything (its [Calendar] [←] [Today] [→]
@@ -240,7 +234,6 @@ export function Page({
   menu,
   actions,
   titleActions,
-  titleContent,
   belowDescription,
   emoji,
   icon,
@@ -403,23 +396,21 @@ export function Page({
           <header className="page__header">
             <PageTitleSection
               title={
-                titleContent ?? (
-                  <PageTitle
-                    key={titleKey}
-                    ref={titleRef}
-                    onNavigate={(direction, clientX) => focusNeighbor('title', direction, clientX)}
-                    editable={titleEditable}
-                    placeholder={titlePlaceholder}
-                    autoFocus={shouldAutoFocusTitle}
-                    onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
-                    onCommit={onTitleCommit}
-                    onEdit={onTitleEdit}
-                    onFlush={onTitleFlush}
-                    onCancel={onTitleCancel}
-                  >
-                    {title}
-                  </PageTitle>
-                )
+                <PageTitle
+                  key={titleKey}
+                  ref={titleRef}
+                  onNavigate={(direction, clientX) => focusNeighbor('title', direction, clientX)}
+                  editable={titleEditable}
+                  placeholder={titlePlaceholder}
+                  autoFocus={shouldAutoFocusTitle}
+                  onSubmit={() => bodyFocusRef?.current?.focusAtNewLineAtStart()}
+                  onCommit={onTitleCommit}
+                  onEdit={onTitleEdit}
+                  onFlush={onTitleFlush}
+                  onCancel={onTitleCancel}
+                >
+                  {title}
+                </PageTitle>
               }
               description={
                 showDescription ? (

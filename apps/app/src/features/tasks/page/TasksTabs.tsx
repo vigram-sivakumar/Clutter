@@ -10,7 +10,7 @@ const TASK_TABS = [
 ] as const;
 
 /**
- * The tab strip in the All Tasks page header, before the settings and Add buttons. Presentation only for now: it holds just its own selected
+ * The tab strip below the All Tasks page title. Presentation only for now: it holds just its own selected
  * tab and is not connected to the list, filtering or any task data.
  */
 export function TasksTabs() {

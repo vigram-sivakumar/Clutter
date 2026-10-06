@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,31 +47,6 @@ describe('Page — title autofocus', () => {
     render(<Page title="" titleEditable={false} body={<div />} />);
 
     expect(screen.queryByRole('textbox')).toBeNull();
-  });
-});
-
-describe('Page — titleContent replaces the title heading', () => {
-  it('draws the given content where the title would be, with no heading, and keeps the title actions', () => {
-    const { container } = render(
-      <Page
-        title="All Tasks"
-        titleContent={<nav aria-label="tabs">Tabs here</nav>}
-        titleActions={<button type="button">Act</button>}
-        body={<div />}
-      />
-    );
-
-    const row = container.querySelector('.page-title-section__row')!;
-    expect(row.firstElementChild).toBe(screen.getByLabelText('tabs'));
-    expect(container.querySelector('.page-title')).toBeNull();
-    expect(screen.queryByText('All Tasks')).toBeNull();
-    expect(row.querySelector('.page-title-section__actions')).toContainElement(screen.getByText('Act'));
-  });
-
-  it('without titleContent the title renders as before', () => {
-    const { container } = render(<Page title="All Tasks" body={<div />} />);
-
-    expect(container.querySelector('.page-title')).toHaveTextContent('All Tasks');
   });
 });
 
