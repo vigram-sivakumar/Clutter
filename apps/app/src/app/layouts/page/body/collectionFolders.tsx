@@ -22,6 +22,14 @@ export interface FolderCreation {
 }
 
 /**
+ * Whether macOS can name a folder this: no "/" (a path separator) or ":" (Finder shows it as "/"), no NUL
+ * character, and not "." or "..". Checked before the folder's own sibling-collision check.
+ */
+export function isAllowedFolderName(name: string): boolean {
+  return !/[/:\0]/.test(name) && name !== '.' && name !== '..';
+}
+
+/**
  * The card a folder takes while it is being named. Same shape as a folder card; its title is the
  * existing inline name editor, empty and focused, with the placeholder only ("New Folder"). Enter
  * commits — the typed text, else the placeholder text as the name. Escape or clicking away cancels:
@@ -49,7 +57,7 @@ function NewFolderCard({ creation }: { creation: FolderCreation }) {
                 autoFocus
                 onCommit={(typed) => {
                   const name = typed.trim();
-                  if (name !== '' && creation.canCreate && !creation.canCreate(name)) {
+                  if (name !== '' && (!isAllowedFolderName(name) || (creation.canCreate && !creation.canCreate(name)))) {
                     enteredRef.current = false;
                     return false;
                   }

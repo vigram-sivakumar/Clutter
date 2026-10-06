@@ -148,6 +148,18 @@ describe('creating a folder inline', () => {
     expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
   });
 
+  it.each(['a/b', 'a:b', '..'])('rejects the name "%s" (not allowed on macOS): the field stays open', async (name) => {
+    const { create } = await renderProjects();
+    const field = await startCreatingFolder();
+
+    type(field, name);
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await flush();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).not.toBeNull();
+  });
+
   it('clicking outside cancels too — empty or typed — and creates no folder', async () => {
     const { create } = await renderProjects();
     let field = await startCreatingFolder();
