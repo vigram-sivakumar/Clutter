@@ -554,6 +554,48 @@ export class PageOperations {
   }
 
   /**
+   * The non-activating sibling of openAtPath(): resolves the page at a known
+   * target path, or makes it real, without ever opening it or changing the
+   * active view — for a caller that writes into a page the user isn't
+   * looking at (a task added to a Daily Note from the All Tasks page).
+   *
+   * Three cases, none of which touches the single draft slot's occupant
+   * unless it IS this path's draft:
+   * - the page exists → its id;
+   * - the live draft already targets `path` (Today's note, open and still
+   *   unsaved) → that draft's id, so a later mutateBody()/requestSave()
+   *   promotes the one draft rather than a second page racing it to the path;
+   * - otherwise → persisted empty through persistDraft() (the same eager
+   *   path create() uses, with the deterministic path and Daily Note folder
+   *   chain resolved exactly as for a draft's first save).
+   */
+  public async ensureAtPath(
+    path: string,
+    options: { readonly type: PageType; readonly title?: string }
+  ): Promise<string> {
+    const existing = this.vault.getPageByPath(path);
+
+    if (existing) {
+      return existing.id;
+    }
+
+    const draft = this.draft;
+
+    if (
+      draft &&
+      draft.descriptor.deterministicPath === path &&
+      this.documentRegistry.get(draft.id)
+    ) {
+      return draft.id;
+    }
+
+    const id = this.pageCreator.generateId();
+    const page = await this.persistDraft(id, this.resolveDraftTarget(path, options), '');
+
+    return page.id;
+  }
+
+  /**
    * The one place a draft is ever created or repurposed, so the
    * "at most one unsaved draft, globally" invariant has exactly one
    * enforcement point (every entry point — New Note, a folder's "+", a

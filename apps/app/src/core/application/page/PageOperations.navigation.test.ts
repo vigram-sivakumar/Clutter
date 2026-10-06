@@ -667,3 +667,54 @@ describe('An empty Daily Note draft referenced by navigation history is not auto
     expect(workspace.openPages).toContain(draftId);
   });
 });
+
+describe('PageOperations.ensureAtPath: non-activating resolve-or-create', () => {
+  it('persists a missing Daily Note without opening it or changing the active view', async () => {
+    const { vault, workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
+    await pageOperations.open('page-a');
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date());
+
+    const id = await pageOperations.ensureAtPath(path, { type: 'daily-note' });
+
+    expect(vault.getPageByPath(path)?.id).toBe(id);
+    expect(workspace.activePageId).toBe('page-a');
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
+  it('returns the existing page for a path that already has one, without opening it', async () => {
+    const { workspace, pageOperations } = setup([buildPage('page-a', 'A'), buildPage('page-b', 'B')]);
+    await pageOperations.open('page-a');
+
+    const id = await pageOperations.ensureAtPath(`${ROOT}/B.md`, { type: 'note' });
+
+    expect(id).toBe('page-b');
+    expect(workspace.activePageId).toBe('page-a');
+  });
+
+  it('returns the live draft for its own path, so one page — not two — ends up at that path', async () => {
+    const { vault, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date());
+    const draftId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+    await pageOperations.open('page-a');
+
+    const id = await pageOperations.ensureAtPath(path, { type: 'daily-note' });
+
+    expect(id).toBe(draftId);
+    expect(vault.getPageByPath(path)).toBeUndefined();
+  });
+
+  it('a body mutation into the ensured page is durable and visible when the note is opened later', async () => {
+    const { vault, workspace, documentRegistry, pageOperations } = setup([buildPage('page-a', 'A')]);
+    await pageOperations.open('page-a');
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date());
+
+    const id = await pageOperations.ensureAtPath(path, { type: 'daily-note' });
+    await pageOperations.mutateBody(id, () => '- [ ] Buy milk');
+    await pageOperations.requestSave(id);
+    await pageOperations.open(id);
+
+    expect(workspace.activePageId).toBe(id);
+    expect(vault.getPage(id)!.source.markdown).toContain('- [ ] Buy milk');
+    expect(documentRegistry.get(id)!.currentRevision.markdown).toContain('- [ ] Buy milk');
+  });
+});

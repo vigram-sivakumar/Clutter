@@ -12,7 +12,8 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
  * existing implicit-due-date fallback, which is also why no inline @date
  * is ever written by TaskOperations.create(). Same
  * PageOperations.openAtPath(DailyNotePath.absoluteFrom(...)) resolve-or-draft
- * call the Daily Notes sidebar already uses. Awaited so NewTaskContent knows
+ * shape the Daily Notes sidebar uses, but non-activating (ensureAtPath) so
+ * the user stays where they are. Awaited so NewTaskContent knows
  * whether creation succeeded before closing; requestSave() forces the new
  * line to the Durable stage immediately instead of waiting on autosave.
  */
@@ -27,7 +28,7 @@ export async function createTaskInDailyNote(
 ): Promise<void> {
   const targetDate = dueDate ?? toISODate(new Date());
   const path = DailyNotePath.absoluteFrom(vault.root, toDate(targetDate));
-  const pageId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+  const pageId = await pageOperations.ensureAtPath(path, { type: 'daily-note' });
 
   await taskOperations.create(pageId, title);
   await pageOperations.requestSave(pageId);
