@@ -4,6 +4,7 @@ export interface ConfirmationRequest {
   readonly title: string;
   readonly message?: string;
   readonly confirmLabel: string;
+  readonly confirmVariant?: 'danger' | 'primary';
   readonly onConfirm: () => void;
 }
 

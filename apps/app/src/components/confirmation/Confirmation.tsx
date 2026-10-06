@@ -10,6 +10,8 @@ export interface ConfirmationProps {
 
   confirmLabel: string;
   cancelLabel?: string;
+  /** The confirm button's treatment: 'danger' (default) or the standard 'primary' button. */
+  confirmVariant?: 'danger' | 'primary';
 
   onConfirm: () => void;
   onCancel: () => void;
@@ -20,6 +22,7 @@ export function Confirmation({
   description,
   confirmLabel = 'Delete',
   cancelLabel = 'Cancel',
+  confirmVariant = 'danger',
   onConfirm,
   onCancel,
 }: ConfirmationProps) {
@@ -45,8 +48,8 @@ export function Confirmation({
         </Button>
 
         <Button
-          className="button-danger"
-          variant={'filled'}
+          className={confirmVariant === 'danger' ? 'button-danger' : undefined}
+          variant={confirmVariant === 'danger' ? 'filled' : 'primary'}
           size={'large'}
           onClick={onConfirm}
         >

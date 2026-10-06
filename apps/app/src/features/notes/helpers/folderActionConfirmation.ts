@@ -36,7 +36,7 @@ export function getFolderArchiveConfirmation(
     vault,
     folderId,
     (folderCount, pageCount) =>
-      `Archive this folder and everything inside it? This will also archive ${folderCount} folder(s) and ${pageCount} page(s).`
+      `Move this folder and everything inside it to the Trash? This will also move ${folderCount} folder(s) and ${pageCount} page(s).`
   );
 }
 

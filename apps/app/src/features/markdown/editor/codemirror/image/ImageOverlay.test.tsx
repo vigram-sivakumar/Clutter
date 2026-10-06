@@ -118,7 +118,7 @@ describe('ImageOverlay', () => {
       expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
       expect(screen.getByText('Copy path')).toBeInTheDocument();
       expect(screen.getByText('Download')).toBeInTheDocument();
-      expect(screen.getByText('Archive')).toBeInTheDocument();
+      expect(screen.getByText('Move to Trash')).toBeInTheDocument();
       expect(screen.queryByText('Rename')).not.toBeInTheDocument();
     });
 
@@ -174,7 +174,7 @@ describe('ImageOverlay', () => {
       );
 
       fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
-      fireEvent.click(screen.getByText('Archive'));
+      fireEvent.click(screen.getByText('Move to Trash'));
 
       expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
     });
@@ -285,7 +285,7 @@ describe('ImageOverlay', () => {
           'Copy path',
           'Download',
           'Set as cover image',
-          'Archive',
+          'Move to Trash',
         ]);
       });
 
@@ -413,7 +413,7 @@ describe('ImageOverlay — remote image actions', () => {
 
     expect(labels()).toEqual(['Save to vault', 'Open in browser', 'Copy link', 'Download', 'Set as cover image']);
     expect(screen.getByText('Set as cover image').closest('[role="menuitem"]')).toHaveAttribute('aria-disabled', 'true');
-    for (const absent of ['Archive', 'Move to…', 'Reveal in Finder', 'Copy path', 'Rename']) {
+    for (const absent of ['Move to Trash', 'Move to…', 'Reveal in Finder', 'Copy path', 'Rename']) {
       expect(screen.queryByText(absent)).not.toBeInTheDocument();
     }
   });

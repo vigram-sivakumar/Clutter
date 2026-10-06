@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 const menu: TopBarMenuItemConfig[] = [
-  { id: 'archive', label: 'Archive', icon: 'archive' },
+  { id: 'archive', label: 'Move to Trash', icon: 'archive' },
   { id: 'add-a-description', label: 'Add a description', icon: 'description' },
 ];
 
@@ -79,7 +79,7 @@ describe('ResourceTopBarActions', () => {
     render(<ResourceTopBarActions menu={menu} />);
     openMenu();
 
-    expect(screen.getByText('Archive')).toBeDefined();
+    expect(screen.getByText('Move to Trash')).toBeDefined();
     expect(screen.getByText('Add a description')).toBeDefined();
   });
 
@@ -90,7 +90,7 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    fireEvent.click(screen.getByText('Archive'));
+    fireEvent.click(screen.getByText('Move to Trash'));
 
     expect(onArchive).toHaveBeenCalledTimes(1);
   });
@@ -111,13 +111,13 @@ describe('ResourceTopBarActions', () => {
     render(<ResourceTopBarActions menu={menu} />);
     openMenu();
 
-    expect(() => fireEvent.click(screen.getByText('Archive'))).not.toThrow();
+    expect(() => fireEvent.click(screen.getByText('Move to Trash'))).not.toThrow();
   });
 
   it('renders a disabled item but never invokes its handler on click', () => {
     const onArchive = vi.fn();
     const disabledMenu: TopBarMenuItemConfig[] = [
-      { id: 'archive', label: 'Archive', icon: 'archive', disabled: true },
+      { id: 'archive', label: 'Move to Trash', icon: 'archive', disabled: true },
     ];
     render(
       <ResourceTopBarActions
@@ -127,8 +127,8 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    expect(screen.getByText('Archive')).toBeDefined();
-    fireEvent.click(screen.getByText('Archive'));
+    expect(screen.getByText('Move to Trash')).toBeDefined();
+    fireEvent.click(screen.getByText('Move to Trash'));
 
     expect(onArchive).not.toHaveBeenCalled();
   });
@@ -161,7 +161,7 @@ describe('ResourceTopBarActions', () => {
       );
       openMenu();
 
-      fireEvent.click(screen.getByText('Archive'));
+      fireEvent.click(screen.getByText('Move to Trash'));
 
       expect(onArchive).toHaveBeenCalledTimes(1);
     });
@@ -271,17 +271,17 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Archive'));
+      fireEvent.click(screen.getByText('Move to Trash'));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.getByText('Archive this folder?')).toBeDefined();
+      expect(screen.getByText('Move this folder to Trash?')).toBeDefined();
       expect(screen.getByText(ARCHIVE_MESSAGE)).toBeDefined();
 
-      const confirmButtons = screen.getAllByRole('button', { name: 'Archive' });
+      const confirmButtons = screen.getAllByRole('button', { name: 'Move to Trash' });
       fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
       expect(onArchive).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText('Archive this folder?')).toBeNull();
+      expect(screen.queryByText('Move this folder to Trash?')).toBeNull();
     });
 
     it('Cancel closes the confirmation dialog without invoking archive', () => {
@@ -294,12 +294,12 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Archive'));
+      fireEvent.click(screen.getByText('Move to Trash'));
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.queryByText('Archive this folder?')).toBeNull();
+      expect(screen.queryByText('Move this folder to Trash?')).toBeNull();
     });
   });
 
@@ -322,9 +322,9 @@ describe('ResourceTopBarActions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     openMenu();
-    fireEvent.click(screen.getByText('Archive'));
+    fireEvent.click(screen.getByText('Move to Trash'));
 
-    expect(screen.getByText('Archive this folder?')).toBeDefined();
+    expect(screen.getByText('Move this folder to Trash?')).toBeDefined();
     expect(screen.queryByText('Delete permanently?')).toBeNull();
   });
 

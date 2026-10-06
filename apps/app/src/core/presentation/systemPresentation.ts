@@ -111,7 +111,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   favorites: { id: 'favorites', label: 'Favorites', icon: 'favouriteOutline' },
   workspace: { id: 'workspace', label: 'Workspace', icon: 'folder' },
   search: { id: 'search', label: 'Search', icon: 'magnifyingGlass' },
-  archive: { id: 'archive', label: 'Archive', icon: 'archive' },
+  archive: { id: 'archive', label: 'Trash', icon: 'trash' },
   inbox: { id: 'inbox', label: 'Inbox', icon: 'tray' },
   templates: { id: 'templates', label: 'Templates', icon: 'template' },
   assets: { id: 'assets', label: 'Assets', icon: 'layers' },

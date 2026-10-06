@@ -628,7 +628,7 @@ describe('renderTags', () => {
       );
 
       expect(screen.getByText('Rename')).toBeInTheDocument();
-      expect(screen.getByText('Archive')).toBeInTheDocument();
+      expect(screen.getByText('Move to Trash')).toBeInTheDocument();
     });
 
     it("selecting Archive calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
@@ -648,7 +648,7 @@ describe('renderTags', () => {
         </>
       );
 
-      fireEvent.click(screen.getByText('Archive'));
+      fireEvent.click(screen.getByText('Move to Trash'));
 
       expect(onArchiveNote).toHaveBeenCalledWith('p1');
     });

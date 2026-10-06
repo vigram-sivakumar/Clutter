@@ -213,7 +213,7 @@ describe('PageHost: inline PDF embed More actions — Position', () => {
     expect(rows.slice(0, 4)).toEqual(['Position', 'Left', 'Center', '---']);
     expect(menuItem('Right')).toBeNull();
     expect(rows[rows.length - 1]).toBe('Remove');
-    expect(rows).toContain('Archive');
+    expect(rows).toContain('Move to Trash');
     expect(menuItem('Left')?.classList.contains('entry-selected')).toBe(true);
   });
 

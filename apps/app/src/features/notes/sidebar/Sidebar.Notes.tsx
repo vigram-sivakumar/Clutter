@@ -273,9 +273,9 @@ export function Notes({
 
       if (hasDescendants) {
         confirmation.request({
-          title: 'Archive this folder?',
+          title: 'Move this folder to Trash?',
           message,
-          confirmLabel: 'Archive',
+          confirmLabel: 'Move to Trash',
           onConfirm: () => void folderOperations.archive(folderId),
         });
         return;

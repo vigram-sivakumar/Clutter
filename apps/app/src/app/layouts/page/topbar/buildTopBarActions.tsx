@@ -6,6 +6,10 @@ import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
+import {
+  buildArchiveTopBarMenu,
+  DELETE_ALL_ARCHIVED_CONFIRMATION,
+} from '@features/notes/topbar/archiveTopBarMenu.config';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import {
@@ -85,6 +89,12 @@ export interface BuildTopBarActionsOptions {
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
+  /**
+   * The Archive page's 'Delete all'. Passed only when `resource` is the Archive folder; a reserved
+   * folder without it still has no top bar actions. `archiveIsEmpty` disables the item.
+   */
+  onDeleteAll?: () => void;
+  archiveIsEmpty?: boolean;
   onDuplicate?: () => void;
   /** The note menu's 'Use as template' — moves the note into the Templates folder. */
   onUseAsTemplate?: () => void;
@@ -140,7 +150,11 @@ export function buildTopBarActions(
   const isDeletable =
     resource.metadata.status === 'archived' ||
     options.membershipSelector.isEffectivelyArchived(resource.parentId);
-  const menu = isPage(resource)
+  const menu = !isPage(resource) && resourceType === 'reserved-folder'
+    ? options.onDeleteAll
+      ? buildArchiveTopBarMenu(options.archiveIsEmpty ?? false)
+      : []
+    : isPage(resource)
     ? buildMenuForType(
         resource.type,
         resource.metadata.status,
@@ -176,6 +190,10 @@ export function buildTopBarActions(
       onArchive: options.onArchive,
       onRestore: options.onRestore,
       onDelete: options.onDelete,
+      onDeleteAll: options.onDeleteAll,
+      deleteAllConfirmation: options.onDeleteAll
+        ? DELETE_ALL_ARCHIVED_CONFIRMATION
+        : undefined,
       onDuplicate: options.onDuplicate,
       onUseAsTemplate: options.onUseAsTemplate,
       archiveConfirmationMessage: options.archiveConfirmationMessage,

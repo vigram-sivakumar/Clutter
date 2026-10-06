@@ -30,6 +30,7 @@ import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPa
 import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
+import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import {
   buildMoveDestinationItems,
@@ -1141,12 +1142,22 @@ export function PageHost({
         icon: null,
       });
 
+    const folderSystemLocationId = getSystemLocationForFolder(
+      folder,
+      application.membershipSelector
+    );
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       vaultRoot: vault.root,
       onArchive: () => void application.folderOperations.archive(folder.id),
       onRestore: () => void application.folderOperations.restore(folder.id),
       onDelete: () => void application.folderOperations.delete(folder.id),
+      // The Archive page's page-level 'Delete all' — wired only for the Archive; every other
+      // reserved folder keeps no top bar actions at all.
+      ...(folderSystemLocationId === 'archive' && {
+        onDeleteAll: () => void deleteAllArchived(application, folder.id),
+        archiveIsEmpty: !hasArchivedItems(application, folder.id),
+      }),
       onToggleFavorite: () =>
         void application.folderOperations.updateMetadata(folder.id, {
           favorite: !folder.metadata.favorite,
@@ -1185,10 +1196,6 @@ export function PageHost({
     // component's own doc comment for why this isn't a CollectionPageModel
     // extension. Every other folder (including every other reserved one)
     // keeps the exact same CollectionBody rendering as before.
-    const folderSystemLocationId = getSystemLocationForFolder(
-      folder,
-      application.membershipSelector
-    );
     const isArchiveView = folderSystemLocationId === 'archive';
     // Page-header-controls configuration (final UX rules): a reserved
     // folder (Archive, Templates, Daily Notes) is system-reserved —

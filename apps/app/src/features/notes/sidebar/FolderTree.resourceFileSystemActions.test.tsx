@@ -229,7 +229,7 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
     // The parent menu (Rename/Move to/Reveal/Copy path/Archive) is still
     // rendered — this is a submenu, not a replacement of the parent menu.
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
   });
 
   it('selecting "From vault" calls onCopyResourcePath with the resource id and the at-vault format', () => {
@@ -277,7 +277,7 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
   });
 
   it('Archive renders last, after Reveal in Finder and Copy path', () => {
@@ -298,7 +298,7 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
       'Reveal in Finder',
       'Copy path',
       'Download',
-      'Archive',
+      'Move to Trash',
     ]);
   });
 });

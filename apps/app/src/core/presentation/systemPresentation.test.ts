@@ -37,7 +37,7 @@ const VIEW_LOCATIONS: readonly SystemLocationId[] = [
 describe('getSystemLocationPresentation', () => {
   describe('default (no surface)', () => {
     it('returns the canonical icon for a folder-backed location, unaffected by the page-header flag', () => {
-      expect(getSystemLocationPresentation('archive').icon).toBe('archive');
+      expect(getSystemLocationPresentation('archive').icon).toBe('trash');
     });
 
     it('returns the canonical icon for a non-folder view location, unaffected by the page-header flag', () => {

@@ -353,7 +353,7 @@ describe('FolderTree row overflow menu: open/close', () => {
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
     // No Delete item — the sidebar never exposes it (deletion-UX product
     // decision), see FolderTree row overflow menu: 'delete' below.
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
@@ -442,7 +442,7 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
     // querying each row's own overlay/menu presence via its DOM subtree —
     // simplest reliable signal here is that exactly one "Archive" menuitem
     // exists (folder-b's Overlay renders null while its open is false).
-    expect(screen.getAllByText('Archive')).toHaveLength(1);
+    expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
   });
 });
 
@@ -455,7 +455,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     const rowActions: SidebarRowActions = { ...actions, onArchiveNote: (id) => void pageOperations.archive(id) };
 
     renderTree(query, membershipSelector, workspace, rowActions);
-    fireEvent.click(screen.getByText('Archive'));
+    fireEvent.click(screen.getByText('Move to Trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith(page.id);
   });
@@ -612,7 +612,7 @@ describe('FolderTree row overflow menu: a draft note has no menu at all', () => 
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
-    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to Trash')).not.toBeInTheDocument();
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 
@@ -648,7 +648,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
     // No Delete item — see the removed-test comment above.
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
@@ -676,7 +676,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to Trash')).not.toBeInTheDocument();
   });
 
   it('Archive calls onArchiveFolder', () => {
@@ -685,7 +685,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
     renderTree(query, membershipSelector, workspace, actions);
-    fireEvent.click(screen.getByText('Archive'));
+    fireEvent.click(screen.getByText('Move to Trash'));
 
     expect(spies.onArchiveFolder).toHaveBeenCalledWith('folder-1');
   });

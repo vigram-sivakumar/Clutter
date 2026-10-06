@@ -62,6 +62,16 @@ export interface ResourceTopBarActionsProps {
    */
   deleteConfirmationMessage?: string;
   /**
+   * The Archive page's 'delete-all' item: when present, selecting it shows the shared
+   * Confirmation surface with this copy before invoking handlers['delete-all'].
+   */
+  deleteAllConfirmation?: {
+    readonly title: string;
+    readonly message: string;
+    readonly confirmLabel: string;
+    readonly confirmVariant?: 'danger' | 'primary';
+  };
+  /**
    * The Move destination picker's folder list — present only when the
    * caller's menu includes a `move-to` item (buildMoveDestinationItems.ts
    * is the one place this list is built, from MembershipSelector, which
@@ -118,6 +128,7 @@ export function ResourceTopBarActions({
   handlers,
   archiveConfirmationMessage,
   deleteConfirmationMessage,
+  deleteAllConfirmation,
   moveDestinations,
   onMove,
   onCreateFolder,
@@ -144,11 +155,19 @@ export function ResourceTopBarActions({
         return;
       }
 
+      if (id === 'delete-all' && deleteAllConfirmation !== undefined) {
+        confirmation.request({
+          ...deleteAllConfirmation,
+          onConfirm: () => handlers?.['delete-all']?.(),
+        });
+        return;
+      }
+
       if (id === 'archive' && archiveConfirmationMessage !== undefined) {
         confirmation.request({
-          title: 'Archive this folder?',
+          title: 'Move this folder to Trash?',
           message: archiveConfirmationMessage,
-          confirmLabel: 'Archive',
+          confirmLabel: 'Move to Trash',
           onConfirm: () => handlers?.['archive']?.(),
         });
         return;
@@ -211,6 +230,7 @@ export function ResourceTopBarActions({
             title={confirmation.pending.title}
             description={confirmation.pending.message}
             confirmLabel={confirmation.pending.confirmLabel}
+            confirmVariant={confirmation.pending.confirmVariant}
             onConfirm={confirmation.confirm}
             onCancel={confirmation.cancel}
           />

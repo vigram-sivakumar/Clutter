@@ -5,13 +5,16 @@ import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
-import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
+import type { ResourceTopBarActionsProps, TopBarMenuItemConfig } from './ResourceTopBarActions';
 
 export interface TopBarActionsOptions {
   menu?: readonly TopBarMenuItemConfig[];
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
+  /** The Archive page's 'Delete all' — present only for the Archive (see renderReservedFolderActions). */
+  onDeleteAll?: () => void;
+  deleteAllConfirmation?: ResourceTopBarActionsProps['deleteAllConfirmation'];
   onDuplicate?: () => void;
   onUseAsTemplate?: () => void;
   /** Present only when `menu` includes a `move-to` item — see ResourceTopBarActions' matching props. */
@@ -126,7 +129,17 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
 // the key) precisely so a future system-folder action can be introduced by
 // giving this entry a real renderer, without touching the dispatch in
 // buildTopBarActions.tsx or the registry's shape.
-const renderReservedFolderActions: TopBarActionsRenderer = () => null;
+//
+// The Archive is the first to get one: it passes a menu (just 'Delete all') and its handler; every
+// other reserved folder passes none and still renders nothing.
+const renderReservedFolderActions: TopBarActionsRenderer = (options) =>
+  options?.menu && options.menu.length > 0 ? (
+    <ResourceTopBarActions
+      menu={options.menu}
+      handlers={{ 'delete-all': options.onDeleteAll }}
+      deleteAllConfirmation={options.deleteAllConfirmation}
+    />
+  ) : null;
 
 export const topBarActionsRegistry: Record<
   TopBarResourceType,
