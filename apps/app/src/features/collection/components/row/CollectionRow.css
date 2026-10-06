@@ -11,6 +11,7 @@
   width: 100%;
   min-width: 0;
   padding: var(--space-6);
+  padding-inline: 4px;
   transition: background-color 120ms ease;
 }
 
