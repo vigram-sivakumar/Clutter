@@ -30,7 +30,7 @@
   background-color: var(--pill-surface);
   border-radius: var(--md-badge-radius);
   padding-block: 0;
-  padding-inline: 0.4em;
+  padding-inline: 8px;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -40,7 +40,6 @@
 .pill.pill--small,
 .property-list__value .entry__content .pill.pill--small {
   --pill-height: 20px;
-
   font-size: var(--text-label-small);
 }
 .pill__prefix,
