@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
@@ -77,6 +78,22 @@ export interface TasksCollectionBodyProps {
 }
 
 /**
+ * The one page-body wrapper every task view renders through: the standard
+ * collection `PageBody` plus the shared `collection__bottom-spacer` every
+ * collection body must end with (see CollectionBody.css) — the trailing
+ * scroll space that lets the last row scroll clear of the page's bottom
+ * fade. Defined once here so no individual view can forget it.
+ */
+function TasksPageBody({ children }: { readonly children: ReactNode }) {
+  return (
+    <PageBody className="collection__content">
+      {children}
+      <div className="collection__bottom-spacer" aria-hidden="true" />
+    </PageBody>
+  );
+}
+
+/**
  * The page-body rendering for every task collection view. Deliberately
  * not a CollectionBody variant — CollectionEntryModel (folder/note-shaped)
  * has no room for `completed`/`dueDate`, so forcing tasks through it would
@@ -114,55 +131,55 @@ export function TasksCollectionBody({
   if (view === 'tasks-today') {
     const { today } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionRowList>
           {renderTodayContent({ today, ...rowCallbacks })}
         </CollectionRowList>
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
   if (view === 'tasks-overdue') {
     const { overdue } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionRowList>
           {renderOverdueContent({ overdue, ...rowCallbacks })}
         </CollectionRowList>
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
   if (view === 'tasks-upcoming') {
     const { upcoming } = groupTasks(tasks, displayConfig);
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionRowList>
           {renderUpcomingContent({ upcoming, ...rowCallbacks })}
         </CollectionRowList>
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
   if (view === 'tasks-completed') {
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionRowList>
           {getCompletedTasks(tasks).map((task) => renderTaskRow(task, rowCallbacks))}
         </CollectionRowList>
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
   if (view === 'tasks-unscheduled') {
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionRowList>
           {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
             renderTaskRow(task, rowCallbacks)
           )}
         </CollectionRowList>
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
@@ -173,9 +190,9 @@ export function TasksCollectionBody({
   // collection, one row per task: checkbox and title, with the note it lives in trailing.
   if (tasks.length === 0) {
     return (
-      <PageBody className="collection__content">
+      <TasksPageBody>
         <CollectionEmptyState message="Tasks from your notes will appear here" />
-      </PageBody>
+      </TasksPageBody>
     );
   }
 
@@ -230,8 +247,8 @@ export function TasksCollectionBody({
   );
 
   return (
-    <PageBody className="collection__content">
+    <TasksPageBody>
       <CollectionDataList items={items} />
-    </PageBody>
+    </TasksPageBody>
   );
 }

@@ -31,6 +31,17 @@ This is not a guess or a style preference — it was proven twice, independently
 
 This does **not** mean CM6-managed lines can't be styled at all — `Decoration.line` classes carrying `background`/`border`/`border-radius`/`padding` are an established, safe Clutter pattern (blockquote, tables, horizontal rules, fenced code all do this). Only `margin` is banned.
 
+## Collection-page scrolling contract (permanent)
+
+Every scrollable collection page follows the same scrolling structure:
+
+1. **`.page__content` is the one scroll container** (`app/layouts/page/Page.css`). Do not create a page-specific vertical scroll container without a documented architectural reason.
+2. Render through the standard `PageBody` / `collection__content` collection-body structure.
+3. **Every collection body that contains a scrollable list ends with the shared `<div className="collection__bottom-spacer" aria-hidden="true" />`** — exactly once, outside any empty/non-empty branch — and never ends directly after its last item.
+4. The spacer is structural, not decoration: it is the trailing scroll space that lets the last item scroll clear of the page's bottom fade (`.page__document::before`). Without it the scroll range ends flush at the last row, under the fade (this is how the Tasks page's last rows were hidden). Do not change its dimensions or behavior.
+
+`app/layouts/page/body/collectionScrollContract.test.ts` enforces rules 1 and 3 against the source: any new `collection__content` body must be added there and carry the spacer.
+
 ## Markdown editor strikethrough — rendering contract (permanent)
 
 **Read and comply with `apps/app/src/features/markdown/editor/codemirror/highlight/STRIKETHROUGH.md` before modifying strikethrough behavior in the CodeMirror editor, or before adding any new inline Markdown construct that might be struck.**

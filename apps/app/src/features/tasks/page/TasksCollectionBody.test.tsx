@@ -219,6 +219,47 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Due date')).toBeNull();
   });
 
+  it.each([
+    'tasks-today',
+    'tasks-overdue',
+    'tasks-upcoming',
+    'tasks-completed',
+    'tasks-unscheduled',
+    'tasks-all',
+  ] as const)('%s ends with the shared collection__bottom-spacer, once', (view) => {
+    const { container } = render(
+      <TasksCollectionBody
+        view={view}
+        tasks={[task({ text: 'A task', dueDate: '2026-08-04' })]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    const spacers = container.querySelectorAll('.collection__content > .collection__bottom-spacer');
+    expect(spacers).toHaveLength(1);
+    expect(container.querySelector('.collection__content')!.lastElementChild).toBe(spacers[0]);
+  });
+
+  it('keeps the spacer on an empty tasks-all page too', () => {
+    const { container } = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[]}
+        onToggleComplete={vi.fn()}
+        onOpenTask={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        onDuplicateTask={vi.fn()}
+        onDeleteTask={vi.fn()}
+      />
+    );
+
+    expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
+  });
+
   it('shows the collection empty state for tasks-all with no tasks', () => {
     const { getByRole } = render(
       <TasksCollectionBody
