@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from './groupTasks';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
+import type { Page } from '@core/vault/models';
+import { TaskBuilder } from '@core/vault/knowledge/TaskBuilder';
 
 function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
   return {
@@ -324,5 +326,38 @@ describe('groupTasks', () => {
 
       expect(groups.today).toEqual([alpha, zebra]);
     });
+  });
+});
+
+describe('groupTasks over a Daily Note\'s tasks (ADR-044)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 6)); // 2026-10-06
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('classifies by explicit due date only: living in today\'s Daily Note never makes a task Today', () => {
+    const todaysNote = {
+      id: 'daily',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/October/2026-10-06.md',
+      analysis: {
+        tasks: [
+          task({ sourcePageId: 'daily', text: 'no date' }),
+          task({ sourcePageId: 'daily', text: 'due today', dueDate: '2026-10-06' }),
+          task({ sourcePageId: 'daily', text: 'due later', dueDate: '2026-10-08' }),
+          task({ sourcePageId: 'daily', text: 'was due', dueDate: '2026-10-01' }),
+        ],
+      },
+    } as unknown as Page;
+
+    const groups = groupTasks(new TaskBuilder().build([todaysNote]), SHOWN);
+
+    expect(groups.today.map((t) => t.text)).toEqual(['due today']);
+    expect(groups.overdue.map((t) => t.text)).toEqual(['was due']);
+    expect(groups.upcoming.map((t) => t.text)).toContain('due later');
+    expect(groups.unscheduled.map((t) => t.text)).toEqual(['no date']);
   });
 });

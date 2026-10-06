@@ -382,6 +382,58 @@ describe('TaskOperations', () => {
     );
   });
 
+  describe("a Daily Note task's due date is independent of its note (ADR-044)", () => {
+    function dailyNoteWith(body: string) {
+      return new PageBuilder(ROOT).build({
+        parentId: null,
+        page: {
+          path: `${ROOT}/Daily Notes/2026/October/2026-10-06.md`,
+          directoryPath: `${ROOT}/Daily Notes/2026/October`,
+          frontmatter: { id: 'daily-1' },
+          frontmatterAnalysis: { aliases: [] },
+          content: body,
+          analysis: {
+            headings: [],
+            blockReferences: [],
+            tasks: new TaskExtractor().extract(body),
+            tags: [],
+            links: [],
+            embeds: [],
+          },
+        },
+      });
+    }
+
+    it('a task with no date has no due date, despite living in a dated Daily Note', () => {
+      const page = dailyNoteWith('- [ ] Buy groceries');
+      const { vault } = setup(page);
+
+      expect([...vault.tasks()][0]?.dueDate).toBeUndefined();
+    });
+
+    it('changing the due date rewrites only the date, in the same note — it never moves the task', async () => {
+      const page = dailyNoteWith('- [ ] Submit report @2026-10-06');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.setDate(firstTask(page), '2026-10-10');
+
+      expect(vault.getPage('daily-1')!.source.markdown).toBe('- [ ] Submit report @2026-10-10');
+      expect([...vault.tasks()][0]).toMatchObject({ sourcePageId: 'daily-1', dueDate: '2026-10-10' });
+    });
+
+    it('clearing the due date makes it absent (no persisted "none" value), still in the same note', async () => {
+      const page = dailyNoteWith('- [ ] Submit report @2026-10-08');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.clearDate(firstTask(page));
+
+      expect(vault.getPage('daily-1')!.source.markdown).toBe('- [ ] Submit report');
+      const [task] = [...vault.tasks()];
+      expect(task?.dueDate).toBeUndefined();
+      expect(task?.sourcePageId).toBe('daily-1');
+    });
+  });
+
   describe('targets the exact occurrence among textually-identical task lines', () => {
     const DUPLICATES = '- [ ] Dup test\n- [ ] Dup test';
 
@@ -694,6 +746,26 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       );
     });
 
+    it('writes an explicit due date as a bare @date mention when one is given', async () => {
+      const page = buildPage('p1', '');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create('p1', 'Submit report', '2026-10-08');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Submit report @2026-10-08');
+      expect([...vault.tasks()][0]?.dueDate).toBe('2026-10-08');
+    });
+
+    it('creates a task with no due date when none is given', async () => {
+      const page = buildPage('p1', '');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.create('p1', 'Buy groceries');
+
+      expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Buy groceries');
+      expect([...vault.tasks()][0]?.dueDate).toBeUndefined();
+    });
+
     it('inserts before the first task and leaves everything else (including content after it) untouched', async () => {
       const page = buildPage(
         'p1',
@@ -898,11 +970,9 @@ describe('TaskOperations — routing through an open DocumentSession (ADR-031)',
       expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
     });
 
-    it('never adds an inline date for a task whose due date is only the Daily Note\'s implicit fallback', async () => {
-      // No inline date in the raw line at all — dueDate here stands in for
-      // TaskBuilder's containing-Daily-Note fallback (TaskOccurrence.dueDate's
-      // own doc comment); update() must not promote that implicit value into
-      // a real inline token just because the user left it untouched.
+    it('never adds an inline date when the due date is left unchanged by a title edit', async () => {
+      // The line carries no inline date; update() must not stamp one just
+      // because the caller passes the task's current dueDate back unchanged.
       const page = buildPage('p1', '- [ ] Collect the bill');
       const { vault, taskOperations } = setup(page);
       const task = { ...firstTask(page), dueDate: '2026-08-04' };

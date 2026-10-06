@@ -408,6 +408,7 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     open(pageId: string): Promise<void>;
     openDraft(options: CreatePageOptions & { type?: PageType }): Promise<string>;   // returns new draft id; no Gate/Vault call
     openAtPath(path: string, options: { type: PageType; title?: string }): Promise<string>;
+    ensureAtPath(path: string, options: { type: PageType; title?: string }): Promise<string>; // non-activating resolve-or-create — ADR-044
       // resolve-or-draft for a known target path (Daily Notes' "Today", a future Calendar date)
     getDraft(pageId: string): DraftInfo | undefined;   // { folderId, type, title? } — undefined for a real page or an unknown id
     close(pageId: string): void;

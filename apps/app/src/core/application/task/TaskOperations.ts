@@ -59,19 +59,17 @@ export class TaskOperations {
    * The create half of this facade's mutation surface, following the exact
    * shape mutate()/mutateDate() already use: decide the new content,
    * delegate persistence to PageOperations.mutateBody() (ADR-031), never
-   * touch Vault/the Gate directly. No inline `@date` is ever written here —
-   * a task's due date for display purposes already falls out of
-   * TaskBuilder's existing containing-Daily-Note fallback
-   * (TaskOccurrence.dueDate's own doc comment) whenever the caller created
-   * this task in that date's Daily Note, which is the only way this method
-   * is used today (see Sidebar.Tasks.tsx's onCreateTask). Caller is
+   * touch Vault/the Gate directly. An inline `@date` is written only when
+   * the caller passes an explicit `dueDate` (the same bare-mention syntax
+   * setDate() uses); without one the task has no due date — the page it is
+   * created in, even a Daily Note, never implies one (ADR-044). Caller is
    * responsible for resolving `pageId` (e.g. via PageOperations.openAtPath
    * for a Daily Note) and for forcing durability afterward
    * (PageOperations.requestSave) if the result needs to be visible
    * immediately rather than on the next autosave — this method only
    * commits the new line, mirroring every other mutation here.
    */
-  public async create(pageId: string, title: string): Promise<void> {
+  public async create(pageId: string, title: string, dueDate?: string): Promise<void> {
     const trimmed = title.trim();
 
     if (trimmed === '') {
@@ -80,7 +78,7 @@ export class TaskOperations {
 
     try {
       await this.pageOperations.mutateBody(pageId, (markdown) => {
-        const line = `- [ ] ${trimmed}`;
+        const line = `- [ ] ${trimmed}${dueDate ? ` @${dueDate}` : ''}`;
 
         if (markdown === '') {
           return line;

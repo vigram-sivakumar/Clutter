@@ -26,7 +26,7 @@ Two behaviours of a Daily Note in the Trash were wrong.
 
 - A page can now be `type: 'daily-note'` while living in `Archive/`. Consumers that mean "a Daily Note that exists for that day" must exclude archived ones: the calendar's noted-dates does (`datesWithNotes`); the Daily Notes sidebar already walks the `Daily Notes/` folders so is unaffected; wiki-link suggestions already drop archived pages; embed suggestions deliberately keep archived Daily Notes embeddable (their own documented rule, now actually reachable).
 - The Daily Notes nav row (previous / today / next) now also shows on a trashed Daily Note, as it does for any Daily Note page.
-- Tasks inside a trashed Daily Note keep their date-implied due date (as they had before archiving).
+- Tasks inside a trashed Daily Note keep only their explicit due dates (a note's date never implied one — [ADR-044](./044-task-due-date-is-explicit-never-implied-by-its-note.md)).
 - `MoveService.resolveRestoreDestination` is unchanged; the conflict is detected in `runRestore`, where the Vault is consulted for the occupant, not in the resolver.
 - Amends the "type is a pure function of its current path" statement in `Vault`/`PageBuilder`/`FrontmatterSerializer` comments: it is a pure function of path **and archive metadata**.
 

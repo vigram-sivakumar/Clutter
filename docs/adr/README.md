@@ -41,3 +41,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [041](./041-template-marker-reconciliation.md) | The Templates folder is the source of truth for template status — Sync reconciles the `kind: template` marker | Accepted |
 | [042](./042-trashed-daily-note-identity-and-restore-conflict.md) | A trashed Daily Note keeps its identity; a restore that finds its day taken asks instead of failing | Accepted |
 | [043](./043-sync-never-trusts-a-paired-rename-destination.md) | Sync never trusts a paired rename's destination — an external delete must not become a move onto an unrelated path | Accepted |
+| [044](./044-task-due-date-is-explicit-never-implied-by-its-note.md) | A task's due date is explicit — never implied by the Daily Note it lives in; New Task always lands in today's note | Accepted |

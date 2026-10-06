@@ -54,62 +54,41 @@ function makeTask(sourcePageId: string, overrides: Partial<TaskOccurrence> = {})
   };
 }
 
-describe('TaskBuilder — Daily Note implicit due date', () => {
-  it('falls back to the Daily Note page date when the task has no explicit due date', () => {
-    const page = makePage('page-a', '/vault/Daily Notes/2026/October/2026-10-01.md', 'daily-note', [
-      makeTask('page-a'),
-    ]);
+describe("TaskBuilder — a task's due date is only ever explicit (ADR-044)", () => {
+  const dailyNotePath = '/vault/Daily Notes/2026/October/2026-10-06.md';
 
-    const tasks = new TaskBuilder().build([page]);
+  it('leaves a Daily Note task with no explicit due date undated', () => {
+    const page = makePage('page-a', dailyNotePath, 'daily-note', [makeTask('page-a')]);
 
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0]!.dueDate).toBe('2026-10-01');
+    const [task] = new TaskBuilder().build([page]);
+
+    expect(task?.dueDate).toBeUndefined();
   });
 
-  it('keeps an explicit inline due date over the Daily Note implicit one', () => {
-    const page = makePage('page-a', '/vault/Daily Notes/2026/October/2026-10-01.md', 'daily-note', [
-      makeTask('page-a', { dueDate: '2026-12-25' }),
+  it("keeps an explicit due date unchanged, even when it differs from the Daily Note's own date", () => {
+    const page = makePage('page-a', dailyNotePath, 'daily-note', [
+      makeTask('page-a', { dueDate: '2026-10-08' }),
     ]);
 
-    const tasks = new TaskBuilder().build([page]);
+    const [task] = new TaskBuilder().build([page]);
 
-    expect(tasks[0]!.dueDate).toBe('2026-12-25');
+    expect(task?.dueDate).toBe('2026-10-08');
   });
 
-  it('never assigns an implicit due date to a task on an ordinary Note', () => {
-    const page = makePage('page-a', '/vault/Projects/Roadmap.md', 'note', [makeTask('page-a')]);
+  it('leaves a task on an ordinary Note undated', () => {
+    const page = makePage('page-a', '/vault/Note.md', 'note', [makeTask('page-a')]);
 
-    const tasks = new TaskBuilder().build([page]);
-
-    expect(tasks[0]!.dueDate).toBeUndefined();
+    expect(new TaskBuilder().build([page])[0]?.dueDate).toBeUndefined();
   });
 
-  it('does not alter completed state or any other field while adding the implicit due date', () => {
-    const page = makePage('page-a', '/vault/Daily Notes/2026/October/2026-10-01.md', 'daily-note', [
-      makeTask('page-a', { completed: true, completedAt: '2026-10-01' }),
-    ]);
+  it('passes every task through untouched, across pages', () => {
+    const a = makeTask('page-a');
+    const b = makeTask('page-b', { text: 'Second', completed: true });
+    const pages = [
+      makePage('page-a', dailyNotePath, 'daily-note', [a]),
+      makePage('page-b', '/vault/Note.md', 'note', [b]),
+    ];
 
-    const tasks = new TaskBuilder().build([page]);
-
-    expect(tasks[0]).toMatchObject({
-      completed: true,
-      completedAt: '2026-10-01',
-      dueDate: '2026-10-01',
-      text: 'Seperator height above Headings',
-    });
-  });
-
-  it("derives each Daily Note page's own date independently for its own tasks", () => {
-    const pageOct1 = makePage('page-a', '/vault/Daily Notes/2026/October/2026-10-01.md', 'daily-note', [
-      makeTask('page-a'),
-    ]);
-    const pageOct2 = makePage('page-b', '/vault/Daily Notes/2026/October/2026-10-02.md', 'daily-note', [
-      makeTask('page-b', { text: 'Second task' }),
-    ]);
-
-    const tasks = new TaskBuilder().build([pageOct1, pageOct2]);
-
-    expect(tasks.find((t) => t.sourcePageId === 'page-a')?.dueDate).toBe('2026-10-01');
-    expect(tasks.find((t) => t.sourcePageId === 'page-b')?.dueDate).toBe('2026-10-02');
+    expect(new TaskBuilder().build(pages)).toEqual([a, b]);
   });
 });

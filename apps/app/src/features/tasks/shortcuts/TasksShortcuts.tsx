@@ -11,7 +11,7 @@ import { NewTaskDialog } from './NewTaskDialog';
 interface TasksShortcutsProps {
   onShortcut: (id: TasksShortcutId) => void;
   /**
-   * Creates the task in its target Daily Note (due date's, or today's —
+   * Creates the task in today's Daily Note (never the due date's —
    * see Sidebar.Tasks.tsx's own onCreateTask) and resolves once it's
    * durable. Rejects on failure, which NewTaskContent uses to decide
    * whether to close itself — plain pass-through, no TaskOperations/
