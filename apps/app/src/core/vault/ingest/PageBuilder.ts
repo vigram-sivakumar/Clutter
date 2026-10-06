@@ -3,7 +3,7 @@ import type { ScannedPage } from './VaultScanResult';
 import { IdentityResolver } from './identity/IdentityResolver';
 import { VaultPath } from './VaultPath';
 import { resolvePageMetadata } from './resolvePageMetadata';
-import { isDailyNotePath } from '../initialize/ReservedResources';
+import { resolvePageType } from '../initialize/ReservedResources';
 
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 
@@ -33,14 +33,11 @@ export class PageBuilder {
       page.path
     );
 
-    // A page's Daily Note vs. Note role is derived from its current path,
-    // never persisted frontmatter (frontmatter.type, if present on disk,
-    // is inert legacy data — see FrontmatterSerializer, which no longer
-    // writes it). Same rule Vault.resolvePageType enforces at runtime for
-    // every later mutation; this is the one place it must be computed
-    // before a Vault exists yet to enforce it (the initial scan).
-    const type = isDailyNotePath(this.vaultRoot, page.path) ? 'daily-note' : 'note';
-
+    // A page's Daily Note vs. Note role comes from resolvePageType (its current path, or — in the
+    // Trash — the Daily Note path it will be restored to), never persisted frontmatter
+    // (frontmatter.type, if present on disk, is inert legacy data — see FrontmatterSerializer).
+    // Vault enforces the same rule for every later mutation; this is the one place it must be
+    // computed before a Vault exists yet to enforce it (the initial scan).
     // No derivation from inline tags here — a page whose frontmatter has
     // never had a `tags` key simply starts with an empty one
     // (resolvePageMetadata's own plain default), same as every other
@@ -52,6 +49,7 @@ export class PageBuilder {
     // acquire frontmatter membership for it too, the first time it was
     // ever scanned.
     const metadata = resolvePageMetadata(page.frontmatter);
+    const type = resolvePageType(this.vaultRoot, page.path, metadata);
 
     return {
       id: identity.id,

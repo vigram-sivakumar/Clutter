@@ -16,3 +16,20 @@
 .toast--error {
   color: var(--foreground-primary);
 }
+
+.toast:has(.toast__action) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.toast__action {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--fw-medium);
+  color: var(--foreground-brand);
+  cursor: pointer;
+}

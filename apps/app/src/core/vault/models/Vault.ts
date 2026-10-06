@@ -10,7 +10,7 @@ import type { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder
 import {
   RESERVED_FOLDER_NAMES,
   reservedFolderRelativePath,
-  isDailyNotePath,
+  resolvePageType,
   type ReservedFolderId,
 } from '../initialize/ReservedResources';
 import { VaultPath } from '../ingest/VaultPath';
@@ -532,7 +532,10 @@ export class Vault {
       this.assertPathAvailable(page.path);
     }
 
-    const resolved: Page = { ...page, type: this.resolvePageType(page.path) };
+    const resolved: Page = {
+      ...page,
+      type: resolvePageType(this.root, page.path, page.metadata),
+    };
 
     this.pagesById.set(resolved.id, resolved);
 
@@ -712,7 +715,7 @@ export class Vault {
     const updatedPage: Page = {
       ...page,
       name: VaultPath.pageName(path),
-      type: this.resolvePageType(path),
+      type: resolvePageType(this.root, path, page.metadata),
       path,
       parentId,
     };
@@ -1194,7 +1197,7 @@ export class Vault {
       const updatedPage: Page = {
         ...page,
         path: nextPath,
-        type: this.resolvePageType(nextPath),
+        type: resolvePageType(this.root, nextPath, page.metadata),
       };
 
       this.pagesById.set(page.id, updatedPage);
@@ -1284,19 +1287,6 @@ export class Vault {
     if (occupant && occupant.id !== exceptPageId) {
       throw new Error(`Path already in use by another page: ${path}`);
     }
-  }
-
-  /**
-   * The single source of truth for a page's Daily Note vs. Note role: a
-   * pure function of its current path, never persisted frontmatter. Called
-   * by every Vault mutation that changes a page's identity/location after
-   * construction (replacePage, updatePagePath) — not by addPage, whose
-   * only production callers already pass a Page PageBuilder just built
-   * with the correct type, and not by the constructor's initial
-   * population, which is exactly that same PageBuilder output.
-   */
-  private resolvePageType(path: string): Page['type'] {
-    return isDailyNotePath(this.root, path) ? 'daily-note' : 'note';
   }
 
   /**

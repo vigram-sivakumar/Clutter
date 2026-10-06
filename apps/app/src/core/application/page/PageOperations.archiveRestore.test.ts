@@ -723,7 +723,7 @@ describe('PageOperations.restore()', () => {
     expect(fileSystem.hasFileSync(`${ROOT}/Inbox/Test 2026-08-12 16.43.01.md`)).toBe(false);
   });
 
-  it('throws when the restore destination path is already occupied', async () => {
+  it('reports a conflict (never overwrites) when the restore destination path is already occupied', async () => {
     const design = makeDesignFolder();
     const page = buildActivePage({
       parentId: DESIGN_FOLDER_ID,
@@ -764,9 +764,12 @@ describe('PageOperations.restore()', () => {
       serializer.serializeDocument(occupant, occupant.source.markdown)
     );
 
-    await expect(pageOperations.restore(page.id)).rejects.toThrow(
-      /Path already in use/
-    );
+    // Nothing is overwritten and nothing throws: the occupied path comes back as a conflict the
+    // caller can answer (see "restore conflicts" below).
+    await expect(pageOperations.restore(page.id)).resolves.toEqual({
+      status: 'conflict',
+      existingPageId: 'page-occupant',
+    });
     expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
   });
@@ -867,5 +870,220 @@ describe('PageOperations.restore()', () => {
     // very first one — no stale data survives a restore/re-archive cycle.
     expect(reArchived.metadata.originalPath).toBe(`${ROOT}/Projects/Design/Note.md`);
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
+  });
+});
+
+// --- Daily Notes in the Trash, and restore conflicts (ADR-042) -----------------------------------
+
+const DN_FOLDERS = {
+  dailyNotes: { id: 'folder-daily-notes', name: 'Daily Notes', parentId: null },
+  year: { id: 'folder-dn-2026', name: '2026', parentId: 'folder-daily-notes' },
+  month: { id: 'folder-dn-october', name: 'October', parentId: 'folder-dn-2026' },
+} as const;
+const DN_PATH = `${ROOT}/Daily Notes/2026/October/2026-10-06.md`;
+
+function dailyNoteFolders(): Folder[] {
+  return [
+    {
+      ...DN_FOLDERS.dailyNotes,
+      path: `${ROOT}/Daily Notes`,
+      metadata: defaultFolderMetadata,
+    },
+    { ...DN_FOLDERS.year, path: `${ROOT}/Daily Notes/2026`, metadata: defaultFolderMetadata },
+    {
+      ...DN_FOLDERS.month,
+      path: `${ROOT}/Daily Notes/2026/October`,
+      metadata: defaultFolderMetadata,
+    },
+  ];
+}
+
+function buildPageAt(path: string, id: string, content: string): Page {
+  return new PageBuilder(ROOT).build({
+    parentId: null,
+    page: {
+      path,
+      directoryPath: path.slice(0, path.lastIndexOf('/')),
+      frontmatter: { id },
+      frontmatterAnalysis: { aliases: [] },
+      content,
+      analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+    },
+  });
+}
+
+function setupDailyNote(options: { extraPages?: Page[] } = {}) {
+  const dailyNote = buildPageAt(DN_PATH, 'daily-1', 'Trashed day.');
+  const vault = new Vault(
+    ROOT,
+    [dailyNote, ...(options.extraPages ?? [])],
+    [makeArchiveFolder(), makeInboxFolder(), ...dailyNoteFolders()],
+    [],
+    [],
+    [],
+    new KnowledgeGraph([]),
+    new VaultProjectionBuilder()
+  );
+  const fileSystem = new InMemoryVaultFileSystem();
+  const serializer = new FrontmatterSerializer();
+  for (const page of [dailyNote, ...(options.extraPages ?? [])]) {
+    fileSystem.seedFile(page.path, serializer.serializeDocument(page, page.source.markdown));
+  }
+
+  return { dailyNote, vault, fileSystem, serializer, pageOperations: buildPageOperations(vault, fileSystem) };
+}
+
+/** A new Daily Note for the same day, created while the first one sits in the Trash. */
+function addSecondDailyNote(context: ReturnType<typeof setupDailyNote>): Page {
+  const second = buildPageAt(DN_PATH, 'daily-2', 'Written later.');
+  context.vault.addPage(second);
+  context.fileSystem.seedFile(
+    second.path,
+    context.serializer.serializeDocument(second, second.source.markdown)
+  );
+  return second;
+}
+
+describe('A Daily Note in the Trash', () => {
+  it('stays a Daily Note while archived, with its date and path-derived name intact', async () => {
+    const { dailyNote, vault, pageOperations } = setupDailyNote();
+    expect(dailyNote.type).toBe('daily-note');
+
+    await pageOperations.archive(dailyNote.id);
+
+    const trashed = vault.getPage(dailyNote.id)!;
+    expect(trashed.path).toBe(`${ROOT}/Archive/2026-10-06.md`);
+    expect(trashed.type).toBe('daily-note');
+    expect(trashed.name).toBe('2026-10-06');
+    expect(trashed.metadata.originalPath).toBe(DN_PATH);
+  });
+
+  it('is still a Daily Note after a reload from disk (the type is rebuilt from path + originalPath)', async () => {
+    const { dailyNote, vault, fileSystem, pageOperations } = setupDailyNote();
+    await pageOperations.archive(dailyNote.id);
+
+    const document = await fileSystem.readFile(`${ROOT}/Archive/2026-10-06.md`);
+    const parsed = new FrontmatterParser().parse(document);
+    const rebuilt = new PageBuilder(ROOT).build({
+      parentId: ARCHIVE_FOLDER_ID,
+      page: {
+        path: `${ROOT}/Archive/2026-10-06.md`,
+        directoryPath: `${ROOT}/Archive`,
+        frontmatter: parsed.frontmatter,
+        frontmatterAnalysis: parsed.frontmatterAnalysis,
+        content: parsed.body,
+        analysis: parsed.analysis,
+      },
+    });
+
+    expect(vault.getPage(dailyNote.id)!.type).toBe('daily-note');
+    expect(rebuilt.type).toBe('daily-note');
+  });
+
+  it('a regular note in the Trash is still a note', async () => {
+    const note = buildPageAt(`${ROOT}/Idea.md`, 'note-1', 'x');
+    const context = setupDailyNote({ extraPages: [note] });
+
+    await context.pageOperations.archive(note.id);
+
+    expect(context.vault.getPage(note.id)!.type).toBe('note');
+  });
+
+  it('restoring to a free original path returns it to Daily Notes, same title/date, nothing renamed', async () => {
+    const { dailyNote, vault, pageOperations } = setupDailyNote();
+    await pageOperations.archive(dailyNote.id);
+
+    const outcome = await pageOperations.restore(dailyNote.id);
+
+    const restored = vault.getPage(dailyNote.id)!;
+    expect(outcome).toEqual({ status: 'restored', movedToInbox: false });
+    expect(restored.path).toBe(DN_PATH);
+    expect(restored.type).toBe('daily-note');
+    expect(restored.name).toBe('2026-10-06');
+    expect(restored.metadata.originalPath).toBeNull();
+    expect(restored.source.markdown).toBe('Trashed day.');
+  });
+});
+
+describe('Daily Note restore conflicts', () => {
+  async function trashedWithNewerDailyNote() {
+    const context = setupDailyNote();
+    await context.pageOperations.archive(context.dailyNote.id);
+    const second = addSecondDailyNote(context);
+    return { ...context, second };
+  }
+
+  it('reports the conflict and changes nothing when no answer is given', async () => {
+    const { dailyNote, second, vault, fileSystem, pageOperations } = await trashedWithNewerDailyNote();
+
+    await expect(pageOperations.restore(dailyNote.id)).resolves.toEqual({
+      status: 'conflict',
+      existingPageId: second.id,
+    });
+
+    expect(vault.getPage(dailyNote.id)!.path).toBe(`${ROOT}/Archive/2026-10-06.md`);
+    expect(vault.getPage(dailyNote.id)!.metadata.status).toBe('archived');
+    expect(vault.getPage(second.id)!.source.markdown).toBe('Written later.');
+    expect(await fileSystem.readFile(DN_PATH)).toContain('Written later.');
+  });
+
+  it("'inbox' restores it into the Inbox as an ordinary note and leaves the existing Daily Note untouched", async () => {
+    const { dailyNote, second, vault, fileSystem, pageOperations } = await trashedWithNewerDailyNote();
+    const existingBefore = await fileSystem.readFile(DN_PATH);
+
+    const outcome = await pageOperations.restore(dailyNote.id, { onConflict: 'inbox' });
+
+    const restored = vault.getPage(dailyNote.id)!;
+    expect(outcome).toEqual({ status: 'restored', movedToInbox: true });
+    expect(restored.path).toBe(`${ROOT}/Inbox/2026-10-06.md`);
+    expect(restored.parentId).toBe(INBOX_FOLDER_ID);
+    expect(restored.type).toBe('note');
+    expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.originalPath).toBeNull();
+    expect(restored.source.markdown).toBe('Trashed day.');
+
+    expect(vault.getPage(second.id)!.path).toBe(DN_PATH);
+    expect(vault.getPage(second.id)!.type).toBe('daily-note');
+    expect(await fileSystem.readFile(DN_PATH)).toBe(existingBefore);
+  });
+
+  it('an Inbox note with the same filename is never overwritten — the restored note gets a free name', async () => {
+    const inboxNote = buildPageAt(`${ROOT}/Inbox/2026-10-06.md`, 'inbox-1', 'Already in Inbox.');
+    const context = setupDailyNote({ extraPages: [inboxNote] });
+    await context.pageOperations.archive(context.dailyNote.id);
+    addSecondDailyNote(context);
+
+    await context.pageOperations.restore(context.dailyNote.id, { onConflict: 'inbox' });
+
+    const restored = context.vault.getPage(context.dailyNote.id)!;
+    expect(restored.path).not.toBe(inboxNote.path);
+    expect(restored.path.startsWith(`${ROOT}/Inbox/`)).toBe(true);
+    expect(context.vault.getPage(inboxNote.id)!.path).toBe(`${ROOT}/Inbox/2026-10-06.md`);
+    expect(context.vault.getPage(inboxNote.id)!.source.markdown).toBe('Already in Inbox.');
+    expect(await context.fileSystem.readFile(inboxNote.path)).toContain('Already in Inbox.');
+  });
+
+  it("'replace' permanently deletes the existing Daily Note and restores into its place", async () => {
+    const { dailyNote, second, vault, fileSystem, pageOperations } = await trashedWithNewerDailyNote();
+
+    const outcome = await pageOperations.restore(dailyNote.id, { onConflict: 'replace' });
+
+    expect(outcome).toEqual({ status: 'restored', movedToInbox: false });
+    expect(vault.getPage(second.id)).toBeUndefined();
+    const restored = vault.getPage(dailyNote.id)!;
+    expect(restored.path).toBe(DN_PATH);
+    expect(restored.type).toBe('daily-note');
+    expect(await fileSystem.readFile(DN_PATH)).toContain('Trashed day.');
+  });
+
+  it('a normal (non-conflicting) note restore is unchanged and never touches the Inbox', async () => {
+    const note = buildPageAt(`${ROOT}/Idea.md`, 'note-1', 'x');
+    const context = setupDailyNote({ extraPages: [note] });
+    await context.pageOperations.archive(note.id);
+
+    const outcome = await context.pageOperations.restore(note.id, { onConflict: 'inbox' });
+
+    expect(outcome).toEqual({ status: 'restored', movedToInbox: false });
+    expect(context.vault.getPage(note.id)!.path).toBe(`${ROOT}/Idea.md`);
   });
 });

@@ -39,3 +39,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [039](./039-asset-catalog.md) | The Assets catalog — every asset Clutter knows about or uses, derived from vault files and page/folder references | Accepted |
 | [040](./040-caller-triggered-reconciliation-for-app-created-files.md) | Caller-triggered reconciliation (`reconcileKnownPath`) for files the app creates outside the Gate | Accepted |
 | [041](./041-template-marker-reconciliation.md) | The Templates folder is the source of truth for template status — Sync reconciles the `kind: template` marker | Accepted |
+| [042](./042-trashed-daily-note-identity-and-restore-conflict.md) | A trashed Daily Note keeps its identity; a restore that finds its day taken asks instead of failing | Accepted |

@@ -175,6 +175,10 @@ export function AppLayout({ application }: AppLayoutProps) {
   // doesn't start another save. The detailed breakdown is backlog.
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const dismissToast = useCallback(() => setToast(null), []);
+  const showToast = useCallback(
+    (message: Omit<ToastMessage, 'id'>) => setToast({ id: Date.now(), ...message }),
+    []
+  );
 
   function startSaveToVault(url: string): void {
     setResourceOverlay(null);
@@ -303,6 +307,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onOpenResource={openVaultResourceOverlay}
           onOpenImageOverlay={openImageOverlay}
           onSetAssetAsCover={askForCoverNote}
+          onShowToast={showToast}
           tasksViewConfig={tasksViewConfig}
           pendingReveal={pendingReveal}
           onRequestReveal={setPendingReveal}

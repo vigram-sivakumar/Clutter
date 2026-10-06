@@ -73,7 +73,9 @@ export class MoveService {
    * deliberately does not survive the original folder merely being
    * renamed (its id unchanged, but nothing exists at the old path
    * anymore) — that trade-off is the approved contract, not an oversight.
-   * No Inbox fallback: exactly two outcomes, original path or vault root.
+   * Exactly two outcomes here: original path or vault root. (A restore whose original path is
+   * *taken* by another page is not resolved here — the Gate's runRestore detects it and, when told
+   * to, restores into the Inbox instead, ADR-042.)
    */
   resolveRestoreDestination(current: Page): {
     path: string;

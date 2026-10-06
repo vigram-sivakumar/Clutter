@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { datesWithNotes } from './datesWithNotes';
 import type { Page } from '@core/vault/models/Page';
 
-function makeDailyNote(name: string): Page {
-  return { name } as Page;
+function makeDailyNote(name: string, status: 'active' | 'archived' = 'active'): Page {
+  return { name, metadata: { status } } as Page;
 }
 
 describe('datesWithNotes', () => {
@@ -20,6 +20,15 @@ describe('datesWithNotes', () => {
 
   it('returns an empty set for no daily notes', () => {
     expect(datesWithNotes([]).size).toBe(0);
+  });
+
+  it('ignores a Daily Note that is in the Trash', () => {
+    const notes = [makeDailyNote('2026-07-10'), makeDailyNote('2026-07-15', 'archived')];
+
+    const result = datesWithNotes(notes);
+
+    expect(result.has('2026-07-10')).toBe(true);
+    expect(result.has('2026-07-15')).toBe(false);
   });
 
   it('deduplicates repeated dates', () => {

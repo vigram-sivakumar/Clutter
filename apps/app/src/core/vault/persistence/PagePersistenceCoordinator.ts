@@ -52,7 +52,9 @@ export type PersistenceOperation =
       readonly content: string;
     }
   | { readonly kind: 'archive' }
-  | { readonly kind: 'restore' }
+  // `conflict: 'inbox'` is the answer to a RestoreConflictError (the original path is taken by
+  // another page): restore into the Inbox instead. Without it, a taken original path rejects.
+  | { readonly kind: 'restore'; readonly conflict?: 'inbox' }
   | { readonly kind: 'delete' }
   | { readonly kind: 'move'; readonly destinationFolderId: string | null }
   | { readonly kind: 'rename'; readonly title: string }
@@ -181,6 +183,20 @@ export type PersistenceResult =
   | {
       readonly status: 'resource-deleted';
     };
+
+/**
+ * A restore whose original path is already taken by another page. Carries the occupant so the
+ * caller can offer a choice (PageOperations.restore) — it is never an ordinary failure.
+ */
+export class RestoreConflictError extends Error {
+  constructor(
+    readonly existingPageId: string,
+    readonly destinationPath: string
+  ) {
+    super(`Restore path already in use by another page: ${destinationPath}`);
+    this.name = 'RestoreConflictError';
+  }
+}
 
 /**
  * Sole owner of the write -> parse -> rebuild -> vault.replacePage pipeline
@@ -350,7 +366,7 @@ export class PagePersistenceCoordinator {
       case 'archive':
         return this.runArchive(current);
       case 'restore':
-        return this.runRestore(current);
+        return this.runRestore(current, operation.conflict);
       case 'delete':
         return this.runDelete(current);
       case 'move':
@@ -1141,13 +1157,36 @@ export class PagePersistenceCoordinator {
     return { status: 'folder-metadata-updated', folder: this.vault.getFolder(folderId)! };
   }
 
-  private async runRestore(current: Page): Promise<PersistenceResult> {
+  private async runRestore(
+    current: Page,
+    conflict?: 'inbox'
+  ): Promise<PersistenceResult> {
     if (current.metadata.status !== 'archived') {
       throw new Error(`Page is not archived: ${current.id}`);
     }
 
     const now = new Date().toISOString();
-    const destination = this.moveService.resolveRestoreDestination(current);
+    let destination = this.moveService.resolveRestoreDestination(current);
+
+    // Another page already lives at the restore path: never overwrite it. The caller decides —
+    // by default the restore rejects (RestoreConflictError); 'inbox' restores into the Inbox, with
+    // the same collision-free naming any Move into a folder gets (resolveMoveDestination).
+    const occupant = this.vault.getPageByPathCaseInsensitive(destination.path);
+
+    if (occupant && occupant.id !== current.id) {
+      if (conflict !== 'inbox') {
+        throw new RestoreConflictError(occupant.id, destination.path);
+      }
+
+      await this.ensureReservedFolderForOperation('inbox');
+      const inbox = this.vault.getReservedFolder('inbox');
+
+      if (!inbox) {
+        throw new Error(`Inbox folder not found: ${this.vault.root}/Inbox`);
+      }
+
+      destination = this.moveService.resolveMoveDestination(current, inbox.id);
+    }
 
     const page: Page = {
       ...current,

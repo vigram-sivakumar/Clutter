@@ -14,6 +14,9 @@ import {
   buildSystemLocationBreadcrumbs,
 } from '@core/presentation/buildBreadcrumbs';
 import { isPageTitleEditable } from '@core/presentation/isPageTitleEditable';
+import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { formatDate } from '@shared/helpers/time';
+import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 import {
   getPageTitlePlaceholder,
   getFolderTitlePlaceholder,
@@ -77,6 +80,7 @@ import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontm
 import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
+import type { ToastMessage } from '@components/toast/Toast';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { Dialog } from '@components/dialog/Dialog';
 import type { PropertiesControl } from './header/propertiesControl';
@@ -160,6 +164,8 @@ interface PageHostProps {
    * `AppLayout`, which hosts the note picker.
    */
   readonly onSetAssetAsCover: (reference: string) => void;
+  /** Shows a transient message (a toast) — owned by `AppLayout`, which hosts the toast. */
+  readonly onShowToast?: (toast: Omit<ToastMessage, 'id'>) => void;
   readonly onOpenImageOverlay: (
     image: ImageOverlayImage,
     options?: { readonly onSetCoverImage?: () => void }
@@ -246,6 +252,7 @@ export function PageHost({
   onOpenResource,
   onOpenImageOverlay,
   onSetAssetAsCover,
+  onShowToast,
   tasksViewConfig,
   pendingReveal,
   onRequestReveal,
@@ -569,6 +576,12 @@ export function PageHost({
   const page = useActivePage(vault, activePageId);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
   const propertiesConfirmation = useConfirmationSurface();
+  // A restore whose original path is taken by another page (a Daily Note for a date that exists
+  // again): the question — Move to Inbox / Replace — waits here, naming the day.
+  const [restoreConflict, setRestoreConflict] = useState<{
+    readonly pageId: string;
+    readonly dayLabel: string;
+  } | null>(null);
   // The page whose title "Properties" was just chosen, before its first property.
   const [startingPropertyPageId, setStartingPropertyPageId] = useState<string | null>(null);
   // The collection (by its view key) in which a folder is being named inline — the card shows only on
@@ -858,7 +871,41 @@ export function PageHost({
       return;
     }
 
-    void application.pageOperations.restore(activePageId);
+    const pageId = activePageId;
+
+    void application.pageOperations.restore(pageId).then((outcome) => {
+      if (outcome.status !== 'conflict') {
+        return;
+      }
+
+      const originalPath = application.vault.getPage(pageId)?.metadata.originalPath;
+      const date = originalPath ? VaultPath.pageName(originalPath) : '';
+      setRestoreConflict({
+        pageId,
+        dayLabel: isValidCalendarDate(date)
+          ? `${formatDate(date, 'monthLong')} ${formatDate(date, 'date')}`
+          : date,
+      });
+    });
+  };
+
+  const onResolveRestoreConflict = (choice: 'inbox' | 'replace'): void => {
+    if (!restoreConflict) {
+      return;
+    }
+
+    const { pageId } = restoreConflict;
+    setRestoreConflict(null);
+
+    void application.pageOperations.restore(pageId, { onConflict: choice }).then((outcome) => {
+      if (outcome.status === 'restored' && outcome.movedToInbox) {
+        onShowToast?.({
+          tone: 'default',
+          text: 'Restored to Inbox',
+          action: { label: 'Open', onAction: () => void application.pageOperations.open(pageId) },
+        });
+      }
+    });
   };
 
   const onDelete = (): void => {
@@ -2280,6 +2327,25 @@ export function PageHost({
           confirmLabel={propertiesConfirmation.pending.confirmLabel}
           onConfirm={propertiesConfirmation.confirm}
           onCancel={propertiesConfirmation.cancel}
+        />
+      )}
+    </Dialog>
+    <Dialog
+      open={restoreConflict !== null}
+      onClose={() => setRestoreConflict(null)}
+      size="medium"
+    >
+      {restoreConflict && (
+        <Confirmation
+          title="Restore Daily Note"
+          description={`A Daily Note for ${restoreConflict.dayLabel} already exists.\nWhat would you like to do?`}
+          confirmLabel="Move to Inbox"
+          confirmVariant="primary"
+          alternateLabel="Replace"
+          alternateVariant="danger"
+          onConfirm={() => onResolveRestoreConflict('inbox')}
+          onAlternate={() => onResolveRestoreConflict('replace')}
+          onCancel={() => setRestoreConflict(null)}
         />
       )}
     </Dialog>

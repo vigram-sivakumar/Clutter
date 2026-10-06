@@ -8,7 +8,10 @@ import { Vault } from '../../vault/models/Vault';
 import type { Page, PageType } from '../../vault/models/Page';
 import type { PageMetadata } from '../../vault/models/PageMetadata';
 import { Workspace } from '../../workspace/Workspace';
-import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
+import {
+  PagePersistenceCoordinator,
+  RestoreConflictError,
+} from '../../vault/persistence/PagePersistenceCoordinator';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
@@ -48,6 +51,10 @@ import type { VaultEntryDuplicator } from '../../vault/persistence/VaultEntryDup
  * (autosave-strategy-analysis.md §7 Risk 2 explicitly defers exact
  * tuning as a product decision, separate from this architecture).
  */
+export type RestoreOutcome =
+  | { readonly status: 'restored'; readonly movedToInbox: boolean }
+  | { readonly status: 'conflict'; readonly existingPageId: string };
+
 export const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
 
 /**
@@ -1879,8 +1886,44 @@ export class PageOperations {
     }
   }
 
-  public async restore(pageId: string): Promise<void> {
-    const result = await this.coordinator.enqueue(pageId, { kind: 'restore' });
+  /**
+   * Restores an archived page to where it came from. When another page already occupies that
+   * path — in practice, a Daily Note for a date that has since been created again — nothing is
+   * touched and `{ status: 'conflict' }` comes back, so the caller can ask. Answered with
+   * `onConflict`:
+   *   - `'inbox'`: restore into the Inbox instead (a normal note there, not a Daily Note);
+   *   - `'replace'`: permanently delete the occupying page, then restore into its place.
+   * Any other restore is unchanged.
+   */
+  public async restore(
+    pageId: string,
+    options: { readonly onConflict?: 'inbox' | 'replace' } = {}
+  ): Promise<RestoreOutcome> {
+    try {
+      await this.enqueueRestore(pageId);
+      return { status: 'restored', movedToInbox: false };
+    } catch (error) {
+      if (!(error instanceof RestoreConflictError)) {
+        throw error;
+      }
+
+      if (options.onConflict === 'inbox') {
+        await this.enqueueRestore(pageId, 'inbox');
+        return { status: 'restored', movedToInbox: true };
+      }
+
+      if (options.onConflict === 'replace') {
+        await this.delete(error.existingPageId);
+        await this.enqueueRestore(pageId);
+        return { status: 'restored', movedToInbox: false };
+      }
+
+      return { status: 'conflict', existingPageId: error.existingPageId };
+    }
+  }
+
+  private async enqueueRestore(pageId: string, conflict?: 'inbox'): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, { kind: 'restore', conflict });
 
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);

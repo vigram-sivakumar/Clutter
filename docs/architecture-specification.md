@@ -357,7 +357,7 @@ Be the only mechanism that writes a page/folder to disk and mutates the Vault on
     | { kind: 'move'; destinationFolderId: string }
     | { kind: 'rename'; title: string }
     | { kind: 'archive' }
-    | { kind: 'restore' };
+    | { kind: 'restore'; conflict?: 'inbox' };
 ```
 
 ### Internal collaborators
@@ -413,7 +413,8 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     create(options: CreatePageOptions): Promise<string>;   // eager, immediate-persist — returns new pageId
     save(pageId: string, markdown: string): Promise<void>;
     archive(pageId: string): Promise<void>;
-    restore(pageId: string): Promise<void>;
+    restore(pageId: string, options?: { onConflict?: 'inbox' | 'replace' }): Promise<RestoreOutcome>;
+      // ADR-042: a taken original path returns { status: 'conflict' } instead of rejecting
     delete(pageId: string): Promise<void>;
     move(pageId: string, destinationFolderId: string): Promise<void>;
     rename(pageId: string, title: string): Promise<void>;

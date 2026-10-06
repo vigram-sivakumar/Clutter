@@ -1,4 +1,5 @@
 .confirmation {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--surface-secondary);
@@ -24,6 +25,7 @@
   font-weight: var(--fw-regular);
   line-height: var(--lh-label);
   color: var(--foreground-secondary);
+  white-space: pre-line;
 }
 .confirmation__actions {
   display: flex;
@@ -38,4 +40,11 @@
   color: var(--calendar-accent);
   background: rgba(255, 0, 0, 0.1);
   opacity: var(--opacity-subtle);
+}
+
+/* The corner close button of a two-action confirmation (see Confirmation's alternate action). */
+.confirmation__dismiss {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
 }

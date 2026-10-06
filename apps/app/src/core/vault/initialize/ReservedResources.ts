@@ -217,6 +217,31 @@ export function isDailyNotePath(vaultRoot: string, path: string): boolean {
 }
 
 /**
+ * The one rule for a page's type (Daily Note vs. Note), shared by PageBuilder (initial scan) and
+ * every Vault mutation that recomputes it. A page is a Daily Note when its current path is a Daily
+ * Note path — or when it is in the Trash (`status: 'archived'`) and its `originalPath`, the place
+ * it will be restored to, was one. A Daily Note keeps its identity (so its date title, its
+ * read-only title) while it waits in the Trash; the moment it leaves the Trash, `originalPath` is
+ * cleared and the current path alone decides again — a Daily Note restored anywhere but Daily
+ * Notes (the Inbox fallback) is an ordinary Note. See ADR-042.
+ */
+export function resolvePageType(
+  vaultRoot: string,
+  path: string,
+  metadata: { readonly status: string; readonly originalPath: string | null }
+): 'note' | 'daily-note' {
+  if (isDailyNotePath(vaultRoot, path)) {
+    return 'daily-note';
+  }
+
+  return metadata.status === 'archived' &&
+    metadata.originalPath !== null &&
+    isDailyNotePath(vaultRoot, metadata.originalPath)
+    ? 'daily-note'
+    : 'note';
+}
+
+/**
  * Whether `path` is `.clutter` itself or something nested inside it —
  * Clutter's own application-infrastructure directory, never user content.
  * This is the one path the vault/filesystem discovery pipeline (initial

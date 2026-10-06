@@ -6,6 +6,8 @@ export interface ToastMessage {
   readonly id: number;
   readonly text: string;
   readonly tone: 'default' | 'error';
+  /** An optional follow-up the toast offers ("Open"); pressing it also dismisses the toast. */
+  readonly action?: { readonly label: string; readonly onAction: () => void };
 }
 
 interface ToastProps {
@@ -33,6 +35,18 @@ export function Toast({ toast, onDismiss, durationMs = 4000 }: ToastProps) {
   return (
     <div className={`toast toast--${toast.tone}`} role="status" aria-live="polite">
       {toast.text}
+      {toast.action && (
+        <button
+          type="button"
+          className="toast__action"
+          onClick={() => {
+            toast.action?.onAction();
+            onDismiss();
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
     </div>
   );
 }
