@@ -220,6 +220,10 @@ export class Application {
       // below requires the root to "exist" the same way a real vault
       // directory always does.
       await rawFileSystem.createDirectory(rootPath);
+    } else if (!(await rawFileSystem.exists(rootPath))) {
+      // First run, or a vault folder that is gone: start an empty vault there rather than fail the
+      // scan below. (The folder is only created — nothing else is written until the user does something.)
+      await rawFileSystem.createDirectory(rootPath);
     }
 
     const fileSystem = new SelfWriteAwareFileSystem(
