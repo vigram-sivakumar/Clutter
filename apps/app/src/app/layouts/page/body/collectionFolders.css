@@ -1,0 +1,9 @@
+/*
+ * The inline name field of a folder being created fills the card's title row. Without a width of
+ * its own the wrapper shrinks to the text and the field scrolls sideways, clipping the first letters.
+ */
+.collection-new-folder__name {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}

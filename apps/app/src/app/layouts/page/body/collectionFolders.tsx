@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import './collectionFolders.css';
 import { AppIcon } from '@shared/icon';
 import { EditableText } from '@components/editable-text/EditableText';
 import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
@@ -49,7 +50,7 @@ function NewFolderCard({ creation }: { creation: FolderCreation }) {
           titleContent={
             // Only Enter commits, and the editor does not say which key ended a session before its
             // blur callbacks run, so the key is noted on the way in.
-            <span onKeyDownCapture={(event) => (enteredRef.current = event.key === 'Enter')}>
+            <span className="collection-new-folder__name" onKeyDownCapture={(event) => (enteredRef.current = event.key === 'Enter')}>
               <EditableText
                 value=""
                 placeholder={placeholder}
