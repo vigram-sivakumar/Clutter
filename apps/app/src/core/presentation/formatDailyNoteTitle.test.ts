@@ -1,12 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { formatDailyNotePickerTitle, formatDailyNoteTitle } from './formatDailyNoteTitle';
+import {
+  formatDailyNoteDateLabel,
+  formatDailyNotePickerTitle,
+  formatDailyNoteTitle,
+} from './formatDailyNoteTitle';
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 9, 4, 12)); // Sunday 4 Oct 2026
 });
 afterEach(() => vi.useRealTimers());
+
+describe('formatDailyNoteDateLabel — the date alone, for every surface but the Daily Note page', () => {
+  it.each([
+    ['2026-10-04', '4 October 2026'], // today: no "Today,"
+    ['2026-10-03', '3 October 2026'], // yesterday: no "Yesterday,"
+    ['2026-10-07', '7 October 2026'], // this week: no weekday
+    ['2025-12-31', '31 December 2025'],
+  ])('%s reads %s', (name, expected) => {
+    expect(formatDailyNoteDateLabel(name)).toBe(expected);
+  });
+
+  it('leaves a malformed name as it is', () => {
+    expect(formatDailyNoteDateLabel('not-a-date')).toBe('not-a-date');
+  });
+});
 
 describe('formatDailyNoteTitle — the Daily Note page title keeps the full date', () => {
   it.each([

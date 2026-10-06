@@ -5,6 +5,7 @@ import {
   buildSystemLocationBreadcrumbs,
 } from './buildBreadcrumbs';
 import { getPageIcon } from './getPageIcon';
+import { formatDailyNoteDateLabel } from './formatDailyNoteTitle';
 import { getSystemLocationPresentation } from './systemPresentation';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { Vault } from '../vault/models/Vault';
@@ -283,7 +284,7 @@ describe('buildBreadcrumbs — nested entries render the full chain', () => {
 
     expect(crumbs.map((crumb) => crumb.title)).toEqual([
       'Ancestor',
-      '2026-08-02',
+      formatDailyNoteDateLabel('2026-08-02'),
     ]);
   });
 });
@@ -354,7 +355,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
     expect(crumbs.at(-1)!.title).toBe('New Note');
   });
 
-  it('always shows the real date for a daily note, never a placeholder', () => {
+  it('always shows the formatted date for a daily note, never a placeholder', () => {
     const parent = makeAncestorFolder();
     const page = makePage({
       type: 'daily-note',
@@ -368,7 +369,34 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
       vi.fn()
     );
 
-    expect(crumbs.at(-1)!.title).toBe('2026-08-02');
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+  });
+
+  it('shows the formatted date for a trashed daily note too', () => {
+    const page = makePage({
+      type: 'daily-note',
+      name: '2026-08-02',
+      metadata: { ...makePage({}).metadata, status: 'archived', originalPath: '/vault/Daily Notes/2026/August/2026-08-02.md' },
+    });
+    const vault = makeVault([]);
+    const crumbs = buildBreadcrumbs(page, vault, makeMembershipSelector(vault), vi.fn());
+
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
+  });
+
+  it('shows the formatted date for a daily note draft', () => {
+    const vault = makeVault([]);
+    const crumbs = buildBreadcrumbsForDraft(
+      'draft-1',
+      null,
+      '2026-08-02',
+      'daily-note',
+      vault,
+      makeMembershipSelector(vault),
+      vi.fn()
+    );
+
+    expect(crumbs.at(-1)!.title).toBe(formatDailyNoteDateLabel('2026-08-02'));
   });
 });
 

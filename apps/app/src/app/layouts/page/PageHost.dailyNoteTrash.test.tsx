@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppLayout } from '../app-layout/AppLayout';
@@ -19,6 +19,7 @@ import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer';
+import { formatDailyNoteDateLabel, formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 
@@ -150,6 +151,44 @@ describe('A Daily Note in the Trash keeps its title', () => {
     expect(restored.name).toBe('2026-01-15');
     expect(titleRoot().textContent).toBe(activeTitle);
     expect(editableInTitle()).toHaveLength(0);
+  });
+});
+
+describe('A Daily Note shows its date on every generic title surface', () => {
+  // The page title keeps the "Today,"/weekday prefix; every other surface is just the date.
+  const pageTitle = formatDailyNoteTitle('2026-01-15');
+  const dateOnly = formatDailyNoteDateLabel('2026-01-15');
+  const main = () => document.querySelector<HTMLElement>('.page')!;
+
+  it('page header keeps the prefixed title; the breadcrumb is the plain date — active and in the Trash', async () => {
+    const { application, dailyNote } = makeApplication();
+    await application.pageOperations.open(dailyNote.id);
+    render(<AppLayout application={application} />);
+    await flush();
+
+    for (const trashed of [false, true]) {
+      if (trashed) {
+        await application.pageOperations.archive(dailyNote.id);
+        await flush();
+      }
+
+      expect(titleRoot().textContent).toBe(pageTitle);
+      expect(within(main()).getAllByText(dateOnly).length).toBeGreaterThanOrEqual(1);
+      expect(dateOnly).not.toMatch(/^(Today|Yesterday|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
+      expect(within(main()).queryByText('Start typing...')).toBeNull();
+    }
+  });
+
+  it('the Trash list row is the plain date, even for a note with content', async () => {
+    const { application, dailyNote } = makeApplication();
+    await application.pageOperations.archive(dailyNote.id);
+    application.navigation.openArchive();
+    render(<AppLayout application={application} />);
+    await flush();
+
+    expect(within(main()).getByText(dateOnly)).toBeInTheDocument();
+    expect(within(main()).queryByText('Start typing...')).toBeNull();
+    expect(within(main()).queryByText('Trashed day.')).toBeNull();
   });
 });
 

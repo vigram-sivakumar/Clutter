@@ -881,3 +881,45 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
     expect(screen.queryByText('Reveal in Finder')).not.toBeInTheDocument();
   });
 });
+
+describe("DailyNotesList — the side panel keeps its content preview", () => {
+  function setupWithNote(overrides: { description?: string | null; markdown?: string }) {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const date = dayInMonth(TODAY, 3) === TODAY ? dayInMonth(TODAY, 4) : dayInMonth(TODAY, 3);
+    const base = makeDailyNote('daily-1', date, 'month');
+    const note: Page = {
+      ...base,
+      metadata: { ...base.metadata, description: overrides.description ?? null },
+      source: { markdown: overrides.markdown ?? '' },
+    };
+    return setup([note], [dailyNotesRoot, year, month]);
+  }
+
+  it('an empty Daily Note reads "Start typing..." (not the date)', () => {
+    const { vault, query, membershipSelector, workspace } = setupWithNote({});
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    // The persisted empty note + the virtual Today row.
+    expect(screen.getAllByText('Start typing...').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/\d{4}$/)).toBeNull();
+  });
+
+  it('a Daily Note with content shows the content preview, not the date', () => {
+    const { vault, query, membershipSelector, workspace } = setupWithNote({ markdown: 'Meeting notes' });
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText('Meeting notes')).toBeInTheDocument();
+  });
+
+  it('a Daily Note with a description shows the description', () => {
+    const { vault, query, membershipSelector, workspace } = setupWithNote({ description: 'Planning day' });
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText('Planning day')).toBeInTheDocument();
+  });
+});

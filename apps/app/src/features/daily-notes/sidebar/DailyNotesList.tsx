@@ -18,7 +18,7 @@ import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { ISODate } from '@shared/helpers/time/types';
 import {
-  getPageDisplayLabel,
+  getDailyNotePreviewLabel,
   getPageDisplayLabelStyle,
 } from '@core/presentation/getPageDisplayLabel';
 
@@ -450,7 +450,7 @@ export const DailyNotesList = forwardRef<
 
   const renderPages = (pages: TimelineEntry[]) =>
     pages.map((entry) => {
-      const label = getPageDisplayLabel(entry);
+      const label = getDailyNotePreviewLabel(entry);
 
       return (
         <div

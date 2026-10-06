@@ -1,4 +1,4 @@
-import { formatDateDisplay } from '@shared/helpers/time';
+import { formatDate, formatDateDisplay } from '@shared/helpers/time';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 /**
@@ -13,6 +13,17 @@ import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalenda
  */
 export function formatDailyNoteTitle(name: string): string {
   return isValidCalendarDate(name) ? formatDateDisplay(name, 'full') : name;
+}
+
+/**
+ * A Daily Note's date without the relative-day prefix ("Today,", "Yesterday,", a weekday) —
+ * `6 October 2026`. That prefix belongs to the Daily Note page's own title
+ * (`formatDailyNoteTitle`); every other generic surface that names a Daily Note (lists, the Trash,
+ * breadcrumbs) shows just the date. Same shared `formatDate` the rest of the app uses, same
+ * malformed-name guard.
+ */
+export function formatDailyNoteDateLabel(name: string): string {
+  return isValidCalendarDate(name) ? formatDate(name, 'longDate') : name;
 }
 
 /**
