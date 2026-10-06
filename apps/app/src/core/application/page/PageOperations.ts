@@ -1585,6 +1585,34 @@ export class PageOperations {
   }
 
   /**
+   * A property change on a draft: the draft has no frontmatter yet, so the change starts from
+   * nothing, and what it writes is the draft's first persistent change — it is promoted through
+   * persistDraft(), the one path every other promoting change (title, body, metadata) uses, with the
+   * property lines in the same create. A change that writes nothing (`null`) or is refused (throws)
+   * leaves the draft a draft: nothing is created.
+   */
+  private async materializeDraftWithProperties(
+    pageId: string,
+    change: (lines: readonly string[]) => string[] | null
+  ): Promise<void> {
+    const descriptor = this.draftFor(pageId);
+
+    if (!descriptor) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    const lines = change([]);
+
+    if (lines === null) {
+      return;
+    }
+
+    const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
+
+    await this.persistDraft(pageId, descriptor, body, undefined, lines);
+  }
+
+  /**
    * Removes item `index` (shown as `value`) from list custom property
    * `key`, in this page's frontmatter only — the pill's dismiss button.
    * Only that item's text goes (removeCustomListItem): every other line of
@@ -1808,7 +1836,8 @@ export class PageOperations {
     const page = this.vault.getPage(pageId);
 
     if (!page) {
-      throw new Error(`Page not found: ${pageId}`);
+      await this.materializeDraftWithProperties(pageId, change);
+      return;
     }
 
     if (page.metadata.status === 'archived') {
@@ -1999,7 +2028,9 @@ export class PageOperations {
     id: string,
     descriptor: DraftDescriptor,
     body: string,
-    metadataPatch?: Partial<EditablePageMetadata>
+    metadataPatch?: Partial<EditablePageMetadata>,
+    /** Raw frontmatter lines of custom properties, for a draft whose first change is a property — written in the same create. */
+    unownedLines?: readonly string[]
   ): Promise<Page> {
     const destination = descriptor.deterministicPath
       ? {
@@ -2026,7 +2057,12 @@ export class PageOperations {
       id,
       descriptor.type,
       body,
-      effectivePatch ? this.toFrontmatterMetadataPatch(effectivePatch) : undefined
+      effectivePatch || unownedLines
+        ? {
+            ...(effectivePatch ? this.toFrontmatterMetadataPatch(effectivePatch) : {}),
+            ...(unownedLines && { unownedLines }),
+          }
+        : undefined
     );
 
     const result = await this.coordinator.enqueue(id, {

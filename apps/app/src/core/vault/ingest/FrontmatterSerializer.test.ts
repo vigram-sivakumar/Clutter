@@ -299,3 +299,17 @@ describe('aliases frontmatter round-trip', () => {
     expect(externallyCleared.metadata.aliases).toEqual([]);
   });
 });
+
+describe('serialize(): a page created already holding custom properties', () => {
+  it('writes the raw unowned lines after the owned keys, and they read back as the same unowned lines', () => {
+    const serializer = new FrontmatterSerializer();
+    const text = `${serializer.serialize({ id: 'p1', created: 'c', unownedLines: ['owner: ', 'rank: 3'] })}\nbody`;
+
+    expect(text).toBe('---\nid: p1\ncreated: c\nowner: \nrank: 3\n---\nbody');
+    expect(new FrontmatterParser().parse(text).frontmatter.unownedLines).toEqual(['owner: ', 'rank: 3']);
+  });
+
+  it('writes nothing extra when there are none', () => {
+    expect(new FrontmatterSerializer().serialize({ id: 'p1' })).toBe('---\nid: p1\n---');
+  });
+});

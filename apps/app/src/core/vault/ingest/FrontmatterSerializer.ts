@@ -59,6 +59,12 @@ export class FrontmatterSerializer {
       lines.push(`${key}: ${value}`);
     }
 
+    // Raw lines of keys Clutter does not own (custom properties) — only a page created already holding
+    // some (a draft whose first change was a property) has any here; written verbatim after the owned keys.
+    if (frontmatter.unownedLines) {
+      lines.push(...frontmatter.unownedLines);
+    }
+
     lines.push('---');
 
     return lines.join('\n');

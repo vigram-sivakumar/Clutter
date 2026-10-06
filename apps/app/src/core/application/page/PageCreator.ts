@@ -37,7 +37,10 @@ export class PageCreator {
     type: PageFrontmatter['type'],
     body = '',
     metadata?: Partial<
-      Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite' | 'tags' | 'aliases'>
+      Pick<
+        PageFrontmatter,
+        'description' | 'icon' | 'cover' | 'favorite' | 'tags' | 'aliases' | 'unownedLines'
+      >
     >
   ): string {
     const now = new Date().toISOString();

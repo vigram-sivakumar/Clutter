@@ -73,6 +73,8 @@ import { AddPropertyRow } from './AddPropertyRow';
 import { getAddableSystemProperties } from './addableProperties';
 import { useCustomPropertyDrafts } from './useCustomPropertyDrafts';
 import { emptyCustomProperty } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
+import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { Dialog } from '@components/dialog/Dialog';
@@ -1732,6 +1734,136 @@ export function PageHost({
     return null;
   }
 
+  // The Properties section and the title's control for `target` — a saved page or a draft (which has
+  // no frontmatter yet: empty metadata). Every write goes through PageOperations, which promotes a
+  // draft on the first property actually written; opening the control or the picker, starting or
+  // abandoning an unnamed property, never reaches it, so none of those creates the file.
+  const buildPropertiesSection = (target: { readonly id: string; readonly metadata: PageMetadata }) => {
+    // The Properties list: the listed system properties, the custom
+    // properties, and any property being added.
+    const propertyItems = buildPageProperties(target, {
+      // The editor's own inline-#tag click path (createTagResolver's
+      // activate → navigation.openTag), not a second navigation.
+      onOpenTag: (name) => resolveTag(name).activate(),
+      aliases: {
+        // The one write path for page metadata.
+        onCommit: (aliases) =>
+          void application.pageOperations.updateMetadata(target.id, { aliases }),
+        getSuggestions: createAliasSuggester(vault, target.id),
+      },
+      onRenameProperty: (key, name) =>
+        void application.pageOperations.renameCustomProperty(target.id, key, name),
+      onCommitTags: (tags) => void application.pageOperations.updateMetadata(target.id, { tags }),
+      getTagSuggestions,
+      onRemoveListItem: (key, index, value) =>
+        void application.pageOperations.removeCustomPropertyItem(target.id, key, index, value),
+      onCommitListValue: (key, value) =>
+        void application.pageOperations.setCustomPropertyList(target.id, key, value),
+      onSetScalarValue: (key, type, value) =>
+        void application.pageOperations.setCustomPropertyValue(target.id, key, type, value),
+      onDeleteProperty: (key) => void application.pageOperations.deleteCustomProperty(target.id, key),
+      onRemoveSystemProperty: (key) => void application.pageOperations.removeSystemProperty(target.id, key),
+      drafts: {
+        items: propertyDrafts.drafts,
+        // Named: the property is written now (empty, typed), and the
+        // draft row stands in for it until the page shows it.
+        onName: (id, name) => {
+          const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
+
+          if (!draft) {
+            return;
+          }
+
+          propertyDrafts.name(id, name);
+          void application.pageOperations
+            .addCustomProperty(target.id, name, emptyCustomProperty(draft.type))
+            .finally(() => propertyDrafts.remove(id));
+        },
+        onAbandon: propertyDrafts.remove,
+      },
+    });
+    // The Properties section — see derivePropertiesSectionState, the one place
+    // its state (displayed, add button, title control) is derived.
+    const isArchived = target.metadata.status === 'archived';
+    const sectionState = derivePropertiesSectionState({
+      lines: target.metadata.unownedFrontmatter ?? [],
+      isArchived,
+      hasDraft: propertyDrafts.drafts.length > 0,
+      isStarting: startingPropertyPageId === target.id,
+    });
+    // An unnamed draft belongs to the section being hidden: drop it, so it
+    // can't reappear (and grab focus) when shown again.
+    const hidePropertiesSection = (): void => {
+      propertyDrafts.clear();
+      setStartingPropertyPageId(null);
+      void application.pageOperations.setPropertiesSectionHidden(target.id, true);
+    };
+    const requestDeleteAllProperties = (): void =>
+      propertiesConfirmation.request({
+        title: 'Delete all properties?',
+        message:
+          "This deletes every custom property and its value from this note's frontmatter and removes the Properties section. Tags, aliases and the other system values are kept.",
+        confirmLabel: 'Delete all',
+        onConfirm: () => {
+          propertyDrafts.clear();
+          setStartingPropertyPageId(null);
+          void application.pageOperations.deleteAllProperties(target.id);
+        },
+      });
+    const addPropertyRow =
+      sectionState.showsAddRow ? (
+        <AddPropertyRow
+          systemProperties={getAddableSystemProperties(target)}
+          // The title's "Add a property" opens this button's menu; once it is
+          // used or dismissed the transient start is over (a choice has then
+          // either written the property or begun a draft, which keep the section).
+          autoOpen={startingPropertyPageId === target.id}
+          onDismiss={() => setStartingPropertyPageId(null)}
+          onAddSystemProperty={(key) =>
+            void application.pageOperations
+              .addSystemProperty(target.id, key)
+              .finally(() => setStartingPropertyPageId(null))
+          }
+          onAddCustomProperty={(type) => {
+            propertyDrafts.add(type);
+            setStartingPropertyPageId(null);
+          }}
+          // Only when there is something to hide or delete: not while the first
+          // property is only being started.
+          onHideProperties={sectionState.hasProperties ? hidePropertiesSection : undefined}
+          onDeleteAll={sectionState.hasProperties ? requestDeleteAllProperties : undefined}
+        />
+      ) : undefined;
+    // The title's control (derivePropertiesSectionState): "Add a property" to
+    // start the first one, "Show properties" for an explicitly hidden section,
+    // nothing while it is displayed — Hide properties is in the section's menu.
+    const propertiesControl: PropertiesControl | undefined =
+      sectionState.control === 'add'
+        ? {
+            mode: 'add',
+            // Shows the (empty) section and opens its "+ Add a property"
+            // menu there, so the first property is chosen in place.
+            onStart: () => setStartingPropertyPageId(target.id),
+          }
+        : sectionState.control === 'show'
+          ? {
+              mode: 'show',
+              onShow: () => void application.pageOperations.setPropertiesSectionHidden(target.id, false),
+            }
+          : undefined;
+
+    return {
+      propertiesControl,
+      // The whole section. Displayed, it lists the properties and ends with "+ Add a property" once
+      // there is one; nothing at all if there is neither.
+      propertiesSection:
+        sectionState.isDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
+          <PropertyList key={target.id} items={propertyItems} footer={addPropertyRow} />
+        ) : undefined,
+    };
+  };
+
+
   // Structural presentation (path, parent, breadcrumbs, metadata) must read
   // from the Vault — the live source of truth after moves and archive/restore.
   // DocumentSession owns only the editor buffer and save lifecycle.
@@ -1764,6 +1896,9 @@ export function PageHost({
       onRequestSave
     );
     const draftTopBar = buildDraftTopBarActions(draft.type);
+    // A draft has no frontmatter yet, so its Properties start empty; the first property written
+    // promotes it (buildPropertiesSection).
+    const draftProperties = buildPropertiesSection({ id: activePageId, metadata: resolvePageMetadata({}) });
     // A draft has no persisted metadata to read back from (ADR-017) — while
     // typing, the only place the in-progress text exists is
     // descriptionDraftValues (set by onDescriptionEdit below). Falling back
@@ -1857,6 +1992,8 @@ export function PageHost({
         onRemoveCoverImage={onRemoveCoverImage}
         coverKey={activePageId}
         bodyFocusRef={editorRef}
+        propertiesControl={draftProperties.propertiesControl}
+        properties={draftProperties.propertiesSection}
         onTitleCommit={(title) =>
           void application.pageOperations.updateDraftTitle(activePageId, title)
         }
@@ -1976,118 +2113,7 @@ export function PageHost({
   // (isRenameable above). Notes have no such constraint.
   const isRenameable = page.type !== 'daily-note';
 
-  // The Properties list: the listed system properties, the custom
-  // properties, and any property being added.
-  const propertyItems = buildPageProperties(page, {
-    // The editor's own inline-#tag click path (createTagResolver's
-    // activate → navigation.openTag), not a second navigation.
-    onOpenTag: (name) => resolveTag(name).activate(),
-    aliases: {
-      // The one write path for page metadata.
-      onCommit: (aliases) =>
-        void application.pageOperations.updateMetadata(page.id, { aliases }),
-      getSuggestions: createAliasSuggester(vault, page.id),
-    },
-    onRenameProperty: (key, name) =>
-      void application.pageOperations.renameCustomProperty(page.id, key, name),
-    onCommitTags: (tags) => void application.pageOperations.updateMetadata(page.id, { tags }),
-    getTagSuggestions,
-    onRemoveListItem: (key, index, value) =>
-      void application.pageOperations.removeCustomPropertyItem(page.id, key, index, value),
-    onCommitListValue: (key, value) =>
-      void application.pageOperations.setCustomPropertyList(page.id, key, value),
-    onSetScalarValue: (key, type, value) =>
-      void application.pageOperations.setCustomPropertyValue(page.id, key, type, value),
-    onDeleteProperty: (key) => void application.pageOperations.deleteCustomProperty(page.id, key),
-    onRemoveSystemProperty: (key) => void application.pageOperations.removeSystemProperty(page.id, key),
-    drafts: {
-      items: propertyDrafts.drafts,
-      // Named: the property is written now (empty, typed), and the
-      // draft row stands in for it until the page shows it.
-      onName: (id, name) => {
-        const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
-
-        if (!draft) {
-          return;
-        }
-
-        propertyDrafts.name(id, name);
-        void application.pageOperations
-          .addCustomProperty(page.id, name, emptyCustomProperty(draft.type))
-          .finally(() => propertyDrafts.remove(id));
-      },
-      onAbandon: propertyDrafts.remove,
-    },
-  });
-  // The Properties section — see derivePropertiesSectionState, the one place
-  // its state (displayed, add button, title control) is derived.
-  const isArchived = page.metadata.status === 'archived';
-  const sectionState = derivePropertiesSectionState({
-    lines: page.metadata.unownedFrontmatter ?? [],
-    isArchived,
-    hasDraft: propertyDrafts.drafts.length > 0,
-    isStarting: startingPropertyPageId === page.id,
-  });
-  // An unnamed draft belongs to the section being hidden: drop it, so it
-  // can't reappear (and grab focus) when shown again.
-  const hidePropertiesSection = (): void => {
-    propertyDrafts.clear();
-    setStartingPropertyPageId(null);
-    void application.pageOperations.setPropertiesSectionHidden(page.id, true);
-  };
-  const requestDeleteAllProperties = (): void =>
-    propertiesConfirmation.request({
-      title: 'Delete all properties?',
-      message:
-        "This deletes every custom property and its value from this note's frontmatter and removes the Properties section. Tags, aliases and the other system values are kept.",
-      confirmLabel: 'Delete all',
-      onConfirm: () => {
-        propertyDrafts.clear();
-        setStartingPropertyPageId(null);
-        void application.pageOperations.deleteAllProperties(page.id);
-      },
-    });
-  const addPropertyRow =
-    sectionState.showsAddRow ? (
-      <AddPropertyRow
-        systemProperties={getAddableSystemProperties(page)}
-        // The title's "Add a property" opens this button's menu; once it is
-        // used or dismissed the transient start is over (a choice has then
-        // either written the property or begun a draft, which keep the section).
-        autoOpen={startingPropertyPageId === page.id}
-        onDismiss={() => setStartingPropertyPageId(null)}
-        onAddSystemProperty={(key) =>
-          void application.pageOperations
-            .addSystemProperty(page.id, key)
-            .finally(() => setStartingPropertyPageId(null))
-        }
-        onAddCustomProperty={(type) => {
-          propertyDrafts.add(type);
-          setStartingPropertyPageId(null);
-        }}
-        // Only when there is something to hide or delete: not while the first
-        // property is only being started.
-        onHideProperties={sectionState.hasProperties ? hidePropertiesSection : undefined}
-        onDeleteAll={sectionState.hasProperties ? requestDeleteAllProperties : undefined}
-      />
-    ) : undefined;
-  // The title's control (derivePropertiesSectionState): "Add a property" to
-  // start the first one, "Show properties" for an explicitly hidden section,
-  // nothing while it is displayed — Hide properties is in the section's menu.
-  const propertiesControl: PropertiesControl | undefined =
-    sectionState.control === 'add'
-      ? {
-          mode: 'add',
-          // Shows the (empty) section and opens its "+ Add a property"
-          // menu there, so the first property is chosen in place.
-          onStart: () => setStartingPropertyPageId(page.id),
-        }
-      : sectionState.control === 'show'
-        ? {
-            mode: 'show',
-            onShow: () => void application.pageOperations.setPropertiesSectionHidden(page.id, false),
-          }
-        : undefined;
+  const { propertiesControl, propertiesSection } = buildPropertiesSection(page);
 
   return (
     <>
@@ -2177,14 +2203,7 @@ export function PageHost({
       bodyFocusRef={editorRef}
       // An archived page is view-only: nothing can be added to it.
       propertiesControl={propertiesControl}
-      properties={
-        // The whole section. Displayed, it lists the properties and ends
-        // with "+ Add a property" once there is one; nothing at all if there
-        // is neither.
-        sectionState.isDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
-          <PropertyList key={activePageId} items={propertyItems} footer={addPropertyRow} />
-        ) : undefined
-      }
+      properties={propertiesSection}
       body={
         <MarkdownBody>
           <MarkdownEditor

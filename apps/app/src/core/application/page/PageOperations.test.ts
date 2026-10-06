@@ -3072,6 +3072,95 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
 // feature depends on: same id across promotion, no duplicate page, and
 // existing (already-persisted) resources are unaffected by the widened
 // draft-promotion trigger.
+describe('PageOperations: custom properties on a draft', () => {
+  it('a first custom property promotes the draft: one file, created already holding the property, same id', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.addCustomProperty(id, 'priority', { type: 'text', value: null });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.id).toBe(id);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+    const content = await fileSystem.readFile(persisted.path);
+    expect(content).toContain('priority:');
+    expect(content.match(/^---$/gm)).toHaveLength(2);
+    expect(readCustomProperties(persisted.metadata.unownedFrontmatter ?? []).map((property) => property.key)).toEqual([
+      'priority',
+    ]);
+  });
+
+  it('listing a system property promotes the draft the same way', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.addSystemProperty(id, 'tags');
+
+    expect(readListedSystemProperties(vault.getPage(id)!.metadata.unownedFrontmatter ?? [])).toEqual(['tags']);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
+  it('keeps what the draft already had — its title and its body', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Trip plan' });
+    pageOperations.commitEdit(id, 'Pack light');
+
+    await pageOperations.addCustomProperty(id, 'priority', { type: 'text', value: null });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.path).toBe(`${ROOT}/Trip plan.md`);
+    expect(persisted.source.markdown).toBe('Pack light');
+    expect(await fileSystem.readFile(persisted.path)).toContain('Pack light');
+  });
+
+  it('a refused property (reserved or empty name) writes nothing and leaves a draft', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await expect(pageOperations.addCustomProperty(id, '', { type: 'text', value: null })).rejects.toThrow();
+    await expect(pageOperations.addCustomProperty(id, 'tags', { type: 'text', value: null })).rejects.toThrow();
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)).toBeDefined();
+    expect(fileSystem.hasFileSync(`${ROOT}/Untitled.md`)).toBe(false);
+  });
+
+  it('a change that writes nothing (hiding the section, deleting all) leaves a draft', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.deleteAllProperties(id);
+    await pageOperations.setPropertiesSectionHidden(id, false);
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)).toBeDefined();
+  });
+
+  it('after the first property the page is an ordinary page: the next property is a save, not another create', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.addCustomProperty(id, 'priority', { type: 'text', value: null });
+    const path = vault.getPage(id)!.path;
+    await pageOperations.addCustomProperty(id, 'owner', { type: 'text', value: null });
+
+    expect(vault.getPage(id)!.path).toBe(path);
+    expect(vault.getPage(id)!.id).toBe(id);
+    expect(
+      readCustomProperties(vault.getPage(id)!.metadata.unownedFrontmatter ?? []).map((property) => property.key)
+    ).toEqual(['priority', 'owner']);
+    expect(await fileSystem.readFile(path)).toContain('owner:');
+  });
+
+  it('an unknown id still throws', async () => {
+    const { pageOperations } = setupEmpty();
+
+    await expect(pageOperations.addCustomProperty('nope', 'priority', { type: 'text', value: null })).rejects.toThrow(
+      'Page not found'
+    );
+  });
+});
+
 describe('PageOperations.updateMetadata(): "Cover image" draft-promotion flow', () => {
   it('a Note draft + cover promotes to a persisted Note with the cover in frontmatter, same id', async () => {
     const { vault, fileSystem, pageOperations } = setupEmpty();

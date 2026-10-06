@@ -18,7 +18,7 @@ import type { AddableSystemProperty } from './header/AddPropertyMenu';
  * System labels and icons come from the system property definitions and the
  * property type registry — the same sources the Properties list uses.
  */
-export function getAddableSystemProperties(page: Page): AddableSystemProperty[] {
+export function getAddableSystemProperties(page: Pick<Page, 'metadata'>): AddableSystemProperty[] {
   const listed = new Set(readListedSystemProperties(page.metadata.unownedFrontmatter ?? []));
 
   return PAGE_SYSTEM_PROPERTY_KEYS.filter((key) => !listed.has(key)).map((key) => ({

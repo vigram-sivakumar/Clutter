@@ -219,7 +219,7 @@ function toCustomPropertyItem(
  * Tags pills open their Tag Collection; `aliases` makes Aliases editable.
  */
 export function buildPageProperties(
-  page: Page,
+  page: Pick<Page, 'metadata'>,
   actions: {
     onOpenTag?(name: string): void;
     aliases?: AliasPropertyActions;

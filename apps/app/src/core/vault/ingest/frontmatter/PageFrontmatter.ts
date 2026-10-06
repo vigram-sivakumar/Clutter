@@ -32,7 +32,8 @@ export interface PageFrontmatter {
    * (custom keys) —
    * see FrontmatterParser's OWNED_FRONTMATTER_KEYS. Carried through
    * PageMetadata.unownedFrontmatter so FrontmatterSerializer can write them
-   * back unchanged. Never set when constructing a new page.
+   * back unchanged. Set when constructing a new page only for a draft whose first change is a
+   * custom property (PageOperations.persistDraft).
    */
   unownedLines?: readonly string[];
   /**
