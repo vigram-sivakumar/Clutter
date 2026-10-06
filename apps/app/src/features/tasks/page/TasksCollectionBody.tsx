@@ -1,6 +1,8 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
+import { Pill } from '@components/property-list/Pill';
+import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -159,7 +161,7 @@ export function TasksCollectionBody({
   // completed (newest-completed-first via getCompletedTasks) — reuses
   // the same two building blocks rather than inventing a third ordering.
   // Drawn with the generic collection list (CollectionRow) like every other
-  // collection, one bare row per task: checkbox + title, nothing else.
+  // collection, one row per task: checkbox, title and a due-date pill.
   if (tasks.length === 0) {
     return (
       <PageBody className="collection__content">
@@ -175,12 +177,15 @@ export function TasksCollectionBody({
       title: task.text,
       leading: <Checkbox isChecked={task.completed} onCheckedChange={() => onToggleComplete(task)} />,
       titleContent: (
-        <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
-          {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
-            resolveWikiLink,
-            resolveTag,
-            resolveEmbed,
-          })}
+        <span className="task-row-title">
+          <span className={`task-title ${task.completed ? 'is-completed' : ''}`}>
+            {renderCompactMarkdown(formatTaskTitle(task.text, task.dueDate), {
+              resolveWikiLink,
+              resolveTag,
+              resolveEmbed,
+            })}
+          </span>
+          {task.dueDate && <Pill size="small">{formatTaskDueDate(task.dueDate)}</Pill>}
         </span>
       ),
       onClick: () => onOpenTask(task),

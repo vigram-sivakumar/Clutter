@@ -154,8 +154,8 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
-  it('renders tasks-all rows as checkbox + title only: no due date and no More actions', () => {
-    const { getByText, queryByText, queryByRole } = render(
+  it('renders tasks-all rows as checkbox + title + due-date pill, with no More actions', () => {
+    const { getByText, queryByRole } = render(
       <TasksCollectionBody
         view="tasks-all"
         tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
@@ -168,7 +168,7 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByText('Plan trip')).not.toBeNull();
-    expect(queryByText('20 Aug')).toBeNull();
+    expect(getByText('20 Aug').closest('.pill')).not.toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
   });
 

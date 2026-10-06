@@ -13,3 +13,16 @@
   color: var(--calendar-accent);
   opacity: var(--opacity-subtle);
 } */
+
+/* All Tasks page row: the title (ellipsizing) with its due-date Pill beside it. */
+.task-row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.task-row-title > .task-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
