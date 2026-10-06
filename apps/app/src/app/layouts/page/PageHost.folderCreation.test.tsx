@@ -148,7 +148,7 @@ describe('creating a folder inline', () => {
     expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
   });
 
-  it.each(['a/b', 'a:b', '..'])('rejects the name "%s" (not allowed on macOS): the field stays open', async (name) => {
+  it.each(['a/b', 'a:b', '..', '.hidden', 'a\\b', 'a*b', 'a?b', 'a"b', 'a<b', 'a>b', 'a|b'])('rejects the name "%s" (a character a folder name may not have): the field stays open', async (name) => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 

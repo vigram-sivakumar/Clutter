@@ -23,11 +23,12 @@ export interface FolderCreation {
 }
 
 /**
- * Whether macOS can name a folder this: no "/" (a path separator) or ":" (Finder shows it as "/"), no NUL
- * character, and not "." or "..". Checked before the folder's own sibling-collision check.
+ * Whether a folder may be named this. Not allowed: "/" and ":" (macOS: path separator; Finder shows ":" as
+ * "/"), the Windows-reserved \ * ? " < > |, the NUL character, and a leading "." (a hidden folder — which
+ * also rules out "." and ".."). Checked before the folder's own sibling-collision check.
  */
 export function isAllowedFolderName(name: string): boolean {
-  return !/[/:\0]/.test(name) && name !== '.' && name !== '..';
+  return !/[/:\\*?"<>|\0]/.test(name) && !name.startsWith('.');
 }
 
 /**
