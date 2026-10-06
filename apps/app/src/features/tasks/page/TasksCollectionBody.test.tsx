@@ -154,8 +154,8 @@ describe('TasksCollectionBody', () => {
     expect(getByText('Done already')).not.toBeNull();
   });
 
-  it('renders tasks-all rows as checkbox + title + due-date pill, with no More actions', () => {
-    const { getByText, queryByRole } = render(
+  it('renders a dated tasks-all row as checkbox + title with no due-date pill and no More actions', () => {
+    const { getByText, queryByText, queryByRole, container } = render(
       <TasksCollectionBody
         view="tasks-all"
         tasks={[task({ text: 'Plan trip', dueDate: '2026-08-20' })]}
@@ -168,41 +168,9 @@ describe('TasksCollectionBody', () => {
     );
 
     expect(getByText('Plan trip')).not.toBeNull();
-    expect(getByText('20 Aug').closest('.pill')).not.toBeNull();
+    expect(queryByText('20 Aug')).toBeNull();
+    expect(container.querySelector('.pill')).toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
-  });
-
-  it('clicking a tasks-all row\'s date pill opens the calendar and changes the due date without opening the note', () => {
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      }
-    );
-    const onChangeDueDate = vi.fn();
-    const onOpenTask = vi.fn();
-    const target = task({ text: 'Plan trip', dueDate: '2026-08-20' });
-
-    const { getByRole, getByText } = render(
-      <TasksCollectionBody
-        view="tasks-all"
-        tasks={[target]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={onOpenTask}
-        onChangeDueDate={onChangeDueDate}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
-      />
-    );
-
-    fireEvent.click(getByRole('button', { name: 'Change due date' }));
-    expect(onOpenTask).not.toHaveBeenCalled();
-
-    fireEvent.click(getByText('Clear date'));
-    expect(onChangeDueDate).toHaveBeenCalledWith(target, null);
-    vi.unstubAllGlobals();
   });
 
   it('offers a Due date pill on a tasks-all row with no due date, and picking a date sets it', () => {
@@ -256,8 +224,8 @@ describe('TasksCollectionBody', () => {
       />
     );
 
-    // Not a pill: only the due date is one, and the link sits in the metadata (trailing) slot.
-    expect([...container.querySelectorAll('.pill')].map((pill) => pill.textContent)).toEqual(['20 Aug']);
+    // Not a pill, and it sits in the metadata (trailing) slot.
+    expect(container.querySelector('.pill')).toBeNull();
     const link = container.querySelector('.collection-row__metadata .task-row__source');
     expect(link).toHaveTextContent('Trips');
     // Identity emoji first, like a WikiLink in the editor.

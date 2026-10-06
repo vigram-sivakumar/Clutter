@@ -180,10 +180,6 @@ export function TasksCollectionBody({
     );
   }
 
-  const dueDatePill = (task: TaskOccurrence) => (
-    <TaskDuePill date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
-  );
-
   const items = [...tasks.filter((task) => !task.completed), ...getCompletedTasks(tasks)].map(
     (task) => {
       const source = getSource?.(task);
@@ -202,7 +198,9 @@ export function TasksCollectionBody({
               resolveEmbed,
             })}
           </span>
-          {dueDatePill(task)}
+          {!task.dueDate && (
+            <TaskDuePill onSelect={(date) => onChangeDueDate(task, date)} />
+          )}
         </span>
       ),
       // The note the task lives in, as a wiki-link-styled link in the row's trailing slot.
