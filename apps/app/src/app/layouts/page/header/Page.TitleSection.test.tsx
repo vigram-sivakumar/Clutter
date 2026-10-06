@@ -25,12 +25,18 @@ afterEach(() => {
 });
 
 describe('PageTitleSection — PageHeaderControls wiring', () => {
-  it('always renders the More actions button, with or without an emoji', () => {
-    const { rerender } = render(<PageTitleSection title="Untitled" />);
+  it('renders the More actions button while it has something to offer, with or without an emoji', () => {
+    const { rerender } = render(<PageTitleSection title="Untitled" onEditDescription={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
 
-    rerender(<PageTitleSection title="Untitled" emoji="📌" />);
+    rerender(<PageTitleSection title="Untitled" emoji="📌" onEditDescription={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+  });
+
+  it('renders no More actions button when it has nothing to offer — never an empty menu', () => {
+    render(<PageTitleSection title="Untitled" emoji="📌" hasDescription onEditDescription={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
   });
 
   it('renders the emoji button only when an emoji is supplied', () => {
@@ -42,7 +48,7 @@ describe('PageTitleSection — PageHeaderControls wiring', () => {
   });
 
   it('renders the emoji before More actions, matching the required [emoji] [More actions] order', () => {
-    render(<PageTitleSection title="Untitled" emoji="📌" />);
+    render(<PageTitleSection title="Untitled" emoji="📌" onEditDescription={vi.fn()} />);
 
     const controls = document.querySelector('.page-header-controls');
     const buttons = controls!.querySelectorAll('button');
@@ -106,7 +112,7 @@ describe('PageTitleSection — belowDescription slot', () => {
 
 describe('PageTitleSection — the three page-header-controls configurations', () => {
   it('user-owned (e.g. a Note/Folder/Tag): shows the emoji when set, and always mounts More actions', () => {
-    render(<PageTitleSection title="My Note" emoji="🍄" />);
+    render(<PageTitleSection title="My Note" emoji="🍄" onEditDescription={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Change emoji' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
@@ -122,7 +128,7 @@ describe('PageTitleSection — the three page-header-controls configurations', (
   });
 
   it('Daily Notes: shows neither emoji nor icon, but still mounts More actions', () => {
-    render(<PageTitleSection title="September 25, 2026" />);
+    render(<PageTitleSection title="September 25, 2026" onEditDescription={vi.fn()} />);
 
     expect(screen.queryByRole('button', { name: 'Change emoji' })).not.toBeInTheDocument();
     expect(document.querySelector('.page-header-controls__icon')).not.toBeInTheDocument();
@@ -130,7 +136,7 @@ describe('PageTitleSection — the three page-header-controls configurations', (
   });
 
   it('never leaves an empty placeholder for a missing emoji/icon', () => {
-    render(<PageTitleSection title="September 25, 2026" />);
+    render(<PageTitleSection title="September 25, 2026" onEditDescription={vi.fn()} />);
 
     const controls = document.querySelector('.page-header-controls')!;
     expect(controls.querySelector('.page-header-controls__emoji')).not.toBeInTheDocument();
@@ -199,7 +205,7 @@ describe('PageTitleSection — there is no cover-image control in the header its
 
   it('keeps the controls to [emoji] [More actions] even when a cover is set', () => {
     render(
-      <PageTitleSection title="My Note" emoji="🍄" onSetCoverImage={vi.fn()} hasCoverImage />
+      <PageTitleSection title="My Note" emoji="🍄" onSetCoverImage={vi.fn()} onEditDescription={vi.fn()} hasCoverImage />
     );
 
     const controls = document.querySelector('.page-header-controls')!;

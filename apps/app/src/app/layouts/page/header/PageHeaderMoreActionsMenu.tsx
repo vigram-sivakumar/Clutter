@@ -182,6 +182,20 @@ export function PageHeaderMoreActionsMenu({
   const showShowCoverImageItem = hasCoverImage && Boolean(coverHidden) && Boolean(onShowCoverImage);
   // Same "omit once set" convention as Emoji/Cover image above.
   const showDescriptionItem = Boolean(onEditDescription) && !hasDescription;
+
+  // With nothing to offer, the menu would open as an empty box — so there is no menu, and no button
+  // for it either (a page that has its emoji, cover, description and properties already).
+  const hasItems =
+    showEmojiItem ||
+    showCoverItem ||
+    showShowCoverImageItem ||
+    showDescriptionItem ||
+    Boolean(propertiesControl);
+
+  if (!hasItems) {
+    return null;
+  }
+
   return (
     <>
       <Button

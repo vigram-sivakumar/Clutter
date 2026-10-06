@@ -56,8 +56,10 @@ const tagPills = () =>
   [...document.querySelectorAll('.pill')].map((pill) => pill.textContent).filter((text) => text?.startsWith('#'));
 
 // ---- What the user does ----------------------------------------------
-/** The title's More actions menu items (it is closed again afterwards). */
+/** The title's More actions menu items (it is closed again afterwards); none when it has no menu. */
 function titleItems() {
+  // With nothing to offer, the title has no More actions button at all.
+  if (!screen.queryByRole('button', { name: 'More actions' })) return [];
   fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
   const items = screen.queryAllByRole('menuitem').map((item) => item.textContent);
   fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
