@@ -284,16 +284,14 @@ export function TasksCollectionBody({
       titleContent: (
         <span className="task-row-title">
           {titleOf(entry)}
-          {/* A task with no due date gets the (hover-only) calendar button right next to its title. */}
-          {showDueDate && !task.dueDate && (
-            <TaskDueDateButton onChange={(date) => onChangeDueDate(task, date)} />
-          )}
         </span>
       ),
-      // Trailing slot, in order: the due date (a task with one), then the note the task lives in as a wiki-link-styled link. Both are buttons/links that never open the row's note.
+      // Trailing slot, in order: the due-date control — the task's date as a button, or for a task with
+      // no date the (hover-only) calendar icon button — then the source as a wiki-link-styled link.
+      // None of them opens the row's note.
       trailing: (
         <>
-          {showDueDate && task.dueDate && (
+          {showDueDate && (
             <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
           )}
           {showSource && source && (

@@ -46,7 +46,7 @@
   text-underline-offset: var(--md-underline-offset);
 }
 
-/* The due-date control (a Button, medium radius). With no date it is the icon-only calendar button next to the title,
+/* The due-date control (a Button, medium radius). With no date it is the icon-only calendar button in the trailing slot,
    and only there to be reached for — shown while its row is hovered, a control inside the row has keyboard focus, or its
    calendar is open. With a date it reads the date and is always visible. */
 .button.task-row__due-button {

@@ -14,7 +14,7 @@ interface TaskDueDateButtonProps {
 /**
  * A task's due date control, always a `Button` that opens the same calendar (TaskDatePicker) the task
  * row menu used:
- * - no due date: icon-only outline-fill calendar button, shown on row hover (placed next to the title) to add one;
+ * - no due date: icon-only outline-fill calendar button, shown on row hover (in the trailing slot) to add one;
  * - a due date: the default-variant button reads the full date ("9 Oct 2026"), always visible (in the trailing slot); the calendar
  *   opens with that date selected and can change or clear it.
  * Clicking never opens the row's note.

@@ -206,7 +206,7 @@ describe('TasksCollectionBody', () => {
     expect(onOpenTask).toHaveBeenCalledWith(target);
   });
 
-  it('gives an undated tasks-all row an icon-only outline-fill calendar button next to the title that opens the calendar and assigns a due date, without opening the note', () => {
+  it('gives an undated tasks-all row an icon-only outline-fill calendar button in the trailing slot that opens the calendar and assigns a due date, without opening the note', () => {
     vi.stubGlobal(
       'ResizeObserver',
       class {
@@ -237,12 +237,12 @@ describe('TasksCollectionBody', () => {
     expect(button).toHaveTextContent('');
     expect(container.querySelector('.pill')).toBeNull();
 
-    // The button sits next to the title (after it); the trailing slot holds only the wiki link.
+    // Trailing slot, in order: the calendar button, then the wiki link; nothing next to the title.
     const titleGroup = container.querySelector('.task-row-title')!;
-    expect(titleGroup.firstElementChild).toHaveClass('task-title');
-    expect(titleGroup.lastElementChild).toBe(button);
+    expect(titleGroup).not.toContainElement(button);
+    expect(titleGroup.lastElementChild).toHaveClass('task-title');
     const trailing = container.querySelector('.collection-row__metadata')!;
-    expect(trailing).not.toContainElement(button);
+    expect(trailing.firstElementChild).toBe(button);
     expect(trailing.lastElementChild).toHaveClass('task-row__source');
 
     fireEvent.click(button);
