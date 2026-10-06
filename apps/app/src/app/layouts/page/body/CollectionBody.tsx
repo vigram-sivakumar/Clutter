@@ -16,7 +16,6 @@ import type { NotePreviewResolvers } from '@features/collection/components/note/
 import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
 import { buildPropertyTableColumns } from '@features/collection/properties/tableColumns';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
-import { CollectionSectionEmptyState } from '@features/collection/components/empty/CollectionSectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
@@ -268,10 +267,15 @@ export function CollectionBody({
       })
     : undefined;
 
+  // A section offers Create only once it has at least one item: the notes' Create row or card is for
+  // adding to notes that are there, and an empty section gets nothing (a collection with no items at
+  // all gets the empty state and its call to action instead).
+  const createInNotes = sortedNotes.length > 0 ? onCreate : undefined;
+
   const noteSection =
     viewMode === 'table' ? renderNoteTable(sortedNotes, visible, {
       // Only when something can be created here: a Create row that does nothing is a dead control.
-      onCreate,
+      onCreate: createInNotes,
       coverFor,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
@@ -284,10 +288,10 @@ export function CollectionBody({
             })}
           />
         ))}
-        {onCreate && <CreateCard onCreate={onCreate} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}
+        {createInNotes && <CreateCard onCreate={createInNotes} aspectRatio={NOTE_CARD_ASPECT_RATIO} />}
       </CollectionGrid>
     ) : renderNoteList(sortedNotes, visible, {
-      onCreate,
+      onCreate: createInNotes,
       coverFor,
     });
 
@@ -303,26 +307,9 @@ export function CollectionBody({
         <CollectionEmptyState action={createAction} />
       ) : (
         <>
-          {sortedFolders.length > 0 ? (
-            renderFolderGrid(sortedFolders, onCreateFolder)
-          ) : (
-            // Some content, but no folders: a section empty state in the folders' place — only where a
-            // folder can be created (a collection with no folders section has nothing to say).
-            onCreateFolder && (
-              <CollectionSectionEmptyState
-                title="No folders yet"
-                description="Create a folder to organize your notes."
-                action={{ label: 'Create folder', onClick: onCreateFolder }}
-              />
-            )
-          )}
-          {showNotes &&
-            (sortedNotes.length === 0 ? (
-              // Folders but no notes: the notes' own empty state in their place.
-              <CollectionSectionEmptyState title="No notes yet" description="Create a note to get started." action={createAction} />
-            ) : (
-              noteSection
-            ))}
+          {/* The folders' Create card is likewise only for adding to folders that are there. */}
+          {sortedFolders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
+          {showNotes && noteSection}
         </>
       )}
       {noteCover && viewMode !== 'card' && coverNote && (

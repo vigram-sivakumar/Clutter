@@ -114,24 +114,21 @@ describe('Create — a completely empty collection', () => {
     expect(AFFORDANCE[layout](container)).toBeNull();
   });
 
-  it('a collection holding only folders is not empty: it keeps its folders and gives the notes section its own empty state', () => {
-    const onCreate = vi.fn();
-    const { queryByRole, getByText } = render(
+  it('a collection holding only folders is not empty: it keeps its folders — and the empty notes section offers no Create', () => {
+    const { queryByRole, getByText, queryByText } = render(
       <CollectionBody
         folders={[{ ...noteEntry({ id: 'f', title: 'Folder' }), type: 'folder' }]}
         notes={[]}
         viewMode="table"
         visible={noteVisible()}
-        onCreate={onCreate}
-        emptyCreateLabel="Create note"
+        onCreate={vi.fn()}
+        onCreateFolder={vi.fn()}
       />
     );
 
     expect(queryByRole('status')).toBeNull(); // not the whole-collection empty state
     expect(getByText('Folder')).toBeInTheDocument();
-    expect(getByText('No notes yet')).toBeInTheDocument();
-    fireEvent.click(getByText('Create note'));
-    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(queryByText(CREATE_LABEL)).toBeNull(); // no notes → no notes Create
   });
 
   it('a completely empty collection offers the page\'s own call to action — here "Create note" — not the generic "Create"', () => {
@@ -155,23 +152,42 @@ describe('Create — a completely empty collection', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('a section with no items while the collection has content gets its own empty state: no folders → "Create a folder"', () => {
+  it('each section offers Create only once it has an item: folders get the create-folder card only when a folder exists', () => {
     const onCreateFolder = vi.fn();
-    const { getByText, queryByRole } = render(
+    const none = render(
       <CollectionBody notes={[noteEntry()]} viewMode="table" visible={noteVisible()} onCreateFolder={onCreateFolder} />
     );
+    expect(none.queryByLabelText('Create folder')).toBeNull();
+    none.unmount();
 
-    expect(queryByRole('status')).toBeNull();
-    expect(getByText('No folders yet')).toBeInTheDocument();
-    expect(getByText('Create a folder to organize your notes.')).toBeInTheDocument();
-    fireEvent.click(getByText('Create folder'));
+    const some = render(
+      <CollectionBody
+        folders={[{ ...noteEntry({ id: 'f', title: 'Folder' }), type: 'folder' }]}
+        notes={[noteEntry()]}
+        viewMode="table"
+        visible={noteVisible()}
+        onCreateFolder={onCreateFolder}
+      />
+    );
+    fireEvent.click(some.getByLabelText('Create folder'));
     expect(onCreateFolder).toHaveBeenCalledTimes(1);
   });
 
-  it('a collection that cannot create folders shows nothing in the folders\' place', () => {
-    const { queryByText } = render(<CollectionBody notes={[noteEntry()]} viewMode="table" visible={noteVisible()} />);
+  it.each(LAYOUTS)('notes, %s: Create appears once there is a note, and not before', (layout) => {
+    const withNote = render(<CollectionBody notes={[noteEntry()]} viewMode={layout} visible={noteVisible()} onCreate={vi.fn()} />);
+    expect(AFFORDANCE[layout](withNote.container), layout).not.toBeNull();
+    withNote.unmount();
 
-    expect(queryByText('No folders yet')).toBeNull();
+    const folderOnly = render(
+      <CollectionBody
+        folders={[{ ...noteEntry({ id: 'f', title: 'Folder' }), type: 'folder' }]}
+        notes={[]}
+        viewMode={layout}
+        visible={noteVisible()}
+        onCreate={vi.fn()}
+      />
+    );
+    expect(AFFORDANCE[layout](folderOnly.container), layout).toBeNull();
   });
 
   it('a notes section that is not drawn (Daily Notes root) with no folders is empty too', () => {
