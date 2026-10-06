@@ -329,15 +329,15 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
 });
 
 describe('CollectionBody — Properties visibility', () => {
-  it('defaults to showing description ("No description" fallback) and created/updated', () => {
-    const { getByText } = render(
+  it('defaults to showing created/updated, with no "No description" fallback for an empty description', () => {
+    const { getByText, queryByText } = render(
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
         viewMode="table"
       />
     );
 
-    expect(getByText('No description')).toBeInTheDocument();
+    expect(queryByText('No description')).not.toBeInTheDocument();
     expect(getByText(CREATED_TEXT)).toBeInTheDocument();
     expect(getByText(UPDATED_TEXT)).toBeInTheDocument();
   });

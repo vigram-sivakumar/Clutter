@@ -10,11 +10,18 @@ import type { PropertyId } from '@core/properties/collectionProperties';
 import { propertyValueCells } from '../../properties/tableColumns';
 import { toNoteCoverImage } from './toNoteCoverImage';
 
+/**
+ * The empty-description fallback text. Currently NOT shown in the table (an empty description
+ * renders nothing); set `SHOW_EMPTY_DESCRIPTION_PLACEHOLDER` to true to bring it back.
+ */
+const EMPTY_DESCRIPTION_PLACEHOLDER = 'No description';
+const SHOW_EMPTY_DESCRIPTION_PLACEHOLDER = false;
+
 export interface NoteTableRowOptions {
   /**
    * The visible properties (from the resolved view) — must be the same ones the table's columns
-   * were built from. Description is not a column: it is drawn inside the Name cell (with its
-   * "No description" fallback) when it is visible.
+   * were built from. Description is not a column: it is drawn inside the Name cell (its
+   * empty-description fallback is currently off) when it is visible.
    */
   readonly visible: readonly PropertyId[];
   /**
@@ -46,7 +53,10 @@ export function toNoteTableRow(
       emoji: entry.emoji ?? undefined,
       title: entry.values.name,
       description: showDescription ? entry.values.description : undefined,
-      descriptionPlaceholder: showDescription ? 'No description' : undefined,
+      descriptionPlaceholder:
+        showDescription && SHOW_EMPTY_DESCRIPTION_PLACEHOLDER
+          ? EMPTY_DESCRIPTION_PLACEHOLDER
+          : undefined,
     },
     ...propertyValueCells(visible, entry.values),
   };
