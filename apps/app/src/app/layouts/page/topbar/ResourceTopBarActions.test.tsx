@@ -111,13 +111,20 @@ describe('ResourceTopBarActions', () => {
     render(<ResourceTopBarActions menu={menu} />);
     openMenu();
 
-    expect(() => fireEvent.click(screen.getByText('Move to Trash'))).not.toThrow();
+    expect(() =>
+      fireEvent.click(screen.getByText('Move to Trash'))
+    ).not.toThrow();
   });
 
   it('renders a disabled item but never invokes its handler on click', () => {
     const onArchive = vi.fn();
     const disabledMenu: TopBarMenuItemConfig[] = [
-      { id: 'archive', label: 'Move to Trash', icon: 'archive', disabled: true },
+      {
+        id: 'archive',
+        label: 'Move to Trash',
+        icon: 'archive',
+        disabled: true,
+      },
     ];
     render(
       <ResourceTopBarActions
@@ -277,7 +284,9 @@ describe('ResourceTopBarActions', () => {
       expect(screen.getByText('Move this folder to Trash?')).toBeDefined();
       expect(screen.getByText(ARCHIVE_MESSAGE)).toBeDefined();
 
-      const confirmButtons = screen.getAllByRole('button', { name: 'Move to Trash' });
+      const confirmButtons = screen.getAllByRole('button', {
+        name: 'Move to Trash',
+      });
       fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
       expect(onArchive).toHaveBeenCalledTimes(1);
@@ -359,6 +368,32 @@ describe('ResourceTopBarActions', () => {
       );
 
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    });
+
+    it('reflects the favorite state on the bookmark button so the ribbon can grow/retract', () => {
+      const { rerender } = render(
+        <ResourceTopBarActions
+          menu={menu}
+          isFavorite={false}
+          onToggleFavorite={vi.fn()}
+        />
+      );
+      const button = screen.getByRole('button', { name: 'Add to Favorites' });
+      expect(button.getAttribute('data-bookmarked')).toBe('false');
+      expect(button.querySelector('.topbar__bookmark-ribbon')).not.toBeNull();
+
+      rerender(
+        <ResourceTopBarActions
+          menu={menu}
+          isFavorite={true}
+          onToggleFavorite={vi.fn()}
+        />
+      );
+      expect(
+        screen
+          .getByRole('button', { name: 'Remove from Favorites' })
+          .getAttribute('data-bookmarked')
+      ).toBe('true');
     });
 
     it('omits the favorite button entirely when onToggleFavorite is absent (e.g. a Daily Note, a draft)', () => {

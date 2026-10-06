@@ -147,4 +147,22 @@ describe('creating a folder inline', () => {
     expect(create).not.toHaveBeenCalled();
     expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
   });
+
+  it('clicking outside cancels too — empty or typed — and creates no folder', async () => {
+    const { create } = await renderProjects();
+    let field = await startCreatingFolder();
+    fireEvent.blur(field);
+    await flush();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
+
+    field = await startCreatingFolder();
+    type(field, 'Trips');
+    fireEvent.blur(field);
+    await flush();
+
+    expect(create).not.toHaveBeenCalled();
+    expect(document.querySelector('.collection-grid--fixed-rows [role="textbox"]')).toBeNull();
+  });
 });

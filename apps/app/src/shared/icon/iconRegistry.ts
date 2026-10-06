@@ -14,7 +14,6 @@ import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import ArrowUp from './svg/arrow-up.svg?react';
 import ArrowUpRight from './svg/arrow-up-right.svg?react';
 import Bookmark from './svg/bookmark.svg?react';
-import BookmarkFilled from './svg/bookmark-filled.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
 import BrokenImage from './svg/broken-image.svg?react';
 import Brush from './svg/brush.svg?react';
@@ -131,7 +130,6 @@ export const iconRegistry = {
   arrowUp: ArrowUp,
   arrowUpRight: ArrowUpRight,
   bookmark: Bookmark,
-  bookmarkFilled: BookmarkFilled,
   bookshelfBox: BookshelfBox,
   brokenImage: BrokenImage,
   brush: Brush,

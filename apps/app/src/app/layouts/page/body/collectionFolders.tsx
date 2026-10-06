@@ -23,18 +23,15 @@ export interface FolderCreation {
 
 /**
  * The card a folder takes while it is being named. Same shape as a folder card; its title is the
- * existing inline name editor, empty and focused, with "New folder" as the placeholder only. Enter or
- * leaving the field commits — typed text, else the placeholder text as the name; Escape cancels.
+ * existing inline name editor, empty and focused, with the placeholder only ("New Folder"). Enter
+ * commits — the typed text, else the placeholder text as the name. Escape or clicking away cancels:
+ * no folder is made.
  */
 function NewFolderCard({ creation }: { creation: FolderCreation }) {
   const settledRef = useRef(false);
-  const cancelledRef = useRef(false);
+  const enteredRef = useRef(false);
+  const typedRef = useRef('');
   const placeholder = getFolderTitlePlaceholder();
-
-  const settle = (name: string) => {
-    settledRef.current = true;
-    creation.onCommit(name);
-  };
 
   return (
     <CollectionCard
@@ -42,26 +39,30 @@ function NewFolderCard({ creation }: { creation: FolderCreation }) {
         <CardTitleSection
           icon="folder"
           titleContent={
-            <EditableText
-              value=""
-              placeholder={placeholder}
-              className="editable-text--nowrap"
-              autoFocus
-              onCommit={(typed) => {
-                const name = typed.trim();
-                if (name === '') return;
-                if (creation.canCreate && !creation.canCreate(name)) return false;
-                settle(name);
-              }}
-              onCancel={() => {
-                cancelledRef.current = true;
-              }}
-              onEditingEnd={() => {
-                if (settledRef.current) return;
-                if (cancelledRef.current) creation.onCancel();
-                else settle(placeholder);
-              }}
-            />
+            // Only Enter commits, and the editor does not say which key ended a session before its
+            // blur callbacks run, so the key is noted on the way in.
+            <span onKeyDownCapture={(event) => (enteredRef.current = event.key === 'Enter')}>
+              <EditableText
+                value=""
+                placeholder={placeholder}
+                className="editable-text--nowrap"
+                autoFocus
+                onCommit={(typed) => {
+                  const name = typed.trim();
+                  if (name !== '' && creation.canCreate && !creation.canCreate(name)) {
+                    enteredRef.current = false;
+                    return false;
+                  }
+                  typedRef.current = name;
+                }}
+                onEditingEnd={() => {
+                  if (settledRef.current) return;
+                  settledRef.current = true;
+                  if (enteredRef.current) creation.onCommit(typedRef.current || placeholder);
+                  else creation.onCancel();
+                }}
+              />
+            </span>
           }
         />
       }

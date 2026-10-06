@@ -183,11 +183,14 @@ export function ResourceTopBarActions({
         <Button
           size="medium"
           isIconOnly
+          interaction="subtle"
           className="topbar__bookmark"
+          data-bookmarked={isFavorite ? 'true' : 'false'}
           onClick={onToggleFavorite}
           aria-label={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
         >
-          <AppIcon icon={isFavorite ? 'bookmarkFilled' : 'bookmark'} />
+          <AppIcon icon="bookmark" />
+          <span className="topbar__bookmark-ribbon" aria-hidden="true" />
         </Button>
       )}
       <OverflowMenu
