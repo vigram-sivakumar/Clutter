@@ -1,0 +1,4 @@
+/* Muted, like an entry's own secondary text: an empty list is a hint, not a row to read. */
+.empty-entry {
+  --entry-foreground: var(--foreground-tertiary);
+}
