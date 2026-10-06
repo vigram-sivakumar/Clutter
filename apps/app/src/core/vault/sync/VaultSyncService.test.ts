@@ -2862,3 +2862,69 @@ describe('VaultSyncService: filesystem convergence invariant', () => {
     expect(vaultShape(vault)).toEqual({ folderPaths: [], pagePaths: [] });
   });
 });
+
+/**
+ * The Rust watcher pairs any "path appeared" rename half with any pending
+ * "path vanished" half (no correlation cookie on macOS), so an unrelated
+ * rename landing within the pairing window — Finder rewriting `.DS_Store`
+ * while it moves a note to the Trash is the common one — turns a delete
+ * into `moved(deleted -> unrelated)`. Sync must converge on disk truth
+ * instead of committing a move to a destination that isn't the same kind
+ * of vault entity.
+ */
+describe('VaultSyncService: mis-paired rename halves converge on disk truth', () => {
+  it('a note deleted via Finder, paired with a .DS_Store rewrite, is removed — never moved onto .DS_Store', async () => {
+    const note = buildPage('Daily Notes/2026-10-06.md', 'content', 'daily-1');
+    const { vault, fileSystem, watcher } = setup([note]);
+
+    fileSystem.seedFile(`${ROOT}/Daily Notes/.DS_Store`, 'binary');
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Daily Notes/2026-10-06.md',
+      toPath: 'Daily Notes/.DS_Store',
+    });
+    await flush();
+
+    expect(vault.getPage('daily-1')).toBeUndefined();
+    expect(vault.getPageByPath(`${ROOT}/Daily Notes/.DS_Store`)).toBeUndefined();
+  });
+
+  it('a note whose rename was mis-paired with another tracked note is not moved onto it; both converge to disk', async () => {
+    const deleted = buildPage('A.md', 'a', 'page-a');
+    const other = buildPage('B.md', 'b', 'page-b');
+    const { vault, fileSystem, watcher } = setup([deleted, other]);
+
+    fileSystem.seedFile(`${ROOT}/B.md`, '---\nid: page-b\n---\nb');
+
+    watcher.emit({ type: 'moved', fromPath: 'A.md', toPath: 'B.md' });
+    await flush();
+
+    expect(vault.getPage('page-a')).toBeUndefined();
+    expect(vault.getPage('page-b')?.path).toBe(`${ROOT}/B.md`);
+  });
+
+  it('a folder deleted, paired with a stray file appearing, is removed — never moved onto the file', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    fileSystem.seedFile(`${ROOT}/.DS_Store`, 'binary');
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: '.DS_Store' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+  });
+
+  it('a resource deleted, paired with an unrelated file, is removed — never moved onto it', async () => {
+    const resource = makeResource('res-1', `${ROOT}/hero.png`);
+    const { vault, fileSystem, watcher } = setup([], [], [resource]);
+
+    fileSystem.seedFile(`${ROOT}/.DS_Store`, 'binary');
+
+    watcher.emit({ type: 'moved', fromPath: 'hero.png', toPath: '.DS_Store' });
+    await flush();
+
+    expect(vault.getResource('res-1')).toBeUndefined();
+  });
+});

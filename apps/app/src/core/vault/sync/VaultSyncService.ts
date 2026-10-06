@@ -986,7 +986,10 @@ export class VaultSyncService {
       // against current disk/Vault state instead of trusting the stale
       // pairing — the same convergence mechanism an ordinary deleted/
       // changed event for either path would use.
-      if (!(await this.fileSystem.exists(absoluteTo))) {
+      if (
+        this.isDestinationTrackedByOther(absoluteTo, folder.id) ||
+        !(await this.isDirectoryOnDisk(absoluteTo))
+      ) {
         await this.reconcilePath(absoluteFrom);
         await this.reconcilePath(absoluteTo);
         return;
@@ -1030,7 +1033,11 @@ export class VaultSyncService {
         // Same fallback as the folder/page branches above — don't commit
         // updateResourcePath() against a destination the watcher's rename
         // pairing reported but that no longer holds it.
-        if (!(await this.fileSystem.exists(absoluteTo))) {
+        if (
+          this.isDestinationTrackedByOther(absoluteTo, resource.id) ||
+          classifySupportedResourceFile(absoluteTo) !== resource.kind ||
+          !(await this.fileSystem.exists(absoluteTo))
+        ) {
           await this.reconcilePath(absoluteFrom);
           await this.reconcilePath(absoluteTo);
           return;
@@ -1078,7 +1085,11 @@ export class VaultSyncService {
     // updatePagePath() (or an archive-metadata repair, which would read
     // the destination file) against a path that no longer holds what the
     // watcher's rename pairing reported.
-    if (!(await this.fileSystem.exists(absoluteTo))) {
+    if (
+      this.isDestinationTrackedByOther(absoluteTo, page.id) ||
+      !this.isPageFilePath(absoluteTo) ||
+      !(await this.fileSystem.exists(absoluteTo))
+    ) {
       await this.reconcilePath(absoluteFrom);
       await this.reconcilePath(absoluteTo);
       return;
@@ -1118,6 +1129,31 @@ export class VaultSyncService {
     }
 
     this.convergeOpenSession(reconciled.id, reconciled.source.markdown);
+  }
+
+  /**
+   * The rename pairing is best effort (no correlation cookie on macOS), so
+   * a `moved` event's destination can be an unrelated path that merely
+   * appeared inside the pairing window — Finder rewriting `.DS_Store` while
+   * it trashes a note is the common one. A destination that something else
+   * already owns can never be this entity's new home.
+   */
+  private isDestinationTrackedByOther(absoluteTo: string, ownId: string): boolean {
+    const owners = [
+      this.vault.getPageByPath(absoluteTo),
+      this.vault.getFolderByPath(absoluteTo),
+      this.vault.getResourceByPath(absoluteTo),
+    ];
+
+    return owners.some((owner) => owner !== undefined && owner.id !== ownId);
+  }
+
+  private isPageFilePath(absolutePath: string): boolean {
+    return (
+      absolutePath.endsWith('.md') &&
+      VaultPath.filename(absolutePath) !== '.folder.md' &&
+      !isClutterInternalPath(this.vault.root, absolutePath)
+    );
   }
 
   private async reconcileArchiveMetadataForPage(pageId: string): Promise<void> {

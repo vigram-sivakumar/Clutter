@@ -63,6 +63,15 @@ enum EventClassification {
     Ignored,
 }
 
+/// OS bookkeeping files that are never vault content. They must not reach
+/// rename pairing: macOS gives no correlation cookie, so a `.DS_Store`
+/// rewrite (Finder does one whenever it trashes or moves something in a
+/// folder) would otherwise be paired with an unrelated pending "path
+/// vanished" half and reported as that file having moved onto it.
+fn is_os_metadata_file(path: &Path) -> bool {
+    path.file_name().map_or(false, |name| name == ".DS_Store")
+}
+
 fn classify_event_kind(kind: &EventKind) -> EventClassification {
     match kind {
         EventKind::Create(_) => EventClassification::Direct("created"),
@@ -248,12 +257,12 @@ pub fn start_vault_watcher(
 
             match classify_event_kind(&event.kind) {
                 EventClassification::Direct(change_type) => {
-                    for path in event.paths {
+                    for path in event.paths.into_iter().filter(|p| !is_os_metadata_file(p)) {
                         emit_change(&app_handle, &root_path_for_event, &path, change_type);
                     }
                 }
                 EventClassification::Rename => {
-                    for path in event.paths {
+                    for path in event.paths.into_iter().filter(|p| !is_os_metadata_file(p)) {
                         handle_name_event(
                             path,
                             &root_path_for_event,
@@ -406,6 +415,14 @@ fn emit_moved(app_handle: &AppHandle, root_path: &Path, from_path: &Path, to_pat
 mod tests {
     use super::*;
     use notify::event::{AccessKind, AccessMode, CreateKind, MetadataKind, RemoveKind};
+
+    #[test]
+    fn ds_store_is_os_metadata_at_any_depth_but_other_dotfiles_are_not() {
+        assert!(is_os_metadata_file(Path::new("/vault/Daily Notes/.DS_Store")));
+        assert!(is_os_metadata_file(Path::new("/vault/.DS_Store")));
+        assert!(!is_os_metadata_file(Path::new("/vault/Notes/.folder.md")));
+        assert!(!is_os_metadata_file(Path::new("/vault/Notes/DS_Store.md")));
+    }
 
     #[test]
     fn stop_with_the_matching_token_is_allowed() {

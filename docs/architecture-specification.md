@@ -316,6 +316,7 @@ Constructed once at the Composition Root, after the Vault exists. Subscribes to 
 ### Invariants
 - Every external event is serialized per-path through `VaultSyncCoordinator` before touching the `Vault` — two external events for the same path never race.
 - Sync never initiates a write that the app itself didn't already make on disk — it only *reacts* (to a watcher event, or, per ADR-040, to the app saying "this exact path changed"), it never originates a change. (The exceptions — archive-metadata repair and, per [ADR-041](./adr/041-template-marker-reconciliation.md), template-marker repair (`kind: template` follows the reserved `Templates/` folder) — rewrite frontmatter to match an already-external move; they do not change the user's content or body.)
+- A `moved` event is a hint, not truth (the OS pairs rename halves best-effort): per [ADR-043](./adr/043-sync-never-trusts-a-paired-rename-destination.md), Sync commits a move only to a same-kind, otherwise-untracked destination and otherwise reconciles both endpoints against disk.
 - Sync's write step for metadata repair uses the same `- writeParseRebuildReplace` internal helper the Persistence Gate uses for its own writes (see §5) — one implementation of "write → parse → rebuild → replace," shared, even though the two triggers (external event vs. app-initiated) remain separate entry points with separate queues.
 
 ### Concurrency model
