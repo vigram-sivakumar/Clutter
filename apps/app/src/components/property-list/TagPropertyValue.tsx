@@ -27,14 +27,17 @@ type TagPropertyValueProps = {
 } & PropertyEditability<string[]>;
 
 /**
- * Reads typed text as one tag name: an optional leading `#`, then a name
- * matching the editor's own tag grammar (`scanTag` — the same rule Vault
+ * Reads typed text as one tag name: an optional leading `#`, then a name (spaces
+ * written as `-`) matching the editor's own tag grammar (`scanTag` — the same rule Vault
  * Ingest indexes inline `#tags` by), with nothing left over. Returns the
  * name without `#`, or null.
  */
 export function parseTagInput(text: string): string | null {
   const trimmed = text.trim();
-  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  // Spaces become `-`, the canonical separator — the same step the Tags sidebar's rename applies
+  // (serializeTagName), so "Testing new tag" is the tag `Testing-new-tag`, shown as "Testing new tag".
+  const name = serializeTagName(trimmed.replace(/^#\s*/, ''));
+  const withHash = `#${name}`;
   const match = scanTag(withHash, 0);
   return match && match.end === withHash.length ? match.name : null;
 }
@@ -166,7 +169,8 @@ interface TagPropertyEditorProps {
 /**
  * Editable state: the pills, then an inline Input. Clicking anywhere in the
  * value focuses the input. Typing `#name` and pressing Enter turns it into a pill and leaves the
- * input ready for the next tag — Space does not commit, it is ordinary text (as in the Aliases editor):
+ * input ready for the next tag — Space does not commit, it is ordinary text (as in the Aliases editor),
+ * and spaces in a committed name become `-`:
  * - whitespace-only text never makes a pill;
  * - an invalid name keeps the text and plays EditableText's reject shake;
  * - a name already present (by normalizeTagName) is dropped, not doubled;
@@ -249,8 +253,8 @@ function TagPropertyEditor({
       }
     }
 
-    // Only Enter commits (as in the Aliases editor): Space is ordinary text, left to the input. A
-    // draft with a space in it is not a valid tag name, so Enter then rejects it like any invalid one.
+    // Only Enter commits (as in the Aliases editor): Space is ordinary text, left to the input; the
+    // spaces in what Enter commits become `-` (parseTagInput).
     if (event.key === 'Enter') {
       event.preventDefault();
 

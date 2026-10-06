@@ -71,12 +71,18 @@ describe('parseTagInput', () => {
     expect(parseTagInput('#v2_ui')).toBe('v2_ui');
   });
 
+  it('writes spaces as - (the canonical separator), like the sidebar rename', () => {
+    expect(parseTagInput('Testing new tag')).toBe('Testing-new-tag');
+    expect(parseTagInput('  #product   design ')).toBe('product-design');
+    expect(parseTagInput('# spaced')).toBe('spaced');
+  });
+
   it('rejects empty, bare #, and names with characters a tag cannot hold', () => {
     expect(parseTagInput('')).toBeNull();
     expect(parseTagInput('   ')).toBeNull();
     expect(parseTagInput('#')).toBeNull();
     expect(parseTagInput('#a.b')).toBeNull();
-    expect(parseTagInput('#two words')).toBeNull();
+    expect(parseTagInput('#a b.c')).toBeNull();
     expect(parseTagInput('##design')).toBeNull();
   });
 });
@@ -172,16 +178,17 @@ describe('TagPropertyValue — editable', () => {
     expect(onCommit).toHaveBeenCalledWith(['design']);
   });
 
-  it('a draft containing a space is not a tag: Enter rejects it, keeping the text', () => {
+  it('a draft containing spaces commits as a tag with `-` for each run of spaces, as the sidebar rename does', () => {
     const onCommit = vi.fn();
     render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
 
-    type('design research');
+    type('Testing new tag');
+    press(' ');
+    expect(onCommit).not.toHaveBeenCalled();
     press('Enter');
 
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(isShaking()).toBe(true);
-    expect(getInput().value).toBe('design research');
+    expect(onCommit).toHaveBeenCalledWith(['Testing-new-tag']);
+    expect(isShaking()).toBe(false);
   });
 
   it('Enter on an empty input adds nothing and does not shake', () => {
@@ -277,7 +284,7 @@ describe('TagPropertyValue — editable', () => {
     expect(storedValue()).toEqual(['design', 'ui']);
 
     act(() => getInput().focus());
-    type('#not valid');
+    type('#not.valid');
     act(() => getInput().blur());
     expect(storedValue()).toEqual(['design', 'ui']);
     expect(getInput().value).toBe('');
