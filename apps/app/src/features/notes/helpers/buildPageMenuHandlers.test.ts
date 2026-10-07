@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import type { ResourceActionSurface } from '@core/presentation/resourceActions/resourceActionSurfaces';
 import type { ResourceActionContext } from '@core/presentation/resourceActions/resourceActionTypes';
-import { buildPageMenuHandlers } from './buildPageMenuHandlers';
+import { buildPageLifecycleAndLocationHandlers, buildPageMenuHandlers } from './buildPageMenuHandlers';
 
 function rowActions() {
   return {
@@ -50,7 +50,11 @@ describe('buildPageMenuHandlers', () => {
     ['note', 'favorites'],
     ['daily-note', 'sidebar'],
   ])('%s on the %s surface: every emitted action is registered', (kind, surface) => {
-    const handlers = buildPageMenuHandlers(rowActions(), 'p1', false);
+    // A Daily Note's row only carries Archive/Reveal/Copy path actions.
+    const handlers =
+      kind === 'daily-note'
+        ? buildPageLifecycleAndLocationHandlers(rowActions(), 'p1')
+        : buildPageMenuHandlers(rowActions(), 'p1', false);
     const contexts: ResourceActionContext[] = [
       { status: 'active' },
       { status: 'active', isFavorite: true },

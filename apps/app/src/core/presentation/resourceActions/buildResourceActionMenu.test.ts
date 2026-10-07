@@ -163,61 +163,42 @@ describe('availability', () => {
 });
 
 describe('daily note', () => {
-  it('offers only location and lifecycle actions', () => {
+  it('offers only location and lifecycle actions on the sidebar', () => {
     expect(ids(buildResourceActionMenu('daily-note', { status: 'active' }, 'sidebar'))).toEqual([
       'reveal-in-finder',
       'copy-path',
       'archive',
     ]);
   });
-});
 
-describe('note menu details (carried over from the retired per-surface configs)', () => {
-  it('the sidebar groups identity | organize | location | lifecycle with dividers above Favorite, Reveal and Archive only', () => {
-    const menu = buildResourceActionMenu('note', { status: 'active' }, 'sidebar');
-    expect(ids(menu)).toEqual([
-      'rename',
-      'change-icon',
-      'toggle-favorite',
-      'duplicate',
-      'move-to',
-      'reveal-in-finder',
-      'copy-path',
-      'archive',
-    ]);
-    expect(dividedIds(menu)).toEqual(['toggle-favorite', 'reveal-in-finder', 'archive']);
-  });
-
-  it('Copy path offers From vault, Full path and As Markdown for a page', () => {
-    const copy = buildResourceActionMenu('note', { status: 'active' }, 'topbar').find(
-      (item) => item.id === 'copy-path'
-    );
-    expect(copy?.submenu?.map((leaf) => leaf.id)).toEqual([
-      'copy-path-at-vault',
-      'copy-path-full-path',
-      'copy-path-as-markdown',
-    ]);
-  });
-
-  it('Use as template is enabled for an active note, disabled for a draft or archived one, and absent for a template', () => {
-    const find = (context: Parameters<typeof buildResourceActionMenu>[1]) =>
-      buildResourceActionMenu('note', context, 'topbar').find((item) => item.id === 'use-as-template');
-    expect(find({ status: 'active' })?.disabled).toBeUndefined();
-    expect(find({ isDraft: true })?.disabled).toBe(true);
-    expect(find({ status: 'archived' })?.disabled).toBe(true);
-    expect(find({ isTemplate: true })).toBeUndefined();
-  });
-
-  it('a draft keeps Reveal, Copy path, Archive and (when deletable) Delete on the topbar, all disabled', () => {
-    const menu = buildResourceActionMenu('note', { isDraft: true, isDeletable: true }, 'topbar');
-    for (const id of ['reveal-in-finder', 'copy-path', 'archive', 'delete']) {
-      expect(menu.find((item) => item.id === id)?.disabled).toBe(true);
+  it('its menus never contain rename, icon, favorite, duplicate, move or template actions', () => {
+    for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
+      for (const context of [{ status: 'active' }, { status: 'archived', isDeletable: true }] as const) {
+        const menu = ids(buildResourceActionMenu('daily-note', context, surface));
+        for (const absent of ['rename', 'change-icon', 'toggle-favorite', 'duplicate', 'move-to', 'use-as-template']) {
+          expect(menu).not.toContain(absent);
+        }
+      }
     }
   });
 
-  it('never offers an add-a-description action — Description lives in the header menu', () => {
-    expect(ids(buildResourceActionMenu('note', { status: 'active' }, 'topbar'))).not.toContain(
-      'add-a-description'
+  it('a draft has no sidebar menu; on the topbar its actions are disabled, not omitted', () => {
+    expect(buildResourceActionMenu('daily-note', { isDraft: true }, 'sidebar')).toEqual([]);
+    const topbar = buildResourceActionMenu('daily-note', { isDraft: true, isDeletable: true }, 'topbar');
+    expect(ids(topbar)).toEqual(['reveal-in-finder', 'copy-path', 'archive', 'delete']);
+    expect(topbar.every((item) => item.disabled)).toBe(true);
+  });
+
+  it('on the topbar, an archived daily note offers Restore then a divided Delete', () => {
+    const menu = buildResourceActionMenu('daily-note', { status: 'archived', isDeletable: true }, 'topbar');
+    expect(ids(menu)).toEqual(['reveal-in-finder', 'copy-path', 'restore', 'delete']);
+    expect(dividedIds(menu)).toEqual(['restore', 'delete']);
+  });
+
+  it('Copy path offers As Markdown (a Daily Note is a page)', () => {
+    const copy = buildResourceActionMenu('daily-note', { status: 'active' }, 'topbar').find(
+      (item) => item.id === 'copy-path'
     );
+    expect(copy?.submenu?.map((leaf) => leaf.id)).toContain('copy-path-as-markdown');
   });
 });

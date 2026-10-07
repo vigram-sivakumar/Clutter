@@ -3,7 +3,6 @@ import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
-import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
 import {
@@ -76,7 +75,15 @@ function buildMenuForType(
     // Daily Notes deliberately do not support favoriting (unlike Note/
     // Folder) — buildDailyNoteTopBarMenu takes no isFavorite param.
     case 'daily-note':
-      return buildDailyNoteTopBarMenu(state, isDeletable);
+      return buildResourceActionMenu(
+        'daily-note',
+        {
+          isDraft: state === 'draft',
+          status: state === 'archived' ? 'archived' : 'active',
+          isDeletable,
+        },
+        'topbar'
+      );
     default:
       return [];
   }

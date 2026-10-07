@@ -18,7 +18,7 @@ describe('topbar handler registration for canonical resource actions', () => {
     { isDraft: true },
   ];
 
-  it.each(['note'] as const)('%s: every menu action has a handler in the rendered topbar', (kind) => {
+  it.each(['note', 'daily-note'] as const)('%s: every menu action has a handler in the rendered topbar', (kind) => {
     for (const context of contexts) {
       const menu = buildResourceActionMenu(kind, context, 'topbar');
       const fn = vi.fn();

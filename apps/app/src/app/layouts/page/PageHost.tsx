@@ -2246,7 +2246,7 @@ export function PageHost({
 
   const model = toResourcePageModel(page, session, onUpdateMarkdown, onRequestSave);
   // Move applies only to Notes and Folders (approved contract) — a Daily
-  // Note's menu never includes a `move-to` item (dailyNoteTopBarMenu.config.ts),
+  // Note's menu never includes a `move-to` item (the daily-note canonical actions),
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
   // A template (a note in Templates) is never moved by hand — its menu has
@@ -2306,7 +2306,7 @@ export function PageHost({
         isRenameable ? () => onCancelPageTitle(page.id) : undefined
       }
       // A Note and a Daily Note both offer "Add a description"/"Description"
-      // (dailyNoteTopBarMenu.config.ts includes the same item noteTopBarMenu
+      // (the daily-note canonical actions includes the same item noteTopBarMenu
       // does) — unlike title, description editability has no note-vs-daily-
       // note distinction.
       descriptionEditable

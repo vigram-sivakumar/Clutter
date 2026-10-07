@@ -23,7 +23,8 @@ import {
 } from '@core/presentation/getPageDisplayLabel';
 
 import { DailyNote } from './DailyNote';
-import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildPageLifecycleAndLocationHandlers } from '@features/notes/helpers/buildPageMenuHandlers';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 import type {
@@ -72,7 +73,7 @@ type TimelineEntry = EffectivePage & { isVirtual?: boolean };
  * Single owner of "which Daily Note row's overflow menu is open," supplied
  * by Sidebar.DailyNotes.tsx — the same ownership pattern as FolderTree's
  * SidebarRowActions, narrowed to what a Daily Note row actually supports:
- * no rename at all (draft or persisted — see dailyNoteSidebarMenu.config.ts),
+ * no rename at all (draft or persisted — see the daily-note canonical actions),
  * no folder actions (month/year folders aren't user-managed here).
  */
 export interface DailyNoteRowActions {
@@ -81,7 +82,7 @@ export interface DailyNoteRowActions {
   onCloseMenu(): void;
 
   /**
-   * No onDeleteNote — dailyNoteSidebarMenu.config.ts never includes a
+   * No onDeleteNote — the daily-note canonical actions never include a
    * 'delete' item (deletion-UX product decision: permanent Delete is
    * withdrawn from every ordinary workspace resource, and this row never
    * renders an archived Daily Note), so there is no dispatch target for it.
@@ -95,7 +96,7 @@ export interface DailyNoteRowActions {
    * Sidebar.Notes.tsx's `onRevealPageInFinder`/`onCopyPagePath` use, just
    * wired here for this list's own row menus. Never reachable for the
    * virtual "Today" placeholder row (renderPages below never wires a menu
-   * for `entry.isVirtual`) or a draft — dailyNoteSidebarMenu.config.ts
+   * for `entry.isVirtual`) or a draft — the canonical menu
    * returns an empty item list entirely for `isDraft` (unlike the topbar's
    * disabled-not-omitted convention), so there is no row to click at all.
    */
@@ -482,7 +483,11 @@ export const DailyNotesList = forwardRef<
             }}
             menuItems={
               rowActions && !entry.isVirtual
-                ? buildDailyNoteSidebarMenu(entry.isDraft)
+                ? buildResourceActionMenu(
+                    'daily-note',
+                    { isDraft: entry.isDraft, status: 'active' },
+                    'sidebar'
+                  )
                 : undefined
             }
             menuOpen={rowActions?.openMenuId === entry.id}
@@ -496,19 +501,8 @@ export const DailyNotesList = forwardRef<
             }
             onMenuSelect={
               rowActions && !entry.isVirtual
-                ? (id) => {
-                    if (id === 'archive') {
-                      rowActions.onArchiveNote(entry.id);
-                    } else if (id === 'reveal-in-finder') {
-                      rowActions.onRevealPageInFinder(entry.id);
-                    } else if (id === 'copy-path-at-vault') {
-                      rowActions.onCopyPagePath(entry.id, 'at-vault');
-                    } else if (id === 'copy-path-full-path') {
-                      rowActions.onCopyPagePath(entry.id, 'full-path');
-                    } else if (id === 'copy-path-as-markdown') {
-                      rowActions.onCopyPagePath(entry.id, 'as-markdown');
-                    }
-                  }
+                ? (id) =>
+                    buildPageLifecycleAndLocationHandlers(rowActions, entry.id)[id]?.()
                 : undefined
             }
           />
