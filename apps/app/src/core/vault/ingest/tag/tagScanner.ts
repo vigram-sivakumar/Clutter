@@ -71,6 +71,16 @@ export function scanTag(text: string, offset: number): TagMatch | null {
 }
 
 /**
+ * How many `-`/`_` characters at the start of `text` — the still-being-typed
+ * tail that `scanTag` drops from a finalized tag (`#design-` → `#design`).
+ * Editor-side consumers use it to keep the caret inside an *active* tag
+ * (`#design-|`) without re-expressing which characters are separators.
+ */
+export function countLeadingTagSeparators(text: string): number {
+  return /^[-_]*/.exec(text)![0].length;
+}
+
+/**
  * Whether `char` (a single character, or `undefined` for "no character —
  * start of content") counts as valid context immediately before a `#` for
  * it to begin a tag: start of content or whitespace. JavaScript's `\s`

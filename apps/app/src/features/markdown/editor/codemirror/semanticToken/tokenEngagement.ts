@@ -2,6 +2,8 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { countLeadingTagSeparators } from '@core/vault/ingest/tag/tagScanner';
+
 /**
  * Structural (not name-based) test for "does this node parse as an
  * ordinary delimited-mark construct" — exactly two children whose own
@@ -192,7 +194,20 @@ export function widenThroughFlushAncestors(node: SyntaxNode): TokenNodeRange {
  * into one named fact once a second consumer appears, doubly so for a third.
  */
 export function isConstructEngaged(state: EditorState, node: SyntaxNode): boolean {
-  return isTokenEngaged(state, widenThroughFlushAncestors(node));
+  const range = widenThroughFlushAncestors(node);
+  if (node.name === 'Tag' && range.to === node.to) {
+    // Active vs. finalized tag: the grammar drops trailing `-`/`_` from the
+    // node (`#Come-man-` parses as `#Come-man`), but while the caret is
+    // still right after them the user is mid-tag. Keep it engaged (raw,
+    // editable) instead of rendering the widget with the `-` left outside.
+    // Once the caret moves on (Space, click away) normal finalization applies.
+    const tail = state.sliceDoc(node.to, Math.min(state.doc.length, node.to + 100));
+    return isTokenEngaged(state, {
+      from: range.from,
+      to: range.to + countLeadingTagSeparators(tail),
+    });
+  }
+  return isTokenEngaged(state, range);
 }
 
 /**
