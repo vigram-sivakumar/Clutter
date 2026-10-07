@@ -137,10 +137,11 @@ describe('availability', () => {
     expect(ids(buildResourceActionMenu('note', { status: 'archived' }, 'topbar'))).not.toContain('archive');
   });
 
-  it('Move is disabled for an archived note and absent for a template', () => {
+  it('Move is disabled for an archived note, and offered for a Template (it moves within Templates)', () => {
     const archived = buildResourceActionMenu('note', { status: 'archived' }, 'topbar');
     expect(archived.find((item) => item.id === 'move-to')?.disabled).toBe(true);
-    expect(ids(buildResourceActionMenu('note', { isTemplate: true }, 'topbar'))).not.toContain('move-to');
+    const template = buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, 'topbar');
+    expect(template.find((item) => item.id === 'move-to')?.disabled).toBeUndefined();
   });
 
   it('Delete appears only when the resource is deletable', () => {

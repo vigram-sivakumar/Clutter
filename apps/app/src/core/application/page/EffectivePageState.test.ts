@@ -109,6 +109,7 @@ describe('EffectivePageState: draft-only entries', () => {
       type: 'note',
       folderId: null,
       isDraft: true,
+      isTemplate: false,
       name: 'My Draft',
       description: null,
       markdown: '',

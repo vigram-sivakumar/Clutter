@@ -144,6 +144,8 @@ describe('FavoriteList — location actions dispatch (previously listed but iner
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       noteMoveDestinations: [],
+      templateMoveDestinations: [],
+      createFolderInZone: () => undefined,
       getFolderMoveDestinations: () => [],
       onRevealPageInFinder: vi.fn(),
       onCopyPagePath: vi.fn(),

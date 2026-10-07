@@ -10,7 +10,7 @@ import type { PropertiesControl } from './propertiesControl';
 import './PageHeaderMoreActionsMenu.css';
 
 export interface PageHeaderMoreActionsMenuProps {
-  /** The page's current emoji, if any — gates whether the root view offers "Emoji" at all (only when unset; a set emoji's own button is the entry point instead, see PageHeaderControls). */
+  /** The page's current emoji, if any — gates whether the root view offers "Change icon" at all (only when unset; a set emoji's own button is the entry point instead, see PageHeaderControls). */
   emoji?: string;
   /**
    * Presence gates the entire Emoji capability, the same "handler presence
@@ -228,7 +228,7 @@ export function PageHeaderMoreActionsMenu({
                   setView('emoji');
                 }}
               >
-                Emoji
+                Change icon
               </MenuItem>
             )}
             {showCoverItem && (

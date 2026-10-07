@@ -32,7 +32,6 @@ import { getFavoriteItems } from '../helpers/getFavoriteItems';
 import { buildNoteRowActions } from '../helpers/buildNoteRowActions';
 import {
   buildMoveDestinationItems,
-  buildResourceMoveDestinationItems,
 } from '../helpers/buildMoveDestinationItems';
 import {
   FOLDER_ARCHIVE_CONFIRMATION_TITLE,
@@ -309,7 +308,11 @@ export function Notes({
     // buildMoveDestinationItems helper (excludeFolderId keeps a folder out
     // of its own destination list), same FolderOperations.move() call.
     getFolderMoveDestinations: (folderId) =>
-      buildMoveDestinationItems(membershipSelector, folderId),
+      buildMoveDestinationItems(
+        membershipSelector,
+        folderId,
+        membershipSelector.getMoveZoneOfFolder(folderId)
+      ),
     onMoveFolder: (folderId, destinationFolderId) =>
       void folderOperations.move(folderId, destinationFolderId),
 
@@ -325,13 +328,9 @@ export function Notes({
     onArchiveResource: (resourceId) =>
       void resourceOperations.archiveResource(resourceId),
     // Same flow as Note/Folder's own Move (buildMoveDestinationItems +
-    // *Operations.move), plus the Assets/ folder appended as a selectable
-    // destination — see buildResourceMoveDestinationItems' own doc comment
-    // for why that's specific to Resource Move.
-    resourceMoveDestinations: buildResourceMoveDestinationItems(
-      membershipSelector,
-      query
-    ),
+    // *Operations.move), rooted at Assets: an Asset moves only within the
+    // Assets hierarchy (ADR-049).
+    resourceMoveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'assets'),
     onMoveResource: (resourceId, destinationFolderId) =>
       void resourceOperations.moveResource(resourceId, destinationFolderId),
 
@@ -380,7 +379,7 @@ export function Notes({
   const favoriteItems = getFavoriteItems(
     query,
     effectivePageState,
-    (folderId) => membershipSelector.isInTemplatesFolder(folderId)
+    (folderId) => membershipSelector.getMoveZoneOfFolder(folderId)
   );
   // A pending (not-yet-persisted) root-level folder counts as non-empty too
   // — otherwise clicking "+" on an empty section would force it open via

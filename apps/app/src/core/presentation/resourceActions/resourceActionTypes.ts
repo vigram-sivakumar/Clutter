@@ -5,6 +5,7 @@ import type {
   OverflowMenuSubmenuItemConfig,
 } from '@components/menu/OverflowMenu';
 import type { SidebarSort } from '@core/properties/sidebarSort';
+import type { MoveZone } from '@core/vault/initialize/ReservedResources';
 
 /**
  * The fixed semantic order every resource-action menu follows (ADR-048). A group boundary is a
@@ -51,6 +52,8 @@ export interface ResourceActionContext {
   readonly executable?: readonly string[];
   /** Tasks only: the current value shown at the right of the Due date row. */
   readonly valueLabel?: string;
+  /** Folders only: the Move hierarchy the folder already sits in (see `moveZoneFor`). */
+  readonly moveZone?: MoveZone;
   /** Assets only: which kind of file this is. */
   readonly assetKind?: 'image' | 'pdf';
   /** Assets only: a URL with no vault file — the menu swaps each file action for its URL counterpart. */

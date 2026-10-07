@@ -253,9 +253,11 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     ]);
   });
 
-  it('flags a favorited note that lives in Templates, using the given folder predicate', () => {
+  it('flags a favorited note that lives in Templates (the page knows it is a Template)', () => {
+    const templates = makeFolder({ id: 'templates', name: 'Templates', path: `${ROOT}/Templates` });
     const inTemplates = makePage({
       id: 'page-in-templates',
+      path: `${ROOT}/Templates/T.md`,
       parentId: 'templates',
       metadata: { ...defaultPageMetadata, favorite: true },
     });
@@ -265,11 +267,34 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       parentId: null,
       metadata: { ...defaultPageMetadata, favorite: true },
     });
-    const { query, effectivePageState } = setup([], [inTemplates, elsewhere]);
+    const { query, effectivePageState } = setup([templates], [inTemplates, elsewhere]);
 
-    const items = getFavoriteItems(query, effectivePageState, (folderId) => folderId === 'templates');
+    const items = getFavoriteItems(query, effectivePageState);
 
     expect(items.find((item) => item.id === 'page-in-templates')?.isTemplate).toBe(true);
     expect(items.find((item) => item.id === 'page-elsewhere')?.isTemplate).toBeUndefined();
+  });
+
+  it('flags a favorited folder with the Move hierarchy it sits in, only when not the workspace', () => {
+    const inTemplates = makeFolder({
+      id: 'f-t',
+      name: 'Meetings',
+      path: `${ROOT}/Templates/Meetings`,
+      metadata: { ...defaultFolderMetadata, favorite: true },
+    });
+    const ordinary = makeFolder({
+      id: 'f-o',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      metadata: { ...defaultFolderMetadata, favorite: true },
+    });
+    const { query, effectivePageState } = setup([inTemplates, ordinary], []);
+
+    const items = getFavoriteItems(query, effectivePageState, (folderId) =>
+      folderId === 'f-t' ? 'templates' : 'workspace'
+    );
+
+    expect(items.find((item) => item.id === 'f-t')?.moveZone).toBe('templates');
+    expect(items.find((item) => item.id === 'f-o')?.moveZone).toBeUndefined();
   });
 });

@@ -126,6 +126,7 @@ function extraPanelProps() {
       vaultRoot: '/vault',
       getWorkspaceFolders: () => [],
       getVisibleChildFolders: () => [],
+      getMoveZoneRoot: () => undefined,
     } as unknown as MembershipSelector,
     workspace: { activePageId: null, isSectionExpanded: () => true, setSectionExpanded: vi.fn() } as unknown as Workspace,
     tagExpansionStore: {

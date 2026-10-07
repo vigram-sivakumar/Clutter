@@ -12,7 +12,8 @@ import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
-import { buildResourceMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
+import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
+import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import { downloadResource } from '@shared/helpers/downloadResource';
@@ -124,9 +125,16 @@ export function AppLayout({ application }: AppLayoutProps) {
   const { revealResourceInFinder, copyResourcePath, downloadResourceById } =
     createResourceLocationActions(application.vault);
 
-  const resourceMoveDestinations = buildResourceMoveDestinationItems(
+  // An Asset moves only within Assets (ADR-049): the same Move picker, rooted at Assets.
+  const resourceMoveDestinations = buildMoveDestinationItems(
     application.membershipSelector,
-    application.query
+    undefined,
+    'assets'
+  );
+  const createAssetFolder = createFolderInZone(
+    application.folderOperations,
+    application.membershipSelector,
+    'assets'
   );
 
   // Opens a real VaultResource, routing to the correct overlay via an
@@ -344,7 +352,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         onMoveResource={(id, destinationFolderId) =>
           void application.resourceOperations.moveResource(id, destinationFolderId)
         }
-        onCreateFolder={(name) => application.folderOperations.create(name, null)}
+        onCreateFolder={createAssetFolder}
         remoteImageActions={{
           onSaveToVault: startSaveToVault,
           onOpenInBrowser: (url) => void openExternalUrl(url),
@@ -401,7 +409,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         }
         onCreateFolder={
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled
-            ? (name) => application.folderOperations.create(name, null)
+            ? createAssetFolder
             : undefined
         }
       />

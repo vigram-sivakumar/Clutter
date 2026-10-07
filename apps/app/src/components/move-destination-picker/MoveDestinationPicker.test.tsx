@@ -250,3 +250,45 @@ function MoveDestinationPickerHarness({
     </>
   );
 }
+
+// ADR-049: one picker renders whichever root the resource needs — nothing resource-specific here.
+describe('MoveDestinationPicker — roots', () => {
+  const templateItems: PickerListItem[] = [
+    { id: 'zeta-sub', title: 'Alpha', level: 1, parentId: 'templates-root', ancestors: [{ id: 'templates-root', title: 'Templates' }] },
+    { id: 'templates-root', title: 'Templates', isRoot: true, level: 0, parentId: null },
+  ];
+
+  it('pins a Templates/Assets root first (like the vault root), then the rest alphabetically', () => {
+    const { container } = render(<MoveDestinationPickerHarness items={templateItems} onSelect={vi.fn()} />);
+
+    const rows = Array.from(container.ownerDocument.querySelectorAll('.picker-list [role="option"], .picker-list .entry'));
+    const titles = rows.map((row) => row.textContent ?? '');
+
+    // "Templates" (the root) precedes "Alpha" although "Alpha" sorts first alphabetically.
+    expect(titles.findIndex((text) => text.startsWith('Templates'))).toBeLessThan(
+      titles.findIndex((text) => text.startsWith('Alpha'))
+    );
+  });
+
+  it('selecting a Templates/Assets root selects that folder id — not null (only the vault root maps to null)', () => {
+    const onSelect = vi.fn();
+    render(<MoveDestinationPickerHarness items={templateItems} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getAllByText('Templates')[0]!);
+
+    expect(onSelect).toHaveBeenCalledWith('templates-root');
+  });
+
+  it('selecting the vault root still maps to null', () => {
+    const onSelect = vi.fn();
+    const withVaultRoot: PickerListItem[] = [
+      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      { id: 'folder-1', title: 'Project', level: 0, parentId: null },
+    ];
+    render(<MoveDestinationPickerHarness items={withVaultRoot} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByText('vault'));
+
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+});

@@ -173,7 +173,7 @@ describe('Tag collection page — title emoji', () => {
     fireEvent.click(moreActions()!);
     await flush();
     const emojiItem = [...document.querySelectorAll('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'Emoji'
+      (item) => item.textContent?.trim() === 'Change icon'
     );
     expect(emojiItem).toBeDefined();
     // Only the capability this page supplies is offered.

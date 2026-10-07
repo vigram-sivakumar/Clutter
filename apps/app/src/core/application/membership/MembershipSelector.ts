@@ -7,6 +7,7 @@ import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
 import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import { moveZoneOfPath, type MoveZone } from '../../vault/initialize/ReservedResources';
 import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
 /**
@@ -220,6 +221,20 @@ export class MembershipSelector {
    */
   public isAssetsStorageFolder(folder: Folder): boolean {
     return folder.parentId === null && folder.name === ASSETS_DIRECTORY_NAME;
+  }
+
+  /** Which Move hierarchy a folder belongs to (ADR-049); the vault root (`null`) is the workspace. */
+  public getMoveZoneOfFolder(folderId: string | null): MoveZone {
+    const folder = folderId === null ? undefined : this.vault.getFolder(folderId);
+
+    return folder ? moveZoneOfPath(this.vault.root, folder.path) : 'workspace';
+  }
+
+  /** The root folder of a sealed Move hierarchy — Templates or the Assets storage folder — if it exists. */
+  public getMoveZoneRoot(zone: Exclude<MoveZone, 'workspace'>): Folder | undefined {
+    return zone === 'templates'
+      ? this.vault.getReservedFolder('templates')
+      : this.getAssetsStorageFolder();
   }
 
   /** The physical Assets/ storage folder, if the vault has one (it is created with the first import). */

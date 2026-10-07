@@ -63,7 +63,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
   it('shows Emoji, Cover image, and Description when no emoji/description is set', () => {
     renderMenu();
 
-    expect(screen.getByText('Emoji')).toBeInTheDocument();
+    expect(screen.getByText('Change icon')).toBeInTheDocument();
     expect(screen.getByText('Cover image')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
@@ -71,7 +71,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
   it('omits Emoji once an emoji is already set — the visible emoji itself is the entry point instead', () => {
     renderMenu({ emoji: '🍄' });
 
-    expect(screen.queryByText('Emoji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change icon')).not.toBeInTheDocument();
     expect(screen.getByText('Cover image')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
   it('omits Emoji entirely when onSelectEmoji is not supplied (e.g. a Daily Note)', () => {
     renderMenu({ onSelectEmoji: undefined });
 
-    expect(screen.queryByText('Emoji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change icon')).not.toBeInTheDocument();
   });
 
   it('omits Cover image when onSetCoverImage is not supplied', () => {
@@ -93,7 +93,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
 
     expect(screen.queryByText('Cover image')).not.toBeInTheDocument();
     expect(screen.queryByText('Show cover image')).not.toBeInTheDocument();
-    expect(screen.getByText('Emoji')).toBeInTheDocument();
+    expect(screen.getByText('Change icon')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
   });
 
@@ -144,7 +144,7 @@ describe('PageHeaderMoreActionsMenu — root view', () => {
 
     expect(screen.queryByText('Description')).not.toBeInTheDocument();
     // Unaffected: Emoji/Cover image gating is independent of hasDescription.
-    expect(screen.getByText('Emoji')).toBeInTheDocument();
+    expect(screen.getByText('Change icon')).toBeInTheDocument();
   });
 });
 
@@ -152,19 +152,19 @@ describe('PageHeaderMoreActionsMenu — Emoji view', () => {
   it('clicking Emoji replaces the menu content with the existing emoji picker, unmodified and unwrapped', () => {
     renderMenu();
 
-    fireEvent.click(screen.getByText('Emoji'));
+    fireEvent.click(screen.getByText('Change icon'));
 
     expect(document.querySelector('.menu')).not.toBeInTheDocument();
     expect(screen.queryByText('Cover image')).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search emoji')).toBeInTheDocument();
     // No title/back row of this file's own — EmojiTray is rendered as-is.
-    expect(screen.queryByText('Emoji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change icon')).not.toBeInTheDocument();
   });
 
   it('selecting an emoji persists it and closes the whole menu', () => {
     const { onSelectEmoji } = renderMenu();
 
-    fireEvent.click(screen.getByText('Emoji'));
+    fireEvent.click(screen.getByText('Change icon'));
     const firstEmoji = document.querySelector<HTMLButtonElement>('.emoji-tray__item')!;
     fireEvent.click(firstEmoji);
 
@@ -178,7 +178,7 @@ describe('PageHeaderMoreActionsMenu — Emoji view', () => {
   it('reopening after leaving on the emoji view resets to the root view', () => {
     renderMenu();
 
-    fireEvent.click(screen.getByText('Emoji'));
+    fireEvent.click(screen.getByText('Change icon'));
     const trigger = screen.getByRole('button', { name: 'More actions' });
     fireEvent.click(trigger); // closes
     fireEvent.click(trigger); // reopens
@@ -190,7 +190,7 @@ describe('PageHeaderMoreActionsMenu — Emoji view', () => {
   it('renders EmojiTray unwrapped — not nested inside .menu — so its own surface (background/border-radius/box-shadow) is the only visible box, not framed by Menu.css\'s own chrome', () => {
     renderMenu();
 
-    fireEvent.click(screen.getByText('Emoji'));
+    fireEvent.click(screen.getByText('Change icon'));
 
     expect(document.querySelector('.menu')).not.toBeInTheDocument();
     const tray = document.querySelector('.emoji-tray');
@@ -208,7 +208,7 @@ describe('PageHeaderMoreActionsMenu — Cover image view', () => {
     fireEvent.click(screen.getByText('Cover image'));
 
     expect(document.querySelector('.menu')).not.toBeInTheDocument();
-    expect(screen.queryByText('Emoji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change icon')).not.toBeInTheDocument();
     // ImagePicker's own upload/link/unsplash tabs — any one confirms it mounted.
     expect(document.querySelector('.image-picker')).toBeInTheDocument();
     // Same trigger, still marked expanded — never closed and reopened.
@@ -253,7 +253,7 @@ describe('PageHeaderMoreActionsMenu — never nests a second Overlay', () => {
     const trigger = screen.getByRole('button', { name: 'More actions' });
     fireEvent.click(trigger); // closes
     fireEvent.click(trigger); // reopens on the root view
-    fireEvent.click(screen.getByText('Emoji'));
+    fireEvent.click(screen.getByText('Change icon'));
     expect(document.querySelectorAll('.overlay')).toHaveLength(1);
   });
 });
@@ -300,7 +300,7 @@ describe('PageHeaderMoreActionsMenu — the Properties control', () => {
 
     it('sits alongside the existing items, and stays offered when they are all used up', () => {
       renderMenu({ propertiesControl: show() });
-      expect(rootItems()).toEqual(expect.arrayContaining(['Emoji', 'Cover image', 'Description', 'Show properties']));
+      expect(rootItems()).toEqual(expect.arrayContaining(['Change icon', 'Cover image', 'Description', 'Show properties']));
       cleanup();
 
       renderMenu({ propertiesControl: show(), emoji: '🙂', hasCoverImage: true, hasDescription: true });

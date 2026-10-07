@@ -1,6 +1,7 @@
 import type { FavoriteItem } from '../models/FavoriteItem';
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
+import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
 import { buildFolderMenuHandlers } from '../helpers/buildFolderMenuHandlers';
@@ -49,6 +50,7 @@ export function FavoriteList({
 }: FavoriteListProps) {
   return items.map((item) => {
     if (item.type === 'note') {
+      const noteZone = moveZoneFor('note', { isTemplate: item.isTemplate });
       // Every item here is already a favorite (isFavorite hardcoded true)
       // and always durable (isDraft hardcoded false — a draft can never be
       // favorited, see getFavoriteItems.ts). The 'favorites' surface profile
@@ -85,13 +87,19 @@ export function FavoriteList({
               ? (id) => buildPageMenuHandlers(rowActions, item.id, true)[id]?.()
               : undefined
           }
-          moveDestinations={rowActions ? rowActions.noteMoveDestinations : undefined}
+          moveDestinations={
+            rowActions
+              ? noteZone === 'templates'
+                ? rowActions.templateMoveDestinations
+                : rowActions.noteMoveDestinations
+              : undefined
+          }
           onMove={
             rowActions
               ? (destinationFolderId) => rowActions.onMoveNote(item.id, destinationFolderId)
               : undefined
           }
-          onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
+          onCreateFolder={rowActions ? rowActions.createFolderInZone(noteZone) : undefined}
           onChangeIcon={
             rowActions
               ? (emoji) => rowActions.onChangeNoteIcon(item.id, emoji)
@@ -137,7 +145,9 @@ export function FavoriteList({
             ? (destinationFolderId) => rowActions.onMoveFolder(item.id, destinationFolderId)
             : undefined
         }
-        onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
+        onCreateFolder={
+          rowActions ? rowActions.createFolderInZone(item.moveZone ?? 'workspace') : undefined
+        }
         onChangeIcon={
           rowActions
             ? (emoji) => rowActions.onChangeFolderIcon(item.id, emoji)

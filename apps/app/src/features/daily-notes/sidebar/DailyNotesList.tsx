@@ -221,6 +221,7 @@ function buildVirtualTodayEntry(
     type: 'daily-note',
     folderId,
     isDraft: true,
+    isTemplate: false,
     name: todayIso,
     description: null,
     markdown: '',

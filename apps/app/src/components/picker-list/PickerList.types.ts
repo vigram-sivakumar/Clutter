@@ -37,6 +37,12 @@ export interface PickerListItem {
    */
   secondaryLabel?: string;
   /**
+   * Marks the destination list's root row — the vault root, or Templates/Assets for a Move inside
+   * one of those hierarchies. A flat destination list pins it first; selecting it is an ordinary
+   * selection of its `id` (the vault root's sentinel id is the one that maps back to `null`).
+   */
+  isRoot?: boolean;
+  /**
    * The section this item belongs to. Where it changes from one item to the next, the
    * picker draws a divider (not before the first section) and the section's title —
    * a `MenuGroupTitle`. Items of one section must be adjacent; an item without a

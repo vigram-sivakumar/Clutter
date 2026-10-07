@@ -39,6 +39,12 @@ export interface EffectivePage {
   readonly type: PageType;
   readonly folderId: string | null;
   readonly isDraft: boolean;
+  /**
+   * Whether this page is a Template (a saved page inside the reserved Templates folder, ADR-041).
+   * Carried on the page itself so every surface that lists it — the Tags sidebar's expanded rows
+   * included — applies Template rules without knowing where it is being shown.
+   */
+  readonly isTemplate: boolean;
   readonly name: string;
   readonly description: string | null;
   readonly markdown: string;
@@ -263,6 +269,7 @@ export class EffectivePageState {
         ? page.parentId
         : (draft as NonNullable<typeof draft>).folderId,
       isDraft: !page,
+      isTemplate: page ? this.vault.isFolderWithinReservedFolder(page.parentId, 'templates') : false,
       name: page
         ? page.name
         : ((draft as NonNullable<typeof draft>).title ?? ''),

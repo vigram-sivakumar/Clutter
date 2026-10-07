@@ -4,6 +4,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { Vault } from '@core/vault/models/Vault';
 import type { NoteRowActions } from '../sidebar/FolderTree';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
+import { createFolderInZone } from './createFolderInZone';
 import { createLocationActions } from './createLocationActions';
 
 export interface BuildNoteRowActionsDeps {
@@ -93,6 +94,9 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     // buildMoveDestinationItems helper, same PageOperations.move() call —
     // nothing about Move is reimplemented for a second caller.
     noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
+    // A Template moves only within Templates (ADR-049): the same picker, rooted there.
+    templateMoveDestinations: buildMoveDestinationItems(membershipSelector, undefined, 'templates'),
+    createFolderInZone: (zone) => createFolderInZone(folderOperations, membershipSelector, zone),
     onMoveNote: (pageId, destinationFolderId) =>
       void pageOperations.move(pageId, destinationFolderId),
     // Same flow as the topbar's Move (PageHost.tsx): root-level creation

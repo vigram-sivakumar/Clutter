@@ -876,10 +876,12 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
 });
 
 describe('Sidebar Notes: Resource move', () => {
-  it('selecting Move to… opens the destination picker, and choosing a destination calls ResourceOperations.moveResource', () => {
+  it('selecting Move to… opens the same picker, rooted at Assets, and choosing a destination calls ResourceOperations.moveResource', () => {
     const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const deps = setup([folder], [], [resource]);
+    const assets = makeFolder('assets', `${ROOT}/Assets`);
+    const images = { ...makeFolder('assets-images', `${ROOT}/Assets/Images`), parentId: 'assets' };
+    const projects = makeFolder('folder-1', `${ROOT}/Projects`);
+    const deps = setup([assets, images, projects], [], [resource]);
     const moveSpy = vi
       .spyOn(deps.resourceOperations, 'moveResource')
       .mockResolvedValue(undefined);
@@ -888,9 +890,32 @@ describe('Sidebar Notes: Resource move', () => {
     fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Move to…'));
     const picker = document.querySelector<HTMLElement>('.picker-list')!;
-    fireEvent.click(within(picker).getByText('Projects'));
 
-    expect(moveSpy).toHaveBeenCalledWith('resource-1', 'folder-1');
+    // Assets root first, then only its own folders — no ordinary folder, no vault root.
+    // ("Assets" appears as the root row and as the path under its subfolder.)
+    expect(within(picker).getAllByText('Assets').length).toBeGreaterThan(0);
+    expect(within(picker).queryByText('Projects')).not.toBeInTheDocument();
+    expect(within(picker).queryByText('Home')).not.toBeInTheDocument();
+
+    fireEvent.click(within(picker).getByText('Images'));
+
+    expect(moveSpy).toHaveBeenCalledWith('resource-1', 'assets-images');
+  });
+
+  it('choosing the Assets root moves the asset to the Assets folder itself', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const assets = makeFolder('assets', `${ROOT}/Assets`);
+    const deps = setup([assets], [], [resource]);
+    const moveSpy = vi
+      .spyOn(deps.resourceOperations, 'moveResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan'));
+    fireEvent.click(screen.getByText('Move to…'));
+    fireEvent.click(within(document.querySelector<HTMLElement>('.picker-list')!).getByText('Assets'));
+
+    expect(moveSpy).toHaveBeenCalledWith('resource-1', 'assets');
   });
 });
 

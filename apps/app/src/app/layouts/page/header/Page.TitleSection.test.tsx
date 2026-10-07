@@ -184,7 +184,7 @@ describe('PageTitleSection — the visible emoji is its own entry point', () => 
 
     expect(screen.getByText('Cover image')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
-    expect(screen.queryByText('Emoji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change icon')).not.toBeInTheDocument();
   });
 });
 
@@ -228,7 +228,7 @@ describe('PageTitleSection — there is no cover-image control in the header its
 
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
-    expect(screen.getByText('Emoji')).toBeInTheDocument();
+    expect(screen.getByText('Change icon')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
     expect(screen.queryByText('Cover image')).not.toBeInTheDocument();
   });

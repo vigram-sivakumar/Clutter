@@ -1,13 +1,18 @@
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MoveZone } from '@core/vault/initialize/ReservedResources';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
 
 import type { FavoriteItem } from '../models/FavoriteItem';
 
+function nonWorkspaceZone(zone: MoveZone): 'templates' | 'assets' | undefined {
+  return zone === 'workspace' ? undefined : zone;
+}
+
 function toFavoriteItem(
   entry: Folder | EffectivePage,
-  isInTemplates: (folderId: string | null) => boolean
+  getFolderMoveZone: (folderId: string | null) => MoveZone
 ): FavoriteItem {
   const isPage = 'type' in entry;
   const { title, titleStyle, emoji } = buildEntryPresentation(entry);
@@ -19,25 +24,27 @@ function toFavoriteItem(
     emoji,
     type: isPage ? 'note' : 'folder',
     status: isPage ? undefined : entry.metadata.status,
-    isTemplate: isPage && isInTemplates(entry.folderId) ? true : undefined,
+    // A page knows it is a Template (EffectivePage.isTemplate); a folder sits in a Move hierarchy.
+    isTemplate: isPage && entry.isTemplate ? true : undefined,
+    moveZone: isPage ? undefined : nonWorkspaceZone(getFolderMoveZone(entry.id)),
   };
 }
 
 export function toFavoriteItems(
   folders: readonly Folder[],
   pages: readonly EffectivePage[],
-  isInTemplates: (folderId: string | null) => boolean = () => false
+  getFolderMoveZone: (folderId: string | null) => MoveZone = () => 'workspace'
 ): FavoriteItem[] {
   return [
-    ...folders.map((folder) => toFavoriteItem(folder, isInTemplates)),
-    ...pages.map((page) => toFavoriteItem(page, isInTemplates)),
+    ...folders.map((folder) => toFavoriteItem(folder, getFolderMoveZone)),
+    ...pages.map((page) => toFavoriteItem(page, getFolderMoveZone)),
   ];
 }
 
 export function getFavoriteItems(
   query: VaultQuery,
   effectivePageState: EffectivePageState,
-  isInTemplates: (folderId: string | null) => boolean = () => false
+  getFolderMoveZone: (folderId: string | null) => MoveZone = () => 'workspace'
 ): FavoriteItem[] {
   // Membership is durable-only (a draft can't be favorited — the favorite
   // flag lives in PageMetadata, which a draft never has,
@@ -48,6 +55,6 @@ export function getFavoriteItems(
   return toFavoriteItems(
     query.getFavoriteFolders(),
     effectivePageState.getFavoritePages(),
-    isInTemplates
+    getFolderMoveZone
   );
 }

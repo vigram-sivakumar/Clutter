@@ -114,6 +114,7 @@ describe('buildMoveDestinationItems', () => {
       id: '__vault-root__',
       title: 'vault',
       secondaryLabel: 'Home',
+      isRoot: true,
       level: 0,
       parentId: null,
     });
@@ -132,7 +133,14 @@ describe('buildMoveDestinationItems', () => {
     const membershipSelector = makeMembershipSelector([]);
 
     expect(buildMoveDestinationItems(membershipSelector)).toEqual([
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
+      {
+        id: '__vault-root__',
+        title: 'vault',
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      },
     ]);
   });
 
@@ -183,7 +191,14 @@ describe('buildMoveDestinationItems', () => {
     const items = buildMoveDestinationItems(membershipSelector);
 
     expect(items).toEqual([
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', level: 0, parentId: null },
+      {
+        id: '__vault-root__',
+        title: 'vault',
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      },
     ]);
   });
 
@@ -200,5 +215,69 @@ describe('buildMoveDestinationItems', () => {
     expect(ids).not.toContain('folder-1');
     expect(ids).not.toContain('folder-2');
     expect(ids).toContain('folder-3');
+  });
+});
+
+// ADR-049: the same builder (and so the same picker) serves each resource's own root.
+describe('buildMoveDestinationItems — zones (Templates and Assets roots)', () => {
+  const zoneFolders = () => [
+    makeFolder('templates', `${ROOT}/Templates`),
+    makeFolder('templates-meetings', `${ROOT}/Templates/Meetings`, 'templates'),
+    makeFolder('templates-reviews', `${ROOT}/Templates/Reviews`, 'templates'),
+    makeFolder('assets', `${ROOT}/Assets`),
+    makeFolder('assets-images', `${ROOT}/Assets/Images`, 'assets'),
+    makeFolder('assets-pdfs', `${ROOT}/Assets/PDFs`, 'assets'),
+    makeFolder('inbox', `${ROOT}/Inbox`),
+    makeFolder('projects', `${ROOT}/Projects`),
+    makeFolder('daily', `${ROOT}/Daily Notes`),
+  ];
+  const ids = (items: { id: string }[]) => items.map((item) => item.id);
+
+  it('the workspace (default) offers the vault root and ordinary folders — never Templates or Assets', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()));
+
+    expect(items[0]).toMatchObject({ id: '__vault-root__', isRoot: true });
+    expect(ids(items)).toEqual(expect.arrayContaining(['projects']));
+    for (const forbidden of ['templates', 'templates-meetings', 'assets', 'assets-images']) {
+      expect(ids(items)).not.toContain(forbidden);
+    }
+  });
+
+  it('a Template is offered the Templates root first, then only folders inside Templates', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), undefined, 'templates');
+
+    expect(items[0]).toMatchObject({ id: 'templates', title: 'Templates', isRoot: true, level: 0 });
+    expect(ids(items)).toEqual(['templates', 'templates-meetings', 'templates-reviews']);
+    expect(items[1]).toMatchObject({ level: 1, parentId: 'templates' });
+    // Not the vault root, a normal folder, the Inbox, Daily Notes or Assets.
+    for (const forbidden of ['__vault-root__', 'projects', 'inbox', 'daily', 'assets', 'assets-images']) {
+      expect(ids(items)).not.toContain(forbidden);
+    }
+  });
+
+  it('an Asset is offered the Assets root first, then only folders inside Assets', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), undefined, 'assets');
+
+    expect(items[0]).toMatchObject({ id: 'assets', title: 'Assets', isRoot: true, level: 0 });
+    expect(ids(items)).toEqual(['assets', 'assets-images', 'assets-pdfs']);
+    for (const forbidden of ['__vault-root__', 'projects', 'inbox', 'daily', 'templates', 'templates-meetings']) {
+      expect(ids(items)).not.toContain(forbidden);
+    }
+  });
+
+  it("a sealed zone's subfolders carry the root in their path so the picker shows where they live", () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), undefined, 'templates');
+
+    expect(items[1]?.ancestors).toEqual([{ id: 'templates', title: 'Templates', emoji: null }]);
+  });
+
+  it('a zone whose root does not exist yet offers nothing (it is never created speculatively)', () => {
+    expect(buildMoveDestinationItems(makeMembershipSelector([makeFolder('projects', `${ROOT}/Projects`)]), undefined, 'assets')).toEqual([]);
+  });
+
+  it('a moved folder is excluded from its own zone list, with its descendants', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), 'templates-meetings', 'templates');
+
+    expect(ids(items)).toEqual(['templates', 'templates-reviews']);
   });
 });

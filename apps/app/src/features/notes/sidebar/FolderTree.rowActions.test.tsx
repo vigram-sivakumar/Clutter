@@ -248,6 +248,8 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     openMenuId: null,
     editingId: null,
     noteMoveDestinations: [],
+    templateMoveDestinations: [],
+    createFolderInZone: () => undefined,
     resourceMoveDestinations: [],
     ...spies,
     ...overrides,

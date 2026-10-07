@@ -1,6 +1,6 @@
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Folder } from '@core/vault/models/Folder';
-import type { VaultQuery } from '@core/vault/queries/VaultQuery';
+import type { MoveZone } from '@core/vault/initialize/ReservedResources';
 import {
   ROOT_DESTINATION_ID,
   type PickerListAncestor,
@@ -37,6 +37,11 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * and translates it back to the `null` destination every Move facade
  * method already accepts.
  *
+ * `zone` (ADR-049) picks the root: `'workspace'` (default) is the vault root and its ordinary
+ * folders; `'templates'` and `'assets'` are the sealed hierarchies — their own root row first
+ * (the one the picker pins, like the vault root), then only folders inside it. A Template or an
+ * Asset moves only within its hierarchy, and nothing else is offered it.
+ *
  * `excludeFolderId`, when given (a folder being moved, never a page), is
  * the one exclusion this helper does add: the folder itself is omitted,
  * and recursion never descends into it, so none of its descendants can
@@ -47,17 +52,45 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  */
 export function buildMoveDestinationItems(
   membershipSelector: MembershipSelector,
-  excludeFolderId?: string
+  excludeFolderId?: string,
+  zone: MoveZone = 'workspace'
 ): PickerListItem[] {
-  const items: PickerListItem[] = [
-    {
+  const items: PickerListItem[] = [];
+  let startFolders: readonly Folder[];
+  let startAncestors: PickerListAncestor[] = [];
+
+  if (zone === 'workspace') {
+    items.push({
       id: ROOT_DESTINATION_ID,
       title: getVaultDisplayName(membershipSelector.vaultRoot),
       secondaryLabel: 'Home',
+      isRoot: true,
       level: 0,
       parentId: null,
-    },
-  ];
+    });
+    startFolders = membershipSelector.getWorkspaceFolders();
+  } else {
+    // A sealed hierarchy (ADR-049): its own root takes the vault root's place, and nothing outside
+    // it is offered. The same picker renders it; selecting the root is selecting that folder.
+    const root = membershipSelector.getMoveZoneRoot(zone);
+
+    if (!root) {
+      return items;
+    }
+
+    const label = getFolderDisplayLabel(root);
+
+    items.push({
+      id: root.id,
+      title: label.text,
+      isRoot: true,
+      emoji: root.metadata.icon,
+      level: 0,
+      parentId: null,
+    });
+    startFolders = membershipSelector.getVisibleChildFolders(root.id);
+    startAncestors = [{ id: root.id, title: label.text, emoji: root.metadata.icon }];
+  }
 
   function walk(
     folders: readonly Folder[],
@@ -90,55 +123,7 @@ export function buildMoveDestinationItems(
     }
   }
 
-  walk(membershipSelector.getWorkspaceFolders(), 0, null, []);
+  walk(startFolders, zone === 'workspace' ? 0 : 1, zone === 'workspace' ? null : (items[0]?.id ?? null), startAncestors);
 
   return items;
-}
-
-/**
- * The Resource-scoped counterpart to buildMoveDestinationItems — same
- * shared list every Move entry point already uses, plus the one addition
- * Resource Move specifically needs: the managed Assets/ folder as a
- * selectable destination. buildMoveDestinationItems deliberately excludes
- * it everywhere else (MembershipSelector.isWorkspaceFolder's own
- * `!isAssetsStorageFolder` filter — Assets/ isn't a normal Note/Folder
- * destination), but "move a resource into Assets/" is one of the required
- * destinations per the approved Resource Move design, so this appends it
- * back — as a plain root-level item, not by changing
- * isWorkspaceFolder/buildMoveDestinationItems for every other caller.
- *
- * If Assets/ hasn't been registered as a tracked Vault Folder yet (it's
- * lazily created — see ensureAssetsFolder), it simply isn't offered: this
- * never creates it speculatively just to populate a picker list.
- */
-export function buildResourceMoveDestinationItems(
-  membershipSelector: MembershipSelector,
-  query: VaultQuery
-): PickerListItem[] {
-  // Resource Move keeps its prior, narrower contract (no vault-root
-  // destination — a resource's natural home is a folder or Assets/) even
-  // though buildMoveDestinationItems now offers root to every other caller.
-  const items = buildMoveDestinationItems(membershipSelector).filter(
-    (item) => item.id !== ROOT_DESTINATION_ID
-  );
-  const assetsFolder = query
-    .getRootFolders()
-    .find((folder) => membershipSelector.isAssetsStorageFolder(folder));
-
-  if (!assetsFolder) {
-    return items;
-  }
-
-  const label = getFolderDisplayLabel(assetsFolder);
-
-  return [
-    ...items,
-    {
-      id: assetsFolder.id,
-      title: label.text,
-      level: 0,
-      parentId: null,
-      emoji: assetsFolder.metadata.icon,
-    },
-  ];
 }

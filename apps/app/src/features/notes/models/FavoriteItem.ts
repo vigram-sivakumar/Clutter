@@ -12,6 +12,8 @@ export type FavoriteItem = {
   type: 'note' | 'folder';
   emoji: string | null;
   status?: FolderMetadata['status'];
-  /** A note that lives in Templates — its row offers no Move. Set only when true. */
+  /** A note that lives in Templates — its Move picker is rooted at Templates. Set only when true. */
   isTemplate?: boolean;
+  /** A folder inside Templates or Assets — its Move picker is rooted there. Set only when not the workspace. */
+  moveZone?: 'templates' | 'assets';
 };

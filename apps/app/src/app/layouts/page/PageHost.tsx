@@ -33,6 +33,7 @@ import {
   PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
 import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
@@ -45,7 +46,6 @@ import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import {
   buildMoveDestinationItems,
-  buildResourceMoveDestinationItems,
 } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { Pill } from '@components/property-list/Pill';
@@ -98,6 +98,7 @@ import {
   TAG_DELETE_CONFIRMATION_MESSAGE,
   getTagDeleteConfirmationTitle,
 } from '@app/layouts/page/tagCollectionDelete';
+import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
@@ -1049,7 +1050,7 @@ export function PageHost({
   };
 
   // Same shared-across-draft-and-persisted reasoning as onSetCoverImage
-  // above — the page header's More-actions "Emoji" entry point (unset)
+  // above — the page header's More-actions "Change icon" entry point (unset)
   // and the emoji button's own ChangeIconPicker (already set) both funnel
   // here, exactly one write path either way.
   const onSelectEmoji = (emoji: string): void => {
@@ -1299,7 +1300,7 @@ export function PageHost({
           ? { coverPositionAbove: position }
           : { coverPositionSide: position }
       );
-    // The More-actions "Emoji" entry point's persistence — same
+    // The More-actions "Change icon" entry point's persistence — same
     // FolderOperations.updateMetadata write path sidebar Folder.tsx's own
     // ChangeIconPicker already uses (icon: null clears it, same as
     // cover's own null-to-clear convention above).
@@ -1316,6 +1317,9 @@ export function PageHost({
       folder,
       application.membershipSelector
     );
+    const folderMoveZone = moveZoneFor('folder', {
+      moveZone: application.membershipSelector.getMoveZoneOfFolder(folder.id),
+    });
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       vaultRoot: vault.root,
@@ -1347,13 +1351,20 @@ export function PageHost({
       // excluding `folder.id` (and its descendants, via
       // buildMoveDestinationItems' own walk) is always excluding a real,
       // movable folder here, never a reserved one.
+      // A folder moves within the hierarchy it sits in (ADR-049): the same picker, rooted at
+      // Templates or Assets for a folder inside one of them.
       moveDestinations: buildMoveDestinationItems(
         application.membershipSelector,
-        folder.id
+        folder.id,
+        folderMoveZone
       ),
       onMove: (destinationFolderId) =>
         onMoveFolder(folder.id, destinationFolderId),
-      onCreateFolder: (name) => application.folderOperations.create(name, null),
+      onCreateFolder: createFolderInZone(
+        application.folderOperations,
+        application.membershipSelector,
+        folderMoveZone
+      ),
     });
     // A reserved folder (Archive, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
@@ -2207,9 +2218,10 @@ export function PageHost({
               }
               onRevealResourceInFinder={revealResourceInFinder}
               onCopyResourcePath={copyResourcePath}
-              resourceMoveDestinations={buildResourceMoveDestinationItems(
+              resourceMoveDestinations={buildMoveDestinationItems(
                 application.membershipSelector,
-                application.query
+                undefined,
+                'assets'
               )}
               onMoveResource={(id, destinationFolderId) =>
                 void application.resourceOperations.moveResource(
@@ -2217,9 +2229,11 @@ export function PageHost({
                   destinationFolderId
                 )
               }
-              onCreateFolder={(name) =>
-                application.folderOperations.create(name, null)
-              }
+              onCreateFolder={createFolderInZone(
+                application.folderOperations,
+                application.membershipSelector,
+                'assets'
+              )}
             />
           </MarkdownBody>
         }
@@ -2250,10 +2264,12 @@ export function PageHost({
   // Note's menu never includes a `move-to` item (the daily-note canonical actions),
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
-  // A template (a note in Templates) is never moved by hand — its menu has
-  // no `move-to` item (the canonical note actions hide Move for a template), so no Move props either.
-  const canMoveNote =
-    page.type === 'note' && !application.membershipSelector.isInTemplatesFolder(page.parentId);
+  // A Template moves too, but only within Templates (ADR-049): the canonical `move-to` action is
+  // the same, the same picker opens, and the resource's own kind decides its root.
+  const canMoveNote = page.type === 'note';
+  const noteMoveZone = moveZoneFor('note', {
+    isTemplate: application.membershipSelector.isInTemplatesFolder(page.parentId),
+  });
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     vaultRoot: vault.root,
@@ -2270,12 +2286,12 @@ export function PageHost({
     // own doc comment).
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     moveDestinations: canMoveNote
-      ? buildMoveDestinationItems(application.membershipSelector)
+      ? buildMoveDestinationItems(application.membershipSelector, undefined, noteMoveZone)
       : undefined,
     onMove: canMoveNote ? onMoveNote : undefined,
     onCreateFolder: canMoveNote
-        ? (name) => application.folderOperations.create(name, null)
-        : undefined,
+      ? createFolderInZone(application.folderOperations, application.membershipSelector, noteMoveZone)
+      : undefined,
   });
   // A Daily Note's title is derived from its date and is its permanent
   // calendar identity (toResourcePageModel's own title comment) — renaming
@@ -2415,9 +2431,10 @@ export function PageHost({
             }
             onRevealResourceInFinder={revealResourceInFinder}
             onCopyResourcePath={copyResourcePath}
-            resourceMoveDestinations={buildResourceMoveDestinationItems(
+            resourceMoveDestinations={buildMoveDestinationItems(
               application.membershipSelector,
-              application.query
+              undefined,
+              'assets'
             )}
             onMoveResource={(id, destinationFolderId) =>
               void application.resourceOperations.moveResource(
@@ -2425,9 +2442,11 @@ export function PageHost({
                 destinationFolderId
               )
             }
-            onCreateFolder={(name) =>
-              application.folderOperations.create(name, null)
-            }
+            onCreateFolder={createFolderInZone(
+              application.folderOperations,
+              application.membershipSelector,
+              'assets'
+            )}
           />
         </MarkdownBody>
       }
