@@ -24,6 +24,7 @@
 
 import { VaultPath } from '../ingest/VaultPath';
 import { DailyNotePath } from '../ingest/DailyNotePath';
+import { ASSETS_DIRECTORY_NAME } from './ensureAssetsDirectory';
 
 export interface ReservedFolder {
   readonly type: 'folder';
@@ -195,6 +196,45 @@ export function isDailyNotesFolderOrDescendant(vaultRoot: string, path: string):
     path === `${vaultRoot}/${RESERVED_FOLDER_IDS['daily-notes']}` ||
     isInsideDailyNotesFolder(vaultRoot, path)
   );
+}
+
+/**
+ * Which hierarchy a path belongs to for Move (ADR-049). Templates and the Assets storage folder are
+ * sealed hierarchies: what lives in one stays in it, and nothing else moves in. Everything else
+ * (the vault root, the Inbox, ordinary folders) is the workspace.
+ */
+export type MoveZone = 'workspace' | 'templates' | 'assets';
+
+export function moveZoneOfPath(vaultRoot: string, path: string): MoveZone {
+  const templates = `${vaultRoot}/${RESERVED_FOLDER_IDS.templates}`;
+  const assets = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;
+
+  if (path === templates || VaultPath.isDescendantOf(path, templates)) {
+    return 'templates';
+  }
+
+  if (path === assets || VaultPath.isDescendantOf(path, assets)) {
+    return 'assets';
+  }
+
+  return 'workspace';
+}
+
+/**
+ * The one rule behind "a Template stays in Templates, an Asset stays in Assets, nothing else moves
+ * in": the destination must lie in the zone the thing being moved belongs to. Called by every
+ * Move destination resolver (MoveService, FolderPathResolver), next to the Daily Notes guard.
+ */
+export function assertMoveWithinZone(
+  vaultRoot: string,
+  requiredZone: MoveZone,
+  destinationPath: string
+): void {
+  if (moveZoneOfPath(vaultRoot, destinationPath) !== requiredZone) {
+    throw new Error(
+      `Cannot move into ${destinationPath}: this item can only be moved within ${requiredZone}`
+    );
+  }
 }
 
 /**

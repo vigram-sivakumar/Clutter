@@ -21,7 +21,7 @@ describe('moveToTemplatesFolder', () => {
     );
 
     expect(ensureReservedFolder).toHaveBeenCalledWith('templates');
-    expect(move).toHaveBeenCalledWith('page-1', 'templates-folder');
+    expect(move).toHaveBeenCalledWith('page-1', 'templates-folder', { toTemplates: true });
     expect(calls).toEqual(['ensure', 'move']);
   });
 

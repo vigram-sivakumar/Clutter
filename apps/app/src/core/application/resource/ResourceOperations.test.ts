@@ -227,8 +227,8 @@ describe('ResourceOperations.deleteResource', () => {
 
 describe('ResourceOperations.moveResource', () => {
   it('delegates to the Gate with the move-resource kind, passing the correct resource id and destination', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const { coordinator, resourceOperations } = setup([resource], [folder]);
     const enqueueSpy = vi.spyOn(coordinator, 'enqueue');
 
@@ -242,24 +242,28 @@ describe('ResourceOperations.moveResource', () => {
   });
 
   it('resolves successfully and the Vault reflects the move', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const { vault, resourceOperations } = setup([resource], [folder]);
 
     await expect(resourceOperations.moveResource('resource-1', 'folder-1')).resolves.toBeUndefined();
 
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Projects/hero.png`);
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
   });
 
-  it('supports a null destination (vault root)', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'folder-1');
-    const { vault, resourceOperations } = setup([resource], [folder]);
+  it('rejects a destination outside Assets — the vault root or an ordinary folder (ADR-049)', async () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const normal = makeFolder('folder-2', `${ROOT}/Projects`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [assets, normal]);
 
-    await resourceOperations.moveResource('resource-1', null);
-
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/hero.png`);
-    expect(vault.getResource('resource-1')!.parentId).toBeNull();
+    await expect(resourceOperations.moveResource('resource-1', null)).rejects.toThrow(
+      /can only be moved within assets/
+    );
+    await expect(resourceOperations.moveResource('resource-1', 'folder-2')).rejects.toThrow(
+      /can only be moved within assets/
+    );
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/hero.png`);
   });
 
   it('throws "Resource not found" for a missing resource id', async () => {

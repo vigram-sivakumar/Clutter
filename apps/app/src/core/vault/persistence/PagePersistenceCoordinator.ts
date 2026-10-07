@@ -56,7 +56,12 @@ export type PersistenceOperation =
   // another page): restore into the Inbox instead. Without it, a taken original path rejects.
   | { readonly kind: 'restore'; readonly conflict?: 'inbox' }
   | { readonly kind: 'delete' }
-  | { readonly kind: 'move'; readonly destinationFolderId: string | null }
+  | {
+      readonly kind: 'move';
+      readonly destinationFolderId: string | null;
+      /** "Use as template": the one sanctioned move of an ordinary note into Templates (ADR-049). */
+      readonly toTemplates?: boolean;
+    }
   | { readonly kind: 'rename'; readonly title: string }
   | {
       readonly kind: 'create-folder';
@@ -370,7 +375,7 @@ export class PagePersistenceCoordinator {
       case 'delete':
         return this.runDelete(current);
       case 'move':
-        return this.runMove(current, operation.destinationFolderId);
+        return this.runMove(current, operation.destinationFolderId, operation.toTemplates);
       case 'rename':
         return this.runRename(current, operation.title);
     }
@@ -394,7 +399,8 @@ export class PagePersistenceCoordinator {
    */
   private async runMove(
     current: Page,
-    destinationFolderId: string | null
+    destinationFolderId: string | null,
+    toTemplates?: boolean
   ): Promise<PersistenceResult> {
     if (current.type === 'daily-note') {
       throw new Error(`Cannot move a Daily Note: ${current.id}`);
@@ -406,7 +412,8 @@ export class PagePersistenceCoordinator {
 
     const destination = this.moveService.resolveMoveDestination(
       current,
-      destinationFolderId
+      destinationFolderId,
+      { toTemplates }
     );
 
     const updated: Page = {

@@ -372,3 +372,59 @@ describe('FolderPathResolver.resolveMoveDestination — reparenting (move)', () 
     );
   });
 });
+
+describe('FolderPathResolver.resolveMoveDestination — movement zones (ADR-049)', () => {
+  const folders = () => [
+    makeFolder('templates', `${ROOT}/Templates`),
+    makeFolder('templates-sub', `${ROOT}/Templates/Meetings`, 'templates'),
+    makeFolder('templates-other', `${ROOT}/Templates/Reviews`, 'templates'),
+    makeFolder('assets', `${ROOT}/Assets`),
+    makeFolder('assets-sub', `${ROOT}/Assets/Images`, 'assets'),
+    makeFolder('assets-other', `${ROOT}/Assets/PDFs`, 'assets'),
+    makeFolder('projects', `${ROOT}/Projects`),
+    makeFolder('other', `${ROOT}/Other`),
+  ];
+  const resolver = () => new FolderPathResolver(makeVault(folders()));
+
+  it('an ordinary folder can move between ordinary folders and the root', () => {
+    expect(resolver().resolveMoveDestination('projects', 'other').parentId).toBe('other');
+    expect(resolver().resolveMoveDestination('projects', null).parentId).toBeNull();
+  });
+
+  it.each([
+    ['Templates', 'templates'],
+    ['a Templates subfolder', 'templates-sub'],
+    ['Assets', 'assets'],
+    ['an Assets subfolder', 'assets-sub'],
+  ])('an ordinary folder cannot move into %s', (_label, destinationId) => {
+    expect(() => resolver().resolveMoveDestination('projects', destinationId)).toThrow(
+      /can only be moved within workspace/
+    );
+  });
+
+  it('a folder inside Templates moves only within Templates', () => {
+    expect(resolver().resolveMoveDestination('templates-sub', 'templates-other').parentId).toBe('templates-other');
+    expect(resolver().resolveMoveDestination('templates-sub', 'templates').parentId).toBe('templates');
+    for (const destinationId of ['projects', 'assets', null]) {
+      expect(() => resolver().resolveMoveDestination('templates-sub', destinationId)).toThrow(
+        /can only be moved within templates/
+      );
+    }
+  });
+
+  it('a folder inside Assets moves only within Assets', () => {
+    expect(resolver().resolveMoveDestination('assets-sub', 'assets-other').parentId).toBe('assets-other');
+    for (const destinationId of ['projects', 'templates', null]) {
+      expect(() => resolver().resolveMoveDestination('assets-sub', destinationId)).toThrow(
+        /can only be moved within assets/
+      );
+    }
+  });
+
+  it('renaming a folder in place is not a move, so it is allowed inside any zone — even for a root-level Assets folder', () => {
+    expect(resolver().resolveMoveDestination('templates-sub', 'templates', 'Standups').path).toBe(
+      `${ROOT}/Templates/Standups`
+    );
+    expect(resolver().resolveMoveDestination('assets', null, 'Media').path).toBe(`${ROOT}/Media`);
+  });
+});

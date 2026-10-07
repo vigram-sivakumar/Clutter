@@ -600,8 +600,8 @@ describe('PagePersistenceCoordinator: restore-resource', () => {
 
 describe('PagePersistenceCoordinator: move-resource', () => {
   it('moves the resource into the destination folder, preserving its filename', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const { coordinator, vault } = setup(resource, [folder]);
 
     const result = await coordinator.enqueue(resource.id, {
@@ -610,19 +610,19 @@ describe('PagePersistenceCoordinator: move-resource', () => {
     });
 
     expect(result.status).toBe('resource-moved');
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Projects/hero.png`);
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
     expect(vault.getResource('resource-1')!.parentId).toBe('folder-1');
   });
 
-  it('moves the resource to the vault root when destinationFolderId is null', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'folder-1');
+  it('rejects the vault root — an Asset moves only within Assets (ADR-049)', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/Images/hero.png`, 'folder-1');
     const { coordinator, vault } = setup(resource, [folder]);
 
-    await coordinator.enqueue(resource.id, { kind: 'move-resource', destinationFolderId: null });
-
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/hero.png`);
-    expect(vault.getResource('resource-1')!.parentId).toBeNull();
+    await expect(
+      coordinator.enqueue(resource.id, { kind: 'move-resource', destinationFolderId: null })
+    ).rejects.toThrow(/can only be moved within assets/);
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
   });
 
   it('moves a resource into the managed Assets/ folder', async () => {
@@ -638,23 +638,24 @@ describe('PagePersistenceCoordinator: move-resource', () => {
     expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/hero.png`);
   });
 
-  it('moves a resource out of the managed Assets/ folder into an ordinary folder', async () => {
+  it('rejects moving a resource out of Assets into an ordinary folder or Templates', async () => {
     const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const templates = makeFolder('folder-templates', `${ROOT}/Templates`);
     const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`, 'folder-assets');
-    const { coordinator, vault } = setup(resource, [assets, folder]);
+    const { coordinator, vault } = setup(resource, [assets, folder, templates]);
 
-    await coordinator.enqueue(resource.id, {
-      kind: 'move-resource',
-      destinationFolderId: 'folder-1',
-    });
-
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Projects/hero.png`);
+    for (const destinationFolderId of ['folder-1', 'folder-templates']) {
+      await expect(
+        coordinator.enqueue(resource.id, { kind: 'move-resource', destinationFolderId })
+      ).rejects.toThrow(/can only be moved within assets/);
+    }
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/hero.png`);
   });
 
   it('actually moves the file on the underlying filesystem', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const { coordinator, fileSystem } = setup(resource, [folder]);
 
     await coordinator.enqueue(resource.id, {
@@ -662,14 +663,14 @@ describe('PagePersistenceCoordinator: move-resource', () => {
       destinationFolderId: 'folder-1',
     });
 
-    expect(await fileSystem.exists(`${ROOT}/hero.png`)).toBe(false);
-    expect(await fileSystem.exists(`${ROOT}/Projects/hero.png`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Assets/hero.png`)).toBe(false);
+    expect(await fileSystem.exists(`${ROOT}/Assets/Images/hero.png`)).toBe(true);
   });
 
   it('auto-suffixes when the destination filename is already occupied by another resource', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
-    const occupant = makeResource('resource-2', `${ROOT}/Projects/hero.png`, 'folder-1');
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
+    const occupant = makeResource('resource-2', `${ROOT}/Assets/Images/hero.png`, 'folder-1');
     const { coordinator, vault } = setup(resource, [folder], [occupant]);
 
     await coordinator.enqueue(resource.id, {
@@ -677,8 +678,8 @@ describe('PagePersistenceCoordinator: move-resource', () => {
       destinationFolderId: 'folder-1',
     });
 
-    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Projects/hero 1.png`);
-    expect(vault.getResource('resource-2')!.path).toBe(`${ROOT}/Projects/hero.png`);
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/Images/hero 1.png`);
+    expect(vault.getResource('resource-2')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
   });
 
   it('rejects moving into the reserved Daily Notes folder', async () => {
@@ -710,8 +711,8 @@ describe('PagePersistenceCoordinator: move-resource', () => {
   });
 
   it('does not touch ResourceArchiveMetadataStore — Move is not Archive/Restore', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const { coordinator, resourceArchiveStore } = setup(resource, [folder]);
 
     await coordinator.enqueue(resource.id, {

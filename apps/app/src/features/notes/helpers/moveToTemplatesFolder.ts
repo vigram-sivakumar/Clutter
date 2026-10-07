@@ -14,5 +14,6 @@ export async function moveToTemplatesFolder(
   pageId: string
 ): Promise<void> {
   const templates = await folderOperations.ensureReservedFolder('templates');
-  await pageOperations.move(pageId, templates.id);
+  // The one sanctioned way a note crosses into Templates (ADR-049): converting it to a template.
+  await pageOperations.move(pageId, templates.id, { toTemplates: true });
 }

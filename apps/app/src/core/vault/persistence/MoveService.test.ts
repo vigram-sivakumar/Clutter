@@ -644,32 +644,22 @@ describe('MoveService.resolveResourceArchiveDestination', () => {
 });
 
 describe('MoveService.resolveResourceMoveDestination', () => {
-  it('resolves the destination path inside the target folder, preserving extension and filename', () => {
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+  // ADR-049: an Asset moves only within the Assets hierarchy.
+  it('resolves the destination path inside an Assets subfolder, preserving extension and filename', () => {
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
     const vault = makeVault([], [folder], [resource]);
     const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
 
     const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
 
     expect(destination).toEqual({
-      path: `${ROOT}/Projects/hero.png`,
+      path: `${ROOT}/Assets/Images/hero.png`,
       parentId: 'folder-1',
     });
   });
 
-  it('resolves to the vault root when destinationFolderId is null', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'image', 'folder-1');
-    const vault = makeVault([], [folder], [resource]);
-    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
-
-    const destination = moveService.resolveResourceMoveDestination(resource, null);
-
-    expect(destination).toEqual({ path: `${ROOT}/hero.png`, parentId: null });
-  });
-
-  it('supports moving into the managed Assets/ folder like any other tracked folder', () => {
+  it('supports moving into the Assets root itself', () => {
     const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
     const resource = makeResource('resource-1', `${ROOT}/hero.png`);
     const vault = makeVault([], [assets], [resource]);
@@ -683,23 +673,27 @@ describe('MoveService.resolveResourceMoveDestination', () => {
     });
   });
 
-  it('supports moving a resource out of Assets/ into an ordinary folder', () => {
+  it.each([
+    ['the vault root', null],
+    ['an ordinary folder', 'folder-1'],
+    ['the Templates root', 'folder-templates'],
+    ['the Inbox', 'folder-inbox'],
+  ])('rejects %s', (_label, destinationId) => {
     const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const templates = makeFolder('folder-templates', `${ROOT}/Templates`);
+    const inbox = makeFolder('folder-inbox', `${ROOT}/Inbox`);
     const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`, 'image', 'folder-assets');
-    const vault = makeVault([], [assets, folder], [resource]);
+    const vault = makeVault([], [assets, folder, templates, inbox], [resource]);
     const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
 
-    const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
-
-    expect(destination).toEqual({
-      path: `${ROOT}/Projects/hero.png`,
-      parentId: 'folder-1',
-    });
+    expect(() => moveService.resolveResourceMoveDestination(resource, destinationId)).toThrow(
+      /can only be moved within assets/
+    );
   });
 
   it('rejects a destination inside the reserved Daily Notes folder', () => {
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
     const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
     const vault = makeVault([], [dailyNotes], [resource]);
     const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
@@ -710,15 +704,15 @@ describe('MoveService.resolveResourceMoveDestination', () => {
   });
 
   it('appends a numeric suffix when the filename collides at the destination', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
-    const occupant = makeResource('resource-2', `${ROOT}/Projects/hero.png`, 'image', 'folder-1');
+    const folder = makeFolder('folder-1', `${ROOT}/Assets/Images`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`);
+    const occupant = makeResource('resource-2', `${ROOT}/Assets/Images/hero.png`, 'image', 'folder-1');
     const vault = makeVault([], [folder], [resource, occupant]);
     const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
 
     const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
 
-    expect(destination.path).toBe(`${ROOT}/Projects/hero 1.png`);
+    expect(destination.path).toBe(`${ROOT}/Assets/Images/hero 1.png`);
   });
 
   it('throws for an unknown destination folder id', () => {
@@ -729,5 +723,66 @@ describe('MoveService.resolveResourceMoveDestination', () => {
     expect(() => moveService.resolveResourceMoveDestination(resource, 'does-not-exist')).toThrow(
       /Folder not found: does-not-exist/
     );
+  });
+});
+
+describe('MoveService.resolveMoveDestination — movement zones (ADR-049)', () => {
+  const setup = () => {
+    const templates = makeFolder('folder-templates', `${ROOT}/Templates`);
+    const subTemplates = makeFolder('folder-sub-templates', `${ROOT}/Templates/Meetings`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const normal = makeFolder('folder-1', `${ROOT}/Projects`);
+    const inbox = makeFolder('folder-inbox', `${ROOT}/Inbox`);
+    const template = buildPage(`${ROOT}/Templates/Standup.md`, 'folder-templates', 'template-1');
+    const note = buildPage(`${ROOT}/Projects/Roadmap.md`, 'folder-1', 'note-1');
+    const vault = makeVault([template, note], [templates, subTemplates, assets, normal, inbox]);
+    return { moveService: new MoveService(vault, new InMemoryVaultFileSystem()), template, note };
+  };
+
+  it('a Template can move to the Templates root and to a Templates subfolder', () => {
+    const { moveService, template } = setup();
+    expect(moveService.resolveMoveDestination(template, 'folder-templates').parentId).toBe('folder-templates');
+    expect(moveService.resolveMoveDestination(template, 'folder-sub-templates').path).toBe(
+      `${ROOT}/Templates/Meetings/Standup.md`
+    );
+  });
+
+  it.each([
+    ['a normal folder', 'folder-1'],
+    ['the Inbox', 'folder-inbox'],
+    ['Assets', 'folder-assets'],
+    ['the vault root', null],
+  ])('a Template cannot move to %s', (_label, destinationId) => {
+    const { moveService, template } = setup();
+    expect(() => moveService.resolveMoveDestination(template, destinationId)).toThrow(
+      /can only be moved within templates/
+    );
+  });
+
+  it.each([
+    ['Templates', 'folder-templates'],
+    ['a Templates subfolder', 'folder-sub-templates'],
+    ['Assets', 'folder-assets'],
+  ])('a normal note cannot move into %s', (_label, destinationId) => {
+    const { moveService, note } = setup();
+    expect(() => moveService.resolveMoveDestination(note, destinationId)).toThrow(
+      /can only be moved within workspace/
+    );
+  });
+
+  it('a normal note still moves between workspace folders and the root', () => {
+    const { moveService, note } = setup();
+    expect(moveService.resolveMoveDestination(note, 'folder-inbox').parentId).toBe('folder-inbox');
+    expect(moveService.resolveMoveDestination(note, null).parentId).toBeNull();
+  });
+
+  it('"Use as template" (toTemplates) is the one sanctioned crossing into Templates', () => {
+    const { moveService, note } = setup();
+    expect(
+      moveService.resolveMoveDestination(note, 'folder-templates', { toTemplates: true }).path
+    ).toBe(`${ROOT}/Templates/Roadmap.md`);
+    expect(() =>
+      moveService.resolveMoveDestination(note, 'folder-1', { toTemplates: true })
+    ).toThrow(/can only be moved within templates/);
   });
 });

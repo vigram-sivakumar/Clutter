@@ -2322,16 +2322,26 @@ describe('PageOperations.move() — kind: template marker', () => {
     const page = buildPage();
     const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
 
-    await pageOperations.move(page.id, 'templates');
+    await pageOperations.move(page.id, 'templates', { toTemplates: true });
 
     expect(markerLines(vault, page.id)).toContain('kind: template');
+  });
+
+  it('rejects an ordinary move of a note into Templates — only "Use as template" crosses (ADR-049)', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
+
+    await expect(pageOperations.move(page.id, 'templates')).rejects.toThrow(
+      /can only be moved within workspace/
+    );
+    expect(vault.getPage(page.id)!.parentId).toBeNull();
   });
 
   it('updates an existing `kind` line instead of adding a second one', async () => {
     const page = withKind(buildPage(), ['kind: book']);
     const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), templatesFolder()]);
 
-    await pageOperations.move(page.id, 'templates');
+    await pageOperations.move(page.id, 'templates', { toTemplates: true });
 
     const lines = markerLines(vault, page.id);
     expect(lines.filter((line) => line.startsWith('kind'))).toEqual(['kind: template']);

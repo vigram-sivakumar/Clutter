@@ -2226,11 +2226,13 @@ export class PageOperations {
 
   public async move(
     pageId: string,
-    destinationFolderId: string | null
+    destinationFolderId: string | null,
+    options: { toTemplates?: boolean } = {}
   ): Promise<void> {
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,
+      ...(options.toTemplates && { toTemplates: true }),
     });
 
     if (result.status === 'abandoned') {
