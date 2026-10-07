@@ -3,6 +3,8 @@ import type { FormEvent } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
+import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 
 import './NewFolderContent.css';
@@ -15,8 +17,8 @@ export interface NewFolderContentProps {
    * never a FolderOperations import here (ARCHITECTURE_RULES rule 6).
    */
   canCreate(name: string): boolean;
-  /** Creates the root folder (FolderOperations.create) and resolves once it is persisted; rejects on failure. */
-  onSubmit(name: string): Promise<void>;
+  /** Creates the root folder and resolves once it is persisted; rejects on failure. `icon` (an emoji) and `description` are optional. */
+  onSubmit(name: string, icon: string | undefined, description: string | undefined): Promise<void>;
 }
 
 /**
@@ -26,6 +28,9 @@ export interface NewFolderContentProps {
  */
 export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderContentProps) {
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState<string | undefined>(undefined);
+  const emojiPicker = useOverlay<HTMLButtonElement>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
@@ -44,7 +49,7 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
     setSubmitError(undefined);
 
     try {
-      await onSubmit(trimmed);
+      await onSubmit(trimmed, icon, description.trim() === '' ? undefined : description.trim());
       onClose();
     } catch (error) {
       setIsSubmitting(false);
@@ -85,6 +90,14 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
         )}
       </div>
 
+      <Input
+        multiline
+        value={description}
+        placeholder="Description"
+        aria-label="Description"
+        onChange={(event) => setDescription(event.target.value)}
+      />
+
       {submitError && (
         <span className="new-folder__error" role="alert">
           {submitError}
@@ -92,6 +105,17 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
       )}
 
       <div className="new-folder__footer">
+        <Button
+          ref={emojiPicker.anchorRef}
+          type="button"
+          className="new-folder__emoji-button"
+          variant="ghost"
+          size="medium"
+          interaction="subtle"
+          leading={icon ? <span className="new-folder__emoji">{icon}</span> : <AppIcon icon="smile" />}
+          aria-label={icon ? `Emoji ${icon}. Change emoji` : 'Choose emoji'}
+          onClick={emojiPicker.toggle}
+        />
         <Button
           type="submit"
           className="new-folder__create-button"
@@ -102,6 +126,21 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
           Create
         </Button>
       </div>
+
+      <ChangeIconPicker
+        anchorRef={emojiPicker.anchorRef}
+        open={emojiPicker.open}
+        onClose={emojiPicker.hide}
+        hasIcon={icon !== undefined}
+        onSelect={(emoji) => {
+          emojiPicker.hide();
+          setIcon(emoji);
+        }}
+        onRemove={() => {
+          emojiPicker.hide();
+          setIcon(undefined);
+        }}
+      />
     </form>
   );
 }

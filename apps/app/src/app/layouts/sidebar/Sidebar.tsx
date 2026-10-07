@@ -272,8 +272,15 @@ export function Sidebar({
         open={creationDialog === 'folder'}
         onClose={closeCreationDialog}
         canCreate={(name) => folderOperations.canCreate(name, null)}
-        onSubmit={async (name) => {
-          await folderOperations.create(name, null);
+        onSubmit={async (name, icon, description) => {
+          const id = await folderOperations.create(name, null);
+
+          if (icon !== undefined || description !== undefined) {
+            await folderOperations.updateMetadata(id, {
+              ...(icon !== undefined ? { icon } : {}),
+              ...(description !== undefined ? { description } : {}),
+            });
+          }
         }}
       />
     </aside>

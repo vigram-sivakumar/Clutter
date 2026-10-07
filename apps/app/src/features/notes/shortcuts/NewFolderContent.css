@@ -47,7 +47,18 @@
 .new-folder__footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.new-folder__emoji {
+  font-size: var(--text-body);
+  line-height: 1;
+}
+
+/* Same two-class override as .new-tag__emoji-button. */
+.button.new-folder__emoji-button {
+  padding-inline: 0;
 }
 
 .button.new-folder__create-button {
