@@ -215,6 +215,7 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
               {toggles && toggles.length > 0 && (
                 <>
                   <div className="menu__divider" role="separator" />
+                  <MenuGroupTitle>Display</MenuGroupTitle>
                   {toggles.map((toggle) => (
                     <MenuItem
                       key={toggle.id}

@@ -579,6 +579,15 @@ describe('CollectionViewMenu — extra toggles (All Tasks: Show completed / Auto
     expect(document.querySelectorAll('[role="separator"]').length).toBeGreaterThan(0);
   });
 
+  it('groups the toggles under a Display title, and shows no Display title without toggles', () => {
+    const { getByText } = renderWithToggles({ show: true, auto: false });
+    expect(getByText('Display')).toBeInTheDocument();
+    cleanup();
+
+    const { queryByText } = renderMenu();
+    expect(queryByText('Display')).not.toBeInTheDocument();
+  });
+
   it('flipping one reports the new value and keeps the menu open', () => {
     const { getByText, onShow, onAuto } = renderWithToggles({ show: true, auto: false });
 
