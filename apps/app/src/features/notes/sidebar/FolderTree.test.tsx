@@ -5,7 +5,7 @@
 // these matchers) — imported locally rather than adding project-wide
 // config for one test file.
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FolderTree } from './FolderTree';
@@ -50,6 +50,7 @@ function buildPersistedPage(
     icon?: string;
     description?: string;
     parentId?: string | null;
+    id?: string;
   } = {}
 ): Page {
   const builder = new PageBuilder();
@@ -59,7 +60,7 @@ function buildPersistedPage(
       path,
       directoryPath: ROOT,
       frontmatter: {
-        id: 'persisted-page',
+        id: overrides.id ?? 'persisted-page',
         icon: overrides.icon,
         description: overrides.description,
       },
@@ -1079,5 +1080,97 @@ describe('FolderTree: physical Assets/ folder is hidden from the normal tree', (
 
     expect(screen.getByText('Projects')).toBeInTheDocument();
     expect(screen.getByText('Assets')).toBeInTheDocument();
+  });
+});
+
+describe('FolderTree: the 10-item cap per folder', () => {
+  const notes = (count: number, folderPath: string, parentId: string | null) =>
+    Array.from({ length: count }, (_, i) =>
+      buildPersistedPage(`${folderPath}/Note ${String(i).padStart(2, '0')}.md`, {
+        parentId,
+        id: `note-${i}`,
+      })
+    );
+
+  function renderCapped(
+    expandedFolders: readonly string[],
+    onToggleFolderCap = vi.fn()
+  ) {
+    const folder = makeFolder('f1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup(
+      notes(12, `${ROOT}/Projects`, 'f1'),
+      [folder]
+    );
+    const utils = render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+        expandedFolders={expandedFolders}
+        onToggleFolderCap={onToggleFolderCap}
+      />
+    );
+    return { ...utils, onToggleFolderCap };
+  }
+
+  it('shows a folder\'s first 10 notes and a "2 more" row', () => {
+    const { getByText, queryByText } = renderCapped([]);
+
+    expect(getByText('Note 09')).toBeInTheDocument();
+    expect(queryByText('Note 10')).not.toBeInTheDocument();
+    expect(getByText('2 more')).toBeInTheDocument();
+  });
+
+  it('clicking "2 more" asks the owner to toggle that folder', () => {
+    const { getByText, onToggleFolderCap } = renderCapped([]);
+
+    fireEvent.click(getByText('2 more'));
+
+    expect(onToggleFolderCap).toHaveBeenCalledWith('f1');
+  });
+
+  it('an expanded folder shows every note and a "Show less" row', () => {
+    const { getByText, queryByText } = renderCapped(['f1']);
+
+    expect(getByText('Note 11')).toBeInTheDocument();
+    expect(queryByText('2 more')).not.toBeInTheDocument();
+    expect(getByText('Show less')).toBeInTheDocument();
+  });
+
+  it('counts subfolders toward the cap — 6 folders + 6 root notes show 10 rows and "2 more"', () => {
+    const folders = Array.from({ length: 6 }, (_, i) =>
+      makeFolder(`f${i}`, `${ROOT}/Folder ${i}`, null)
+    );
+    const { query, workspace, membershipSelector } = setup(notes(6, ROOT, null), folders);
+    const { getByText, queryByText } = render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(getByText('Folder 5')).toBeInTheDocument();
+    expect(getByText('Note 03')).toBeInTheDocument();
+    expect(queryByText('Note 04')).not.toBeInTheDocument();
+    expect(getByText('2 more')).toBeInTheDocument();
   });
 });

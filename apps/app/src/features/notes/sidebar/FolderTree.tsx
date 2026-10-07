@@ -5,6 +5,7 @@ import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
 import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
+import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import { buildResourceSidebarMenu } from './resourceSidebarMenu.config';
@@ -33,6 +34,41 @@ import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
+
+/** A folder shows this many of its own notes and files; the rest sit behind its "N more" row. */
+export const SIDEBAR_FOLDER_ITEM_LIMIT = 10;
+
+/** The key the vault root's own notes/files use in `expandedFolders` (a real folder id is never this). */
+export const ROOT_FOLDER_CAP_KEY = '__root__';
+
+/**
+ * Where a folder or note sits in its parent's list, in the order that list is drawn (the root: folders,
+ * notes, files; a nested level: notes, files, subfolders) — what the 10-item cap counts against.
+ * -1 when the item isn't in that list.
+ */
+export function getLevelIndex(
+  membershipSelector: MembershipSelector,
+  parentId: string | null,
+  kind: 'folder' | 'page',
+  id: string
+): number {
+  const folders =
+    parentId === null
+      ? membershipSelector.getWorkspaceFolders()
+      : membershipSelector.getVisibleChildFolders(parentId);
+  const pages = membershipSelector.getNotesChildPages(parentId);
+  const resourceCount =
+    parentId === null
+      ? membershipSelector.getRootResources().length
+      : membershipSelector.getVisibleChildResources(parentId).length;
+
+  if (kind === 'folder') {
+    const index = folders.findIndex((folder) => folder.id === id);
+    return index < 0 ? -1 : parentId === null ? index : pages.length + resourceCount + index;
+  }
+  const index = pages.findIndex((entry) => entry.id === id);
+  return index < 0 ? -1 : parentId === null ? folders.length + index : index;
+}
 
 export interface PendingNewFolder {
   // The parent under which a not-yet-persisted folder is being named.
@@ -284,6 +320,10 @@ interface FolderTreeProps {
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  /** Folders (by id, or ROOT_FOLDER_CAP_KEY) whose "N more" row was clicked — shown in full. Session-only; the owner decides its lifetime. */
+  expandedFolders?: readonly string[];
+  /** Called when a folder's "N more" / "Show less" row is clicked. */
+  onToggleFolderCap?(key: string): void;
 }
 
 export interface PageEntryProps {
@@ -583,6 +623,8 @@ export function FolderTree({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  expandedFolders = [],
+  onToggleFolderCap,
 }: FolderTreeProps) {
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
@@ -628,17 +670,7 @@ export function FolderTree({
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
 
-  return (
-    <>
-      {isCreatingHere && (
-        <NewFolderRow
-          level={level}
-          onCommit={(name) => onCommitNewFolder(name, parentId)}
-          onCancel={onCancelNewFolder}
-        />
-      )}
-      {/* Render every child folder. */}
-      {rootFolders.map((folder) => {
+  const renderFolder = (folder: Folder) => {
         // Every page that should currently be shown as a child of this
         // folder — durable and draft-only alike (ADR-020), narrowed to
         // Notes membership (ADR-023); see the rootPages comment above for
@@ -753,37 +785,6 @@ export function FolderTree({
                 (ADR-021) — a collapsed folder's pages and subfolders render
                 nothing, rather than only rotating the caret. */}
             {isExpanded && (
-              <>
-                {/* Render all pages inside this folder */}
-                {childPages.map((entry) => (
-                  <PageEntry
-                    key={entry.id}
-                    entry={entry}
-                    level={level + 1}
-                    workspace={workspace}
-                    onPageClick={onPageClick}
-                    onDraftPageClick={onDraftPageClick}
-                    rowActions={rowActions}
-                    resolveWikiLink={resolveWikiLink}
-                    resolveTag={resolveTag}
-                    resolveEmbed={resolveEmbed}
-                  />
-                ))}
-                {/* Render all resources (image/pdf) inside this folder,
-                    after its pages — its own non-interleaved block, same
-                    convention as pages vs. subfolders. */}
-                {childResources.map((resource) => (
-                  <ResourceRow
-                    key={resource.id}
-                    resource={resource}
-                    level={level + 1}
-                    onResourceClick={onResourceClick}
-                    rowActions={rowActions}
-                  />
-                ))}
-                {/* Render this folder's child folders.
-                    This is the recursive call.
-                    Every child folder repeats this exact process. */}
                 <FolderTree
                   query={query}
                   membershipSelector={membershipSelector}
@@ -802,18 +803,50 @@ export function FolderTree({
                   resolveWikiLink={resolveWikiLink}
                   resolveTag={resolveTag}
                   resolveEmbed={resolveEmbed}
+                  expandedFolders={expandedFolders}
+                  onToggleFolderCap={onToggleFolderCap}
                 />
-              </>
             )}
           </Fragment>
         );
-      })}
-      {/* Render root-level pages, at the same indentation as root
-          folders — they aren't nested under anything. */}
-      {rootPages.map((entry) => (
+  };
+
+  // This folder's own notes and files for a nested level — the root has its own (rootPages/
+  // rootResources above). A nested level lists its notes, then files, then subfolders; the root
+  // lists folders first, then notes, then files. Whatever the order, the level shows its first
+  // SIDEBAR_FOLDER_ITEM_LIMIT items, then a "N more" / "Show less" row.
+  const levelPages = parentId === null ? rootPages : membershipSelector.getNotesChildPages(parentId);
+  const levelResources =
+    parentId === null ? rootResources : membershipSelector.getVisibleChildResources(parentId);
+
+  type LevelItem =
+    | { kind: 'folder'; folder: Folder }
+    | { kind: 'page'; entry: EffectivePage }
+    | { kind: 'resource'; resource: VaultResource };
+  const folderItems: LevelItem[] = rootFolders.map((folder) => ({ kind: 'folder', folder }));
+  const pageItems: LevelItem[] = levelPages.map((entry) => ({ kind: 'page', entry }));
+  const resourceItems: LevelItem[] = levelResources.map((resource) => ({
+    kind: 'resource',
+    resource,
+  }));
+  const items =
+    parentId === null
+      ? [...folderItems, ...pageItems, ...resourceItems]
+      : [...pageItems, ...resourceItems, ...folderItems];
+
+  const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
+  const isCapExpanded = expandedFolders.includes(capKey);
+  const visibleItems = isCapExpanded ? items : items.slice(0, SIDEBAR_FOLDER_ITEM_LIMIT);
+
+  const renderItem = (item: LevelItem) => {
+    if (item.kind === 'folder') {
+      return renderFolder(item.folder);
+    }
+    if (item.kind === 'page') {
+      return (
         <PageEntry
-          key={entry.id}
-          entry={entry}
+          key={item.entry.id}
+          entry={item.entry}
           level={level}
           workspace={workspace}
           onPageClick={onPageClick}
@@ -823,18 +856,44 @@ export function FolderTree({
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
         />
-      ))}
-      {/* Render root-level resources, after root pages — same
-          non-interleaved-block convention as everywhere else in this tree. */}
-      {rootResources.map((resource) => (
-        <ResourceRow
-          key={resource.id}
-          resource={resource}
+      );
+    }
+    return (
+      <ResourceRow
+        key={item.resource.id}
+        resource={item.resource}
+        level={level}
+        onResourceClick={onResourceClick}
+        rowActions={rowActions}
+      />
+    );
+  };
+
+  const newFolderRow = isCreatingHere && (
+    <NewFolderRow
+      level={level}
+      onCommit={(name) => onCommitNewFolder(name, parentId)}
+      onCancel={onCancelNewFolder}
+    />
+  );
+
+  return (
+    <>
+      {/* The root opens with the new-folder row; a nested level shows it after its notes and files,
+          just before its subfolders. */}
+      {parentId === null && newFolderRow}
+      {visibleItems.filter((item) => parentId === null || item.kind !== 'folder').map(renderItem)}
+      {parentId !== null && newFolderRow}
+      {parentId !== null &&
+        visibleItems.filter((item) => item.kind === 'folder').map(renderItem)}
+      {items.length > SIDEBAR_FOLDER_ITEM_LIMIT && (
+        <ShowMoreEntry
           level={level}
-          onResourceClick={onResourceClick}
-          rowActions={rowActions}
+          hiddenCount={items.length - SIDEBAR_FOLDER_ITEM_LIMIT}
+          isExpanded={isCapExpanded}
+          onToggle={() => onToggleFolderCap?.(capKey)}
         />
-      ))}
+      )}
     </>
   );
 }

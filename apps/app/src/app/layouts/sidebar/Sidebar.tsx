@@ -73,6 +73,8 @@ export function Sidebar({
   const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(null);
   // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
+  // Same idea for the Notes tree: folders (by id, or the root key) showing all their notes/files.
+  const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
 
   function revealNoteInNotesSidebar(pageId: string): void {
@@ -106,6 +108,12 @@ export function Sidebar({
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenResource={onOpenResource}
+          expandedFolders={expandedFolders}
+          onToggleFolderCap={(key) =>
+            setExpandedFolders((prev) =>
+              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+            )
+          }
           revealPageId={sidebarNoteReveal}
           onRevealHandled={() => setSidebarNoteReveal(null)}
         />

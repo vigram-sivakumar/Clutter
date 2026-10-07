@@ -20,6 +20,9 @@ import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import {
   FolderTree,
+  getLevelIndex,
+  ROOT_FOLDER_CAP_KEY,
+  SIDEBAR_FOLDER_ITEM_LIMIT,
   type PendingNewFolder,
   type SidebarRowActions,
 } from './FolderTree';
@@ -91,6 +94,9 @@ interface NotesProps {
    */
   revealPageId?: string | null;
   onRevealHandled?(): void;
+  /** Folders (by id, or the root key) whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
+  expandedFolders?: readonly string[];
+  onToggleFolderCap?(key: string): void;
 }
 
 export function Notes({
@@ -109,6 +115,8 @@ export function Notes({
   onOpenResource,
   revealPageId,
   onRevealHandled,
+  expandedFolders,
+  onToggleFolderCap,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
@@ -143,6 +151,28 @@ export function Notes({
         workspace.setFolderExpanded(folderId, true);
       }
     }
+
+    // Anything past its parent's 10-item cap isn't rendered until that parent shows everything —
+    // the note itself, and each ancestor folder on the way down.
+    const expandCapFor = (parentId: string | null, index: number) => {
+      const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
+      if (index >= SIDEBAR_FOLDER_ITEM_LIMIT && !expandedFolders?.includes(capKey)) {
+        onToggleFolderCap?.(capKey);
+      }
+    };
+    for (const folderId of query.getFolderAndAncestorIds(page.parentId)) {
+      const folder = vault.getFolder(folderId);
+      if (folder) {
+        expandCapFor(
+          folder.parentId,
+          getLevelIndex(membershipSelector, folder.parentId, 'folder', folderId)
+        );
+      }
+    }
+    expandCapFor(
+      page.parentId ?? null,
+      getLevelIndex(membershipSelector, page.parentId ?? null, 'page', revealPageId)
+    );
 
     pendingRevealPageIdRef.current = revealPageId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -488,6 +518,8 @@ export function Notes({
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
           resolveEmbed={resolveEmbed}
+          expandedFolders={expandedFolders}
+          onToggleFolderCap={onToggleFolderCap}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {
