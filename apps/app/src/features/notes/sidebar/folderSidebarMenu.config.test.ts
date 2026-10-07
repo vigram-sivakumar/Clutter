@@ -73,34 +73,26 @@ describe('buildFolderSidebarMenu', () => {
 
 describe('buildFolderSidebarMenu — Sort by', () => {
   const sortMenu = { sort: { key: 'created', direction: 'up' } } as const;
+  const sortPanel = (items: ReturnType<typeof buildFolderSidebarMenu>) =>
+    items.find((i) => i.id === 'sort-by')?.panel;
 
-  it('has no Sort by rows without a sort menu', () => {
-    expect(buildFolderSidebarMenu('active').some((i) => i.id.startsWith('sort:'))).toBe(false);
+  it('has no Sort by row without a sort menu', () => {
+    expect(buildFolderSidebarMenu('active').some((i) => i.id === 'sort-by')).toBe(false);
   });
 
-  it("lists the collection views' labels under a Sort by title, before Archive", () => {
-    const items = buildFolderSidebarMenu('active', false, sortMenu);
-    const ids = items.map((i) => i.id);
+  it("is one row whose panel lists the collection views' labels", () => {
+    const panel = sortPanel(buildFolderSidebarMenu('active', false, sortMenu));
 
-    expect(items.filter((i) => i.id.startsWith('sort:')).map((i) => i.label)).toEqual([
-      'Name',
-      'Kind',
-      'Created',
-      'Last edited',
-    ]);
-    expect(items.find((i) => i.id === 'sort:name')).toMatchObject({
-      groupTitle: 'Sort by',
-      separatorBefore: true,
-    });
-    expect(ids.indexOf('sort:updated')).toBeLessThan(ids.indexOf('archive'));
+    expect(panel?.title).toBe('Sort by');
+    expect(panel?.items.map((i) => i.label)).toEqual(['Name', 'Kind', 'Created', 'Last edited']);
   });
 
   it('marks only the active key, with its direction arrow', () => {
-    const items = buildFolderSidebarMenu('active', false, sortMenu);
+    const panel = sortPanel(buildFolderSidebarMenu('active', false, sortMenu));
 
-    expect(items.find((i) => i.id === 'sort:created')?.icon).toBe('tick');
-    expect(items.find((i) => i.id === 'sort:created')?.trailing).toBeTruthy();
-    expect(items.find((i) => i.id === 'sort:name')?.trailing).toBeUndefined();
+    expect(panel?.items.find((i) => i.id === 'sort:created')?.icon).toBe('tick');
+    expect(panel?.items.find((i) => i.id === 'sort:created')?.trailing).toBeTruthy();
+    expect(panel?.items.find((i) => i.id === 'sort:name')?.trailing).toBeUndefined();
   });
 });
 
@@ -112,17 +104,14 @@ describe('buildFolderSidebarMenu — order and groups', () => {
       'rename',
       'change-icon',
       'toggle-favorite',
-      'sort:name',
-      'sort:kind',
-      'sort:created',
-      'sort:updated',
+      'sort-by',
       'reveal-in-finder',
       'copy-path',
       'move-to',
       'archive',
     ]);
     expect(items.filter((i) => i.separatorBefore).map((i) => i.id)).toEqual([
-      'sort:name',
+      'sort-by',
       'reveal-in-finder',
       'archive',
     ]);

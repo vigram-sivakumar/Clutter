@@ -585,3 +585,49 @@ describe('OverflowMenu — groupTitle and selected', () => {
   });
 });
 
+
+describe('OverflowMenu — a row with a panel replaces the menu', () => {
+  const withPanel: OverflowMenuItemConfig[] = [
+    { id: 'rename', label: 'Rename', icon: 'notePencil' },
+    {
+      id: 'sort-by',
+      label: 'Sort by',
+      icon: 'arrowDown',
+      panel: { title: 'Sort by', items: [{ id: 'sort:name', label: 'Name' }, { id: 'sort:kind', label: 'Kind' }] },
+    },
+  ];
+
+  it('clicking the row swaps the menu for the panel, without closing or selecting', () => {
+    const onSelect = vi.fn();
+    render(<Harness onSelect={onSelect} itemsOverride={withPanel} />);
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Sort by'));
+
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    expect(screen.getByText('Kind')).toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('picking a panel item calls onSelect and leaves the menu open', () => {
+    const onSelect = vi.fn();
+    render(<Harness onSelect={onSelect} itemsOverride={withPanel} />);
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Sort by'));
+    fireEvent.click(screen.getByText('Kind'));
+
+    expect(onSelect).toHaveBeenCalledWith('sort:kind');
+    expect(screen.getByText('Name')).toBeInTheDocument();
+  });
+
+  it('the back button returns to the main menu', () => {
+    render(<Harness onSelect={vi.fn()} itemsOverride={withPanel} />);
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Sort by'));
+    fireEvent.click(screen.getByLabelText('Back'));
+
+    expect(screen.getByText('Rename')).toBeInTheDocument();
+  });
+});

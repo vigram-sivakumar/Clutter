@@ -72,6 +72,21 @@ export interface OverflowMenuItemConfig {
   groupTitle?: string;
   /** Highlights this item as the current choice of its group (`MenuItem`'s native `selected`), e.g. the current position. */
   selected?: boolean;
+  /**
+   * Renders this item as a row with a trailing chevron that REPLACES the menu's contents with
+   * `panel.items` under `panel.title` (a dismiss button in the title goes back) — the same
+   * single-`Menu`, swapped-children pattern the collection Configure menu's Properties view uses,
+   * rather than a second floating menu like `submenu`. Selecting a panel item dispatches through
+   * `onSelect(id)` and leaves the menu open, so several choices can be made in one visit; the
+   * caller rebuilds `items` (its own state), which is how a panel shows its current choice.
+   */
+  panel?: OverflowMenuPanelConfig;
+}
+
+export interface OverflowMenuPanelConfig {
+  /** The panel's title, and the back button's context. */
+  title: string;
+  items: Omit<OverflowMenuItemConfig, 'submenu' | 'panel' | 'separatorBefore' | 'groupTitle' | 'opensInlineEdit'>[];
 }
 
 export interface OverflowMenuProps {
@@ -247,6 +262,57 @@ export function OverflowMenuBody({
   const [openSubmenuId, setOpenSubmenuId] = useState<string | undefined>(
     undefined
   );
+  // Which item's panel (if any) currently replaces the menu's contents. Fresh on every open for the
+  // same reason `openSubmenuId` is: this component mounts only while its Overlay is open.
+  const [openPanelId, setOpenPanelId] = useState<string | undefined>(undefined);
+  const openPanel = items.find((item) => item.id === openPanelId)?.panel;
+
+  if (openPanel) {
+    return (
+      <Menu size={size} menuRef={parentMenuRef}>
+        <MenuGroupTitle
+          trailing={
+            <Button
+              aria-label="Back"
+              onClick={() => setOpenPanelId(undefined)}
+              isIconOnly
+              variant="ghost"
+              interaction="subtle"
+              size="small"
+            >
+              <AppIcon icon="dismiss" />
+            </Button>
+          }
+        >
+          {openPanel.title}
+        </MenuGroupTitle>
+        <div className="menu__divider" role="separator" />
+        {openPanel.items.map((panelItem) => (
+          <MenuItem
+            key={panelItem.id}
+            id={menuItemDomId(panelItem.id)}
+            disabled={panelItem.disabled}
+            selected={panelItem.selected}
+            leading={
+              panelItem.icon ? (
+                <AppIcon icon={panelItem.icon} />
+              ) : panelItem.reserveIconSpace ? (
+                <span className="app-icon" />
+              ) : undefined
+            }
+            trailing={panelItem.trailing}
+            onClick={(event) => {
+              // Same portal/bubbling reason as the main menu's items (see below).
+              event.stopPropagation();
+              onSelect(panelItem.id);
+            }}
+          >
+            {panelItem.label}
+          </MenuItem>
+        ))}
+      </Menu>
+    );
+  }
 
   return (
     <Menu
@@ -308,6 +374,11 @@ export function OverflowMenuBody({
               // menu already guards against for opening the menu itself.
               event.stopPropagation();
 
+              if (item.panel) {
+                setOpenPanelId(item.id);
+                return;
+              }
+
               if (item.opensInlineEdit) {
                 suppressReturnFocusRef.current = true;
               }
@@ -322,7 +393,7 @@ export function OverflowMenuBody({
                 <span className="app-icon" />
               ) : undefined
             }
-            trailing={item.trailing}
+            trailing={item.panel ? <AppIcon icon="chevronRight" /> : item.trailing}
           >
             {item.label}
           </MenuItem>

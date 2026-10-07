@@ -66,24 +66,33 @@ export function buildFolderSidebarMenu(
     },
   ];
 
-  // Sort by: one key at a time. The active key shows the direction arrow, and picking it again
-  // flips the direction (the same rule as the collection views' Configure menu).
+  // Sort by: one row that swaps the menu for the sort choices (OverflowMenu's `panel`). One key at a
+  // time; the active key shows the direction arrow, and picking it again flips the direction (the
+  // same rule as the collection views' Configure menu).
   if (sortMenu) {
-    SIDEBAR_SORT_OPTIONS.forEach(({ key, label }, index) => {
-      const isActive = sortMenu.sort.key === key;
-      items.push({
-        id: `${SORT_MENU_ID_PREFIX}${key}`,
-        label,
-        ...(index === 0 && { separatorBefore: true, groupTitle: 'Sort by' }),
-        icon: isActive ? 'tick' : undefined,
-        reserveIconSpace: true,
-        trailing: isActive ? (
-          <AppIcon
-            icon={sortMenu.sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
-            className="menu__item-indicator"
-          />
-        ) : undefined,
-      });
+    items.push({
+      id: 'sort-by',
+      label: 'Sort by',
+      icon: 'arrowDown',
+      separatorBefore: true,
+      panel: {
+        title: 'Sort by',
+        items: SIDEBAR_SORT_OPTIONS.map(({ key, label }) => {
+          const isActive = sortMenu.sort.key === key;
+          return {
+            id: `${SORT_MENU_ID_PREFIX}${key}`,
+            label,
+            icon: isActive ? 'tick' : undefined,
+            reserveIconSpace: true,
+            trailing: isActive ? (
+              <AppIcon
+                icon={sortMenu.sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
+                className="menu__item-indicator"
+              />
+            ) : undefined,
+          };
+        }),
+      },
     });
   }
 
