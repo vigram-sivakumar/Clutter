@@ -581,6 +581,54 @@ describe('renderTasksByDate', () => {
     expect(titles).toEqual(['Upcoming']);
   });
 
+  describe('the 10-task group cap', () => {
+    const manyUndated = () =>
+      Array.from({ length: 12 }, (_, i) => task({ text: `Idea ${String(i).padStart(2, '0')}` }));
+
+    function renderGroups(expandedGroups: readonly ('unscheduled' | 'today')[], onExpandGroup = vi.fn()) {
+      const utils = render(
+        <>
+          {renderTasksByDate({
+            tasks: manyUndated(),
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            onChangeDueDate: vi.fn(),
+            onDuplicateTask: vi.fn(),
+            onDeleteTask: vi.fn(),
+            navigation: fakeNavigation(),
+            expandedGroups,
+            onExpandGroup,
+          })}
+        </>
+      );
+      return { ...utils, onExpandGroup };
+    }
+
+    it('shows the first 10 and a "2 more" row for a group of 12', () => {
+      const { getByText, queryByText } = renderGroups([]);
+
+      expect(queryByText('Idea 09')).toBeInTheDocument();
+      expect(queryByText('Idea 10')).not.toBeInTheDocument();
+      expect(getByText('2 more')).toBeInTheDocument();
+    });
+
+    it('clicking "2 more" asks the owner to expand that group', () => {
+      const { getByText, onExpandGroup } = renderGroups([]);
+
+      fireEvent.click(getByText('2 more'));
+
+      expect(onExpandGroup).toHaveBeenCalledWith('unscheduled');
+    });
+
+    it('an expanded group shows every task and no "more" row', () => {
+      const { getByText, queryByText } = renderGroups(['unscheduled']);
+
+      expect(getByText('Idea 11')).toBeInTheDocument();
+      expect(queryByText('2 more')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Show completed / Auto-sort completed', () => {
     it('shows a completed task due today in the Today section when showCompleted is true', () => {
       const completedToday = task({ text: 'Submit expenses', completed: true, dueDate: '2026-08-04' });

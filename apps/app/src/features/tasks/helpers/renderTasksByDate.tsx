@@ -12,11 +12,20 @@ import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/Mark
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 // Helpers
-import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from './groupTasks';
+import {
+  groupTasks,
+  DEFAULT_TASK_DISPLAY_CONFIG,
+  type TaskDisplayConfig,
+  type TaskGroupId,
+} from './groupTasks';
 import { formatTaskDueDate } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
+import { AppIcon } from '@shared/icon';
+
+/** A sidebar group shows this many tasks; the rest sit behind its "N more" row. */
+export const SIDEBAR_GROUP_TASK_LIMIT = 10;
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
@@ -213,6 +222,10 @@ interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers (most tests) that don't care.
    */
   readonly displayConfig?: TaskDisplayConfig;
+  /** Groups whose "N more" row the user has clicked — shown in full. Session-only; the owner decides its lifetime. */
+  readonly expandedGroups?: readonly TaskGroupId[];
+  /** Called when a group's "N more" row is clicked. */
+  readonly onExpandGroup?: (id: TaskGroupId) => void;
 }
 
 export function renderTasksByDate({
@@ -227,6 +240,8 @@ export function renderTasksByDate({
   resolveTag,
   resolveEmbed,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
+  expandedGroups = [],
+  onExpandGroup,
 }: RenderTasksByDateProps) {
   // Grouped once here — every Section needs this to know whether it's
   // empty (for default expansion) as well as what to render, and
@@ -237,6 +252,20 @@ export function renderTasksByDate({
   // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
   const upcoming = groups.upcoming.filter((task) => !unscheduled.includes(task));
   const hidden = displayConfig.hiddenGroups ?? [];
+
+  // A group over the limit shows its first SIDEBAR_GROUP_TASK_LIMIT tasks, then a "N more" row
+  // that expands it in full.
+  const capped = (id: TaskGroupId, list: readonly TaskOccurrence[]) =>
+    expandedGroups.includes(id) ? list : list.slice(0, SIDEBAR_GROUP_TASK_LIMIT);
+  const moreRow = (id: TaskGroupId, list: readonly TaskOccurrence[]) =>
+    !expandedGroups.includes(id) && list.length > SIDEBAR_GROUP_TASK_LIMIT ? (
+      <EmptyEntry
+        leading={<AppIcon icon="plus" />}
+        onClick={() => onExpandGroup?.(id)}
+      >
+        {list.length - SIDEBAR_GROUP_TASK_LIMIT} more
+      </EmptyEntry>
+    ) : null;
 
   return (
     <Fragment>
@@ -256,8 +285,9 @@ export function renderTasksByDate({
         {today.length === 0 ? (
           <EmptyEntry>You're all clear for today</EmptyEntry>
         ) : (
-          renderTodayContent({
-            today,
+          <>
+            {renderTodayContent({
+            today: capped('today', today),
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
@@ -266,7 +296,9 @@ export function renderTasksByDate({
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
-          })
+          })}
+            {moreRow('today', today)}
+          </>
         )}
       </Section>
       )}
@@ -283,7 +315,7 @@ export function renderTasksByDate({
           }
         >
           {renderOverdueContent({
-            overdue,
+            overdue: capped('overdue', overdue),
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
@@ -293,6 +325,7 @@ export function renderTasksByDate({
             resolveTag,
             resolveEmbed,
           })}
+          {moreRow('overdue', overdue)}
         </Section>
       )}
       {!hidden.includes('upcoming') && upcoming.length > 0 && (
@@ -308,7 +341,7 @@ export function renderTasksByDate({
           }
         >
           {renderUpcomingContent({
-            upcoming,
+            upcoming: capped('upcoming', upcoming),
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
@@ -318,6 +351,7 @@ export function renderTasksByDate({
             resolveTag,
             resolveEmbed,
           })}
+          {moreRow('upcoming', upcoming)}
         </Section>
       )}
       {!hidden.includes('unscheduled') && unscheduled.length > 0 && (
@@ -331,7 +365,7 @@ export function renderTasksByDate({
             workspace.setSectionExpanded('tasks-unscheduled', expanded)
           }
         >
-          {renderTaskList(unscheduled, {
+          {renderTaskList(capped('unscheduled', unscheduled), {
             onToggleComplete,
             onOpenTask,
             onChangeDueDate,
@@ -341,6 +375,7 @@ export function renderTasksByDate({
             resolveTag,
             resolveEmbed,
           })}
+          {moreRow('unscheduled', unscheduled)}
         </Section>
       )}
     </Fragment>

@@ -15,7 +15,7 @@ import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { createTaskInDailyNote } from '../helpers/createTaskInDailyNote';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
-import type { TaskDisplayConfig } from '../helpers/groupTasks';
+import type { TaskDisplayConfig, TaskGroupId } from '../helpers/groupTasks';
 
 interface TasksPanelProps {
   readonly vault: Vault;
@@ -34,6 +34,9 @@ interface TasksPanelProps {
    */
   readonly tasksViewConfig: TaskDisplayConfig;
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
+  /** Groups whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
+  readonly expandedGroups: readonly TaskGroupId[];
+  readonly onExpandGroup: (id: TaskGroupId) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set by onOpenTask below, consumed once by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
@@ -48,6 +51,8 @@ export function Tasks({
   effectivePageState,
   tasksViewConfig,
   onTasksViewConfigChange,
+  expandedGroups,
+  onExpandGroup,
   onRequestReveal,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
@@ -139,6 +144,8 @@ export function Tasks({
         resolveTag,
         resolveEmbed,
         displayConfig: tasksViewConfig,
+        expandedGroups,
+        onExpandGroup,
       })}
     </View>
   );

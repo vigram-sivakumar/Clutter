@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
+import type { TaskGroupId } from '@features/tasks/helpers/groupTasks';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
@@ -70,6 +71,9 @@ export function Sidebar({
   // this. One-shot, cleared via onRevealHandled once the Notes panel has
   // applied it (same request/ack shape as PendingEditorReveal).
   const [sidebarNoteReveal, setSidebarNoteReveal] = useState<string | null>(null);
+  // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
+  // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
+  const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
 
   function revealNoteInNotesSidebar(pageId: string): void {
     workspace.setActiveSidebarTab('notes');
@@ -147,6 +151,8 @@ export function Sidebar({
           effectivePageState={effectivePageState}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={onTasksViewConfigChange}
+          expandedGroups={expandedTaskGroups}
+          onExpandGroup={(id) => setExpandedTaskGroups((prev) => [...prev, id])}
           onRequestReveal={onRequestReveal}
         />
       ),
