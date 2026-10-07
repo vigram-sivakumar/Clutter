@@ -8,8 +8,7 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
 
 /**
  * The sidebar row's overflow menu is deliberately narrower than
- * noteTopBarMenu.config.ts's topbar menu (no "Add a description",
- * "Version history") — scoped to exactly the capabilities PageOperations
+ * noteTopBarMenu.config.ts's topbar menu (no "Add a description") — scoped to exactly the capabilities PageOperations
  * already backs for a Note: rename, duplicate (ADR-028), favorite/
  * unfavorite (PageOperations.updateMetadata({ favorite }) — same call and
  * `toggle-favorite` id the topbar's favorite control uses), archive.

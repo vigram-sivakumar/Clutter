@@ -87,11 +87,6 @@ export function buildNoteTopBarMenu(
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
-    {
-      id: 'version-history',
-      label: 'Version history',
-      icon: 'clock',
-    },
     // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
     // Note; see getLocationPathRepresentations.ts's LocationEntityKind.
     // `disabled` (not omitted) for a draft, matching move-to/archive's own

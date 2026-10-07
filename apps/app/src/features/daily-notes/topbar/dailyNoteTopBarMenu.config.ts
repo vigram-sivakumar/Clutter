@@ -31,11 +31,6 @@ export function buildDailyNoteTopBarMenu(
   const persisted = state !== 'draft';
 
   const items: TopBarMenuItemConfig[] = [
-    {
-      id: 'version-history',
-      label: 'Version history',
-      icon: 'clock',
-    },
     // 'page' — a Daily Note is a Page, same as an ordinary Note.
     // Reveal in Finder/Copy path have nothing to act on for a draft (no
     // path until first save), so — like archive/restore/delete — they're

@@ -88,6 +88,14 @@ export function FavoriteList({
                     rowActions.onToggleFavoriteNote(item.id, true);
                   } else if (id === 'archive') {
                     rowActions.onArchiveNote(item.id);
+                  } else if (id === 'reveal-in-finder') {
+                    rowActions.onRevealPageInFinder(item.id);
+                  } else if (id === 'copy-path-at-vault') {
+                    rowActions.onCopyPagePath(item.id, 'at-vault');
+                  } else if (id === 'copy-path-full-path') {
+                    rowActions.onCopyPagePath(item.id, 'full-path');
+                  } else if (id === 'copy-path-as-markdown') {
+                    rowActions.onCopyPagePath(item.id, 'as-markdown');
                   }
                 }
               : undefined
@@ -136,6 +144,12 @@ export function FavoriteList({
                   rowActions.onToggleFavoriteFolder(item.id, true);
                 } else if (id === 'archive') {
                   rowActions.onArchiveFolder(item.id);
+                } else if (id === 'reveal-in-finder') {
+                  rowActions.onRevealFolderInFinder(item.id);
+                } else if (id === 'copy-path-at-vault') {
+                  rowActions.onCopyFolderPath(item.id, 'at-vault');
+                } else if (id === 'copy-path-full-path') {
+                  rowActions.onCopyFolderPath(item.id, 'full-path');
                 }
               }
             : undefined
