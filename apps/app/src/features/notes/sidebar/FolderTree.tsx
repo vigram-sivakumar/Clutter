@@ -8,7 +8,8 @@ import { NewFolderRow } from './NewFolderRow';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
-import { buildFolderSidebarMenu, SORT_MENU_ID_PREFIX } from './folderSidebarMenu.config';
+import { SORT_MENU_ID_PREFIX } from '@core/presentation/resourceActions/folderSortAction';
+import { buildFolderMenuHandlers } from '../helpers/buildFolderMenuHandlers';
 import { levelKindOrder, sortSidebarFolders, sortSidebarPages } from './sidebarSort';
 import {
   DEFAULT_SIDEBAR_SORT,
@@ -751,12 +752,16 @@ export function FolderTree({
               onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
               menuItems={
                 rowActions
-                  ? buildFolderSidebarMenu(
-                      folder.metadata.status,
-                      folder.metadata.favorite,
-                      onFolderSortChange
-                        ? { sort: getFolderSort?.(folder.id) ?? DEFAULT_SIDEBAR_SORT }
-                        : undefined
+                  ? buildResourceActionMenu(
+                      'folder',
+                      {
+                        status: folder.metadata.status,
+                        isFavorite: folder.metadata.favorite,
+                        sort: onFolderSortChange
+                          ? (getFolderSort?.(folder.id) ?? DEFAULT_SIDEBAR_SORT)
+                          : undefined,
+                      },
+                      'sidebar'
                     )
                   : undefined
               }
@@ -782,21 +787,12 @@ export function FolderTree({
                               : { key, direction: 'down' }
                           );
                         }
-                      } else if (id === 'rename') {
-                        rowActions.onStartRename(folder.id);
-                      } else if (id === 'toggle-favorite') {
-                        rowActions.onToggleFavoriteFolder(
+                      } else {
+                        buildFolderMenuHandlers(
+                          rowActions,
                           folder.id,
                           folder.metadata.favorite
-                        );
-                      } else if (id === 'archive') {
-                        rowActions.onArchiveFolder(folder.id);
-                      } else if (id === 'reveal-in-finder') {
-                        rowActions.onRevealFolderInFinder(folder.id);
-                      } else if (id === 'copy-path-at-vault') {
-                        rowActions.onCopyFolderPath(folder.id, 'at-vault');
-                      } else if (id === 'copy-path-full-path') {
-                        rowActions.onCopyFolderPath(folder.id, 'full-path');
+                        )[id]?.();
                       }
                     }
                   : undefined

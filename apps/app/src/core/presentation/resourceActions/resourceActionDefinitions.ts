@@ -5,6 +5,7 @@ import {
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '../resourceActionLabels';
+import { FOLDER_SORT_BY } from './folderSortAction';
 import type { ResourceActionDefinition, ResourceActionContext, ResourceKind } from './resourceActionTypes';
 
 /**
@@ -149,8 +150,21 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
   ],
   // A Daily Note's title is its date: no rename, icon, favorite, duplicate or move.
   'daily-note': [revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
-  // Migrated in later steps (ADR-048): folder, asset, tag, task still use their own configs.
-  folder: [],
+  // Folders are never duplicable or templates. Sort by is a sidebar view preference (the topbar
+  // surface profile omits it).
+  folder: [
+    RENAME,
+    CHANGE_ICON,
+    TOGGLE_FAVORITE,
+    MOVE_TO,
+    FOLDER_SORT_BY,
+    revealInFinder(),
+    copyPath('folder'),
+    ARCHIVE,
+    RESTORE,
+    DELETE,
+  ],
+  // Migrated in later steps (ADR-048): asset, tag, task still use their own configs.
   asset: [],
   tag: [],
   task: [],

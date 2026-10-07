@@ -34,7 +34,11 @@ import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
 } from '../helpers/buildMoveDestinationItems';
-import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmation';
+import {
+  FOLDER_ARCHIVE_CONFIRMATION_TITLE,
+  FOLDER_ARCHIVE_CONFIRM_LABEL,
+  getFolderArchiveConfirmation,
+} from '../helpers/folderActionConfirmation';
 import { Button } from '@components/button/Button';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
 import { AppIcon } from '@shared/icon';
@@ -291,9 +295,9 @@ export function Notes({
 
       if (hasDescendants) {
         confirmation.request({
-          title: 'Move this folder to Trash?',
+          title: FOLDER_ARCHIVE_CONFIRMATION_TITLE,
           message,
-          confirmLabel: 'Move to Trash',
+          confirmLabel: FOLDER_ARCHIVE_CONFIRM_LABEL,
           onConfirm: () => void folderOperations.archive(folderId),
         });
         return;

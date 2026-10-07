@@ -3,7 +3,7 @@ import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
-import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
+import { buildFolderMenuHandlers } from '../helpers/buildFolderMenuHandlers';
 import type { SidebarRowActions } from './FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -102,8 +102,10 @@ export function FavoriteList({
     }
 
     const menuItems = rowActions
-      ? buildFolderSidebarMenu(item.status ?? 'active', true).filter(
-          (menuItem) => menuItem.id !== 'rename'
+      ? buildResourceActionMenu(
+          'folder',
+          { status: item.status ?? 'active', isFavorite: true },
+          'favorites'
         )
       : undefined;
 
@@ -124,19 +126,7 @@ export function FavoriteList({
         }
         onMenuSelect={
           rowActions
-            ? (id) => {
-                if (id === 'toggle-favorite') {
-                  rowActions.onToggleFavoriteFolder(item.id, true);
-                } else if (id === 'archive') {
-                  rowActions.onArchiveFolder(item.id);
-                } else if (id === 'reveal-in-finder') {
-                  rowActions.onRevealFolderInFinder(item.id);
-                } else if (id === 'copy-path-at-vault') {
-                  rowActions.onCopyFolderPath(item.id, 'at-vault');
-                } else if (id === 'copy-path-full-path') {
-                  rowActions.onCopyFolderPath(item.id, 'full-path');
-                }
-              }
+            ? (id) => buildFolderMenuHandlers(rowActions, item.id, true)[id]?.()
             : undefined
         }
         moveDestinations={

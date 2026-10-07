@@ -4,7 +4,6 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
-import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
 import {
   buildArchiveTopBarMenu,
   DELETE_ALL_ARCHIVED_CONFIRMATION,
@@ -174,7 +173,11 @@ export function buildTopBarActions(
         isDeletable,
         options.membershipSelector.isInTemplatesFolder(resource.parentId)
       )
-    : buildFolderTopBarMenu(resource.metadata.status, isFavorite, isDeletable);
+    : buildResourceActionMenu(
+        'folder',
+        { status: resource.metadata.status, isFavorite, isDeletable },
+        'topbar'
+      );
 
   // Location-actions pipeline — pure reads of `resource.path`/`options.
   // vaultRoot`, so built directly here rather than requiring every caller

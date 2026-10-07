@@ -1,5 +1,9 @@
 import type { SystemIcon } from '@shared/icon';
-import type { OverflowMenuSubmenuItemConfig } from '@components/menu/OverflowMenu';
+import type {
+  OverflowMenuPanelConfig,
+  OverflowMenuSubmenuItemConfig,
+} from '@components/menu/OverflowMenu';
+import type { SidebarSort } from '@core/properties/sidebarSort';
 
 /**
  * The fixed semantic order every resource-action menu follows (ADR-048). A group boundary is a
@@ -35,6 +39,8 @@ export interface ResourceActionContext {
   readonly isTemplate?: boolean;
   /** Permanent Delete applies only to an archived resource or an Archive descendant. */
   readonly isDeletable?: boolean;
+  /** A folder's current sidebar sort; absent where the surface has no Sort by (see `sort-by`). */
+  readonly sort?: SidebarSort;
 }
 
 type FromContext<T> = T | ((context: ResourceActionContext) => T);
@@ -55,6 +61,8 @@ export interface ResourceActionDefinition {
   /** Selecting it mounts and focuses an inline editor (Rename) — see `OverflowMenuItemConfig`. */
   readonly opensInlineEdit?: boolean;
   readonly submenu?: readonly OverflowMenuSubmenuItemConfig[];
+  /** Swaps the menu for a panel of choices (Sort by) — see `OverflowMenuItemConfig.panel`. */
+  readonly panel?: (context: ResourceActionContext) => OverflowMenuPanelConfig;
 }
 
 /** Action id → the existing operation to run. The shape the topbar already used. */

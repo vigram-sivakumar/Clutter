@@ -1,4 +1,13 @@
 import type { Vault } from '@core/vault/models/Vault';
+import { ARCHIVE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
+
+/**
+ * The dialog wording for archiving a non-empty folder — one definition for the sidebar row's
+ * confirmation surface and the topbar's ResourceTopBarActions (the message itself comes from
+ * getFolderArchiveConfirmation below).
+ */
+export const FOLDER_ARCHIVE_CONFIRMATION_TITLE = 'Move this folder to Trash?';
+export const FOLDER_ARCHIVE_CONFIRM_LABEL = ARCHIVE_ACTION_LABEL;
 
 export interface FolderActionConfirmation {
   readonly hasDescendants: boolean;

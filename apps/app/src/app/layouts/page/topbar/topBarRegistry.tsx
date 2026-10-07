@@ -108,7 +108,7 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
       'reveal-in-finder': options?.onRevealInFinder,
       'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),
       'copy-path-full-path': () => options?.onCopyPath?.('full-path'),
-      // No 'copy-path-as-markdown' — folderTopBarMenu.config.ts never
+      // No 'copy-path-as-markdown' — the folder canonical actions never
       // offers the item (no folder-linking syntax exists), so this id
       // never reaches handleMenuSelect for a folder.
     }}

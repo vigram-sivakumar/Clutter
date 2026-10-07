@@ -72,6 +72,9 @@ export function buildMenuFromDefinitions(
     if (definition.submenu) {
       item.submenu = [...definition.submenu];
     }
+    if (definition.panel) {
+      item.panel = definition.panel(context);
+    }
     if (previous && previous.group !== definition.group) {
       item.separatorBefore = true;
     }

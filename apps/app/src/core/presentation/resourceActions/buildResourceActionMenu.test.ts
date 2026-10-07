@@ -202,3 +202,63 @@ describe('daily note', () => {
     expect(copy?.submenu?.map((leaf) => leaf.id)).toContain('copy-path-as-markdown');
   });
 });
+
+describe('folder menu', () => {
+  const sort = { key: 'created', direction: 'up' } as const;
+
+  it('groups identity | organize | view | location | lifecycle on the sidebar', () => {
+    const menu = buildResourceActionMenu('folder', { status: 'active', sort }, 'sidebar');
+    expect(ids(menu)).toEqual([
+      'rename',
+      'change-icon',
+      'toggle-favorite',
+      'move-to',
+      'sort-by',
+      'reveal-in-finder',
+      'copy-path',
+      'archive',
+    ]);
+    expect(dividedIds(menu)).toEqual(['toggle-favorite', 'sort-by', 'reveal-in-finder', 'archive']);
+  });
+
+  it('Sort by exists only where a sort is supplied, and only on the sidebar', () => {
+    expect(ids(buildResourceActionMenu('folder', { status: 'active' }, 'sidebar'))).not.toContain('sort-by');
+    expect(ids(buildResourceActionMenu('folder', { status: 'active', sort }, 'topbar'))).not.toContain('sort-by');
+    expect(ids(buildResourceActionMenu('folder', { status: 'active', sort }, 'favorites'))).toContain('sort-by');
+  });
+
+  it("Sort by is one row whose panel lists the sort options and marks only the active key", () => {
+    const row = buildResourceActionMenu('folder', { status: 'active', sort }, 'sidebar').find(
+      (item) => item.id === 'sort-by'
+    );
+    expect(row?.panel?.title).toBe('Sort by');
+    expect(row?.panel?.items.map((item) => item.label)).toEqual(['Name', 'Kind', 'Created', 'Last edited']);
+    expect(row?.panel?.items.find((item) => item.id === 'sort:created')?.icon).toBe('tick');
+    expect(row?.panel?.items.find((item) => item.id === 'sort:created')?.trailing).toBeTruthy();
+    expect(row?.panel?.items.find((item) => item.id === 'sort:name')?.trailing).toBeUndefined();
+  });
+
+  it('is never duplicable and its Copy path has no As Markdown', () => {
+    const menu = buildResourceActionMenu('folder', { status: 'active' }, 'topbar');
+    expect(ids(menu)).not.toContain('duplicate');
+    expect(menu.find((item) => item.id === 'copy-path')?.submenu?.map((leaf) => leaf.id)).toEqual([
+      'copy-path-at-vault',
+      'copy-path-full-path',
+    ]);
+  });
+
+  it('on the topbar: Move is disabled when archived, Restore replaces Archive, and Delete ends the menu', () => {
+    const menu = buildResourceActionMenu('folder', { status: 'archived', isDeletable: true }, 'topbar');
+    expect(menu.find((item) => item.id === 'move-to')?.disabled).toBe(true);
+    expect(ids(menu)).not.toContain('archive');
+    expect(ids(menu).slice(-2)).toEqual(['restore', 'delete']);
+    expect(dividedIds(menu)).toContain('delete');
+  });
+
+  it('the sidebar offers no Restore or Delete even for an archived folder', () => {
+    const menu = ids(buildResourceActionMenu('folder', { status: 'archived', isDeletable: true }, 'sidebar'));
+    expect(menu).not.toContain('restore');
+    expect(menu).not.toContain('delete');
+    expect(menu).not.toContain('archive');
+  });
+});

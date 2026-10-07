@@ -14,6 +14,10 @@ import { MoveDestinationPicker } from '@components/move-destination-picker/MoveD
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
+import {
+  FOLDER_ARCHIVE_CONFIRMATION_TITLE,
+  FOLDER_ARCHIVE_CONFIRM_LABEL,
+} from '@features/notes/helpers/folderActionConfirmation';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
 /**
@@ -168,9 +172,9 @@ export function ResourceTopBarActions({
 
       if (id === 'archive' && archiveConfirmationMessage !== undefined) {
         confirmation.request({
-          title: 'Move this folder to Trash?',
+          title: FOLDER_ARCHIVE_CONFIRMATION_TITLE,
           message: archiveConfirmationMessage,
-          confirmLabel: 'Move to Trash',
+          confirmLabel: FOLDER_ARCHIVE_CONFIRM_LABEL,
           onConfirm: () => handlers?.['archive']?.(),
         });
         return;
