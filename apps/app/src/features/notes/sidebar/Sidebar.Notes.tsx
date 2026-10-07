@@ -29,6 +29,7 @@ import {
 } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
+import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { buildNoteRowActions } from '../helpers/buildNoteRowActions';
 import {
   buildMoveDestinationItems,
@@ -252,9 +253,11 @@ export function Notes({
   const confirmation = useConfirmationSurface();
 
   const location = createLocationActions(vault.root);
+  const requestCreateTemplate = useRequestCreateTemplate();
 
   const rowActions: SidebarRowActions = {
     ...buildNoteRowActions({
+      onRequestCreateTemplate: requestCreateTemplate,
       vault,
       pageOperations,
       folderOperations,

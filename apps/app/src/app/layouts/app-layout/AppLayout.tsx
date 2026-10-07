@@ -1,5 +1,6 @@
 import { useCallback, useState, type CSSProperties } from 'react';
 import './AppLayout.css';
+import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
@@ -286,6 +287,7 @@ export function AppLayout({ application }: AppLayoutProps) {
   }
 
   return (
+    <CreateTemplateProvider application={application}>
     <div
       className="app-layout"
       data-sidebar-collapsed={!workspace.isSidebarVisible}
@@ -414,5 +416,6 @@ export function AppLayout({ application }: AppLayoutProps) {
         }
       />
     </div>
+    </CreateTemplateProvider>
   );
 }

@@ -52,6 +52,7 @@ describe('group ordering and automatic dividers', () => {
       'duplicate',
       'move-to',
       'use-as-template',
+      'create-template',
       'reveal-in-finder',
       'copy-path',
       'archive',
@@ -164,8 +165,9 @@ describe('availability', () => {
 });
 
 describe('daily note', () => {
-  it('offers only location and lifecycle actions on the sidebar', () => {
+  it('offers only Create template, location and lifecycle actions on the sidebar', () => {
     expect(ids(buildResourceActionMenu('daily-note', { status: 'active' }, 'sidebar'))).toEqual([
+      'create-template',
       'reveal-in-finder',
       'copy-path',
       'archive',
@@ -186,7 +188,7 @@ describe('daily note', () => {
   it('a draft has no sidebar menu; on the topbar its actions are disabled, not omitted', () => {
     expect(buildResourceActionMenu('daily-note', { isDraft: true }, 'sidebar')).toEqual([]);
     const topbar = buildResourceActionMenu('daily-note', { isDraft: true, isDeletable: true }, 'topbar');
-    expect(ids(topbar)).toEqual(['copy-path', 'archive', 'delete']);
+    expect(ids(topbar)).toEqual(['create-template', 'copy-path', 'archive', 'delete']);
     expect(topbar.every((item) => item.disabled)).toBe(true);
   });
 
@@ -397,5 +399,52 @@ describe('task menu', () => {
 
   it('Delete is a task\'s removal action, so the sidebar keeps it (a task has no Trash)', () => {
     expect(ids(buildResourceActionMenu('task', { executable: all }, 'sidebar'))).toContain('delete');
+  });
+});
+
+describe('Create template (ADR-048 organize group)', () => {
+  const has = (kind: Parameters<typeof buildResourceActionMenu>[0], context: Parameters<typeof buildResourceActionMenu>[1], surface: Parameters<typeof buildResourceActionMenu>[2] = 'topbar') =>
+    ids(buildResourceActionMenu(kind, context, surface)).includes('create-template');
+
+  it('is visible for an active regular Note and an active Daily Note, on every surface', () => {
+    for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
+      expect(has('note', { status: 'active' }, surface)).toBe(true);
+      expect(has('daily-note', { status: 'active' }, surface)).toBe(true);
+    }
+  });
+
+  it('is hidden for a Template, an archived Note and an archived Daily Note', () => {
+    for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
+      expect(has('note', { status: 'active', isTemplate: true }, surface)).toBe(false);
+      expect(has('note', { status: 'archived' }, surface)).toBe(false);
+      expect(has('daily-note', { status: 'archived', isDeletable: true }, surface)).toBe(false);
+    }
+  });
+
+  it('is hidden for a Trash / archived resource of any kind and for resources that cannot be templates', () => {
+    expect(has('folder', { status: 'archived' })).toBe(false);
+    expect(has('folder', { status: 'active' })).toBe(false);
+    expect(has('asset', { assetKind: 'image', status: 'active' }, 'sidebar')).toBe(false);
+    expect(has('asset', { assetKind: 'image', status: 'archived' }, 'overlay')).toBe(false);
+    expect(ids(buildResourceActionMenu('tag', {}, 'sidebar'))).not.toContain('create-template');
+    expect(ids(buildResourceActionMenu('task', { executable: ['duplicate', 'delete'] }, 'sidebar'))).not.toContain(
+      'create-template'
+    );
+  });
+
+  it('is unavailable for an unsaved draft: disabled on the topbar, absent from the sidebar', () => {
+    expect(buildResourceActionMenu('note', { isDraft: true }, 'topbar').find((item) => item.id === 'create-template')?.disabled).toBe(true);
+    expect(has('note', { isDraft: true }, 'sidebar')).toBe(false);
+  });
+
+  it('sits in the organize group, after Use as template and before the location group, with no hand-written divider', () => {
+    const menu = buildResourceActionMenu('note', { status: 'active' }, 'topbar');
+    const order = ids(menu);
+
+    expect(order.indexOf('create-template')).toBeGreaterThan(order.indexOf('use-as-template'));
+    expect(order.indexOf('create-template')).toBeLessThan(order.indexOf('reveal-in-finder'));
+    // Same group as the previous organize item, so no divider before it.
+    expect(menu.find((item) => item.id === 'create-template')?.separatorBefore).toBeUndefined();
+    expect(menu.find((item) => item.id === 'create-template')).toMatchObject({ label: 'Create template', icon: 'template' });
   });
 });

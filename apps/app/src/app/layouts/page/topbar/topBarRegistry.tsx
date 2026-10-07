@@ -17,6 +17,8 @@ export interface TopBarActionsOptions {
   deleteAllConfirmation?: ResourceTopBarActionsProps['deleteAllConfirmation'];
   onDuplicate?: () => void;
   onUseAsTemplate?: () => void;
+  /** Opens the Create template dialog for the page — a copy as a new Template. */
+  onCreateTemplate?: () => void;
   /** Present only when `menu` includes a `move-to` item — see ResourceTopBarActions' matching props. */
   moveDestinations?: PickerListItem[];
   onMove?: (destinationFolderId: string | null) => void;
@@ -71,6 +73,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       delete: options?.onDelete,
       duplicate: options?.onDuplicate,
       'use-as-template': options?.onUseAsTemplate,
+      'create-template': options?.onCreateTemplate,
       'toggle-favorite': options?.onToggleFavorite,
       'reveal-in-finder': options?.onRevealInFinder,
       'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),

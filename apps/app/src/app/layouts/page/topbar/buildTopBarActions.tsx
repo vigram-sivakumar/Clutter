@@ -109,6 +109,8 @@ export interface BuildTopBarActionsOptions {
   onDuplicate?: () => void;
   /** The note menu's 'Use as template' — moves the note into the Templates folder. */
   onUseAsTemplate?: () => void;
+  /** The menu's 'Create template' — opens the dialog that copies this page into a new Template. */
+  onCreateTemplate?: () => void;
   /**
    * ADR-026: set only when archiving `resource` (a folder) needs
    * confirmation first — i.e. it has descendants. Ignored for a page.
@@ -202,6 +204,7 @@ export function buildTopBarActions(
         : undefined,
       onDuplicate: options.onDuplicate,
       onUseAsTemplate: options.onUseAsTemplate,
+      onCreateTemplate: options.onCreateTemplate,
       archiveConfirmationMessage: options.archiveConfirmationMessage,
       deleteConfirmationMessage: options.deleteConfirmationMessage,
       moveDestinations: options.moveDestinations,

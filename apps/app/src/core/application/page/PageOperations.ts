@@ -100,6 +100,13 @@ export interface CreatePageOptions {
    * decisions.md's autocomplete-is-insertion-only invariant).
    */
   readonly activate?: boolean;
+  /**
+   * Initial Markdown body (default empty) — written in the same create, never a create-then-edit.
+   * For a new page that starts as a copy of other content ("Create template").
+   */
+  readonly body?: string;
+  /** Initial description, written in the same create (no value leaves it unset). */
+  readonly description?: string;
 }
 
 /**
@@ -841,6 +848,24 @@ export class PageOperations {
     }
 
     return !this.findDraftRenameCollision(descriptor, title.trim());
+  }
+
+  /**
+   * Whether a page titled `title` could be created in `folderId` without an exact-name
+   * collision — the synchronous pre-check behind a create dialog, mirroring
+   * FolderOperations.canCreate(). create() itself still auto-suffixes (the race between this check
+   * and the write); this is the one place a caller-visible duplicate is refused up front.
+   */
+  public canCreate(folderId: string | null, title: string): boolean {
+    const trimmedTitle = title.trim();
+
+    if (!trimmedTitle) {
+      return true;
+    }
+
+    return !this.vault.getPageByPathCaseInsensitive(
+      `${resolveFolderPathOrRoot(this.vault, folderId)}/${trimmedTitle}.md`
+    );
   }
 
   /**
@@ -2076,8 +2101,13 @@ export class PageOperations {
     const page = await this.persistDraft(
       id,
       { folderId: options.folderId, type: 'note', title: options.title },
-      ''
+      options.body ?? '',
+      options.description ? { description: options.description } : undefined
     );
+
+    // ADR-041: the Templates folder is the source of truth for template status, so a page created
+    // inside it carries the `kind: template` marker from the start (a no-op everywhere else).
+    await this.syncTemplateMarker(id);
 
     if (options.activate ?? true) {
       // Mirrors open()'s own documentRegistry.open() call: PageHost requires

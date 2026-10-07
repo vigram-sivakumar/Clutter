@@ -545,3 +545,68 @@ describe('buildTopBarActions: Description is not a topbar action', () => {
     expect(screen.queryByText('Description')).toBeNull();
   });
 });
+
+describe('buildTopBarActions: Create template', () => {
+  it('a saved active Note shows Create template, and selecting it calls onCreateTemplate', () => {
+    const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+    const { membershipSelector } = setup([], [page]);
+    const onCreateTemplate = vi.fn();
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT, onCreateTemplate });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Create template'));
+
+    expect(onCreateTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a Daily Note shows it too', () => {
+    const dailyNote = {
+      ...makePage('daily-1', `${ROOT}/Daily Notes/2026/October/2026-10-07.md`),
+      type: 'daily-note' as const,
+    };
+    const { membershipSelector } = setup([], [dailyNote]);
+
+    const { actions } = buildTopBarActions(dailyNote, { membershipSelector, vaultRoot: ROOT, onCreateTemplate: vi.fn() });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.getByText('Create template')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['an archived Note', () => makePage('page-1', `${ROOT}/Archive/Old.md`, null, 'archived'), []],
+  ])('%s has none', (_label, make) => {
+    const page = make();
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT, onCreateTemplate: vi.fn() });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+  });
+
+  it('a Template has none', () => {
+    const templates = makeFolder('templates', `${ROOT}/Templates`);
+    const template = makePage('page-1', `${ROOT}/Templates/Meeting.md`, 'templates');
+    const { membershipSelector } = setup([templates], [template]);
+
+    const { actions } = buildTopBarActions(template, { membershipSelector, vaultRoot: ROOT, onCreateTemplate: vi.fn() });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+  });
+
+  it('a Folder has none', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { membershipSelector } = setup([folder]);
+
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+  });
+});

@@ -12,6 +12,8 @@ export interface BuildNoteRowActionsDeps {
   readonly pageOperations: PageOperations;
   readonly folderOperations: FolderOperations;
   readonly membershipSelector: MembershipSelector;
+  /** Opens the Create template dialog (CreateTemplateProvider); absent outside it. */
+  readonly onRequestCreateTemplate?: (pageId: string) => void;
 
   /**
    * Which row's overflow menu/rename session is active — caller-owned
@@ -46,6 +48,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     pageOperations,
     folderOperations,
     membershipSelector,
+    onRequestCreateTemplate,
     openMenuId,
     onOpenMenu,
     onCloseMenu,
@@ -88,6 +91,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
     onToggleFavoriteNote: (pageId, isFavorite) =>
       void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
+    onCreateTemplate: (pageId) => onRequestCreateTemplate?.(pageId),
     onChangeNoteIcon: (pageId, emoji) =>
       void pageOperations.updateMetadata(pageId, { icon: emoji }),
     // Same flow as the topbar's Move (PageHost.tsx): same

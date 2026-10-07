@@ -9,8 +9,41 @@ import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceho
 
 import './NewFolderContent.css';
 
+/**
+ * The wording of this one name + description dialog. The New folder modal is the default; a variant
+ * ("Create template") supplies its own words and reuses everything else — field layout, duplicate
+ * validation, the submit lifecycle, styling.
+ */
+export interface NewFolderContentLabels {
+  readonly title: string;
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  /** The error under the name field for a duplicate name. */
+  readonly duplicateMessage: (name: string) => string;
+  readonly submitLabel: string;
+  readonly failureMessage: string;
+}
+
+export const NEW_FOLDER_LABELS: NewFolderContentLabels = {
+  title: 'New folder',
+  nameLabel: 'Folder name',
+  namePlaceholder: getFolderTitlePlaceholder(),
+  duplicateMessage: (name) => `A folder named “${name}” already exists.`,
+  submitLabel: 'Create',
+  failureMessage: 'Failed to create folder.',
+};
+
 export interface NewFolderContentProps {
   onClose(): void;
+  /** Wording; absent = the New folder modal's own. */
+  labels?: NewFolderContentLabels;
+  /** Prefilled values — the user edits them before submitting. */
+  initialName?: string;
+  initialDescription?: string;
+  /** Whether the footer offers the emoji picker (a folder has an icon here; a template does not). Default true. */
+  withIcon?: boolean;
+  /** Shows a Cancel button beside the submit button. Default false (the header's close button is the folder modal's only dismiss). */
+  withCancel?: boolean;
   /**
    * The same synchronous sibling-name pre-check the Notes sidebar's inline
    * "New Folder" row uses (FolderOperations.canCreate) — a plain callback,
@@ -26,9 +59,18 @@ export interface NewFolderContentProps {
  * submit request's lifecycle. It unmounts whenever its Dialog closes, so
  * every open starts fresh.
  */
-export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderContentProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+export function NewFolderContent({
+  onClose,
+  canCreate,
+  onSubmit,
+  labels = NEW_FOLDER_LABELS,
+  initialName = '',
+  initialDescription = '',
+  withIcon = true,
+  withCancel = false,
+}: NewFolderContentProps) {
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
   const [icon, setIcon] = useState<string | undefined>(undefined);
   const emojiPicker = useOverlay<HTMLButtonElement>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,14 +95,14 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
       onClose();
     } catch (error) {
       setIsSubmitting(false);
-      setSubmitError(error instanceof Error ? error.message : 'Failed to create folder.');
+      setSubmitError(error instanceof Error ? error.message : labels.failureMessage);
     }
   };
 
   return (
     <form className="new-folder" onSubmit={handleSubmit} noValidate>
       <div className="new-folder__header">
-        <span className="new-folder__title">New folder</span>
+        <span className="new-folder__title">{labels.title}</span>
         <Button
           type="button"
           size="small"
@@ -77,15 +119,15 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
       <div className="new-folder__field">
         <Input
           value={name}
-          placeholder={getFolderTitlePlaceholder()}
-          aria-label="Folder name"
+          placeholder={labels.namePlaceholder}
+          aria-label={labels.nameLabel}
           autoFocus
           aria-invalid={isDuplicate}
           onChange={(event) => setName(event.target.value)}
         />
         {isDuplicate && (
           <span className="new-folder__error" role="alert">
-            A folder named “{trimmed}” already exists.
+            {labels.duplicateMessage(trimmed)}
           </span>
         )}
       </div>
@@ -105,28 +147,39 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
       )}
 
       <div className="new-folder__footer">
-        <Button
-          ref={emojiPicker.anchorRef}
-          type="button"
-          className="new-folder__emoji-button"
-          variant="ghost"
-          size="medium"
-          interaction="subtle"
-          leading={icon ? <span className="new-folder__emoji">{icon}</span> : <AppIcon icon="smile" />}
-          aria-label={icon ? `Emoji ${icon}. Change emoji` : 'Choose emoji'}
-          onClick={emojiPicker.toggle}
-        />
-        <Button
-          type="submit"
-          className="new-folder__create-button"
-          variant="primary"
-          size="medium"
-          disabled={!canSubmit}
-        >
-          Create
-        </Button>
+        {withIcon && (
+          <Button
+            ref={emojiPicker.anchorRef}
+            type="button"
+            className="new-folder__emoji-button"
+            variant="ghost"
+            size="medium"
+            interaction="subtle"
+            leading={icon ? <span className="new-folder__emoji">{icon}</span> : <AppIcon icon="smile" />}
+            aria-label={icon ? `Emoji ${icon}. Change emoji` : 'Choose emoji'}
+            onClick={emojiPicker.toggle}
+          />
+        )}
+        {!withIcon && <span />}
+        <div className="new-folder__actions">
+          {withCancel && (
+            <Button type="button" variant="ghost" size="medium" interaction="subtle" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+          <Button
+            type="submit"
+            className="new-folder__create-button"
+            variant="primary"
+            size="medium"
+            disabled={!canSubmit}
+          >
+            {labels.submitLabel}
+          </Button>
+        </div>
       </div>
 
+      {withIcon && (
       <ChangeIconPicker
         anchorRef={emojiPicker.anchorRef}
         open={emojiPicker.open}
@@ -141,6 +194,7 @@ export function NewFolderContent({ onClose, canCreate, onSubmit }: NewFolderCont
           setIcon(undefined);
         }}
       />
+      )}
     </form>
   );
 }

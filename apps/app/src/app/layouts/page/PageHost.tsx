@@ -98,6 +98,7 @@ import {
   TAG_DELETE_CONFIRMATION_MESSAGE,
   getTagDeleteConfirmationTitle,
 } from '@app/layouts/page/tagCollectionDelete';
+import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
@@ -281,6 +282,7 @@ export function PageHost({
   onRequestReveal,
   onRevealHandled,
 }: PageHostProps) {
+  const requestCreateTemplate = useRequestCreateTemplate();
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
 
@@ -2284,6 +2286,7 @@ export function PageHost({
     onDelete,
     onDuplicate,
     onUseAsTemplate: page.type === 'note' ? onUseAsTemplate : undefined,
+    onCreateTemplate: requestCreateTemplate ? () => requestCreateTemplate(page.id) : undefined,
     onToggleFavorite,
     // A note/daily-note delete is only ever reachable here for an
     // archived/Archive-descendant page (buildTopBarActions.tsx's

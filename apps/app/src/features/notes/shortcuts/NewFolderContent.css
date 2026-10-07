@@ -51,6 +51,12 @@
   gap: var(--space-8);
 }
 
+.new-folder__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
 .new-folder__emoji {
   font-size: var(--text-body);
   line-height: 1;

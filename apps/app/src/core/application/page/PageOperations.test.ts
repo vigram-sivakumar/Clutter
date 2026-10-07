@@ -1561,6 +1561,77 @@ function makeFolder(id: string, path: string): Folder {
   };
 }
 
+describe('PageOperations.create() — body, description and Templates (Create template)', () => {
+  const templatesFolder = (): Folder => ({
+    ...makeFolder('templates', `${ROOT}/Templates`),
+    name: 'Templates',
+  });
+
+  it('writes the given body and description in the same create, with a fresh page identity', async () => {
+    const source = buildPage();
+    const { vault, workspace, pageOperations } = setup(source, undefined, [makeArchiveFolder(), templatesFolder()]);
+
+    const newId = await pageOperations.create({
+      folderId: 'templates',
+      title: 'Standup',
+      body: '# Agenda\n\n- [ ] item',
+      description: 'Weekly sync',
+      activate: false,
+    });
+
+    const created = vault.getPage(newId)!;
+    expect(created.id).not.toBe(source.id);
+    expect(created.path).toBe(`${ROOT}/Templates/Standup.md`);
+    expect(created.parentId).toBe('templates');
+    expect(created.source.markdown).toContain('# Agenda');
+    expect(created.metadata.description).toBe('Weekly sync');
+    // activate: false — nothing opens, nothing navigates.
+    expect(workspace.isPageOpen(newId)).toBe(false);
+    expect(workspace.activePageId).not.toBe(newId);
+  });
+
+  it('a page created inside Templates is a Template: it carries the kind marker (ADR-041)', async () => {
+    const source = buildPage();
+    const { vault, pageOperations } = setup(source, undefined, [makeArchiveFolder(), templatesFolder()]);
+
+    const newId = await pageOperations.create({ folderId: 'templates', title: 'Standup', activate: false });
+
+    expect(vault.getPage(newId)!.metadata.unownedFrontmatter ?? []).toContain('kind: template');
+  });
+
+  it('a page created outside Templates gets no template marker', async () => {
+    const source = buildPage();
+    const { vault, pageOperations } = setup(source);
+
+    const newId = await pageOperations.create({ folderId: null, title: 'Plain', activate: false });
+
+    expect((vault.getPage(newId)!.metadata.unownedFrontmatter ?? []).some((line) => line.startsWith('kind'))).toBe(false);
+  });
+
+  it('creating never touches the source page', async () => {
+    const source = buildPage();
+    const { vault, pageOperations } = setup(source, undefined, [makeArchiveFolder(), templatesFolder()]);
+    const before = JSON.stringify(vault.getPage(source.id));
+
+    await pageOperations.create({ folderId: 'templates', title: 'Copy', body: source.source.markdown, activate: false });
+
+    expect(JSON.stringify(vault.getPage(source.id))).toBe(before);
+    expect(vault.getPage(source.id)!.path).toBe(source.path);
+  });
+
+  it('canCreate refuses an exact sibling title in that folder, case-insensitively, and allows a free or blank one', async () => {
+    const source = buildPage();
+    const { pageOperations } = setup(source, undefined, [makeArchiveFolder(), templatesFolder()]);
+    await pageOperations.create({ folderId: 'templates', title: 'Standup', activate: false });
+
+    expect(pageOperations.canCreate('templates', 'Standup')).toBe(false);
+    expect(pageOperations.canCreate('templates', 'standup')).toBe(false);
+    expect(pageOperations.canCreate('templates', 'Retro')).toBe(true);
+    expect(pageOperations.canCreate('templates', '   ')).toBe(true);
+    expect(pageOperations.canCreate(null, 'Standup')).toBe(true);
+  });
+});
+
 describe('PageOperations.create()', () => {
   it('creates the page, writes it to disk, and opens it in the workspace', async () => {
     const existing = buildPage();

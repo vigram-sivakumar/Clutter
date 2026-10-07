@@ -1,20 +1,22 @@
 import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import type { NoteRowActions } from '../sidebar/FolderTree';
 
-type LifecycleAndLocationActions = Pick<
+type SharedPageActions = Pick<
   NoteRowActions,
-  'onArchiveNote' | 'onRevealPageInFinder' | 'onCopyPagePath'
+  'onArchiveNote' | 'onRevealPageInFinder' | 'onCopyPagePath' | 'onCreateTemplate'
 >;
 
 /**
- * The part of a Page's menu every Page kind shares — Archive, Reveal in Finder, Copy path — which
- * is all a Daily Note offers (its title is its date, so no rename/favorite/duplicate/move).
+ * The part of a Page's menu every Page kind shares — Create template, Archive, Reveal in Finder,
+ * Copy path — which is all a Daily Note offers (its title is its date, so no
+ * rename/favorite/duplicate/move).
  */
-export function buildPageLifecycleAndLocationHandlers(
-  rowActions: LifecycleAndLocationActions,
+export function buildPageSharedMenuHandlers(
+  rowActions: SharedPageActions,
   pageId: string
 ): ResourceActionHandlers {
   return {
+    'create-template': () => rowActions.onCreateTemplate(pageId),
     archive: () => rowActions.onArchiveNote(pageId),
     'reveal-in-finder': () => rowActions.onRevealPageInFinder(pageId),
     'copy-path-at-vault': () => rowActions.onCopyPagePath(pageId, 'at-vault'),
@@ -38,12 +40,12 @@ export function buildPageMenuHandlers(
     NoteRowActions,
     'onStartRename' | 'onDuplicateNote' | 'onToggleFavoriteNote'
   > &
-    LifecycleAndLocationActions,
+    SharedPageActions,
   pageId: string,
   isFavorite: boolean
 ): ResourceActionHandlers {
   return {
-    ...buildPageLifecycleAndLocationHandlers(rowActions, pageId),
+    ...buildPageSharedMenuHandlers(rowActions, pageId),
     rename: () => rowActions.onStartRename(pageId),
     duplicate: () => rowActions.onDuplicateNote(pageId),
     'toggle-favorite': () => rowActions.onToggleFavoriteNote(pageId, isFavorite),

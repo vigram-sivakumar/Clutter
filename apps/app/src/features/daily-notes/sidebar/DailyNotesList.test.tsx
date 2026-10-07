@@ -736,6 +736,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
+      onCreateTemplate: vi.fn(),
       onRevealPageInFinder: vi.fn(),
       onCopyPagePath: vi.fn(),
     };
@@ -830,6 +831,7 @@ describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', (
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
+      onCreateTemplate: vi.fn(),
       onRevealPageInFinder: vi.fn(),
       onCopyPagePath: vi.fn(),
     };

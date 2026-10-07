@@ -219,7 +219,7 @@ describe('every collection reaches the generic components through mappers, not c
     // folder + Workspace/Favorites/Tag + Assets + All Tasks (the definition is `renderCollectionHeaderActions = (`)
     expect(uses).toHaveLength(4);
     expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: \(\) => setIsNewTaskOpen\(true\),\s*addLabel: 'New task'/);
-    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*onAddFolder: onCreateFolder,\s*menuLabels: assetMenuLabels,\s*addLabel: 'Upload'/);
+    expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*onAddFolder: onCreateFolder,\s*menuLabels: ASSET_MENU_LABELS,\s*addLabel: 'Upload'/);
     expect(pageHost).not.toMatch(/<CollectionViewMenu/);
     expect(pageHost).not.toMatch(/aria-label="New"/);
   });

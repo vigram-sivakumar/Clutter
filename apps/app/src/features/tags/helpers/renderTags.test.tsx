@@ -160,6 +160,7 @@ function fakeNoteRowActions(overrides: Partial<NoteRowActions> = {}): NoteRowAct
     onNoteTitleCommit: noop,
     onDraftTitleCommit: noop,
     onArchiveNote: noop,
+    onCreateTemplate: noop,
     onDuplicateNote: noop,
     onToggleFavoriteNote: noop,
     onChangeNoteIcon: noop,
@@ -870,6 +871,17 @@ describe('renderTags', () => {
 
       expect(screen.getByText('Projects')).toBeInTheDocument();
       expect(screen.queryByText('Meetings')).not.toBeInTheDocument();
+    });
+
+    it('Create template is offered for an ordinary note under a tag, and hidden for a Template', () => {
+      const onCreateTemplate = vi.fn();
+      renderTaggedNote(fakeNote({ isTemplate: false }), { onCreateTemplate });
+      fireEvent.click(screen.getByText('Create template'));
+      expect(onCreateTemplate).toHaveBeenCalledWith('p1');
+      cleanup();
+
+      renderTaggedNote(fakeNote({ isTemplate: true }));
+      expect(screen.queryByText('Create template')).not.toBeInTheDocument();
     });
 
     it('a Template listed under a tag gets the Templates-rooted picker — Templates and its folders only', () => {

@@ -24,7 +24,7 @@ import {
 
 import { DailyNote } from './DailyNote';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
-import { buildPageLifecycleAndLocationHandlers } from '@features/notes/helpers/buildPageMenuHandlers';
+import { buildPageSharedMenuHandlers } from '@features/notes/helpers/buildPageMenuHandlers';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 import type {
@@ -88,6 +88,8 @@ export interface DailyNoteRowActions {
    * renders an archived Daily Note), so there is no dispatch target for it.
    */
   onArchiveNote(pageId: string): void;
+  /** Opens the Create template dialog for this Daily Note — a generic-named copy as a new Template; the note itself is untouched. */
+  onCreateTemplate(pageId: string): void;
   /**
    * Location-actions pipeline (`core/presentation/
    * getLocationPathRepresentations.ts`) — a Daily Note is a `Page`, same as
@@ -503,7 +505,7 @@ export const DailyNotesList = forwardRef<
             onMenuSelect={
               rowActions && !entry.isVirtual
                 ? (id) =>
-                    buildPageLifecycleAndLocationHandlers(rowActions, entry.id)[id]?.()
+                    buildPageSharedMenuHandlers(rowActions, entry.id)[id]?.()
                 : undefined
             }
           />

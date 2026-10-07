@@ -187,6 +187,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleCommit: ReturnType<typeof vi.fn>;
     onDraftTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveNote: ReturnType<typeof vi.fn>;
+    onCreateTemplate: ReturnType<typeof vi.fn>;
     onDuplicateNote: ReturnType<typeof vi.fn>;
     onToggleFavoriteNote: ReturnType<typeof vi.fn>;
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
@@ -218,6 +219,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleCommit: vi.fn(),
     onDraftTitleCommit: vi.fn(),
     onArchiveNote: vi.fn(),
+    onCreateTemplate: vi.fn(),
     onDuplicateNote: vi.fn(),
     onToggleFavoriteNote: vi.fn(),
     onChangeNoteIcon: vi.fn(),

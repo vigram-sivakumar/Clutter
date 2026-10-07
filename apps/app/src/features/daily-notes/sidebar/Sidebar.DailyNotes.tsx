@@ -14,6 +14,7 @@ import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import {
   getLocationPathRepresentations,
@@ -57,6 +58,7 @@ export function DailyNotes({
   onOpenDraft,
   onOpenDate,
 }: DailyNotesPanelProps) {
+  const requestCreateTemplate = useRequestCreateTemplate();
   // Single owner of "which row's overflow menu is open" — same pattern and
   // same reason as Sidebar.Notes.tsx's rowActions: shared across every row
   // in this tab so only one menu is ever open at a time.
@@ -80,6 +82,7 @@ export function DailyNotes({
     onCloseMenu: () => setOpenMenuId(null),
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
+    onCreateTemplate: (pageId) => requestCreateTemplate?.(pageId),
 
     // Same location-actions pipeline Sidebar.Notes.tsx's onRevealPageInFinder/
     // onCopyPagePath use — a Daily Note is a Page, so this is the exact

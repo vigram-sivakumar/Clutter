@@ -83,6 +83,21 @@ const USE_AS_TEMPLATE: ResourceActionDefinition = {
   availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
 };
 
+/**
+ * "Create template": an independent copy of this page's content as a new Template — the source is
+ * neither moved nor converted (that is Use as template). For a Note or a Daily Note; not for one
+ * already in the Trash or already a Template.
+ */
+const CREATE_TEMPLATE: ResourceActionDefinition = {
+  id: 'create-template',
+  group: 'organize',
+  order: 50,
+  label: 'Create template',
+  icon: 'template',
+  availability: (context) =>
+    context.status === 'archived' || context.isTemplate ? 'hidden' : persistedOnly(context),
+};
+
 function revealInFinder(): ResourceActionDefinition {
   return {
     id: 'reveal-in-finder',
@@ -228,6 +243,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     DUPLICATE,
     MOVE_TO,
     USE_AS_TEMPLATE,
+    CREATE_TEMPLATE,
     revealInFinder(),
     copyPath('page'),
     ARCHIVE,
@@ -235,7 +251,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     DELETE,
   ],
   // A Daily Note's title is its date: no rename, icon, favorite, duplicate or move.
-  'daily-note': [revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
+  'daily-note': [CREATE_TEMPLATE, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
   // Folders are never duplicable or templates. Sort by is a sidebar view preference (the topbar
   // surface profile omits it).
   folder: [

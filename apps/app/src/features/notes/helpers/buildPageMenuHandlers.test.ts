@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import type { ResourceActionSurface } from '@core/presentation/resourceActions/resourceActionSurfaces';
 import type { ResourceActionContext } from '@core/presentation/resourceActions/resourceActionTypes';
-import { buildPageLifecycleAndLocationHandlers, buildPageMenuHandlers } from './buildPageMenuHandlers';
+import { buildPageSharedMenuHandlers, buildPageMenuHandlers } from './buildPageMenuHandlers';
 
 function rowActions() {
   return {
@@ -11,6 +11,7 @@ function rowActions() {
     onDuplicateNote: vi.fn(),
     onToggleFavoriteNote: vi.fn(),
     onArchiveNote: vi.fn(),
+    onCreateTemplate: vi.fn(),
     onRevealPageInFinder: vi.fn(),
     onCopyPagePath: vi.fn(),
   };
@@ -53,7 +54,7 @@ describe('buildPageMenuHandlers', () => {
     // A Daily Note's row only carries Archive/Reveal/Copy path actions.
     const handlers =
       kind === 'daily-note'
-        ? buildPageLifecycleAndLocationHandlers(rowActions(), 'p1')
+        ? buildPageSharedMenuHandlers(rowActions(), 'p1')
         : buildPageMenuHandlers(rowActions(), 'p1', false);
     const contexts: ResourceActionContext[] = [
       { status: 'active' },

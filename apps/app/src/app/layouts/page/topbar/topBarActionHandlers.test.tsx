@@ -29,6 +29,7 @@ describe('topbar handler registration for canonical resource actions', () => {
         onDelete: fn,
         onDuplicate: fn,
         onUseAsTemplate: fn,
+        onCreateTemplate: fn,
         onToggleFavorite: fn,
         onRevealInFinder: fn,
         onCopyPath: fn,

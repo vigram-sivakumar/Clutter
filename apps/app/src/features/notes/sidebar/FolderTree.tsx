@@ -157,6 +157,8 @@ export interface NoteRowActions {
   onToggleFavoriteNote(pageId: string, isFavorite: boolean): void;
   /** PageOperations.updateMetadata({ icon }) — sidebar Change icon action. */
   onChangeNoteIcon(pageId: string, emoji: string | null): void;
+  /** Opens the Create template dialog for this page — a copy as a new Template; the page itself is untouched. */
+  onCreateTemplate(pageId: string): void;
   /**
    * Same Move flow as ResourceTopBarActions' (buildMoveDestinationItems.ts
    * + PageOperations.move) — a single destination list, since which
@@ -511,7 +513,12 @@ export function PageEntry({
           ? insertBeforeRevealInFinder(
               buildResourceActionMenu(
                 'note',
-                { isDraft: entry.isDraft, isFavorite: entry.favorite, status: 'active' },
+                {
+                  isDraft: entry.isDraft,
+                  isFavorite: entry.favorite,
+                  isTemplate: entry.isTemplate,
+                  status: 'active',
+                },
                 'sidebar'
               ),
               extraMenuItems

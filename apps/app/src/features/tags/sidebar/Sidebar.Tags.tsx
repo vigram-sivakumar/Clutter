@@ -14,6 +14,7 @@ import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
+import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { buildNoteRowActions } from '@features/notes/helpers/buildNoteRowActions';
 import { serializeTagName } from '@core/vault/models/Tag';
 import { buildTagsShortcutHandler } from '@features/tags/shortcuts/buildTagsShortcutHandler';
@@ -117,7 +118,9 @@ export function Tags({
   // The exact same Note-row action handlers (menu, rename, archive,
   // favorite, move, reveal/copy-path) Sidebar.Notes.tsx's own notes
   // dispatch through — see buildNoteRowActions' own doc comment.
+  const requestCreateTemplate = useRequestCreateTemplate();
   const noteRowActions = buildNoteRowActions({
+    onRequestCreateTemplate: requestCreateTemplate,
     vault,
     pageOperations,
     folderOperations,
