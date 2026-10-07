@@ -70,7 +70,7 @@ describe('the registry is the only declaration of a property id', () => {
     expect(readers.sort()).toEqual(['core/properties/collectionProperties.ts', 'core/properties/collectionSort.ts']);
   });
 
-  it('there is one sorting engine: sortEntries, used by the notes, the Archive, the assets and the tasks bodies', () => {
+  it('there is one sorting engine: sortEntries, used by the notes, the Archive, the assets and the tasks bodies and the notes sidebar', () => {
     const users = PRODUCTION.filter((file) => /\bsortEntries\b\s*[<(]/.test(file.text)).map((file) => file.rel).sort();
 
     expect(users).toEqual([
@@ -78,6 +78,7 @@ describe('the registry is the only declaration of a property id', () => {
       'app/layouts/page/body/AssetsCollectionBody.tsx',
       'app/layouts/page/body/CollectionBody.tsx',
       'core/properties/collectionSort.ts',
+      'features/notes/sidebar/sidebarSort.ts',
       'features/tasks/page/TasksCollectionBody.tsx',
     ]);
   });

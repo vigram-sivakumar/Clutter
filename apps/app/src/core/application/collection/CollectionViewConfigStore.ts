@@ -4,6 +4,7 @@ import {
 } from '../../vault/initialize/workspaceStateFile';
 import { isPropertyId, type PropertyId } from '../../properties/collectionProperties';
 import type { CollectionSort } from '../../properties/collectionSort';
+import { isSidebarSortKey, type SidebarSort } from '../../properties/sidebarSort';
 import {
   isCollectionLayout,
   type CollectionViewConfig,
@@ -253,11 +254,12 @@ export class CollectionViewConfigStore {
 
 /** An entry without its absent (undefined) fields, or `undefined` when nothing is left — so "clear this field" and "no entry" are the same thing. */
 function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewConfig | undefined {
-  const { layout, propertyOverrides, sort, legacyProperties } = entry;
+  const { layout, propertyOverrides, sort, sidebarSort, legacyProperties } = entry;
   const result: PersistedCollectionViewConfig = {
     ...(layout !== undefined && { layout }),
     ...(propertyOverrides !== undefined && Object.keys(propertyOverrides).length > 0 && { propertyOverrides }),
     ...(sort !== undefined && { sort }),
+    ...(sidebarSort !== undefined && { sidebarSort }),
     ...(legacyProperties !== undefined && { legacyProperties }),
   };
 
@@ -274,11 +276,12 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     return undefined;
   }
 
-  const { layout, propertyOverrides, properties, sort } = raw as {
+  const { layout, propertyOverrides, properties, sort, sidebarSort } = raw as {
     layout?: unknown;
     propertyOverrides?: unknown;
     properties?: unknown;
     sort?: unknown;
+    sidebarSort?: unknown;
   };
 
   return compact({
@@ -286,6 +289,7 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     ...(parsePropertyOverrides(propertyOverrides) && { propertyOverrides: parsePropertyOverrides(propertyOverrides) }),
     ...(parseLegacyProperties(properties) && { legacyProperties: parseLegacyProperties(properties) }),
     ...(parseSort(sort) && { sort: parseSort(sort) }),
+    ...(parseSidebarSort(sidebarSort) && { sidebarSort: parseSidebarSort(sidebarSort) }),
   });
 }
 
@@ -363,4 +367,18 @@ function parseSort(raw: unknown): CollectionSort | undefined {
   }
 
   return { property: id, direction };
+}
+
+function parseSidebarSort(raw: unknown): SidebarSort | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const { key, direction } = raw as { key?: unknown; direction?: unknown };
+
+  if (!isSidebarSortKey(key) || (direction !== 'down' && direction !== 'up')) {
+    return undefined;
+  }
+
+  return { key, direction };
 }

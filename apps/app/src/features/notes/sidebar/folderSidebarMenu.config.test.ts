@@ -70,3 +70,36 @@ describe('buildFolderSidebarMenu', () => {
     expect(ids.indexOf('copy-path')).toBeLessThan(ids.indexOf('archive'));
   });
 });
+
+describe('buildFolderSidebarMenu — Sort by', () => {
+  const sortMenu = { sort: { key: 'created', direction: 'up' } } as const;
+
+  it('has no Sort by rows without a sort menu', () => {
+    expect(buildFolderSidebarMenu('active').some((i) => i.id.startsWith('sort:'))).toBe(false);
+  });
+
+  it("lists the collection views' labels under a Sort by title, before Archive", () => {
+    const items = buildFolderSidebarMenu('active', false, sortMenu);
+    const ids = items.map((i) => i.id);
+
+    expect(items.filter((i) => i.id.startsWith('sort:')).map((i) => i.label)).toEqual([
+      'Name',
+      'Kind',
+      'Created',
+      'Last edited',
+    ]);
+    expect(items.find((i) => i.id === 'sort:name')).toMatchObject({
+      groupTitle: 'Sort by',
+      separatorBefore: true,
+    });
+    expect(ids.indexOf('sort:updated')).toBeLessThan(ids.indexOf('archive'));
+  });
+
+  it('marks only the active key, with its direction arrow', () => {
+    const items = buildFolderSidebarMenu('active', false, sortMenu);
+
+    expect(items.find((i) => i.id === 'sort:created')?.icon).toBe('tick');
+    expect(items.find((i) => i.id === 'sort:created')?.trailing).toBeTruthy();
+    expect(items.find((i) => i.id === 'sort:name')?.trailing).toBeUndefined();
+  });
+});

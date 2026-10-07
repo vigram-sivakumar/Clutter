@@ -105,3 +105,13 @@ export function sortEntries<T extends SortableEntry>(
     return (a.values.name ?? '').localeCompare(b.values.name ?? '');
   });
 }
+
+/**
+ * How the notes collections — and the notes sidebar — break ties: Description and Cover image fall
+ * back to Name, every other property keeps its ties in the order given. (The assets collection
+ * breaks the ties of its own properties by Name — see `ASSET_SORT_OPTIONS`; the two have always
+ * differed and this preserves both.) Folders are ordered with the same options.
+ */
+export const NOTE_SORT_OPTIONS: SortOptions = {
+  nameTieBreak: new Set<PropertyId>(['description', 'cover']),
+};

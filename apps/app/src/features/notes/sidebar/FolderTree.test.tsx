@@ -1173,4 +1173,34 @@ describe('FolderTree: the 10-item cap per folder', () => {
     expect(queryByText('Note 04')).not.toBeInTheDocument();
     expect(getByText('2 more')).toBeInTheDocument();
   });
+
+  it("orders a folder's notes by the sort chosen for that folder (Name, Z→A)", () => {
+    const folder = makeFolder('f1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup(
+      notes(3, `${ROOT}/Projects`, 'f1'),
+      [folder]
+    );
+    const { container } = render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+        getFolderSort={(id) => (id === 'f1' ? { key: 'name', direction: 'up' } : undefined)}
+      />
+    );
+
+    const order = Array.from(container.querySelectorAll('.entry'))
+      .map((el) => el.textContent ?? '')
+      .filter((text) => text.startsWith('Note'));
+    expect(order).toEqual(['Note 02', 'Note 01', 'Note 00']);
+  });
 });

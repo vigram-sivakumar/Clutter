@@ -36,7 +36,7 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
  * was (`FolderMetadata.archivedAt`, null everywhere but the Archive). A folder has no created or
  * last-edited dates, and nothing in a collection shows its description or cover.
  */
-function toFolderValues(name: string, folder: Folder): CollectionEntryValues {
+export function toFolderValues(name: string, folder: Folder): CollectionEntryValues {
   return { name, ...(folder.metadata.archivedAt && { archived: folder.metadata.archivedAt }) };
 }
 
@@ -46,7 +46,7 @@ function toFolderValues(name: string, folder: Folder): CollectionEntryValues {
  * A value the note does not have is left out; a HIDDEN cover is no cover (it is shown nowhere
  * in the collection, and does not count when sorting by Cover image).
  */
-function toNoteValues(name: string, page: EffectivePage): CollectionEntryValues {
+export function toNoteValues(name: string, page: EffectivePage): CollectionEntryValues {
   return {
     name,
     ...(page.description != null && { description: page.description }),

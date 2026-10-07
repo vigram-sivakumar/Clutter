@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
+import { collectionViewKeyForFolder } from '@core/application/collection/collectionViewKey';
 import type { TaskGroupId } from '@features/tasks/helpers/groupTasks';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
@@ -74,6 +75,7 @@ export function Sidebar({
   // Tasks groups whose "N more" row was clicked. Session-only on purpose: held here (Sidebar stays
   // mounted, the Tasks panel doesn't) and never written to disk, so a restart collapses them again.
   // Same idea for the Notes tree: folders (by id, or the root key) showing all their notes/files.
+  const [, setSortRevision] = useState(0);
   const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
 
@@ -109,6 +111,17 @@ export function Sidebar({
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenResource={onOpenResource}
           expandedFolders={expandedFolders}
+          getFolderSort={(folderId) =>
+            application.collectionViewConfigStore.get(collectionViewKeyForFolder(folderId))
+              ?.sidebarSort
+          }
+          onFolderSortChange={(folderId, sort) => {
+            application.collectionViewConfigStore.update(collectionViewKeyForFolder(folderId), {
+              sidebarSort: sort,
+            });
+            // The store is the source of truth; this just re-renders the tree to read it again.
+            setSortRevision((revision) => revision + 1);
+          }}
           onToggleFolderCap={(key) =>
             setExpandedFolders((prev) =>
               prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]

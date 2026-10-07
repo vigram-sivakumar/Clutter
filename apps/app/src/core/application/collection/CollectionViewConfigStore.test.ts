@@ -521,3 +521,34 @@ describe('CollectionViewConfigStore — the Task Collection (one shared key, vie
     });
   });
 });
+
+describe('CollectionViewConfigStore — sidebarSort', () => {
+  it('persists a folder\'s sidebar sort alongside its collection sort, independently, across a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+    store.update('folder:f1', { sort: { property: 'name', direction: 'up' } });
+    store.update('folder:f1', { sidebarSort: { key: 'updated', direction: 'down' } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const reloaded = await reload(fileSystem);
+    expect(reloaded.get('folder:f1')).toEqual({
+      sort: { property: 'name', direction: 'up' },
+      sidebarSort: { key: 'updated', direction: 'down' },
+    });
+  });
+
+  it('drops a malformed sidebarSort but keeps the rest of the entry', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({
+        collectionViewConfig: {
+          'folder:f1': { layout: 'list', sidebarSort: { key: 'nope', direction: 'down' } },
+        },
+      }),
+    });
+
+    expect((await CollectionViewConfigStore.load(fileSystem, ROOT)).get('folder:f1')).toEqual({
+      layout: 'list',
+    });
+  });
+});

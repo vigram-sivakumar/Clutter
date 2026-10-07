@@ -1,10 +1,12 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import { AppIcon } from '@shared/icon';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
 import {
   ARCHIVE_ACTION_LABEL,
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { SIDEBAR_SORT_OPTIONS, type SidebarSort } from '@core/properties/sidebarSort';
 import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
@@ -40,9 +42,18 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
  * capability, one Gate kind ('update-folder-metadata'), several UI entry
  * points into the same call.
  */
+/** The id prefix of a Sort by row (`sort:<property id>`), so the row's handler can tell it from an action. */
+export const SORT_MENU_ID_PREFIX = 'sort:';
+
+/** What the Sort by section marks active. */
+export interface FolderSortMenu {
+  readonly sort: SidebarSort;
+}
+
 export function buildFolderSidebarMenu(
   status: FolderMetadata['status'],
-  isFavorite: boolean = false
+  isFavorite: boolean = false,
+  sortMenu?: FolderSortMenu
 ): OverflowMenuItemConfig[] {
   const items: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
@@ -59,8 +70,34 @@ export function buildFolderSidebarMenu(
     ...buildLocationActionMenuItems('folder'),
   ];
 
+  // Sort by: one key at a time. The active key shows the direction arrow, and picking it again
+  // flips the direction (the same rule as the collection views' Configure menu).
+  if (sortMenu) {
+    SIDEBAR_SORT_OPTIONS.forEach(({ key, label }, index) => {
+      const isActive = sortMenu.sort.key === key;
+      items.push({
+        id: `${SORT_MENU_ID_PREFIX}${key}`,
+        label,
+        ...(index === 0 && { separatorBefore: true, groupTitle: 'Sort by' }),
+        icon: isActive ? 'tick' : undefined,
+        reserveIconSpace: true,
+        trailing: isActive ? (
+          <AppIcon
+            icon={sortMenu.sort.direction === 'down' ? 'arrowDown' : 'arrowUp'}
+            className="menu__item-indicator"
+          />
+        ) : undefined,
+      });
+    });
+  }
+
   if (status !== 'archived') {
-    items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' });
+    items.push({
+      id: 'archive',
+      label: ARCHIVE_ACTION_LABEL,
+      icon: 'archive',
+      ...(sortMenu && { separatorBefore: true }),
+    });
   }
 
   return items;

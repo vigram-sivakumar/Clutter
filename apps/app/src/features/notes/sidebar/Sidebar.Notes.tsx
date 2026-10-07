@@ -15,6 +15,7 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
+import type { SidebarSort } from '@core/properties/sidebarSort';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
@@ -97,6 +98,9 @@ interface NotesProps {
   /** Folders (by id, or the root key) whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
   expandedFolders?: readonly string[];
   onToggleFolderCap?(key: string): void;
+  /** A folder's sidebar order (Sort by in its menu) and how to change it — owned by Sidebar, persisted per folder. */
+  getFolderSort?(folderId: string): SidebarSort | undefined;
+  onFolderSortChange?(folderId: string, sort: SidebarSort): void;
 }
 
 export function Notes({
@@ -117,6 +121,8 @@ export function Notes({
   onRevealHandled,
   expandedFolders,
   onToggleFolderCap,
+  getFolderSort,
+  onFolderSortChange,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
@@ -165,13 +171,25 @@ export function Notes({
       if (folder) {
         expandCapFor(
           folder.parentId,
-          getLevelIndex(membershipSelector, folder.parentId, 'folder', folderId)
+          getLevelIndex(
+            membershipSelector,
+            folder.parentId,
+            'folder',
+            folderId,
+            folder.parentId ? getFolderSort?.(folder.parentId) : undefined
+          )
         );
       }
     }
     expandCapFor(
       page.parentId ?? null,
-      getLevelIndex(membershipSelector, page.parentId ?? null, 'page', revealPageId)
+      getLevelIndex(
+        membershipSelector,
+        page.parentId ?? null,
+        'page',
+        revealPageId,
+        page.parentId ? getFolderSort?.(page.parentId) : undefined
+      )
     );
 
     pendingRevealPageIdRef.current = revealPageId;
@@ -520,6 +538,8 @@ export function Notes({
           resolveEmbed={resolveEmbed}
           expandedFolders={expandedFolders}
           onToggleFolderCap={onToggleFolderCap}
+          getFolderSort={getFolderSort}
+          onFolderSortChange={onFolderSortChange}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {

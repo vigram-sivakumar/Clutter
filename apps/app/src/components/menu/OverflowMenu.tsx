@@ -27,7 +27,10 @@ export interface OverflowMenuSubmenuItemConfig {
 export interface OverflowMenuItemConfig {
   id: string;
   label: string;
-  icon: SystemIcon;
+  /** The leading icon; omitted renders none (a group of plain choices, e.g. Sort by). */
+  icon?: SystemIcon;
+  /** With no `icon`, keeps the leading icon's width so this row's label lines up with its group's rows that have one. */
+  reserveIconSpace?: boolean;
   /** Same as `Entry`/`MenuItem`'s own `trailing` prop — rendered at the row's far right in the muted `.entry__meta` style (e.g. a current value like an assigned date). Omitted renders no trailing content. */
   trailing?: ReactNode;
   /** Rendered but non-interactive — never omitted from the menu. */
@@ -312,7 +315,13 @@ export function OverflowMenuBody({
               onSelect(item.id);
               onOpenChange(false);
             }}
-            leading={item.icon ? <AppIcon icon={item.icon} /> : undefined}
+            leading={
+              item.icon ? (
+                <AppIcon icon={item.icon} />
+              ) : item.reserveIconSpace ? (
+                <span className="app-icon" />
+              ) : undefined
+            }
             trailing={item.trailing}
           >
             {item.label}

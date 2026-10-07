@@ -7,12 +7,15 @@
  *   propertyOverrides  → `true` explicitly shows a property, `false` explicitly hides it;
  *                        a property the user returned to its default has NO entry
  *   sort               → the property to order by and the arrow direction
+ *   sidebarSort        → the same, for the folder's own listing in the notes sidebar — chosen
+ *                        independently of `sort` (the collection page's order)
  *
  * Nothing here is persisted that a `CollectionDefinition` already knows (which properties
  * exist, which are on by default, which layouts, which sorts are valid).
  */
 import type { PropertyId } from './collectionProperties';
 import type { CollectionSort } from './collectionSort';
+import type { SidebarSort } from './sidebarSort';
 
 export type CollectionLayout = 'list' | 'table' | 'card';
 
@@ -29,6 +32,8 @@ export interface CollectionViewConfig {
   readonly layout?: CollectionLayout;
   readonly propertyOverrides?: PropertyOverrides;
   readonly sort?: CollectionSort;
+  /** How the notes sidebar orders this folder's children; absent means the sidebar's default order. */
+  readonly sidebarSort?: SidebarSort;
 }
 
 /**

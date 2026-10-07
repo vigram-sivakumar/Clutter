@@ -16,7 +16,7 @@ import { buildPropertyTableColumns } from '@features/collection/properties/table
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CoverPickerOverlay } from '@app/layouts/page/cover/CoverPickerOverlay';
 import type { PropertyId } from '@core/properties/collectionProperties';
-import { sortEntries, type CollectionSort, type SortOptions } from '@core/properties/collectionSort';
+import { NOTE_SORT_OPTIONS, sortEntries, type CollectionSort } from '@core/properties/collectionSort';
 import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 import { FOLDER_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
@@ -46,15 +46,7 @@ import { PageBody } from './Page.Body';
  */
 const DEFAULT_VIEW = resolveCollectionView(FOLDER_COLLECTION);
 
-/**
- * How the notes collections break ties: Description and Cover image fall back to Name, every
- * other property keeps its ties in the order given. (The assets collection breaks the ties of
- * its own properties by Name — see `ASSET_SORT_OPTIONS`; the two have always differed and this
- * preserves both.) Folders are ordered with the same options.
- */
-export const NOTE_SORT_OPTIONS: SortOptions = {
-  nameTieBreak: new Set<PropertyId>(['description', 'cover']),
-};
+export { NOTE_SORT_OPTIONS };
 
 /**
  * What the Cover image thumbnail (the Table's column, the List's media) needs

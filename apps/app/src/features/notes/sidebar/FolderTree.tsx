@@ -7,7 +7,13 @@ import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
-import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
+import { buildFolderSidebarMenu, SORT_MENU_ID_PREFIX } from './folderSidebarMenu.config';
+import { levelKindOrder, sortSidebarFolders, sortSidebarPages } from './sidebarSort';
+import {
+  DEFAULT_SIDEBAR_SORT,
+  isSidebarSortKey,
+  type SidebarSort,
+} from '@core/properties/sidebarSort';
 import { buildResourceSidebarMenu } from './resourceSidebarMenu.config';
 import { testIds } from '@shared/testing/selectors';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
@@ -50,13 +56,16 @@ export function getLevelIndex(
   membershipSelector: MembershipSelector,
   parentId: string | null,
   kind: 'folder' | 'page',
-  id: string
+  id: string,
+  sort?: SidebarSort
 ): number {
-  const folders =
+  const folders = sortSidebarFolders(
     parentId === null
       ? membershipSelector.getWorkspaceFolders()
-      : membershipSelector.getVisibleChildFolders(parentId);
-  const pages = membershipSelector.getNotesChildPages(parentId);
+      : membershipSelector.getVisibleChildFolders(parentId),
+    sort
+  );
+  const pages = sortSidebarPages(membershipSelector.getNotesChildPages(parentId), sort);
   const resourceCount =
     parentId === null
       ? membershipSelector.getRootResources().length
@@ -324,6 +333,13 @@ interface FolderTreeProps {
   expandedFolders?: readonly string[];
   /** Called when a folder's "N more" / "Show less" row is clicked. */
   onToggleFolderCap?(key: string): void;
+  /**
+   * The order the user chose for a folder's children in the sidebar (Sort by in its menu), or
+   * undefined for the default. Persisted by the caller; the root level has no sort.
+   */
+  getFolderSort?(folderId: string): SidebarSort | undefined;
+  /** Called when a Sort by row in a folder's menu is picked. */
+  onFolderSortChange?(folderId: string, sort: SidebarSort): void;
 }
 
 export interface PageEntryProps {
@@ -625,6 +641,8 @@ export function FolderTree({
   resolveEmbed,
   expandedFolders = [],
   onToggleFolderCap,
+  getFolderSort,
+  onFolderSortChange,
 }: FolderTreeProps) {
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
@@ -637,10 +655,15 @@ export function FolderTree({
   // getVisibleChildFolders() is the nested-level counterpart to
   // getWorkspaceFolders' root-level dot-hiding, wrapping the same
   // query.getChildFolders() structural source.
-  const rootFolders =
+  // The order the user chose for this level in the sidebar (a nested level only — the root has no
+  // Sort by); undefined keeps the default order.
+  const levelSort = parentId === null ? undefined : getFolderSort?.(parentId);
+  const rootFolders = sortSidebarFolders(
     parentId === null
       ? membershipSelector.getWorkspaceFolders()
-      : membershipSelector.getVisibleChildFolders(parentId);
+      : membershipSelector.getVisibleChildFolders(parentId),
+    levelSort
+  );
 
   // Only meaningful at the true root — a nested folder's own pages are
   // already rendered via getNotesChildPages(folder.id) below, per folder.
@@ -735,7 +758,13 @@ export function FolderTree({
               onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
               menuItems={
                 rowActions
-                  ? buildFolderSidebarMenu(folder.metadata.status, folder.metadata.favorite)
+                  ? buildFolderSidebarMenu(
+                      folder.metadata.status,
+                      folder.metadata.favorite,
+                      onFolderSortChange
+                        ? { sort: getFolderSort?.(folder.id) ?? DEFAULT_SIDEBAR_SORT }
+                        : undefined
+                    )
                   : undefined
               }
               menuOpen={rowActions?.openMenuId === folder.id}
@@ -747,7 +776,20 @@ export function FolderTree({
               onMenuSelect={
                 rowActions
                   ? (id) => {
-                      if (id === 'rename') {
+                      if (id.startsWith(SORT_MENU_ID_PREFIX)) {
+                        const key = id.slice(SORT_MENU_ID_PREFIX.length);
+                        if (isSidebarSortKey(key)) {
+                          const current = getFolderSort?.(folder.id) ?? DEFAULT_SIDEBAR_SORT;
+                          // Same rule as the collection views: re-picking the active key flips
+                          // its direction; another key starts at its own default ('down').
+                          onFolderSortChange?.(
+                            folder.id,
+                            current.key === key
+                              ? { key, direction: current.direction === 'down' ? 'up' : 'down' }
+                              : { key, direction: 'down' }
+                          );
+                        }
+                      } else if (id === 'rename') {
                         rowActions.onStartRename(folder.id);
                       } else if (id === 'toggle-favorite') {
                         rowActions.onToggleFavoriteFolder(
@@ -805,6 +847,8 @@ export function FolderTree({
                   resolveEmbed={resolveEmbed}
                   expandedFolders={expandedFolders}
                   onToggleFolderCap={onToggleFolderCap}
+                  getFolderSort={getFolderSort}
+                  onFolderSortChange={onFolderSortChange}
                 />
             )}
           </Fragment>
@@ -815,7 +859,10 @@ export function FolderTree({
   // rootResources above). A nested level lists its notes, then files, then subfolders; the root
   // lists folders first, then notes, then files. Whatever the order, the level shows its first
   // SIDEBAR_FOLDER_ITEM_LIMIT items, then a "N more" / "Show less" row.
-  const levelPages = parentId === null ? rootPages : membershipSelector.getNotesChildPages(parentId);
+  const levelPages =
+    parentId === null
+      ? rootPages
+      : sortSidebarPages(membershipSelector.getNotesChildPages(parentId), levelSort);
   const levelResources =
     parentId === null ? rootResources : membershipSelector.getVisibleChildResources(parentId);
 
@@ -829,10 +876,8 @@ export function FolderTree({
     kind: 'resource',
     resource,
   }));
-  const items =
-    parentId === null
-      ? [...folderItems, ...pageItems, ...resourceItems]
-      : [...pageItems, ...resourceItems, ...folderItems];
+  const itemsByKind = { folder: folderItems, page: pageItems, resource: resourceItems };
+  const items = levelKindOrder(parentId === null, levelSort).flatMap((kind) => itemsByKind[kind]);
 
   const capKey = parentId ?? ROOT_FOLDER_CAP_KEY;
   const isCapExpanded = expandedFolders.includes(capKey);
@@ -869,6 +914,10 @@ export function FolderTree({
     );
   };
 
+  // A nested level shows its new-folder row just before its first visible subfolder (or after the
+  // last item when none is visible), wherever Kind has put the groups.
+  const firstFolderIndex = visibleItems.findIndex((item) => item.kind === 'folder');
+
   const newFolderRow = isCreatingHere && (
     <NewFolderRow
       level={level}
@@ -882,10 +931,13 @@ export function FolderTree({
       {/* The root opens with the new-folder row; a nested level shows it after its notes and files,
           just before its subfolders. */}
       {parentId === null && newFolderRow}
-      {visibleItems.filter((item) => parentId === null || item.kind !== 'folder').map(renderItem)}
-      {parentId !== null && newFolderRow}
-      {parentId !== null &&
-        visibleItems.filter((item) => item.kind === 'folder').map(renderItem)}
+      {visibleItems.map((item, index) => (
+        <Fragment key={item.kind === 'folder' ? item.folder.id : item.kind === 'page' ? item.entry.id : item.resource.id}>
+          {parentId !== null && index === firstFolderIndex && newFolderRow}
+          {renderItem(item)}
+        </Fragment>
+      ))}
+      {parentId !== null && firstFolderIndex === -1 && newFolderRow}
       {items.length > SIDEBAR_FOLDER_ITEM_LIMIT && (
         <ShowMoreEntry
           level={level}
