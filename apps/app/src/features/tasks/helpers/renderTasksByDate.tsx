@@ -22,6 +22,7 @@ import { formatTaskDueDate } from './formatTaskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { EmptyEntry } from '@components/entry/EmptyEntry';
+import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 
 /** A sidebar group shows this many tasks; the rest sit behind its "N more" row. */
@@ -263,12 +264,13 @@ export function renderTasksByDate({
     }
     const isExpanded = expandedGroups.includes(id);
     return (
-      <EmptyEntry
+      <Entry
+        className="task-group-toggle"
         leading={<AppIcon icon={isExpanded ? 'minus' : 'plus'} />}
         onClick={() => onToggleGroup?.(id)}
       >
         {isExpanded ? 'Show less' : `${list.length - SIDEBAR_GROUP_TASK_LIMIT} more`}
-      </EmptyEntry>
+      </Entry>
     );
   };
 
