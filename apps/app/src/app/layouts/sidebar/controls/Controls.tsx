@@ -5,6 +5,7 @@ import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { useRef } from 'react';
 
 /**
@@ -82,21 +83,22 @@ export function Controls({
         suppressReturnFocusRef={suppressReturnFocusRef}
       >
         <Menu size="medium">
+          <MenuGroupTitle>Create New</MenuGroupTitle>
           <MenuItem leading={<AppIcon icon="note" />} onClick={choose(onNewNote)}>
-            New note
+            Note
           </MenuItem>
           <MenuItem leading={<AppIcon icon="squareCheckOutline" />} onClick={choose(onNewTask)}>
-            New task
+            Task
           </MenuItem>
           <MenuItem leading={<AppIcon icon="folder" />} onClick={choose(onNewFolder)}>
-            New folder
+            Folder
           </MenuItem>
           <MenuItem leading={<AppIcon icon="tag" />} onClick={choose(onNewTag)}>
-            New tag
+            Tag
           </MenuItem>
           <div className="menu__divider" role="separator" />
           <MenuItem leading={<AppIcon icon="template" />} onClick={choose(onNewTemplate)}>
-            New template
+            Template
           </MenuItem>
         </Menu>
       </Overlay>

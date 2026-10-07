@@ -93,21 +93,23 @@ describe('Controls creation launcher', () => {
     }
   });
 
-  it('lists the creation types in order, template after a divider', () => {
+  it('lists the creation types in order under a Create New title, template after a divider', () => {
     renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
+    expect(screen.getByText('Create New')).toBeInTheDocument();
+
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(items).toEqual(['New note', 'New task', 'New folder', 'New tag', 'New template']);
+    expect(items).toEqual(['Note', 'Task', 'Folder', 'Tag', 'Template']);
     expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
   it.each([
-    ['New note', 'onNewNote'],
-    ['New task', 'onNewTask'],
-    ['New folder', 'onNewFolder'],
-    ['New tag', 'onNewTag'],
-    ['New template', 'onNewTemplate'],
+    ['Note', 'onNewNote'],
+    ['Task', 'onNewTask'],
+    ['Folder', 'onNewFolder'],
+    ['Tag', 'onNewTag'],
+    ['Template', 'onNewTemplate'],
   ] as const)('choosing "%s" calls %s once and closes the menu', (label, handlerName) => {
     const handlers = renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
