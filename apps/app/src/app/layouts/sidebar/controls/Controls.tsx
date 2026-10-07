@@ -40,11 +40,13 @@ export function Controls({
 }: ControlsProps) {
   const menu = useOverlay<HTMLButtonElement>();
   // The chosen action's own surface (a dialog's field, a new draft's editor) takes focus; the menu
-  // must not hand it back to the chevron.
-  const suppressReturnFocusRef = useRef(true);
+  // must not hand it back to the chevron. Overlay consumes the flag on each close, so it is set
+  // again by every choice (Escape and outside clicks still restore focus to the chevron).
+  const suppressReturnFocusRef = useRef(false);
 
   const choose = (action: () => void) => (event: { stopPropagation(): void }) => {
     event.stopPropagation();
+    suppressReturnFocusRef.current = true;
     menu.hide();
     action();
   };
