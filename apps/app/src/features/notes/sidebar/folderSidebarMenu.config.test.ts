@@ -105,7 +105,7 @@ describe('buildFolderSidebarMenu — Sort by', () => {
 });
 
 describe('buildFolderSidebarMenu — order and groups', () => {
-  it('lists Rename, Change icon, Favorite | Sort by | Reveal, Copy path | Move to, Trash, divided into those groups', () => {
+  it('lists Rename, Change icon, Favorite | Sort by | Reveal, Copy path, Move to | Trash, divided into those groups', () => {
     const items = buildFolderSidebarMenu('active', false, { sort: { key: 'name', direction: 'down' } });
 
     expect(items.map((i) => i.id)).toEqual([
@@ -124,7 +124,7 @@ describe('buildFolderSidebarMenu — order and groups', () => {
     expect(items.filter((i) => i.separatorBefore).map((i) => i.id)).toEqual([
       'sort:name',
       'reveal-in-finder',
-      'move-to',
+      'archive',
     ]);
   });
 });

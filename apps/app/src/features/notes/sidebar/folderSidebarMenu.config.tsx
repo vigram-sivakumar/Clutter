@@ -55,7 +55,7 @@ export function buildFolderSidebarMenu(
   isFavorite: boolean = false,
   sortMenu?: FolderSortMenu
 ): OverflowMenuItemConfig[] {
-  // Four groups, divided: the folder's own edits, Sort by, where it is on disk, and moving it away.
+  // Four groups, divided: the folder's own edits, Sort by, where it is (Reveal, Copy path, Move to), and Trash.
   const items: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'change-icon', label: 'Change icon', icon: 'smile' },
@@ -96,10 +96,10 @@ export function buildFolderSidebarMenu(
     )
   );
 
-  items.push({ id: 'move-to', label: 'Move to…', icon: 'arrowDownRight', separatorBefore: true });
+  items.push({ id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' });
 
   if (status !== 'archived') {
-    items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' });
+    items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive', separatorBefore: true });
   }
 
   return items;
