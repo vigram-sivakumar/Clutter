@@ -281,6 +281,10 @@ export function Sidebar({
               ...(description !== undefined ? { description } : {}),
             });
           }
+
+          // Create, then open the result — the same shape as createAndOpenFolder, with the optional
+          // metadata written in between so the folder opens already carrying it.
+          await folderOperations.open(id);
         }}
       />
     </aside>
