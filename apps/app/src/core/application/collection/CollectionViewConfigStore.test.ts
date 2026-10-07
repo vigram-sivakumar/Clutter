@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
-import { collectionViewKeyForFilteredView } from './collectionViewKey';
+import { collectionViewKeyForFilteredView, deriveCollectionViewKey } from './collectionViewKey';
 import { TASKS_COLLECTION } from '../../presentation/collection/collectionDefinitions';
 import { resolveCollectionView, toCollectionViewConfig } from '../../presentation/collection/resolveCollectionView';
 
@@ -446,11 +446,12 @@ describe('CollectionViewConfigStore — retired Last opened', () => {
   });
 });
 
-describe('CollectionViewConfigStore — the All Tasks collection (view:tasks-all)', () => {
-  it('persists layout, property overrides and sort for All Tasks, and restores them after a restart', async () => {
+describe('CollectionViewConfigStore — the Task Collection (one shared key, view:tasks)', () => {
+  const key = collectionViewKeyForFilteredView('tasks');
+
+  it('persists layout, property overrides and sort once for all six task views, and restores them after a restart', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
-    const key = collectionViewKeyForFilteredView('tasks-all');
 
     store.update(key, { layout: 'table' });
     store.update(key, { propertyOverrides: { source: false } });
@@ -458,23 +459,65 @@ describe('CollectionViewConfigStore — the All Tasks collection (view:tasks-all
     await flushMicrotasks();
 
     const restarted = await reload(fileSystem);
-    const view = resolveCollectionView(TASKS_COLLECTION, toCollectionViewConfig(TASKS_COLLECTION, restarted.get(key)));
+    // every task view derives the same key, so each reads this same entry
+    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-unscheduled', 'tasks-completed'] as const) {
+      const viewKey = deriveCollectionViewKey({ type: 'filtered-view', view: { kind } })!;
+      const view = resolveCollectionView(TASKS_COLLECTION, toCollectionViewConfig(TASKS_COLLECTION, restarted.get(viewKey)));
 
-    expect(view.layout).toBe('table');
-    expect(view.visible).toEqual(['name', 'dueDate']);
-    expect(view.sort).toEqual({ property: 'dueDate', direction: 'up' });
+      expect(view.layout, kind).toBe('table');
+      expect(view.visible, kind).toEqual(['name', 'dueDate']);
+      expect(view.sort, kind).toEqual({ property: 'dueDate', direction: 'up' });
+    }
   });
 
-  it('keeps All Tasks separate from every other collection', async () => {
+  it('keeps the Task Collection separate from every other collection', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
 
-    store.update(collectionViewKeyForFilteredView('tasks-all'), { layout: 'table' });
+    store.update(key, { layout: 'table' });
     await flushMicrotasks();
 
     const restarted = await reload(fileSystem);
 
     expect(restarted.get(collectionViewKeyForFilteredView('workspace'))).toBeUndefined();
-    expect(restarted.get(collectionViewKeyForFilteredView('tasks-all'))?.layout).toBe('table');
+    expect(restarted.get(key)?.layout).toBe('table');
+  });
+
+  describe('migration from the key All Tasks briefly used on its own (view:tasks-all)', () => {
+    const legacyKey = 'view:tasks-all';
+    const legacyEntry = { layout: 'table', sort: { property: 'dueDate', direction: 'up' }, propertyOverrides: { source: false } };
+
+    it('reads the old entry as the Task Collection\'s configuration until the new key has one — nothing is lost on upgrade', async () => {
+      const store = await loadWith({ [legacyKey]: legacyEntry });
+
+      expect(store.get(key)).toEqual(legacyEntry);
+    });
+
+    it('the new key wins once it exists; the old entry is not consulted', async () => {
+      const store = await loadWith({ [legacyKey]: legacyEntry, [key]: { layout: 'list' } });
+
+      expect(store.get(key)).toEqual({ layout: 'list' });
+    });
+
+    it('the first change merges ON TOP of the old entry (other saved choices survive), writes the new key, and leaves the old entry on disk', async () => {
+      const fileSystem = new InMemoryVaultFileSystem({
+        [WORKSPACE_PATH]: JSON.stringify({ collectionViewConfig: { [legacyKey]: legacyEntry } }),
+      });
+      const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+
+      store.update(key, { layout: 'list' });
+      await flushMicrotasks();
+
+      const restarted = await reload(fileSystem);
+      expect(restarted.get(key)).toEqual({ ...legacyEntry, layout: 'list' });
+      const onDisk = JSON.parse(await fileSystem.readFile(WORKSPACE_PATH));
+      expect(onDisk.collectionViewConfig[legacyKey]).toEqual(legacyEntry);
+    });
+
+    it('does not leak into other keys', async () => {
+      const store = await loadWith({ [legacyKey]: legacyEntry });
+
+      expect(store.get(collectionViewKeyForFilteredView('workspace'))).toBeUndefined();
+    });
   });
 });

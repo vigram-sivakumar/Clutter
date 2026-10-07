@@ -43,8 +43,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -52,26 +50,26 @@ describe('TasksCollectionBody', () => {
     expect(queryByText('Book flights')).toBeNull();
   });
 
-  it('renders future/unscheduled tasks for the tasks-upcoming view, excluding overdue and today', () => {
+  it('renders only explicitly-future tasks for the tasks-upcoming view — never overdue, today or unscheduled ones', () => {
     const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
     const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
     const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
+    const unscheduled = task({ text: 'Someday maybe' });
 
     const { getByText, queryByText } = render(
       <TasksCollectionBody
         view="tasks-upcoming"
-        tasks={[dueTomorrow, dueToday, overdue]}
+        tasks={[dueTomorrow, dueToday, overdue, unscheduled]}
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
     expect(getByText('Book flights')).not.toBeNull();
     expect(queryByText('Review designs')).toBeNull();
     expect(queryByText('Fix navigation')).toBeNull();
+    expect(queryByText('Someday maybe')).toBeNull();
   });
 
   it('renders only incomplete, past-due tasks for the tasks-overdue view', () => {
@@ -91,8 +89,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -122,8 +118,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -147,8 +141,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -164,8 +156,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -188,8 +178,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={onOpenTask}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: '✈️' })}
       />
     );
@@ -226,8 +214,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={onOpenTask}
         onChangeDueDate={onChangeDueDate}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
       />
     );
@@ -275,8 +261,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={onOpenTask}
         onChangeDueDate={onChangeDueDate}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -303,8 +287,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
         getSource={() => ({ label: 'Trips', icon: 'note', emoji: null })}
       />
     );
@@ -331,8 +313,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -349,8 +329,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -362,8 +340,6 @@ describe('TasksCollectionBody', () => {
       onToggleComplete: vi.fn(),
       onOpenTask: vi.fn(),
       onChangeDueDate: vi.fn(),
-      onDuplicateTask: vi.fn(),
-      onDeleteTask: vi.fn(),
     };
     const source = (task: { sourcePageId: string }) => ({
       label: task.sourcePageId === 'p-b' ? 'Beta note' : 'Alpha note',
@@ -548,13 +524,123 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
         />
       );
       expect(container.querySelector('.tabs'), view).toBeNull();
       unmount();
     }
+  });
+
+  describe('one Task Collection: all six views render through the shared collection renderer', () => {
+    const VIEWS = ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-unscheduled', 'tasks-completed'] as const;
+    const noop = { onToggleComplete: vi.fn(), onOpenTask: vi.fn(), onChangeDueDate: vi.fn() };
+    // 2026-08-04 is "today" (the file's fake clock); one task per dataset.
+    const everyDataset = [
+      task({ text: 'T-unscheduled', startOffset: 0 }),
+      task({ text: 'T-today', dueDate: '2026-08-04', startOffset: 1 }),
+      task({ text: 'T-overdue', dueDate: '2026-08-01', startOffset: 2 }),
+      task({ text: 'T-upcoming', dueDate: '2026-08-09', startOffset: 3 }),
+      task({ text: 'T-done', completed: true, completedAt: '2026-08-02', startOffset: 4 }),
+    ];
+    const expected: Record<(typeof VIEWS)[number], string[]> = {
+      'tasks-all': ['T-done', 'T-overdue', 'T-today', 'T-unscheduled', 'T-upcoming'],
+      'tasks-today': ['T-today'],
+      'tasks-overdue': ['T-overdue'],
+      'tasks-upcoming': ['T-upcoming'],
+      'tasks-unscheduled': ['T-unscheduled'],
+      'tasks-completed': ['T-done'],
+    };
+    const titlesIn = (container: HTMLElement) =>
+      [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+
+    it.each(VIEWS)('%s: draws its dataset as generic CollectionDataList rows, with the bottom spacer', (view) => {
+      const { container } = render(<TasksCollectionBody view={view} tasks={everyDataset} {...noop} />);
+
+      expect(container.querySelector('.collection-list')).not.toBeNull();
+      expect(titlesIn(container)).toEqual(expected[view]);
+      expect(container.querySelectorAll('.collection__bottom-spacer')).toHaveLength(1);
+    });
+
+    it.each(VIEWS)('%s: switches to the generic CollectionDataTable when the shared layout says Table', (view) => {
+      const { container } = render(
+        <TasksCollectionBody
+          view={view}
+          tasks={everyDataset}
+          collectionView={resolveCollectionView(TASKS_COLLECTION, { layout: 'table' })}
+          {...noop}
+        />
+      );
+
+      expect(container.querySelector('.collection-list')).toBeNull();
+      expect(container.querySelector('.collection-table')).not.toBeNull();
+      expect(container.querySelectorAll('.collection-table .task-title').length).toBe(expected[view].length);
+    });
+
+    it.each(VIEWS)('%s: follows the SAME shared properties and sort', (view) => {
+      const { container } = render(
+        <TasksCollectionBody
+          view={view}
+          tasks={everyDataset}
+          collectionView={resolveCollectionView(TASKS_COLLECTION, {
+            layout: 'table',
+            propertyOverrides: { source: false },
+            sort: { property: 'name', direction: 'up' },
+          })}
+          {...noop}
+        />
+      );
+
+      expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual(['Name', 'Due date']);
+      const shown = [...container.querySelectorAll('.collection-table .task-title')].map((el) => el.textContent);
+      // Name Z→A for every view — except Done, whose newest-completed-first order is its own.
+      expect(shown).toEqual(view === 'tasks-completed' ? expected[view] : [...expected[view]].sort().reverse());
+    });
+
+    it('Done keeps newest-completed-first whatever the shared sort says', () => {
+      const completed = [
+        task({ text: 'Alpha (oldest)', completed: true, completedAt: '2026-08-01', startOffset: 0 }),
+        task({ text: 'Zulu (newest)', completed: true, completedAt: '2026-08-03', startOffset: 1 }),
+        task({ text: 'Mike (middle)', completed: true, completedAt: '2026-08-02', startOffset: 2 }),
+      ];
+
+      for (const sort of [
+        { property: 'name', direction: 'down' },
+        { property: 'name', direction: 'up' },
+        { property: 'dueDate', direction: 'down' },
+      ] as const) {
+        const { container, unmount } = render(
+          <TasksCollectionBody
+            view="tasks-completed"
+            tasks={completed}
+            collectionView={resolveCollectionView(TASKS_COLLECTION, { sort })}
+            {...noop}
+          />
+        );
+        expect(titlesIn(container)).toEqual(['Zulu (newest)', 'Mike (middle)', 'Alpha (oldest)']);
+        unmount();
+      }
+    });
+
+    it.each(VIEWS)('%s: uses the canonical collection row — none of the legacy sidebar-task row UI', (view) => {
+      const { container, queryByRole } = render(
+        <TasksCollectionBody view={view} tasks={everyDataset} getSource={() => ({ label: 'Src', icon: 'note', emoji: null })} {...noop} />
+      );
+
+      expect(container.querySelector('.collection-row')).not.toBeNull();
+      expect(container.querySelector('.entry')).toBeNull();
+      expect(container.querySelector('.task__due-date')).toBeNull();
+      expect(container.querySelector('.pill')).toBeNull();
+      expect(queryByRole('button', { name: /more actions/i })).toBeNull();
+      // the canonical trailing UX: the source link and a due-date control are still there
+      expect(container.querySelector('.task-row__source')).not.toBeNull();
+    });
+
+    it('a view\'s empty dataset shows the collection empty state, not an empty list', () => {
+      const { getByRole, container } = render(<TasksCollectionBody view="tasks-today" tasks={[task({ text: 'Later', dueDate: '2026-09-01' })]} {...noop} />);
+
+      expect(getByRole('status')).toBeInTheDocument();
+      expect(container.querySelector('.collection-list')).toBeNull();
+    });
   });
 
   it('shows the collection empty state for tasks-all with no tasks', () => {
@@ -565,8 +651,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
       />
     );
 
@@ -589,8 +673,6 @@ describe('TasksCollectionBody', () => {
         onToggleComplete={vi.fn()}
         onOpenTask={vi.fn()}
         onChangeDueDate={vi.fn()}
-        onDuplicateTask={vi.fn()}
-        onDeleteTask={vi.fn()}
         // Even with Show completed enabled, the Unscheduled view keeps its
         // pre-existing, unaffected behavior — it isn't one of the two
         // sections (Today/Everything else) the setting targets.
@@ -614,8 +696,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: false, autoSortCompleted: false }}
         />
       );
@@ -633,8 +713,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: false }}
         />
       );
@@ -642,23 +720,45 @@ describe('TasksCollectionBody', () => {
       expect(getByText('Submit expenses')).not.toBeNull();
     });
 
-    it('shows a completed, non-today task in tasks-upcoming when showCompleted is true', () => {
+    it('Upcoming honours Show completed: a completed future task shows when on, not when off', () => {
+      const completedFuture = task({ text: 'Booked already', completed: true, dueDate: '2026-08-20' });
+      const renderUpcoming = (showCompleted: boolean) =>
+        render(
+          <TasksCollectionBody
+            view="tasks-upcoming"
+            tasks={[completedFuture]}
+            onToggleComplete={vi.fn()}
+            onOpenTask={vi.fn()}
+            onChangeDueDate={vi.fn()}
+            displayConfig={{ showCompleted, autoSortCompleted: false }}
+          />
+        );
+
+      const on = renderUpcoming(true);
+      expect(on.queryByText('Booked already')).not.toBeNull();
+      on.unmount();
+
+      const off = renderUpcoming(false);
+      expect(off.queryByText('Booked already')).toBeNull();
+    });
+
+    it('a completed task that was due before today is in neither Overdue nor Upcoming, whatever Show completed says', () => {
       const completedOverdue = task({ text: 'Old report', completed: true, dueDate: '2026-07-01' });
 
-      const { getByText } = render(
-        <TasksCollectionBody
-          view="tasks-upcoming"
-          tasks={[completedOverdue]}
-          onToggleComplete={vi.fn()}
-          onOpenTask={vi.fn()}
-          onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
-          displayConfig={{ showCompleted: true, autoSortCompleted: false }}
-        />
-      );
-
-      expect(getByText('Old report')).not.toBeNull();
+      for (const view of ['tasks-overdue', 'tasks-upcoming'] as const) {
+        const { queryByText, unmount } = render(
+          <TasksCollectionBody
+            view={view}
+            tasks={[completedOverdue]}
+            onToggleComplete={vi.fn()}
+            onOpenTask={vi.fn()}
+            onChangeDueDate={vi.fn()}
+            displayConfig={{ showCompleted: true, autoSortCompleted: false }}
+          />
+        );
+        expect(queryByText('Old report'), view).toBeNull();
+        unmount();
+      }
     });
 
     it('auto-sort moves a completed task to the bottom of tasks-today', () => {
@@ -672,8 +772,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
           displayConfig={{ showCompleted: true, autoSortCompleted: true }}
         />
       );
@@ -704,8 +802,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
         />
@@ -733,8 +829,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
           resolveWikiLink={resolveWikiLink}
         />
       );
@@ -753,8 +847,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
         />
       );
       expect(completedResult.container.querySelector('strong')).toHaveTextContent('Ship');
@@ -768,8 +860,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
         />
       );
       expect(unscheduledResult.container.querySelector('em')).toHaveTextContent('urgent');
@@ -783,8 +873,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
         />
       );
       expect(allResult.container.querySelector('s')).toHaveTextContent('old');
@@ -800,8 +888,6 @@ describe('TasksCollectionBody', () => {
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
           onChangeDueDate={vi.fn()}
-          onDuplicateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
         />
       );
 

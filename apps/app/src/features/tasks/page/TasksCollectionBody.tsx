@@ -15,36 +15,15 @@ import type { PropertyValues } from '@core/properties/collectionProperties';
 import { resolveCollectionView, type ResolvedCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import '../sidebar/Task.css';
-import { CollectionRowList } from '@app/layouts/page/body/CollectionRowList';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
-import {
-  renderTaskRow,
-  renderTodayContent,
-  renderOverdueContent,
-  renderUpcomingContent,
-} from '../helpers/renderTasksByDate';
-import { groupTasks, DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
+import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 import { getCompletedTasks } from '../helpers/getCompletedTasks';
+import { taskViewHasFixedOrder, tasksForView, type TaskViewKind } from '../helpers/tasksForView';
 
-export type TasksCollectionView =
-  | 'tasks-today'
-  | 'tasks-overdue'
-  | 'tasks-upcoming'
-  | 'tasks-completed'
-  | 'tasks-all'
-  | 'tasks-unscheduled';
-
-// The Unscheduled collection view has never shown completed tasks (it
-// predates the Show completed/Auto-sort completed preference) and isn't
-// one of the two sections that preference targets (Today/Everything else)
-// — a fixed config, not the shared Tasks-view `displayConfig` below, keeps
-// its behavior exactly as it was.
-const UNSCHEDULED_VIEW_CONFIG: TaskDisplayConfig = {
-  showCompleted: false,
-  autoSortCompleted: false,
-};
+/** The Task Collection's views — the `tasks-*` FilteredView kinds; each is a dataset (see `tasksForView`). */
+export type TasksCollectionView = TaskViewKind;
 
 /** The note a task lives in, as the wiki-link-style link the row shows: its label and its own identity icon/emoji. */
 export interface TaskSourceLink {
@@ -68,25 +47,15 @@ export interface TasksCollectionBodyProps {
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens a row's Change due date calendar; a date string sets it, null clears it — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
-  /** Inserts an exact copy of a row's task directly below the original in its source note. */
-  readonly onDuplicateTask: (task: TaskOccurrence) => void;
-  /** Deletes a row's task from its source note. */
-  readonly onDeleteTask: (task: TaskOccurrence) => void;
   /**
-   * The shared Tasks-view Show completed / Auto-sort completed preference
-   * (see groupTasks.ts's TaskDisplayConfig) — applied to the tasks-today/
-   * tasks-upcoming branches only, so the Today/Upcoming collection pages
-   * always render identically to their sidebar counterparts (see this
-   * component's own doc comment). The tasks-overdue branch reads `overdue`
-   * from the same `groupTasks` call, but that group is never affected by
-   * either preference (see groupTasks.ts's `overdue` doc comment) — passing
-   * `displayConfig` through is just for a single consistent call shape, not
-   * because it changes Overdue's membership or ordering. Defaults to
-   * DEFAULT_TASK_DISPLAY_CONFIG for callers that don't need to exercise it.
+   * The shared Tasks-view Show completed / Auto-sort completed preference (see groupTasks.ts's
+   * TaskDisplayConfig). Show completed decides MEMBERSHIP for the views that can hold both states and
+   * is applied by `tasksForView` (the rule is documented there); Auto-sort completed is ordering and is
+   * applied here. Defaults to DEFAULT_TASK_DISPLAY_CONFIG.
    */
   readonly displayConfig?: TaskDisplayConfig;
   /**
-   * The tasks-all page's resolved Configure state (layout, visible properties, sort) — the same
+   * The Task Collection's resolved Configure state (layout, visible properties, sort) — shared by all six task views, the same
    * `resolveCollectionView` result every collection page draws from. Absent: the collection's defaults.
    */
   readonly collectionView?: ResolvedCollectionView;
@@ -115,14 +84,14 @@ function TasksPageBody({ children }: { readonly children: ReactNode }) {
 }
 
 /**
- * The page-body rendering for every task collection view. Deliberately
- * not a CollectionBody variant — CollectionEntryModel (folder/note-shaped)
- * has no room for `completed`/`dueDate`, so forcing tasks through it would
- * be exactly the mistake ADR-022 already rejected for Workspace/Favorites,
- * one layer over. Instead this composes the same renderTodayContent/
- * renderUpcomingContent/renderTaskRow/groupTasks/getCompletedTasks the
- * sidebar already uses, so sidebar and page can never render tasks
- * differently.
+ * The page body of every task view — ONE renderer. The view decides the dataset (`tasksForView`, the
+ * single authority on which tasks belong to Today / Overdue / Upcoming / Unscheduled / Done / All), the
+ * shared collection configuration (`collectionView`: layout, properties, sort) decides how that dataset
+ * is drawn, through the generic `CollectionDataList` / `CollectionDataTable`. Deliberately not a
+ * CollectionBody variant — CollectionEntryModel (folder/note-shaped) has no room for
+ * `completed`/`dueDate` (ADR-022) — so tasks are mapped to the shared property `values` instead
+ * (ADR-045, ADR-046). The sidebar's own sections (`renderTasksByDate`) are a separate presentation and
+ * are untouched.
  */
 export function TasksCollectionBody({
   view,
@@ -130,8 +99,6 @@ export function TasksCollectionBody({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
-  onDuplicateTask,
-  onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   collectionView,
   getSource,
@@ -139,80 +106,6 @@ export function TasksCollectionBody({
   resolveTag,
   resolveEmbed,
 }: TasksCollectionBodyProps) {
-  const rowCallbacks = {
-    onToggleComplete,
-    onOpenTask,
-    onChangeDueDate,
-    onDuplicateTask,
-    onDeleteTask,
-    resolveWikiLink,
-    resolveTag,
-    resolveEmbed,
-  };
-
-  if (view === 'tasks-today') {
-    const { today } = groupTasks(tasks, displayConfig);
-    return (
-      <TasksPageBody>
-        <CollectionRowList>
-          {renderTodayContent({ today, ...rowCallbacks })}
-        </CollectionRowList>
-      </TasksPageBody>
-    );
-  }
-
-  if (view === 'tasks-overdue') {
-    const { overdue } = groupTasks(tasks, displayConfig);
-    return (
-      <TasksPageBody>
-        <CollectionRowList>
-          {renderOverdueContent({ overdue, ...rowCallbacks })}
-        </CollectionRowList>
-      </TasksPageBody>
-    );
-  }
-
-  if (view === 'tasks-upcoming') {
-    // Unscheduled tasks have their own section/view — Upcoming is the dated ones only.
-    const groups = groupTasks(tasks, displayConfig);
-    const upcoming = groups.upcoming.filter((task) => !groups.unscheduled.includes(task));
-    return (
-      <TasksPageBody>
-        <CollectionRowList>
-          {renderUpcomingContent({ upcoming, ...rowCallbacks })}
-        </CollectionRowList>
-      </TasksPageBody>
-    );
-  }
-
-  if (view === 'tasks-completed') {
-    return (
-      <TasksPageBody>
-        <CollectionRowList>
-          {getCompletedTasks(tasks).map((task) => renderTaskRow(task, rowCallbacks))}
-        </CollectionRowList>
-      </TasksPageBody>
-    );
-  }
-
-  if (view === 'tasks-unscheduled') {
-    return (
-      <TasksPageBody>
-        <CollectionRowList>
-          {groupTasks(tasks, UNSCHEDULED_VIEW_CONFIG).unscheduled.map((task) =>
-            renderTaskRow(task, rowCallbacks)
-          )}
-        </CollectionRowList>
-      </TasksPageBody>
-    );
-  }
-
-  // tasks-all — the configurable All Tasks collection: the page's resolved view (layout, visible
-  // properties, sort — the same Configure state every collection uses) decides how it is drawn. Tasks
-  // are mapped to the shared property `values` and ordered by the one sort engine. The shared Tasks-view
-  // display preference applies too: Show completed off drops completed tasks; Auto-sort completed on
-  // moves them (newest-completed-first before sorting) below the incomplete ones, each group sorted by
-  // the chosen property, and off leaves them in their sorted place among the rest.
   const { layout, visible, sort } = collectionView ?? resolveCollectionView(TASKS_COLLECTION);
 
   const toEntry = (task: TaskOccurrence): TaskEntry => {
@@ -221,16 +114,29 @@ export function TasksCollectionBody({
     return {
       task,
       source,
-      // Positional, not task.text — see renderTaskRow's key.
+      // Positional, not task.text — two textually-identical tasks must never share a key.
       id: `${task.sourcePageId}:${task.startOffset ?? task.text}`,
       values: taskPropertyValues(task, source?.label),
     };
   };
-  const incompleteEntries = tasks.filter((task) => !task.completed).map(toEntry);
-  const completedEntries = displayConfig.showCompleted ? getCompletedTasks(tasks).map(toEntry) : [];
-  const entries = displayConfig.autoSortCompleted
-    ? [...sortEntries(incompleteEntries, sort), ...sortEntries(completedEntries, sort)]
-    : sortEntries([...incompleteEntries, ...completedEntries], sort);
+
+  // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default) — except a view
+  // with a fixed semantic order of its own (Done: newest-completed-first, applied by `tasksForView`),
+  // which the shared sort does not reorder. Otherwise Auto-sort completed on moves completed tasks
+  // (newest-completed-first before sorting) below the incomplete ones, each group sorted by the chosen
+  // property; off leaves them in their sorted place among the rest.
+  const dataset = tasksForView(view, tasks, displayConfig);
+  const entries = taskViewHasFixedOrder(view)
+    ? dataset.map(toEntry)
+    : displayConfig.autoSortCompleted
+      ? [
+          ...sortEntries(dataset.filter((task) => !task.completed).map(toEntry), sort),
+          ...sortEntries(getCompletedTasks(dataset).map(toEntry), sort),
+        ]
+      : sortEntries(
+          [...dataset.filter((task) => !task.completed), ...getCompletedTasks(dataset)].map(toEntry),
+          sort
+        );
 
   if (entries.length === 0) {
     return (

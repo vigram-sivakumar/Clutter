@@ -43,3 +43,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [043](./043-sync-never-trusts-a-paired-rename-destination.md) | Sync never trusts a paired rename's destination — an external delete must not become a move onto an unrelated path | Accepted |
 | [044](./044-task-due-date-is-explicit-never-implied-by-its-note.md) | A task's due date is explicit — never implied by the Daily Note it lives in; New Task always lands in today's note | Accepted |
 | [045](./045-all-tasks-is-a-configurable-collection.md) | All Tasks is a configurable collection — it plugs into the shared collection settings (definition, registry properties, store key, List/Table) | Accepted |
+| [046](./046-task-views-are-datasets-of-one-task-collection.md) | Task views are datasets of one Task Collection — one config key, one `tasksForView` membership authority, one renderer | Accepted |

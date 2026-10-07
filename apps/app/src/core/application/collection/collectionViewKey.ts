@@ -12,9 +12,10 @@ import type { ActiveView } from '../../workspace/Workspace';
  *    backing `Folder` (ADR-022) → `view:workspace` / `view:favorites`.
  *  - A tag — a filtered view parameterized by name → `tag:<tagName>`.
  *
- * `tasks-all` (the All Tasks collection) is keyed like any other filtered
- * view: `view:tasks-all`. The other `tasks-*` views are not configurable
- * collections and have no Layout/Properties/Sort to key.
+ * All six task views (`tasks-all`, `tasks-today`, `tasks-overdue`, `tasks-upcoming`,
+ * `tasks-unscheduled`, `tasks-completed`) are datasets of ONE Task Collection and share ONE
+ * configuration: `view:tasks` (ADR-046). `view:tasks-all` was the key All Tasks briefly used on its
+ * own; `CollectionViewConfigStore` still reads it as a fallback so no saved choice is lost.
  */
 export type CollectionViewKey = string;
 
@@ -29,7 +30,7 @@ export function collectionViewKeyForFolder(folderId: string): CollectionViewKey 
 }
 
 export function collectionViewKeyForFilteredView(
-  kind: 'workspace' | 'favorites' | 'assets' | 'tasks-all'
+  kind: 'workspace' | 'favorites' | 'assets' | 'tasks'
 ): CollectionViewKey {
   return `${COLLECTION_VIEW_KEY_PREFIX.filteredView}${kind}`;
 }
@@ -66,8 +67,19 @@ export function deriveCollectionViewKey(
   if (activeView.type === 'filtered-view') {
     const { view } = activeView;
 
-    if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets' || view.kind === 'tasks-all') {
+    if (view.kind === 'workspace' || view.kind === 'favorites' || view.kind === 'assets') {
       return collectionViewKeyForFilteredView(view.kind);
+    }
+
+    if (
+      view.kind === 'tasks-all' ||
+      view.kind === 'tasks-today' ||
+      view.kind === 'tasks-overdue' ||
+      view.kind === 'tasks-upcoming' ||
+      view.kind === 'tasks-unscheduled' ||
+      view.kind === 'tasks-completed'
+    ) {
+      return collectionViewKeyForFilteredView('tasks');
     }
 
     if (view.kind === 'tag') {

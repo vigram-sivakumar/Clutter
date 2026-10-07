@@ -1661,9 +1661,9 @@ export function PageHost({
         // On All Tasks the tab strip sits below the title (presentation only).
         belowDescription={view === 'tasks-all' ? <TasksTabs /> : undefined}
         titleActions={
-          // The All Tasks collection gets the same header actions as every collection (Configure +
-          // Add); Add opens the New task dialog.
-          view === 'tasks-all' ? (
+          // Every task view is the one Task Collection: the same header actions as every collection
+          // (Configure + Add), sharing one configuration; Add opens the New task dialog.
+          (
             <>
               {renderCollectionHeaderActions({
                 onAdd: () => setIsNewTaskOpen(true),
@@ -1700,7 +1700,7 @@ export function PageHost({
                 }
               />
             </>
-          ) : undefined
+          )
         }
         body={
           <TasksCollectionBody
@@ -1717,8 +1717,6 @@ export function PageHost({
                 ? application.taskOperations.clearDate(task)
                 : application.taskOperations.setDate(task, date))
             }
-            onDuplicateTask={(task) => void application.taskOperations.duplicate(task)}
-            onDeleteTask={(task) => void application.taskOperations.delete(task)}
             displayConfig={tasksViewConfig}
             collectionView={collectionView}
             getSource={(task) => {

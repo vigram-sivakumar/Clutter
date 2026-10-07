@@ -1,6 +1,5 @@
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-import { isPast, isToday } from '@shared/helpers/time';
-import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
+import { classifyDueDate } from './taskDueDate';
 import { formatTaskTitle } from './formatTaskTitle';
 
 export type TaskGroups = {
@@ -51,22 +50,16 @@ export const DEFAULT_TASK_DISPLAY_CONFIG: TaskDisplayConfig = {
   autoSortCompleted: false,
 };
 
-// `TaskExtractor.ts`'s bare-date extraction is shape-matched only, not
-// calendar-validated (documented there) — a task's `dueDate` can be
-// `'2026-13-45'`. `toDate()`'s local-component construction (correct for
-// genuine dates) silently rolls an out-of-range month/day over into a real
-// but fabricated date rather than throwing, so `isPast`/`isFuture` must
-// never be handed a calendar-invalid `dueDate` directly — same
-// `isValidCalendarDate` gate `DateWidget`/`resolveDate.ts` already apply
-// before trusting a Date node. Without this guard such a task would sort
-// into `today`/`overdue`/`future` under a silently wrong rolled-over date
-// instead of `unscheduled`, the documented fallback below.
+// Due-date interpretation is centralized in taskDueDate.ts (`classifyDueDate`) — the same one the
+// Task Collection's per-view membership (`tasksForView`) uses — so the sidebar and the pages can
+// never disagree about what is due today, overdue, scheduled or unscheduled. A shape-valid but
+// calendar-invalid date (`2026-13-45`) is `unscheduled`, the documented fallback below.
 function isDueToday(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isToday(task.dueDate);
+  return classifyDueDate(task.dueDate) === 'today';
 }
 
 function isOverdue(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isPast(task.dueDate);
+  return classifyDueDate(task.dueDate) === 'past';
 }
 
 // The Overdue section's exact membership rule — due before today, and
@@ -84,7 +77,7 @@ function isOverdueAndIncomplete(task: TaskOccurrence): boolean {
 // past date reaches `upcoming` at all: see the `overdue` doc comment on
 // `TaskGroups`), sorted together by date rather than as two separate runs.
 function hasScheduledDueDate(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isValidCalendarDate(task.dueDate);
+  return classifyDueDate(task.dueDate) !== 'unscheduled';
 }
 
 // Case-insensitive A→Z, against the same displayed-title string the

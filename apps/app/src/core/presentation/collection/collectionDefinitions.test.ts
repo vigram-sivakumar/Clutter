@@ -220,14 +220,13 @@ describe('which definition a page is', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Assets/Trips`), ROOT, insideAssets)).toBe(ASSETS_COLLECTION);
   });
 
-  it('filtered views resolve to their collection; All Tasks is the Tasks collection and the other task views are not collections of this kind', () => {
+  it('filtered views resolve to their collection; every task view is a dataset of the one Tasks collection', () => {
     expect(collectionDefinitionForFilteredView({ kind: 'workspace' })).toBe(WORKSPACE_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'favorites' })).toBe(FAVORITES_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'tag', tagName: 'todo' })).toBe(TAG_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'assets' })).toBe(ASSETS_COLLECTION);
-    expect(collectionDefinitionForFilteredView({ kind: 'tasks-all' })).toBe(TASKS_COLLECTION);
-    for (const kind of ['tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-completed', 'tasks-unscheduled'] as const) {
-      expect(collectionDefinitionForFilteredView({ kind })).toBeUndefined();
+    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-completed', 'tasks-unscheduled'] as const) {
+      expect(collectionDefinitionForFilteredView({ kind }), kind).toBe(TASKS_COLLECTION);
     }
   });
 });

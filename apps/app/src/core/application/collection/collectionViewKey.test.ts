@@ -50,23 +50,24 @@ describe('deriveCollectionViewKey', () => {
     expect(collectionViewKeyForFilteredView('assets')).toBe('view:assets');
   });
 
-  it('All Tasks is a configurable collection keyed like any other filtered view', () => {
-    expect(collectionViewKeyForFilteredView('tasks-all')).toBe('view:tasks-all');
-    expect(deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'tasks-all' } })).toBe('view:tasks-all');
+  it('all six task views share ONE configuration key — they are datasets of the one Task Collection', () => {
+    expect(collectionViewKeyForFilteredView('tasks')).toBe('view:tasks');
+
+    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-unscheduled', 'tasks-completed'] as const) {
+      expect(deriveCollectionViewKey({ type: 'filtered-view', view: { kind } }), kind).toBe('view:tasks');
+    }
   });
 
-  it('the other task views — undefined, since they are not configurable collections and never render CollectionViewMenu', () => {
-    const kinds: ActiveView[] = [
-      { type: 'filtered-view', view: { kind: 'tasks-today' } },
-      { type: 'filtered-view', view: { kind: 'tasks-overdue' } },
-      { type: 'filtered-view', view: { kind: 'tasks-upcoming' } },
-      { type: 'filtered-view', view: { kind: 'tasks-completed' } },
-      { type: 'filtered-view', view: { kind: 'tasks-unscheduled' } },
+  it('the task key never collides with another collection\'s', () => {
+    const others = [
+      deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'workspace' } }),
+      deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'favorites' } }),
+      deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'assets' } }),
+      deriveCollectionViewKey({ type: 'filtered-view', view: { kind: 'tag', tagName: 'tasks' } }),
+      deriveCollectionViewKey({ type: 'folder', id: 'tasks' }),
     ];
 
-    for (const activeView of kinds) {
-      expect(deriveCollectionViewKey(activeView)).toBeUndefined();
-    }
+    expect(others).not.toContain('view:tasks');
   });
 
   it('folder, workspace, favorites, and tag identities never collide with each other, even with adversarial ids/names', () => {

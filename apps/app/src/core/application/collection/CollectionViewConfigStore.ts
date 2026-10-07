@@ -35,6 +35,15 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 export type { PersistedCollectionViewConfig };
 
 /**
+ * Keys that used to hold a collection's configuration, per current key, newest first. The Task
+ * Collection's six views share `view:tasks`; All Tasks briefly saved its settings under
+ * `view:tasks-all` (ADR-045) before that.
+ */
+const LEGACY_KEY_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
+  'view:tasks': ['view:tasks-all'],
+};
+
+/**
  * Owns the `collectionViewConfig` top-level key of `.clutter/workspace.json`
  * end-to-end — a sibling of `FoldStateStore`'s `foldState`/`embedCollapse`
  * keys in the same reserved file, same shape: one reader, one writer,
@@ -139,7 +148,31 @@ export class CollectionViewConfigStore {
    * ordinary `CollectionBody.tsx` default, never this store's concern.
    */
   get(collectionKey: string): PersistedCollectionViewConfig | undefined {
-    return this.entries.get(collectionKey);
+    return this.read(collectionKey);
+  }
+
+  /**
+   * An entry, or — when the key has none yet — the one a retired key left behind
+   * (`LEGACY_KEY_FALLBACKS`). A fallback is only ever READ: the first `update()` of the new key merges
+   * on top of it and writes the new key, after which the old entry is never consulted again. Nothing
+   * is deleted or overwritten, so a saved choice survives the key change.
+   */
+  private read(collectionKey: string): PersistedCollectionViewConfig | undefined {
+    const direct = this.entries.get(collectionKey);
+
+    if (direct !== undefined) {
+      return direct;
+    }
+
+    for (const legacyKey of LEGACY_KEY_FALLBACKS[collectionKey] ?? []) {
+      const legacy = this.entries.get(legacyKey);
+
+      if (legacy !== undefined) {
+        return legacy;
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -152,7 +185,7 @@ export class CollectionViewConfigStore {
    * process kill is a rare, accepted edge case.
    */
   update(collectionKey: string, patch: Partial<CollectionViewConfig>): void {
-    const existing = this.entries.get(collectionKey);
+    const existing = this.read(collectionKey);
     // Writing property intent retires the legacy snapshot: the caller converted it (against the
     // collection's definition) into the overrides it is now writing, so it must not linger.
     const base = 'propertyOverrides' in patch ? { ...existing, legacyProperties: undefined } : existing;

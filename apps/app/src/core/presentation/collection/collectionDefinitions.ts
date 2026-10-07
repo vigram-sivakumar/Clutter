@@ -194,7 +194,7 @@ export const ASSETS_COLLECTION: CollectionDefinition = {
 };
 
 /**
- * The All Tasks collection: every task, as rows of the generic List (the default) or Table — there
+ * The Task Collection — every task view (All Tasks, Today, Overdue, Upcoming, Unscheduled, Done) is a dataset of it, drawn as rows of the generic List (the default) or Table — there
  * is no Card. A task's properties are its Name (the title), Due date and Source (the note it lives in); all
  * three are on by default, which is exactly what the List row has always shown (title, the due-date
  * control and the source link). A task has no created/edited time, so those are not offered. Creating
@@ -243,7 +243,7 @@ export function collectionDefinitionForFolder(
   }
 }
 
-/** Which collection a filtered view is — `undefined` for the other task views, which are not collections of this kind. */
+/** Which collection a filtered view is. */
 export function collectionDefinitionForFilteredView(view: FilteredView): CollectionDefinition | undefined {
   switch (view.kind) {
     case 'workspace':
@@ -254,7 +254,13 @@ export function collectionDefinitionForFilteredView(view: FilteredView): Collect
       return TAG_COLLECTION;
     case 'assets':
       return ASSETS_COLLECTION;
+    // Every task view is a dataset of the one Task Collection (ADR-046).
     case 'tasks-all':
+    case 'tasks-today':
+    case 'tasks-overdue':
+    case 'tasks-upcoming':
+    case 'tasks-unscheduled':
+    case 'tasks-completed':
       return TASKS_COLLECTION;
     default:
       return undefined;
