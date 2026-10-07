@@ -39,7 +39,22 @@ function templateItems(
   ];
 }
 
-const NOTE_MENU_LABELS = { create: 'New note', createFolder: 'New folder' } as const;
+/**
+ * What each kind of collection's Add menu calls its entries — one convention: creation reads
+ * "New …" (a note, a template, a folder). Assets' first entry is "Upload": it imports files, it does
+ * not make a blank one.
+ */
+export const NOTE_MENU_LABELS = { create: 'New note', createFolder: 'New folder' } as const;
+export const TEMPLATE_MENU_LABELS = {
+  create: 'New template',
+  createFolder: 'New folder',
+  createIcon: 'template',
+} as const;
+export const ASSET_MENU_LABELS = {
+  create: 'Upload',
+  createFolder: 'New folder',
+  createIcon: 'upload',
+} as const;
 
 export interface CollectionHeaderActionsProps {
   /** The standard Configure control (Layout / Properties / Sort) — Settings and the view-mode control. */
@@ -63,7 +78,7 @@ export interface CollectionHeaderActionsProps {
   };
   /**
    * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
-   * note" and "New folder" for notes, "Upload" and "Create folder" for assets). Absent: the notes' words.
+   * note" and "New folder" for notes, "New template" for Templates, "Upload" and "New folder" for assets). Absent: the notes' words.
    */
   menuLabels?: { readonly create: string; readonly createFolder: string; readonly createIcon?: SystemIcon };
   /** Accessible label of the Add button — "New" for notes, "Upload" for assets. */

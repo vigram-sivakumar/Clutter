@@ -131,14 +131,14 @@ describe('Create — a completely empty collection', () => {
     expect(queryByText(CREATE_LABEL)).toBeNull(); // no notes → no notes Create
   });
 
-  it('a completely empty collection offers the page\'s own call to action — here "Create note" — not the generic "Create"', () => {
+  it('a completely empty collection offers the page\'s own call to action — here "New note" — not the generic "Create"', () => {
     const onCreate = vi.fn();
     const { getByText, queryByText } = render(
-      <CollectionBody notes={[]} viewMode="table" visible={noteVisible()} onCreate={onCreate} emptyCreateLabel="Create note" />
+      <CollectionBody notes={[]} viewMode="table" visible={noteVisible()} onCreate={onCreate} emptyCreateLabel="New note" />
     );
 
     expect(queryByText(CREATE_LABEL)).toBeNull();
-    fireEvent.click(getByText('Create note'));
+    fireEvent.click(getByText('New note'));
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
@@ -165,7 +165,7 @@ describe('Create — a completely empty collection', () => {
     const none = render(
       <CollectionBody notes={[noteEntry()]} viewMode="table" visible={noteVisible()} onCreateFolder={onCreateFolder} />
     );
-    expect(none.queryByLabelText('Create folder')).toBeNull();
+    expect(none.queryByLabelText('New folder')).toBeNull();
     none.unmount();
 
     const some = render(
@@ -177,7 +177,7 @@ describe('Create — a completely empty collection', () => {
         onCreateFolder={onCreateFolder}
       />
     );
-    fireEvent.click(some.getByLabelText('Create folder'));
+    fireEvent.click(some.getByLabelText('New folder'));
     expect(onCreateFolder).toHaveBeenCalledTimes(1);
   });
 

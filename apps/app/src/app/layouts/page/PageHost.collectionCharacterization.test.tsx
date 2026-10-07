@@ -208,11 +208,11 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(bodyHasText('Create')).toBe(true);
   });
 
-  it('Templates: a New menu with New note and New folder — and NO From template (it is the template source); Table by default', async () => {
+  it('Templates: a New menu with New template and New folder — and NO From template (it is the template source); Table by default', async () => {
     await renderFolder(TEMPLATES);
 
     expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New note', 'New folder']);
+    expect(newMenuRows()).toEqual(['New template', 'New folder']);
     expect(hasCreateFolderCard()).toBe(true);
     expect(hasTable()).toBe(true);
   });
@@ -276,10 +276,25 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
     expect(bodyHasText('Sub')).toBe(true);
   });
 
-  it('Templates still offers New note and New folder, and still no From template', async () => {
+  it('Templates still offers New template and New folder, and still no From template', async () => {
     await renderFolder(TEMPLATES);
 
-    expect(newMenuRows()).toEqual(['New note', 'New folder']);
+    expect(newMenuRows()).toEqual(['New template', 'New folder']);
+  });
+
+  it('a Templates subfolder is part of the Templates collection: New template and New folder, no From template', async () => {
+    await renderFolder(`${TEMPLATES}/Meetings`);
+
+    expect(newMenuRows()).toEqual(['New template', 'New folder']);
+  });
+
+  it('ordinary folders — including a nested one — still say New note, with From template', async () => {
+    await renderFolder(PROJECTS);
+    expect(newMenuRows()).toEqual(['New note', 'New folder', 'From template']);
+    cleanup();
+
+    await renderFolder(`${PROJECTS}/Sub`);
+    expect(newMenuRows()).toEqual(['New note', 'New folder', 'From template']);
   });
 });
 

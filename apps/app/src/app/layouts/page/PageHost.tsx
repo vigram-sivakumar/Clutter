@@ -107,7 +107,12 @@ import {
   CollectionBody,
   type NoteCoverActions,
 } from '@app/layouts/page/body/CollectionBody';
-import { CollectionHeaderActions, type CollectionHeaderActionsProps } from '@app/layouts/page/body/CollectionHeaderActions';
+import {
+  ASSET_MENU_LABELS,
+  CollectionHeaderActions,
+  TEMPLATE_MENU_LABELS,
+  type CollectionHeaderActionsProps,
+} from '@app/layouts/page/body/CollectionHeaderActions';
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
@@ -681,7 +686,6 @@ export function PageHost({
 
   // ── Assets: every folder inside Assets/ is itself an Assets page ──────────────────────────
   // What the Assets header's Add menu calls its entries (this collection's wording, not the notes').
-  const assetMenuLabels = { create: 'Upload', createFolder: 'Create folder', createIcon: 'upload' } as const;
 
   // Create, for assets: pick files and copy them into the folder the page is showing — `Assets/`
   // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
@@ -1485,7 +1489,9 @@ export function PageHost({
             fromTemplate: collectionDefinition.actions.fromTemplate
               ? buildFromTemplate(folder.id)
               : undefined,
-            ...(isAssetsFolderPage && { menuLabels: assetMenuLabels, addLabel: 'Upload' }),
+            ...(isAssetsFolderPage && { menuLabels: ASSET_MENU_LABELS, addLabel: 'Upload' }),
+            // The Templates hierarchy creates templates: same handler (a draft in this folder), its own wording.
+            ...(collectionDefinition.kind === 'templates' && { menuLabels: TEMPLATE_MENU_LABELS }),
           })}
           emoji={
             folderSystemLocationId
@@ -1555,7 +1561,7 @@ export function PageHost({
                 onCreateFolder={onCreateSubfolder}
                 folderCreation={subfolderCreation}
                 onCreate={onCreate}
-                emptyCreateLabel={collectionDefinition.kind === 'templates' ? 'Create template' : 'Create note'}
+                emptyCreateLabel={collectionDefinition.kind === 'templates' ? 'New template' : 'New note'}
                 emptyMessage={collectionDefinition.emptyMessage}
                 noteCover={noteCoverActions}
                 previewResolvers={{
@@ -1625,7 +1631,7 @@ export function PageHost({
         titleActions={renderCollectionHeaderActions({
           onAdd: onCreate,
           onAddFolder: onCreateFolder,
-          menuLabels: assetMenuLabels,
+          menuLabels: ASSET_MENU_LABELS,
           addLabel: 'Upload',
         })}
         body={renderAssetsBody({
@@ -1900,7 +1906,7 @@ export function PageHost({
             onCreateFolder={onCreateFolder}
             folderCreation={folderCreation}
             onCreate={onCreate}
-            emptyCreateLabel="Create note"
+            emptyCreateLabel="New note"
             emptyMessage={collectionDefinition.emptyMessage}
             noteCover={noteCoverActions}
           />

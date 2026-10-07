@@ -228,6 +228,10 @@ export function collectionDefinitionForFolder(
   if (dailyNotesLevel === 'year') return DAILY_NOTES_YEAR_COLLECTION;
   if (dailyNotesLevel === 'month') return DAILY_NOTES_MONTH_COLLECTION;
 
+  // A folder inside Templates is part of the Templates collection: nested template folders create
+  // templates, exactly as the Templates root does.
+  if (membershipSelector.isInTemplatesFolder(folder.id)) return TEMPLATES_COLLECTION;
+
   // A folder inside Assets/ is part of the Assets collection: it opens as an Assets page.
   if (membershipSelector.isAssetsFolder(folder)) return ASSETS_COLLECTION;
 

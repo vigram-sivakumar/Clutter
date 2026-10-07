@@ -100,7 +100,7 @@ export function renderFolderGrid(
         <NewFolderCard creation={creation} />
       ) : (
         onCreateFolder && (
-          <CollectionCard isEmpty aria-label="Create folder" onClick={onCreateFolder}>
+          <CollectionCard isEmpty aria-label="New folder" onClick={onCreateFolder}>
             <AppIcon icon="plus" />
           </CollectionCard>
         )
