@@ -1,5 +1,8 @@
 import { VaultPath } from '../vault/ingest/VaultPath';
-import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import type {
+  OverflowMenuItemConfig,
+  OverflowMenuSubmenuItemConfig,
+} from '@components/menu/OverflowMenu';
 
 /**
  * The three kinds of Vault-backed entity the location-actions pipeline
@@ -128,14 +131,6 @@ export function buildLocationActionMenuItems(
     disabled?: boolean;
   } = {}
 ): OverflowMenuItemConfig[] {
-  const submenu = [
-    { id: 'copy-path-at-vault', label: 'From vault' },
-    { id: 'copy-path-full-path', label: 'Full path' },
-    ...(hasMarkdownRepresentation(kind)
-      ? [{ id: 'copy-path-as-markdown', label: 'As Markdown' }]
-      : []),
-  ];
-
   return [
     {
       id: 'reveal-in-finder',
@@ -147,8 +142,19 @@ export function buildLocationActionMenuItems(
       id: 'copy-path',
       label: 'Copy path',
       icon: 'link',
-      submenu,
+      submenu: buildCopyPathSubmenu(kind),
       disabled: options.disabled,
     },
+  ];
+}
+
+/** The "Copy path" submenu leaves for an entity kind (no "As Markdown" for a Folder). */
+export function buildCopyPathSubmenu(kind: LocationEntityKind): OverflowMenuSubmenuItemConfig[] {
+  return [
+    { id: 'copy-path-at-vault', label: 'From vault' },
+    { id: 'copy-path-full-path', label: 'Full path' },
+    ...(hasMarkdownRepresentation(kind)
+      ? [{ id: 'copy-path-as-markdown', label: 'As Markdown' }]
+      : []),
   ];
 }
