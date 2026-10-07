@@ -222,10 +222,10 @@ interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
    * DEFAULT_TASK_DISPLAY_CONFIG for callers (most tests) that don't care.
    */
   readonly displayConfig?: TaskDisplayConfig;
-  /** Groups whose "N more" row the user has clicked — shown in full. Session-only; the owner decides its lifetime. */
+  /** Groups the user has expanded with their "N more" row — shown in full, with a "Show less" row to fold back. Session-only; the owner decides its lifetime. */
   readonly expandedGroups?: readonly TaskGroupId[];
-  /** Called when a group's "N more" row is clicked. */
-  readonly onExpandGroup?: (id: TaskGroupId) => void;
+  /** Called when a group's "N more" / "Show less" row is clicked. */
+  readonly onToggleGroup?: (id: TaskGroupId) => void;
 }
 
 export function renderTasksByDate({
@@ -241,7 +241,7 @@ export function renderTasksByDate({
   resolveEmbed,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   expandedGroups = [],
-  onExpandGroup,
+  onToggleGroup,
 }: RenderTasksByDateProps) {
   // Grouped once here — every Section needs this to know whether it's
   // empty (for default expansion) as well as what to render, and
@@ -257,15 +257,20 @@ export function renderTasksByDate({
   // that expands it in full.
   const capped = (id: TaskGroupId, list: readonly TaskOccurrence[]) =>
     expandedGroups.includes(id) ? list : list.slice(0, SIDEBAR_GROUP_TASK_LIMIT);
-  const moreRow = (id: TaskGroupId, list: readonly TaskOccurrence[]) =>
-    !expandedGroups.includes(id) && list.length > SIDEBAR_GROUP_TASK_LIMIT ? (
+  const moreRow = (id: TaskGroupId, list: readonly TaskOccurrence[]) => {
+    if (list.length <= SIDEBAR_GROUP_TASK_LIMIT) {
+      return null;
+    }
+    const isExpanded = expandedGroups.includes(id);
+    return (
       <EmptyEntry
-        leading={<AppIcon icon="plus" />}
-        onClick={() => onExpandGroup?.(id)}
+        leading={<AppIcon icon={isExpanded ? 'minus' : 'plus'} />}
+        onClick={() => onToggleGroup?.(id)}
       >
-        {list.length - SIDEBAR_GROUP_TASK_LIMIT} more
+        {isExpanded ? 'Show less' : `${list.length - SIDEBAR_GROUP_TASK_LIMIT} more`}
       </EmptyEntry>
-    ) : null;
+    );
+  };
 
   return (
     <Fragment>

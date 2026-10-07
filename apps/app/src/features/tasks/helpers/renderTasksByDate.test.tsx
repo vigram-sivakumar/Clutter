@@ -585,7 +585,7 @@ describe('renderTasksByDate', () => {
     const manyUndated = () =>
       Array.from({ length: 12 }, (_, i) => task({ text: `Idea ${String(i).padStart(2, '0')}` }));
 
-    function renderGroups(expandedGroups: readonly ('unscheduled' | 'today')[], onExpandGroup = vi.fn()) {
+    function renderGroups(expandedGroups: readonly ('unscheduled' | 'today')[], onToggleGroup = vi.fn()) {
       const utils = render(
         <>
           {renderTasksByDate({
@@ -598,11 +598,11 @@ describe('renderTasksByDate', () => {
             onDeleteTask: vi.fn(),
             navigation: fakeNavigation(),
             expandedGroups,
-            onExpandGroup,
+            onToggleGroup,
           })}
         </>
       );
-      return { ...utils, onExpandGroup };
+      return { ...utils, onToggleGroup };
     }
 
     it('shows the first 10 and a "2 more" row for a group of 12', () => {
@@ -613,12 +613,12 @@ describe('renderTasksByDate', () => {
       expect(getByText('2 more')).toBeInTheDocument();
     });
 
-    it('clicking "2 more" asks the owner to expand that group', () => {
-      const { getByText, onExpandGroup } = renderGroups([]);
+    it('clicking "2 more" asks the owner to toggle that group', () => {
+      const { getByText, onToggleGroup } = renderGroups([]);
 
       fireEvent.click(getByText('2 more'));
 
-      expect(onExpandGroup).toHaveBeenCalledWith('unscheduled');
+      expect(onToggleGroup).toHaveBeenCalledWith('unscheduled');
     });
 
     it('an expanded group shows every task and no "more" row', () => {
@@ -626,6 +626,7 @@ describe('renderTasksByDate', () => {
 
       expect(getByText('Idea 11')).toBeInTheDocument();
       expect(queryByText('2 more')).not.toBeInTheDocument();
+      expect(getByText('Show less')).toBeInTheDocument();
     });
   });
 

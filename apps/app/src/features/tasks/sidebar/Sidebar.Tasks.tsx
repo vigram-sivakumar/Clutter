@@ -36,7 +36,7 @@ interface TasksPanelProps {
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
   /** Groups whose "N more" row was clicked — owned by Sidebar so it outlives this panel unmounting on a tab switch, and resets on restart. */
   readonly expandedGroups: readonly TaskGroupId[];
-  readonly onExpandGroup: (id: TaskGroupId) => void;
+  readonly onToggleGroup: (id: TaskGroupId) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set by onOpenTask below, consumed once by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
 }
@@ -52,7 +52,7 @@ export function Tasks({
   tasksViewConfig,
   onTasksViewConfigChange,
   expandedGroups,
-  onExpandGroup,
+  onToggleGroup,
   onRequestReveal,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
@@ -145,7 +145,7 @@ export function Tasks({
         resolveEmbed,
         displayConfig: tasksViewConfig,
         expandedGroups,
-        onExpandGroup,
+        onToggleGroup,
       })}
     </View>
   );

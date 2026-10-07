@@ -152,7 +152,11 @@ export function Sidebar({
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={onTasksViewConfigChange}
           expandedGroups={expandedTaskGroups}
-          onExpandGroup={(id) => setExpandedTaskGroups((prev) => [...prev, id])}
+          onToggleGroup={(id) =>
+            setExpandedTaskGroups((prev) =>
+              prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+            )
+          }
           onRequestReveal={onRequestReveal}
         />
       ),
