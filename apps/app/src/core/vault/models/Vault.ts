@@ -582,6 +582,20 @@ export class Vault {
     return this.tagMetadata;
   }
 
+  /**
+   * Ids of the pages that use the tag `name` (any spelling) — the TagIndex's
+   * own tag → pages answer: a page counts once whether the tag is an inline
+   * `#tag` in its body, a frontmatter `tags` entry, or both, so its length is
+   * exactly `Tag.usageCount`. O(that tag's pages): the index is built once
+   * (here, if no mutation has seeded it yet) and then only updated
+   * incrementally, so this never scans the vault per call.
+   */
+  pageIdsForTag(name: string): readonly string[] {
+    this.tagIndex ??= TagIndex.build(this.pagesById.values(), this.tagMetadata);
+
+    return this.tagIndex.pageIdsFor(normalizeTagName(name));
+  }
+
   setTagMetadata(metadata: ReadonlyMap<string, TagMetadataEntry>): void {
     this.tagMetadata = metadata;
 

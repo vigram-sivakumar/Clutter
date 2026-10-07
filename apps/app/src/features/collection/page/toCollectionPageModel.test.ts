@@ -626,6 +626,48 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
     expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
   });
 
+  it('lists every note that counts toward the tag — an inline #tag, a frontmatter-only tag, or both — exactly Tag.usageCount', () => {
+    const inline = makePage({
+      id: 'inline',
+      name: 'Inline',
+      parentId: null,
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'inline' }] },
+    });
+    const frontmatterOnly = makePage({
+      id: 'frontmatter',
+      name: 'Frontmatter',
+      parentId: null,
+      metadata: { ...defaultPageMetadata, tags: ['Project'] },
+    });
+    const both = makePage({
+      id: 'both',
+      name: 'Both',
+      parentId: null,
+      metadata: { ...defaultPageMetadata, tags: ['project'] },
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'both' }] },
+    });
+    const untagged = makePage({ id: 'untagged', name: 'Untagged', parentId: null });
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(
+      [],
+      [inline, frontmatterOnly, both, untagged]
+    );
+
+    const model = toCollectionPageModel(
+      { view: { kind: 'tag', tagName: 'project' } },
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    const ids = model.notes.map((note) => note.id).sort();
+    expect(ids).toEqual(['both', 'frontmatter', 'inline']);
+    // The collection and the tag's own count are the same set.
+    expect(model.notes).toHaveLength(vault.getTagByName('project')!.usageCount);
+  });
+
   it('falls back to the raw tag name as title when the tag has no matching Tag entity (e.g. it was just removed from Markdown)', () => {
     const { vault, query, effectivePageState, membershipSelector, workspace } =
       setup([], []);

@@ -502,6 +502,53 @@ describe('VaultQuery.getPagesByTag', () => {
 
     expect(query.getPagesByTag('nonexistent')).toEqual([]);
   });
+
+  it('includes frontmatter-only notes, under any spelling — the same set as the tag index', () => {
+    const inline = withTag(makePage('inline', 'Inline'), 'design-system');
+    const frontmatter: Page = {
+      ...makePage('frontmatter', 'Frontmatter'),
+      metadata: { ...makePage('frontmatter', 'Frontmatter').metadata, tags: ['Design System'] },
+    };
+    const vault = makeVault([], [inline, frontmatter, makePage('other', 'Other')]);
+    const query = new VaultQuery(vault);
+
+    expect(query.getPagesByTag('DESIGN_SYSTEM').map((p) => p.id)).toEqual(['inline', 'frontmatter']);
+    expect(vault.pageIdsForTag('design-system')).toEqual(['inline', 'frontmatter']);
+  });
+
+  it('lists a note once however many ways it uses the tag, and two notes as two', () => {
+    const heavy: Page = {
+      ...withTag(makePage('heavy', 'Heavy'), 'project'),
+      analysis: {
+        ...makePage('heavy', 'Heavy').analysis,
+        tags: [
+          { name: 'project', sourcePageId: 'heavy' },
+          { name: 'Project', sourcePageId: 'heavy' },
+          { name: 'project', sourcePageId: 'heavy' },
+        ],
+      },
+      metadata: { ...makePage('heavy', 'Heavy').metadata, tags: ['project', 'Project', 'project'] },
+    };
+    const other = withTag(makePage('other', 'Other'), 'project');
+    const vault = makeVault([], [heavy, other]);
+    const query = new VaultQuery(vault);
+
+    expect(query.getPagesByTag('project').map((p) => p.id)).toEqual(['heavy', 'other']);
+    expect(vault.pageIdsForTag('project')).toEqual(['heavy', 'other']);
+  });
+
+  it('stays current as pages change, without a vault scan: a replaced page moves in and out', () => {
+    const page = withTag(makePage('p1', 'One'), 'project');
+    const vault = makeVault([], [page, makePage('p2', 'Two')]);
+    const query = new VaultQuery(vault);
+    expect(query.getPagesByTag('project').map((p) => p.id)).toEqual(['p1']);
+
+    vault.replacePage(withTag(makePage('p2', 'Two'), 'project'));
+    expect(query.getPagesByTag('project').map((p) => p.id).sort()).toEqual(['p1', 'p2']);
+
+    vault.replacePage(makePage('p1', 'One'));
+    expect(query.getPagesByTag('project').map((p) => p.id)).toEqual(['p2']);
+  });
 });
 
 describe('VaultQuery.getFolderAndAncestorIds', () => {

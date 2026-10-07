@@ -159,46 +159,40 @@ export class EffectivePageState {
   }
 
   /**
-   * Every page (note or daily note alike) referencing the given tag —
-   * durable-only by construction, unlike getChildPages()/getFavoritePages():
-   * a draft has no Page.analysis (tags are extracted only from scanned
-   * Vault content), so there is no equivalent "draft mentions this tag"
-   * case to reconcile. Still resolved through resolve() rather than
-   * returned as raw Pages, so a currently-open page's live, uncommitted
-   * title/description/icon show correctly, same as every other
-   * page-list read here.
+   * Every page that should currently be shown under the tag `name`: the
+   * pages the TagIndex says use it (inline or frontmatter — exactly what
+   * `Tag.usageCount` counts), plus any open, not-yet-promoted draft opened
+   * with this tag (a tag's "new note"), appended after the durable ones like
+   * getChildPages() does — it vanishes with the draft if abandoned. Each is
+   * resolved through resolve() so a currently-open page's live, uncommitted
+   * title/description/icon show correctly, same as every other page-list read
+   * here.
    */
   public getPagesByTag(name: string): EffectivePage[] {
-    return this.query
-      .getPagesByTag(name)
-      .map((page) => this.resolve(page.id))
+    const durableIds = this.query.getPagesByTag(name).map((page) => page.id);
+
+    return [...durableIds, ...this.draftIdsForTag(name)]
+      .map((id) => this.resolve(id))
       .filter((entry): entry is EffectivePage => entry !== undefined);
   }
 
   /**
-   * Note-level membership counterpart to getPagesByTag above — see
-   * VaultQuery.getPagesByFrontmatterTag's own doc comment. Same
-   * resolve()-through-EffectivePage shape, for the same reason.
+   * Whether an open draft carries the tag `name` — all it takes for an
+   * otherwise-unused tag to be worth expanding. Looks only at the open
+   * pages, never the vault.
    */
-  public getPagesByFrontmatterTag(name: string): EffectivePage[] {
-    const durableIds = this.query
-      .getPagesByFrontmatterTag(name)
-      .map((page) => page.id);
+  public hasDraftForTag(name: string): boolean {
+    return this.draftIdsForTag(name).length > 0;
+  }
 
-    // An open, not-yet-promoted draft opened with this tag (a tag's "new
-    // note") is shown under it too, same append-after-durable shape
-    // getChildPages() uses — it vanishes with the draft if abandoned.
-    const draftOnlyIds = this.workspace.openPages.filter(
+  private draftIdsForTag(name: string): string[] {
+    const key = normalizeTagName(name);
+
+    return this.workspace.openPages.filter(
       (id) =>
         !this.vault.getPage(id) &&
-        (this.pageOperations.getDraft(id)?.tags ?? []).some(
-          (tag) => normalizeTagName(tag) === normalizeTagName(name)
-        )
+        (this.pageOperations.getDraft(id)?.tags ?? []).some((tag) => normalizeTagName(tag) === key)
     );
-
-    return [...durableIds, ...draftOnlyIds]
-      .map((id) => this.resolve(id))
-      .filter((entry): entry is EffectivePage => entry !== undefined);
   }
 
   /**

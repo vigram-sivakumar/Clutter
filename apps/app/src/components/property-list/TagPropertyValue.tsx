@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import { MenuItem } from '@components/menu/MenuItem';
 import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
-import { scanTag } from '@core/vault/ingest/tag/tagScanner';
+import { isValidTagName } from '@core/vault/ingest/tag/tagScanner';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import type { PropertyEditability } from './PropertyList.types';
@@ -37,9 +37,7 @@ export function parseTagInput(text: string): string | null {
   // Spaces become `-`, the canonical separator — the same step the Tags sidebar's rename applies
   // (serializeTagName), so "Testing new tag" is the tag `Testing-new-tag`, shown as "Testing new tag".
   const name = serializeTagName(trimmed.replace(/^#\s*/, ''));
-  const withHash = `#${name}`;
-  const match = scanTag(withHash, 0);
-  return match && match.end === withHash.length ? match.name : null;
+  return isValidTagName(name) ? name : null;
 }
 
 /** Whether `tags` already holds `name` under the tag identity rule (normalizeTagName). */

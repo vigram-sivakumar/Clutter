@@ -245,13 +245,13 @@ describe('PageOperations: a draft opened with tags', () => {
 
     const id = await pageOperations.openDraft({ folderId: null, tags: ['work'] });
 
-    expect(effectivePageState.getPagesByFrontmatterTag('work').map((p) => p.id)).toEqual([id]);
-    expect(effectivePageState.getPagesByFrontmatterTag('other')).toEqual([]);
+    expect(effectivePageState.getPagesByTag('work').map((p) => p.id)).toEqual([id]);
+    expect(effectivePageState.getPagesByTag('other')).toEqual([]);
 
     // Retargeting the empty draft (no tags) replaces the descriptor.
     await pageOperations.openDraft({ folderId: null });
 
-    expect(effectivePageState.getPagesByFrontmatterTag('work')).toEqual([]);
+    expect(effectivePageState.getPagesByTag('work')).toEqual([]);
   });
 });
 

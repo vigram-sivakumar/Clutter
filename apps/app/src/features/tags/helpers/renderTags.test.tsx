@@ -18,7 +18,7 @@ const noop = () => {};
 // Minimal fakes — only the members renderTags actually calls. Every
 // fixture below uses usageCount: 0 (or doesn't interact with
 // expand/collapse), so isExpanded/toggleExpanded/activePageId and
-// getPagesByTag/getPagesByFrontmatterTag are never exercised by these
+// getPagesByTag/hasDraftForTag are never exercised by these
 // tests; they exist only to satisfy renderTags' required props.
 const fakeWorkspace = {
   activePageId: null,
@@ -33,11 +33,13 @@ const fakeTagExpansionStore = {
 
 const fakeEffectivePageState = {
   getPagesByTag: () => [],
-  getPagesByFrontmatterTag: () => [],
+  hasDraftForTag: () => false,
 } as unknown as EffectivePageState;
 
+// A page for any id — frontmatter-tagged `design`, no inline occurrences — which is what the
+// frontmatter-only fixtures below mean. Tests about inline occurrences supply their own vault.
 const fakeVault = {
-  getPage: () => undefined,
+  getPage: (id: string) => fakePage({ id, markdown: '', tagOccurrences: [], frontmatterTags: ['design'] }),
 } as unknown as Vault;
 
 /** A store whose toggleExpanded is a spy, to observe the row-click toggle. */
@@ -62,6 +64,8 @@ function fakePage(overrides: {
   id?: string;
   markdown: string;
   tagOccurrences: readonly { name: string; startOffset: number; endOffset: number }[];
+  /** Note-level (frontmatter) `tags`. */
+  frontmatterTags?: readonly string[];
 }): Page {
   return {
     id: overrides.id ?? 'p1',
@@ -84,6 +88,7 @@ function fakePage(overrides: {
       originalPath: null,
       createdAt: null,
       updatedAt: null,
+      ...(overrides.frontmatterTags ? { tags: overrides.frontmatterTags } : {}),
     },
     source: { markdown: overrides.markdown },
     analysis: {
@@ -645,8 +650,8 @@ describe('renderTags', () => {
   describe('expanded tag children — frontmatter note entry', () => {
     it('a collapsed tag renders no children even when it has notes', () => {
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       render(
         <>
@@ -667,8 +672,8 @@ describe('renderTags', () => {
       const note = fakeNote();
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [note],
+        getPagesByTag: () => [note],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const workspace = {
         activePageId: note.id,
@@ -698,8 +703,8 @@ describe('renderTags', () => {
     it('a note whose only membership is frontmatter renders as a full note row, not a context entry', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       render(
         <>
@@ -716,8 +721,8 @@ describe('renderTags', () => {
     it('clicking it calls onOpenNoteEntry with the note id — no editor reveal, there is no body occurrence', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const onOpenNoteEntry = vi.fn();
       const onOpenContextEntry = vi.fn();
@@ -739,8 +744,8 @@ describe('renderTags', () => {
     it('offers the full note overflow menu (Rename, Archive) — the existing note-row behavior is preserved', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       // openMenuId set directly, rather than simulating the click-to-open
       // interaction: rowActions is a static fixture here, not React
@@ -764,8 +769,8 @@ describe('renderTags', () => {
     it("selecting Archive calls the same onArchiveNote PageOperations-backed handler the Notes sidebar uses", () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const onArchiveNote = vi.fn();
       const noteRowActions = fakeNoteRowActions({ openMenuId: 'p1', onArchiveNote });
@@ -786,8 +791,8 @@ describe('renderTags', () => {
     it('mid-rename does not also navigate (same edit-mode suppression as the Notes sidebar)', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const onOpenNoteEntry = vi.fn();
       const noteRowActions = fakeNoteRowActions({ editingId: 'p1' });
@@ -825,8 +830,8 @@ describe('renderTags', () => {
       return {
         tagExpansionStore: { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore,
         effectivePageState: {
-          getPagesByTag: () => [],
-          getPagesByFrontmatterTag: () => [fakeNote()],
+          getPagesByTag: () => [fakeNote()],
+          hasDraftForTag: () => false,
         } as unknown as EffectivePageState,
       };
     }
@@ -887,7 +892,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -922,7 +927,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -952,7 +957,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -976,7 +981,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const onOpenContextEntry = vi.fn();
@@ -1012,7 +1017,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const onOpenContextEntry = vi.fn();
@@ -1045,7 +1050,7 @@ describe('renderTags', () => {
       const snapshot = JSON.parse(JSON.stringify(page));
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -1070,7 +1075,7 @@ describe('renderTags', () => {
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       render(
@@ -1094,10 +1099,11 @@ describe('renderTags', () => {
       const page = fakePage({
         markdown,
         tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+        frontmatterTags: ['design'],
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -1119,10 +1125,11 @@ describe('renderTags', () => {
       const page = fakePage({
         markdown,
         tagOccurrences: [{ name: 'design', startOffset: 24, endOffset: 31 }],
+        frontmatterTags: ['design'],
       });
       const effectivePageState = {
         getPagesByTag: () => [fakeNote()],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       const { container } = render(
@@ -1147,10 +1154,10 @@ describe('renderTags', () => {
     it('shows only the note entry, no context entries, for a note whose tag membership is frontmatter-only', () => {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       // No inline occurrence anywhere in this note's body for "design".
-      const page = fakePage({ markdown: 'Nothing inline here.', tagOccurrences: [] });
+      const page = fakePage({ markdown: 'Nothing inline here.', tagOccurrences: [], frontmatterTags: ['design'] });
       const effectivePageState = {
-        getPagesByTag: () => [],
-        getPagesByFrontmatterTag: () => [fakeNote()],
+        getPagesByTag: () => [fakeNote()],
+        hasDraftForTag: () => false,
       } as unknown as EffectivePageState;
       const vault = { getPage: () => page } as unknown as Vault;
       render(
@@ -1164,6 +1171,72 @@ describe('renderTags', () => {
 
       expect(screen.getByText('My Note')).toBeInTheDocument();
       expect(screen.queryByText(/Nothing inline here/)).toBeNull();
+    });
+  });
+
+  describe('no per-tag vault work', () => {
+    const manyTags = (used: number, unused: number) => [
+      ...Array.from({ length: used }, (_, i) => ({
+        name: `used-${i}`,
+        favorite: false,
+        declared: false,
+        usageCount: 3,
+      })),
+      ...Array.from({ length: unused }, (_, i) => ({
+        name: `unused-${i}`,
+        favorite: false,
+        declared: true,
+        usageCount: 0,
+      })),
+    ];
+
+    it('rendering many collapsed tags queries no tag membership and never scans the vault; only unused tags check open drafts', () => {
+      const getPagesByTag = vi.fn(() => []);
+      const hasDraftForTag = vi.fn(() => false);
+      const pages = vi.fn(() => []);
+      const effectivePageState = { getPagesByTag, hasDraftForTag } as unknown as EffectivePageState;
+      const vault = { getPage: vi.fn(), pages } as unknown as Vault;
+
+      render(<>{renderTags(manyTags(200, 2), { ...renderOptions, effectivePageState, vault })}</>);
+
+      expect(getPagesByTag).not.toHaveBeenCalled();
+      // A used tag is never empty, so only the two unused tags need the open-draft check.
+      expect(hasDraftForTag).toHaveBeenCalledTimes(2);
+      expect(pages).not.toHaveBeenCalled();
+    });
+
+    it('an expanded tag reads its notes once, through the one membership query', () => {
+      const getPagesByTag = vi.fn(() => []);
+      const effectivePageState = { getPagesByTag, hasDraftForTag: () => false } as unknown as EffectivePageState;
+      const tagExpansionStore = {
+        isExpanded: (name: string) => name === 'used-1',
+        toggleExpanded: noop,
+      } as unknown as TagExpansionStore;
+
+      render(<>{renderTags(manyTags(5, 0), { ...renderOptions, effectivePageState, tagExpansionStore })}</>);
+
+      expect(getPagesByTag).toHaveBeenCalledTimes(1);
+      expect(getPagesByTag).toHaveBeenCalledWith('used-1');
+    });
+
+    it('an unused tag with an open draft is still expandable', () => {
+      const effectivePageState = {
+        getPagesByTag: () => [fakeNote({ isDraft: true })],
+        hasDraftForTag: () => true,
+      } as unknown as EffectivePageState;
+      const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
+
+      render(
+        <>
+          {renderTags([{ name: 'design', favorite: false, declared: true, usageCount: 0 }], {
+            ...renderOptions,
+            effectivePageState,
+            tagExpansionStore,
+          })}
+        </>
+      );
+
+      expect(screen.getByText('My Note')).toBeInTheDocument();
     });
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EffectivePageState } from './EffectivePageState';
 import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
@@ -325,6 +325,30 @@ describe('EffectivePageState.getPagesByTag', () => {
     const { effectivePageState } = setup();
 
     expect(effectivePageState.getPagesByTag('nonexistent')).toEqual([]);
+  });
+
+  it('includes a note that only lists the tag in its frontmatter, and an open draft carrying it', async () => {
+    const { pageOperations, effectivePageState, vault } = setup();
+    const frontmatterId = await pageOperations.openDraft({ folderId: null, title: 'FM', tags: ['project'] });
+    await pageOperations.save(frontmatterId, 'No inline tag here.');
+    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Draft', tags: ['project'] });
+
+    expect(vault.getPage(frontmatterId)?.metadata.tags).toEqual(['project']);
+    expect(effectivePageState.getPagesByTag('project').map((page) => page.id)).toEqual([frontmatterId, draftId]);
+    expect(effectivePageState.hasDraftForTag('project')).toBe(true);
+    expect(effectivePageState.hasDraftForTag('other')).toBe(false);
+  });
+
+  it('never scans the vault: membership comes from the tag index, drafts from the open pages', async () => {
+    const { pageOperations, effectivePageState, vault } = setup();
+    await pageOperations.openDraft({ folderId: null, tags: ['project'] });
+    const pages = vi.spyOn(vault, 'pages');
+
+    effectivePageState.getPagesByTag('project');
+    effectivePageState.getPagesByTag('other');
+    effectivePageState.hasDraftForTag('project');
+
+    expect(pages).not.toHaveBeenCalled();
   });
 });
 

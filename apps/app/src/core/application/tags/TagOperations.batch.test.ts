@@ -703,8 +703,9 @@ describe('normalized identity', () => {
     expect(t.vault.getTagByName('design-system')?.usageCount).toBe(2);
     expect(t.vault.getTagByName('DESIGN_SYSTEM')?.usageCount).toBe(2);
     const query = new VaultQuery(t.vault);
-    expect(query.getPagesByTag('design-system').map((p) => p.id)).toEqual(['a']);
-    expect(query.getPagesByFrontmatterTag('design_system').map((p) => p.id)).toEqual(['b']);
+    // One query, any spelling: the inline note and the frontmatter note, exactly the tag's usage.
+    expect(query.getPagesByTag('design-system').map((p) => p.id)).toEqual(['a', 'b']);
+    expect(query.getPagesByTag('DESIGN_SYSTEM').map((p) => p.id)).toEqual(['a', 'b']);
   });
 
   it('declaring or renaming to an underscore spelling writes hyphens', async () => {

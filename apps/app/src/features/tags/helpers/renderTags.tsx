@@ -5,7 +5,7 @@ import { Tag } from '../sidebar/Tag';
 import { TagContextEntry } from '../sidebar/TagContextEntry';
 import { buildTagSidebarMenu } from '../sidebar/tagSidebarMenu.config';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
-import { formatTagDisplayLabel, type Tag as TagModel } from '@core/vault/models/Tag';
+import { formatTagDisplayLabel, normalizeTagName, type Tag as TagModel } from '@core/vault/models/Tag';
 import { PageEntry, type NoteRowActions } from '@features/notes/sidebar/FolderTree';
 import type { Vault } from '@core/vault/models';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
@@ -78,12 +78,13 @@ interface RenderTagsOptions {
    */
   workspace: Workspace;
   /**
-   * The existing tag->notes indexes the Tag Collection view already
-   * reads — inline-occurrence membership (getPagesByTag) and note-level
-   * frontmatter membership (getPagesByFrontmatterTag), each a genuinely
-   * different reason a note belongs to this tag (PageMetadata.tags's own
-   * doc comment: independent, never synchronized) — both are shown,
-   * never merged into one.
+   * The one tag->notes read the Tag Collection page also uses
+   * (getPagesByTag: the tag index's pages plus open drafts) and the
+   * open-draft check (hasDraftForTag). Why a note belongs to the tag — an
+   * inline occurrence, note-level frontmatter membership, or both
+   * (PageMetadata.tags's own doc comment: independent, never synchronized)
+   * — is read off those few notes' own pages, never from a second vault
+   * query.
    */
   effectivePageState: EffectivePageState;
   /**
@@ -150,39 +151,47 @@ interface TagChild {
 
 /**
  * Resolves everything an expanded tag needs to render its children:
- * every note that belongs to it (via either inline occurrence or
- * frontmatter membership, union'd and deduplicated by id — the same note
- * can have both, and still gets exactly one TagChild carrying both
- * facts, per the module's own "do not deduplicate into one item" rule
- * *between* a note entry and its context entries, while still only
- * resolving the note itself once), each annotated with its frontmatter
+ * every note that belongs to it (the tag index already unions inline and
+ * frontmatter membership, one entry per note — the same note can have
+ * both, and still gets exactly one TagChild carrying both facts, per the
+ * module's own "do not deduplicate into one item" rule *between* a note
+ * entry and its context entries), each annotated with its frontmatter
  * membership flag and its inline occurrences grouped by line
- * (getTagLineContexts). Ordering: getPagesByTag's own order first (the
- * existing tag->notes ordering convention), then any additional
- * frontmatter-only notes it didn't already include — no new sort
- * introduced for either list.
+ * (getTagLineContexts). Ordering: notes with an inline occurrence first,
+ * then frontmatter-only notes and drafts, each in the index's own order —
+ * no new sort.
  */
 function getTagChildren(
   tagName: string,
   vault: Vault,
   effectivePageState: EffectivePageState
 ): TagChild[] {
-  const inlineNotes = effectivePageState.getPagesByTag(tagName);
-  const frontmatterNotes = effectivePageState.getPagesByFrontmatterTag(tagName);
-  const frontmatterIds = new Set(frontmatterNotes.map((note) => note.id));
+  const key = normalizeTagName(tagName);
+  // One index-backed read (EffectivePageState.getPagesByTag: the pages the tag
+  // index says use it, plus open drafts); everything below only looks at those
+  // pages, never the rest of the vault.
+  const children = effectivePageState.getPagesByTag(tagName).map((note) => {
+    const page = vault.getPage(note.id);
 
-  const orderedNotes = [...inlineNotes];
-  for (const note of frontmatterNotes) {
-    if (!inlineNotes.some((existing) => existing.id === note.id)) {
-      orderedNotes.push(note);
-    }
-  }
+    return {
+      note,
+      page,
+      hasInline: page?.analysis.tags.some((occurrence) => normalizeTagName(occurrence.name) === key) ?? false,
+      // A draft carries the tag as note-level membership, like a frontmatter entry.
+      hasFrontmatterMembership:
+        note.isDraft || (page?.metadata.tags ?? []).some((tag) => normalizeTagName(tag) === key),
+    };
+  });
 
-  return orderedNotes.map((note) => ({
-    note,
-    hasFrontmatterMembership: frontmatterIds.has(note.id),
-    lineContexts: getTagLineContexts(vault.getPage(note.id), tagName),
-  }));
+  // Notes with an inline occurrence first, then the frontmatter-only ones (and
+  // drafts) — each group in the index's order, no new sort.
+  return [...children.filter((child) => child.hasInline), ...children.filter((child) => !child.hasInline)].map(
+    ({ note, page, hasFrontmatterMembership }) => ({
+      note,
+      hasFrontmatterMembership,
+      lineContexts: getTagLineContexts(page, tagName),
+    })
+  );
 }
 
 function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
@@ -207,11 +216,11 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
   const menuItems = rowActions ? buildTagSidebarMenu(tag.favorite) : undefined;
   const isEditing = rowActions?.editingId === tag.name;
   // A tag with zero occurrences has nothing to expand into — same
-  // "isEmpty forces the caret collapsed" rule as Folder's own isEmpty,
-  // and avoids ever querying getPagesByTag for a tag that can't have any.
-  const hasDraft = effectivePageState
-    .getPagesByFrontmatterTag(tag.name)
-    .some((note) => note.isDraft);
+  // "isEmpty forces the caret collapsed" rule as Folder's own isEmpty — unless
+  // an open draft carries it (a tag's "new note"). Only an unused tag needs
+  // that check, and it reads the open pages, never the vault, so rendering
+  // many tags costs nothing per tag.
+  const hasDraft = tag.usageCount === 0 && effectivePageState.hasDraftForTag(tag.name);
   const isEmpty = tag.usageCount === 0 && !hasDraft;
   const isExpanded = isEmpty ? false : tagExpansionStore.isExpanded(tag.name);
   // Only resolved while actually expanded — satisfies "don't parse/query
@@ -285,7 +294,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                 // See PageEntry's own highlightActive doc comment.
                 highlightActive={directlyOpenedNoteId === note.id}
                 onPageClick={onOpenNoteEntry}
-                // A draft appears here only via getPagesByFrontmatterTag's
+                // A draft appears here only via getPagesByTag's
                 // open-draft append; it has no Vault page, so it gets the
                 // draft re-select handler and no note actions.
                 onDraftPageClick={(id) => onOpenDraftEntry?.(id)}

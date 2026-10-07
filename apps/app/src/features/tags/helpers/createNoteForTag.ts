@@ -18,7 +18,7 @@ export async function createNoteForTag(
   tagName: string
 ): Promise<void> {
   // The draft is listed under its tag in the Tags sidebar (EffectivePageState.
-  // getPagesByFrontmatterTag), so expand the tag to make that visible.
+  // getPagesByTag), so expand the tag to make that visible.
   tagExpansionStore.expand(tagName);
   await pageOperations.openDraft({ folderId: null, tags: [tagName] });
 }
