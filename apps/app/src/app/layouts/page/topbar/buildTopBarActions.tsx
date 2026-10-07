@@ -9,12 +9,7 @@ import {
   buildArchiveTopBarMenu,
   DELETE_ALL_ARCHIVED_CONFIRMATION,
 } from '@features/notes/topbar/archiveTopBarMenu.config';
-import { revealInFinder } from '@shared/helpers/revealInFinder';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
-import {
-  getLocationPathRepresentations,
-  pickLocationPathRepresentation,
-} from '@core/presentation/getLocationPathRepresentations';
+import { createLocationActions } from '@features/notes/helpers/createLocationActions';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { renderTopBarActions } from './topBarRegistry';
@@ -187,19 +182,10 @@ export function buildTopBarActions(
   // closures themselves. No Gate/PageOperations/FolderOperations
   // involvement, same reasoning as the sidebar's identical handlers
   // (Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx).
-  const onRevealInFinder = () => void revealInFinder(resource.path);
-  const onCopyPath = (format: LocationPathFormat) => {
-    const representations = getLocationPathRepresentations(
-      resource,
-      isPage(resource) ? 'page' : 'folder',
-      options.vaultRoot
-    );
-    const value = pickLocationPathRepresentation(representations, format);
-
-    if (value !== null) {
-      void copyTextToClipboard(value);
-    }
-  };
+  const location = createLocationActions(options.vaultRoot);
+  const onRevealInFinder = () => location.reveal(resource.path);
+  const onCopyPath = (format: LocationPathFormat) =>
+    location.copyPath(resource, isPage(resource) ? 'page' : 'folder', format);
 
   return {
     actions: renderTopBarActions(resourceType, {

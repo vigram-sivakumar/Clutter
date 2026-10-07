@@ -42,17 +42,8 @@ import { getSystemLocationPresentation } from '@core/presentation/systemPresenta
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
-import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { downloadResource } from '@shared/helpers/downloadResource';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
-import {
-  getLocationPathRepresentations,
-  pickLocationPathRepresentation,
-} from '@core/presentation/getLocationPathRepresentations';
-import type {
-  LocationEntityKind,
-  LocationPathFormat,
-} from '@core/presentation/getLocationPathRepresentations';
+import { createLocationActions } from '../helpers/createLocationActions';
 import { scrollRowIntoView } from '@shared/helpers/scrollRowIntoView';
 import { flashRevealHighlight } from '@shared/helpers/flashRevealHighlight';
 import { testIds } from '@shared/testing/selectors';
@@ -257,37 +248,7 @@ export function Notes({
   // Tauri desktop shell.
   const confirmation = useConfirmationSurface();
 
-  // Location-actions pipeline glue, shared by every onReveal*InFinder/
-  // onCopy*Path pair below — the one place "look up the entity's absolute
-  // path, then reveal/pick-and-copy" is implemented, rather than each of
-  // Note/Folder/Resource repeating the same two lines. Closes over `vault`
-  // for `vault.root` (the "At Vault"/Markdown representations both need).
-  function revealLocationInFinder(entityPath: string | undefined): void {
-    if (entityPath) {
-      void revealInFinder(entityPath);
-    }
-  }
-
-  function copyLocationPath(
-    entity: { path: string } | undefined,
-    kind: LocationEntityKind,
-    format: LocationPathFormat
-  ): void {
-    if (!entity) {
-      return;
-    }
-
-    const representations = getLocationPathRepresentations(
-      entity,
-      kind,
-      vault.root
-    );
-    const value = pickLocationPathRepresentation(representations, format);
-
-    if (value !== null) {
-      void copyTextToClipboard(value);
-    }
-  }
+  const location = createLocationActions(vault.root);
 
   const rowActions: SidebarRowActions = {
     ...buildNoteRowActions({
@@ -374,18 +335,16 @@ export function Notes({
     // read straight from `vault` (getFolder/getResource + the
     // already-public `vault.root`) rather than going through
     // FolderOperations/ResourceOperations/the Gate, which own writes, not
-    // this. revealLocationInFinder/copyLocationPath (below) are the one
-    // shared implementation for both entity kinds (onRevealPageInFinder/
-    // onCopyPagePath above already come from buildNoteRowActions, which
-    // has its own equivalent pair scoped to Note).
+    // this. `location` (createLocationActions) is the one shared
+    // implementation for every entity kind, Notes included.
     onRevealFolderInFinder: (folderId) =>
-      revealLocationInFinder(vault.getFolder(folderId)?.path),
+      location.reveal(vault.getFolder(folderId)?.path),
     onCopyFolderPath: (folderId, format) =>
-      copyLocationPath(vault.getFolder(folderId), 'folder', format),
+      location.copyPath(vault.getFolder(folderId), 'folder', format),
     onRevealResourceInFinder: (resourceId) =>
-      revealLocationInFinder(vault.getResource(resourceId)?.path),
+      location.reveal(vault.getResource(resourceId)?.path),
     onCopyResourcePath: (resourceId, format) =>
-      copyLocationPath(vault.getResource(resourceId), 'resource', format),
+      location.copyPath(vault.getResource(resourceId), 'resource', format),
     // Read-only export, same reasoning as onRevealResourceInFinder above —
     // reads straight from `vault` rather than going through
     // ResourceOperations/the Gate, which own writes, not this.

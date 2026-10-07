@@ -1,39 +1,23 @@
 import type { Vault } from '@core/vault/models/Vault';
-import { revealInFinder } from '@shared/helpers/revealInFinder';
 import { downloadResource } from '@shared/helpers/downloadResource';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
-import {
-  getLocationPathRepresentations,
-  pickLocationPathRepresentation,
-  type LocationPathFormat,
-} from '@core/presentation/getLocationPathRepresentations';
+import { createLocationActions } from '@features/notes/helpers/createLocationActions';
+import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 /**
- * The read-only, straight-from-`vault` resource actions (reveal in Finder,
- * copy path, download) shared by every resource-action entry point —
- * `AppLayout`'s resource overlay More Actions and `PageHost`'s
- * `MarkdownEditor`/Assets-row wiring. Previously duplicated verbatim in
- * both `Sidebar.tsx` and `PageHost.tsx`; extracted here so there is exactly
- * one implementation, per `docs/implementation-rules.md` §2 rule 4.
+ * The by-id resource (asset) flavor of the shared location actions
+ * (`createLocationActions`) plus Download — used by `AppLayout`'s resource overlay More Actions and
+ * `PageHost`'s `MarkdownEditor`/Assets-row wiring. Reveal and Copy path themselves have one
+ * implementation, in `createLocationActions`, for every resource kind.
  */
 export function createResourceLocationActions(vault: Vault) {
+  const location = createLocationActions(vault.root);
+
   function revealResourceInFinder(resourceId: string): void {
-    const path = vault.getResource(resourceId)?.path;
-    if (path) {
-      void revealInFinder(path);
-    }
+    location.reveal(vault.getResource(resourceId)?.path);
   }
 
   function copyResourcePath(resourceId: string, format: LocationPathFormat): void {
-    const resource = vault.getResource(resourceId);
-    if (!resource) {
-      return;
-    }
-    const representations = getLocationPathRepresentations(resource, 'resource', vault.root);
-    const value = pickLocationPathRepresentation(representations, format);
-    if (value !== null) {
-      void copyTextToClipboard(value);
-    }
+    location.copyPath(vault.getResource(resourceId), 'resource', format);
   }
 
   function downloadResourceById(resourceId: string): void {

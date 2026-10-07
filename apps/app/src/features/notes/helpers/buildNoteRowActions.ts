@@ -4,13 +4,7 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 import type { Vault } from '@core/vault/models/Vault';
 import type { NoteRowActions } from '../sidebar/FolderTree';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
-import { revealInFinder } from '@shared/helpers/revealInFinder';
-import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
-import {
-  getLocationPathRepresentations,
-  pickLocationPathRepresentation,
-  type LocationPathFormat,
-} from '@core/presentation/getLocationPathRepresentations';
+import { createLocationActions } from './createLocationActions';
 
 export interface BuildNoteRowActionsDeps {
   readonly vault: Vault;
@@ -59,33 +53,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     onRenameEnd,
   } = deps;
 
-  // Location-actions pipeline glue, shared by onRevealPageInFinder/
-  // onCopyPagePath below — the one place "look up the page's absolute
-  // path, then reveal/pick-and-copy" is implemented, rather than each
-  // caller repeating the same two lines (mirrors Sidebar.Notes.tsx's own
-  // revealLocationInFinder/copyLocationPath, note-scoped here since this
-  // builder only ever handles Note rows).
-  function revealLocationInFinder(entityPath: string | undefined): void {
-    if (entityPath) {
-      void revealInFinder(entityPath);
-    }
-  }
-
-  function copyLocationPath(
-    entity: { path: string } | undefined,
-    format: LocationPathFormat
-  ): void {
-    if (!entity) {
-      return;
-    }
-
-    const representations = getLocationPathRepresentations(entity, 'page', vault.root);
-    const value = pickLocationPathRepresentation(representations, format);
-
-    if (value !== null) {
-      void copyTextToClipboard(value);
-    }
-  }
+  const location = createLocationActions(vault.root);
 
   return {
     openMenuId,
@@ -132,7 +100,7 @@ export function buildNoteRowActions(deps: BuildNoteRowActionsDeps): NoteRowActio
     // Notes sidebar's "+" button already uses.
     onCreateFolder: (name) => folderOperations.create(name, null),
 
-    onRevealPageInFinder: (pageId) => revealLocationInFinder(vault.getPage(pageId)?.path),
-    onCopyPagePath: (pageId, format) => copyLocationPath(vault.getPage(pageId), format),
+    onRevealPageInFinder: (pageId) => location.reveal(vault.getPage(pageId)?.path),
+    onCopyPagePath: (pageId, format) => location.copyPath(vault.getPage(pageId), 'page', format),
   };
 }
