@@ -374,3 +374,27 @@ describe('tag menu', () => {
     expect(ids(buildResourceActionMenu('tag', {}, 'topbar'))).toEqual(['delete']);
   });
 });
+
+describe('task menu', () => {
+  const all = ['duplicate', 'change-due-date', 'open-in-note', 'delete'];
+
+  it('organize | view | destructive: Duplicate | Due date, Show in note | Delete', () => {
+    const menu = buildResourceActionMenu('task', { executable: all }, 'sidebar');
+    expect(ids(menu)).toEqual(['duplicate', 'change-due-date', 'open-in-note', 'delete']);
+    expect(dividedIds(menu)).toEqual(['change-due-date', 'delete']);
+  });
+
+  it('lists an action only when its operation was supplied', () => {
+    expect(ids(buildResourceActionMenu('task', { executable: ['open-in-note'] }, 'sidebar'))).toEqual(['open-in-note']);
+    expect(buildResourceActionMenu('task', {}, 'sidebar')).toEqual([]);
+  });
+
+  it('shows the current due date at the right of the Due date row', () => {
+    const menu = buildResourceActionMenu('task', { executable: all, valueLabel: 'Tomorrow' }, 'sidebar');
+    expect(menu.find((item) => item.id === 'change-due-date')?.trailing).toBe('Tomorrow');
+  });
+
+  it('Delete is a task\'s removal action, so the sidebar keeps it (a task has no Trash)', () => {
+    expect(ids(buildResourceActionMenu('task', { executable: all }, 'sidebar'))).toContain('delete');
+  });
+});

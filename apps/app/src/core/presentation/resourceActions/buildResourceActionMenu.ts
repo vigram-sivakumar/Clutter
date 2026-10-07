@@ -74,6 +74,9 @@ export function buildMenuFromDefinitions(
     if (definition.submenu) {
       item.submenu = [...definition.submenu];
     }
+    if (definition.trailing) {
+      item.trailing = definition.trailing(context);
+    }
     if (definition.panel) {
       item.panel = definition.panel(context);
     }

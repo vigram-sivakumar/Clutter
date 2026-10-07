@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { SystemIcon } from '@shared/icon';
 import type {
   OverflowMenuPanelConfig,
@@ -43,6 +44,13 @@ export interface ResourceActionContext {
   readonly isDeletable?: boolean;
   /** A folder's current sidebar sort; absent where the surface has no Sort by (see `sort-by`). */
   readonly sort?: SidebarSort;
+  /**
+   * Tasks only: the ids the surface can actually execute — a task row lists an action only when its
+   * caller supplied the operation (never a live control with no handler).
+   */
+  readonly executable?: readonly string[];
+  /** Tasks only: the current value shown at the right of the Due date row. */
+  readonly valueLabel?: string;
   /** Assets only: which kind of file this is. */
   readonly assetKind?: 'image' | 'pdf';
   /** Assets only: a URL with no vault file — the menu swaps each file action for its URL counterpart. */
@@ -69,6 +77,8 @@ export interface ResourceActionDefinition {
   /** Selecting it mounts and focuses an inline editor (Rename) — see `OverflowMenuItemConfig`. */
   readonly opensInlineEdit?: boolean;
   readonly submenu?: readonly OverflowMenuSubmenuItemConfig[];
+  /** Content at the row's far right (e.g. the current value) — see `OverflowMenuItemConfig.trailing`. */
+  readonly trailing?: (context: ResourceActionContext) => ReactNode;
   /** Swaps the menu for a panel of choices (Sort by) — see `OverflowMenuItemConfig.panel`. */
   readonly panel?: (context: ResourceActionContext) => OverflowMenuPanelConfig;
 }

@@ -5,6 +5,8 @@ import {
   OverflowMenu,
   type OverflowMenuItemConfig,
 } from '@components/menu/OverflowMenu';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
 import type {
@@ -77,36 +79,22 @@ export function Task({
   // rather than this component owning two separate trigger buttons.
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
 
-  const menuItems: OverflowMenuItemConfig[] = [];
-
-  if (onChangeDueDate) {
-    menuItems.push({
-      id: 'change-due-date',
-      label: 'Due date',
-      icon: 'calendarDots',
-      trailing: date ? formatTaskDueDate(date) : undefined,
-    });
-  }
-
-  if (onOpenInNote) {
-    menuItems.push({ id: 'open-in-note', label: 'Show in note', icon: 'note' });
-  }
-
-  if (onDuplicate) {
-    menuItems.push({ id: 'duplicate', label: 'Duplicate', icon: 'duplicate' });
-  }
-
-  if (onDelete) {
-    // Visually separated as a destructive action — same separatorBefore +
-    // trash-icon convention NoteEmbedMoreActions.tsx's own "Remove" item
-    // already uses, not a new danger-styling pattern.
-    menuItems.push({
-      id: 'delete',
-      label: 'Delete',
-      icon: 'trash',
-      separatorBefore: true,
-    });
-  }
+  // Each action is listed only when its caller supplied the operation; the handler map is that
+  // same set (ADR-048).
+  const handlers: ResourceActionHandlers = {
+    ...(onChangeDueDate && { 'change-due-date': () => setIsDatePickerOpen(true) }),
+    ...(onOpenInNote && { 'open-in-note': onOpenInNote }),
+    ...(onDuplicate && { duplicate: onDuplicate }),
+    ...(onDelete && { delete: onDelete }),
+  };
+  const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
+    'task',
+    {
+      executable: Object.keys(handlers),
+      valueLabel: date ? formatTaskDueDate(date) : undefined,
+    },
+    'sidebar'
+  );
 
   return (
     <>
@@ -134,17 +122,7 @@ export function Task({
             open={menuOpen}
             onOpenChange={setMenuOpen}
             triggerRef={menuAnchorRef}
-            onSelect={(id) => {
-              if (id === 'change-due-date') {
-                setIsDatePickerOpen(true);
-              } else if (id === 'open-in-note') {
-                onOpenInNote?.();
-              } else if (id === 'duplicate') {
-                onDuplicate?.();
-              } else if (id === 'delete') {
-                onDelete?.();
-              }
-            }}
+            onSelect={(id) => handlers[id]?.()}
             side="bottom"
             alignment="start"
           />

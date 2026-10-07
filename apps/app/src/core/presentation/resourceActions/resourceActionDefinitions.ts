@@ -206,7 +206,7 @@ const TOGGLE_PIN: ResourceActionDefinition = {
   icon: 'pin',
 };
 
-/** A tag has no Trash: Delete removes it everywhere, after the caller's confirmation. */
+/** A tag or task has no Trash: Delete removes it, after the caller's confirmation where there is one. */
 const DELETE_TAG: ResourceActionDefinition = {
   id: 'delete',
   group: 'destructive',
@@ -214,6 +214,11 @@ const DELETE_TAG: ResourceActionDefinition = {
   label: 'Delete',
   icon: 'trash',
 };
+
+/** A task row lists an action only when its caller supplied the operation. */
+function whenExecutable(id: string) {
+  return (context: ResourceActionContext) => (context.executable?.includes(id) ? ('enabled' as const) : ('hidden' as const));
+}
 
 export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
   note: [
@@ -258,6 +263,26 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     forFile(ARCHIVE),
   ],
   tag: [RENAME, CHANGE_ICON, TOGGLE_PIN, DELETE_TAG],
-  // Migrated in a later step (ADR-048): task still uses its own inline menu.
-  task: [],
+  // A task is a line inside a Note: no rename, icon, favorite or move. Its removal is Delete.
+  task: [
+    { ...DUPLICATE, availability: whenExecutable('duplicate') },
+    {
+      id: 'change-due-date',
+      group: 'view',
+      order: 10,
+      label: 'Due date',
+      icon: 'calendarDots',
+      trailing: (context) => context.valueLabel,
+      availability: whenExecutable('change-due-date'),
+    },
+    {
+      id: 'open-in-note',
+      group: 'view',
+      order: 20,
+      label: 'Show in note',
+      icon: 'note',
+      availability: whenExecutable('open-in-note'),
+    },
+    { ...DELETE_TAG, availability: whenExecutable('delete') },
+  ],
 };

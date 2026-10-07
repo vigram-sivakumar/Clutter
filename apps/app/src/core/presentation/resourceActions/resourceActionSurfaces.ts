@@ -18,10 +18,10 @@ export interface ResourceActionSurfaceProfile {
 
 /**
  * An archived resource is never rendered in the sidebar tree, so it has no Restore/Delete there.
- * A Tag has no Trash — its Delete is its removal action, so it keeps it everywhere.
+ * A Tag or Task has no Trash — its Delete is its removal action, so it keeps it everywhere.
  */
 const archivedOnlyActionsExceptTag = (kind: ResourceKind): readonly string[] =>
-  kind === 'tag' ? [] : ['restore', 'delete'];
+  kind === 'tag' || kind === 'task' ? [] : ['restore', 'delete'];
 
 export const RESOURCE_ACTION_SURFACES: Readonly<
   Record<ResourceActionSurface, ResourceActionSurfaceProfile>
