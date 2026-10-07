@@ -45,3 +45,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [045](./045-all-tasks-is-a-configurable-collection.md) | All Tasks is a configurable collection — it plugs into the shared collection settings (definition, registry properties, store key, List/Table) | Accepted |
 | [046](./046-task-views-are-datasets-of-one-task-collection.md) | Task views are datasets of one Task Collection — one config key, one `tasksForView` membership authority, one renderer | Accepted |
 | [047](./047-tag-restyle-is-a-casing-only-one-time-operation.md) | `TagOperations.restyle()` — a casing-only, one-time Tag operation (not a setting) | Accepted |
+| [048](./048-canonical-resource-actions.md) | Canonical resource actions — one definition per resource; groups, order and dividers derived; surface visibility explicit | Accepted |
