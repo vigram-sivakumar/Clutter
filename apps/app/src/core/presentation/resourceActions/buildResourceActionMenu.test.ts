@@ -347,3 +347,30 @@ describe('Reveal in Finder on the topbar (surface rule)', () => {
     expect(hasReveal('asset', { assetKind: 'image', status: 'active' }, 'sidebar')).toBe(true);
   });
 });
+
+describe('tag menu', () => {
+  it('sidebar: Rename, Change icon | Pin | Delete, with dividers from the groups', () => {
+    const menu = buildResourceActionMenu('tag', {}, 'sidebar');
+    expect(ids(menu)).toEqual(['rename', 'change-icon', 'toggle-pin', 'delete']);
+    expect(dividedIds(menu)).toEqual(['toggle-pin', 'delete']);
+    expect(menu.find((item) => item.id === 'toggle-pin')).toMatchObject({ label: 'Pin', icon: 'pin' });
+    expect(menu.find((item) => item.id === 'delete')).toMatchObject({ label: 'Delete', icon: 'trash' });
+  });
+
+  it('keeps Pin / Unpin wording (a distinct concept from Favorites)', () => {
+    const pinned = buildResourceActionMenu('tag', { isPinned: true }, 'sidebar');
+    expect(pinned.find((item) => item.id === 'toggle-pin')?.label).toBe('Unpin');
+    expect(ids(pinned)).not.toContain('toggle-favorite');
+  });
+
+  it('a tag keeps Delete in the sidebar even though other resources do not (it has no Trash)', () => {
+    expect(ids(buildResourceActionMenu('tag', {}, 'sidebar'))).toContain('delete');
+    expect(ids(buildResourceActionMenu('note', { status: 'archived', isDeletable: true }, 'sidebar'))).not.toContain(
+      'delete'
+    );
+  });
+
+  it('the tag page topbar offers only Delete', () => {
+    expect(ids(buildResourceActionMenu('tag', {}, 'topbar'))).toEqual(['delete']);
+  });
+});

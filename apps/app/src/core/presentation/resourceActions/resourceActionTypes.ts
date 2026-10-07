@@ -36,6 +36,8 @@ export interface ResourceActionContext {
   readonly isDraft?: boolean;
   readonly status?: 'active' | 'archived';
   readonly isFavorite?: boolean;
+  /** Tags only: whether the tag is pinned (stored as its `favorite` metadata). */
+  readonly isPinned?: boolean;
   readonly isTemplate?: boolean;
   /** Permanent Delete applies only to an archived resource or an Archive descendant. */
   readonly isDeletable?: boolean;

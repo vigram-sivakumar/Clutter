@@ -98,6 +98,7 @@ import {
   TAG_DELETE_CONFIRMATION_MESSAGE,
   getTagDeleteConfirmationTitle,
 } from '@app/layouts/page/tagCollectionDelete';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
@@ -1827,7 +1828,7 @@ export function PageHost({
         actions={
           view.kind === 'tag' ? (
             <ResourceTopBarActions
-              menu={[{ id: 'delete', label: 'Delete', icon: 'trash' }]}
+              menu={buildResourceActionMenu('tag', {}, 'topbar')}
               handlers={{
                 delete: () =>
                   void createTagCollectionDeleteHandler(

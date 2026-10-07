@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Tag } from './Tag';
-import { buildTagSidebarMenu } from './tagSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -26,7 +26,7 @@ afterEach(() => {
   cleanup();
 });
 
-const menuItems = buildTagSidebarMenu();
+const menuItems = buildResourceActionMenu('tag', {}, 'sidebar');
 
 function TagHarness({
   emoji,

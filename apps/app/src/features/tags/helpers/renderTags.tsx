@@ -3,7 +3,8 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
 import { Tag } from '../sidebar/Tag';
 import { TagContextEntry } from '../sidebar/TagContextEntry';
-import { buildTagSidebarMenu } from '../sidebar/tagSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildTagMenuHandlers } from './buildTagMenuHandlers';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
 import { formatTagDisplayLabel, normalizeTagName, type Tag as TagModel } from '@core/vault/models/Tag';
 import { PageEntry, type NoteRowActions } from '@features/notes/sidebar/FolderTree';
@@ -213,7 +214,9 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     rowActions,
     directlyOpenedNoteId,
   } = options;
-  const menuItems = rowActions ? buildTagSidebarMenu(tag.favorite) : undefined;
+  const menuItems = rowActions
+    ? buildResourceActionMenu('tag', { isPinned: tag.favorite }, 'sidebar')
+    : undefined;
   const isEditing = rowActions?.editingId === tag.name;
   // A tag with zero occurrences has nothing to expand into — same
   // "isEmpty forces the caret collapsed" rule as Folder's own isEmpty — unless
@@ -261,15 +264,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         }
         onMenuSelect={
           rowActions
-            ? (id) => {
-                if (id === 'rename') {
-                  rowActions.onStartRename(tag.name);
-                } else if (id === 'toggle-pin') {
-                  rowActions.onTogglePinTag(tag.name, !tag.favorite);
-                } else if (id === 'delete') {
-                  rowActions.onDeleteTag(tag.name);
-                }
-              }
+            ? (id) => buildTagMenuHandlers(rowActions, tag.name, tag.favorite)[id]?.()
             : undefined
         }
         onChangeIcon={

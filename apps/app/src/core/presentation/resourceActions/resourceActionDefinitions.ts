@@ -197,6 +197,24 @@ const DOWNLOAD: ResourceActionDefinition = {
   availability: (context) => (context.assetKind === 'image' ? 'enabled' : 'hidden'),
 };
 
+/** Pinning a tag is its `favorite` metadata (what the Pinned grouping reads) — named Pin, not Favorite. */
+const TOGGLE_PIN: ResourceActionDefinition = {
+  id: 'toggle-pin',
+  group: 'organize',
+  order: 10,
+  label: (context) => (context.isPinned ? 'Unpin' : 'Pin'),
+  icon: 'pin',
+};
+
+/** A tag has no Trash: Delete removes it everywhere, after the caller's confirmation. */
+const DELETE_TAG: ResourceActionDefinition = {
+  id: 'delete',
+  group: 'destructive',
+  order: 10,
+  label: 'Delete',
+  icon: 'trash',
+};
+
 export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
   note: [
     RENAME,
@@ -239,7 +257,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     DOWNLOAD,
     forFile(ARCHIVE),
   ],
-  // Migrated in later steps (ADR-048): tag and task still use their own configs.
-  tag: [],
+  tag: [RENAME, CHANGE_ICON, TOGGLE_PIN, DELETE_TAG],
+  // Migrated in a later step (ADR-048): task still uses its own inline menu.
   task: [],
 };

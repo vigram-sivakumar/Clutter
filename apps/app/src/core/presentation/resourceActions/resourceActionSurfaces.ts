@@ -16,34 +16,42 @@ export interface ResourceActionSurfaceProfile {
   readonly unavailable: 'disable' | 'hide';
 }
 
-/** An archived resource is never rendered in the sidebar tree, so it has no Restore/Delete there. */
-const ARCHIVED_ONLY_ACTIONS = ['restore', 'delete'] as const;
+/**
+ * An archived resource is never rendered in the sidebar tree, so it has no Restore/Delete there.
+ * A Tag has no Trash — its Delete is its removal action, so it keeps it everywhere.
+ */
+const archivedOnlyActionsExceptTag = (kind: ResourceKind): readonly string[] =>
+  kind === 'tag' ? [] : ['restore', 'delete'];
 
 export const RESOURCE_ACTION_SURFACES: Readonly<
   Record<ResourceActionSurface, ResourceActionSurfaceProfile>
 > = {
   sidebar: {
     // Use as template is a topbar action today; the sidebar row is deliberately narrower.
-    omit: [...ARCHIVED_ONLY_ACTIONS, 'use-as-template'],
+    omit: ['use-as-template'],
+    omitWhen: archivedOnlyActionsExceptTag,
     unavailable: 'hide',
   },
   favorites: {
     // As the sidebar, plus Rename: a Favorites row has no inline title editor.
-    omit: [...ARCHIVED_ONLY_ACTIONS, 'use-as-template', 'rename'],
+    omit: ['use-as-template', 'rename'],
+    omitWhen: archivedOnlyActionsExceptTag,
     unavailable: 'hide',
   },
   overlay: {
     // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
     // it in. An archived asset is never opened from here.
-    omit: ['rename', ...ARCHIVED_ONLY_ACTIONS],
+    omit: ['rename'],
+    omitWhen: archivedOnlyActionsExceptTag,
     // A listed-but-unavailable action stays visible and disabled (Set as cover image on a remote
     // image does nothing yet; a live control must never be a silent no-op).
     unavailable: 'disable',
   },
   topbar: {
     // The title is editable inline and the header already exposes the icon control, so Rename and
-    // Change icon are not repeated here. Sort by is a sidebar view preference.
-    omit: ['rename', 'change-icon', 'sort-by'],
+    // Change icon are not repeated here. Sort by is a sidebar view preference. A tag's page
+    // exposes no Pin today (adding it is a product decision, not an accident of the menu).
+    omit: ['rename', 'change-icon', 'sort-by', 'toggle-pin'],
     // Reveal in Finder is a topbar action for an ordinary, active Note only — not a Daily Note,
     // Template, Folder or archived note. (Assets and Tags have no resource-action topbar.) The
     // sidebar rows keep it for every resource.
