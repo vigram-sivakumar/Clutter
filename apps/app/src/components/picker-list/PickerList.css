@@ -129,3 +129,11 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* The Show more / Show less row: tertiary foreground for its text and icon. */
+.picker-list__toggle {
+  --entry-foreground: var(--foreground-tertiary);
+}
+.picker-list__toggle .picker-list__icon {
+  color: var(--foreground-tertiary);
+}

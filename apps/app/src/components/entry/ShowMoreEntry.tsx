@@ -1,5 +1,6 @@
 import { Entry } from './Entry';
 import { AppIcon } from '@shared/icon';
+import './ShowMoreEntry.css';
 
 export interface ShowMoreEntryProps {
   /** How many rows are hidden while collapsed. */
@@ -12,12 +13,13 @@ export interface ShowMoreEntryProps {
 
 /**
  * The row that ends a capped list: "N more" while collapsed, "Show less" once expanded, both with the
- * horizontal three-dots icon. A plain Entry — normal row size and colour — shared by every sidebar list that caps
+ * horizontal three-dots icon. A plain Entry — normal row size, tertiary foreground — shared by every sidebar list that caps
  * its rows (Tasks groups, Notes folders).
  */
 export function ShowMoreEntry({ hiddenCount, isExpanded, onToggle, level }: ShowMoreEntryProps) {
   return (
     <Entry
+      className="show-more-entry"
       level={level}
       leading={<AppIcon icon="moreHorizontal" />}
       onClick={onToggle}

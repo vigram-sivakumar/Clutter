@@ -3,7 +3,7 @@ import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { scanImage } from '../image/imageScanner';
-import { scanEmbed, type EmbedMatch } from '../embed/embedScanner';
+import { scanEmbed, type EmbedMatch } from '../../../../../core/vault/ingest/grammar/embedScanner';
 import {
   resolveImagePresentation,
   resolvePdfPresentation,

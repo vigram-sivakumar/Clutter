@@ -144,7 +144,7 @@ function toggleOption(sibling: RowCompletion, name: string, open: boolean, hidde
   return {
     label,
     section: sibling.section,
-    row: { iconSvg: COMPLETION_ICONS.moreHorizontal, title: label },
+    row: { iconSvg: COMPLETION_ICONS.moreHorizontal, title: label, muted: true },
     apply(view: EditorView) {
       refreshing.set(view, { section: name, before: currentCompletions(view.state) });
       view.dispatch({ effects: toggleSection.of(name) });

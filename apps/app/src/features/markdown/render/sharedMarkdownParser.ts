@@ -1,6 +1,6 @@
 import { parser as baseMarkdownParser } from '@lezer/markdown';
 
-import { markdownGrammarExtensions } from '../editor/codemirror/markdownGrammarExtensions';
+import { markdownGrammarExtensions } from '../../../core/vault/ingest/grammar/markdownGrammarExtensions';
 
 /**
  * The one configured `@lezer/markdown` parser instance used by every

@@ -21,6 +21,13 @@ describe('buildCompletionRow', () => {
     expect(buildCompletionRow({ title: 'Plan' }, view).classList.contains('completion-row--compact')).toBe(false);
   });
 
+  it('marks a muted row (the Show more / Show less toggle), which gets the tertiary foreground', () => {
+    const view = mountView();
+
+    expect(buildCompletionRow({ title: 'Show 3 more', muted: true }, view).classList.contains('completion-row--muted')).toBe(true);
+    expect(buildCompletionRow({ title: 'Plan' }, view).classList.contains('completion-row--muted')).toBe(false);
+  });
+
   it('lays out an icon, the title, and the path (joined with " / ") on its own line below it', () => {
     const row = buildCompletionRow({ iconSvg: ICON, title: 'Plan', path: 'Projects/Work' }, mountView());
 

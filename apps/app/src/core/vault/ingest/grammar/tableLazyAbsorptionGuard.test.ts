@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { syntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 
-import { markdownLanguageExtension } from '../markdownLanguage';
+import { markdownLanguageExtension } from '../../../../features/markdown/editor/codemirror/markdownLanguage';
 
 const TABLE = '| Name | Age |\n| ---- | --- |\n| John | 30  |';
 // The colon alignment markers (rather than a bare `----`) are deliberate,

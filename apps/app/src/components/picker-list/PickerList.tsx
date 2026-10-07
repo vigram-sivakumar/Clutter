@@ -368,7 +368,7 @@ export function PickerList({
                   id={`picker-list-toggle-${item.section}`}
                   role="menuitem"
                   tabIndex={-1}
-                  className="picker-list__item"
+                  className="picker-list__item picker-list__toggle"
                   leading={
                     <span className="picker-list__leading">
                       <AppIcon className="picker-list__icon" icon="moreHorizontal" />

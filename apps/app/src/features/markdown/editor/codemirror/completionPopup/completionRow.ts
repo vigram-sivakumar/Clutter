@@ -33,6 +33,8 @@ export interface CompletionRowSpec {
    * (`completionPopupTheme`) instead of the note picker's.
    */
   readonly compact?: boolean;
+  /** A secondary row (the Show more / Show less toggle): tertiary foreground for its text and icon. */
+  readonly muted?: boolean;
 }
 
 /**
@@ -49,6 +51,9 @@ export function buildCompletionRow(spec: CompletionRowSpec, view: EditorView): H
   row.className = 'completion-row';
   if (spec.compact) {
     row.classList.add('completion-row--compact');
+  }
+  if (spec.muted) {
+    row.classList.add('completion-row--muted');
   }
   row.addEventListener('mouseenter', () => {
     const index = Number(row.parentElement?.id.split('-').pop());

@@ -41,7 +41,6 @@
    above/below it, since .input's own padding is inline-only. */
 .input--multiline {
   align-items: flex-start;
-  padding-block: var(--space-6);
 }
 
 .input--multiline .input__field {
@@ -52,6 +51,7 @@
      the scrollbar's own width is never included in the scrollHeight that
      measurement reads. */
   overflow: hidden;
+  min-height: var(--height-lg);
 }
 
 .input__leading,

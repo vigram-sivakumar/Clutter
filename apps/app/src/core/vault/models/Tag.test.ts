@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeTagName, formatTagDisplayLabel, serializeTagName } from './Tag';
+import {
+  applyTagStyle,
+  normalizeTagName,
+  formatTagDisplayLabel,
+  serializeTagName,
+  type TagStyle,
+} from './Tag';
 
 describe('normalizeTagName', () => {
   it('lowercases mixed-case input', () => {
@@ -66,5 +72,49 @@ describe('serializeTagName', () => {
   it('is the inverse of formatTagDisplayLabel for a hyphen-separated name', () => {
     const original = 'Product-design';
     expect(serializeTagName(formatTagDisplayLabel(original))).toBe(original);
+  });
+});
+
+describe('applyTagStyle', () => {
+  it.each([
+    ['lowercase', 'design-system', 'design-system'],
+    ['sentence', 'design-system', 'Design-system'],
+    ['title', 'design-system', 'Design-System'],
+    ['lowercase', 'Design-System', 'design-system'],
+    ['sentence', 'Design-System', 'Design-system'],
+    ['title', 'DESIGN-SYSTEM', 'Design-System'],
+    ['sentence', 'design', 'Design'],
+    ['title', 'a-b-c', 'A-B-C'],
+  ] as [TagStyle, string, string][])('%s: %s → %s', (style, input, expected) => {
+    expect(applyTagStyle(input, style)).toBe(expected);
+  });
+
+  it('only changes letter case — separators are kept exactly as typed', () => {
+    expect(applyTagStyle('design_system', 'title')).toBe('Design_System');
+    expect(applyTagStyle('design system', 'sentence')).toBe('Design system');
+    expect(applyTagStyle('a--b', 'title')).toBe('A--B');
+  });
+
+  it('leaves characters without case alone (digits, CJK, emoji)', () => {
+    expect(applyTagStyle('2026-plan', 'title')).toBe('2026-Plan');
+    expect(applyTagStyle('日本語-notes', 'title')).toBe('日本語-Notes');
+    expect(applyTagStyle('ß-test', 'title')).toBe('ß-Test');
+  });
+
+  it('never changes tag identity', () => {
+    for (const style of ['lowercase', 'sentence', 'title'] as const) {
+      for (const name of ['design-system', 'Design_System', 'ÉCOLE-Paris', 'ß-test']) {
+        expect(normalizeTagName(applyTagStyle(name, style))).toBe(normalizeTagName(name));
+      }
+    }
+  });
+
+  it('is idempotent', () => {
+    for (const style of ['lowercase', 'sentence', 'title'] as const) {
+      for (const name of ['design-system', 'DESIGN_SYSTEM', 'ÉCOLE-paris', 'ß-test', 'ǆ-x', 'ΑΣ-ΣΑ', 'İstanbul-Plan']) {
+        const once = applyTagStyle(name, style);
+        expect(applyTagStyle(once, style)).toBe(once);
+      }
+    }
   });
 });

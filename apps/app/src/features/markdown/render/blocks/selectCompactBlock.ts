@@ -1,6 +1,6 @@
 import type { SyntaxNode } from '@lezer/common';
 
-import { matchStraightLabeledDivider, matchWrappedDivider } from '../../editor/codemirror/hr/dividerLabelMatch';
+import { matchStraightLabeledDivider, matchWrappedDivider } from '../../../../core/vault/ingest/grammar/dividerLabelMatch';
 import { parseTableColumnWidthsAttribute } from '../../editor/codemirror/table/tableColumnWidthMetadata';
 import { sharedMarkdownParser } from '../sharedMarkdownParser';
 import { tokenizeInline, type InlineSpan } from '../inlineSpan';

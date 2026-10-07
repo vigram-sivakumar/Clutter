@@ -2,6 +2,7 @@ import type { Folder } from '../models/Folder';
 import type { Page } from '../models/Page';
 import type { VaultResource } from '../models/VaultResource';
 import type { Vault } from '../models/Vault';
+import { normalizeTagName } from '../models/Tag';
 
 // Vault.foldersById/pagesById (Maps) iterate in insertion order, which
 // reflects startup scan order (raw OS readdir order) for scanned entries
@@ -149,8 +150,10 @@ export class VaultQuery {
   // collection view is always opened from a known Tag (e.g. a sidebar
   // click), so the caller already has the exact casing tags() preserves.
   public getPagesByTag(name: string): Page[] {
+    const key = normalizeTagName(name);
+
     return Array.from(this.vault.pages()).filter((page) =>
-      page.analysis.tags.some((occurrence) => occurrence.name === name)
+      page.analysis.tags.some((occurrence) => normalizeTagName(occurrence.name) === key)
     );
   }
 
@@ -158,14 +161,16 @@ export class VaultQuery {
    * Pages whose frontmatter `tags` field declares `name` — note-level
    * membership, deliberately separate from getPagesByTag's inline-
    * occurrence membership above (PageMetadata.tags's own doc comment:
-   * independent, never synchronized). Same exact-string-match convention
-   * as getPagesByTag (no normalizeTagName folding here either), so a
-   * caller combining both lists for one tag name gets consistent
-   * matching semantics across both sources.
+   * independent, never synchronized). Same normalized-identity matching
+   * as getPagesByTag (`#Design`, `#design` and `design_system`/`design-system`
+   * are one tag), so a caller combining both lists for one tag name gets
+   * consistent matching semantics across both sources.
    */
   public getPagesByFrontmatterTag(name: string): Page[] {
+    const key = normalizeTagName(name);
+
     return Array.from(this.vault.pages()).filter((page) =>
-      (page.metadata.tags ?? []).includes(name)
+      (page.metadata.tags ?? []).some((tag) => normalizeTagName(tag) === key)
     );
   }
 

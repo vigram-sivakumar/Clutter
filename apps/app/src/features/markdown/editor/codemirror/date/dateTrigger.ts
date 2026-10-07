@@ -1,7 +1,7 @@
 import type { CompletionContext } from '@codemirror/autocomplete';
 
 import type { AtTriggerMatch } from '../at/atTrigger';
-import { isValidDatePrecedingContext, scanDate } from './dateScanner';
+import { isValidDatePrecedingContext, scanDate } from '../../../../../core/vault/ingest/grammar/dateScanner';
 import { MAX_DATE_QUERY_TOKENS } from './dateQueryResolver';
 
 /**

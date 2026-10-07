@@ -20,7 +20,9 @@ import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser, type ParsedMarkdown } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
-import { isClutterInternalPath } from '../initialize/ReservedResources';
+import { isClutterInternalPath, TAG_METADATA_RELATIVE_PATH } from '../initialize/ReservedResources';
+import type { TagMetadataStore } from '../persistence/TagMetadataStore';
+import { tagMetadataEquals } from '../persistence/tagMetadataFile';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
 import {
@@ -51,7 +53,11 @@ export class VaultSyncService {
     watcher: VaultFileSystemWatcher,
     documentRegistry: DocumentRegistry,
     frontmatterSerializer: FrontmatterSerializer,
-    idGenerator: IdGenerator
+    idGenerator: IdGenerator,
+    // Optional so every existing construction site (tests) is unaffected;
+    // real boot supplies it so an external edit to `.clutter/tags.json`
+    // reloads the tag definitions (see reloadTagMetadata).
+    private readonly tagMetadataStore?: TagMetadataStore
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
@@ -136,6 +142,11 @@ export class VaultSyncService {
    * event interpretation stays here, unchanged from before this existed.
    */
   private handleChange(change: VaultFileChange): void {
+    if (this.tagMetadataStore && this.isTagMetadataFileChange(change)) {
+      this.dispatch(this.resolvePath(TAG_METADATA_RELATIVE_PATH), () => this.reloadTagMetadata());
+      return;
+    }
+
     switch (change.type) {
       case 'created':
         this.dispatch(this.resolvePath(change.path), () =>
@@ -160,6 +171,41 @@ export class VaultSyncService {
           this.handleMoved(change.fromPath, change.toPath)
         );
         break;
+    }
+  }
+
+  /**
+   * `.clutter/tags.json` changed, was replaced (Clutter's own atomic write is
+   * a rename onto it), or was deleted — by anything. `.clutter` is otherwise
+   * invisible to Sync (reconcilePath ignores it); this one file is the
+   * exception because tag definitions are live application state.
+   */
+  private isTagMetadataFileChange(change: VaultFileChange): boolean {
+    switch (change.type) {
+      case 'created':
+      case 'changed':
+      case 'deleted':
+        return change.path === TAG_METADATA_RELATIVE_PATH;
+      case 'moved':
+        return (
+          change.toPath === TAG_METADATA_RELATIVE_PATH ||
+          change.fromPath === TAG_METADATA_RELATIVE_PATH
+        );
+    }
+  }
+
+  /**
+   * Re-reads the definitions through the one store and, only if they differ
+   * from what the Vault already holds, swaps them in. Read-only toward the
+   * file: reloading never writes, so Clutter reacting to the echo of its own
+   * write finds identical definitions and does nothing — there is no
+   * write → event → write loop to suppress.
+   */
+  private async reloadTagMetadata(): Promise<void> {
+    const loaded = await this.tagMetadataStore!.load();
+
+    if (!tagMetadataEquals(loaded, this.vault.tagMetadataSnapshot())) {
+      this.vault.setTagMetadata(loaded);
     }
   }
 

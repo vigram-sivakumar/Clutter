@@ -8,7 +8,12 @@ export function buildTagsShortcutHandler(
   return (id) => {
     switch (id) {
       case 'create-tag':
+        // Unreachable: TagsShortcuts opens the New tag dialog itself and never
+        // forwards this click. Kept so the switch stays exhaustive.
         navigation.createTag();
+        break;
+      case 'tidy-up':
+        // Unreachable: TagsShortcuts opens the Tidy up menu itself.
         break;
       default: {
         const _exhaustive: never = id;

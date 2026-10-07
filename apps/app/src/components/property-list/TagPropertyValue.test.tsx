@@ -68,7 +68,8 @@ describe('parseTagInput', () => {
     expect(parseTagInput('#design')).toBe('design');
     expect(parseTagInput('design')).toBe('design');
     expect(parseTagInput('  #product-design  ')).toBe('product-design');
-    expect(parseTagInput('#v2_ui')).toBe('v2_ui');
+    // Hyphens are the canonical separator: an underscore is written as one.
+    expect(parseTagInput('#v2_ui')).toBe('v2-ui');
   });
 
   it('writes spaces as - (the canonical separator), like the sidebar rename', () => {

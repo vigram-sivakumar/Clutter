@@ -5,7 +5,7 @@ import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import { wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
 import { serializeWikiLink } from './wikiLinkSerialize';
-import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from './wikiLinkScanner';
+import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import type { GetWikiLinkSuggestions, WikiLinkSuggestion } from './wikiLinkSuggestion';
 
 /**

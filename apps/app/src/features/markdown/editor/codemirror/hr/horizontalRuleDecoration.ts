@@ -3,7 +3,7 @@ import type { EditorState, Extension } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 
 import { DividerLabelWidget, type DividerKind } from './DividerLabelWidget';
-import { matchStraightLabeledDivider, matchWrappedDivider } from './dividerLabelMatch';
+import { matchStraightLabeledDivider, matchWrappedDivider } from '../../../../../core/vault/ingest/grammar/dividerLabelMatch';
 import { isPhysicalLineEngaged } from '../highlight/liveMarkDecoration';
 
 /**

@@ -1,4 +1,4 @@
-import { scanWikiLink } from '../wikilink/wikiLinkScanner';
+import { scanWikiLink } from './wikiLinkScanner';
 
 export interface EmbedMatch {
   readonly path: string;

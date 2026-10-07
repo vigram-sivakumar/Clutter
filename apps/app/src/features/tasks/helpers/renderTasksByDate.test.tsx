@@ -569,7 +569,7 @@ describe('renderTasksByDate', () => {
           displayConfig: {
             showCompleted: true,
             autoSortCompleted: false,
-            hiddenGroups: ['today', 'unscheduled'],
+            hiddenGroups: ['overdue', 'unscheduled'],
           },
         })}
       </>
@@ -578,7 +578,28 @@ describe('renderTasksByDate', () => {
     const titles = Array.from(document.querySelectorAll('.section-header__title')).map(
       (el) => el.textContent
     );
-    expect(titles).toEqual(['Upcoming']);
+    expect(titles).toEqual(['Today', 'Upcoming']);
+  });
+
+  it('always shows Today, even if a stale hiddenGroups still lists it', () => {
+    render(
+      <>
+        {renderTasksByDate({
+          tasks: [task({ text: 'Submit proposal', dueDate: '2026-08-04' })],
+          workspace: new Workspace(),
+          onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
+          onChangeDueDate: vi.fn(),
+          onDuplicateTask: vi.fn(),
+          onDeleteTask: vi.fn(),
+          navigation: fakeNavigation(),
+          displayConfig: { showCompleted: true, autoSortCompleted: false, hiddenGroups: ['today'] },
+        })}
+      </>
+    );
+
+    const titles = Array.from(document.querySelectorAll('.section-header__title')).map((el) => el.textContent);
+    expect(titles).toContain('Today');
   });
 
   describe('the 10-task group cap', () => {

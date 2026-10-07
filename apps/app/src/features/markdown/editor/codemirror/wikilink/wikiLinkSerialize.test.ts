@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { scanWikiLink } from './wikiLinkScanner';
+import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { serializeWikiLink } from './wikiLinkSerialize';
 
 describe('serializeWikiLink — canonical form', () => {

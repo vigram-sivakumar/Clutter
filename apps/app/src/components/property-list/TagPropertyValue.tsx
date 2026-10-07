@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react';
 
 import { MenuItem } from '@components/menu/MenuItem';
 import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
-import { scanTag } from '@features/markdown/editor/codemirror/tag/tagScanner';
+import { scanTag } from '@core/vault/ingest/tag/tagScanner';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
 import type { PropertyEditability } from './PropertyList.types';

@@ -146,3 +146,10 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* The Show more / Show less toggle row — tertiary foreground for its text and icon. */
+.completion-row--muted,
+.completion-row--muted .completion-row__title,
+.completion-row--muted .completion-row__icon {
+  color: var(--foreground-tertiary);
+}

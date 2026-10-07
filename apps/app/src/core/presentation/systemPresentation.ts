@@ -95,7 +95,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   'tasks-completed': {
     id: 'tasks-completed',
     label: 'Completed',
-    icon: 'tick',
+    icon: 'circleTick',
   },
   'tasks-all': {
     id: 'tasks-all',
@@ -105,7 +105,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   'tasks-unscheduled': {
     id: 'tasks-unscheduled',
     label: 'Unscheduled',
-    icon: 'clock',
+    icon: 'calendar',
   },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },
   favorites: { id: 'favorites', label: 'Favorites', icon: 'favouriteOutline' },

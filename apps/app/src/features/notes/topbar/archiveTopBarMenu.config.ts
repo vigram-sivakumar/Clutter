@@ -8,7 +8,6 @@ export const DELETE_ALL_ARCHIVED_CONFIRMATION = {
   title: 'Are you sure you want to permanently delete the items in the Trash?',
   message: 'You can’t undo this action.',
   confirmLabel: 'Empty trash',
-  confirmVariant: 'primary',
 } as const;
 
 /**

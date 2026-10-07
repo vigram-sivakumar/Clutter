@@ -161,6 +161,19 @@ interface DraftDescriptor {
 }
 
 /**
+ * Options for the app-initiated edit methods (`mutateBody`, `updateMetadata`).
+ *
+ * `allowArchived` lets a vault-wide maintenance operation (renaming or
+ * deleting a tag) reach archived notes, which an ordinary edit may not
+ * touch until they are restored. The page stays archived — same status,
+ * same path — only its content/tags change. Never set by user-facing edit
+ * paths.
+ */
+export interface EditOptions {
+  readonly allowArchived?: boolean;
+}
+
+/**
  * Owns the entire lifecycle of a page as a single capability surface —
  * open, close, save, archive, restore, create, delete, move, rename, and
  * the earliest phase of that lifecycle: an unpersisted draft (ADR-017).
@@ -987,7 +1000,8 @@ export class PageOperations {
    */
   public async mutateBody(
     pageId: string,
-    transform: (markdown: string) => string
+    transform: (markdown: string) => string,
+    options: EditOptions = {}
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
     const session = this.documentRegistry.get(pageId);
@@ -996,7 +1010,7 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    if (page && page.metadata.status === 'archived') {
+    if (page && page.metadata.status === 'archived' && !options.allowArchived) {
       throw new Error(
         `Cannot edit archived page: ${pageId}. Restore it before editing.`
       );
@@ -1589,12 +1603,13 @@ export class PageOperations {
    */
   public async updateMetadata(
     pageId: string,
-    patch: Partial<EditablePageMetadata>
+    patch: Partial<EditablePageMetadata>,
+    options: EditOptions = {}
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
     if (page) {
-      if (page.metadata.status === 'archived') {
+      if (page.metadata.status === 'archived' && !options.allowArchived) {
         throw new Error(
           `Cannot edit archived page: ${pageId}. Restore it before editing.`
         );

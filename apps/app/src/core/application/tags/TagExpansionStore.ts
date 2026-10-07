@@ -154,6 +154,19 @@ export class TagExpansionStore {
   }
 
   /**
+   * Forgets `tagName`'s expansion state — the tag-delete counterpart to
+   * `renameTag()`. A no-op when it was never expanded.
+   */
+  removeTag(tagName: string): void {
+    if (!this.expandedTagNames.delete(tagName)) {
+      return;
+    }
+
+    this.notify();
+    void this.persist();
+  }
+
+  /**
    * Registers a store observer — same shape as `Workspace.subscribe`/
    * `EffectivePageState.subscribe`, consumed via `useTagExpansionStore`.
    */

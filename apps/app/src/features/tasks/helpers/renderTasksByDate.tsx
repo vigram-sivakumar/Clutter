@@ -239,7 +239,8 @@ export function renderTasksByDate({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
-  displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
+  // Every group shown unless the caller says otherwise (the app's own default hides Unscheduled — see AppLayout).
+  displayConfig = { ...DEFAULT_TASK_DISPLAY_CONFIG, hiddenGroups: [] },
   expandedGroups = [],
   onToggleGroup,
 }: RenderTasksByDateProps) {
@@ -251,6 +252,8 @@ export function renderTasksByDate({
   const { today, overdue, unscheduled } = groups;
   // `groups.upcoming` carries the unscheduled tasks as its tail; they get their own section below.
   const upcoming = groups.upcoming.filter((task) => !unscheduled.includes(task));
+  // Today is not a hideable group (the Options menu doesn't offer it and AppLayout drops a stale persisted
+  // one), so the Today section below always renders.
   const hidden = displayConfig.hiddenGroups ?? [];
 
   // A group over the limit shows its first SIDEBAR_GROUP_TASK_LIMIT tasks, then a "N more" row
@@ -272,7 +275,6 @@ export function renderTasksByDate({
 
   return (
     <Fragment>
-      {!hidden.includes('today') && (
       <Section
         hasHeader
         title="Today"
@@ -304,7 +306,6 @@ export function renderTasksByDate({
           </>
         )}
       </Section>
-      )}
       {!hidden.includes('overdue') && overdue.length > 0 && (
         <Section
           hasHeader

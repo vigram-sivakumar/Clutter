@@ -257,8 +257,12 @@ describe('groupTasks', () => {
     });
   });
 
-  it('DEFAULT_TASK_DISPLAY_CONFIG shows completed tasks without auto-sorting them', () => {
-    expect(DEFAULT_TASK_DISPLAY_CONFIG).toEqual({ showCompleted: true, autoSortCompleted: false });
+  it('DEFAULT_TASK_DISPLAY_CONFIG shows completed tasks without auto-sorting them, with Overdue/Upcoming shown and Unscheduled off', () => {
+    expect(DEFAULT_TASK_DISPLAY_CONFIG).toEqual({
+      showCompleted: true,
+      autoSortCompleted: false,
+      hiddenGroups: ['unscheduled'],
+    });
   });
 
   describe('ordering: Group → Due date → Title', () => {

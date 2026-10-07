@@ -1,7 +1,7 @@
 import { markdown } from '@codemirror/lang-markdown';
 
 import { fencedCodeLanguageDescriptions } from './fencedCode/fencedCodeLanguages';
-import { markdownGrammarExtensions } from './markdownGrammarExtensions';
+import { markdownGrammarExtensions } from '../../../../core/vault/ingest/grammar/markdownGrammarExtensions';
 
 /**
  * Markdown language support, scoped to a deliberate GFM subset plus the

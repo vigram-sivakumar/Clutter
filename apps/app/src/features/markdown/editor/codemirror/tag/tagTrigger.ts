@@ -1,6 +1,6 @@
 import type { CompletionContext } from '@codemirror/autocomplete';
 
-import { isValidTagPrecedingContext, scanTag } from './tagScanner';
+import { isTagQueryText, isValidTagPrecedingContext, scanTag } from '@core/vault/ingest/tag/tagScanner';
 
 /**
  * Tag's own trigger boundary — not built on the shared `@`-family
@@ -24,7 +24,6 @@ import { isValidTagPrecedingContext, scanTag } from './tagScanner';
  * zone to reactivate into — a tag is one flat span, so one extractor
  * covers both the fresh-typing and mid-edit cases.
  */
-const TAG_QUERY_CHARS = /^[A-Za-z0-9_-]*$/;
 
 export interface TagTriggerMatch {
   /** Position of the `#` itself. */
@@ -55,7 +54,7 @@ export function extractTagTriggerQuery(context: CompletionContext): TagTriggerMa
   // second, unrelated `#` earlier on the line, or the tail of an already-
   // terminated tag) means the cursor isn't inside a live tag query at all.
   const betweenHashAndCursor = textBeforeCursor.slice(hashIndex + 1);
-  if (!TAG_QUERY_CHARS.test(betweenHashAndCursor)) {
+  if (!isTagQueryText(betweenHashAndCursor)) {
     return null;
   }
 

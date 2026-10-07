@@ -1,6 +1,6 @@
 import type { WidgetType } from '@codemirror/view';
 
-import { scanWikiLink } from './wikiLinkScanner';
+import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkResolution';
 import { WikiLinkWidget } from './WikiLinkWidget';
 

@@ -6,10 +6,11 @@ import { quoteFrontmatterString } from './frontmatter/frontmatterStringValue';
 /**
  * Formats one block-list item. `aliases` are free text, so they go through
  * quoteFrontmatterString (FrontmatterParser unquotes them back); `tags`
- * follow the tag grammar, never need quoting, and stay byte-identical.
+ * written by Clutter follow the tag grammar and stay byte-identical (plain); a tag read
+ * from a file that a plain scalar would misread (`a: b`, a leading indicator) is quoted so it reads back unchanged.
  */
 function formatListItem(key: string, item: string): string {
-  return `  - ${key === 'aliases' ? quoteFrontmatterString(item) : item}`;
+  return `  - ${key === 'aliases' || key === 'tags' ? quoteFrontmatterString(item) : item}`;
 }
 
 /**

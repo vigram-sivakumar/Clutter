@@ -1,4 +1,5 @@
 import type { Page } from '@core/vault/models';
+import { normalizeTagName } from '../vault/models/Tag';
 
 export interface SourceRange {
   readonly from: number;
@@ -18,7 +19,7 @@ export function getTagOccurrenceRanges(
   tagName: string
 ): SourceRange[] {
   return (page?.analysis.tags ?? [])
-    .filter((occurrence) => occurrence.name === tagName)
+    .filter((occurrence) => normalizeTagName(occurrence.name) === normalizeTagName(tagName))
     .filter(
       (occurrence): occurrence is typeof occurrence & { startOffset: number; endOffset: number } =>
         occurrence.startOffset !== undefined && occurrence.endOffset !== undefined

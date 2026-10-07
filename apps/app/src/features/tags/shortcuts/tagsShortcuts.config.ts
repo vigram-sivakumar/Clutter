@@ -1,13 +1,16 @@
 import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationItem';
 
-// 'create-tag' is rendered disabled: NavigationRouter.createTag() throws
-// (no TagOperations facade exists yet — ADR-012/013/014's disposition,
-// blocked on that aggregate existing). Kept visible rather than removed,
-// same as Controls' placeholders, so the affordance isn't lost entirely —
-// but it must never be clickable while it can only throw (see ADR-016's
-// post-migration cleanup entry).
+// 'create-tag' no longer dispatches through onShortcut/NavigationRouter —
+// TagsShortcuts intercepts its click locally to open the New tag dialog,
+// which creates a tag definition through TagOperations (the same shape
+// 'create-task' uses). NavigationRouter.createTag() still throws and must
+// stay unreachable from this button.
 export const tagsShortcuts = [
-  { id: 'create-tag', title: 'New', icon: 'plus', disabled: true },
+  { id: 'create-tag', title: 'New', icon: 'plus', disabled: false },
+  // Like 'create-tag', handled locally by TagsShortcuts: opens the Tidy up menu
+  // (Remove unused, then one-time Style restyle) — never dispatched through
+  // NavigationRouter, and nothing it does is remembered.
+  { id: 'tidy-up', title: 'Tidy up', icon: 'brush', disabled: false },
 ] as const satisfies readonly NavigationItem[];
 
 export type TagsShortcutId = (typeof tagsShortcuts)[number]['id'];

@@ -1,7 +1,7 @@
 import type { WidgetType } from '@codemirror/view';
 
 import { fallbackDateResolution, type ResolveDate } from './dateResolution';
-import { scanDate } from './dateScanner';
+import { scanDate } from '../../../../../core/vault/ingest/grammar/dateScanner';
 import { DateWidget } from './DateWidget';
 
 /**

@@ -84,7 +84,7 @@ describe('Trash page "More actions" — Empty trash', () => {
     expect(screen.queryByText('You can’t undo this action.')).toBeNull();
   });
 
-  it('confirming runs the delete once, with a primary (not danger) confirm button', () => {
+  it('confirming runs the delete once, with the default (danger) confirm button like every other destructive confirmation', () => {
     const onDeleteAll = vi.fn();
     renderTrashActions(onDeleteAll);
     openMenu();
@@ -92,8 +92,8 @@ describe('Trash page "More actions" — Empty trash', () => {
 
     const buttons = screen.getAllByRole('button', { name: 'Empty trash' });
     const confirm = buttons[buttons.length - 1]!;
-    expect(confirm.className).toContain('button--primary');
-    expect(confirm.className).not.toContain('button-danger');
+    expect(confirm.className).toContain('button-danger');
+    expect(confirm.className).not.toContain('button--primary');
 
     fireEvent.click(confirm);
 

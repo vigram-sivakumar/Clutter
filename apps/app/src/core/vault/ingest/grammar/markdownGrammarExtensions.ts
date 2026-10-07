@@ -1,20 +1,20 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
-import { bareDomainSyntax } from './link/bareDomain/bareDomainSyntax';
-import { dateSyntax } from './date/dateSyntax';
-import { embedSyntax } from './embed/embedSyntax';
-import { emojiListSyntax } from './emoji-list/emojiListSyntax';
-import { highlightSyntax } from './highlight/highlightSyntax';
-import { imageSpacedDestinationSyntax } from './image/imageSyntax';
-import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
-import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
-import { labeledHorizontalRuleSyntax } from './hr/labeledHorizontalRuleSyntax';
-import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
-import { listMarkerParagraphInterrupt } from './list/listMarkerParagraphInterrupt';
-import { tableLazyAbsorptionGuard } from './table/tableLazyAbsorptionGuard';
-import { tagSyntax } from './tag/tagSyntax';
-import { taskCompletionMetadataSyntax } from './task/taskCompletionMetadataSyntax';
-import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
+import { bareDomainSyntax } from './bareDomainSyntax';
+import { dateSyntax } from './dateSyntax';
+import { embedSyntax } from './embedSyntax';
+import { emojiListSyntax } from './emojiListSyntax';
+import { highlightSyntax } from './highlightSyntax';
+import { imageSpacedDestinationSyntax } from './imageSyntax';
+import { doubleHorizontalRuleSyntax } from './doubleHorizontalRuleSyntax';
+import { dottedHorizontalRuleSyntax } from './dottedHorizontalRuleSyntax';
+import { labeledHorizontalRuleSyntax } from './labeledHorizontalRuleSyntax';
+import { wavyHorizontalRuleSyntax } from './wavyHorizontalRuleSyntax';
+import { listMarkerParagraphInterrupt } from './listMarkerParagraphInterrupt';
+import { tableLazyAbsorptionGuard } from './tableLazyAbsorptionGuard';
+import { tagSyntax } from '@core/vault/ingest/tag/tagSyntax';
+import { taskCompletionMetadataSyntax } from './taskCompletionMetadataSyntax';
+import { wikiLinkSyntax } from './wikiLinkSyntax';
 
 /**
  * The exact `@lezer/markdown` grammar config the page editor parses with —

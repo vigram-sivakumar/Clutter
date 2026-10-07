@@ -5,7 +5,7 @@ import type { EditorView } from '@codemirror/view';
 import { findEmbedAt } from './embedEngagement';
 import { embedHeadingRow, embedPageRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
 import { serializeEmbed } from './embedSerialize';
-import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../wikilink/wikiLinkScanner';
+import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
 import type {
   EmbedSuggestion,

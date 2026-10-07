@@ -53,6 +53,11 @@ export class VaultProjectionBuilder {
     };
   }
 
+  /** Tasks alone — for callers (Vault) that maintain tags incrementally via TagIndex. */
+  buildTasks(pages: Iterable<Page>): readonly TaskOccurrence[] {
+    return this.taskBuilder.build(Array.from(pages));
+  }
+
   buildLazy(pages: Iterable<Page>): LazyVaultProjections {
     const pageList = Array.from(pages);
 

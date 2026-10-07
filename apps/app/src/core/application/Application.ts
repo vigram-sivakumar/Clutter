@@ -28,11 +28,7 @@ import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
 import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
-import {
-  TAG_METADATA_RELATIVE_PATH,
-  EMPTY_TAG_METADATA_FILE_CONTENTS,
-} from '../vault/initialize/ReservedResources';
-import { normalizeTagName, type TagMetadataEntry } from '../vault/models/Tag';
+import { TagMetadataStore } from '../vault/persistence/TagMetadataStore';
 import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
 import { NavigationRouter } from './navigation/NavigationRouter';
@@ -157,6 +153,7 @@ export class Application {
    * `dailyNotesSidebarState` stay the runtime owners and never see it.
    */
   public readonly workspaceSessionStore: WorkspaceSessionStore;
+  private readonly tagMetadataStore: TagMetadataStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -280,29 +277,13 @@ export class Application {
     // attached (below) and restoring the active view happens in open().
     const workspaceSessionStore = await WorkspaceSessionStore.load(fileSystem, rootPath);
 
-    // Tag presentation metadata (icon today, color later) is read directly
-    // here, once — not through VaultScanner (this isn't Page/Folder
-    // content) and not through a dedicated loader (one reader, one writer,
-    // plain JSON: see TagOperations for why that doesn't warrant its own
-    // module). Tolerates a missing file/directory the same lazy way every
-    // other reserved resource does: falls back to the empty shape rather
-    // than requiring `.clutter` to already exist. TagBuilder never sees
-    // the JSON shape — it only ever receives this already-parsed,
-    // already-normalized Map.
-    const tagsMetadataPath = `${rootPath}/${TAG_METADATA_RELATIVE_PATH}`;
-    const rawTagMetadata = (
-      JSON.parse(
-        (await fileSystem.exists(tagsMetadataPath))
-          ? await fileSystem.readFile(tagsMetadataPath)
-          : EMPTY_TAG_METADATA_FILE_CONTENTS
-      ).tags ?? {}
-    ) as Record<string, TagMetadataEntry>;
-    const tagMetadata = new Map<string, TagMetadataEntry>(
-      Object.entries(rawTagMetadata).map(([key, value]) => [
-        normalizeTagName(key),
-        value,
-      ])
-    );
+    // Tag definitions (`.clutter/tags.json`) are loaded by their one owner,
+    // TagMetadataStore — tolerantly: a missing file is "no definitions" and a
+    // corrupt one is backed up and treated as empty, so this can never fail
+    // the vault open. The same store instance is what TagOperations writes
+    // through and what Sync reloads from on an external edit.
+    const tagMetadataStore = new TagMetadataStore(fileSystem, rootPath);
+    const tagMetadata = await tagMetadataStore.load();
 
     const builder = new VaultBuilder(new UuidGenerator());
     const { vault, reassignedPagePaths, reassignedFolderPaths } = builder.build(
@@ -373,7 +354,8 @@ export class Application {
       collectionViewConfigStore,
       tasksViewConfigStore,
       tagExpansionStore,
-      workspaceSessionStore
+      workspaceSessionStore,
+      tagMetadataStore
     );
 
     application.rootPath = rootPath;
@@ -430,7 +412,10 @@ export class Application {
     tagExpansionStore: TagExpansionStore = TagExpansionStore.empty(fileSystem, ''),
     // Same default-to-empty-store reasoning, for tests that construct
     // Application directly without exercising session persistence.
-    workspaceSessionStore: WorkspaceSessionStore = WorkspaceSessionStore.empty(fileSystem, '')
+    workspaceSessionStore: WorkspaceSessionStore = WorkspaceSessionStore.empty(fileSystem, ''),
+    // Same default reasoning, for tests that construct Application directly
+    // without exercising tag-definition persistence.
+    tagMetadataStore: TagMetadataStore = new TagMetadataStore(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -445,6 +430,7 @@ export class Application {
     this.tasksViewConfigStore = tasksViewConfigStore;
     this.tagExpansionStore = tagExpansionStore;
     this.workspaceSessionStore = workspaceSessionStore;
+    this.tagMetadataStore = tagMetadataStore;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
@@ -560,18 +546,16 @@ export class Application {
     // DocumentSession or the Gate's existing 'save' kind — TaskOperations
     // itself no longer touches Vault or the Gate directly.
     this.taskOperations = new TaskOperations(this.pageOperations);
-    // Not Gate-backed, deliberately — tag metadata is presentation
-    // configuration (.clutter/tags.json), not Vault domain content, so it
-    // is outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule
-    // 2). TagOperations talks to VaultFileSystem directly, ensuring
-    // `.clutter` itself (via ensureClutterDirectory) before every write —
-    // `.clutter` is never a Vault Folder (VaultScanner excludes it from
-    // every scan), so it follows its own small filesystem-only lazy-ensure
-    // primitive, not FolderOperations.ensureReservedFolder().
+    // Not Gate-backed, deliberately — tag definitions are application
+    // configuration (.clutter/tags.json), not Vault domain content, so they
+    // are outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule
+    // 2). TagMetadataStore is the single reader/writer of that file;
+    // TagOperations writes definitions through it and edits notes only
+    // through PageOperations.
     this.tagOperations = new TagOperations(
       vault,
+      this.tagMetadataStore,
       this.fileSystem,
-      this.rootPath,
       this.pageOperations,
       this.collectionViewConfigStore,
       this.tagExpansionStore
@@ -616,7 +600,8 @@ export class Application {
       syncWatcher,
       this.documentRegistry,
       frontmatterSerializer,
-      new UuidGenerator()
+      new UuidGenerator(),
+      this.tagMetadataStore
     );
 
     // Recovers from an external deletion (Sync's handleDeleted, or any

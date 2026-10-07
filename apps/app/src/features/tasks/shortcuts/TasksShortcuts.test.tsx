@@ -150,7 +150,6 @@ describe('TasksShortcuts', () => {
   it.each([
     ['tasks-all', 'all-tasks'],
     ['tasks-unscheduled', 'unscheduled'],
-    ['tasks-completed', 'completed'],
   ] as const)('invokes onShortcut with "%s" when clicked', (locationId, id) => {
     const { onShortcut } = renderTasksShortcuts();
 
@@ -160,33 +159,36 @@ describe('TasksShortcuts', () => {
     expect(onShortcut).toHaveBeenCalledWith(id);
   });
 
-  describe('the Tasks-view settings action on All Tasks', () => {
-    const allTasksRow = () =>
-      screen
-        .getByText(getSystemLocationPresentation('tasks-all').label)
-        .closest('.entry') as HTMLElement;
+  describe('the Options row (Tasks-view settings)', () => {
+    const optionsRow = () => screen.getByText('Options').closest('.entry') as HTMLElement;
 
-    it('lives only on the All Tasks row, in its always-visible trailing slot (not the hover-only actions slot)', () => {
+    it('has no Completed quick-access row', () => {
       renderTasksShortcuts();
 
-      const trigger = screen.getByLabelText('Task display settings');
-      expect(screen.getAllByLabelText('Task display settings')).toHaveLength(1);
-      expect(allTasksRow().querySelector('.entry__meta')).toContainElement(
-        trigger
-      );
-      expect(allTasksRow().querySelector('.entry__actions')).toBeNull();
-      expect(allTasksRow()).not.toHaveClass('entry-hide-trailing-on-hover');
+      expect(screen.queryByText(getSystemLocationPresentation('tasks-completed').label)).toBeNull();
     });
 
-    it('opens the menu without navigating to All Tasks', () => {
+    it('is the last row, and All tasks carries no settings button any more', () => {
+      renderTasksShortcuts();
+
+      const rows = [...document.querySelectorAll('.entry')].map((row) => row.textContent ?? '');
+      expect(rows[rows.length - 1]).toContain('Options');
+      expect(screen.queryByLabelText('Task display settings')).toBeNull();
+    });
+
+    it('opens the menu (Groups, Display) without navigating, and keeps the row in the hover state (not selected) while open', () => {
       const { onShortcut } = renderTasksShortcuts();
 
       expect(screen.queryByText('Show completed')).not.toBeInTheDocument();
+      expect(optionsRow()).not.toHaveClass('entry-force-hover');
 
-      fireEvent.click(screen.getByLabelText('Task display settings'));
+      fireEvent.click(screen.getByText('Options'));
 
+      expect(screen.getByText('Groups')).toBeInTheDocument();
+      expect(screen.getByText('Display')).toBeInTheDocument();
       expect(screen.getByText('Show completed')).toBeInTheDocument();
       expect(screen.getByText('Sort completed')).toBeInTheDocument();
+      expect(optionsRow()).toHaveClass('entry-force-hover');
       expect(onShortcut).not.toHaveBeenCalled();
     });
 
@@ -195,7 +197,7 @@ describe('TasksShortcuts', () => {
         tasksViewConfig: { showCompleted: true, autoSortCompleted: false },
       });
 
-      fireEvent.click(screen.getByLabelText('Task display settings'));
+      fireEvent.click(screen.getByText('Options'));
       fireEvent.click(screen.getByText('Sort completed'));
 
       expect(onTasksViewConfigChange).toHaveBeenCalledWith({

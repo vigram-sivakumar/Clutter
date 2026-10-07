@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AppIcon } from '@shared/icon';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
@@ -21,9 +21,8 @@ interface TasksShortcutsProps {
   onCreateTask: (title: string, dueDate: string | undefined) => Promise<void>;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
-   * (owned by AppLayout) — surfaced through the settings action on the
-   * All Tasks row, the one place in the sidebar that represents the whole
-   * Tasks view rather than a single group (see TasksViewSettingsMenu).
+   * (owned by AppLayout) — surfaced through the sidebar's Options row
+   * (see TasksViewSettingsMenu).
    */
   tasksViewConfig: TaskDisplayConfig;
   onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
@@ -41,8 +40,9 @@ export function TasksShortcuts({
   // dispatches through onShortcut/NavigationRouter — see
   // tasksShortcuts.config.ts's own comment on why.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  // The All Tasks row's settings-menu open state — local, never persisted.
-  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  // The Options row's menu open state — local, never persisted.
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
 
   const closeNewTask = () => setIsNewTaskOpen(false);
 
@@ -54,28 +54,30 @@ export function TasksShortcuts({
           title={shortcut.title}
           leading={<AppIcon icon={shortcut.icon} />}
           disabled={shortcut.disabled}
-          // Only All Tasks carries the Tasks-view settings action, in
-          // Entry's always-visible `trailing` slot (hideTrailingOnHover
-          // off) rather than the hover-only `actions` slot. Entry's own
-          // click guard ignores clicks on the nested button, so opening
-          // the menu never also navigates.
-          {...(shortcut.id === 'all-tasks' && {
-            trailing: (
-              <TasksViewSettingsMenu
-                config={tasksViewConfig}
-                onConfigChange={onTasksViewConfigChange}
-                open={isSettingsMenuOpen}
-                onOpenChange={setIsSettingsMenuOpen}
-              />
-            ),
-            hideTrailingOnHover: false,
-            forceHover: isSettingsMenuOpen,
-          })}
-          onClick={() =>
-            shortcut.id === 'create-task' ? setIsNewTaskOpen(true) : onShortcut(shortcut.id)
-          }
+          // Same open-menu state as a row's three-dot menu (Note/Folder/Task): the hover look, not `selected`.
+          forceHover={shortcut.id === 'options' && isOptionsOpen}
+          {...(shortcut.id === 'options'
+            ? { ref: optionsRef, 'aria-haspopup': 'menu' as const, 'aria-expanded': isOptionsOpen }
+            : {})}
+          onClick={() => {
+            if (shortcut.id === 'create-task') {
+              setIsNewTaskOpen(true);
+            } else if (shortcut.id === 'options') {
+              setIsOptionsOpen((open) => !open);
+            } else {
+              onShortcut(shortcut.id);
+            }
+          }}
         />
       ))}
+
+      <TasksViewSettingsMenu
+        anchorRef={optionsRef}
+        config={tasksViewConfig}
+        onConfigChange={onTasksViewConfigChange}
+        open={isOptionsOpen}
+        onOpenChange={setIsOptionsOpen}
+      />
 
       <NewTaskDialog open={isNewTaskOpen} onClose={closeNewTask} onCreateTask={onCreateTask} />
     </Section>

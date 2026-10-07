@@ -232,6 +232,18 @@ export class CollectionViewConfigStore {
   }
 
   /**
+   * Forgets a collection's persisted configuration entirely — the
+   * tag-delete counterpart to `renameKey()`, so a deleted tag's saved
+   * Layout/Properties/Sort can't come back if the same name is created
+   * again. A no-op when `key` has no entry.
+   */
+  deleteKey(key: string): void {
+    if (this.entries.delete(key)) {
+      void this.persist();
+    }
+  }
+
+  /**
    * Writes `collectionViewConfig` via `mergeAndWriteWorkspaceStateFile` —
    * reading `foldState`/`embedCollapse` (and any other sibling key) fresh
    * immediately before writing, rather than from a boot-time snapshot, so

@@ -2,7 +2,8 @@ import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { FolderMetadata } from './FolderMetadata';
 import type { VaultResource, VaultResourceMetadata } from './VaultResource';
-import type { Tag, TagMetadataEntry } from './Tag';
+import { normalizeTagName, type Tag, type TagMetadataEntry } from './Tag';
+import { TagIndex } from '../knowledge/TagIndex';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
 import type { KnowledgeGraph } from './graph/KnowledgeGraph';
@@ -119,6 +120,17 @@ export class Vault {
   // disposable projections rebuilt from Pages after every mutation via
   // projectionBuilder, never mutated incrementally in place.
   private readonly tagsByName = new Map<string, Tag>();
+  // The same tags by normalized identity, so a lookup by any spelling finds the tag.
+  private readonly tagsByKey = new Map<string, Tag>();
+  // The runtime tag index behind tagsByName (tag → pages, usage, declared
+  // definitions). Null until the first mutation: a freshly built Vault
+  // serves the tags it was constructed with, then the first mutation
+  // seeds the index from the current pages. From then on a single page
+  // add/replace/remove updates only that page's contribution (see
+  // TagIndex) instead of re-reading every page; anything bulkier (folder
+  // moves, metadata swaps) goes through the same index with a full rebuild.
+  private tagIndex: TagIndex | null = null;
+  private publishedTags: readonly Tag[] | null = null;
   private readonly taskList = new Array<TaskOccurrence>();
   // Lazy: null means invalidated since the last mutation. Rebuilt on next
   // access to embeds()/knowledgeGraph(), not on every mutation — neither
@@ -183,6 +195,7 @@ export class Vault {
       }
 
       this.tagsByName.set(tag.name, tag);
+      this.tagsByKey.set(normalizeTagName(tag.name), tag);
     }
 
     for (const task of tasks) {
@@ -379,8 +392,9 @@ export class Vault {
    * points.
    */
   getTagByName(name: string): Tag | undefined {
-    return this.tagsByName.get(name);
+    return this.tagsByName.get(name) ?? this.tagsByKey.get(normalizeTagName(name));
   }
+
 
   /**
    * Every task Clutter shows in a task list. A task inside a template is
@@ -455,18 +469,61 @@ export class Vault {
    * can drift from the Pages they were derived from.
    */
   private refreshProjections(): void {
-    const eager = this.projectionBuilder.buildEager(
-      this.pagesById.values(),
-      this.tagMetadata
-    );
+    this.tagIndex = TagIndex.build(this.pagesById.values(), this.tagMetadata);
+    this.publishTags();
+    this.refreshTasks();
+  }
 
-    this.tagsByName.clear();
-    for (const tag of eager.tags) {
-      this.tagsByName.set(tag.name, tag);
+  /**
+   * The incremental counterpart of refreshProjections() for a mutation that
+   * changed exactly one page: only that page's tag contribution is
+   * replaced (`page` set) or dropped (`removedPageId` set); every other
+   * page is left alone. Tasks keep their existing whole-vault rebuild.
+   */
+  private refreshProjectionsForPage(change: {
+    readonly page?: Page;
+    readonly removedPageId?: string;
+  }): void {
+    const seeded = this.tagIndex !== null;
+    const index = this.tagIndex ?? TagIndex.build(this.pagesById.values(), this.tagMetadata);
+    this.tagIndex = index;
+
+    if (seeded) {
+      if (change.page) {
+        index.upsertPage(change.page);
+      }
+
+      if (change.removedPageId) {
+        index.removePage(change.removedPageId);
+      }
     }
 
+    this.publishTags();
+    this.refreshTasks();
+  }
+
+  private publishTags(): void {
+    const tags = this.tagIndex!.tags();
+
+    if (tags === this.publishedTags) {
+      return;
+    }
+
+    this.publishedTags = tags;
+    this.tagsByName.clear();
+    this.tagsByKey.clear();
+
+    for (const tag of tags) {
+      this.tagsByName.set(tag.name, tag);
+      this.tagsByKey.set(normalizeTagName(tag.name), tag);
+    }
+  }
+
+  private refreshTasks(): void {
+    const tasks = this.projectionBuilder.buildTasks(this.pagesById.values());
+
     this.taskList.length = 0;
-    this.taskList.push(...eager.tasks);
+    this.taskList.push(...tasks);
 
     this._embeds = null;
     this._knowledgeGraph = null;
@@ -520,9 +577,23 @@ export class Vault {
    * mutation methods to Gate/Sync doesn't apply here). PagePersistenceCoordinator
    * and VaultSyncService never call this and never reference tags.json.
    */
+  /** The tag definitions currently applied (what setTagMetadata last received). */
+  tagMetadataSnapshot(): ReadonlyMap<string, TagMetadataEntry> {
+    return this.tagMetadata;
+  }
+
   setTagMetadata(metadata: ReadonlyMap<string, TagMetadataEntry>): void {
     this.tagMetadata = metadata;
-    this.refreshProjections();
+
+    if (this.tagIndex) {
+      // Definitions changed, usage did not: swap them in without
+      // re-reading a single page.
+      this.tagIndex.setDeclared(metadata);
+      this.publishTags();
+    } else {
+      this.refreshProjections();
+    }
+
     this.notify({ type: 'tag-metadata-changed' });
   }
 
@@ -561,7 +632,7 @@ export class Vault {
     }
 
     this.pagesByPath.set(resolved.path, resolved);
-    this.refreshProjections();
+    this.refreshProjectionsForPage({ page: resolved });
 
     if (existing.path === page.path) {
       this.notify({
@@ -586,7 +657,7 @@ export class Vault {
 
     this.pagesById.set(page.id, page);
     this.pagesByPath.set(page.path, page);
-    this.refreshProjections();
+    this.refreshProjectionsForPage({ page });
 
     this.notify({
       type: 'page-added',
@@ -687,7 +758,7 @@ export class Vault {
 
     this.pagesById.delete(pageId);
     this.pagesByPath.delete(page.path);
-    this.refreshProjections();
+    this.refreshProjectionsForPage({ removedPageId: pageId });
 
     this.notify({
       type: 'page-removed',

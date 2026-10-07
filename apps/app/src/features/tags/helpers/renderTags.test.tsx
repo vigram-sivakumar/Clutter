@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { renderTags, type TagRowActions } from './renderTags';
-import type { Workspace } from '@core/workspace/Workspace';
+import { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { NoteRowActions } from '@features/notes/sidebar/FolderTree';
@@ -22,6 +22,8 @@ const noop = () => {};
 // tests; they exist only to satisfy renderTags' required props.
 const fakeWorkspace = {
   activePageId: null,
+  isSectionExpanded: () => true,
+  setSectionExpanded: () => {},
 } as unknown as Workspace;
 
 const fakeTagExpansionStore = {
@@ -170,6 +172,8 @@ function fakeRowActions(overrides: Partial<TagRowActions> = {}): TagRowActions {
     onOpenMenu: noop,
     onCloseMenu: noop,
     onChangeTagIcon: noop,
+    onTogglePinTag: noop,
+    onDeleteTag: noop,
     editingId: null,
     onStartRename: noop,
     onRenameEnd: noop,
@@ -201,7 +205,7 @@ afterEach(() => {
 describe('renderTags', () => {
   it('renders the assigned icon for a tag that has one', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', icon: '📦', favorite: false, usageCount: 0 }], renderOptions)}</>
+      <>{renderTags([{ name: 'project', icon: '📦', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
     );
 
     expect(screen.getAllByText('📦').length).toBeGreaterThan(0);
@@ -210,7 +214,7 @@ describe('renderTags', () => {
 
   it('falls back to the default tag icon when icon is absent', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'design', favorite: false, usageCount: 0 }], renderOptions)}</>
+      <>{renderTags([{ name: 'design', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
     );
 
     // No emoji span rendered anywhere for this tag — AppIcon falls back to
@@ -221,58 +225,58 @@ describe('renderTags', () => {
 
   it('displays usageCount as the trailing value', () => {
     render(
-      <>{renderTags([{ name: 'project', favorite: false, usageCount: 3 }], renderOptions)}</>
+      <>{renderTags([{ name: 'project', favorite: false, declared: false, usageCount: 3 }], renderOptions)}</>
     );
 
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
-  it('a tag with favorite: false renders only in the remaining section, never in Favorites', () => {
-    render(<>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], renderOptions)}</>);
+  it('a tag with favorite: false renders only in the remaining section, never in Pinned', () => {
+    render(<>{renderTags([{ name: 'project', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
-    expect(screen.queryByText('Favorites')).toBeNull();
+    expect(screen.queryByText('Pinned')).toBeNull();
   });
 
-  it('a tag with favorite: true renders only in Favorites, never in the remaining section', () => {
-    render(<>{renderTags([{ name: 'project', favorite: true, usageCount: 0 }], renderOptions)}</>);
+  it('a tag with favorite: true renders only in Pinned, never in the remaining section', () => {
+    render(<>{renderTags([{ name: 'project', favorite: true, declared: false, usageCount: 0 }], renderOptions)}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
-    expect(screen.getByText('Favorites')).toBeInTheDocument();
+    expect(screen.getByText('Pinned')).toBeInTheDocument();
   });
 
-  it('omits the Favorites section entirely when no tag is favorited', () => {
+  it('omits the Pinned section entirely when no tag is favorited', () => {
     render(
       <>
         {renderTags([
-          { name: 'project', favorite: false, usageCount: 0 },
-          { name: 'design', favorite: false, usageCount: 0 },
+          { name: 'project', favorite: false, declared: false, usageCount: 0 },
+          { name: 'design', favorite: false, declared: false, usageCount: 0 },
         ], renderOptions)}
       </>
     );
 
-    expect(screen.queryByText('Favorites')).toBeNull();
+    expect(screen.queryByText('Pinned')).toBeNull();
   });
 
   it('renders the remaining section without a header when it is the only visible section', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], renderOptions)}</>
+      <>{renderTags([{ name: 'project', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
     );
 
     expect(container.querySelectorAll('.section-header')).toHaveLength(0);
   });
 
-  it('renders a header for the remaining section once Favorites is also visible', () => {
+  it('renders a header for the remaining section once Pinned is also visible', () => {
     const { container } = render(
       <>
         {renderTags([
-          { name: 'project', favorite: true, usageCount: 0 },
-          { name: 'design', favorite: false, usageCount: 0 },
+          { name: 'project', favorite: true, declared: false, usageCount: 0 },
+          { name: 'design', favorite: false, declared: false, usageCount: 0 },
         ], renderOptions)}
       </>
     );
 
-    // One header for Favorites, one for the remaining section.
+    // One header for Pinned, one for the remaining section.
     expect(container.querySelectorAll('.section-header')).toHaveLength(2);
   });
 
@@ -280,8 +284,8 @@ describe('renderTags', () => {
     render(
       <>
         {renderTags([
-          { name: 'project', favorite: true, usageCount: 0 },
-          { name: 'design', favorite: false, usageCount: 0 },
+          { name: 'project', favorite: true, declared: false, usageCount: 0 },
+          { name: 'design', favorite: false, declared: false, usageCount: 0 },
         ], renderOptions)}
       </>
     );
@@ -290,12 +294,12 @@ describe('renderTags', () => {
     expect(screen.getAllByText('design')).toHaveLength(1);
   });
 
-  it('clicking a tag row toggles its expansion and does NOT open the Tag collection', () => {
+  it("clicking a tag row opens the Tag collection page and does NOT toggle its expansion", () => {
     const onOpenTag = vi.fn();
     const { store, toggleExpanded } = spyStore();
     render(
       <>
-        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+        {renderTags([{ name: 'Project', favorite: false, declared: false, usageCount: 0 }], {
           ...renderOptions,
           onOpenTag,
           tagExpansionStore: store,
@@ -305,17 +309,37 @@ describe('renderTags', () => {
 
     fireEvent.click(screen.getByText('Project'));
 
+    expect(onOpenTag).toHaveBeenCalledWith('Project');
+    expect(toggleExpanded).not.toHaveBeenCalled();
+  });
+
+  it('only the caret expands/collapses a tag — and it does not also open the collection page', () => {
+    const onOpenTag = vi.fn();
+    const { store, toggleExpanded } = spyStore();
+    render(
+      <>
+        {renderTags([{ name: 'Project', favorite: false, declared: false, usageCount: 2 }], {
+          ...renderOptions,
+          onOpenTag,
+          tagExpansionStore: store,
+        })}
+      </>
+    );
+
+    const caret = screen.getByText('Project').closest('.entry')!.querySelector('.caret-slot')!;
+    fireEvent.click(caret);
+
     expect(toggleExpanded).toHaveBeenCalledWith('Project');
     expect(onOpenTag).not.toHaveBeenCalled();
   });
 
-  it('the row is keyboard-operable: Enter on the focused row toggles it', () => {
-    const { store, toggleExpanded } = spyStore();
+  it('the row is keyboard-operable: Enter on the focused row opens the Tag collection', () => {
+    const onOpenTag = vi.fn();
     render(
       <>
-        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+        {renderTags([{ name: 'Project', favorite: false, declared: false, usageCount: 0 }], {
           ...renderOptions,
-          tagExpansionStore: store,
+          onOpenTag,
         })}
       </>
     );
@@ -323,7 +347,7 @@ describe('renderTags', () => {
     const row = screen.getByText('Project').closest('.entry') as HTMLElement;
     fireEvent.keyDown(row, { key: 'Enter' });
 
-    expect(toggleExpanded).toHaveBeenCalledWith('Project');
+    expect(onOpenTag).toHaveBeenCalledWith('Project');
   });
 
   it("clicking the row's add (+) action does not also toggle the row", () => {
@@ -331,7 +355,7 @@ describe('renderTags', () => {
     const { store, toggleExpanded } = spyStore();
     render(
       <>
-        {renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], {
+        {renderTags([{ name: 'Project', favorite: false, declared: false, usageCount: 0 }], {
           ...renderOptions,
           tagExpansionStore: store,
           onCreateNoteForTag,
@@ -349,7 +373,7 @@ describe('renderTags', () => {
   describe('display formatting (formatTagDisplayLabel) vs. raw identity', () => {
     it('a hyphen-separated tag name displays with the separator rendered as a space', () => {
       render(
-        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], renderOptions)}</>
+        <>{renderTags([{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
       );
 
       expect(screen.getByText('Product design')).toBeInTheDocument();
@@ -358,41 +382,143 @@ describe('renderTags', () => {
 
     it('an underscore-separated tag name displays with the separator rendered as a space', () => {
       render(
-        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], renderOptions)}</>
+        <>{renderTags([{ name: 'Product_design', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
       );
 
       expect(screen.getByText('Product design')).toBeInTheDocument();
       expect(screen.queryByText('Product_design')).toBeNull();
     });
 
-    it('clicking a hyphen-separated tag\'s row still toggles with the raw stored name, not the display label', () => {
-      const { store, toggleExpanded } = spyStore();
+    it('clicking a hyphen-separated tag\'s row still opens it with the raw stored name, not the display label', () => {
+      const onOpenTag = vi.fn();
       render(
-        <>{renderTags([{ name: 'Product-design', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore: store })}</>
+        <>{renderTags([{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
 
-      expect(toggleExpanded).toHaveBeenCalledWith('Product-design');
+      expect(onOpenTag).toHaveBeenCalledWith('Product-design');
     });
 
-    it('clicking an underscore-separated tag\'s row still toggles with the raw stored name, not the display label', () => {
-      const { store, toggleExpanded } = spyStore();
+    it('clicking an underscore-separated tag\'s row still opens it with the raw stored name, not the display label', () => {
+      const onOpenTag = vi.fn();
       render(
-        <>{renderTags([{ name: 'Product_design', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore: store })}</>
+        <>{renderTags([{ name: 'Product_design', favorite: false, declared: false, usageCount: 0 }], { ...renderOptions, onOpenTag })}</>
       );
 
       fireEvent.click(screen.getByText('Product design'));
 
-      expect(toggleExpanded).toHaveBeenCalledWith('Product_design');
+      expect(onOpenTag).toHaveBeenCalledWith('Product_design');
     });
 
     it('a tag name with no separator displays unchanged, exactly as before', () => {
       render(
-        <>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], renderOptions)}</>
+        <>{renderTags([{ name: 'project', favorite: false, declared: false, usageCount: 0 }], renderOptions)}</>
       );
 
       expect(screen.getByText('project')).toBeInTheDocument();
+    });
+  });
+
+  describe('collapsible Pinned / Others sections', () => {
+    const pinned = { name: 'pinned-tag', favorite: true, declared: true, usageCount: 0 };
+    const other = { name: 'other-tag', favorite: false, declared: false, usageCount: 0 };
+
+    function renderWith(workspace: Workspace, tags = [pinned, other]) {
+      return render(<>{renderTags(tags, { ...renderOptions, workspace })}</>);
+    }
+
+    it('shows both sections expanded by default', () => {
+      renderWith(new Workspace());
+
+      expect(screen.getByText('pinned tag')).toBeInTheDocument();
+      expect(screen.getByText('other tag')).toBeInTheDocument();
+    });
+
+    it('clicking the Pinned / Others headers sets that section collapsed on Workspace', () => {
+      const workspace = new Workspace();
+      const setSectionExpanded = vi.spyOn(workspace, 'setSectionExpanded');
+      renderWith(workspace);
+
+      fireEvent.click(screen.getByText('Pinned'));
+      expect(setSectionExpanded).toHaveBeenLastCalledWith('tags-pinned', false);
+
+      fireEvent.click(screen.getByText('Others'));
+      expect(setSectionExpanded).toHaveBeenLastCalledWith('tags-others', false);
+    });
+
+    it('a collapsed Pinned section hides its tags but keeps its header; Others is unaffected', () => {
+      const workspace = new Workspace();
+      workspace.setSectionExpanded('tags-pinned', false);
+      renderWith(workspace);
+
+      expect(screen.getByText('Pinned')).toBeInTheDocument();
+      expect(screen.queryByText('pinned tag')).toBeNull();
+      expect(screen.getByText('other tag')).toBeInTheDocument();
+    });
+
+    it('a collapsed Others section hides its tags but keeps its header', () => {
+      const workspace = new Workspace();
+      workspace.setSectionExpanded('tags-others', false);
+      renderWith(workspace);
+
+      expect(screen.getByText('Others')).toBeInTheDocument();
+      expect(screen.queryByText('other tag')).toBeNull();
+      expect(screen.getByText('pinned tag')).toBeInTheDocument();
+    });
+
+    it('with nothing pinned there is no Others header, so a stored collapsed state never hides the list', () => {
+      const workspace = new Workspace();
+      workspace.setSectionExpanded('tags-others', false);
+      renderWith(workspace, [other]);
+
+      expect(screen.queryByText('Others')).toBeNull();
+      expect(screen.getByText('other tag')).toBeInTheDocument();
+    });
+
+    it("uses the shared Workspace section state, which the session store already persists (collapsedSections)", () => {
+      const workspace = new Workspace();
+      workspace.setSectionExpanded('tags-pinned', false);
+      workspace.setSectionExpanded('tags-others', false);
+
+      expect(workspace.collapsedSections).toEqual(expect.arrayContaining(['tags-pinned', 'tags-others']));
+    });
+  });
+
+  describe('Pin', () => {
+    it("selecting 'Pin' pins an unpinned tag (onTogglePinTag with the raw name and pinned: true)", () => {
+      const onTogglePinTag = vi.fn();
+      const rowActions = fakeRowActions({ openMenuId: 'Product-design', onTogglePinTag });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
+            { ...renderOptions, rowActions }
+          )}
+        </>
+      );
+
+      fireEvent.click(screen.getByText('Pin'));
+
+      expect(onTogglePinTag).toHaveBeenCalledWith('Product-design', true);
+    });
+
+    it("a pinned tag's menu reads 'Unpin' and selecting it unpins (pinned: false)", () => {
+      const onTogglePinTag = vi.fn();
+      const rowActions = fakeRowActions({ openMenuId: 'Product-design', onTogglePinTag });
+      render(
+        <>
+          {renderTags(
+            [{ name: 'Product-design', favorite: true, declared: true, usageCount: 0 }],
+            { ...renderOptions, rowActions }
+          )}
+        </>
+      );
+
+      expect(screen.queryByText('Pin')).toBeNull();
+      fireEvent.click(screen.getByText('Unpin'));
+
+      expect(onTogglePinTag).toHaveBeenCalledWith('Product-design', false);
     });
   });
 
@@ -409,7 +535,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
             { ...renderOptions, rowActions }
           )}
         </>
@@ -425,7 +551,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
             { ...renderOptions, rowActions }
           )}
         </>
@@ -436,20 +562,20 @@ describe('renderTags', () => {
     });
 
     it('a row NOT matching editingId is unaffected, still a static, clickable row', () => {
-      const { store, toggleExpanded } = spyStore();
+      const onOpenTag = vi.fn();
       const rowActions = fakeRowActions({ editingId: 'design' });
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { ...renderOptions, tagExpansionStore: store, rowActions }
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
+            { ...renderOptions, onOpenTag, rowActions }
           )}
         </>
       );
 
       expect(screen.queryByRole('textbox')).toBeNull();
       fireEvent.click(screen.getByText('Product design'));
-      expect(toggleExpanded).toHaveBeenCalledWith('Product-design');
+      expect(onOpenTag).toHaveBeenCalledWith('Product-design');
     });
 
     it('committing the edit calls onCommitRename with the raw old name and the typed value', () => {
@@ -458,7 +584,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
             { ...renderOptions, rowActions }
           )}
         </>
@@ -483,7 +609,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
             { ...renderOptions, rowActions }
           )}
         </>
@@ -498,21 +624,21 @@ describe('renderTags', () => {
       expect(onRenameEnd).toHaveBeenCalledTimes(1);
     });
 
-    it('clicking a row mid-rename does not also toggle (edit mode suppresses the click handler)', () => {
-      const { store, toggleExpanded } = spyStore();
+    it('clicking a row mid-rename does not also open it (edit mode suppresses the click handler)', () => {
+      const onOpenTag = vi.fn();
       const rowActions = fakeRowActions({ editingId: 'Product-design' });
       render(
         <>
           {renderTags(
-            [{ name: 'Product-design', favorite: false, usageCount: 0 }],
-            { ...renderOptions, tagExpansionStore: store, rowActions }
+            [{ name: 'Product-design', favorite: false, declared: false, usageCount: 0 }],
+            { ...renderOptions, onOpenTag, rowActions }
           )}
         </>
       );
 
       fireEvent.click(screen.getByRole('textbox'));
 
-      expect(toggleExpanded).not.toHaveBeenCalled();
+      expect(onOpenTag).not.toHaveBeenCalled();
     });
   });
 
@@ -525,7 +651,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, effectivePageState }
           )}
         </>
@@ -544,11 +670,15 @@ describe('renderTags', () => {
         getPagesByTag: () => [],
         getPagesByFrontmatterTag: () => [note],
       } as unknown as EffectivePageState;
-      const workspace = { activePageId: note.id } as unknown as Workspace;
+      const workspace = {
+        activePageId: note.id,
+        isSectionExpanded: () => true,
+        setSectionExpanded: () => {},
+      } as unknown as Workspace;
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             {
               ...renderOptions,
               workspace,
@@ -574,7 +704,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState }
           )}
         </>
@@ -594,7 +724,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, onOpenNoteEntry, onOpenContextEntry }
           )}
         </>
@@ -621,7 +751,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
           )}
         </>
@@ -642,7 +772,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions }
           )}
         </>
@@ -664,7 +794,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, noteRowActions, onOpenNoteEntry }
           )}
         </>
@@ -679,7 +809,7 @@ describe('renderTags', () => {
       const toggleExpanded = vi.fn();
       const tagExpansionStore = { isExpanded: () => false, toggleExpanded } as unknown as TagExpansionStore;
       render(
-        <>{renderTags([{ name: 'empty-tag', favorite: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore })}</>
+        <>{renderTags([{ name: 'empty-tag', favorite: false, declared: false, usageCount: 0 }], { ...renderOptions, tagExpansionStore })}</>
       );
 
       // Two elements match role "button" here — the row's own
@@ -706,7 +836,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, ...withFrontmatterNote(), noteRowActions, onRevealInNotesSidebar: noop }
           )}
         </>
@@ -721,7 +851,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, ...withFrontmatterNote(), noteRowActions, onRevealInNotesSidebar }
           )}
         </>
@@ -737,7 +867,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, ...withFrontmatterNote(), noteRowActions }
           )}
         </>
@@ -763,7 +893,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -798,7 +928,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -828,7 +958,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -854,7 +984,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault, onOpenContextEntry, onOpenNoteEntry }
           )}
         </>
@@ -889,7 +1019,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault, onOpenContextEntry }
           )}
         </>
@@ -921,7 +1051,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -946,7 +1076,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -973,7 +1103,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -998,7 +1128,7 @@ describe('renderTags', () => {
       const { container } = render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>
@@ -1026,7 +1156,7 @@ describe('renderTags', () => {
       render(
         <>
           {renderTags(
-            [{ name: 'design', favorite: false, usageCount: 1 }],
+            [{ name: 'design', favorite: false, declared: false, usageCount: 1 }],
             { ...renderOptions, tagExpansionStore, effectivePageState, vault }
           )}
         </>

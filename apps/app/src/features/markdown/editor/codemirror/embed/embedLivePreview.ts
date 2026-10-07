@@ -19,7 +19,7 @@ import {
 import { getImageUiState, hasImageUiStateEntry, imageUiStateField } from '../image/imageUiState';
 import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationUpdate';
 import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
-import { getEmbedMarkerRanges, scanEmbed } from './embedScanner';
+import { getEmbedMarkerRanges, scanEmbed } from '../../../../../core/vault/ingest/grammar/embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import { classifyEmbedTargetExtension } from './embedTargetKind';

@@ -99,9 +99,7 @@ export class FrontmatterParser {
         if (currentArrayKey === 'aliases') {
           this.addAliases(frontmatter, [trimmed.slice(2)]);
         } else if (currentArrayKey === 'tags') {
-          const tags = frontmatter.tags ?? [];
-          tags.push(trimmed.slice(2).trim());
-          frontmatter.tags = tags;
+          this.addTags(frontmatter, [trimmed.slice(2)]);
         }
         continue;
       }
@@ -237,8 +235,19 @@ export class FrontmatterParser {
           }
           break;
         case 'tags':
+          // Block list (`tags:` then `  - value` lines, handled above),
+          // one-line flow list (`tags: [a, "b"]`), or a single/comma-
+          // separated value (`tags: a`, `tags: a, b`) — every form other
+          // tools write. A form this parser skipped used to come back as
+          // an empty list and be rewritten as such on the next save.
           if (!frontmatter.tags) {
             frontmatter.tags = [];
+          }
+          if (value !== '') {
+            this.addTags(
+              frontmatter,
+              parseFlowSequence(value) ?? unquoteFrontmatterString(value).split(',')
+            );
           }
           break;
       }
@@ -254,6 +263,24 @@ export class FrontmatterParser {
 
     return frontmatter;
   }
+  /**
+   * Appends raw tag values: unquoted, trimmed, a leading `#` dropped (people
+   * write `- "#design"`; the tag is `design`), empty values skipped.
+   * Duplicates are kept as written — the file is not this parser's to tidy.
+   */
+  private addTags(frontmatter: PageFrontmatter, rawValues: readonly string[]): void {
+    const tags = frontmatter.tags ?? [];
+
+    for (const raw of rawValues) {
+      const tag = unquoteFrontmatterString(raw).trim().replace(/^#+\s*/, '');
+      if (tag.length > 0) {
+        tags.push(tag);
+      }
+    }
+
+    frontmatter.tags = tags;
+  }
+
   /** Appends raw alias values, unquoted and trimmed; empty values are skipped. */
   private addAliases(frontmatter: PageFrontmatter, rawValues: readonly string[]): void {
     const aliases = frontmatter.aliases ?? [];

@@ -61,6 +61,8 @@ export interface ResourceTopBarActionsProps {
    * in folderActionConfirmation.ts).
    */
   deleteConfirmationMessage?: string;
+  /** Overrides the Delete confirmation's title (default 'Delete permanently?') — the Tag page's 'Delete <name>?'. */
+  deleteConfirmationTitle?: string;
   /**
    * The Archive page's 'delete-all' item: when present, selecting it shows the shared
    * Confirmation surface with this copy before invoking handlers['delete-all'].
@@ -128,6 +130,7 @@ export function ResourceTopBarActions({
   handlers,
   archiveConfirmationMessage,
   deleteConfirmationMessage,
+  deleteConfirmationTitle,
   deleteAllConfirmation,
   moveDestinations,
   onMove,
@@ -147,7 +150,7 @@ export function ResourceTopBarActions({
         // confirmation now applies to every archived/Archive-descendant
         // resource type (note, daily note, folder), not folders alone.
         confirmation.request({
-          title: 'Delete permanently?',
+          title: deleteConfirmationTitle ?? 'Delete permanently?',
           message: deleteConfirmationMessage,
           confirmLabel: 'Delete',
           onConfirm: () => handlers?.['delete']?.(),

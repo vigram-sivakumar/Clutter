@@ -1,11 +1,10 @@
-import { useRef } from 'react';
-import { Button } from '@components/button/Button';
+import type { RefObject } from 'react';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { AppIcon, type SystemIcon } from '@shared/icon';
-import { TASK_GROUP_IDS, type TaskDisplayConfig, type TaskGroupId } from '../helpers/groupTasks';
+import { HIDEABLE_TASK_GROUP_IDS, type TaskDisplayConfig, type TaskGroupId } from '../helpers/groupTasks';
 
 const GROUP_LABELS: Record<TaskGroupId, string> = {
   today: 'Today',
@@ -20,10 +19,12 @@ const GROUP_ICONS: Record<TaskGroupId, SystemIcon> = {
   today: 'calendarToday',
   overdue: 'exclamation',
   upcoming: 'calendarDots',
-  unscheduled: 'clock',
+  unscheduled: 'calendar',
 };
 
 export interface TasksViewSettingsMenuProps {
+  /** The Options sidebar row the menu is anchored to (to its right, top-aligned — like Tags' Tidy up menu). */
+  readonly anchorRef: RefObject<HTMLElement>;
   readonly config: TaskDisplayConfig;
   readonly onConfigChange: (next: TaskDisplayConfig) => void;
   readonly open: boolean;
@@ -31,61 +32,41 @@ export interface TasksViewSettingsMenuProps {
 }
 
 /**
- * The Tasks view's global settings action — lives once, on the Tasks
- * sidebar's "All Tasks" row (TasksShortcuts.tsx), in that row's
- * always-visible `trailing` slot rather than its hover-revealed `actions`
- * slot, so the view's configurability is discoverable without hovering.
- * Deliberately not on any individual group header (Today/Overdue/
- * Upcoming): both settings apply to every group at once, and placing the
- * control on one group misrepresented that scope.
+ * The menu behind the Tasks sidebar's "Options" row (TasksShortcuts.tsx) —
+ * the Tasks equivalent of Tags' Tidy up menu: same `Overlay` + `Menu`
+ * primitives, opening to the right of its row, top-aligned. It is a sidebar
+ * action, not a header button; both settings apply to every group at once.
  *
- * Opens a tick-selection menu — a "Groups" section (Today / Overdue /
- * Upcoming / Unscheduled, which sidebar sections are shown), a divider,
- * then a "Display" section (Show completed / Sort completed) — the same `Button` + `Overlay`
- * + `Menu`/`MenuItem` tick pattern CollectionViewMenu.tsx's Properties
- * submenu establishes, with the tick in the item's trailing slot (absent
- * when off). Like that submenu, toggling an item leaves the menu open so
- * several can be changed in one visit; it closes on outside click/Escape.
+ * A "Groups" section (Overdue / Upcoming / Unscheduled — Today is always shown —
+ * which sidebar sections are shown), a divider, then a "Display" section (Show
+ * completed / Sort completed) — the tick pattern CollectionViewMenu.tsx's
+ * Properties submenu establishes, with the tick in the item's trailing slot
+ * (absent when off). Toggling an item leaves the menu open so several can
+ * be changed in one visit; it closes on outside click/Escape.
  *
  * `config`/`onConfigChange` are the one shared Tasks-view preference
  * (owned by AppLayout). `open`/`onOpenChange` are owned by the caller (not
- * local state) because the caller also needs to know whether the menu is
- * open, to keep its row visibly hovered while it is (see Note.tsx/
- * Folder.tsx's identical `forceHover` reasoning).
+ * local state) because the caller also keeps its row selected while the
+ * menu is open.
  */
 export function TasksViewSettingsMenu({
+  anchorRef,
   config,
   onConfigChange,
   open,
   onOpenChange,
 }: TasksViewSettingsMenuProps) {
-  const anchorRef = useRef<HTMLButtonElement>(null);
-
   return (
-    <>
-      <Button
-        ref={anchorRef}
-        size="small"
-        variant="ghost"
-        interaction="subtle"
-        isIconOnly
-        aria-label="Task display settings"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => onOpenChange(!open)}
-      >
-        <AppIcon icon="settings" />
-      </Button>
       <Overlay
         open={open}
         onClose={() => onOpenChange(false)}
         anchorRef={anchorRef}
-        side="bottom"
+        side="right"
         alignment="start"
       >
         <Menu size="medium">
           <MenuGroupTitle>Groups</MenuGroupTitle>
-          {TASK_GROUP_IDS.map((id) => {
+          {HIDEABLE_TASK_GROUP_IDS.map((id) => {
             const hidden = config.hiddenGroups ?? [];
             const isShown = !hidden.includes(id);
             return (
@@ -139,6 +120,5 @@ export function TasksViewSettingsMenu({
           </MenuItem>
         </Menu>
       </Overlay>
-    </>
   );
 }

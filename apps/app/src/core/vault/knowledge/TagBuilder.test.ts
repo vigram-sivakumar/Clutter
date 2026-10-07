@@ -61,21 +61,81 @@ describe('TagBuilder', () => {
       new Map([['project', { icon: '📦' }]])
     );
 
-    expect(tags).toEqual([{ name: 'project', icon: '📦', favorite: false, usageCount: 1 }]);
+    expect(tags).toEqual([
+      { name: 'project', icon: '📦', favorite: false, declared: true, usageCount: 1 },
+    ]);
   });
 
-  it('never manufactures a Tag from metadata alone — markdown determines existence', () => {
+  it('a declared tag no note uses is still a Tag, with zero usage — tag existence is used ∪ declared', () => {
     const builder = new TagBuilder();
     const tags = builder.build(
-      [makePage('a', ['project'])],
+      [makePage('a', ['design'])],
       new Map([
-        ['project', { icon: '📦' }],
-        ['orphaned', { icon: '👻' }],
+        ['design', {}],
+        ['research', { icon: '🔬', favorite: true }],
       ])
     );
 
+    expect(tags).toEqual([
+      { name: 'design', icon: undefined, favorite: false, declared: true, usageCount: 1 },
+      { name: 'research', icon: '🔬', favorite: true, declared: true, usageCount: 0 },
+    ]);
+  });
+
+  it('with no notes at all, every declared tag exists', () => {
+    const tags = new TagBuilder().build([], new Map([['design', {}], ['research', {}]]));
+
+    expect(tags.map((tag) => [tag.name, tag.usageCount])).toEqual([
+      ['design', 0],
+      ['research', 0],
+    ]);
+  });
+
+  it('a declared-only tag shows its stored spelling, else its canonical serialized key', () => {
+    const tags = new TagBuilder().build(
+      [],
+      new Map([
+        ['ios', { name: 'iOS' }],
+        ['product design', {}],
+      ])
+    );
+
+    expect(tags.map((tag) => tag.name)).toEqual(['iOS', 'product-design']);
+  });
+
+  it('a used tag shows the spelling Markdown uses, not the stored one', () => {
+    const tags = new TagBuilder().build(
+      [makePage('a', ['IOS'])],
+      new Map([['ios', { name: 'iOS' }]])
+    );
+
+    expect(tags.map((tag) => tag.name)).toEqual(['IOS']);
+  });
+
+  it('a used, never-configured tag is not declared', () => {
+    const [tag] = new TagBuilder().build([makePage('a', ['design'])]);
+
+    expect(tag!.declared).toBe(false);
+  });
+
+  it('inline and frontmatter usage of the same name are one tag on one page', () => {
+    const tags = new TagBuilder().build([makePage('a', ['design'], 'note', ['design', 'Design'])]);
+
     expect(tags).toHaveLength(1);
-    expect(tags[0]!.name).toBe('project');
+    expect(tags[0]!.usageCount).toBe(1);
+  });
+
+  it('Unicode names group by NFKC + case folding, and invisible characters never create a look-alike tag', () => {
+    const tags = new TagBuilder().build([
+      makePage('a', ['Café']),
+      makePage('b', ['cafe\u0301']),
+      makePage('c', ['de\u200Bsign', 'design']),
+    ]);
+
+    expect(tags.map((tag) => [tag.name, tag.usageCount])).toEqual([
+      ['Café', 2],
+      ['de\u200Bsign', 1],
+    ]);
   });
 
   it('sorts tags alphabetically, case-insensitively, regardless of occurrence order', () => {

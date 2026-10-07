@@ -4,7 +4,7 @@ import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalenda
 
 import type { DateNodeRange } from './dateEngagement';
 import { fallbackDateResolution, type ResolveDate } from './dateResolution';
-import { scanDate } from './dateScanner';
+import { scanDate } from '../../../../../core/vault/ingest/grammar/dateScanner';
 
 /**
  * Scans a Date node's raw text and resolves it, exposing only the

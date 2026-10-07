@@ -93,6 +93,12 @@ import {
   getCollectionPageTitleProps,
   createTagCollectionRenameHandler,
 } from '@app/layouts/page/tagCollectionRename';
+import {
+  createTagCollectionDeleteHandler,
+  TAG_DELETE_CONFIRMATION_MESSAGE,
+  getTagDeleteConfirmationTitle,
+} from '@app/layouts/page/tagCollectionDelete';
+import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
@@ -1829,16 +1835,63 @@ export function PageHost({
               filteredViewSystemLocationId,
               titleProps.title
             )} />}
+        // A tag page's one top-bar action: Delete (TagOperations.deleteTag),
+        // through the same menu + confirmation surface every resource's
+        // More actions uses. Workspace/Favorites keep none.
+        actions={
+          view.kind === 'tag' ? (
+            <ResourceTopBarActions
+              menu={[{ id: 'delete', label: 'Delete', icon: 'trash' }]}
+              handlers={{
+                delete: () =>
+                  void createTagCollectionDeleteHandler(
+                    {
+                      tagOperations: application.tagOperations,
+                      navigation: application.navigation,
+                      workspace: application.workspace,
+                      collectionViewConfigStore: application.collectionViewConfigStore,
+                      tagExpansionStore: application.tagExpansionStore,
+                    },
+                    view.tagName
+                  )(),
+              }}
+              deleteConfirmationTitle={getTagDeleteConfirmationTitle(view.tagName)}
+              deleteConfirmationMessage={TAG_DELETE_CONFIRMATION_MESSAGE}
+            />
+          ) : undefined
+        }
         titleActions={renderCollectionHeaderActions({
           onAdd: onCreate,
           onAddFolder: onCreateFolder,
           fromTemplate: collectionDefinition.actions.fromTemplate ? buildFromTemplate(null) : undefined,
         })}
+        // A tag's own emoji (Tag.icon, set from the New tag dialog or the
+        // sidebar's Change icon) shows in the title the same way an
+        // ordinary folder's metadata.icon does; the generic icon below is
+        // what shows when it has none (and always for Workspace/Favorites).
+        emoji={view.kind === 'tag' ? (vault.getTagByName(view.tagName)?.icon ?? undefined) : undefined}
         icon={
           getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')
             .icon
         }
-        showMoreActions={false}
+        // Only a tag's page is editable here: picking or removing its emoji
+        // goes through TagOperations.updateMetadata (the tag's definition in
+        // tags.json) and the header's existing emoji picker / More actions
+        // "Emoji" item — the same controls a folder's page uses, which show
+        // only the capabilities whose handler is supplied. Workspace and
+        // Favorites supply none and keep no More actions.
+        showMoreActions={view.kind === 'tag'}
+        onSelectEmoji={
+          view.kind === 'tag'
+            ? (selected) =>
+                void application.tagOperations.updateMetadata(view.tagName, { icon: selected })
+            : undefined
+        }
+        onRemoveEmoji={
+          view.kind === 'tag'
+            ? () => void application.tagOperations.updateMetadata(view.tagName, { icon: undefined })
+            : undefined
+        }
         body={
           <CollectionBody
             folders={model.folders}

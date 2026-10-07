@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { markdownLanguageExtension } from '../markdownLanguage';
+import { markdownLanguageExtension } from '../../../../features/markdown/editor/codemirror/markdownLanguage';
 
 /**
  * Pure parser-level tests — no EditorView, no DOM. Mirrors

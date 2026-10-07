@@ -2,11 +2,11 @@ import type { SyntaxNode } from '@lezer/common';
 
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 
-import { scanDate } from '../editor/codemirror/date/dateScanner';
-import { scanEmbed } from '../editor/codemirror/embed/embedScanner';
+import { scanDate } from '../../../core/vault/ingest/grammar/dateScanner';
+import { scanEmbed } from '../../../core/vault/ingest/grammar/embedScanner';
 import { scanImage } from '../editor/codemirror/image/imageScanner';
-import { scanTag } from '../editor/codemirror/tag/tagScanner';
-import { scanWikiLink } from '../editor/codemirror/wikilink/wikiLinkScanner';
+import { scanTag } from '@core/vault/ingest/tag/tagScanner';
+import { scanWikiLink } from '../../../core/vault/ingest/grammar/wikiLinkScanner';
 
 /**
  * Inline span vocabulary for a read-only Markdown rendering surface —

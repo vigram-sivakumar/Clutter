@@ -16,7 +16,11 @@ import { describe, expect, it } from 'vitest';
  */
 
 const FORBIDDEN_IMPORT_PATTERNS = [
-  /from\s+['"].*core\/vault/,
+  // The shared Markdown grammar (`ingest/grammar`, `ingest/tag`) is pure
+  // parsing — no Vault, no I/O — and is deliberately shared with Vault
+  // Ingest so the editor and the index agree on syntax. It is the one
+  // core/vault path the editor may import.
+  /from\s+['"].*core\/vault(?!\/ingest\/(?:grammar|tag)\/)/,
   /from\s+['"].*core\/application/,
   /\bVaultQuery\b/,
   /\bEffectivePageState\b/,
@@ -49,8 +53,6 @@ describe('Embed editor boundary: no Vault/application-layer imports', () => {
   it('found the expected source files to check (sanity check on the check itself)', () => {
     expect(files).toEqual(
       expect.arrayContaining([
-        'embedScanner.ts',
-        'embedSyntax.ts',
         'embedSerialize.ts',
         'embedSuggestion.ts',
         'embedEngagement.ts',

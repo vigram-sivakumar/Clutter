@@ -1,7 +1,7 @@
 import type { WidgetType } from '@codemirror/view';
 
 import { fallbackTagResolution, type ResolveTag } from './tagResolution';
-import { scanTag } from './tagScanner';
+import { scanTag } from '@core/vault/ingest/tag/tagScanner';
 import { TagWidget } from './TagWidget';
 
 /**

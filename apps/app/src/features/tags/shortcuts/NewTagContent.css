@@ -1,0 +1,75 @@
+/* Same opaque-surface recipe as NewTaskContent.css — Dialog contributes no
+   background itself, so every dialog body supplies its own surface. */
+.new-tag {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+
+  padding: var(--space-16);
+}
+
+.new-tag__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.new-tag__title {
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+}
+
+.new-tag__field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.new-tag__field > .input {
+  align-self: stretch;
+}
+
+.new-tag__label {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  color: var(--foreground-secondary);
+}
+
+/* No error/danger color token exists yet in the design system — the same
+   deliberate, scoped color NewTaskContent.css uses. */
+.new-tag__error {
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-thin);
+  line-height: var(--lh-label-small);
+  color: #e5484d;
+}
+
+.new-tag__emoji {
+  font-size: var(--text-body);
+  line-height: 1;
+}
+
+.new-tag__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+/* Same two-class override as .new-task__due-date-button: wins over the size
+   rule's padding-inline and .button--has-leading's padding-inline-end. */
+.button.new-tag__emoji-button {
+  padding-inline: 0;
+}
+
+/* Two-class override, same reasoning as .new-task__create-button. */
+.button.new-tag__create-button {
+  padding-inline: var(--space-24);
+}

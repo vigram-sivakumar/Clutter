@@ -196,6 +196,7 @@ export function Sidebar({
           membershipSelector={membershipSelector}
           workspace={workspace}
           tagExpansionStore={application.tagExpansionStore}
+          collectionViewConfigStore={application.collectionViewConfigStore}
           onRequestReveal={onRequestReveal}
           onRevealInNotesSidebar={revealNoteInNotesSidebar}
         />

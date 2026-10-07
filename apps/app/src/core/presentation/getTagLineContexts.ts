@@ -1,5 +1,6 @@
 import type { Page } from '@core/vault/models';
 import type { SourceRange } from './getTagOccurrenceRanges';
+import { normalizeTagName } from '../vault/models/Tag';
 
 /**
  * One distinct Markdown line in a page's body that contains at least one
@@ -36,7 +37,7 @@ export function getTagLineContexts(
 
   const markdown = page.source.markdown;
   const occurrences = page.analysis.tags
-    .filter((occurrence) => occurrence.name === tagName)
+    .filter((occurrence) => normalizeTagName(occurrence.name) === normalizeTagName(tagName))
     .filter(
       (occurrence): occurrence is typeof occurrence & { startOffset: number; endOffset: number } =>
         occurrence.startOffset !== undefined && occurrence.endOffset !== undefined

@@ -5,7 +5,10 @@ import { isValidTagPrecedingContext, scanTag } from './tagScanner';
 const HASH = '#'.charCodeAt(0);
 
 /**
- * The `Tag` Lezer node, registered through `@lezer/markdown`'s public
+ * The `Tag` Lezer node — the parse-tree face of the one tag grammar
+ * (`tagScanner.ts`), shared by the page editor (`markdownGrammarExtensions`)
+ * and by Vault Ingest (`tagParser.ts`), so what the editor renders as a tag
+ * and what is indexed as a tag cannot drift. Registered through `@lezer/markdown`'s public
  * `MarkdownConfig` extension mechanism — the same mechanism `wikiLinkSyntax.ts`
  * and GFM's own Table/TaskList/Strikethrough/Autolink extensions use.
  *

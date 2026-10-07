@@ -43,11 +43,21 @@ export interface TaskDisplayConfig {
 /** The collapsible sections the Tasks sidebar groups tasks into, in display order. */
 export const TASK_GROUP_IDS = ['today', 'overdue', 'upcoming', 'unscheduled'] as const;
 export type TaskGroupId = (typeof TASK_GROUP_IDS)[number];
+/**
+ * The groups the Options menu lets the user switch off — every group but Today, which always stays
+ * visible. Anything else (a stale persisted `today`, a hand-edited file) is ignored on load, so Today
+ * can never end up hidden with no way to bring it back.
+ */
+export const HIDEABLE_TASK_GROUP_IDS: readonly TaskGroupId[] = TASK_GROUP_IDS.filter((id) => id !== 'today');
 
-/** The Tasks-view preference's out-of-the-box defaults — completed tasks shown, in their normal position. */
+/**
+ * The Tasks-view preference's out-of-the-box defaults — completed tasks shown, in their normal position;
+ * Overdue and Upcoming sections shown, Unscheduled off until the user turns it on.
+ */
 export const DEFAULT_TASK_DISPLAY_CONFIG: TaskDisplayConfig = {
   showCompleted: true,
   autoSortCompleted: false,
+  hiddenGroups: ['unscheduled'],
 };
 
 // Due-date interpretation is centralized in taskDueDate.ts (`classifyDueDate`) — the same one the

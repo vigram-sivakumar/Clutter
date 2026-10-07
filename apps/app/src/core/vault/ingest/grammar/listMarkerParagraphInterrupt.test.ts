@@ -4,7 +4,7 @@ import { redo, undo, history } from '@codemirror/commands';
 import { syntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 
-import { markdownLanguageExtension } from '../markdownLanguage';
+import { markdownLanguageExtension } from '../../../../features/markdown/editor/codemirror/markdownLanguage';
 
 function hasNode(state: EditorState, name: string): boolean {
   let found = false;

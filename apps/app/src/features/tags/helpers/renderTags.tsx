@@ -22,6 +22,10 @@ export interface TagRowActions {
   onOpenMenu(name: string): void;
   onCloseMenu(): void;
   onChangeTagIcon(name: string, emoji: string | null): void;
+  /** Pins (`pinned: true`) or unpins a tag — stored as its `favorite` metadata. */
+  onTogglePinTag(name: string, pinned: boolean): void;
+  /** Asks to delete the tag everywhere (the panel confirms first). */
+  onDeleteTag(name: string): void;
 
   /** Raw/canonical tag name of the row currently mid-rename, or null. */
   editingId: string | null;
@@ -183,6 +187,7 @@ function getTagChildren(
 
 function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOptions) {
   const {
+    onOpenTag,
     onOpenNoteEntry,
     onOpenContextEntry,
     vault,
@@ -199,7 +204,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
     rowActions,
     directlyOpenedNoteId,
   } = options;
-  const menuItems = rowActions ? buildTagSidebarMenu() : undefined;
+  const menuItems = rowActions ? buildTagSidebarMenu(tag.favorite) : undefined;
   const isEditing = rowActions?.editingId === tag.name;
   // A tag with zero occurrences has nothing to expand into — same
   // "isEmpty forces the caret collapsed" rule as Folder's own isEmpty,
@@ -226,9 +231,9 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
         isExpanded={isExpanded}
         onExpandToggle={() => tagExpansionStore.toggleExpanded(tag.name)}
         onAddClick={onCreateNoteForTag ? () => onCreateNoteForTag(tag.name) : undefined}
-        // Row click only expands/collapses; the Tag Collection page is no
-        // longer opened from here (same toggle the caret fires).
-        onClick={isEditing ? undefined : () => tagExpansionStore.toggleExpanded(tag.name)}
+        // Row click opens the tag's collection page, like a folder row; only
+        // the caret (onExpandToggle above) expands/collapses its notes.
+        onClick={isEditing ? undefined : () => onOpenTag(tag.name)}
         isEditing={isEditing}
         onTitleCommit={
           rowActions ? (value) => rowActions.onCommitRename(tag.name, value) : undefined
@@ -250,6 +255,10 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
             ? (id) => {
                 if (id === 'rename') {
                   rowActions.onStartRename(tag.name);
+                } else if (id === 'toggle-pin') {
+                  rowActions.onTogglePinTag(tag.name, !tag.favorite);
+                } else if (id === 'delete') {
+                  rowActions.onDeleteTag(tag.name);
                 }
               }
             : undefined
@@ -328,15 +337,47 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
   );
 }
 
+/**
+ * Workspace section ids for the Tags sidebar's two sections. Expansion is
+ * the same Workspace state every other sidebar section uses
+ * (`isSectionExpanded`/`setSectionExpanded`), which the session store
+ * already persists across reloads — no tag-specific storage.
+ */
+export const TAGS_PINNED_SECTION_ID = 'tags-pinned';
+export const TAGS_OTHERS_SECTION_ID = 'tags-others';
+
 export function renderTags(tags: readonly TagModel[], options: RenderTagsOptions) {
   const { favorites, others } = groupTagsByFavorite(tags);
+  const { workspace } = options;
+  // "Others" only has a header (so can only be collapsed) while something is
+  // pinned; with no header, a collapsed state stored earlier must never hide
+  // the whole list.
+  const othersHaveHeader = favorites.length > 0;
 
   return (
     <>
-      <FavoritesSection isEmpty={favorites.length === 0} title="Favorites">
+      <FavoritesSection
+        isEmpty={favorites.length === 0}
+        title="Pinned"
+        isCollapsible
+        isTitleToggle
+        isExpanded={workspace.isSectionExpanded(TAGS_PINNED_SECTION_ID)}
+        onExpandedChange={(expanded) =>
+          workspace.setSectionExpanded(TAGS_PINNED_SECTION_ID, expanded)
+        }
+      >
         {favorites.map((tag) => renderTagRow(tag, true, options))}
       </FavoritesSection>
-      <Section hasHeader={favorites.length > 0} title="Others">
+      <Section
+        hasHeader={othersHaveHeader}
+        title="Others"
+        isCollapsible
+        isTitleToggle
+        isExpanded={othersHaveHeader ? workspace.isSectionExpanded(TAGS_OTHERS_SECTION_ID) : true}
+        onExpandedChange={(expanded) =>
+          workspace.setSectionExpanded(TAGS_OTHERS_SECTION_ID, expanded)
+        }
+      >
         {others.map((tag) => renderTagRow(tag, false, options))}
       </Section>
     </>

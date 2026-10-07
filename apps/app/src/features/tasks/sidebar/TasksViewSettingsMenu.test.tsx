@@ -25,48 +25,14 @@ afterEach(() => {
   cleanup();
 });
 
-function renderMenu(config: TaskDisplayConfig = DEFAULT_TASK_DISPLAY_CONFIG) {
-  const onConfigChange = vi.fn();
-  const onOpenChange = vi.fn();
-  const utils = render(
-    <TasksViewSettingsMenu
-      config={config}
-      onConfigChange={onConfigChange}
-      open={false}
-      onOpenChange={onOpenChange}
-    />
-  );
-  const trigger = utils.container.querySelector('[aria-haspopup="menu"]')!;
-  return { ...utils, trigger, onConfigChange, onOpenChange };
-}
-
-describe('TasksViewSettingsMenu — trigger', () => {
-  it('renders a settings icon-only trigger button', () => {
-    const { trigger } = renderMenu();
-
-    expect(trigger.tagName).toBe('BUTTON');
-    expect(trigger.querySelector('svg')).toBeInTheDocument();
-    // Its always-visible placement is the All Tasks row's own concern
-    // (Entry's `trailing` slot, see TasksShortcuts.tsx) — this component
-    // only renders the trigger and its menu.
-    expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
-  });
-
-  it('clicking the trigger asks the caller to open the menu, via onOpenChange — open state is caller-owned', () => {
-    const { trigger, onOpenChange } = renderMenu();
-
-    fireEvent.click(trigger);
-
-    expect(onOpenChange).toHaveBeenCalledWith(true);
-  });
-});
-
 describe('TasksViewSettingsMenu — menu contents (open)', () => {
   function renderOpenMenu(config: TaskDisplayConfig = DEFAULT_TASK_DISPLAY_CONFIG) {
     const onConfigChange = vi.fn();
     const onOpenChange = vi.fn();
+    const anchorRef = { current: document.body.appendChild(document.createElement('div')) };
     const utils = render(
       <TasksViewSettingsMenu
+        anchorRef={anchorRef}
         config={config}
         onConfigChange={onConfigChange}
         open
@@ -76,14 +42,13 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     return { ...utils, onConfigChange, onOpenChange };
   }
 
-  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then a Display section with Show completed and Sort completed', () => {
+  it('shows a Groups section (Overdue, Upcoming, Unscheduled — never Today), a divider, then a Display section with Show completed and Sort completed', () => {
     const { getByText, getAllByRole } = renderOpenMenu();
 
     expect(getByText('Groups')).toBeInTheDocument();
     expect(getByText('Display')).toBeInTheDocument();
     expect(// The Today calendar icon renders the current date's number as text — strip it.
     getAllByRole('menuitem').map((el) => (el.textContent ?? '').replace(/^\d+/, ''))).toEqual([
-      'Today',
       'Overdue',
       'Upcoming',
       'Unscheduled',
@@ -96,11 +61,14 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
   it('toggling a group writes it into hiddenGroups (and back out) without closing the menu', () => {
     const { getByText, onConfigChange, onOpenChange } = renderOpenMenu();
 
+    // By default Overdue and Upcoming are ticked (shown) and Unscheduled is not.
     fireEvent.click(getByText('Overdue'));
-
     expect(onConfigChange).toHaveBeenCalledWith(
-      expect.objectContaining({ hiddenGroups: ['overdue'] })
+      expect.objectContaining({ hiddenGroups: ['unscheduled', 'overdue'] })
     );
+
+    fireEvent.click(getByText('Unscheduled'));
+    expect(onConfigChange).toHaveBeenCalledWith(expect.objectContaining({ hiddenGroups: [] }));
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 

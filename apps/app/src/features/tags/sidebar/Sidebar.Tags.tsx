@@ -22,6 +22,15 @@ import { renderTags } from '../helpers/renderTags';
 import type { Vault } from '@core/vault/models';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import { useTagExpansionStore } from '@app/hooks/useTagExpansionStore';
+import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
+import {
+  createTagCollectionDeleteHandler,
+  TAG_DELETE_CONFIRMATION_MESSAGE,
+  getTagDeleteConfirmationTitle,
+} from '@app/layouts/page/tagCollectionDelete';
+import { Dialog } from '@components/dialog/Dialog';
+import { Confirmation } from '@components/confirmation/Confirmation';
+import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 
 interface TagsPanelProps {
   readonly vault: Vault;
@@ -34,6 +43,8 @@ interface TagsPanelProps {
   readonly workspace: Workspace;
   /** Persisted expansion state (survives app reload) — see its own doc comment for why this isn't on `workspace`. */
   readonly tagExpansionStore: TagExpansionStore;
+  /** Forgotten for a tag when it is deleted — see createTagCollectionDeleteHandler. */
+  readonly collectionViewConfigStore: CollectionViewConfigStore;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by an expanded tag's note click, same pipeline Tag collection's "Open note" already drives. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /**
@@ -56,9 +67,12 @@ export function Tags({
   membershipSelector,
   workspace,
   tagExpansionStore,
+  collectionViewConfigStore,
   onRequestReveal,
   onRevealInNotesSidebar,
 }: TagsPanelProps) {
+  // Delete is confirmed here — the same shared surface the tag page's Delete uses.
+  const confirmation = useConfirmationSurface();
   // Forces a re-render when a tag's expansion is toggled — the store is
   // the source of truth (and what actually persists), this hook is purely
   // the view-layer subscription, same shape as useWorkspace/
@@ -135,7 +149,22 @@ export function Tags({
   };
 
   return (
-    <View navigation={<TagsShortcuts onShortcut={onShortcut} />}>
+    <View
+      navigation={
+        <TagsShortcuts
+          onShortcut={onShortcut}
+          validateTagName={(input) => tagOperations.checkNewTagName(input)}
+          onCreateTag={(name, icon) => tagOperations.declare(name, { icon })}
+          unusedTagCount={tagOperations.countUnusedTags()}
+          onTidyUp={async () => {
+            await tagOperations.deleteUnusedTags();
+          }}
+          onRestyle={async (style) => {
+            await tagOperations.restyle(style);
+          }}
+        />
+      }
+    >
       {renderTags(tags, {
         onOpenTag: (name) => navigation.openTag(name),
         onOpenNoteEntry,
@@ -165,6 +194,23 @@ export function Tags({
               name,
               emoji === null ? { icon: undefined } : { icon: emoji }
             ),
+
+          onTogglePinTag: (name, pinned) =>
+            void tagOperations.updateMetadata(name, { favorite: pinned }),
+
+          onDeleteTag: (name) =>
+            confirmation.request({
+              title: getTagDeleteConfirmationTitle(name),
+              message: TAG_DELETE_CONFIRMATION_MESSAGE,
+              confirmLabel: 'Delete',
+              onConfirm: () =>
+                void createTagCollectionDeleteHandler(
+                  { tagOperations, navigation, workspace, collectionViewConfigStore, tagExpansionStore },
+                  name
+                )().catch((error: unknown) => {
+                  console.warn('Delete tag failed', error);
+                }),
+            }),
 
           editingId,
           onStartRename: (name) => {
@@ -204,6 +250,18 @@ export function Tags({
           },
         },
       })}
+      <Dialog open={confirmation.pending !== null} onClose={confirmation.cancel} size="medium">
+        {confirmation.pending && (
+          <Confirmation
+            title={confirmation.pending.title}
+            description={confirmation.pending.message}
+            confirmLabel={confirmation.pending.confirmLabel}
+            confirmVariant={confirmation.pending.confirmVariant}
+            onConfirm={confirmation.confirm}
+            onCancel={confirmation.cancel}
+          />
+        )}
+      </Dialog>
     </View>
   );
 }

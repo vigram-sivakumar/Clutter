@@ -31,6 +31,7 @@ import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import type { Page } from '../../vault/models/Page';
 import { TagExpansionStore } from './TagExpansionStore';
+import { TagMetadataStore } from '../../vault/persistence/TagMetadataStore';
 
 const ROOT = '/vault';
 
@@ -113,11 +114,14 @@ function setup(pages: Page[]) {
     () => {}
   );
 
+  const store = new TagMetadataStore(fileSystem, ROOT);
+
   return {
     vault,
     fileSystem,
     pageOperations,
-    tagOperations: new TagOperations(vault, fileSystem, ROOT, pageOperations),
+    store,
+    tagOperations: new TagOperations(vault, store, fileSystem, pageOperations),
   };
 }
 
@@ -154,8 +158,11 @@ describe('TagOperations.updateMetadata', () => {
     await tagOperations.updateMetadata('Project', { icon: '📦' });
 
     const written = JSON.parse(fileSystem.getFileSync('/vault/.clutter/tags.json')!);
-    expect(written).toEqual({ tags: { project: { icon: '📦' } } });
-    expect([...vault.tags()]).toEqual([]); // no occurrence anywhere — no Tag manufactured
+    expect(written).toEqual({ version: 2, tags: { project: { name: 'Project', icon: '📦' } } });
+    // Configuring a tag declares it: it exists with zero usage.
+    expect([...vault.tags()]).toEqual([
+      { name: 'Project', icon: '📦', favorite: false, declared: true, usageCount: 0 },
+    ]);
   });
 
   it('merges a patch into an existing entry rather than replacing it', async () => {
@@ -168,10 +175,10 @@ describe('TagOperations.updateMetadata', () => {
     await tagOperations.updateMetadata('project', { icon: '🚀' });
 
     const written = JSON.parse(fileSystem.getFileSync('/vault/.clutter/tags.json')!);
-    expect(written).toEqual({ tags: { project: { icon: '🚀' } } });
+    expect(written).toEqual({ version: 2, tags: { project: { name: 'project', icon: '🚀' } } });
   });
 
-  it('removes the entry entirely when every field is cleared', async () => {
+  it('keeps the definition when every field is cleared — clearing configuration never deletes a tag', async () => {
     const { fileSystem, tagOperations } = setup([]);
     fileSystem.seedFile(
       '/vault/.clutter/tags.json',
@@ -181,7 +188,7 @@ describe('TagOperations.updateMetadata', () => {
     await tagOperations.updateMetadata('project', { icon: undefined });
 
     const written = JSON.parse(fileSystem.getFileSync('/vault/.clutter/tags.json')!);
-    expect(written).toEqual({ tags: {} });
+    expect(written).toEqual({ version: 2, tags: { project: { name: 'project' } } });
   });
 
   it('normalizes hand-edited mixed-case keys on read', async () => {
@@ -194,7 +201,7 @@ describe('TagOperations.updateMetadata', () => {
     await tagOperations.updateMetadata('project', { icon: '🚀' });
 
     const written = JSON.parse(fileSystem.getFileSync('/vault/.clutter/tags.json')!);
-    expect(written).toEqual({ tags: { project: { icon: '🚀' } } });
+    expect(written).toEqual({ version: 2, tags: { project: { name: 'project', icon: '🚀' } } });
   });
 
   it('pushes the new metadata into Vault via setTagMetadata', async () => {
@@ -208,7 +215,7 @@ describe('TagOperations.updateMetadata', () => {
 
     await tagOperations.updateMetadata('project', { icon: '📦' });
 
-    expect(capturedMetadata?.get('project')).toEqual({ icon: '📦' });
+    expect(capturedMetadata?.get('project')).toEqual({ name: 'project', icon: '📦' });
   });
 });
 
@@ -290,13 +297,13 @@ describe('TagOperations.canRename', () => {
 describe('TagOperations.rename', () => {
   it('moves the renamed tag\'s persisted Tags-sidebar expansion state to its new name (ADR-035)', async () => {
     const page = buildPage('p1', '#product-design');
-    const { vault, fileSystem, pageOperations } = setup([page]);
+    const { vault, fileSystem, pageOperations, store } = setup([page]);
     const tagExpansionStore = TagExpansionStore.empty(fileSystem, ROOT);
     tagExpansionStore.toggleExpanded('product-design');
     const tagOperations = new TagOperations(
       vault,
+      store,
       fileSystem,
-      ROOT,
       pageOperations,
       undefined,
       tagExpansionStore
@@ -418,18 +425,16 @@ describe('TagOperations.rename', () => {
     ).rejects.toThrow(/already exists/);
   });
 
-  it('allows renaming a tag to a different separator/casing of its OWN identity (not a collision) — underscore is itself a valid canonical separator, left as typed', async () => {
+  it('allows renaming a tag to a different separator/casing of its OWN identity (not a collision) — written back canonically, with hyphens', async () => {
     const page = buildPage('p1', '#product-design');
     const { vault, tagOperations } = setup([page]);
 
     await expect(
       tagOperations.rename('product-design', 'product_design')
-    ).resolves.toBeUndefined();
-    // serializeTagName only converts spaces (display form) to hyphens — a
-    // directly-typed underscore is a valid canonical separator on its own
-    // and is preserved, matching "product-design"/"product_design" both
-    // being valid canonical names.
-    expect(vault.getPage('p1')!.source.markdown).toBe('#product_design');
+    ).resolves.toMatchObject({ complete: true });
+    // Hyphens are the canonical separator: an underscore typed as the new
+    // name is written as a hyphen (the old and new names are the same tag).
+    expect(vault.getPage('p1')!.source.markdown).toBe('#product-design');
   });
 
   it('rejects an empty new name', async () => {
@@ -461,7 +466,7 @@ describe('TagOperations.rename', () => {
 
     await expect(
       tagOperations.rename('nonexistent-tag', 'something-else')
-    ).resolves.toBeUndefined();
+    ).resolves.toMatchObject({ updatedPageIds: [], complete: true });
     expect(vault.getPage('p1')!.source.markdown).toBe('No tags here at all.');
   });
 

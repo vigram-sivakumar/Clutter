@@ -1,7 +1,7 @@
 import type { EditorView } from '@codemirror/view';
 
 import type { WikiLinkNodeRange } from './wikiLinkEngagement';
-import { scanWikiLink } from './wikiLinkScanner';
+import { scanWikiLink } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
 import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkResolution';
 
 /**

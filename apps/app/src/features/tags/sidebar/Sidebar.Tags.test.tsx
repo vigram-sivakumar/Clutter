@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Vault } from '@core/vault/models/Vault';
@@ -15,6 +15,7 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { CollectionViewConfigStore } from '@core/application/collection/CollectionViewConfigStore';
 import type { TagExpansionStore } from '@core/application/tags/TagExpansionStore';
 import type { Page } from '@core/vault/models/Page';
 
@@ -104,6 +105,8 @@ function fakeTagOperations(
     updateMetadata: vi.fn(() => Promise.resolve()),
     rename,
     canRename,
+    countUnusedTags: () => 0,
+    deleteUnusedTags: vi.fn(() => Promise.resolve(0)),
   } as unknown as TagOperations;
 }
 
@@ -124,12 +127,13 @@ function extraPanelProps() {
       getWorkspaceFolders: () => [],
       getVisibleChildFolders: () => [],
     } as unknown as MembershipSelector,
-    workspace: { activePageId: null } as unknown as Workspace,
+    workspace: { activePageId: null, isSectionExpanded: () => true, setSectionExpanded: vi.fn() } as unknown as Workspace,
     tagExpansionStore: {
       isExpanded: () => false,
       toggleExpanded: vi.fn(),
       subscribe: () => () => {},
     } as unknown as TagExpansionStore,
+    collectionViewConfigStore: { deleteKey: vi.fn() } as unknown as CollectionViewConfigStore,
     onRequestReveal: vi.fn(),
     onRevealInNotesSidebar: vi.fn(),
   };
@@ -334,6 +338,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
     const vault = makeVault([page]);
     const tagOperations = {
       updateMetadata: vi.fn(() => Promise.resolve()),
+      countUnusedTags: () => 0,
       // Delegates to the exact same regex TagOperations.ts itself uses,
       // proving the wiring reacts correctly to a real rejection — the
       // character-grammar rule's own correctness is TagOperations.test.ts's
@@ -363,6 +368,7 @@ describe('Sidebar Tags — invalid-character rename, real TagOperations (no mock
     const vault = makeVault([page]);
     const tagOperations = {
       updateMetadata: vi.fn(() => Promise.resolve()),
+      countUnusedTags: () => 0,
       canRename: (_oldName: string, newName: string) => {
         const trimmed = newName.trim();
         if (!trimmed) return false;
@@ -417,5 +423,82 @@ describe('Sidebar Tags — tags added through Properties (frontmatter) are liste
 
     expect(screen.getByText('body')).toBeInTheDocument();
     expect(screen.getByText('property')).toBeInTheDocument();
+  });
+});
+
+describe('Sidebar Tags — overflow → Delete', () => {
+  function setupDelete(complete: boolean) {
+    const deleteTag = vi.fn(async () => ({
+      attemptedPageCount: 1,
+      updatedPageIds: complete ? ['p1'] : [],
+      skipped: [],
+      failed: [],
+      complete,
+    }));
+    const deleteKey = vi.fn();
+    const removeTag = vi.fn();
+    const props = extraPanelProps();
+    const page = makePage('p1', ['Product-design']);
+
+    render(
+      <Tags
+        vault={makeVault([page])}
+        navigation={fakeNavigation()}
+        tagOperations={{ ...fakeTagOperations(vi.fn(() => Promise.resolve())), deleteTag } as unknown as TagOperations}
+        {...props}
+        collectionViewConfigStore={{ deleteKey } as unknown as CollectionViewConfigStore}
+        tagExpansionStore={{ ...props.tagExpansionStore, removeTag } as unknown as TagExpansionStore}
+      />
+    );
+
+    return { deleteTag, deleteKey, removeTag };
+  }
+
+  const openDelete = () => {
+    fireEvent.click(screen.getAllByRole('button').at(-1)!);
+    fireEvent.click(screen.getByText('Delete'));
+  };
+  const confirmation = () => document.querySelector<HTMLElement>('.confirmation')!;
+
+  it('Delete is in the row menu and asks first, naming the tag', () => {
+    const t = setupDelete(true);
+    openDelete();
+
+    expect(within(confirmation()).getByText('Delete Product design?')).toBeInTheDocument();
+    expect(
+      within(confirmation()).getByText('This will permanently delete the tag. You can\u2019t undo this action.')
+    ).toBeInTheDocument();
+    expect(t.deleteTag).not.toHaveBeenCalled();
+  });
+
+  it('Cancel deletes nothing', () => {
+    const t = setupDelete(true);
+    openDelete();
+
+    fireEvent.click(within(confirmation()).getByRole('button', { name: 'Cancel' }));
+
+    expect(t.deleteTag).not.toHaveBeenCalled();
+  });
+
+  it('confirming deletes the tag and forgets its collection config and expansion state', async () => {
+    const t = setupDelete(true);
+    openDelete();
+
+    fireEvent.click(within(confirmation()).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(t.deleteTag).toHaveBeenCalledWith('Product-design'));
+    await waitFor(() => expect(t.removeTag).toHaveBeenCalledWith('Product-design'));
+    expect(t.deleteKey).toHaveBeenCalledWith('tag:Product-design');
+  });
+
+  it('an incomplete delete forgets nothing', async () => {
+    const t = setupDelete(false);
+    openDelete();
+
+    fireEvent.click(within(confirmation()).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(t.deleteTag).toHaveBeenCalled());
+    expect(t.deleteKey).not.toHaveBeenCalled();
+    expect(t.removeTag).not.toHaveBeenCalled();
   });
 });

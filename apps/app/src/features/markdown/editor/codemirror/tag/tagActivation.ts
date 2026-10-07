@@ -2,7 +2,7 @@ import type { EditorView } from '@codemirror/view';
 
 import type { TagNodeRange } from './tagEngagement';
 import { fallbackTagResolution, type ResolveTag } from './tagResolution';
-import { scanTag } from './tagScanner';
+import { scanTag } from '@core/vault/ingest/tag/tagScanner';
 
 /**
  * Scans a Tag node's raw text and resolves it, exposing only the

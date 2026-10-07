@@ -118,7 +118,7 @@ describe('Vault.setTagMetadata', () => {
 
     vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
 
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false, usageCount: 1 }]);
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false, declared: true, usageCount: 1 }]);
     expect(listener).toHaveBeenCalledWith({ type: 'tag-metadata-changed' });
   });
 
@@ -134,10 +134,10 @@ describe('Vault.setTagMetadata', () => {
 
     vault.replacePage({ ...page, analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] } });
 
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false, usageCount: 1 }]);
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false, declared: true, usageCount: 1 }]);
   });
 
-  it('drops a tag from vault.tags() once its last Markdown occurrence is removed, even though its metadata entry still exists — tags.json never manufactures tag existence on its own', () => {
+  it('keeps a declared tag at zero usage once its last Markdown occurrence is removed — metadata is never lost just because a tag became unused', () => {
     const page = makePage({
       id: 'page-1',
       path: '/vault/Note.md',
@@ -146,16 +146,86 @@ describe('Vault.setTagMetadata', () => {
     const vault = makeVault([page]);
 
     vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false, usageCount: 1 }]);
+    expect([...vault.tags()]).toEqual([
+      { name: 'project', icon: '📦', favorite: false, declared: true, usageCount: 1 },
+    ]);
 
     // The tag's only occurrence is edited out of the Markdown — an ordinary
     // page save/rebuild, going through no tag-specific code path.
     vault.replacePage({ ...page, analysis: defaultAnalysis });
 
-    // The metadata entry is still present (setTagMetadata was never called
-    // again to remove it) — proving orphaned metadata alone can never
-    // resurrect or sustain a Tag once Markdown stops mentioning it.
+    expect([...vault.tags()]).toEqual([
+      { name: 'project', icon: '📦', favorite: false, declared: true, usageCount: 0 },
+    ]);
+  });
+
+  it('an undeclared tag disappears with its last occurrence', () => {
+    const page = makePage({
+      id: 'page-1',
+      path: '/vault/Note.md',
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] },
+    });
+    const vault = makeVault([page]);
+
+    vault.replacePage({ ...page, analysis: defaultAnalysis });
+
     expect([...vault.tags()]).toEqual([]);
+  });
+
+  it('a declared tag exists in an empty vault, and a later metadata swap adds/removes it without re-reading pages', () => {
+    const vault = makeVault([]);
+
+    vault.setTagMetadata(new Map([['design', {}]]));
+    expect([...vault.tags()].map((tag) => tag.name)).toEqual(['design']);
+
+    vault.setTagMetadata(new Map());
+    expect([...vault.tags()]).toEqual([]);
+  });
+});
+
+describe('Vault tag index — incremental updates', () => {
+  const tagged = (id: string, ...names: string[]) =>
+    makePage({
+      id,
+      path: `/vault/${id}.md`,
+      analysis: { ...defaultAnalysis, tags: names.map((name) => ({ name, sourcePageId: id })) },
+    });
+
+  it('a page change updates only that page\'s contribution: counts follow add / replace / remove', () => {
+    const a = tagged('a', 'design', 'research');
+    const vault = makeVault([a]);
+
+    vault.addPage(tagged('b', 'design'));
+    expect([...vault.tags()].map((t) => [t.name, t.usageCount])).toEqual([
+      ['design', 2],
+      ['research', 1],
+    ]);
+
+    vault.replacePage(tagged('a', 'research', 'ux'));
+    expect([...vault.tags()].map((t) => [t.name, t.usageCount])).toEqual([
+      ['design', 1],
+      ['research', 1],
+      ['ux', 1],
+    ]);
+
+    vault.removePage('b');
+    expect([...vault.tags()].map((t) => [t.name, t.usageCount])).toEqual([
+      ['research', 1],
+      ['ux', 1],
+    ]);
+  });
+
+  it('after any sequence of page changes the tags equal a from-scratch rebuild of the same pages', () => {
+    const vault = makeVault([tagged('a', 'one', 'two')]);
+
+    vault.addPage(tagged('b', 'two', 'three'));
+    vault.replacePage(tagged('a', 'one'));
+    vault.addPage(tagged('c', 'three', 'four'));
+    vault.removePage('b');
+
+    const rebuilt = new TagBuilder().build(Array.from(vault.pages()), new Map());
+
+    expect([...vault.tags()]).toEqual(rebuilt);
   });
 });
 

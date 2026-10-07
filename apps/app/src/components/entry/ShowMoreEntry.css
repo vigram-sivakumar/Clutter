@@ -1,0 +1,7 @@
+/* The "N more" / "Show less" row reads as secondary to the rows it caps: tertiary foreground for its text and icon. */
+.entry.show-more-entry {
+  --entry-foreground: var(--foreground-tertiary);
+}
+.entry.show-more-entry .app-icon {
+  color: var(--foreground-tertiary);
+}

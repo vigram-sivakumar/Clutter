@@ -271,6 +271,30 @@ describe('CollectionViewConfigStore — renameKey()', () => {
   });
 });
 
+describe('CollectionViewConfigStore — deleteKey()', () => {
+  it('forgets an entry, and it stays gone after a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    store.update('tag:design', { layout: 'list' });
+    store.update('tag:other', { layout: 'list' });
+    await flushMicrotasks();
+
+    store.deleteKey('tag:design');
+    await flushMicrotasks();
+
+    expect(store.get('tag:design')).toBeUndefined();
+    const restarted = await reload(fileSystem);
+    expect(restarted.get('tag:design')).toBeUndefined();
+    expect(restarted.get('tag:other')).toEqual({ layout: 'list' });
+  });
+
+  it('is a safe no-op for a key with no entry', async () => {
+    const store = await CollectionViewConfigStore.load(new InMemoryVaultFileSystem(), ROOT);
+
+    expect(() => store.deleteKey('tag:never-configured')).not.toThrow();
+  });
+});
+
 describe('CollectionViewConfigStore — multi-writer coexistence with FoldStateStore', () => {
   it('an update() write never clobbers a sibling "foldState"/"embedCollapse" key written after this store loaded', async () => {
     const fileSystem = new InMemoryVaultFileSystem();

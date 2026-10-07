@@ -243,3 +243,33 @@ describe('TagExpansionStore — renameTag()', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 });
+
+describe('TagExpansionStore — removeTag()', () => {
+  it("forgets an expanded tag's state, notifies, and persists it", async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ tagExpansion: ['design', 'other'] }),
+    });
+    const store = await TagExpansionStore.load(fileSystem, ROOT);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.removeTag('design');
+    await flushMicrotasks();
+
+    expect(store.isExpanded('design')).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(1);
+    const restarted = await reload(fileSystem);
+    expect(restarted.isExpanded('design')).toBe(false);
+    expect(restarted.isExpanded('other')).toBe(true);
+  });
+
+  it('is a no-op (no notification) for a tag that was never expanded', async () => {
+    const store = await TagExpansionStore.load(new InMemoryVaultFileSystem(), ROOT);
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.removeTag('never-expanded');
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});

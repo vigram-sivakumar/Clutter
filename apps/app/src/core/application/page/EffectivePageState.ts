@@ -3,6 +3,7 @@ import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { Workspace } from '../../workspace/Workspace';
 import type { PageType } from '../../vault/models/Page';
 import type { PageOperations } from './PageOperations';
+import { normalizeTagName } from '../../vault/models/Tag';
 
 type Unsubscribe = () => void;
 
@@ -190,7 +191,9 @@ export class EffectivePageState {
     const draftOnlyIds = this.workspace.openPages.filter(
       (id) =>
         !this.vault.getPage(id) &&
-        (this.pageOperations.getDraft(id)?.tags ?? []).includes(name)
+        (this.pageOperations.getDraft(id)?.tags ?? []).some(
+          (tag) => normalizeTagName(tag) === normalizeTagName(name)
+        )
     );
 
     return [...durableIds, ...draftOnlyIds]
