@@ -16,7 +16,7 @@ import {
   isSidebarSortKey,
   type SidebarSort,
 } from '@core/properties/sidebarSort';
-import { buildResourceSidebarMenu } from './resourceSidebarMenu.config';
+import { buildAssetMenuHandlers } from '../helpers/buildAssetMenuHandlers';
 import { testIds } from '@shared/testing/selectors';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
@@ -262,7 +262,7 @@ export interface SidebarRowActions extends NoteRowActions {
    * from the Vault's perspective (reads the source file, never touches
    * `VaultFileSystem` or creates a new `VaultResource`), so it carries the
    * same no-Gate-involvement reasoning as onRevealResourceInFinder above.
-   * Image-only — buildResourceSidebarMenu only renders this item for
+   * Image-only — the canonical asset actions only list this item for
    * `resource.kind === 'image'`, so a pdf row's menu never dispatches here.
    */
   onDownloadResource(resourceId: string): void;
@@ -576,7 +576,11 @@ function ResourceRow({
           : undefined
       }
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
-      menuItems={rowActions ? buildResourceSidebarMenu(resource.kind) : undefined}
+      menuItems={
+        rowActions
+          ? buildResourceActionMenu('asset', { assetKind: resource.kind, status: 'active' }, 'sidebar')
+          : undefined
+      }
       menuOpen={rowActions?.openMenuId === resource.id}
       onMenuOpenChange={
         rowActions
@@ -585,23 +589,16 @@ function ResourceRow({
       }
       onMenuSelect={
         rowActions
-          ? (id) => {
-              if (id === 'rename') {
-                rowActions.onStartRename(resource.id);
-              } else if (id === 'archive') {
-                rowActions.onArchiveResource(resource.id);
-              } else if (id === 'reveal-in-finder') {
-                rowActions.onRevealResourceInFinder(resource.id);
-              } else if (id === 'download') {
-                rowActions.onDownloadResource(resource.id);
-              } else if (id === 'copy-path-at-vault') {
-                rowActions.onCopyResourcePath(resource.id, 'at-vault');
-              } else if (id === 'copy-path-full-path') {
-                rowActions.onCopyResourcePath(resource.id, 'full-path');
-              } else if (id === 'copy-path-as-markdown') {
-                rowActions.onCopyResourcePath(resource.id, 'as-markdown');
-              }
-            }
+          ? (id) => buildAssetMenuHandlers(
+              {
+                onStartRename: rowActions.onStartRename,
+                onArchiveResource: rowActions.onArchiveResource,
+                onRevealResourceInFinder: rowActions.onRevealResourceInFinder,
+                onCopyResourcePath: rowActions.onCopyResourcePath,
+                onDownloadResource: rowActions.onDownloadResource,
+              },
+              resource.id
+            )[id]?.()
           : undefined
       }
       moveDestinations={rowActions ? rowActions.resourceMoveDestinations : undefined}

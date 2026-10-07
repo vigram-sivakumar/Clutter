@@ -263,7 +263,7 @@ describe('ImageOverlay', () => {
         expect(screen.queryByText('Set as cover image')).not.toBeInTheDocument();
       });
 
-      it('appears right before Archive when onSetCoverImage is supplied', () => {
+      it('sits in the organize group, right after Move to…, when onSetCoverImage is supplied', () => {
         render(
           <ImageOverlay
             image={localImage}
@@ -281,10 +281,10 @@ describe('ImageOverlay', () => {
 
         expect(labels).toEqual([
           'Move to…',
+          'Set as cover image',
           'Reveal in Finder',
           'Copy path',
           'Download',
-          'Set as cover image',
           'Move to Trash',
         ]);
       });
@@ -406,12 +406,12 @@ describe('ImageOverlay — remote image actions', () => {
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('lists the asset menu in its usual order with URL counterparts: Save to vault, Open in browser, Copy link, Download, Set as cover image (unavailable)', () => {
+  it('lists the asset menu with URL counterparts: Save to vault, Set as cover image (unavailable) | Open in browser, Copy link, Download', () => {
     render(<ImageOverlay image={externalImage} onClose={vi.fn()} remoteImageActions={remoteActions()} />);
 
     openMenu();
 
-    expect(labels()).toEqual(['Save to vault', 'Open in browser', 'Copy link', 'Download', 'Set as cover image']);
+    expect(labels()).toEqual(['Save to vault', 'Set as cover image', 'Open in browser', 'Copy link', 'Download']);
     expect(screen.getByText('Set as cover image').closest('[role="menuitem"]')).toHaveAttribute('aria-disabled', 'true');
     for (const absent of ['Move to Trash', 'Move to…', 'Reveal in Finder', 'Copy path', 'Rename']) {
       expect(screen.queryByText(absent)).not.toBeInTheDocument();

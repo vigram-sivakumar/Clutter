@@ -121,6 +121,7 @@ describe('Sidebar: opening a local resource image shows ImageOverlay More Action
     const parentMenu = screen.getByRole('menu');
 
     fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Move to…
+    fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Set as cover image
     fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Reveal in Finder
     fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Copy path
     fireEvent.keyDown(parentMenu, { key: 'ArrowRight' });

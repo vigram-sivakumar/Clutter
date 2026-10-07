@@ -134,6 +134,69 @@ const DELETE: ResourceActionDefinition = {
   availability: (context) => (context.isDeletable ? persistedOnly(context) : 'hidden'),
 };
 
+/**
+ * Assets act on a vault file or, for a remote image, a URL. A file action is hidden for a remote
+ * asset; a URL action is hidden for a file.
+ */
+function forFile(definition: ResourceActionDefinition): ResourceActionDefinition {
+  return {
+    ...definition,
+    availability: (context) => (context.isRemote ? 'hidden' : (definition.availability?.(context) ?? 'enabled')),
+  };
+}
+
+function forUrl(definition: ResourceActionDefinition): ResourceActionDefinition {
+  return {
+    ...definition,
+    availability: (context) => (context.isRemote ? (definition.availability?.(context) ?? 'enabled') : 'hidden'),
+  };
+}
+
+const SAVE_TO_VAULT: ResourceActionDefinition = {
+  id: 'save-to-vault',
+  group: 'organize',
+  order: 30,
+  label: 'Save to vault',
+  icon: 'arrowDownRight',
+};
+
+/** Sets this image as the cover of the note the asset is shown in — only where a surface supplies it. */
+const SET_AS_COVER_IMAGE: ResourceActionDefinition = {
+  id: 'set-as-cover-image',
+  group: 'organize',
+  order: 40,
+  label: 'Set as cover image',
+  icon: 'image',
+  availability: (context) =>
+    context.setAsCoverImage === 'enabled' ? 'enabled' : context.setAsCoverImage === 'disabled' ? 'unavailable' : 'hidden',
+};
+
+const OPEN_IN_BROWSER: ResourceActionDefinition = {
+  id: 'open-in-browser',
+  group: 'location',
+  order: 30,
+  label: 'Open in browser',
+  icon: 'arrowUpRight',
+};
+
+const COPY_LINK: ResourceActionDefinition = {
+  id: 'copy-link',
+  group: 'location',
+  order: 40,
+  label: 'Copy link',
+  icon: 'link',
+};
+
+/** Download is image-only (see downloadResource.ts); PDF has none yet. */
+const DOWNLOAD: ResourceActionDefinition = {
+  id: 'download',
+  group: 'location',
+  order: 50,
+  label: 'Download',
+  icon: 'download',
+  availability: (context) => (context.assetKind === 'image' ? 'enabled' : 'hidden'),
+};
+
 export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
   note: [
     RENAME,
@@ -164,8 +227,19 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     RESTORE,
     DELETE,
   ],
-  // Migrated in later steps (ADR-048): asset, tag, task still use their own configs.
-  asset: [],
+  asset: [
+    forFile(RENAME),
+    forFile(MOVE_TO),
+    forUrl(SAVE_TO_VAULT),
+    SET_AS_COVER_IMAGE,
+    forFile(revealInFinder()),
+    forFile(copyPath('resource')),
+    forUrl(OPEN_IN_BROWSER),
+    forUrl(COPY_LINK),
+    DOWNLOAD,
+    forFile(ARCHIVE),
+  ],
+  // Migrated in later steps (ADR-048): tag and task still use their own configs.
   tag: [],
   task: [],
 };

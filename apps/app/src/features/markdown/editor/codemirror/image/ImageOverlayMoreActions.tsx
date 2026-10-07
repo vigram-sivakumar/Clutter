@@ -8,7 +8,8 @@ import { MoveDestinationPicker } from '@components/move-destination-picker/MoveD
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
-import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildAssetMenuHandlers } from '@features/notes/helpers/buildAssetMenuHandlers';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 /**
@@ -45,7 +46,7 @@ export interface ImageOverlayMoreActionsProps {
 
 /**
  * `ImageOverlay`'s own floating three-dot control — the exact same Resource
- * menu (`buildResourceSidebarMenu()`, minus `rename`, which has no home in
+ * menu (the canonical asset actions on the overlay surface, which omit `rename` — no home in
  * this context yet — a deliberate product decision, not an oversight; see
  * this file's own PR description) the Sidebar's own resource row menu
  * shows, dispatched against `resourceId` instead of whichever row happened
@@ -90,20 +91,22 @@ export function ImageOverlayMoreActions({
   onCreateFolder,
   onSetCoverImage,
 }: ImageOverlayMoreActionsProps) {
-  // The one asset menu (`buildResourceSidebarMenu`), adapted to the asset's
+  // The one asset menu (the canonical asset actions), adapted to the asset's
   // source: a vault file gets the resource menu, a remote image the same menu
   // in the same order with URL counterparts. Rename has no home in this
   // context (a deliberate product decision); Set as cover image is offered when
   // the caller supplies the capability — and, for a remote image, always listed
   // (unavailable for now, since it does nothing yet and a live control must
   // never be a silent no-op).
-  const menuItems: OverflowMenuItemConfig[] = buildResourceSidebarMenu(
-    'image',
-    remote ? 'remote' : 'local',
+  const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
+    'asset',
     {
-      rename: false,
+      assetKind: 'image',
+      isRemote: Boolean(remote),
+      status: 'active',
       setAsCoverImage: onSetCoverImage ? 'enabled' : remote ? 'disabled' : undefined,
-    }
+    },
+    'overlay'
   );
   const [open, setOpen] = useState(false);
   const moveTrigger = useMoveDestinationTrigger(resourceMoveDestinations);
@@ -124,19 +127,10 @@ export function ImageOverlayMoreActions({
           remote.actions.onDownload(remote.url);
         }
       } else if (resourceId !== undefined) {
-        if (id === 'archive') {
-          onArchiveResource?.(resourceId);
-        } else if (id === 'reveal-in-finder') {
-          onRevealResourceInFinder?.(resourceId);
-        } else if (id === 'download') {
-          onDownloadResource?.(resourceId);
-        } else if (id === 'copy-path-at-vault') {
-          onCopyResourcePath?.(resourceId, 'at-vault');
-        } else if (id === 'copy-path-full-path') {
-          onCopyResourcePath?.(resourceId, 'full-path');
-        } else if (id === 'copy-path-as-markdown') {
-          onCopyResourcePath?.(resourceId, 'as-markdown');
-        }
+        buildAssetMenuHandlers(
+          { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath, onDownloadResource },
+          resourceId
+        )[id]?.();
       }
     });
   }

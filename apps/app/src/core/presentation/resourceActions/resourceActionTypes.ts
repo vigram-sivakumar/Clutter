@@ -41,6 +41,12 @@ export interface ResourceActionContext {
   readonly isDeletable?: boolean;
   /** A folder's current sidebar sort; absent where the surface has no Sort by (see `sort-by`). */
   readonly sort?: SidebarSort;
+  /** Assets only: which kind of file this is. */
+  readonly assetKind?: 'image' | 'pdf';
+  /** Assets only: a URL with no vault file — the menu swaps each file action for its URL counterpart. */
+  readonly isRemote?: boolean;
+  /** Assets only: `'enabled'` lists Set as cover image, `'disabled'` lists it unavailable, absent omits it. */
+  readonly setAsCoverImage?: 'enabled' | 'disabled';
 }
 
 type FromContext<T> = T | ((context: ResourceActionContext) => T);

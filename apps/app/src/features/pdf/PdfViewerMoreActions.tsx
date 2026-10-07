@@ -5,7 +5,8 @@ import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
-import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildAssetMenuHandlers } from '@features/notes/helpers/buildAssetMenuHandlers';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 export interface PdfViewerMoreActionsProps {
@@ -26,7 +27,7 @@ export interface PdfViewerMoreActionsProps {
 
 /**
  * `PdfViewer`'s toolbar "More actions" control — the same Resource menu
- * (`buildResourceSidebarMenu()` minus `rename`, no home in this context
+ * (the canonical asset actions on the overlay surface — no `rename`, no home in this context
  * yet — the exact reasoning `ImageOverlayMoreActions`'s own doc comment
  * already gives) dispatched against this open PDF's `resourceId`.
  *
@@ -49,26 +50,21 @@ export function PdfViewerMoreActions({
   onMoveResource,
   onCreateFolder,
 }: PdfViewerMoreActionsProps) {
-  const menuItems: OverflowMenuItemConfig[] = buildResourceSidebarMenu('pdf').filter(
-    (item) => item.id !== 'rename'
+  const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
+    'asset',
+    { assetKind: 'pdf', status: 'active' },
+    'overlay'
   );
   const [open, setOpen] = useState(false);
   const moveTrigger = useMoveDestinationTrigger(resourceMoveDestinations);
 
   function handleSelect(id: string) {
-    moveTrigger.handleSelect(id, (id) => {
-      if (id === 'archive') {
-        onArchiveResource?.(resourceId);
-      } else if (id === 'reveal-in-finder') {
-        onRevealResourceInFinder?.(resourceId);
-      } else if (id === 'copy-path-at-vault') {
-        onCopyResourcePath?.(resourceId, 'at-vault');
-      } else if (id === 'copy-path-full-path') {
-        onCopyResourcePath?.(resourceId, 'full-path');
-      } else if (id === 'copy-path-as-markdown') {
-        onCopyResourcePath?.(resourceId, 'as-markdown');
-      }
-    });
+    moveTrigger.handleSelect(id, (id) =>
+      buildAssetMenuHandlers(
+        { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath },
+        resourceId
+      )[id]?.()
+    );
   }
 
   return (

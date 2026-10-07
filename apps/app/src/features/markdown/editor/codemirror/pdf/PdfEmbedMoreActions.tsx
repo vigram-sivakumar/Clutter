@@ -9,7 +9,8 @@ import { useMoveDestinationTrigger } from '@components/move-destination-picker/u
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { MEDIA_ALIGNMENT_ITEMS } from '../mediaPresentation/mediaAlignmentItems';
 import type { MediaAlignment } from '../mediaPresentation/mediaPresentationModel';
-import { buildResourceSidebarMenu } from '@features/notes/sidebar/resourceSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildAssetMenuHandlers } from '@features/notes/helpers/buildAssetMenuHandlers';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 export interface PdfEmbedMoreActionsAnchor {
@@ -38,7 +39,7 @@ export interface PdfEmbedMoreActionsProps {
    * Resource-level but non-mutating (a plain file copy, same as the
    * Sidebar's own Download) — unlike `onRemoveEmbed`, this does touch the
    * resource, just never destructively. Absent omits the Download item
-   * entirely, matching `resourceSidebarMenu.config.ts`'s existing
+   * entirely, matching the canonical asset actions' existing
    * PDF-has-no-Download-yet default until a caller opts in.
    */
   readonly onDownloadResource?: () => void;
@@ -65,7 +66,7 @@ export interface PdfEmbedMoreActionsProps {
  * convention:
  *
  * 1. **Source-resource** (`download` when supplied, plus
- *    `buildResourceSidebarMenu('pdf')` minus `rename`: Move to…, Reveal in
+ *    the canonical asset actions on the overlay surface (no `rename`): Move to…, Reveal in
  *    Finder, Copy path ›, Archive): the exact same menu
  *    `PdfViewerMoreActions`/`ImageOverlayMoreActions`/the Sidebar's own
  *    row menu already show, dispatched against this embed's own
@@ -122,7 +123,7 @@ export function PdfEmbedMoreActions({
     : [];
   const resourceItems: OverflowMenuItemConfig[] = [
     ...(onDownloadResource ? [{ id: 'download', label: 'Download', icon: 'download' as const }] : []),
-    ...buildResourceSidebarMenu('pdf').filter((item) => item.id !== 'rename'),
+    ...buildResourceActionMenu('asset', { assetKind: 'pdf', status: 'active' }, 'overlay'),
   ];
   const menuItems: OverflowMenuItemConfig[] = [
     ...positionItems,
@@ -162,21 +163,18 @@ export function PdfEmbedMoreActions({
     if (!resourceId) {
       return;
     }
-    moveTrigger.handleSelect(id, (id) => {
-      if (id === 'download') {
-        onDownloadResource?.();
-      } else if (id === 'archive') {
-        onArchiveResource?.(resourceId);
-      } else if (id === 'reveal-in-finder') {
-        onRevealResourceInFinder?.(resourceId);
-      } else if (id === 'copy-path-at-vault') {
-        onCopyResourcePath?.(resourceId, 'at-vault');
-      } else if (id === 'copy-path-full-path') {
-        onCopyResourcePath?.(resourceId, 'full-path');
-      } else if (id === 'copy-path-as-markdown') {
-        onCopyResourcePath?.(resourceId, 'as-markdown');
-      }
-    });
+    moveTrigger.handleSelect(id, (id) =>
+      buildAssetMenuHandlers(
+        {
+          onArchiveResource,
+          onRevealResourceInFinder,
+          onCopyResourcePath,
+          // This embed's own Download item (the canonical asset menu has none for a PDF yet).
+          onDownloadResource: onDownloadResource ? () => onDownloadResource() : undefined,
+        },
+        resourceId
+      )[id]?.()
+    );
   }
 
   return (

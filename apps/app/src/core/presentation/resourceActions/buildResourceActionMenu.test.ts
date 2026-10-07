@@ -262,3 +262,54 @@ describe('folder menu', () => {
     expect(menu).not.toContain('archive');
   });
 });
+
+describe('asset menu', () => {
+  const asset = (context: Parameters<typeof buildResourceActionMenu>[1], surface: Parameters<typeof buildResourceActionMenu>[2] = 'sidebar') =>
+    buildResourceActionMenu('asset', { status: 'active', ...context }, surface);
+
+  it('an image on the sidebar: Rename | Move to… | Reveal, Copy path, Download | Trash', () => {
+    const menu = asset({ assetKind: 'image' });
+    expect(ids(menu)).toEqual(['rename', 'move-to', 'reveal-in-finder', 'copy-path', 'download', 'archive']);
+    expect(dividedIds(menu)).toEqual(['move-to', 'reveal-in-finder', 'archive']);
+  });
+
+  it('a pdf has no Download', () => {
+    expect(ids(asset({ assetKind: 'pdf' }))).toEqual(['rename', 'move-to', 'reveal-in-finder', 'copy-path', 'archive']);
+  });
+
+  it('Copy path offers From vault, Full path, As Markdown, in that order', () => {
+    const copy = asset({ assetKind: 'image' }).find((item) => item.id === 'copy-path');
+    expect(copy?.submenu?.map((leaf) => leaf.label)).toEqual(['From vault', 'Full path', 'As Markdown']);
+  });
+
+  it('the overlay surface has no Rename and lists Set as cover image ahead of the location group', () => {
+    const menu = asset({ assetKind: 'image', setAsCoverImage: 'enabled' }, 'overlay');
+    expect(ids(menu)).toEqual(['move-to', 'set-as-cover-image', 'reveal-in-finder', 'copy-path', 'download', 'archive']);
+  });
+
+  it('a remote image swaps each file action for its URL counterpart, in the same groups', () => {
+    const menu = asset({ assetKind: 'image', isRemote: true, setAsCoverImage: 'disabled' }, 'overlay');
+    expect(menu.map((item) => [item.id, item.label])).toEqual([
+      ['save-to-vault', 'Save to vault'],
+      ['set-as-cover-image', 'Set as cover image'],
+      ['open-in-browser', 'Open in browser'],
+      ['copy-link', 'Copy link'],
+      ['download', 'Download'],
+    ]);
+    expect(menu.find((item) => item.id === 'set-as-cover-image')?.disabled).toBe(true);
+    expect(dividedIds(menu)).toEqual(['open-in-browser']);
+  });
+
+  it('a remote asset has nothing to rename, move, reveal or archive', () => {
+    const menu = ids(asset({ assetKind: 'image', isRemote: true }, 'overlay'));
+    for (const absent of ['rename', 'move-to', 'reveal-in-finder', 'copy-path', 'archive']) {
+      expect(menu).not.toContain(absent);
+    }
+  });
+
+  it('offers no single-asset Restore or Delete (a separate product decision)', () => {
+    const menu = ids(asset({ assetKind: 'image', status: 'archived', isDeletable: true }, 'overlay'));
+    expect(menu).not.toContain('restore');
+    expect(menu).not.toContain('delete');
+  });
+});

@@ -3,7 +3,7 @@
  * presentation decisions, not second implementations: an omitted action is still one definition
  * and one handler elsewhere (ADR-048). Every omission here states why.
  */
-export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar';
+export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overlay';
 
 export interface ResourceActionSurfaceProfile {
   /** Action ids this surface never shows. */
@@ -27,6 +27,14 @@ export const RESOURCE_ACTION_SURFACES: Readonly<
     // As the sidebar, plus Rename: a Favorites row has no inline title editor.
     omit: [...ARCHIVED_ONLY_ACTIONS, 'use-as-template', 'rename'],
     unavailable: 'hide',
+  },
+  overlay: {
+    // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
+    // it in. An archived asset is never opened from here.
+    omit: ['rename', ...ARCHIVED_ONLY_ACTIONS],
+    // A listed-but-unavailable action stays visible and disabled (Set as cover image on a remote
+    // image does nothing yet; a live control must never be a silent no-op).
+    unavailable: 'disable',
   },
   topbar: {
     // The title is editable inline and the header already exposes the icon control, so Rename and
