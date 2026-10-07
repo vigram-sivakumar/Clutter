@@ -6,19 +6,17 @@ import { TasksViewSettingsMenu } from '../sidebar/TasksViewSettingsMenu';
 import type { TaskDisplayConfig } from '../helpers/groupTasks';
 
 import { tasksShortcuts, type TasksShortcutId } from './tasksShortcuts.config';
-import { NewTaskDialog } from './NewTaskDialog';
 
 interface TasksShortcutsProps {
   onShortcut: (id: TasksShortcutId) => void;
   /**
-   * Creates the task in today's Daily Note (never the due date's —
-   * see Sidebar.Tasks.tsx's own onCreateTask) and resolves once it's
-   * durable. Rejects on failure, which NewTaskContent uses to decide
-   * whether to close itself — plain pass-through, no TaskOperations/
-   * PageOperations import here (UI/Features must never import a concrete
-   * application-layer class directly, ARCHITECTURE_RULES rule 6).
+   * Asks the sidebar to open the New task dialog. The dialog is hosted by
+   * Sidebar (not here) so the sidebar top controls' New task can open the
+   * same one without this panel being mounted — 'create-task' never
+   * dispatches through onShortcut/NavigationRouter, see
+   * tasksShortcuts.config.ts's own comment on why.
    */
-  onCreateTask: (title: string, dueDate: string | undefined) => Promise<void>;
+  onRequestNewTask: () => void;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
    * (owned by AppLayout) — surfaced through the sidebar's Options row
@@ -30,21 +28,13 @@ interface TasksShortcutsProps {
 
 export function TasksShortcuts({
   onShortcut,
-  onCreateTask,
+  onRequestNewTask,
   tasksViewConfig,
   onTasksViewConfigChange,
 }: TasksShortcutsProps) {
-  // Opens the shared Dialog (Clutter's modal primitive — centered Overlay
-  // with its own opaque surface/backdrop/animation, see Dialog.tsx) with
-  // NewTaskContent's title field + due-date picker. 'create-task' never
-  // dispatches through onShortcut/NavigationRouter — see
-  // tasksShortcuts.config.ts's own comment on why.
-  const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   // The Options row's menu open state — local, never persisted.
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
-
-  const closeNewTask = () => setIsNewTaskOpen(false);
 
   return (
     <Section>
@@ -61,7 +51,7 @@ export function TasksShortcuts({
             : {})}
           onClick={() => {
             if (shortcut.id === 'create-task') {
-              setIsNewTaskOpen(true);
+              onRequestNewTask();
             } else if (shortcut.id === 'options') {
               setIsOptionsOpen((open) => !open);
             } else {
@@ -78,8 +68,6 @@ export function TasksShortcuts({
         open={isOptionsOpen}
         onOpenChange={setIsOptionsOpen}
       />
-
-      <NewTaskDialog open={isNewTaskOpen} onClose={closeNewTask} onCreateTask={onCreateTask} />
     </Section>
   );
 }

@@ -9,18 +9,18 @@ import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
-import type { NewTagNameCheck } from '@core/application/tags/TagOperations';
 import type { TagStyle } from '@core/vault/models/Tag';
 
 import { tagsShortcuts, type TagsShortcutId } from './tagsShortcuts.config';
-import { NewTagDialog } from './NewTagDialog';
 
 interface TagsShortcutsProps {
   onShortcut: (id: TagsShortcutId) => void;
-  /** See NewTagContentProps.validateName — plain pass-through to the tag domain API. */
-  validateTagName: (input: string) => NewTagNameCheck;
-  /** Creates the tag definition (never a `#tag` in any note) and resolves once durable; rejects on failure. */
-  onCreateTag: (name: string, icon: string | undefined) => Promise<void>;
+  /**
+   * Asks the sidebar to open the New tag dialog. The dialog is hosted by
+   * Sidebar (not here) so the sidebar top controls' New tag can open the
+   * same one without this panel being mounted.
+   */
+  onRequestNewTag: () => void;
   /** How many tags no note uses — Tidy up is disabled at 0. */
   unusedTagCount: number;
   /** Removes every unused tag's definition (notes untouched); resolves once durable. */
@@ -39,8 +39,7 @@ const TAG_STYLE_OPTIONS: readonly { style: TagStyle; label: string }[] = [
 
 export function TagsShortcuts({
   onShortcut,
-  validateTagName,
-  onCreateTag,
+  onRequestNewTag,
   unusedTagCount,
   onTidyUp,
   onRestyle,
@@ -48,7 +47,6 @@ export function TagsShortcuts({
   // 'create-tag' and 'tidy-up' never dispatch through onShortcut/
   // NavigationRouter — they are handled locally, the same shape
   // TasksShortcuts uses for 'create-task' (see tagsShortcuts.config.ts).
-  const [isNewTagOpen, setIsNewTagOpen] = useState(false);
   const confirmation = useConfirmationSurface();
   // Tidy up's one-time "restyle existing tags" menu. Choosing a style only
   // asks for confirmation — nothing is scanned until the user confirms, and
@@ -92,7 +90,7 @@ export function TagsShortcuts({
 
   const onClickShortcut = (id: TagsShortcutId) => {
     if (id === 'create-tag') {
-      setIsNewTagOpen(true);
+      onRequestNewTag();
     } else if (id === 'tidy-up') {
       setIsStyleMenuOpen((open) => !open);
     } else {
@@ -152,13 +150,6 @@ export function TagsShortcuts({
           ))}
         </Menu>
       </Overlay>
-
-      <NewTagDialog
-        open={isNewTagOpen}
-        onClose={() => setIsNewTagOpen(false)}
-        validateName={validateTagName}
-        onSubmit={onCreateTag}
-      />
 
       <Dialog open={confirmation.pending !== null} onClose={confirmation.cancel} size="medium">
         {confirmation.pending && (

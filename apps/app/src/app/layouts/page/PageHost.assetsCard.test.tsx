@@ -200,7 +200,11 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     makeResource({ id: 'img-1', kind: 'image', name: 'hero.png', path: `${ROOT}/hero.png` });
   const pdf = () => makeResource({ id: 'pdf-1', kind: 'pdf', name: 'doc.pdf', path: `${ROOT}/doc.pdf` });
 
-  const settingsButton = () => document.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]');
+  // Scoped to the header actions (beside Upload): the sidebar's create chevron is a menu button too.
+  const settingsButton = () =>
+    document
+      .querySelector('button[aria-label="Upload"]')
+      ?.parentElement?.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]') ?? null;
   const menuLabels = () =>
     [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((item) => item.textContent?.trim());
   const openMenu = async () => {

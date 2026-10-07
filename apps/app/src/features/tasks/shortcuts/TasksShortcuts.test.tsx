@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { TasksShortcuts } from './TasksShortcuts';
+import { NewTaskDialog } from './NewTaskDialog';
 import type { TasksShortcutId } from './tasksShortcuts.config';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
@@ -30,6 +32,24 @@ afterEach(() => {
   cleanup();
 });
 
+// Stands in for Sidebar, which now hosts the New task dialog (so the top controls' New task can
+// open it too): the row only requests it, the host renders it.
+function SidebarHost({
+  onCreateTask,
+  ...rest
+}: Omit<React.ComponentProps<typeof TasksShortcuts>, 'onRequestNewTask'> & {
+  onCreateTask: React.ComponentProps<typeof NewTaskDialog>['onCreateTask'];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <TasksShortcuts {...rest} onRequestNewTask={() => setOpen(true)} />
+      <NewTaskDialog open={open} onClose={() => setOpen(false)} onCreateTask={onCreateTask} />
+    </>
+  );
+}
+
 // A resolved-by-default stub — every test that doesn't care about
 // onCreateTask's own behavior still needs a well-typed prop to render at
 // all (TasksShortcutsProps.onCreateTask is required, no default).
@@ -45,7 +65,7 @@ function renderTasksShortcuts(overrides?: {
   const onTasksViewConfigChange = vi.fn<(next: TaskDisplayConfig) => void>();
 
   render(
-    <TasksShortcuts
+    <SidebarHost
       onShortcut={onShortcut}
       onCreateTask={onCreateTask}
       tasksViewConfig={overrides?.tasksViewConfig ?? DEFAULT_TASK_DISPLAY_CONFIG}

@@ -1,0 +1,55 @@
+/* Same opaque-surface recipe as NewTagContent.css — Dialog contributes no
+   background itself, so every dialog body supplies its own surface. */
+.new-folder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+
+  padding: var(--space-16);
+}
+
+.new-folder__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.new-folder__title {
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+}
+
+.new-folder__field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.new-folder__field > .input {
+  align-self: stretch;
+}
+
+/* The same deliberate, scoped error color NewTagContent.css uses. */
+.new-folder__error {
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-thin);
+  line-height: var(--lh-label-small);
+  color: #e5484d;
+}
+
+.new-folder__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.button.new-folder__create-button {
+  padding-inline: var(--space-24);
+}

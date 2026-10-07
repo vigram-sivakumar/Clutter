@@ -120,7 +120,7 @@ function extraPanelProps() {
     folderOperations: { create: vi.fn() } as unknown as FolderOperations,
     effectivePageState: {
       getPagesByTag: () => [],
-      getPagesByFrontmatterTag: () => [],
+      hasDraftForTag: () => false,
     } as unknown as EffectivePageState,
     membershipSelector: {
       vaultRoot: '/vault',
@@ -135,6 +135,7 @@ function extraPanelProps() {
     } as unknown as TagExpansionStore,
     collectionViewConfigStore: { deleteKey: vi.fn() } as unknown as CollectionViewConfigStore,
     onRequestReveal: vi.fn(),
+    onRequestNewTag: vi.fn(),
     onRevealInNotesSidebar: vi.fn(),
   };
 }

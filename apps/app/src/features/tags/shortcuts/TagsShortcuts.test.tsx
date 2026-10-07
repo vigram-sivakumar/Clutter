@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { useState, type ComponentProps } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TagsShortcuts } from './TagsShortcuts';
+import { NewTagDialog } from './NewTagDialog';
 import { TagOperations } from '@core/application/tags/TagOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import { Vault } from '@core/vault/models/Vault';
@@ -107,7 +109,7 @@ function setup(seed: Record<string, TagMetadataEntry> = {}) {
   const onShortcut = vi.fn();
 
   render(
-    <TagsShortcuts
+    <SidebarHost
       onShortcut={onShortcut}
       validateTagName={(input) => tagOperations.checkNewTagName(input)}
       onCreateTag={(name, icon) => tagOperations.declare(name, { icon })}
@@ -131,6 +133,31 @@ function setup(seed: Record<string, TagMetadataEntry> = {}) {
   };
 
   return { vault, fileSystem, note, declare, onShortcut, open, nameField, type, createButton, definitions };
+}
+
+// Stands in for Sidebar, which now hosts the New tag dialog (so the top controls' New tag can open
+// it too): the row only requests it, the host renders it.
+function SidebarHost({
+  validateTagName,
+  onCreateTag,
+  ...rest
+}: Omit<ComponentProps<typeof TagsShortcuts>, 'onRequestNewTag'> & {
+  validateTagName: ComponentProps<typeof NewTagDialog>['validateName'];
+  onCreateTag: ComponentProps<typeof NewTagDialog>['onSubmit'];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <TagsShortcuts {...rest} onRequestNewTag={() => setOpen(true)} />
+      <NewTagDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        validateName={validateTagName}
+        onSubmit={onCreateTag}
+      />
+    </>
+  );
 }
 
 describe('Tags sidebar — New tag', () => {
@@ -441,8 +468,7 @@ describe('Tags sidebar — Tidy up → Style (restyle existing tags)', () => {
     render(
       <TagsShortcuts
         onShortcut={onShortcut}
-        validateTagName={() => ({ ok: false, reason: 'empty' })}
-        onCreateTag={async () => {}}
+        onRequestNewTag={() => {}}
         unusedTagCount={0}
         onTidyUp={async () => {}}
         onRestyle={onRestyle as never}

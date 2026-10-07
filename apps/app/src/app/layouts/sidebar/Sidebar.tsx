@@ -20,6 +20,12 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
+import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
+import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
+import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
+import { createNoteInInbox } from '@features/notes/helpers/createNote';
+import { createTemplate } from '@features/notes/helpers/createTemplate';
+import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import { testIds } from '@shared/testing/selectors';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import type { SidebarTab } from '@core/application/workspace/WorkspaceSessionStore';
@@ -78,6 +84,11 @@ export function Sidebar({
   const [, setSortRevision] = useState(0);
   const [expandedFolders, setExpandedFolders] = useState<readonly string[]>([]);
   const [expandedTaskGroups, setExpandedTaskGroups] = useState<readonly TaskGroupId[]>([]);
+
+  // The creation dialogs are hosted here, not inside their panels, so the top controls' menu and
+  // each panel's own "New" row open the very same dialog whichever sidebar tab is mounted.
+  const [creationDialog, setCreationDialog] = useState<'task' | 'tag' | 'folder' | null>(null);
+  const closeCreationDialog = () => setCreationDialog(null);
 
   function revealNoteInNotesSidebar(pageId: string): void {
     workspace.setActiveSidebarTab('notes');
@@ -179,6 +190,7 @@ export function Sidebar({
             )
           }
           onRequestReveal={onRequestReveal}
+          onRequestNewTask={() => setCreationDialog('task')}
         />
       ),
     },
@@ -198,6 +210,7 @@ export function Sidebar({
           tagExpansionStore={application.tagExpansionStore}
           collectionViewConfigStore={application.collectionViewConfigStore}
           onRequestReveal={onRequestReveal}
+          onRequestNewTag={() => setCreationDialog('tag')}
           onRevealInNotesSidebar={revealNoteInNotesSidebar}
         />
       ),
@@ -215,7 +228,15 @@ export function Sidebar({
           isSidebarVisible; nothing currently unmounts it based on that
           state. Controls no longer renders the sidebar-toggle button
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
-      <Controls />
+      <Controls
+        onNewNote={() => void createNoteInInbox(folderOperations, pageOperations).catch(() => {})}
+        onNewTask={() => setCreationDialog('task')}
+        onNewFolder={() => setCreationDialog('folder')}
+        onNewTag={() => setCreationDialog('tag')}
+        onNewTemplate={() =>
+          void createTemplate(folderOperations, pageOperations).catch(() => {})
+        }
+      />
       <div className="sidebar--tabs">
         <Tabs
           value={workspace.activeSidebarTab}
@@ -233,6 +254,28 @@ export function Sidebar({
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       <Footer onOpenArchive={() => navigation.openArchive()} />
+
+      <NewTaskDialog
+        open={creationDialog === 'task'}
+        onClose={closeCreationDialog}
+        onCreateTask={(title, dueDate) =>
+          createTaskInDailyNote({ vault, pageOperations, taskOperations }, title, dueDate)
+        }
+      />
+      <NewTagDialog
+        open={creationDialog === 'tag'}
+        onClose={closeCreationDialog}
+        validateName={(input) => application.tagOperations.checkNewTagName(input)}
+        onSubmit={(name, icon) => application.tagOperations.declare(name, { icon })}
+      />
+      <NewFolderDialog
+        open={creationDialog === 'folder'}
+        onClose={closeCreationDialog}
+        canCreate={(name) => folderOperations.canCreate(name, null)}
+        onSubmit={async (name) => {
+          await folderOperations.create(name, null);
+        }}
+      />
     </aside>
   );
 }

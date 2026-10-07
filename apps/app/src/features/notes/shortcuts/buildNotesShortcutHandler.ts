@@ -2,6 +2,7 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
 
+import { createNoteInInbox } from '../helpers/createNote';
 import type { NotesShortcutId } from './notesShortcuts.config';
 
 export function buildNotesShortcutHandler(
@@ -12,17 +13,8 @@ export function buildNotesShortcutHandler(
   return (id) => {
     switch (id) {
       case 'new-note':
-        // Always targets Inbox — never the active folder/collection or the
-        // vault root. required → ensure → use, same as
-        // NavigationRouter.openReservedFolder: ensureReservedFolder() is the
-        // one Inbox resolver (idempotent; recreates it if deleted externally).
-        // ADR-017: opens an unpersisted draft, not an immediate Gate
-        // write — openDraft() already opens the session/workspace itself,
-        // unlike create(), so no composed .open() call is needed here.
-        void folderOperations
-          .ensureReservedFolder('inbox')
-          .then((inbox) => pageOperations.openDraft({ folderId: inbox.id }))
-          .catch(() => {});
+        // Always targets Inbox — see createNoteInInbox.
+        void createNoteInInbox(folderOperations, pageOperations).catch(() => {});
         break;
       case 'inbox':
         navigation.openInbox();

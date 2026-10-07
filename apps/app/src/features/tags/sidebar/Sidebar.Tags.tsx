@@ -47,6 +47,8 @@ interface TagsPanelProps {
   readonly collectionViewConfigStore: CollectionViewConfigStore;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set here by an expanded tag's note click, same pipeline Tag collection's "Open note" already drives. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
+  /** Opens the sidebar-hosted New tag dialog (see Sidebar.tsx). */
+  readonly onRequestNewTag: () => void;
   /**
    * The expanded-note-list's one extra action, "Reveal in Clutter" —
    * switches to the Notes sidebar tab and locates this note in its
@@ -69,6 +71,7 @@ export function Tags({
   tagExpansionStore,
   collectionViewConfigStore,
   onRequestReveal,
+  onRequestNewTag,
   onRevealInNotesSidebar,
 }: TagsPanelProps) {
   // Delete is confirmed here — the same shared surface the tag page's Delete uses.
@@ -153,8 +156,7 @@ export function Tags({
       navigation={
         <TagsShortcuts
           onShortcut={onShortcut}
-          validateTagName={(input) => tagOperations.checkNewTagName(input)}
-          onCreateTag={(name, icon) => tagOperations.declare(name, { icon })}
+          onRequestNewTag={onRequestNewTag}
           unusedTagCount={tagOperations.countUnusedTags()}
           onTidyUp={async () => {
             await tagOperations.deleteUnusedTags();

@@ -41,6 +41,7 @@ import type { Asset } from '@core/vault/models/Asset';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
+import { createTemplate } from '@features/notes/helpers/createTemplate';
 import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
@@ -1203,11 +1204,7 @@ export function PageHost({
         );
       }),
     onCreateTemplate: () => {
-      void (async () => {
-        const templates =
-          await application.folderOperations.ensureReservedFolder('templates');
-        await application.pageOperations.openDraft({ folderId: templates.id });
-      })();
+      void createTemplate(application.folderOperations, application.pageOperations);
     },
   });
 

@@ -13,7 +13,6 @@ import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
-import { createTaskInDailyNote } from '../helpers/createTaskInDailyNote';
 import { renderTasksByDate } from '../helpers/renderTasksByDate';
 import type { TaskDisplayConfig, TaskGroupId } from '../helpers/groupTasks';
 
@@ -39,6 +38,8 @@ interface TasksPanelProps {
   readonly onToggleGroup: (id: TaskGroupId) => void;
   /** See AppLayout's own doc comment on its `pendingReveal` state — set by onOpenTask below, consumed once by PageHost. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
+  /** Opens the sidebar-hosted New task dialog (see Sidebar.tsx). */
+  readonly onRequestNewTask: () => void;
 }
 
 export function Tasks({
@@ -54,6 +55,7 @@ export function Tasks({
   expandedGroups,
   onToggleGroup,
   onRequestReveal,
+  onRequestNewTask,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
@@ -116,16 +118,12 @@ export function Tasks({
     void taskOperations.duplicate(task);
   };
 
-  // New Task's creation path is shared with the All Tasks page — see createTaskInDailyNote.
-  const onCreateTask = (title: string, dueDate: string | undefined): Promise<void> =>
-    createTaskInDailyNote({ vault, pageOperations, taskOperations }, title, dueDate);
-
   return (
     <View
       navigation={
         <TasksShortcuts
           onShortcut={onShortcut}
-          onCreateTask={onCreateTask}
+          onRequestNewTask={onRequestNewTask}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={onTasksViewConfigChange}
         />
