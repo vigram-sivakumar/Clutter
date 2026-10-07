@@ -21,8 +21,15 @@ A small presentation layer, `core/presentation/resourceActions/`:
 
 ## Replaces (migrated one resource at a time, old files deleted with each migration)
 
-`noteSidebarMenu.config.ts`, `noteTopBarMenu.config.ts`, `dailyNoteSidebarMenu.config.ts`, `dailyNoteTopBarMenu.config.ts`, `folderSidebarMenu.config.tsx`, `folderTopBarMenu.config.ts`, `resourceSidebarMenu.config.ts`, `tagSidebarMenu.config.ts`, the inline Tag-page menu in `PageHost.tsx`, the inline menu in `Task.tsx`, `buildLocationActionMenuItems`, and `resourceActionLabels.ts`. `archiveTopBarMenu.config.ts` (Empty trash) is a Trash-page action and stays.
+`noteSidebarMenu.config.ts`, `noteTopBarMenu.config.ts`, `dailyNoteSidebarMenu.config.ts`, `dailyNoteTopBarMenu.config.ts`, `folderSidebarMenu.config.tsx`, `folderTopBarMenu.config.ts`, `resourceSidebarMenu.config.ts`, `tagSidebarMenu.config.ts`, the inline Tag-page menu in `PageHost.tsx`, the inline menu in `Task.tsx`, and `buildLocationActionMenuItems` (its Copy-path submenu is now `buildCopyPathSubmenu`). `resourceActionLabels.ts` is kept as the home of the shared label constants the definitions read. `archiveTopBarMenu.config.ts` (Empty trash) is a Trash-page action and stays.
 
 ## Consequences
 
 Adding an action means adding one definition with its group/order; every surface that doesn't omit it places it and its divider identically. Topbar menus gain group dividers and the Note topbar's order converges on the sidebar's (Favorite first). Guards (scoped to resource-action menus only): no hand-written `separatorBefore` in migrated configs, and every canonical action id has a registered handler. No new write path, no Gate or facade change.
+
+## As implemented
+
+- Surfaces: `sidebar`, `favorites`, `topbar`, `overlay` (asset More actions). A profile has an `omit` list and an `omitWhen(kind, context)` rule for kind- or state-specific omissions (e.g. the topbar's Reveal in Finder is for an ordinary, active Note only; Restore/Delete are not in sidebars, except for Tags and Tasks, which have no Trash).
+- Handlers: one id-keyed map per resource family — `buildPageMenuHandlers`, `buildFolderMenuHandlers`, `buildAssetMenuHandlers`, `buildTagMenuHandlers` (a Task row's map is its supplied operations). Reveal in Finder / Copy path have one implementation, `createLocationActions`.
+- Guards (resource-action menus only): no hand-written `separatorBefore: true` in the listed consumers; every canonical action emitted on a surface has a registered handler; definitions are well-formed.
+- Deliberately unchanged: embed menus (Position, Remove, the PDF embed's own Download), the header More menu, collection menus, Trash page's Empty trash, `OverflowMenu`/`Menu`, every `*Operations` facade and the Gate.

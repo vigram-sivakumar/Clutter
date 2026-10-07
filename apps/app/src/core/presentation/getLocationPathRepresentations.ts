@@ -1,8 +1,5 @@
 import { VaultPath } from '../vault/ingest/VaultPath';
-import type {
-  OverflowMenuItemConfig,
-  OverflowMenuSubmenuItemConfig,
-} from '@components/menu/OverflowMenu';
+import type { OverflowMenuSubmenuItemConfig } from '@components/menu/OverflowMenu';
 
 /**
  * The three kinds of Vault-backed entity the location-actions pipeline
@@ -79,7 +76,7 @@ export type LocationPathFormat = 'at-vault' | 'full-path' | 'as-markdown';
  * Note/Folder/Resource rows, the topbar) dispatches through this instead of
  * restating the same three-way branch. Returns `null` for `'as-markdown'`
  * on an entity kind with none (Folder) — callers should never be able to
- * reach that case in practice, since `buildLocationActionMenuItems` never
+ * reach that case in practice, since `buildCopyPathSubmenu` never
  * offers the item for such a kind, but the type still models it honestly
  * rather than asserting it away.
  */
@@ -101,51 +98,11 @@ export function pickLocationPathRepresentation(
  * Whether `kind` has a Markdown representation at all — the single place
  * that decision is made, read both here (indirectly, via
  * `getLocationPathRepresentations`'s own `kind` switch) and by
- * `buildLocationActionMenuItems` below (to omit the "As Markdown" submenu
+ * `buildCopyPathSubmenu` below (to omit the "As Markdown" submenu
  * leaf for a Folder), so the two never drift out of sync.
  */
 function hasMarkdownRepresentation(kind: LocationEntityKind): boolean {
   return kind !== 'folder';
-}
-
-/**
- * The "Reveal in Finder" / "Copy path" menu-item fragment shared by every
- * sidebar and topbar "More Actions" menu (`OverflowMenuItemConfig` is the
- * one shape both surfaces already build against — `ResourceTopBarActions`'s
- * `TopBarMenuItemConfig` is a literal alias of it). Callers splice this into
- * their own item list (conventionally just before a trailing Archive item,
- * matching the existing Note/Folder/Resource menu ordering) rather than
- * duplicating the Reveal/Copy-path item definitions per entity type.
- */
-export function buildLocationActionMenuItems(
-  kind: LocationEntityKind,
-  options: {
-    /**
-     * Marks both items `disabled` instead of omitting them — the topbar's
-     * "disabled, not omitted" convention for a draft (ADR-017 Decision
-     * item 9, already applied to `move-to`/`archive` in
-     * `noteTopBarMenu.config.ts`). The sidebar instead omits its entire
-     * menu for a draft (`if (isDraft) return [];`), so its callers never
-     * pass this.
-     */
-    disabled?: boolean;
-  } = {}
-): OverflowMenuItemConfig[] {
-  return [
-    {
-      id: 'reveal-in-finder',
-      label: 'Reveal in Finder',
-      icon: 'folder',
-      disabled: options.disabled,
-    },
-    {
-      id: 'copy-path',
-      label: 'Copy path',
-      icon: 'link',
-      submenu: buildCopyPathSubmenu(kind),
-      disabled: options.disabled,
-    },
-  ];
 }
 
 /** The "Copy path" submenu leaves for an entity kind (no "As Markdown" for a Folder). */

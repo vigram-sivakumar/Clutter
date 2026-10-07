@@ -94,7 +94,7 @@ describe('Sidebar: opening a local resource image shows ImageOverlay More Action
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('opens the exact same Resource menu the Sidebar row\'s own overflow menu shows — Move to…, Reveal in Finder, Copy path, Archive, no Rename (buildResourceSidebarMenu reused, not a second menu implementation)', () => {
+  it('opens the exact same Resource menu the Sidebar row\'s own overflow menu shows — Move to…, Reveal in Finder, Copy path, Archive, no Rename (the canonical asset actions reused, not a second menu implementation)', () => {
     const resource = makeResource();
     const application = makeApplication([resource]);
     render(<AppLayout application={application} />);

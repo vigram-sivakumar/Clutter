@@ -155,7 +155,7 @@ function forUrl(definition: ResourceActionDefinition): ResourceActionDefinition 
 const SAVE_TO_VAULT: ResourceActionDefinition = {
   id: 'save-to-vault',
   group: 'organize',
-  order: 30,
+  order: 35,
   label: 'Save to vault',
   icon: 'arrowDownRight',
 };

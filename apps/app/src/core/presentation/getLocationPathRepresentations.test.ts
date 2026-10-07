@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildLocationActionMenuItems,
+  buildCopyPathSubmenu,
   getLocationPathRepresentations,
   pickLocationPathRepresentation,
 } from './getLocationPathRepresentations';
@@ -127,14 +127,10 @@ describe('pickLocationPathRepresentation', () => {
   });
 });
 
-describe('buildLocationActionMenuItems', () => {
-  it('includes Reveal in Finder and a Copy path submenu with all three leaves for page/resource kinds', () => {
+describe('buildCopyPathSubmenu', () => {
+  it('lists all three leaves for page/resource kinds', () => {
     for (const kind of ['page', 'resource'] as const) {
-      const items = buildLocationActionMenuItems(kind);
-
-      expect(items.map((item) => item.id)).toEqual(['reveal-in-finder', 'copy-path']);
-      const copyPath = items.find((item) => item.id === 'copy-path');
-      expect(copyPath?.submenu?.map((leaf) => leaf.id)).toEqual([
+      expect(buildCopyPathSubmenu(kind).map((leaf) => leaf.id)).toEqual([
         'copy-path-at-vault',
         'copy-path-full-path',
         'copy-path-as-markdown',
@@ -143,10 +139,7 @@ describe('buildLocationActionMenuItems', () => {
   });
 
   it('omits the As Markdown leaf for folder', () => {
-    const items = buildLocationActionMenuItems('folder');
-    const copyPath = items.find((item) => item.id === 'copy-path');
-
-    expect(copyPath?.submenu?.map((leaf) => leaf.id)).toEqual([
+    expect(buildCopyPathSubmenu('folder').map((leaf) => leaf.id)).toEqual([
       'copy-path-at-vault',
       'copy-path-full-path',
     ]);

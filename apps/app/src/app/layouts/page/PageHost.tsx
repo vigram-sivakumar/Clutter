@@ -2251,7 +2251,7 @@ export function PageHost({
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
   // A template (a note in Templates) is never moved by hand — its menu has
-  // no `move-to` item (noteTopBarMenu.config.ts), so no Move props either.
+  // no `move-to` item (the canonical note actions hide Move for a template), so no Move props either.
   const canMoveNote =
     page.type === 'note' && !application.membershipSelector.isInTemplatesFolder(page.parentId);
   const topBar = buildTopBarActions(page, {
@@ -2307,8 +2307,7 @@ export function PageHost({
         isRenameable ? () => onCancelPageTitle(page.id) : undefined
       }
       // A Note and a Daily Note both offer "Add a description"/"Description"
-      // (the daily-note canonical actions includes the same item noteTopBarMenu
-      // does) — unlike title, description editability has no note-vs-daily-
+      // (the header More menu offers it for both) — unlike title, description editability has no note-vs-daily-
       // note distinction.
       descriptionEditable
       showDescriptionEditor={descriptionEditorRequestedIds.has(page.id)}

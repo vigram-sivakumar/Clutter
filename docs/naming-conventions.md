@@ -14,7 +14,7 @@ The goal is one clear rule per kind of artifact — not a mix of historical patt
 | Hook             | `use*.ts`              | `useActivePage.ts`                                |
 | Builder          | `build*.ts` / `to*.ts` | `buildBreadcrumbs.ts`, `toCollectionPageModel.ts` |
 | Registry         | `*Registry.ts`         | `topBarRegistry.ts`                               |
-| Config           | `*.config.ts`          | `noteTopBarMenu.config.ts`                        |
+| Config           | `*.config.ts`          | `notesShortcuts.config.ts`                        |
 | Model / type     | `PascalCase.ts`        | `CollectionPageModel.ts`                          |
 | Helper           | `camelCase.ts`         | `findTodayNote.ts`, `getFavoriteItems.ts`         |
 | Feature folder   | `kebab-case`           | `daily-notes/`                                    |
@@ -85,10 +85,8 @@ Shortcut configs are **not** shared models — each feature owns its config arra
 ## 4. Config Files → camelCase + `.config.ts`
 
 ```
-noteTopBarMenu.config.ts
 notesShortcuts.config.ts
-folderTopBarMenu.config.ts
-dailyNoteTopBarMenu.config.ts
+tagsShortcuts.config.ts
 ```
 
 The config filename describes what it configures. The export inside uses PascalCase or camelCase as appropriate for its shape.

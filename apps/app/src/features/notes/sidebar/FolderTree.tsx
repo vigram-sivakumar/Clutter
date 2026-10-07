@@ -136,8 +136,8 @@ export interface NoteRowActions {
   /** Discrete commit (PageOperations.updateDraftTitle), draft notes only. */
   onDraftTitleCommit(pageId: string, value: string): void | boolean;
   /**
-   * No onDeleteNote here — the sidebar menu config
-   * (noteSidebarMenu.config.ts) never includes a 'delete' item
+   * No onDeleteNote here — the canonical note
+   * actions never offer, on the sidebar surface, a 'delete' item
    * (deletion-UX product decision: permanent Delete is withdrawn from
    * every ordinary workspace resource, and this row never renders an
    * archived one), so there is no dispatch target for it.
@@ -389,8 +389,7 @@ export interface PageEntryProps {
 
 /**
  * Splices `extraItems` into `standardItems` immediately before the
- * "Reveal in Finder" item (buildLocationActionMenuItems' `reveal-in-finder`
- * id) — e.g. the Tags sidebar's "Reveal in Clutter", which reads
+ * "Reveal in Finder" item (the canonical `reveal-in-finder` id) — e.g. the Tags sidebar's "Reveal in Clutter", which reads
  * naturally grouped with the menu's other location/navigation actions
  * rather than tacked on at the very end, after Archive. Falls back to
  * appending at the end if that item is ever absent (a draft's empty
