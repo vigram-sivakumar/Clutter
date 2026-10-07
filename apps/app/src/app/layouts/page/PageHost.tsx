@@ -42,6 +42,7 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
+import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import {
   buildMoveDestinationItems,
   buildResourceMoveDestinationItems,
@@ -71,8 +72,6 @@ import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
 import { createWikiLinkPreviewRenderer } from '@app/layouts/page/renderWikiLinkPreview';
 import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
-import { supportedResourceFileExtensions } from '@core/vault/ingest/SupportedResourceKind';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
@@ -686,17 +685,7 @@ export function PageHost({
   // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
   // and let the vault's normal ingest/watch pick them up as resources.
   const uploadAssetsInto = (destinationFolderPath?: string): void => {
-    void (async () => {
-      const selected = await openFileDialog({
-        multiple: true,
-        directory: false,
-        filters: [{ name: 'Images and PDFs', extensions: supportedResourceFileExtensions() }],
-      });
-      const paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
-      for (const sourcePath of paths) {
-        await application.importAsset(sourcePath, destinationFolderPath);
-      }
-    })();
+    void uploadAssets((source, destination) => application.importAsset(source, destination), destinationFolderPath);
   };
 
   // Create folder: start naming it inline — the folder itself is made only when the name is committed.

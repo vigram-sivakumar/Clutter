@@ -30,6 +30,7 @@ interface ControlsProps {
   readonly onNewFolder: () => void;
   readonly onNewTag: () => void;
   readonly onNewTemplate: () => void;
+  readonly onUpload: () => void;
 }
 
 export function Controls({
@@ -38,6 +39,7 @@ export function Controls({
   onNewFolder,
   onNewTag,
   onNewTemplate,
+  onUpload,
 }: ControlsProps) {
   const menu = useOverlay<HTMLButtonElement>();
   // The chosen action's own surface (a dialog's field, a new draft's editor) takes focus; the menu
@@ -99,6 +101,9 @@ export function Controls({
           <div className="menu__divider" role="separator" />
           <MenuItem leading={<AppIcon icon="template" />} onClick={choose(onNewTemplate)}>
             Template
+          </MenuItem>
+          <MenuItem leading={<AppIcon icon="upload" />} onClick={choose(onUpload)}>
+            Upload
           </MenuItem>
         </Menu>
       </Overlay>

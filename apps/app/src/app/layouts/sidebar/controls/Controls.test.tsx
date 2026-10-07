@@ -31,6 +31,7 @@ function renderControls() {
     onNewFolder: vi.fn(),
     onNewTag: vi.fn(),
     onNewTemplate: vi.fn(),
+    onUpload: vi.fn(),
   };
   const view = render(<Controls {...handlers} />);
 
@@ -88,6 +89,7 @@ describe('Controls creation launcher', () => {
       handlers.onNewFolder,
       handlers.onNewTag,
       handlers.onNewTemplate,
+      handlers.onUpload,
     ]) {
       expect(handler).not.toHaveBeenCalled();
     }
@@ -100,7 +102,7 @@ describe('Controls creation launcher', () => {
     expect(screen.getByText('Create New')).toBeInTheDocument();
 
     const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(items).toEqual(['Note', 'Task', 'Folder', 'Tag', 'Template']);
+    expect(items).toEqual(['Note', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
     expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
@@ -110,6 +112,7 @@ describe('Controls creation launcher', () => {
     ['Folder', 'onNewFolder'],
     ['Tag', 'onNewTag'],
     ['Template', 'onNewTemplate'],
+    ['Upload', 'onUpload'],
   ] as const)('choosing "%s" calls %s once and closes the menu', (label, handlerName) => {
     const handlers = renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));

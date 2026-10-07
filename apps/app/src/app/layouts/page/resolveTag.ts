@@ -1,5 +1,5 @@
 import type { Vault } from '@core/vault/models/Vault';
-import { normalizeTagName, formatTagDisplayLabel } from '@core/vault/models/Tag';
+import { formatTagDisplayLabel } from '@core/vault/models/Tag';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { ResolveTag } from '@features/markdown/editor/MarkdownEditor';
 
@@ -28,19 +28,11 @@ import type { ResolveTag } from '@features/markdown/editor/MarkdownEditor';
  * all — so display never depends on save timing either, only casing does
  * (and only until the first save settles it).
  *
- * Deliberately NOT `vault.getTagByName()` — that method is an exact,
- * as-typed-casing lookup by design (its own doc comment: "callers that
- * only have a differently-cased name should normalize before calling
- * this"), never a normalized-identity one. A linear scan over
- * `vault.tags()` matching by `normalizeTagName` is the same pattern
- * `tagSuggestions.ts`'s `createTagSuggester` already uses for identical
- * reasons — consistent with how `TagBuilder`/`TagOperations` do their own
- * normalized comparisons independently, never through `getTagByName`.
  */
 export function createTagResolver(navigation: NavigationRouter, vault: Vault): ResolveTag {
   return (name) => {
-    const identity = normalizeTagName(name);
-    const preferred = Array.from(vault.tags()).find((tag) => normalizeTagName(tag.name) === identity);
+    // getTagByName resolves any spelling of the tag's identity in O(1).
+    const preferred = vault.getTagByName(name);
 
     return {
       status: 'resolved',

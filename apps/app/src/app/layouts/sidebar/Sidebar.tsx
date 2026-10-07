@@ -24,6 +24,7 @@ import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createNoteInInbox } from '@features/notes/helpers/createNote';
+import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import { testIds } from '@shared/testing/selectors';
@@ -235,6 +236,11 @@ export function Sidebar({
         onNewTag={() => setCreationDialog('tag')}
         onNewTemplate={() =>
           void createTemplate(folderOperations, pageOperations).catch(() => {})
+        }
+        onUpload={() =>
+          void uploadAssets((source, destination) =>
+            application.importAsset(source, destination)
+          ).catch(() => {})
         }
       />
       <div className="sidebar--tabs">
