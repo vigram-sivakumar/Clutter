@@ -185,13 +185,13 @@ describe('daily note', () => {
   it('a draft has no sidebar menu; on the topbar its actions are disabled, not omitted', () => {
     expect(buildResourceActionMenu('daily-note', { isDraft: true }, 'sidebar')).toEqual([]);
     const topbar = buildResourceActionMenu('daily-note', { isDraft: true, isDeletable: true }, 'topbar');
-    expect(ids(topbar)).toEqual(['reveal-in-finder', 'copy-path', 'archive', 'delete']);
+    expect(ids(topbar)).toEqual(['copy-path', 'archive', 'delete']);
     expect(topbar.every((item) => item.disabled)).toBe(true);
   });
 
   it('on the topbar, an archived daily note offers Restore then a divided Delete', () => {
     const menu = buildResourceActionMenu('daily-note', { status: 'archived', isDeletable: true }, 'topbar');
-    expect(ids(menu)).toEqual(['reveal-in-finder', 'copy-path', 'restore', 'delete']);
+    expect(ids(menu)).toEqual(['copy-path', 'restore', 'delete']);
     expect(dividedIds(menu)).toEqual(['restore', 'delete']);
   });
 
@@ -311,5 +311,39 @@ describe('asset menu', () => {
     const menu = ids(asset({ assetKind: 'image', status: 'archived', isDeletable: true }, 'overlay'));
     expect(menu).not.toContain('restore');
     expect(menu).not.toContain('delete');
+  });
+});
+
+describe('Reveal in Finder on the topbar (surface rule)', () => {
+  const hasReveal = (kind: Parameters<typeof buildResourceActionMenu>[0], context: Parameters<typeof buildResourceActionMenu>[1], surface: Parameters<typeof buildResourceActionMenu>[2] = 'topbar') =>
+    ids(buildResourceActionMenu(kind, context, surface)).includes('reveal-in-finder');
+
+  it('is offered for a saved, active note — in the location group, divided from organize', () => {
+    const menu = buildResourceActionMenu('note', { status: 'active' }, 'topbar');
+    expect(ids(menu)).toContain('reveal-in-finder');
+    expect(menu.find((item) => item.id === 'reveal-in-finder')).toMatchObject({
+      label: 'Reveal in Finder',
+      icon: 'folder',
+      separatorBefore: true,
+    });
+  });
+
+  it('is disabled (not omitted) for an unsaved draft note', () => {
+    expect(
+      buildResourceActionMenu('note', { isDraft: true }, 'topbar').find((item) => item.id === 'reveal-in-finder')?.disabled
+    ).toBe(true);
+  });
+
+  it('is hidden on the topbar for a template, an archived note, a daily note and a folder', () => {
+    expect(hasReveal('note', { status: 'active', isTemplate: true })).toBe(false);
+    expect(hasReveal('note', { status: 'archived' })).toBe(false);
+    expect(hasReveal('daily-note', { status: 'active' })).toBe(false);
+    expect(hasReveal('folder', { status: 'active' })).toBe(false);
+  });
+
+  it('is unchanged on the sidebar, where every resource keeps it', () => {
+    expect(hasReveal('daily-note', { status: 'active' }, 'sidebar')).toBe(true);
+    expect(hasReveal('folder', { status: 'active' }, 'sidebar')).toBe(true);
+    expect(hasReveal('asset', { assetKind: 'image', status: 'active' }, 'sidebar')).toBe(true);
   });
 });

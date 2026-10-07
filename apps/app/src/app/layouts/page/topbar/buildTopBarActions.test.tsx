@@ -408,7 +408,7 @@ describe('buildTopBarActions: location actions (Reveal in Finder / Copy path)', 
     expect(copyTextToClipboardMock).toHaveBeenCalledWith('Projects/Roadmap.md');
   });
 
-  it('a folder shows Reveal in Finder and a Copy path submenu WITHOUT As Markdown', () => {
+  it('a folder shows a Copy path submenu WITHOUT As Markdown — and no Reveal in Finder', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const { membershipSelector } = setup([folder]);
 
@@ -416,23 +416,54 @@ describe('buildTopBarActions: location actions (Reveal in Finder / Copy path)', 
     render(<>{actions}</>);
     openOverflowMenu();
 
-    expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+    expect(screen.queryByText('Reveal in Finder')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Copy path'));
     expect(screen.getByText('From vault')).toBeInTheDocument();
     expect(screen.getByText('Full path')).toBeInTheDocument();
     expect(screen.queryByText('As Markdown')).not.toBeInTheDocument();
   });
 
-  it('selecting Reveal in Finder for a folder calls revealInFinder with the folder\'s absolute path', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const { membershipSelector } = setup([folder]);
+  // Reveal in Finder is a topbar action for an ordinary, active Note only (surface rule in
+  // resourceActionSurfaces.ts); the sidebar rows keep it for every resource.
+  describe('Reveal in Finder is topbar-only for ordinary active Notes', () => {
+    function hasReveal(resource: Page | Folder, setupFolders: Folder[] = [], setupPages: Page[] = []) {
+      const { membershipSelector } = setup(setupFolders, setupPages);
+      const { actions } = buildTopBarActions(resource, { membershipSelector, vaultRoot: ROOT });
+      render(<>{actions}</>);
+      openOverflowMenu();
+      const found = screen.queryByText('Reveal in Finder') !== null;
+      cleanup();
+      return found;
+    }
 
-    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
-    render(<>{actions}</>);
-    openOverflowMenu();
-    fireEvent.click(screen.getByText('Reveal in Finder'));
+    it('appears for a saved, active Note', () => {
+      const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+      expect(hasReveal(page, [], [page])).toBe(true);
+    });
 
-    expect(revealInFinderMock).toHaveBeenCalledWith(`${ROOT}/Projects`);
+    it('is hidden for a Daily Note', () => {
+      const dailyNote = {
+        ...makePage('daily-1', `${ROOT}/Daily Notes/2026/September/2026-09-03.md`),
+        type: 'daily-note' as const,
+      };
+      expect(hasReveal(dailyNote, [], [dailyNote])).toBe(false);
+    });
+
+    it('is hidden for an archived Note', () => {
+      const archived = makePage('page-1', `${ROOT}/Archive/Old.md`, null, 'archived');
+      expect(hasReveal(archived, [], [archived])).toBe(false);
+    });
+
+    it('is hidden for a Template (a Note inside Templates)', () => {
+      const templates = makeFolder('templates', `${ROOT}/Templates`);
+      const template = makePage('page-1', `${ROOT}/Templates/Meeting.md`, 'templates');
+      expect(hasReveal(template, [templates], [template])).toBe(false);
+    });
+
+    it('is hidden for a Folder', () => {
+      const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+      expect(hasReveal(folder, [folder])).toBe(false);
+    });
   });
 
   it('selecting "Full path" for a folder copies its absolute path', () => {

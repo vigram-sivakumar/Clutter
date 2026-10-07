@@ -1,3 +1,5 @@
+import type { ResourceActionContext, ResourceKind } from './resourceActionTypes';
+
 /**
  * Where resource-action menus appear, and what each surface deliberately leaves out. These are
  * presentation decisions, not second implementations: an omitted action is still one definition
@@ -8,6 +10,8 @@ export type ResourceActionSurface = 'sidebar' | 'favorites' | 'topbar' | 'overla
 export interface ResourceActionSurfaceProfile {
   /** Action ids this surface never shows. */
   readonly omit: readonly string[];
+  /** Action ids this surface hides for a particular resource kind or state (an explicit, tested rule). */
+  readonly omitWhen?: (kind: ResourceKind, context: ResourceActionContext) => readonly string[];
   /** How an `unavailable` action renders: disabled in place, or left out. */
   readonly unavailable: 'disable' | 'hide';
 }
@@ -40,6 +44,11 @@ export const RESOURCE_ACTION_SURFACES: Readonly<
     // The title is editable inline and the header already exposes the icon control, so Rename and
     // Change icon are not repeated here. Sort by is a sidebar view preference.
     omit: ['rename', 'change-icon', 'sort-by'],
+    // Reveal in Finder is a topbar action for an ordinary, active Note only — not a Daily Note,
+    // Template, Folder or archived note. (Assets and Tags have no resource-action topbar.) The
+    // sidebar rows keep it for every resource.
+    omitWhen: (kind, context) =>
+      kind === 'note' && !context.isTemplate && context.status !== 'archived' ? [] : ['reveal-in-finder'],
     // ADR-017 item 9: disabled, not omitted.
     unavailable: 'disable',
   },

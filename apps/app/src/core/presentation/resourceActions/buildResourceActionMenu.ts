@@ -23,20 +23,22 @@ export function buildResourceActionMenu(
   context: ResourceActionContext,
   surface: ResourceActionSurface
 ): OverflowMenuItemConfig[] {
-  return buildMenuFromDefinitions(RESOURCE_ACTIONS[kind], context, surface);
+  return buildMenuFromDefinitions(RESOURCE_ACTIONS[kind], context, surface, kind);
 }
 
 /** The builder over an explicit definition list — what `buildResourceActionMenu` runs on a kind's. */
 export function buildMenuFromDefinitions(
   definitions: readonly ResourceActionDefinition[],
   context: ResourceActionContext,
-  surface: ResourceActionSurface
+  surface: ResourceActionSurface,
+  kind?: ResourceKind
 ): OverflowMenuItemConfig[] {
   const profile = RESOURCE_ACTION_SURFACES[surface];
+  const omitted = [...profile.omit, ...(kind ? (profile.omitWhen?.(kind, context) ?? []) : [])];
   const items: { definition: ResourceActionDefinition; disabled: boolean }[] = [];
 
   for (const definition of definitions) {
-    if (profile.omit.includes(definition.id)) {
+    if (omitted.includes(definition.id)) {
       continue;
     }
 
