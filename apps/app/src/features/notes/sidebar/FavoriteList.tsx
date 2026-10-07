@@ -1,7 +1,8 @@
 import type { FavoriteItem } from '../models/FavoriteItem';
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
-import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import type { SidebarRowActions } from './FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -50,14 +51,14 @@ export function FavoriteList({
     if (item.type === 'note') {
       // Every item here is already a favorite (isFavorite hardcoded true)
       // and always durable (isDraft hardcoded false — a draft can never be
-      // favorited, see getFavoriteItems.ts). 'rename' is filtered out: this
-      // row has no inline-edit affordance the way FolderTree's rows do, so
-      // leaving it in would be a dead menu entry. 'move-to' is filtered out
-      // for a template (a note in Templates stays there).
+      // favorited, see getFavoriteItems.ts). The 'favorites' surface profile
+      // omits Rename (no inline editor on this row); a template (a note in
+      // Templates) loses Move through the action's own availability.
       const menuItems = rowActions
-        ? buildNoteSidebarMenu(false, true).filter(
-            (menuItem) =>
-              menuItem.id !== 'rename' && !(item.isTemplate && menuItem.id === 'move-to')
+        ? buildResourceActionMenu(
+            'note',
+            { isFavorite: true, isTemplate: item.isTemplate, status: 'active' },
+            'favorites'
           )
         : undefined;
 
@@ -81,23 +82,7 @@ export function FavoriteList({
           }
           onMenuSelect={
             rowActions
-              ? (id) => {
-                  if (id === 'duplicate') {
-                    rowActions.onDuplicateNote(item.id);
-                  } else if (id === 'toggle-favorite') {
-                    rowActions.onToggleFavoriteNote(item.id, true);
-                  } else if (id === 'archive') {
-                    rowActions.onArchiveNote(item.id);
-                  } else if (id === 'reveal-in-finder') {
-                    rowActions.onRevealPageInFinder(item.id);
-                  } else if (id === 'copy-path-at-vault') {
-                    rowActions.onCopyPagePath(item.id, 'at-vault');
-                  } else if (id === 'copy-path-full-path') {
-                    rowActions.onCopyPagePath(item.id, 'full-path');
-                  } else if (id === 'copy-path-as-markdown') {
-                    rowActions.onCopyPagePath(item.id, 'as-markdown');
-                  }
-                }
+              ? (id) => buildPageMenuHandlers(rowActions, item.id, true)[id]?.()
               : undefined
           }
           moveDestinations={rowActions ? rowActions.noteMoveDestinations : undefined}

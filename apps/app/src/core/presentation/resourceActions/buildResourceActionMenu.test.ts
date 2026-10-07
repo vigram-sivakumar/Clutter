@@ -171,3 +171,53 @@ describe('daily note', () => {
     ]);
   });
 });
+
+describe('note menu details (carried over from the retired per-surface configs)', () => {
+  it('the sidebar groups identity | organize | location | lifecycle with dividers above Favorite, Reveal and Archive only', () => {
+    const menu = buildResourceActionMenu('note', { status: 'active' }, 'sidebar');
+    expect(ids(menu)).toEqual([
+      'rename',
+      'change-icon',
+      'toggle-favorite',
+      'duplicate',
+      'move-to',
+      'reveal-in-finder',
+      'copy-path',
+      'archive',
+    ]);
+    expect(dividedIds(menu)).toEqual(['toggle-favorite', 'reveal-in-finder', 'archive']);
+  });
+
+  it('Copy path offers From vault, Full path and As Markdown for a page', () => {
+    const copy = buildResourceActionMenu('note', { status: 'active' }, 'topbar').find(
+      (item) => item.id === 'copy-path'
+    );
+    expect(copy?.submenu?.map((leaf) => leaf.id)).toEqual([
+      'copy-path-at-vault',
+      'copy-path-full-path',
+      'copy-path-as-markdown',
+    ]);
+  });
+
+  it('Use as template is enabled for an active note, disabled for a draft or archived one, and absent for a template', () => {
+    const find = (context: Parameters<typeof buildResourceActionMenu>[1]) =>
+      buildResourceActionMenu('note', context, 'topbar').find((item) => item.id === 'use-as-template');
+    expect(find({ status: 'active' })?.disabled).toBeUndefined();
+    expect(find({ isDraft: true })?.disabled).toBe(true);
+    expect(find({ status: 'archived' })?.disabled).toBe(true);
+    expect(find({ isTemplate: true })).toBeUndefined();
+  });
+
+  it('a draft keeps Reveal, Copy path, Archive and (when deletable) Delete on the topbar, all disabled', () => {
+    const menu = buildResourceActionMenu('note', { isDraft: true, isDeletable: true }, 'topbar');
+    for (const id of ['reveal-in-finder', 'copy-path', 'archive', 'delete']) {
+      expect(menu.find((item) => item.id === id)?.disabled).toBe(true);
+    }
+  });
+
+  it('never offers an add-a-description action — Description lives in the header menu', () => {
+    expect(ids(buildResourceActionMenu('note', { status: 'active' }, 'topbar'))).not.toContain(
+      'add-a-description'
+    );
+  });
+});

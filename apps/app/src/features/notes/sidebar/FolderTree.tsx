@@ -6,7 +6,8 @@ import { Note as NoteEntry } from './Note';
 import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
 import { ShowMoreEntry } from '@components/entry/ShowMoreEntry';
-import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildPageMenuHandlers } from '../helpers/buildPageMenuHandlers';
 import { buildFolderSidebarMenu, SORT_MENU_ID_PREFIX } from './folderSidebarMenu.config';
 import { levelKindOrder, sortSidebarFolders, sortSidebarPages } from './sidebarSort';
 import {
@@ -359,13 +360,13 @@ export interface PageEntryProps {
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
   /**
-   * Spliced into the standard note menu (buildNoteSidebarMenu's items),
+   * Spliced into the standard note menu (the Note sidebar menu's items),
    * immediately above "Reveal in Finder" — see insertBeforeRevealInFinder
    * below — for an action that exists only in one calling context, not
    * every Note row everywhere (today: the Tags sidebar's "Reveal in
    * Clutter"). Omitted everywhere else, so the Notes sidebar's own menu
    * is unaffected. `onExtraMenuSelect` only ever receives ids from this
-   * list — every id `buildNoteSidebarMenu` itself produces is still
+   * list — every id the canonical Note actions produce is still
    * handled internally, unchanged.
    */
   extraMenuItems?: readonly OverflowMenuItemConfig[];
@@ -498,7 +499,11 @@ export function PageEntry({
       menuItems={
         rowActions
           ? insertBeforeRevealInFinder(
-              buildNoteSidebarMenu(entry.isDraft, entry.favorite),
+              buildResourceActionMenu(
+                'note',
+                { isDraft: entry.isDraft, isFavorite: entry.favorite, status: 'active' },
+                'sidebar'
+              ),
               extraMenuItems
             )
           : undefined
@@ -512,22 +517,10 @@ export function PageEntry({
       onMenuSelect={
         rowActions
           ? (id) => {
-              if (id === 'rename') {
-                rowActions.onStartRename(entry.id);
-              } else if (id === 'duplicate') {
-                rowActions.onDuplicateNote(entry.id);
-              } else if (id === 'toggle-favorite') {
-                rowActions.onToggleFavoriteNote(entry.id, entry.favorite);
-              } else if (id === 'archive') {
-                rowActions.onArchiveNote(entry.id);
-              } else if (id === 'reveal-in-finder') {
-                rowActions.onRevealPageInFinder(entry.id);
-              } else if (id === 'copy-path-at-vault') {
-                rowActions.onCopyPagePath(entry.id, 'at-vault');
-              } else if (id === 'copy-path-full-path') {
-                rowActions.onCopyPagePath(entry.id, 'full-path');
-              } else if (id === 'copy-path-as-markdown') {
-                rowActions.onCopyPagePath(entry.id, 'as-markdown');
+              const handler = buildPageMenuHandlers(rowActions, entry.id, entry.favorite)[id];
+
+              if (handler) {
+                handler();
               } else {
                 onExtraMenuSelect?.(id);
               }
