@@ -106,10 +106,18 @@ describe('surface filtering', () => {
     );
   });
 
-  it('Favorites omits Rename but keeps Change icon', () => {
-    const menu = ids(buildResourceActionMenu('note', { status: 'active' }, 'favorites'));
-    expect(menu).not.toContain('rename');
-    expect(menu).toContain('change-icon');
+  it('Favorites is the SAME menu as the sidebar — same actions, order and dividers, Rename included', () => {
+    const contexts = [
+      ['note', { status: 'active', isFavorite: true }],
+      ['note', { status: 'active', isFavorite: true, isTemplate: true }],
+      ['folder', { status: 'active', isFavorite: true }],
+      ['folder', { status: 'active', isFavorite: true, sort: { key: 'name', direction: 'down' } }],
+    ] as const;
+    for (const [kind, context] of contexts) {
+      const favorites = buildResourceActionMenu(kind, context, 'favorites');
+      expect(favorites).toEqual(buildResourceActionMenu(kind, context, 'sidebar'));
+      expect(ids(favorites)).toContain('rename');
+    }
   });
 
   it('the sidebar never offers Restore, Delete or Use as template', () => {
@@ -138,11 +146,12 @@ describe('availability', () => {
     expect(ids(buildResourceActionMenu('note', { status: 'archived' }, 'topbar'))).not.toContain('archive');
   });
 
-  it('Move is disabled for an archived note, and offered for a Template (it moves within Templates)', () => {
+  it('Move is disabled for an archived note, and absent for a Template on every surface (Templates are flat)', () => {
     const archived = buildResourceActionMenu('note', { status: 'archived' }, 'topbar');
     expect(archived.find((item) => item.id === 'move-to')?.disabled).toBe(true);
-    const template = buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, 'topbar');
-    expect(template.find((item) => item.id === 'move-to')?.disabled).toBeUndefined();
+    for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
+      expect(ids(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface))).not.toContain('move-to');
+    }
   });
 
   it('Delete appears only when the resource is deletable', () => {

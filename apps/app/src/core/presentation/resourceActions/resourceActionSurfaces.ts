@@ -23,21 +23,21 @@ export interface ResourceActionSurfaceProfile {
 const archivedOnlyActionsExceptTag = (kind: ResourceKind): readonly string[] =>
   kind === 'tag' || kind === 'task' ? [] : ['restore', 'delete'];
 
+const SIDEBAR_PROFILE: ResourceActionSurfaceProfile = {
+  // Use as template is a topbar action today; the sidebar row is deliberately narrower.
+  omit: ['use-as-template'],
+  omitWhen: archivedOnlyActionsExceptTag,
+  unavailable: 'hide',
+};
+
 export const RESOURCE_ACTION_SURFACES: Readonly<
   Record<ResourceActionSurface, ResourceActionSurfaceProfile>
 > = {
-  sidebar: {
-    // Use as template is a topbar action today; the sidebar row is deliberately narrower.
-    omit: ['use-as-template'],
-    omitWhen: archivedOnlyActionsExceptTag,
-    unavailable: 'hide',
-  },
-  favorites: {
-    // As the sidebar, plus Rename: a Favorites row has no inline title editor.
-    omit: ['use-as-template', 'rename'],
-    omitWhen: archivedOnlyActionsExceptTag,
-    unavailable: 'hide',
-  },
+  sidebar: SIDEBAR_PROFILE,
+  // A favorited resource is shown the same menu as that resource in the sidebar: one profile, so a
+  // future action can never reach one and not the other. (Sort by never reaches either unless the
+  // caller supplies a sort — a Favorites row lists no children, so it supplies none.)
+  favorites: SIDEBAR_PROFILE,
   overlay: {
     // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
     // it in. An archived asset is never opened from here.

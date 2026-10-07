@@ -8,12 +8,14 @@ import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
 export type FavoriteItem = {
   id: string;
   title: string;
+  /** The resource's own name (a note's file name, a folder's name) — what an inline rename edits, unlike `title`, the display label. */
+  name?: string;
   titleStyle: 'default' | 'placeholder';
   type: 'note' | 'folder';
   emoji: string | null;
   status?: FolderMetadata['status'];
-  /** A note that lives in Templates — its Move picker is rooted at Templates. Set only when true. */
+  /** A note that lives in Templates — it has no Move and no Create template. Set only when true. */
   isTemplate?: boolean;
-  /** A folder inside Templates or Assets — its Move picker is rooted there. Set only when not the workspace. */
-  moveZone?: 'templates' | 'assets';
+  /** A folder inside Assets — its Move picker is rooted there. Set only when not the workspace. */
+  moveZone?: 'assets';
 };

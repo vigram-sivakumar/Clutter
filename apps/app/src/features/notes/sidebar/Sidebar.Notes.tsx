@@ -27,6 +27,7 @@ import {
   type PendingNewFolder,
   type SidebarRowActions,
 } from './FolderTree';
+import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
 import { useRequestCreateTemplate } from '@app/layouts/createTemplate/CreateTemplateProvider';
@@ -244,6 +245,10 @@ export function Notes({
   const [favoriteOpenMenuId, setFavoriteOpenMenuId] = useState<string | null>(
     null
   );
+  // Same reasoning for inline rename: renaming a favorite renames the underlying resource through
+  // the very same channel (rowActions' title handlers), but only the row where it was started
+  // enters edit mode — not the tree row that happens to share its id.
+  const [favoriteEditingId, setFavoriteEditingId] = useState<string | null>(null);
   // The sidebar's confirmation surface — same shared primitive
   // (useConfirmationSurface) and same Confirmation/Dialog components the
   // topbar's ResourceTopBarActions uses, so folder archive/delete show
@@ -314,7 +319,7 @@ export function Notes({
       buildMoveDestinationItems(
         membershipSelector,
         folderId,
-        membershipSelector.getMoveZoneOfFolder(folderId)
+        moveZoneFor('folder', { moveZone: membershipSelector.getMoveZoneOfFolder(folderId) })
       ),
     onMoveFolder: (folderId, destinationFolderId) =>
       void folderOperations.move(folderId, destinationFolderId),
@@ -373,6 +378,12 @@ export function Notes({
     openMenuId: favoriteOpenMenuId,
     onOpenMenu: (id) => setFavoriteOpenMenuId(id),
     onCloseMenu: () => setFavoriteOpenMenuId(null),
+    editingId: favoriteEditingId,
+    onStartRename: (id) => {
+      setFavoriteOpenMenuId(null);
+      setFavoriteEditingId(id);
+    },
+    onRenameEnd: () => setFavoriteEditingId(null),
   };
   const onShortcut = buildNotesShortcutHandler(
     navigation,
@@ -460,6 +471,8 @@ export function Notes({
             onOpenFolder(id);
           }}
           rowActions={favoriteRowActions}
+          getFolderSort={getFolderSort}
+          onFolderSortChange={onFolderSortChange}
         />
       </FavoritesSection>
       <Section

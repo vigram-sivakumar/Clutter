@@ -11,6 +11,7 @@ import {
   assertMoveWithinZone,
   isDailyNotesFolderOrDescendant,
   moveZoneOfPath,
+  reservedFolderRelativePath,
 } from '../initialize/ReservedResources';
 
 export class MoveService {
@@ -141,15 +142,20 @@ export class MoveService {
       throw new Error(`Cannot move into Daily Notes: ${destinationPath}`);
     }
 
-    // ADR-049: a Template moves only within Templates; an ordinary note never moves into Templates
-    // or Assets. `toTemplates` is the one sanctioned crossing — "Use as template" converts a note.
-    assertMoveWithinZone(
-      this.vault.root,
-      options.toTemplates || moveZoneOfPath(this.vault.root, current.path) === 'templates'
-        ? 'templates'
-        : 'workspace',
-      destinationPath
-    );
+    // ADR-049: Templates are a flat collection. A Template is never moved, and an ordinary note
+    // never moves into Templates or Assets. `toTemplates` is the one sanctioned crossing — "Use as
+    // template" converts a note — and it lands directly under the Templates root, never deeper.
+    if (moveZoneOfPath(this.vault.root, current.path) === 'templates') {
+      throw new Error(`Cannot move a Template: ${current.path} stays directly under Templates`);
+    }
+
+    if (options.toTemplates) {
+      if (destinationPath !== `${this.vault.root}/${reservedFolderRelativePath('templates')}`) {
+        throw new Error(`A template can only be placed directly under Templates: ${destinationPath}`);
+      }
+    } else {
+      assertMoveWithinZone(this.vault.root, 'workspace', destinationPath);
+    }
 
     const baseName = VaultPath.pageName(current.path);
 

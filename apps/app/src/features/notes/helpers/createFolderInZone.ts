@@ -1,6 +1,6 @@
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
-import type { MoveZone } from '@core/vault/initialize/ReservedResources';
+import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 
 /**
  * The Move picker's "create a folder" handler for a zone (ADR-049): the new folder is made inside
@@ -12,7 +12,7 @@ import type { MoveZone } from '@core/vault/initialize/ReservedResources';
 export function createFolderInZone(
   folderOperations: Pick<FolderOperations, 'create'>,
   membershipSelector: Pick<MembershipSelector, 'getMoveZoneRoot'>,
-  zone: MoveZone
+  zone: MovePickerZone
 ): ((name: string) => Promise<string>) | undefined {
   if (zone === 'workspace') {
     return (name) => folderOperations.create(name, null);

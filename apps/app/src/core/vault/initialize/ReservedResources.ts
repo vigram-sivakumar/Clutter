@@ -205,6 +205,9 @@ export function isDailyNotesFolderOrDescendant(vaultRoot: string, path: string):
  */
 export type MoveZone = 'workspace' | 'templates' | 'assets';
 
+/** The hierarchies that have their own Move picker root: Templates are flat and never move, so only these. */
+export type MovePickerZone = Extract<MoveZone, 'workspace' | 'assets'>;
+
 export function moveZoneOfPath(vaultRoot: string, path: string): MoveZone {
   const templates = `${vaultRoot}/${RESERVED_FOLDER_IDS.templates}`;
   const assets = `${vaultRoot}/${ASSETS_DIRECTORY_NAME}`;

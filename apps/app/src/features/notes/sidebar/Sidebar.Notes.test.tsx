@@ -409,6 +409,97 @@ describe("Sidebar Notes: a favorited page's Favorites row and Workspace row have
   });
 });
 
+// Favorites shows the SAME resource-action menu as the resource anywhere else (ADR-048) — one surface
+// profile, the same handlers, the same inline rename — so nothing drifts between a favorite and its
+// tree row.
+describe('Sidebar Notes: a favorited resource has the same actions as the resource itself', () => {
+  const menuLabels = (menu: HTMLElement) =>
+    Array.from(menu.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent?.trim());
+  const favoriteFolder = (id: string, path: string): Folder => {
+    const folder = makeFolder(id, path);
+    return { ...folder, metadata: { ...folder.metadata, favorite: true } };
+  };
+
+  it('a favorited Note offers Rename, and the menu (order and dividers included) equals its tree row\'s', () => {
+    const page = makePage('page-a', `${ROOT}/Idea.md`, { favorite: true });
+    renderNotes(setup([], [page]));
+    const [favoritesRow, treeRow] = screen.getAllByText('Idea') as [HTMLElement, HTMLElement];
+
+    fireEvent.click(overflowButtonForEntry(favoritesRow));
+    fireEvent.click(overflowButtonForEntry(treeRow));
+    const [favoritesMenu, treeMenu] = screen.getAllByRole('menu') as [HTMLElement, HTMLElement];
+
+    expect(menuLabels(favoritesMenu)).toContain('Rename');
+    expect(menuLabels(favoritesMenu)).toEqual(menuLabels(treeMenu));
+    expect(favoritesMenu.querySelectorAll('.menu__divider').length).toBe(treeMenu.querySelectorAll('.menu__divider').length);
+  });
+
+  it('a favorited Folder offers Rename, and its menu equals its tree row\'s', () => {
+    renderNotes(setup([favoriteFolder('folder-1', `${ROOT}/Projects`)]));
+    const [favoritesRow, treeRow] = screen.getAllByText('Projects') as [HTMLElement, HTMLElement];
+
+    fireEvent.click(overflowButtonForEntry(favoritesRow));
+    fireEvent.click(overflowButtonForEntry(treeRow));
+    const [favoritesMenu, treeMenu] = screen.getAllByRole('menu') as [HTMLElement, HTMLElement];
+
+    expect(menuLabels(favoritesMenu)).toContain('Rename');
+    expect(menuLabels(favoritesMenu)).toEqual(menuLabels(treeMenu));
+  });
+
+  it('a favorited Template offers Rename — and, like every Template, no Move or Create template', () => {
+    const templates = makeFolder('templates', `${ROOT}/Templates`);
+    const template = { ...makePage('tpl-1', `${ROOT}/Templates/Standup.md`, { favorite: true }), parentId: 'templates' };
+    renderNotes(setup([templates], [template]));
+
+    fireEvent.click(overflowButtonFor('Standup'));
+    const labels = menuLabels(screen.getByRole('menu'));
+
+    expect(labels).toContain('Rename');
+    expect(labels).not.toContain('Move to…');
+    expect(labels).not.toContain('Create template');
+    expect(labels).toContain('Remove from Favorites');
+  });
+
+  it('Rename on a favorited Note renames the underlying page, in the Favorites row only', () => {
+    const page = makePage('page-a', `${ROOT}/Idea.md`, { favorite: true });
+    const deps = setup([], [page]);
+    const commitSpy = vi.spyOn(deps.pageOperations, 'commitTitle');
+    const saveSpy = vi.spyOn(deps.pageOperations, 'requestTitleSave').mockResolvedValue(undefined);
+    renderNotes(deps);
+    const [favoritesRow] = screen.getAllByText('Idea') as [HTMLElement, HTMLElement];
+
+    fireEvent.click(overflowButtonForEntry(favoritesRow));
+    fireEvent.click(screen.getByText('Rename'));
+
+    // One edit field — the tree row for the same page is not also in edit mode.
+    const field = screen.getByRole('textbox');
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    fireEvent.input(field, { target: { textContent: 'Idea 2' } });
+    fireEvent.blur(field);
+
+    expect(commitSpy).toHaveBeenCalledWith('page-a', 'Idea 2');
+    expect(saveSpy).toHaveBeenCalledWith('page-a');
+  });
+
+  it('Rename on a favorited Folder renames the underlying folder, in the Favorites row only', () => {
+    const deps = setup([favoriteFolder('folder-1', `${ROOT}/Projects`)]);
+    const commitSpy = vi.spyOn(deps.folderOperations, 'commitName');
+    const saveSpy = vi.spyOn(deps.folderOperations, 'requestNameSave').mockResolvedValue(undefined);
+    renderNotes(deps);
+    const [favoritesRow] = screen.getAllByText('Projects') as [HTMLElement, HTMLElement];
+
+    fireEvent.click(overflowButtonForEntry(favoritesRow));
+    fireEvent.click(screen.getByText('Rename'));
+
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    fireEvent.input(screen.getByRole('textbox'), { target: { textContent: 'Work' } });
+    fireEvent.blur(screen.getByRole('textbox'));
+
+    expect(commitSpy).toHaveBeenCalledWith('folder-1', 'Work');
+    expect(saveSpy).toHaveBeenCalledWith('folder-1');
+  });
+});
+
 // Section headers are disclosure controls only (Section.Header.tsx's
 // isTitleToggle): clicking the header row — or its caret — expands/collapses
 // and never navigates. The Workspace/Favorites Collection pages are not

@@ -1,28 +1,24 @@
-import type { MoveZone } from '@core/vault/initialize/ReservedResources';
+import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 
 import type { ResourceActionContext, ResourceKind } from './resourceActionTypes';
 
 /**
- * Which hierarchy a resource moves within (ADR-049) — the one rule the canonical `move-to` action's
- * callers use to pick the Move picker's root, so the resource itself decides, never the surface
- * it happens to be shown on (a Template listed under a tag is still a Template):
+ * Which hierarchy a resource's Move picker is rooted at (ADR-049) — decided by the resource, never
+ * by the surface it is shown on:
  *
- *   Note → the vault root's workspace    Template → Templates    Asset → Assets
+ *   Note → the vault root's workspace      Asset → Assets
  *
- * A folder moves within the hierarchy it already sits in; the caller passes that as `moveZone`
- * (MembershipSelector.getMoveZoneOfFolder), since a folder's own context carries no flag for it.
+ * A Template has no Move at all (Templates are a flat collection; the canonical `move-to` action is
+ * hidden for one), so it has no zone. A folder moves within the hierarchy it already sits in; the
+ * caller passes that as `moveZone` (MembershipSelector.getMoveZoneOfFolder).
  */
-export function moveZoneFor(kind: ResourceKind, context: ResourceActionContext): MoveZone {
+export function moveZoneFor(kind: ResourceKind, context: ResourceActionContext): MovePickerZone {
   if (kind === 'asset') {
     return 'assets';
   }
 
-  if (kind === 'note') {
-    return context.isTemplate ? 'templates' : 'workspace';
-  }
-
-  if (kind === 'folder') {
-    return context.moveZone ?? 'workspace';
+  if (kind === 'folder' && context.moveZone === 'assets') {
+    return 'assets';
   }
 
   return 'workspace';

@@ -141,7 +141,7 @@ describe('actions — what each collection can create (capability only; handlers
   it('pins the capabilities that used to be scattered conditionals in PageHost', () => {
     expect(actions(FOLDER_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
     expect(actions(WORKSPACE_COLLECTION)).toEqual(['create', 'createFolder', 'fromTemplate']);
-    expect(actions(TEMPLATES_COLLECTION)).toEqual(['create', 'createFolder']);
+    expect(actions(TEMPLATES_COLLECTION)).toEqual(['create']); // flat: no folders (ADR-049)
     expect(actions(TAG_COLLECTION)).toEqual(['create']);
     // Inbox: a note can be made blank or from a template — and no folder can be made there.
     expect(actions(INBOX_COLLECTION)).toEqual(['create', 'fromTemplate']);
@@ -199,7 +199,6 @@ describe('which definition a page is', () => {
   const reserved = { isSystemFolder: () => true, isAssetsFolder: () => false, isInTemplatesFolder: () => false } as unknown as MembershipSelector;
   const ordinary = { isSystemFolder: () => false, isAssetsFolder: () => false, isInTemplatesFolder: () => false } as unknown as MembershipSelector;
   const insideAssets = { isSystemFolder: () => false, isAssetsFolder: () => true, isInTemplatesFolder: () => false } as unknown as MembershipSelector;
-  const insideTemplates = { isSystemFolder: () => false, isAssetsFolder: () => false, isInTemplatesFolder: () => true } as unknown as MembershipSelector;
 
   it('reserved folders resolve to their own collection', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Archive`), ROOT, reserved)).toBe(ARCHIVE_COLLECTION);
@@ -215,11 +214,6 @@ describe('which definition a page is', () => {
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes`), ROOT, reserved)).toBe(DAILY_NOTES_ROOT_COLLECTION);
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes/2026`), ROOT, ordinary)).toBe(DAILY_NOTES_YEAR_COLLECTION);
     expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Daily Notes/2026/October`), ROOT, ordinary)).toBe(DAILY_NOTES_MONTH_COLLECTION);
-  });
-
-  it('a folder inside Templates is a Templates collection page, however deeply nested', () => {
-    expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Templates/Meetings`), ROOT, insideTemplates)).toBe(TEMPLATES_COLLECTION);
-    expect(collectionDefinitionForFolder(folderAt(`${ROOT}/Templates/Meetings/Weekly`), ROOT, insideTemplates)).toBe(TEMPLATES_COLLECTION);
   });
 
   it('a folder inside Assets/ is an Assets collection page, whatever its name', () => {

@@ -144,7 +144,6 @@ describe('FavoriteList — location actions dispatch (previously listed but iner
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       noteMoveDestinations: [],
-      templateMoveDestinations: [],
       createFolderInZone: () => undefined,
       getFolderMoveDestinations: () => [],
       onRevealPageInFinder: vi.fn(),
@@ -225,5 +224,71 @@ describe('FavoriteList — location actions dispatch (previously listed but iner
     ]);
 
     expect(screen.queryByText('Create template')).toBeNull();
+  });
+});
+
+describe('FavoriteList — a favorited folder\'s Sort by is the folder\'s own, like its tree row', () => {
+  const folderItem: FavoriteItem = { id: 'folder-1', title: 'F', titleStyle: 'default', type: 'folder', emoji: null };
+  const rowActions = () =>
+    ({
+      openMenuId: 'folder-1',
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      getFolderMoveDestinations: () => [],
+      createFolderInZone: () => undefined,
+    }) as unknown as SidebarRowActions;
+
+  it('offers Sort by when the sort state is supplied, and picking a key calls onFolderSortChange for that folder', () => {
+    const onFolderSortChange = vi.fn();
+    render(
+      <FavoriteList
+        items={[folderItem]}
+        workspace={new Workspace()}
+        onOpenPage={vi.fn()}
+        onOpenFolder={vi.fn()}
+        rowActions={rowActions()}
+        getFolderSort={() => ({ key: 'name', direction: 'down' })}
+        onFolderSortChange={onFolderSortChange}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Sort by'));
+    fireEvent.click(screen.getByText('Created'));
+
+    expect(onFolderSortChange).toHaveBeenCalledWith('folder-1', { key: 'created', direction: 'down' });
+  });
+
+  it('re-picking the active key flips its direction', () => {
+    const onFolderSortChange = vi.fn();
+    render(
+      <FavoriteList
+        items={[folderItem]}
+        workspace={new Workspace()}
+        onOpenPage={vi.fn()}
+        onOpenFolder={vi.fn()}
+        rowActions={rowActions()}
+        getFolderSort={() => ({ key: 'name', direction: 'down' })}
+        onFolderSortChange={onFolderSortChange}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Sort by'));
+    fireEvent.click(screen.getByText('Name'));
+
+    expect(onFolderSortChange).toHaveBeenCalledWith('folder-1', { key: 'name', direction: 'up' });
+  });
+
+  it('has no Sort by when no sort state is supplied', () => {
+    render(
+      <FavoriteList
+        items={[folderItem]}
+        workspace={new Workspace()}
+        onOpenPage={vi.fn()}
+        onOpenFolder={vi.fn()}
+        rowActions={rowActions()}
+      />
+    );
+
+    expect(screen.queryByText('Sort by')).toBeNull();
   });
 });

@@ -428,3 +428,20 @@ describe('FolderPathResolver.resolveMoveDestination — movement zones (ADR-049)
     expect(resolver().resolveMoveDestination('assets', null, 'Media').path).toBe(`${ROOT}/Media`);
   });
 });
+
+describe('FolderPathResolver.createFolderPath — Templates are flat (ADR-049)', () => {
+  const resolver = () =>
+    new FolderPathResolver(
+      makeVault([makeFolder('templates', `${ROOT}/Templates`), makeFolder('projects', `${ROOT}/Projects`)])
+    );
+
+  it('refuses to create a folder inside Templates', () => {
+    expect(() => resolver().createFolderPath('templates', 'Meetings')).toThrow(/Cannot create a folder inside Templates/);
+  });
+
+  it('still creates folders at the root and inside ordinary folders (and the Templates root itself)', () => {
+    expect(resolver().createFolderPath(null, 'Templates').path).toBe(`${ROOT}/Templates 2`);
+    expect(resolver().createFolderPath('projects', 'Sub').path).toBe(`${ROOT}/Projects/Sub`);
+    expect(resolver().createFolderPath(null, 'Fresh').parentId).toBeNull();
+  });
+});

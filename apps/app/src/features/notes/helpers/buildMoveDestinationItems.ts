@@ -1,6 +1,6 @@
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Folder } from '@core/vault/models/Folder';
-import type { MoveZone } from '@core/vault/initialize/ReservedResources';
+import type { MovePickerZone } from '@core/vault/initialize/ReservedResources';
 import {
   ROOT_DESTINATION_ID,
   type PickerListAncestor,
@@ -38,9 +38,9 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  * method already accepts.
  *
  * `zone` (ADR-049) picks the root: `'workspace'` (default) is the vault root and its ordinary
- * folders; `'templates'` and `'assets'` are the sealed hierarchies — their own root row first
- * (the one the picker pins, like the vault root), then only folders inside it. A Template or an
- * Asset moves only within its hierarchy, and nothing else is offered it.
+ * folders; `'assets'` is the Assets hierarchy — its own root row first (the one the picker pins,
+ * like the vault root), then only folders inside it. An Asset moves only within Assets, and nothing
+ * else is offered it. Templates are flat and never move, so they have no zone here.
  *
  * `excludeFolderId`, when given (a folder being moved, never a page), is
  * the one exclusion this helper does add: the folder itself is omitted,
@@ -53,7 +53,7 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 export function buildMoveDestinationItems(
   membershipSelector: MembershipSelector,
   excludeFolderId?: string,
-  zone: MoveZone = 'workspace'
+  zone: MovePickerZone = 'workspace'
 ): PickerListItem[] {
   const items: PickerListItem[] = [];
   let startFolders: readonly Folder[];
@@ -70,7 +70,7 @@ export function buildMoveDestinationItems(
     });
     startFolders = membershipSelector.getWorkspaceFolders();
   } else {
-    // A sealed hierarchy (ADR-049): its own root takes the vault root's place, and nothing outside
+    // The Assets hierarchy (ADR-049): its own root takes the vault root's place, and nothing outside
     // it is offered. The same picker renders it; selecting the root is selecting that folder.
     const root = membershipSelector.getMoveZoneRoot(zone);
 

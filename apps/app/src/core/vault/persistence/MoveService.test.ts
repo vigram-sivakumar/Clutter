@@ -739,23 +739,18 @@ describe('MoveService.resolveMoveDestination — movement zones (ADR-049)', () =
     return { moveService: new MoveService(vault, new InMemoryVaultFileSystem()), template, note };
   };
 
-  it('a Template can move to the Templates root and to a Templates subfolder', () => {
-    const { moveService, template } = setup();
-    expect(moveService.resolveMoveDestination(template, 'folder-templates').parentId).toBe('folder-templates');
-    expect(moveService.resolveMoveDestination(template, 'folder-sub-templates').path).toBe(
-      `${ROOT}/Templates/Meetings/Standup.md`
-    );
-  });
-
+  // ADR-049: Templates are a flat collection — a Template is never moved, anywhere.
   it.each([
+    ['the Templates root itself', 'folder-templates'],
+    ['a Templates subfolder', 'folder-sub-templates'],
     ['a normal folder', 'folder-1'],
     ['the Inbox', 'folder-inbox'],
     ['Assets', 'folder-assets'],
     ['the vault root', null],
-  ])('a Template cannot move to %s', (_label, destinationId) => {
+  ])('a Template cannot be moved to %s', (_label, destinationId) => {
     const { moveService, template } = setup();
     expect(() => moveService.resolveMoveDestination(template, destinationId)).toThrow(
-      /can only be moved within templates/
+      /Cannot move a Template/
     );
   });
 
@@ -776,13 +771,15 @@ describe('MoveService.resolveMoveDestination — movement zones (ADR-049)', () =
     expect(moveService.resolveMoveDestination(note, null).parentId).toBeNull();
   });
 
-  it('"Use as template" (toTemplates) is the one sanctioned crossing into Templates', () => {
+  it('"Use as template" (toTemplates) is the one sanctioned crossing — directly under the Templates root, never deeper or elsewhere', () => {
     const { moveService, note } = setup();
     expect(
       moveService.resolveMoveDestination(note, 'folder-templates', { toTemplates: true }).path
     ).toBe(`${ROOT}/Templates/Roadmap.md`);
-    expect(() =>
-      moveService.resolveMoveDestination(note, 'folder-1', { toTemplates: true })
-    ).toThrow(/can only be moved within templates/);
+    for (const destinationId of ['folder-sub-templates', 'folder-1', null]) {
+      expect(() =>
+        moveService.resolveMoveDestination(note, destinationId, { toTemplates: true })
+      ).toThrow(/directly under Templates/);
+    }
   });
 });

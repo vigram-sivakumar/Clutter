@@ -29,7 +29,7 @@ Adding an action means adding one definition with its group/order; every surface
 
 ## As implemented
 
-- Surfaces: `sidebar`, `favorites`, `topbar`, `overlay` (asset More actions). A profile has an `omit` list and an `omitWhen(kind, context)` rule for kind- or state-specific omissions (e.g. the topbar's Reveal in Finder is for an ordinary, active Note only; Restore/Delete are not in sidebars, except for Tags and Tasks, which have no Trash).
+- Surfaces: `sidebar`, `favorites`, `topbar`, `overlay` (asset More actions). **`favorites` is the sidebar profile itself** — a favorited resource gets the same menu as that resource in the tree (Rename, Sort by and all), through the same builder, handler maps and inline-rename channel; it differs only in owning its own open-menu and rename state. A profile has an `omit` list and an `omitWhen(kind, context)` rule for kind- or state-specific omissions (e.g. the topbar's Reveal in Finder is for an ordinary, active Note only; Restore/Delete are not in sidebars, except for Tags and Tasks, which have no Trash).
 - Handlers: one id-keyed map per resource family — `buildPageMenuHandlers`, `buildFolderMenuHandlers`, `buildAssetMenuHandlers`, `buildTagMenuHandlers` (a Task row's map is its supplied operations). Reveal in Finder / Copy path have one implementation, `createLocationActions`.
 - Guards (resource-action menus only): no hand-written `separatorBefore: true` in the listed consumers; every canonical action emitted on a surface has a registered handler; definitions are well-formed.
 - Deliberately unchanged: embed menus (Position, Remove, the PDF embed's own Download), the header More menu, collection menus, Trash page's Empty trash, `OverflowMenu`/`Menu`, every `*Operations` facade and the Gate.

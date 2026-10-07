@@ -111,7 +111,6 @@ import {
 import {
   ASSET_MENU_LABELS,
   CollectionHeaderActions,
-  TEMPLATE_MENU_LABELS,
   type CollectionHeaderActionsProps,
 } from '@app/layouts/page/body/CollectionHeaderActions';
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
@@ -1492,8 +1491,8 @@ export function PageHost({
               ? buildFromTemplate(folder.id)
               : undefined,
             ...(isAssetsFolderPage && { menuLabels: ASSET_MENU_LABELS, addLabel: 'Upload' }),
-            // The Templates hierarchy creates templates: same handler (a draft in this folder), its own wording.
-            ...(collectionDefinition.kind === 'templates' && { menuLabels: TEMPLATE_MENU_LABELS }),
+            // Templates are flat: one Add action, creating a template (a draft in Templates).
+            ...(collectionDefinition.kind === 'templates' && { addLabel: 'New template' }),
           })}
           emoji={
             folderSystemLocationId
@@ -2272,12 +2271,10 @@ export function PageHost({
   // Note's menu never includes a `move-to` item (the daily-note canonical actions),
   // so moveDestinations/onMove are only ever computed and passed for a
   // real Note, never for a Daily Note.
-  // A Template moves too, but only within Templates (ADR-049): the canonical `move-to` action is
-  // the same, the same picker opens, and the resource's own kind decides its root.
-  const canMoveNote = page.type === 'note';
-  const noteMoveZone = moveZoneFor('note', {
-    isTemplate: application.membershipSelector.isInTemplatesFolder(page.parentId),
-  });
+  // Templates are a flat collection (ADR-049): a Template is never moved, so its menu has no
+  // `move-to` item (the canonical action is hidden for one) and no Move props either.
+  const canMoveNote =
+    page.type === 'note' && !application.membershipSelector.isInTemplatesFolder(page.parentId);
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     vaultRoot: vault.root,
@@ -2295,11 +2292,11 @@ export function PageHost({
     // own doc comment).
     deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     moveDestinations: canMoveNote
-      ? buildMoveDestinationItems(application.membershipSelector, undefined, noteMoveZone)
+      ? buildMoveDestinationItems(application.membershipSelector)
       : undefined,
     onMove: canMoveNote ? onMoveNote : undefined,
     onCreateFolder: canMoveNote
-      ? createFolderInZone(application.folderOperations, application.membershipSelector, noteMoveZone)
+      ? (name) => application.folderOperations.create(name, null)
       : undefined,
   });
   // A Daily Note's title is derived from its date and is its permanent

@@ -66,7 +66,7 @@
 .button--outline-fill {
   --button--outline-fill-surface: var(--surface-secondary);
   background: var(--button--outline-fill-surface);
-  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin);
 }
 .button--subtle {
   background: transparent;

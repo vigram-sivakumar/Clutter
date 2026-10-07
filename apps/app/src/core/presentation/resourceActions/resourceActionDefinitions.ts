@@ -70,8 +70,8 @@ const MOVE_TO: ResourceActionDefinition = {
   order: 30,
   label: 'Move to…',
   icon: 'arrowDownRight',
-  // A Template moves too — within Templates (ADR-049); `moveZoneFor` picks the picker's root.
-  availability: activePersistedOnly,
+  // Templates are a flat collection (ADR-049): a Template is never moved.
+  availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
 };
 
 const USE_AS_TEMPLATE: ResourceActionDefinition = {

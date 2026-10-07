@@ -6,8 +6,8 @@ import { buildEntryPresentation } from '@core/presentation/buildEntryPresentatio
 
 import type { FavoriteItem } from '../models/FavoriteItem';
 
-function nonWorkspaceZone(zone: MoveZone): 'templates' | 'assets' | undefined {
-  return zone === 'workspace' ? undefined : zone;
+function assetsZoneOnly(zone: MoveZone): 'assets' | undefined {
+  return zone === 'assets' ? 'assets' : undefined;
 }
 
 function toFavoriteItem(
@@ -20,13 +20,14 @@ function toFavoriteItem(
   return {
     id: entry.id,
     title,
+    name: entry.name,
     titleStyle,
     emoji,
     type: isPage ? 'note' : 'folder',
     status: isPage ? undefined : entry.metadata.status,
     // A page knows it is a Template (EffectivePage.isTemplate); a folder sits in a Move hierarchy.
     isTemplate: isPage && entry.isTemplate ? true : undefined,
-    moveZone: isPage ? undefined : nonWorkspaceZone(getFolderMoveZone(entry.id)),
+    moveZone: isPage ? undefined : assetsZoneOnly(getFolderMoveZone(entry.id)),
   };
 }
 

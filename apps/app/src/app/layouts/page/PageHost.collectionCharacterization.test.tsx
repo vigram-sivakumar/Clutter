@@ -208,12 +208,12 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(bodyHasText('Create')).toBe(true);
   });
 
-  it('Templates: a New menu with New template and New folder — and NO From template (it is the template source); Table by default', async () => {
+  it('Templates (flat): a single New template button — no menu, no New folder, no create-folder card, NO From template; Table by default', async () => {
     await renderFolder(TEMPLATES);
 
-    expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New template', 'New folder']);
-    expect(hasCreateFolderCard()).toBe(true);
+    expect(newButton()).toBeNull();
+    expect(document.querySelector('button[aria-label="New template"]')).not.toBeNull();
+    expect(hasCreateFolderCard()).toBe(false);
     expect(hasTable()).toBe(true);
   });
 
@@ -261,10 +261,10 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
   const folderCards = () =>
     document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)');
 
-  it('Templates draws its subfolder as a card, beside the create-folder card', async () => {
+  it('Templates are flat: no create-folder card — a folder already on disk is still listed, never created from here', async () => {
     await renderFolder(TEMPLATES);
 
-    expect(hasCreateFolderCard()).toBe(true);
+    expect(hasCreateFolderCard()).toBe(false);
     expect(folderCards()).toHaveLength(1);
     expect(bodyHasText('Meetings')).toBe(true);
   });
@@ -276,16 +276,12 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
     expect(bodyHasText('Sub')).toBe(true);
   });
 
-  it('Templates still offers New template and New folder, and still no From template', async () => {
+  it('Templates still has no folders to create and no From template', async () => {
     await renderFolder(TEMPLATES);
 
-    expect(newMenuRows()).toEqual(['New template', 'New folder']);
-  });
-
-  it('a Templates subfolder is part of the Templates collection: New template and New folder, no From template', async () => {
-    await renderFolder(`${TEMPLATES}/Meetings`);
-
-    expect(newMenuRows()).toEqual(['New template', 'New folder']);
+    expect(document.querySelector('button[aria-label="New template"]')).not.toBeNull();
+    expect(bodyHasText('From template')).toBe(false);
+    expect(bodyHasText('New folder')).toBe(false);
   });
 
   it('ordinary folders — including a nested one — still say New note, with From template', async () => {

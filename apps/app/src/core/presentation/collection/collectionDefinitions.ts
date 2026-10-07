@@ -117,12 +117,15 @@ export const INBOX_COLLECTION: CollectionDefinition = {
   behavior: 'notes-only',
 };
 
-/** The template source: notes and folders can be created in it, and "From template" is not offered from it. */
+/**
+ * The template source — a FLAT collection (ADR-049): only templates are created in it, no folders,
+ * and "From template" is not offered from it.
+ */
 export const TEMPLATES_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'templates',
   emptyMessage: 'Create templates to start new notes faster',
-  actions: { create: true, createFolder: true },
+  actions: { create: true },
 };
 
 /**
@@ -227,10 +230,6 @@ export function collectionDefinitionForFolder(
   if (dailyNotesLevel === 'root') return DAILY_NOTES_ROOT_COLLECTION;
   if (dailyNotesLevel === 'year') return DAILY_NOTES_YEAR_COLLECTION;
   if (dailyNotesLevel === 'month') return DAILY_NOTES_MONTH_COLLECTION;
-
-  // A folder inside Templates is part of the Templates collection: nested template folders create
-  // templates, exactly as the Templates root does.
-  if (membershipSelector.isInTemplatesFolder(folder.id)) return TEMPLATES_COLLECTION;
 
   // A folder inside Assets/ is part of the Assets collection: it opens as an Assets page.
   if (membershipSelector.isAssetsFolder(folder)) return ASSETS_COLLECTION;

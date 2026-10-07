@@ -36,6 +36,11 @@ export class FolderPathResolver {
   createFolderPath(parentId: string | null, name: string): ResolvedCreateFolderPath {
     const parentPath = resolveFolderPathOrRoot(this.vault, parentId);
 
+    // ADR-049: Templates are a flat collection — nothing creates a folder inside it.
+    if (moveZoneOfPath(this.vault.root, parentPath) === 'templates') {
+      throw new Error(`Cannot create a folder inside Templates: ${parentPath}`);
+    }
+
     const candidateName = resolveEntityName(
       name,
       (candidate) =>

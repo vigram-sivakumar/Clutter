@@ -171,6 +171,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       {
         id: 'folder-1',
         title: 'Projects',
+        name: 'Projects',
         titleStyle: 'default',
         type: 'folder',
         emoji: null,
@@ -189,6 +190,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       {
         id: 'page-1',
         title: 'Meeting Notes',
+        name: 'Meeting Notes',
         titleStyle: 'default',
         type: 'note',
         emoji: null,
@@ -209,6 +211,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       {
         id: 'page-1',
         title: 'New Note',
+        name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
         emoji: null,
@@ -226,6 +229,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       {
         id: 'page-1',
         title: 'New Note',
+        name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
         emoji: null,
@@ -246,6 +250,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       {
         id: 'page-1',
         title: 'New Note',
+        name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
         emoji: null,
@@ -275,11 +280,21 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items.find((item) => item.id === 'page-elsewhere')?.isTemplate).toBeUndefined();
   });
 
-  it('flags a favorited folder with the Move hierarchy it sits in, only when not the workspace', () => {
-    const inTemplates = makeFolder({
-      id: 'f-t',
-      name: 'Meetings',
-      path: `${ROOT}/Templates/Meetings`,
+  it('carries the resource\'s own name (what an inline rename edits) apart from its display title', () => {
+    const page = makePage({ name: 'Untitled 2', source: { markdown: 'Real content here' } });
+    const { query, effectivePageState } = setup([], [page]);
+
+    const [item] = getFavoriteItems(query, effectivePageState);
+
+    expect(item?.name).toBe('Untitled 2');
+    expect(item?.title).toBe('New Note');
+  });
+
+  it('flags a favorited folder inside Assets with its Move hierarchy, and no other folder (Templates are flat)', () => {
+    const inAssets = makeFolder({
+      id: 'f-a',
+      name: 'Images',
+      path: `${ROOT}/Assets/Images`,
       metadata: { ...defaultFolderMetadata, favorite: true },
     });
     const ordinary = makeFolder({
@@ -288,13 +303,13 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
       path: `${ROOT}/Projects`,
       metadata: { ...defaultFolderMetadata, favorite: true },
     });
-    const { query, effectivePageState } = setup([inTemplates, ordinary], []);
+    const { query, effectivePageState } = setup([inAssets, ordinary], []);
 
     const items = getFavoriteItems(query, effectivePageState, (folderId) =>
-      folderId === 'f-t' ? 'templates' : 'workspace'
+      folderId === 'f-a' ? 'assets' : 'workspace'
     );
 
-    expect(items.find((item) => item.id === 'f-t')?.moveZone).toBe('templates');
+    expect(items.find((item) => item.id === 'f-a')?.moveZone).toBe('assets');
     expect(items.find((item) => item.id === 'f-o')?.moveZone).toBeUndefined();
   });
 });

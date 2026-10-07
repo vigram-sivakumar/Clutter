@@ -165,7 +165,6 @@ function fakeNoteRowActions(overrides: Partial<NoteRowActions> = {}): NoteRowAct
     onToggleFavoriteNote: noop,
     onChangeNoteIcon: noop,
     noteMoveDestinations: [],
-    templateMoveDestinations: [],
     createFolderInZone: () => undefined,
     onMoveNote: noop,
     onCreateFolder: () => Promise.resolve('new-folder-id'),
@@ -831,16 +830,11 @@ describe('renderTags', () => {
 
   // ADR-049: the resource decides its Move root, not the surface it is listed on. A Template reached
   // through a tag is still a Template — the same Move picker opens, rooted at Templates.
-  describe('expanded tag children — Move uses the note\'s own Template status', () => {
+  describe('expanded tag children — Templates are flat: a Template listed under a tag has no Move', () => {
     const noteDestinations = [
       { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
       { id: 'projects', title: 'Projects', level: 0, parentId: null },
     ];
-    const templateDestinations = [
-      { id: 'templates', title: 'Templates', isRoot: true, level: 0, parentId: null },
-      { id: 'templates-meetings', title: 'Meetings', level: 1, parentId: 'templates' },
-    ];
-
     function renderTaggedNote(note: EffectivePage, rowActionOverrides: Partial<NoteRowActions> = {}) {
       const tagExpansionStore = { isExpanded: () => true, toggleExpanded: noop } as unknown as TagExpansionStore;
       const effectivePageState = {
@@ -850,7 +844,6 @@ describe('renderTags', () => {
       const noteRowActions = fakeNoteRowActions({
         openMenuId: 'p1',
         noteMoveDestinations: noteDestinations,
-        templateMoveDestinations: templateDestinations,
         ...rowActionOverrides,
       });
       render(
@@ -884,26 +877,14 @@ describe('renderTags', () => {
       expect(screen.queryByText('Create template')).not.toBeInTheDocument();
     });
 
-    it('a Template listed under a tag gets the Templates-rooted picker — Templates and its folders only', () => {
-      const onMoveNote = vi.fn();
-      renderTaggedNote(fakeNote({ isTemplate: true }), { onMoveNote });
+    it('a Template listed under a tag has no Move to… (and no Create template), wherever it is shown', () => {
+      renderTaggedNote(fakeNote({ isTemplate: true }));
 
-      fireEvent.click(screen.getByText('Move to…'));
-
-      expect(screen.getByText('Templates')).toBeInTheDocument();
-      expect(screen.getByText('Meetings')).toBeInTheDocument();
-      expect(screen.queryByText('Projects')).not.toBeInTheDocument();
-      expect(screen.queryByText('Home')).not.toBeInTheDocument();
-
-      fireEvent.click(screen.getByText('Meetings'));
-      expect(onMoveNote).toHaveBeenCalledWith('p1', 'templates-meetings');
-    });
-
-    it('the Template picker\'s create-folder row creates inside Templates (the zone\'s root)', () => {
-      const createFolderInZone = vi.fn().mockReturnValue(() => Promise.resolve('new'));
-      renderTaggedNote(fakeNote({ isTemplate: true }), { createFolderInZone });
-
-      expect(createFolderInZone).toHaveBeenCalledWith('templates');
+      expect(screen.queryByText('Move to…')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+      // Its other actions are the ordinary note's.
+      expect(screen.getByText('Rename')).toBeInTheDocument();
+      expect(screen.getByText('Move to Trash')).toBeInTheDocument();
     });
   });
 
