@@ -265,7 +265,6 @@ export function renderTasksByDate({
     const isExpanded = expandedGroups.includes(id);
     return (
       <Entry
-        className="task-group-toggle"
         leading={<AppIcon icon={isExpanded ? 'minus' : 'plus'} />}
         onClick={() => onToggleGroup?.(id)}
       >

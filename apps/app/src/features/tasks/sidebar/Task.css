@@ -76,9 +76,3 @@
   padding-inline: var(--space-12);
   white-space: nowrap;
 }
-
-/* The "N more" / "Show less" row ending a capped sidebar group — a normal-size row (not the small
-   empty-state text), muted so it reads as a control rather than a task. */
-.task-group-toggle {
-  --entry-foreground: var(--foreground-tertiary);
-}
