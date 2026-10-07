@@ -55,19 +55,15 @@ export function buildFolderSidebarMenu(
   isFavorite: boolean = false,
   sortMenu?: FolderSortMenu
 ): OverflowMenuItemConfig[] {
+  // Four groups, divided: the folder's own edits, Sort by, where it is on disk, and moving it away.
   const items: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'change-icon', label: 'Change icon', icon: 'smile' },
-    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     {
       id: 'toggle-favorite',
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
-    // No 'as-markdown' leaf for a folder — see
-    // getLocationPathRepresentations.ts's LocationEntityKind doc comment:
-    // no folder-linking syntax exists anywhere in the parser/resolver.
-    ...buildLocationActionMenuItems('folder'),
   ];
 
   // Sort by: one key at a time. The active key shows the direction arrow, and picking it again
@@ -91,13 +87,19 @@ export function buildFolderSidebarMenu(
     });
   }
 
+  // No 'as-markdown' leaf for a folder — see
+  // getLocationPathRepresentations.ts's LocationEntityKind doc comment:
+  // no folder-linking syntax exists anywhere in the parser/resolver.
+  items.push(
+    ...buildLocationActionMenuItems('folder').map((item, index) =>
+      index === 0 ? { ...item, separatorBefore: true } : item
+    )
+  );
+
+  items.push({ id: 'move-to', label: 'Move to…', icon: 'arrowDownRight', separatorBefore: true });
+
   if (status !== 'archived') {
-    items.push({
-      id: 'archive',
-      label: ARCHIVE_ACTION_LABEL,
-      icon: 'archive',
-      ...(sortMenu && { separatorBefore: true }),
-    });
+    items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' });
   }
 
   return items;

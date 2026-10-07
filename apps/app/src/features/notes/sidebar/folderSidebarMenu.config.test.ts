@@ -103,3 +103,28 @@ describe('buildFolderSidebarMenu — Sort by', () => {
     expect(items.find((i) => i.id === 'sort:name')?.trailing).toBeUndefined();
   });
 });
+
+describe('buildFolderSidebarMenu — order and groups', () => {
+  it('lists Rename, Change icon, Favorite | Sort by | Reveal, Copy path | Move to, Trash, divided into those groups', () => {
+    const items = buildFolderSidebarMenu('active', false, { sort: { key: 'name', direction: 'down' } });
+
+    expect(items.map((i) => i.id)).toEqual([
+      'rename',
+      'change-icon',
+      'toggle-favorite',
+      'sort:name',
+      'sort:kind',
+      'sort:created',
+      'sort:updated',
+      'reveal-in-finder',
+      'copy-path',
+      'move-to',
+      'archive',
+    ]);
+    expect(items.filter((i) => i.separatorBefore).map((i) => i.id)).toEqual([
+      'sort:name',
+      'reveal-in-finder',
+      'move-to',
+    ]);
+  });
+});
