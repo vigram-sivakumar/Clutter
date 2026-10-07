@@ -76,10 +76,11 @@ describe('TasksViewSettingsMenu — menu contents (open)', () => {
     return { ...utils, onConfigChange, onOpenChange };
   }
 
-  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then Show completed and Sort completed', () => {
+  it('shows a Groups section (Today, Overdue, Upcoming, Unscheduled), a divider, then a Display section with Show completed and Sort completed', () => {
     const { getByText, getAllByRole } = renderOpenMenu();
 
     expect(getByText('Groups')).toBeInTheDocument();
+    expect(getByText('Display')).toBeInTheDocument();
     expect(// The Today calendar icon renders the current date's number as text — strip it.
     getAllByRole('menuitem').map((el) => (el.textContent ?? '').replace(/^\d+/, ''))).toEqual([
       'Today',
