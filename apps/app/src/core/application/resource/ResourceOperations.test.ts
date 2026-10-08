@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ResourceOperations } from './ResourceOperations';
-import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
+import { PagePersistenceCoordinator, RestoreNeedsDestinationError } from '../../vault/persistence/PagePersistenceCoordinator';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { ResourceArchiveMetadataStore } from '../../vault/persistence/ResourceArchiveMetadataStore';
 import { Vault } from '../../vault/models/Vault';
@@ -167,23 +167,37 @@ describe('ResourceOperations.restoreResource', () => {
   it('delegates to the Gate with the restore-resource kind and the correct resource id', async () => {
     const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
     const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
-    const { coordinator, resourceOperations } = setup([resource], [archiveFolder]);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const { coordinator, resourceOperations } = setup([resource], [archiveFolder, assets]);
     const enqueueSpy = vi.spyOn(coordinator, 'enqueue');
 
-    await resourceOperations.restoreResource('resource-1');
+    await resourceOperations.restoreResource('resource-1', { destinationFolderId: 'folder-assets' });
 
-    expect(enqueueSpy).toHaveBeenCalledWith('resource-1', { kind: 'restore-resource' });
+    expect(enqueueSpy).toHaveBeenCalledWith('resource-1', { kind: 'restore-resource', destinationFolderId: 'folder-assets' });
     enqueueSpy.mockRestore();
   });
 
-  it('resolves successfully and the Vault reflects the restore (falls back to Assets/ with no provenance recorded)', async () => {
+  it('with no provenance recorded (placed in Archive/ from outside) it asks for a destination and moves nothing', async () => {
     const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
     const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
-    const { vault, resourceOperations } = setup([resource], [archiveFolder]);
+    const { vault, resourceArchiveStore, resourceOperations } = setup([resource], [archiveFolder]);
 
-    await expect(resourceOperations.restoreResource('resource-1')).resolves.toBeUndefined();
+    await expect(resourceOperations.restoreResource('resource-1')).rejects.toBeInstanceOf(RestoreNeedsDestinationError);
+
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Archive/hero.png`);
+    expect((await resourceArchiveStore.read()).size).toBe(0);
+  });
+
+  it('with a chosen destination (the Assets root here) it restores there and fabricates no provenance', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { vault, resourceArchiveStore, resourceOperations } = setup([resource], [archiveFolder, assets]);
+
+    await expect(resourceOperations.restoreResource('resource-1', { destinationFolderId: 'folder-assets' })).resolves.toBeUndefined();
 
     expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/hero.png`);
+    expect((await resourceArchiveStore.read()).size).toBe(0);
   });
 
   it('throws "Resource not found" for a missing resource id', async () => {
@@ -197,8 +211,9 @@ describe('ResourceOperations.restoreResource', () => {
 
 describe('ResourceOperations.deleteResource', () => {
   it('delegates to the Gate with the delete-resource kind and the correct resource id', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { coordinator, resourceOperations } = setup([resource]);
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { coordinator, resourceOperations } = setup([resource], [archiveFolder]);
     const enqueueSpy = vi.spyOn(coordinator, 'enqueue');
 
     await resourceOperations.deleteResource('resource-1');
@@ -208,8 +223,9 @@ describe('ResourceOperations.deleteResource', () => {
   });
 
   it('resolves successfully and the Vault no longer has the resource', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { vault, resourceOperations } = setup([resource]);
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { vault, resourceOperations } = setup([resource], [archiveFolder]);
 
     await expect(resourceOperations.deleteResource('resource-1')).resolves.toBeUndefined();
 
@@ -330,5 +346,178 @@ describe('ResourceOperations: responsibility boundaries', () => {
     const { coordinator } = setup([]);
 
     expect(() => new ResourceOperations(coordinator)).not.toThrow();
+  });
+});
+
+describe('ResourceOperations: archived assets (Phase 9)', () => {
+  const archivedFolderMeta = (folder: Folder): Folder => ({
+    ...folder,
+    metadata: { ...folder.metadata, status: 'archived' },
+  });
+
+  it('an archived asset cannot be moved — enforced by the Gate, not by a picker', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('r1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { vault, resourceOperations } = setup([resource], [archiveFolder, assets]);
+
+    await expect(resourceOperations.moveResource('r1', 'folder-assets')).rejects.toThrow(/archived resource/);
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Archive/hero.png`);
+  });
+
+  it('an asset inside an archived folder counts as archived too (its own location says Archive/)', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const old = archivedFolderMeta({ ...makeFolder('folder-old', `${ROOT}/Archive/Old`), parentId: ARCHIVE_FOLDER_ID });
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('r1', `${ROOT}/Archive/Old/hero.png`, 'folder-old');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder, old, assets]);
+
+    expect(vault.isResourceEffectivelyArchived(resource)).toBe(true);
+    await expect(resourceOperations.moveResource('r1', 'folder-assets')).rejects.toThrow(/archived resource/);
+  });
+
+  it('an asset whose folder merely says status: archived but sits outside Archive/ is active — location decides', () => {
+    const old = archivedFolderMeta(makeFolder('folder-old', `${ROOT}/Assets/Old`));
+    const resource = makeResource('r1', `${ROOT}/Assets/Old/hero.png`, 'folder-old');
+    const { vault } = setup([resource], [old]);
+
+    expect(vault.isResourceEffectivelyArchived(resource)).toBe(false);
+  });
+
+  it('an asset inside a folder under Archive/ is archived whatever its folder\'s status says', () => {
+    const old = makeFolder('folder-old', `${ROOT}/Archive/Old`);
+    const resource = makeResource('r1', `${ROOT}/Archive/Old/hero.png`, 'folder-old');
+    const { vault } = setup([resource], [old]);
+
+    expect(vault.isResourceEffectivelyArchived(resource)).toBe(true);
+  });
+
+  it('nothing can be moved into an archived folder, or one inside it', async () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const archivedAssets = { ...makeFolder('folder-old', `${ROOT}/Archive/Old`), parentId: ARCHIVE_FOLDER_ID };
+    const nested = { ...makeFolder('folder-nested', `${ROOT}/Archive/Old/Nested`), parentId: 'folder-old' };
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [assets, archivedAssets, nested]);
+
+    await expect(resourceOperations.moveResource('r1', 'folder-old')).rejects.toThrow(/archived folder/);
+    await expect(resourceOperations.moveResource('r1', 'folder-nested')).rejects.toThrow(/archived folder/);
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/hero.png`);
+  });
+
+  it('an active asset still moves into an active folder', async () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const images = { ...makeFolder('folder-images', `${ROOT}/Assets/Images`), parentId: 'folder-assets' };
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [assets, images]);
+
+    await resourceOperations.moveResource('r1', 'folder-images');
+
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
+  });
+
+  it('archive → restore returns the asset to the exact folder it came from', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const images = { ...makeFolder('folder-images', `${ROOT}/Assets/Images`), parentId: 'folder-assets' };
+    const resource = makeResource('r1', `${ROOT}/Assets/Images/hero.png`, 'folder-images');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder, assets, images]);
+
+    await resourceOperations.archiveResource('r1');
+    expect(vault.isResourceEffectivelyArchived(vault.getResource('r1')!)).toBe(true);
+
+    await resourceOperations.restoreResource('r1');
+
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
+    expect(vault.getResource('r1')!.parentId).toBe('folder-images');
+    expect(vault.isResourceEffectivelyArchived(vault.getResource('r1')!)).toBe(false);
+  });
+
+  it('a restored asset can be moved again, and an archived one drops out of the active Assets', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const images = { ...makeFolder('folder-images', `${ROOT}/Assets/Images`), parentId: 'folder-assets' };
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder, assets, images]);
+
+    await resourceOperations.archiveResource('r1');
+    await resourceOperations.restoreResource('r1');
+    await resourceOperations.moveResource('r1', 'folder-images');
+
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/Images/hero.png`);
+  });
+
+  it('delete removes the file, its archive record and the vault entry', async () => {
+    const archiveFolder = makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, fileSystem, resourceArchiveStore, resourceOperations } = setup([resource], [archiveFolder, assets]);
+
+    await resourceOperations.archiveResource('r1');
+    const archivedPath = vault.getResource('r1')!.path;
+    expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(true);
+
+    await resourceOperations.deleteResource('r1');
+
+    expect(vault.getResource('r1')).toBeUndefined();
+    expect(await fileSystem.exists(archivedPath)).toBe(false);
+    expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(false);
+  });
+});
+
+describe('ResourceOperations: archive integrity at the domain (Phase 10)', () => {
+  const archiveFolder = () => makeFolder(ARCHIVE_FOLDER_ID, `${ROOT}/Archive`);
+  const assets = () => makeFolder('folder-assets', `${ROOT}/Assets`);
+
+  it('an active asset cannot be permanently deleted, and keeps its file', async () => {
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, fileSystem, resourceOperations } = setup([resource], [archiveFolder(), assets()]);
+
+    await expect(resourceOperations.deleteResource('r1')).rejects.toThrow(/not archived/);
+
+    expect(vault.getResource('r1')).toBeDefined();
+    expect(await fileSystem.exists(resource.path)).toBe(true);
+  });
+
+  it('an active asset cannot be "restored"', async () => {
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder(), assets()]);
+
+    await expect(resourceOperations.restoreResource('r1')).rejects.toThrow(/not archived/);
+
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/hero.png`);
+  });
+
+  it('an archived asset cannot be archived again', async () => {
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder(), assets()]);
+    await resourceOperations.archiveResource('r1');
+    const archivedPath = vault.getResource('r1')!.path;
+
+    await expect(resourceOperations.archiveResource('r1')).rejects.toThrow(/already archived/);
+
+    expect(vault.getResource('r1')!.path).toBe(archivedPath);
+  });
+
+  it('archive → delete works end to end; archive → restore still returns it', async () => {
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder(), assets()]);
+
+    await resourceOperations.archiveResource('r1');
+    await resourceOperations.restoreResource('r1');
+    expect(vault.getResource('r1')!.path).toBe(`${ROOT}/Assets/hero.png`);
+
+    await resourceOperations.archiveResource('r1');
+    await resourceOperations.deleteResource('r1');
+    expect(vault.getResource('r1')).toBeUndefined();
+  });
+
+  it('intentional behaviour is unchanged: an archived asset can still be renamed in place', async () => {
+    const resource = makeResource('r1', `${ROOT}/Assets/hero.png`, 'folder-assets');
+    const { vault, resourceOperations } = setup([resource], [archiveFolder(), assets()]);
+    await resourceOperations.archiveResource('r1');
+
+    await expect(resourceOperations.renameResource('r1', 'renamed')).resolves.toBeUndefined();
+
+    expect(vault.getResource('r1')!.name).toContain('renamed');
   });
 });

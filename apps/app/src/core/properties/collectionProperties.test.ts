@@ -38,7 +38,7 @@ describe('the collection property registry', () => {
       size: 'File size',
       created: 'Created',
       updated: 'Last edited',
-      archived: 'Archived',
+      archived: 'Archived date',
       dueDate: 'Due date',
       source: 'Source',
     });

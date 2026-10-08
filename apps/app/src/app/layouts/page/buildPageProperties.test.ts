@@ -1,6 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Page } from '@core/vault/models/Page';
-import { buildPageProperties } from './buildPageProperties';
+import { buildPageProperties as buildPagePropertiesForHost } from './buildPageProperties';
+
+/**
+ * Archived state is LOCATION, and the host (PageHost) derives it and passes `isEffectivelyArchived`. These
+ * fixtures describe an archived page by its `status`, so this adapter plays the host: it passes that fact on.
+ */
+const buildPageProperties = (
+  page: Parameters<typeof buildPagePropertiesForHost>[0],
+  actions: NonNullable<Parameters<typeof buildPagePropertiesForHost>[1]> = {}
+) => buildPagePropertiesForHost(page, { isEffectivelyArchived: page.metadata.status === 'archived', ...actions });
 import { withAllVisible } from './showAllVisibleLines';
 
 function makePage(type: 'note' | 'daily-note', overrides: Partial<Page['metadata']> = {}): Page {

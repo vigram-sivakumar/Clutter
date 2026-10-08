@@ -146,9 +146,9 @@ describe('availability', () => {
     expect(ids(buildResourceActionMenu('note', { status: 'archived' }, 'topbar'))).not.toContain('archive');
   });
 
-  it('Move is disabled for an archived note, and absent for a Template on every surface (Templates are flat)', () => {
+  it('Move is absent for an archived note, and absent for a Template on every surface (Templates are flat)', () => {
     const archived = buildResourceActionMenu('note', { status: 'archived' }, 'topbar');
-    expect(archived.find((item) => item.id === 'move-to')?.disabled).toBe(true);
+    expect(ids(archived)).not.toContain('move-to');
     for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
       expect(ids(buildResourceActionMenu('note', { isTemplate: true, status: 'active' }, surface))).not.toContain('move-to');
     }
@@ -203,8 +203,8 @@ describe('daily note', () => {
 
   it('on the topbar, an archived daily note offers Restore then a divided Delete', () => {
     const menu = buildResourceActionMenu('daily-note', { status: 'archived', isDeletable: true }, 'topbar');
-    expect(ids(menu)).toEqual(['copy-path', 'restore', 'delete']);
-    expect(dividedIds(menu)).toEqual(['restore', 'delete']);
+    expect(ids(menu)).toEqual(['restore', 'delete']);
+    expect(dividedIds(menu)).toEqual(['delete']);
   });
 
   it('Copy path offers As Markdown (a Daily Note is a page)', () => {
@@ -259,9 +259,9 @@ describe('folder menu', () => {
     ]);
   });
 
-  it('on the topbar: Move is disabled when archived, Restore replaces Archive, and Delete ends the menu', () => {
+  it('on the topbar: Move is hidden when archived, Restore replaces Archive, and Delete ends the menu', () => {
     const menu = buildResourceActionMenu('folder', { status: 'archived', isDeletable: true }, 'topbar');
-    expect(menu.find((item) => item.id === 'move-to')?.disabled).toBe(true);
+    expect(ids(menu)).not.toContain('move-to');
     expect(ids(menu)).not.toContain('archive');
     expect(ids(menu).slice(-2)).toEqual(['restore', 'delete']);
     expect(dividedIds(menu)).toContain('delete');
@@ -319,10 +319,10 @@ describe('asset menu', () => {
     }
   });
 
-  it('offers no single-asset Restore or Delete (a separate product decision)', () => {
+  it('an archived file offers Restore and Delete on the overlay, where it is opened from the Archive', () => {
     const menu = ids(asset({ assetKind: 'image', status: 'archived', isDeletable: true }, 'overlay'));
-    expect(menu).not.toContain('restore');
-    expect(menu).not.toContain('delete');
+    expect(menu).toContain('restore');
+    expect(menu).toContain('delete');
   });
 });
 
@@ -455,5 +455,141 @@ describe('Create template (ADR-048 organize group)', () => {
     // Same group as the previous organize item, so no divider before it.
     expect(menu.find((item) => item.id === 'create-template')?.separatorBefore).toBeUndefined();
     expect(menu.find((item) => item.id === 'create-template')).toMatchObject({ label: 'Create template', icon: 'template' });
+  });
+});
+
+describe('archived resources: inapplicable actions are hidden, never disabled (Phase 2)', () => {
+  const SURFACES = ['sidebar', 'favorites', 'topbar', 'overlay'] as const;
+  const ARCHIVED = { status: 'archived', isDeletable: true, isEffectivelyArchived: true } as const;
+  /** A resource that is itself active but sits inside an archived folder. */
+  const INSIDE_ARCHIVED_FOLDER = { status: 'active', isDeletable: true, isEffectivelyArchived: true } as const;
+
+  const NOTE_HIDDEN = [
+    'rename',
+    'change-icon',
+    'toggle-favorite',
+    'duplicate',
+    'move-to',
+    'use-as-template',
+    'create-template',
+    'reveal-in-finder',
+    'copy-path',
+    'archive',
+  ];
+
+  it('an archived Note offers only Restore and Delete on the topbar', () => {
+    expect(ids(buildResourceActionMenu('note', ARCHIVED, 'topbar'))).toEqual(['restore', 'delete']);
+  });
+
+  it('an archived Note: none of the organizing/editing actions on any surface', () => {
+    for (const surface of SURFACES) {
+      for (const id of NOTE_HIDDEN) {
+        expect(ids(buildResourceActionMenu('note', ARCHIVED, surface)), `${surface} ${id}`).not.toContain(id);
+      }
+    }
+  });
+
+  it('an archived Folder offers only Restore and Delete on the topbar', () => {
+    expect(ids(buildResourceActionMenu('folder', ARCHIVED, 'topbar'))).toEqual(['restore', 'delete']);
+  });
+
+  it('an archived Folder: Favorite, Move, Copy path, Rename, Change icon, Reveal are hidden everywhere', () => {
+    for (const surface of SURFACES) {
+      const menu = ids(buildResourceActionMenu('folder', { ...ARCHIVED, sort: undefined }, surface));
+      for (const id of ['rename', 'change-icon', 'toggle-favorite', 'move-to', 'reveal-in-finder', 'copy-path', 'archive']) {
+        expect(menu, `${surface} ${id}`).not.toContain(id);
+      }
+    }
+  });
+
+  it('an archived Daily Note offers only Restore and Delete on the topbar', () => {
+    expect(ids(buildResourceActionMenu('daily-note', ARCHIVED, 'topbar'))).toEqual(['restore', 'delete']);
+  });
+
+  it('an archived Daily Note: Copy path, Reveal, Create template and Archive are hidden everywhere', () => {
+    for (const surface of SURFACES) {
+      const menu = ids(buildResourceActionMenu('daily-note', ARCHIVED, surface));
+      for (const id of ['copy-path', 'reveal-in-finder', 'create-template', 'archive']) {
+        expect(menu, `${surface} ${id}`).not.toContain(id);
+      }
+    }
+  });
+
+  it('an archived Asset (a file): reorganizing actions are hidden; Download, Restore and Delete are what is offered', () => {
+    const context = { assetKind: 'image', setAsCoverImage: 'enabled', ...ARCHIVED } as const;
+
+    for (const surface of SURFACES) {
+      const menu = ids(buildResourceActionMenu('asset', context, surface));
+      for (const id of ['rename', 'move-to', 'set-as-cover-image', 'reveal-in-finder', 'copy-path', 'archive', 'toggle-favorite']) {
+        expect(menu, `${surface} ${id}`).not.toContain(id);
+      }
+    }
+    // The overlay is where an archived file is opened: viewing it, downloading it, and its own two actions.
+    expect(ids(buildResourceActionMenu('asset', context, 'overlay'))).toEqual(['download', 'restore', 'delete']);
+  });
+
+  it('an archived PDF offers Restore and Delete (Download is image-only)', () => {
+    expect(ids(buildResourceActionMenu('asset', { assetKind: 'pdf', ...ARCHIVED }, 'overlay'))).toEqual(['restore', 'delete']);
+  });
+
+  it('the sidebar never lists an archived file, so it offers no Restore or Delete there', () => {
+    const menu = ids(buildResourceActionMenu('asset', { assetKind: 'image', ...ARCHIVED }, 'sidebar'));
+
+    expect(menu).not.toContain('restore');
+    expect(menu).not.toContain('delete');
+  });
+
+  it('an asset inside an archived folder (not archived by itself) can be deleted but not restored on its own', () => {
+    const menu = ids(buildResourceActionMenu('asset', { assetKind: 'image', status: 'active', isEffectivelyArchived: true, isDeletable: true }, 'overlay'));
+
+    expect(menu).toEqual(['download', 'delete']);
+  });
+
+  it('an active asset keeps its ordinary actions and gains neither Restore nor Delete', () => {
+    const menu = ids(buildResourceActionMenu('asset', { assetKind: 'image', status: 'active' }, 'overlay'));
+
+    expect(menu).toEqual(expect.arrayContaining(['move-to', 'archive', 'download']));
+    expect(menu).not.toContain('restore');
+    expect(menu).not.toContain('delete');
+  });
+
+  it('a remote image never offers Restore or Delete', () => {
+    const menu = ids(buildResourceActionMenu('asset', { assetKind: 'image', isRemote: true, status: 'active' }, 'overlay'));
+
+    expect(menu).not.toContain('restore');
+    expect(menu).not.toContain('delete');
+  });
+
+  it('a resource INSIDE an archived folder is treated like an archived one, even with an active own status', () => {
+    for (const kind of ['note', 'daily-note', 'folder'] as const) {
+      const menu = ids(buildResourceActionMenu(kind, INSIDE_ARCHIVED_FOLDER, 'topbar'));
+
+      for (const id of NOTE_HIDDEN) {
+        expect(menu, `${kind} ${id}`).not.toContain(id);
+      }
+      // Delete is reachable (it is an Archive descendant); Restore is the archived root's own action.
+      expect(menu, kind).toContain('delete');
+      expect(menu, kind).not.toContain('restore');
+    }
+  });
+
+  it('nothing in an archived resource\'s menu is rendered disabled', () => {
+    for (const kind of ['note', 'daily-note', 'folder'] as const) {
+      for (const surface of SURFACES) {
+        expect(buildResourceActionMenu(kind, ARCHIVED, surface).filter((item) => item.disabled), `${kind} ${surface}`).toEqual([]);
+      }
+    }
+  });
+
+  it('Restore and Delete remain on the topbar for an archived Note, Daily Note and Folder', () => {
+    for (const kind of ['note', 'daily-note', 'folder'] as const) {
+      const menu = ids(buildResourceActionMenu(kind, ARCHIVED, 'topbar'));
+      expect(menu, kind).toEqual(expect.arrayContaining(['restore', 'delete']));
+    }
+  });
+
+  it('an active resource is unaffected', () => {
+    const menu = ids(buildResourceActionMenu('note', { status: 'active', isEffectivelyArchived: false }, 'topbar'));
+    expect(menu).toEqual(expect.arrayContaining(['toggle-favorite', 'duplicate', 'move-to', 'copy-path']));
   });
 });

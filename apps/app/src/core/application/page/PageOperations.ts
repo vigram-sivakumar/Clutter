@@ -11,6 +11,7 @@ import { Workspace } from '../../workspace/Workspace';
 import {
   PagePersistenceCoordinator,
   RestoreConflictError,
+  RestoreNeedsDestinationError,
 } from '../../vault/persistence/PagePersistenceCoordinator';
 import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { PagePathResolver } from './PagePathResolver';
@@ -53,7 +54,9 @@ import type { VaultEntryDuplicator } from '../../vault/persistence/VaultEntryDup
  */
 export type RestoreOutcome =
   | { readonly status: 'restored'; readonly movedToInbox: boolean }
-  | { readonly status: 'conflict'; readonly existingPageId: string };
+  | { readonly status: 'conflict'; readonly existingPageId: string }
+  // Put in Archive/ from outside Clutter: no recorded original location, so the caller asks where it goes.
+  | { readonly status: 'needs-destination' };
 
 export const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
 
@@ -634,10 +637,30 @@ export class PageOperations {
    *
    * Never creates a second draft in any branch.
    */
+  /**
+   * An archived page — or one inside an archived folder — is read-only: the domain refuses to change it
+   * until it is restored. `allowArchived` is the explicit maintenance exception (a tag rename).
+   */
+  private assertEditable(pageId: string, options: EditOptions = {}): void {
+    const page = this.vault.getPage(pageId);
+
+    if (page && this.vault.isPageEffectivelyArchived(page) && !options.allowArchived) {
+      throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
+    }
+  }
+
+  /** Nothing is created in, or moved into, an archived folder (or one inside it). */
+  private assertFolderAcceptsContent(folderId: string | null | undefined): void {
+    if (folderId && this.vault.isFolderEffectivelyArchived(folderId)) {
+      throw new Error(`Cannot add to an archived folder: ${folderId}. Restore it first.`);
+    }
+  }
+
   private async acquireDraft(
     descriptor: DraftDescriptor,
     recordable: boolean
   ): Promise<string> {
+    this.assertFolderAcceptsContent(descriptor.folderId);
     const existing = this.draft;
 
     if (existing && !this.documentRegistry.get(existing.id)) {
@@ -1035,14 +1058,23 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    if (page && page.metadata.status === 'archived' && !options.allowArchived) {
+    if (page && this.vault.isPageEffectivelyArchived(page) && !options.allowArchived) {
       throw new Error(
         `Cannot edit archived page: ${pageId}. Restore it before editing.`
       );
     }
 
     if (session) {
-      this.commitEdit(pageId, transform(session.currentRevision.markdown));
+      const next = transform(session.currentRevision.markdown);
+
+      // An archived page's open session cannot ride the debounced autosave (its save refuses an archived
+      // page), so a maintenance edit that is allowed to reach it — a tag rename — is written through now.
+      if (page && this.vault.isPageEffectivelyArchived(page)) {
+        await this.save(pageId, next, { allowArchived: true });
+        return;
+      }
+
+      this.commitEdit(pageId, next, options);
       return;
     }
 
@@ -1075,12 +1107,14 @@ export class PageOperations {
    * already holding), so an identical-content commit never wastes a timer
    * reset on nothing actually having changed.
    */
-  public commitEdit(pageId: string, markdown: string): void {
+  public commitEdit(pageId: string, markdown: string, options: EditOptions = {}): void {
     const session = this.documentRegistry.get(pageId);
 
     if (!session) {
       return;
     }
+
+    this.assertEditable(pageId, options);
 
     const revisionBefore = session.currentRevision;
     const revisionAfter = session.commit(new DocumentTransaction(markdown));
@@ -1217,6 +1251,8 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
+    this.assertEditable(pageId);
+
     const titleState =
       this.titleStates.get(pageId) ?? new FieldEditState(page.name);
 
@@ -1336,6 +1372,8 @@ export class PageOperations {
     if (!page) {
       throw new Error(`Page not found: ${pageId}`);
     }
+
+    this.assertEditable(pageId);
 
     const descriptionState =
       this.descriptionStates.get(pageId) ??
@@ -1514,7 +1552,7 @@ export class PageOperations {
    * dequeue-time guard (PagePersistenceCoordinator.runCreate), not this
    * check (ADR-017 §4 concurrency correction).
    */
-  public async save(pageId: string, markdown: string): Promise<void> {
+  public async save(pageId: string, markdown: string, options: EditOptions = {}): Promise<void> {
     const session = this.documentRegistry.get(pageId);
 
     if (!session) {
@@ -1534,7 +1572,7 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    if (page && page.metadata.status === 'archived') {
+    if (page && this.vault.isPageEffectivelyArchived(page) && !options.allowArchived) {
       throw new Error(
         `Cannot edit archived page: ${pageId}. Restore it before editing.`
       );
@@ -1634,7 +1672,7 @@ export class PageOperations {
     const page = this.vault.getPage(pageId);
 
     if (page) {
-      if (page.metadata.status === 'archived' && !options.allowArchived) {
+      if (this.vault.isPageEffectivelyArchived(page) && !options.allowArchived) {
         throw new Error(
           `Cannot edit archived page: ${pageId}. Restore it before editing.`
         );
@@ -1929,7 +1967,7 @@ export class PageOperations {
       return;
     }
 
-    if (page.metadata.status === 'archived') {
+    if (this.vault.isPageEffectivelyArchived(page)) {
       throw new Error(`Cannot edit archived page: ${pageId}. Restore it before editing.`);
     }
 
@@ -1961,10 +1999,50 @@ export class PageOperations {
    * already makes rename-driven path changes transparent to the open view.
    */
   public async archive(pageId: string): Promise<void> {
+    // Never archive over unsaved changes: the archive writes the page's last SAVED content, and once
+    // archived every further save is rejected, so an edit still sitting in a debounce window would be lost.
+    await this.flushPagesBeforeArchive([pageId]);
+
     const result = await this.coordinator.enqueue(pageId, { kind: 'archive' });
 
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
+    }
+  }
+
+  /**
+   * Saves every pending body, title and description edit of the given pages and confirms nothing is
+   * left unsaved — the step an archive (of a page, or of a folder holding open pages) must complete
+   * first. Pages with no Vault entry (drafts) or no pending edit are skipped. Throws, so the caller
+   * aborts the archive, if any edit could not be saved: the edit stays in its session, intact.
+   */
+  public async flushPagesBeforeArchive(pageIds: readonly string[]): Promise<void> {
+    const persisted = pageIds.filter((pageId) => this.vault.getPage(pageId) !== undefined);
+
+    await Promise.all(
+      persisted.flatMap((pageId) => [
+        this.requestSave(pageId),
+        this.requestTitleSave(pageId),
+        this.requestDescriptionSave(pageId),
+      ])
+    );
+
+    for (const pageId of persisted) {
+      const session = this.documentRegistry.get(pageId);
+      const title = this.titleStates.get(pageId);
+      const description = this.descriptionStates.get(pageId);
+
+      // A save still in flight (started outside requestSave) is ahead of the archive in the page's
+      // queue, so it lands first; only edits that are neither saved nor saving are a reason to stop.
+      const inFlight = session?.state === DocumentState.Saving;
+
+      if (
+        (session && !inFlight && (session.isDirty || session.state === DocumentState.SaveError)) ||
+        title?.isDirty ||
+        description?.isDirty
+      ) {
+        throw new Error(`Cannot archive: unsaved changes to page ${pageId} could not be saved.`);
+      }
     }
   }
 
@@ -1979,24 +2057,34 @@ export class PageOperations {
    */
   public async restore(
     pageId: string,
-    options: { readonly onConflict?: 'inbox' | 'replace' } = {}
+    options: {
+      readonly onConflict?: 'inbox' | 'replace';
+      /** Where to restore it, for an item with no recorded original location (`needs-destination`); `null` = the vault root. */
+      readonly destinationFolderId?: string | null;
+    } = {}
   ): Promise<RestoreOutcome> {
+    const { destinationFolderId } = options;
+
     try {
-      await this.enqueueRestore(pageId);
+      await this.enqueueRestore(pageId, undefined, destinationFolderId);
       return { status: 'restored', movedToInbox: false };
     } catch (error) {
+      if (error instanceof RestoreNeedsDestinationError) {
+        return { status: 'needs-destination' };
+      }
+
       if (!(error instanceof RestoreConflictError)) {
         throw error;
       }
 
       if (options.onConflict === 'inbox') {
-        await this.enqueueRestore(pageId, 'inbox');
+        await this.enqueueRestore(pageId, 'inbox', destinationFolderId);
         return { status: 'restored', movedToInbox: true };
       }
 
       if (options.onConflict === 'replace') {
-        await this.delete(error.existingPageId);
-        await this.enqueueRestore(pageId);
+        await this.delete(error.existingPageId, { allowActive: true });
+        await this.enqueueRestore(pageId, undefined, destinationFolderId);
         return { status: 'restored', movedToInbox: false };
       }
 
@@ -2004,8 +2092,16 @@ export class PageOperations {
     }
   }
 
-  private async enqueueRestore(pageId: string, conflict?: 'inbox'): Promise<void> {
-    const result = await this.coordinator.enqueue(pageId, { kind: 'restore', conflict });
+  private async enqueueRestore(
+    pageId: string,
+    conflict?: 'inbox',
+    destinationFolderId?: string | null
+  ): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'restore',
+      conflict,
+      ...(destinationFolderId !== undefined && { destinationFolderId }),
+    });
 
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
@@ -2041,6 +2137,8 @@ export class PageOperations {
    * still-open, unpersisted draft.
    */
   public async duplicate(pageId: string): Promise<string> {
+    this.assertEditable(pageId);
+
     if (!this.duplicator) {
       throw new Error(
         'PageOperations.duplicate: no VaultEntryDuplicator configured'
@@ -2094,6 +2192,7 @@ export class PageOperations {
    * "resolve path, enqueue create" implementations.
    */
   public async create(options: CreatePageOptions): Promise<string> {
+    this.assertFolderAcceptsContent(options.folderId ?? null);
     const id = this.pageCreator.generateId();
 
     // Eager path: never occupies the single draft slot (a programmatic
@@ -2259,6 +2358,7 @@ export class PageOperations {
     destinationFolderId: string | null,
     options: { toTemplates?: boolean } = {}
   ): Promise<void> {
+    this.assertFolderAcceptsContent(destinationFolderId);
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,
@@ -2282,7 +2382,7 @@ export class PageOperations {
   private async syncTemplateMarker(pageId: string): Promise<void> {
     const page = this.vault.getPage(pageId);
 
-    if (!page || page.metadata.status === 'archived') {
+    if (!page || this.vault.isPageEffectivelyArchived(page)) {
       return;
     }
 
@@ -2313,6 +2413,7 @@ export class PageOperations {
    * currentValue is independent of what actually got persisted).
    */
   public async rename(pageId: string, title: string): Promise<void> {
+    this.assertEditable(pageId);
     const page = this.vault.getPage(pageId);
 
     if (page) {
@@ -2353,7 +2454,15 @@ export class PageOperations {
    * deleting the last one open. We only ever ask the Composition Root to
    * open its fallback page — we never decide what that page is.
    */
-  public async delete(pageId: string): Promise<void> {
+  public async delete(pageId: string, options: { readonly allowActive?: boolean } = {}): Promise<void> {
+    // Permanent delete belongs to the Archive: an active page is archived first. The one explicit
+    // exception is replacing an occupying page during a restore (`allowActive`).
+    const existing = this.vault.getPage(pageId);
+
+    if (existing && !options.allowActive && !this.vault.isPageEffectivelyArchived(existing)) {
+      throw new Error(`Cannot permanently delete a page that is not archived: ${pageId}. Archive it first.`);
+    }
+
     this.documentRegistry.close(pageId);
     // Same reasoning as close() — a deleted page's session must not leave
     // a timer behind that could still fire against it.

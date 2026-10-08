@@ -96,6 +96,7 @@ export function PropertiesHarness({
   });
 
   const items = buildPageProperties(page, {
+    isEffectivelyArchived: status === 'archived',
     onCommitTags: setTags,
     aliases: { onCommit: setAliases, getSuggestions: aliasSuggestions },
     onRenameProperty: (key, name) => write(renameCustomProperty(lines, key, name)),

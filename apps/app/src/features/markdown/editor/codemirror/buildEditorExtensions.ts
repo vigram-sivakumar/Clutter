@@ -1,4 +1,7 @@
-import type { Extension } from '@codemirror/state';
+import { Compartment, type Extension } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
+
+import { readOnlyModeEffect } from './createEditorView';
 
 import { semanticCompletion } from './completion';
 import { dateAutocomplete } from './date/dateAutocomplete';
@@ -218,7 +221,27 @@ export interface BuildEditorExtensionsOptions {
   readonly getTableActiveCellController?: () => TableActiveCellController | undefined;
 }
 
-export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Extension[] {
+/**
+ * The extension list in the four groups whose position matters, so a top-level editor can swap the
+ * mode-dependent ones in place (`buildSwitchableEditorExtensions`) while a note embed — built once,
+ * read-only forever — keeps the flat list `buildEditorExtensions` composes from the same groups:
+ *
+ *  - `before`    editing-only extensions that come ahead of the rendering ones (editable only);
+ *  - `rendering` the stable rendering extensions — identical in both modes;
+ *  - `table`     the table widget and its controller-dependent extensions (static when read-only);
+ *  - `after`     what follows: the editing-only completions and handlers, or — read-only — just the
+ *                root-selection snap, which sits after the rendering there and before it when editable.
+ *
+ * `before + rendering + table + after` is exactly the list this file has always returned.
+ */
+export interface EditorExtensionParts {
+  readonly before: Extension[];
+  readonly rendering: Extension[];
+  readonly table: Extension[];
+  readonly after: Extension[];
+}
+
+export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions): EditorExtensionParts {
   const {
     resolveWikiLink,
     getWikiLinkSuggestions,
@@ -311,6 +334,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     dateMouseHandlers(resolveDate),
     linkMouseHandlers(),
     urlMouseHandlers(),
+  ];
+
+  const table: Extension[] = [
     tableWidgetDecoration(tableActiveCellController, () => onOpenTableHandleMenu?.()),
     tableColumnWidthsConcealment(),
     // Always installed alongside `tableWidgetDecoration()` (unconditional,
@@ -381,10 +407,10 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // are already blocked entirely, so `tableActivationNormalization()`/
     // `tableRectangularNormalization()` are never installed here to race
     // against). See `tableRootSelectionSnap.ts`'s own doc comment.
-    return [...rendering, tableRootSelectionSnap()];
+    return { before: [], rendering, table, after: [tableRootSelectionSnap()] };
   }
 
-  return [
+  const before: Extension[] = [
     // Registered *first* among the table `transactionFilter`s — deliberately,
     // not incidentally. CM6 runs multiple registered `transactionFilter`s in
     // *reverse* registration order (confirmed against the installed
@@ -466,7 +492,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // only ever called against the top-level editable view, never a note
     // embed's read-only nested one.
     editorRevealHighlight(),
-    ...rendering,
+  ];
+
+  const after: Extension[] = [
     // The trigger itself only opens a menu, but every one of its current
     // menu items (Format code, Change Language, Download, Remove) mutates
     // the document except Download — kept out of `rendering` entirely
@@ -494,4 +522,67 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
       getEmbedHeadingSuggestions ?? (() => undefined)
     ),
   ];
+
+  return { before, rendering, table, after };
+}
+
+/** The flat list — a note embed's nested view (read-only, never switched) and any caller that does not switch modes. */
+export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Extension[] {
+  const { before, rendering, table, after } = buildEditorExtensionParts(options);
+
+  return [...before, ...rendering, ...table, ...after];
+}
+
+/**
+ * The compartments a top-level editor's mode-dependent groups live in. One set is enough for every view:
+ * a compartment is only an identity, and each state tracks its own contents.
+ */
+const editingBeforeCompartment = new Compartment();
+const tableModeCompartment = new Compartment();
+const editingAfterCompartment = new Compartment();
+
+/**
+ * The same list as `buildEditorExtensions`, in the same order, but with the three mode-dependent groups in
+ * compartments so `switchEditorMode` can swap them on a live view. `trailingWhenEditable` is appended to
+ * the editing-only tail (the exit-up keymap, which follows everything else when editable and is absent
+ * when read-only). The stable rendering extensions stay outside, so their state survives a switch.
+ */
+export function buildSwitchableEditorExtensions(
+  options: Omit<BuildEditorExtensionsOptions, 'readOnly'>,
+  readOnly: boolean,
+  trailingWhenEditable: readonly Extension[] = []
+): Extension[] {
+  const parts = buildEditorExtensionParts({ ...options, readOnly });
+
+  return [
+    editingBeforeCompartment.of(parts.before),
+    ...parts.rendering,
+    tableModeCompartment.of(parts.table),
+    editingAfterCompartment.of(readOnly ? parts.after : [...parts.after, ...trailingWhenEditable]),
+  ];
+}
+
+/**
+ * Switches a live view between editable and read-only without rebuilding it: the read-only/editable facets,
+ * the editing-only groups and the table group are reconfigured in ONE transaction. Everything outside those
+ * compartments — history, folds, selection, scroll, the rendering extensions and their state — is untouched.
+ * Takes no focus. (A switch into read-only also needs the host to dismiss editing UI that lives outside
+ * CodeMirror.)
+ */
+export function switchEditorMode(
+  view: EditorView,
+  options: Omit<BuildEditorExtensionsOptions, 'readOnly'>,
+  readOnly: boolean,
+  trailingWhenEditable: readonly Extension[] = []
+): void {
+  const parts = buildEditorExtensionParts({ ...options, readOnly });
+
+  view.dispatch({
+    effects: [
+      readOnlyModeEffect(readOnly),
+      editingBeforeCompartment.reconfigure(parts.before),
+      tableModeCompartment.reconfigure(parts.table),
+      editingAfterCompartment.reconfigure(readOnly ? parts.after : [...parts.after, ...trailingWhenEditable]),
+    ],
+  });
 }

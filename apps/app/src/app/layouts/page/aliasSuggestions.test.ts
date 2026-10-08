@@ -202,3 +202,15 @@ describe('differently-cased aliases in WikiLink resolution', () => {
     expect(findPageMatches(vault.pages(), 'ux')).toEqual([{ page, alias: 'UX' }]);
   });
 });
+
+describe('createAliasSuggester — archived notes', () => {
+  it('does not offer the aliases of an archived note', () => {
+    const current = makePage('me', '/vault/Me.md', ['Mine']);
+    const archived = makePage('old', '/vault/Archive/Old.md', ['Retired alias']);
+    const withStatus = { ...archived, metadata: { ...archived.metadata, status: 'archived' as const } };
+    const suggest = suggesterFor([current, withStatus, makePage('live', '/vault/Live.md', ['Retained alias'])], 'me');
+
+    expect(suggest('retired')).toEqual([]);
+    expect(suggest('retained').map((row) => row.label)).toEqual(['Retained alias']);
+  });
+});

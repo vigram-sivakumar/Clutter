@@ -276,10 +276,15 @@ export function buildPageProperties(
      * only unlists it — its value is kept.
      */
     onRemoveSystemProperty?(key: PageSystemPropertyKey): void;
+    /**
+     * The page is effectively archived — itself, or inside an archived folder
+     * (`MembershipSelector.isEntityEffectivelyArchived`). Its own `status` alone misses the second case.
+     */
+    isEffectivelyArchived?: boolean;
   } = {}
 ): PropertyListItem[] {
   const aliases = page.metadata.aliases ?? [];
-  const isArchived = page.metadata.status === 'archived';
+  const isArchived = actions.isEffectivelyArchived === true;
   const aliasActions = isArchived ? undefined : actions.aliases;
   const onRenameProperty = isArchived ? undefined : actions.onRenameProperty;
   const onCommitTags = isArchived ? undefined : actions.onCommitTags;

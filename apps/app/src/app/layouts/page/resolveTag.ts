@@ -29,7 +29,15 @@ import type { ResolveTag } from '@features/markdown/editor/MarkdownEditor';
  * (and only until the first save settles it).
  *
  */
-export function createTagResolver(navigation: NavigationRouter, vault: Vault): ResolveTag {
+export function createTagResolver(
+  navigation: NavigationRouter,
+  vault: Vault,
+  /**
+   * `requireExisting: true` for an archived note: its tags stay clickable only while the tag currently exists
+   * in the tag model (a tag whose every use is archived is not an active tag). Default: always opens.
+   */
+  { requireExisting = false }: { readonly requireExisting?: boolean } = {}
+): ResolveTag {
   return (name) => {
     // getTagByName resolves any spelling of the tag's identity in O(1).
     const preferred = vault.getTagByName(name);
@@ -37,7 +45,13 @@ export function createTagResolver(navigation: NavigationRouter, vault: Vault): R
     return {
       status: 'resolved',
       displayLabel: formatTagDisplayLabel(preferred?.name ?? name),
-      activate: () => navigation.openTag(name),
+      activate: () => {
+        if (requireExisting && !vault.getTagByName(name)) {
+          return;
+        }
+
+        navigation.openTag(name);
+      },
     };
   };
 }

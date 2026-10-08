@@ -313,31 +313,17 @@ describe('PageOperations.save(): archived pages are view-only', () => {
     ).rejects.toThrow(/Cannot edit archived page/);
   });
 
-  it('once a page is restored to active status, edits are allowed again', async () => {
+  it('once a page is restored out of Archive/, edits are allowed again', async () => {
     const page = buildPage();
-    const { vault, pageOperations } = setup(page);
-
+    const { vault, coordinator, pageOperations } = setup(page);
+    await archiveDirectly(coordinator, page.id);
     await pageOperations.open(page.id);
-    const archived = {
-      ...page,
-      metadata: { ...page.metadata, status: 'archived' as const },
-    };
-    vault.replacePage(archived);
 
     await expect(pageOperations.save(page.id, 'Blocked')).rejects.toThrow();
 
-    vault.replacePage({
-      ...vault.getPage(page.id)!,
-      metadata: {
-        ...vault.getPage(page.id)!.metadata,
-        status: 'active',
-        archivedAt: null,
-      },
-    });
+    await pageOperations.restore(page.id);
 
-    await expect(
-      pageOperations.save(page.id, 'Edit after restore')
-    ).resolves.toBeUndefined();
+    await expect(pageOperations.save(page.id, 'Edit after restore')).resolves.toBeUndefined();
     expect(vault.getPage(page.id)!.source.markdown).toBe('Edit after restore');
   });
 });
@@ -1855,7 +1841,7 @@ describe('PageOperations.delete()', () => {
     await pageOperations.open(page.id);
     expect(documentRegistry.get(page.id)).toBeDefined();
 
-    await pageOperations.delete(page.id);
+    await pageOperations.delete(page.id, { allowActive: true });
 
     expect(documentRegistry.get(page.id)).toBeUndefined();
     expect(workspace.isPageOpen(page.id)).toBe(false);
@@ -1873,7 +1859,7 @@ describe('PageOperations.delete()', () => {
     const closeSpy = vi.spyOn(documentRegistry, 'close');
     const enqueueSpy = vi.spyOn(coordinator, 'enqueue');
 
-    await pageOperations.delete(page.id);
+    await pageOperations.delete(page.id, { allowActive: true });
 
     expect(closeSpy).toHaveBeenCalledWith(page.id);
     expect(enqueueSpy).toHaveBeenCalledWith(page.id, { kind: 'delete' });
@@ -1887,7 +1873,7 @@ describe('PageOperations.delete()', () => {
     const { fileSystem, pageOperations } = setup(page);
 
     await expect(
-      pageOperations.delete('does-not-exist')
+      pageOperations.delete('does-not-exist', { allowActive: true })
     ).resolves.toBeUndefined();
     expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(
       true
@@ -1912,7 +1898,7 @@ describe('PageOperations.delete()', () => {
       await pageOperations.open(page.id);
       expect(workspace.activePageId).toBe(page.id);
 
-      await pageOperations.delete(page.id);
+      await pageOperations.delete(page.id, { allowActive: true });
 
       expect(workspace.activeView).toBeNull();
       expect(openFallbackPage).toHaveBeenCalledTimes(1);
@@ -1972,7 +1958,7 @@ describe('PageOperations.delete()', () => {
       await pageOperations.open(activePage.id);
       expect(workspace.activePageId).toBe(activePage.id);
 
-      await pageOperations.delete(activePage.id);
+      await pageOperations.delete(activePage.id, { allowActive: true });
 
       expect(workspace.activePageId).toBe(previousPage.id);
       expect(openFallbackPage).not.toHaveBeenCalled();
@@ -2029,7 +2015,7 @@ describe('PageOperations.delete()', () => {
       await pageOperations.open(backgroundPage.id);
       await pageOperations.open(activePage.id);
 
-      await pageOperations.delete(backgroundPage.id);
+      await pageOperations.delete(backgroundPage.id, { allowActive: true });
 
       expect(workspace.activePageId).toBe(activePage.id);
       expect(openFallbackPage).not.toHaveBeenCalled();
@@ -2048,7 +2034,7 @@ describe('PageOperations.delete()', () => {
       const draftId = await pageOperations.openDraft({ folderId: null });
       expect(workspace.activePageId).toBe(draftId);
 
-      await pageOperations.delete(draftId);
+      await pageOperations.delete(draftId, { allowActive: true });
 
       expect(workspace.activeView).toBeNull();
       expect(openFallbackPage).toHaveBeenCalledTimes(1);
@@ -2696,7 +2682,7 @@ describe('PageOperations: drafts (ADR-017)', () => {
       folderId: null,
       title: 'Abandoned',
     });
-    await expect(pageOperations.delete(id)).resolves.toBeUndefined();
+    await expect(pageOperations.delete(id, { allowActive: true })).resolves.toBeUndefined();
 
     expect(documentRegistry.get(id)).toBeUndefined();
     expect(workspace.isPageOpen(id)).toBe(false);
@@ -2811,7 +2797,7 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
       setupEmpty([folder]);
 
     const id = await pageOperations.openDraft({ folderId: folder.id });
-    await expect(pageOperations.delete(id)).resolves.toBeUndefined();
+    await expect(pageOperations.delete(id, { allowActive: true })).resolves.toBeUndefined();
 
     expect(documentRegistry.get(id)).toBeUndefined();
     expect(workspace.isPageOpen(id)).toBe(false);
@@ -3197,7 +3183,7 @@ describe('Tags written through Properties reach the vault tag list (what the Tag
     const id = await pageOperations.openDraft({ folderId: null });
     await pageOperations.updateMetadata(id, { tags: ['design'] });
 
-    await pageOperations.delete(id);
+    await pageOperations.delete(id, { allowActive: true });
 
     expect(tagNames(vault)).toEqual([]);
   });
@@ -3536,5 +3522,334 @@ describe('PageOperations.move()', () => {
     await expect(pageOperations.move(dailyNote.id, 'folder-1')).rejects.toThrow(
       /Cannot move a Daily Note/
     );
+  });
+});
+
+describe('PageOperations.archive: pending edits are saved first, never archived over', () => {
+  it('an edit committed but not yet saved (still in its debounce window) is in the archived file', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, documentRegistry, pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    pageOperations.commitEdit(page.id, 'Typed just before archiving');
+    expect(documentRegistry.get(page.id)!.isDirty).toBe(true);
+
+    await pageOperations.archive(page.id);
+
+    const archived = vault.getPage(page.id)!;
+    expect(archived.metadata.status).toBe('archived');
+    expect(archived.source.markdown).toBe('Typed just before archiving');
+    expect(await fileSystem.readFile(archivePathFor(page))).toContain('Typed just before archiving');
+    expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
+    expect(documentRegistry.get(page.id)!.state).not.toBe(DocumentState.SaveError);
+  });
+
+  it('if the pending edit cannot be saved the archive is aborted and the page stays active and unsaved-but-intact', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, documentRegistry, pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+    pageOperations.commitEdit(page.id, 'Edit that cannot be saved');
+    vi.spyOn(pageOperations, 'save').mockRejectedValue(new Error('disk full'));
+
+    await expect(pageOperations.archive(page.id)).rejects.toThrow(/unsaved/i);
+
+    expect(vault.getPage(page.id)!.metadata.status).toBe('active');
+    expect(vault.getPage(page.id)!.path).toBe(page.path);
+    expect(await fileSystem.exists(page.path)).toBe(true);
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe('Edit that cannot be saved');
+  });
+
+  it('a page with nothing pending archives exactly as before', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    await pageOperations.archive(page.id);
+
+    expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
+  });
+});
+
+describe('PageOperations: a page inside an archived folder is as read-only as an archived page', () => {
+  const insideArchivedFolder = () => {
+    const folder: Folder = {
+      id: 'folder-old',
+      name: 'Old',
+      path: `${ROOT}/Archive/Old`,
+      parentId: ARCHIVE_FOLDER_ID,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    };
+    const page = { ...buildPage(), path: `${ROOT}/Archive/Old/Note.md`, parentId: 'folder-old' } as Page;
+
+    return { page, ...setup(page, undefined, [makeArchiveFolder(), folder]) };
+  };
+
+  it('has its own status untouched, yet save, updateMetadata and mutateBody are all refused', async () => {
+    const { page, pageOperations } = insideArchivedFolder();
+    await pageOperations.open(page.id);
+
+    expect(page.metadata.status).toBe('active');
+    await expect(pageOperations.save(page.id, 'x')).rejects.toThrow(/archived/);
+    await expect(pageOperations.updateMetadata(page.id, { favorite: true })).rejects.toThrow(/archived/);
+    await expect(pageOperations.mutateBody(page.id, (markdown) => `${markdown}!`)).rejects.toThrow(/archived/);
+  });
+
+  it('maintenance that explicitly allows archived pages (a tag rename) still reaches it', async () => {
+    const { page, vault, pageOperations } = insideArchivedFolder();
+
+    await pageOperations.mutateBody(page.id, (markdown) => `${markdown} edited`, { allowArchived: true });
+
+    expect(vault.getPage(page.id)!.source.markdown).toContain('edited');
+  });
+
+  it('a page in an ordinary folder is unaffected', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    await expect(pageOperations.save(page.id, 'fine')).resolves.toBeUndefined();
+  });
+});
+
+describe('PageOperations: nothing is created in, or moved into, an archived folder', () => {
+  const archivedFolder: Folder = {
+    id: 'folder-old',
+    name: 'Old',
+    path: `${ROOT}/Archive/Old`,
+    parentId: ARCHIVE_FOLDER_ID,
+    metadata: { ...defaultFolderMetadata, status: 'archived' },
+  };
+  const inside: Folder = {
+    id: 'folder-inside',
+    name: 'Inside',
+    path: `${ROOT}/Archive/Old/Inside`,
+    parentId: 'folder-old',
+    metadata: defaultFolderMetadata,
+  };
+  const build = () => setup(buildPage(), undefined, [makeArchiveFolder(), archivedFolder, inside]);
+
+  it('create, openDraft and move all refuse an archived folder or one inside it', async () => {
+    const { pageOperations } = build();
+
+    for (const folderId of ['folder-old', 'folder-inside']) {
+      await expect(pageOperations.create({ folderId, title: 'New' })).rejects.toThrow(/archived folder/);
+      await expect(pageOperations.openDraft({ folderId })).rejects.toThrow(/archived folder/);
+      await expect(pageOperations.move('page-1', folderId)).rejects.toThrow(/archived folder/);
+    }
+  });
+
+  it('an ordinary folder is unaffected', async () => {
+    const { pageOperations } = build();
+
+    await expect(pageOperations.create({ folderId: null, title: 'Fine' })).resolves.toEqual(expect.any(String));
+  });
+});
+
+describe('PageOperations: archive integrity at the domain (Phase 10)', () => {
+  const archivedFolder: Folder = {
+    id: 'folder-old',
+    name: 'Old',
+    path: `${ROOT}/Archive/Old`,
+    parentId: ARCHIVE_FOLDER_ID,
+    metadata: { ...defaultFolderMetadata, status: 'archived' },
+  };
+  const nestedFolder: Folder = {
+    id: 'folder-nested',
+    name: 'Nested',
+    path: `${ROOT}/Archive/Old/Nested`,
+    parentId: 'folder-old',
+    metadata: defaultFolderMetadata,
+  };
+  const folders = [makeArchiveFolder(), archivedFolder, nestedFolder];
+
+  /** An archived note (own status), and a note inside an archived folder (own status active). */
+  const archivedNote = (): Page =>
+    ({
+      ...buildPage(),
+      path: `${ROOT}/Archive/Note.md`,
+      parentId: ARCHIVE_FOLDER_ID,
+      metadata: { ...buildPage().metadata, status: 'archived' },
+    }) as Page;
+  const noteInArchivedFolder = (): Page =>
+    ({ ...buildPage(), path: `${ROOT}/Archive/Old/Note.md`, parentId: 'folder-old' }) as Page;
+  const both = [
+    ['an archived note', archivedNote],
+    ['a note inside an archived folder', noteInArchivedFolder],
+  ] as const;
+
+  describe.each(both)('%s', (_label, build) => {
+    it('cannot be renamed, by the facade or through the title channel', async () => {
+      const page = build();
+      const { pageOperations } = setup(page, undefined, folders);
+
+      await expect(pageOperations.rename(page.id, 'Other')).rejects.toThrow(/archived/);
+      expect(() => pageOperations.commitTitle(page.id, 'Other')).toThrow(/archived/);
+    });
+
+    it('cannot have its description, body or other edits committed', async () => {
+      const page = build();
+      const { pageOperations } = setup(page, undefined, folders);
+      await pageOperations.open(page.id);
+
+      expect(() => pageOperations.commitDescription(page.id, 'About')).toThrow(/archived/);
+      expect(() => pageOperations.commitEdit(page.id, 'typed')).toThrow(/archived/);
+    });
+
+    it('cannot be duplicated', async () => {
+      const page = build();
+      const { pageOperations } = setup(page, undefined, folders);
+
+      await expect(pageOperations.duplicate(page.id)).rejects.toThrow(/archived/);
+    });
+
+    it('cannot be moved out, and the Gate itself refuses it', async () => {
+      const page = build();
+      const { pageOperations, coordinator } = setup(page, undefined, folders);
+
+      await expect(pageOperations.move(page.id, null)).rejects.toThrow(/archived/);
+      await expect(coordinator.enqueue(page.id, { kind: 'move', destinationFolderId: null })).rejects.toThrow(/archived/);
+    });
+
+    it('cannot be archived again', async () => {
+      const page = build();
+      const { pageOperations, vault } = setup(page, undefined, folders);
+
+      await expect(pageOperations.archive(page.id)).rejects.toThrow(/already archived/);
+      expect(vault.getPage(page.id)!.path).toBe(page.path);
+    });
+
+    it('can be permanently deleted', async () => {
+      const page = build();
+      const { pageOperations, vault } = setup(page, undefined, folders);
+
+      await pageOperations.delete(page.id);
+
+      expect(vault.getPage(page.id)).toBeUndefined();
+    });
+
+    it('keeps the maintenance escape hatch: allowArchived still reaches it', async () => {
+      const page = build();
+      const { pageOperations, vault } = setup(page, undefined, folders);
+
+      await pageOperations.mutateBody(page.id, (markdown) => `${markdown} maintained`, { allowArchived: true });
+
+      expect(vault.getPage(page.id)!.source.markdown).toContain('maintained');
+    });
+  });
+
+  it('a folder inside an archived folder cannot be archived again, nor moved, nor deleted while active', async () => {
+    const page = noteInArchivedFolder();
+    const { coordinator } = setup(page, undefined, folders);
+
+    await expect(coordinator.enqueue('folder-nested', { kind: 'archive-folder' })).rejects.toThrow(/already archived/);
+    await expect(coordinator.enqueue('folder-nested', { kind: 'move-folder', destinationFolderId: null })).rejects.toThrow(/archived/);
+  });
+
+  describe('permanent delete is only for archived pages', () => {
+    it('refuses an active page, leaving it and its file in place', async () => {
+      const page = buildPage();
+      const { pageOperations, vault, fileSystem } = setup(page);
+
+      await expect(pageOperations.delete(page.id)).rejects.toThrow(/not archived/);
+
+      expect(vault.getPage(page.id)).toBeDefined();
+      expect(await fileSystem.exists(page.path)).toBe(true);
+    });
+
+    it('the explicit allowActive escape (used when a restore replaces an occupying Daily Note) still deletes', async () => {
+      const page = buildPage();
+      const { pageOperations, vault } = setup(page);
+
+      await pageOperations.delete(page.id, { allowActive: true });
+
+      expect(vault.getPage(page.id)).toBeUndefined();
+    });
+
+    it('a draft that was never saved can still be discarded', async () => {
+      const { pageOperations } = setup(buildPage());
+
+      await expect(pageOperations.delete('no-such-persisted-page')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('restore is only for archived pages', () => {
+    it('refuses an active page, and a note that is only inside an archived folder', async () => {
+      const active = buildPage();
+      const { pageOperations } = setup(active);
+      await expect(pageOperations.restore(active.id)).rejects.toThrow(/not archived/);
+
+      const inside = noteInArchivedFolder();
+      const second = setup(inside, undefined, folders);
+      await expect(second.pageOperations.restore(inside.id)).rejects.toThrow(/not archived/);
+    });
+
+    it('restores an archived page to where it was', async () => {
+      const page = buildPage();
+      const { pageOperations, vault } = setup(page);
+      await pageOperations.archive(page.id);
+
+      await pageOperations.restore(page.id);
+
+      expect(vault.getPage(page.id)!.metadata.status).toBe('active');
+      expect(vault.getPage(page.id)!.path).toBe(page.path);
+    });
+  });
+
+  describe('a note archived only by location (status active, placed in Archive/ from outside)', () => {
+    const external = (): Page => ({ ...buildPage(), path: `${ROOT}/Archive/Note.md`, parentId: ARCHIVE_FOLDER_ID }) as Page;
+
+    it('can be permanently deleted (Delete All) although Clutter never archived it', async () => {
+      const page = external();
+      const { pageOperations, vault } = setup(page, undefined, folders);
+
+      await pageOperations.delete(page.id);
+
+      expect(vault.getPage(page.id)).toBeUndefined();
+    });
+
+    it('is read-only: edits are refused', async () => {
+      const page = external();
+      const { pageOperations } = setup(page, undefined, folders);
+      await pageOperations.open(page.id);
+
+      await expect(pageOperations.mutateBody(page.id, (markdown) => `${markdown}!`)).rejects.toThrow(/archived/);
+    });
+  });
+
+  describe('maintenance edits reach an archived note that is open in an editor session', () => {
+    it('mutateBody({ allowArchived }) writes through to disk and leaves the session clean — not in SaveError', async () => {
+      const page = archivedNote();
+      const { pageOperations, vault, fileSystem, documentRegistry } = setup(page, undefined, folders);
+      await pageOperations.open(page.id);
+
+      await pageOperations.mutateBody(page.id, (markdown) => `${markdown} #renamed`, { allowArchived: true });
+
+      const session = documentRegistry.get(page.id)!;
+      expect(session.currentRevision.markdown).toContain('#renamed');
+      expect(session.isDirty).toBe(false);
+      expect(session.state).not.toBe(DocumentState.SaveError);
+      expect(vault.getPage(page.id)!.source.markdown).toContain('#renamed');
+      expect(await fileSystem.readFile(page.path)).toContain('#renamed');
+      expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
+    });
+
+    it('the same for a note inside an archived folder', async () => {
+      const page = noteInArchivedFolder();
+      const { pageOperations, fileSystem, documentRegistry } = setup(page, undefined, folders);
+      await pageOperations.open(page.id);
+
+      await pageOperations.mutateBody(page.id, (markdown) => `${markdown} #renamed`, { allowArchived: true });
+
+      expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
+      expect(await fileSystem.readFile(page.path)).toContain('#renamed');
+    });
+
+    it('without allowArchived it is still refused', async () => {
+      const page = archivedNote();
+      const { pageOperations } = setup(page, undefined, folders);
+      await pageOperations.open(page.id);
+
+      await expect(pageOperations.mutateBody(page.id, (markdown) => `${markdown}!`)).rejects.toThrow(/archived/);
+    });
   });
 });

@@ -476,10 +476,10 @@ describe('createWikiLinkSuggester — Daily Notes are found by their date', () =
       expect(suggestWith(v, 'Aug 24')).toEqual(['2020-08-24']);
     });
 
-    it('without a rule nothing is filtered — the default for callers that have none', () => {
+    it('without a rule passed, the vault\'s own effectively-archived rule applies', () => {
       const v = makeVault([archived(makePage({ id: 'a2', path: '/vault/Archive/Old plans.md', name: 'Old plans' }))]);
 
-      expect(suggest(v, 'old')).toEqual(['Old plans']);
+      expect(suggest(v, 'old')).toEqual([]);
     });
   });
 

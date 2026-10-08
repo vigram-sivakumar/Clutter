@@ -22,7 +22,15 @@ import type { ResolveDate } from '@features/markdown/editor/MarkdownEditor';
  * previous UTC-midnight trap that could open the wrong Daily Note in a
  * negative-UTC-offset timezone is fixed at the shared helper.
  */
-export function createDateResolver(vault: Vault, pageOperations: PageOperations): ResolveDate {
+export function createDateResolver(
+  vault: Vault,
+  pageOperations: PageOperations,
+  /**
+   * `createMissing: false` for a read-only host (an archived note): a date whose Daily Note exists
+   * still opens it, but one that does not exist opens no new draft. Default: opens or drafts, as always.
+   */
+  { createMissing = true }: { readonly createMissing?: boolean } = {}
+): ResolveDate {
   return (isoDate) => ({
     activate: () => {
       // A calendar-invalid-but-shape-valid date (2026-13-45) never
@@ -34,9 +42,13 @@ export function createDateResolver(vault: Vault, pageOperations: PageOperations)
         return;
       }
 
-      void pageOperations.openAtPath(DailyNotePath.absoluteFrom(vault.root, toDate(isoDate)), {
-        type: 'daily-note',
-      });
+      const path = DailyNotePath.absoluteFrom(vault.root, toDate(isoDate));
+
+      if (!createMissing && !vault.getPageByPath(path)) {
+        return;
+      }
+
+      void pageOperations.openAtPath(path, { type: 'daily-note' });
     },
   });
 }

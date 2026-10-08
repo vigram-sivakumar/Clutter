@@ -40,9 +40,11 @@ export const RESOURCE_ACTION_SURFACES: Readonly<
   favorites: SIDEBAR_PROFILE,
   overlay: {
     // The image overlay, PDF embed and PDF viewer: an asset's More actions with no place to rename
-    // it in. An archived asset is never opened from here.
+    // it in.
     omit: ['rename'],
-    omitWhen: archivedOnlyActionsExceptTag,
+    // This surface IS where an archived file is opened (from the Archive), so its Restore and Delete
+    // belong here — unlike the sidebar, which never lists an archived resource.
+    omitWhen: () => [],
     // A listed-but-unavailable action stays visible and disabled (Set as cover image on a remote
     // image does nothing yet; a live control must never be a silent no-op).
     unavailable: 'disable',

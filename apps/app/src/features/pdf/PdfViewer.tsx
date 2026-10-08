@@ -46,6 +46,9 @@ export interface PdfViewerProps {
     destinationFolderId: string | null
   ) => void;
   readonly onCreateFolder?: (name: string) => Promise<string>;
+  readonly archived?: boolean;
+  readonly onRestoreResource?: (resourceId: string) => void;
+  readonly onDeleteResource?: (resourceId: string) => void;
 }
 
 /**
@@ -82,6 +85,9 @@ export function PdfViewer({
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
+  archived,
+  onRestoreResource,
+  onDeleteResource,
 }: PdfViewerProps) {
   const state = usePdfDocument(url);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -253,7 +259,9 @@ export function PdfViewer({
             (onArchiveResource ||
               onRevealResourceInFinder ||
               onCopyResourcePath ||
-              onMoveResource) && (
+              onMoveResource ||
+              onRestoreResource ||
+              onDeleteResource) && (
               <PdfViewerMoreActions
                 resourceId={resourceId}
                 onArchiveResource={onArchiveResource}
@@ -262,6 +270,9 @@ export function PdfViewer({
                 resourceMoveDestinations={resourceMoveDestinations}
                 onMoveResource={onMoveResource}
                 onCreateFolder={onCreateFolder}
+                archived={archived}
+                onRestoreResource={onRestoreResource}
+                onDeleteResource={onDeleteResource}
               />
             )}
         </div>

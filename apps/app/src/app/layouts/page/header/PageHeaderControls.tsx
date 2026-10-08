@@ -91,7 +91,13 @@ export function PageHeaderControls({
 
   return (
     <div className="page-header-controls">
-      {emoji && (
+      {emoji && !onSelectEmoji && (
+        // Nothing here can change the icon (an archived page, say): it is shown, not offered.
+        <span className="page-header-controls__emoji page-header-controls__emoji--static">
+          <AppIcon emoji={emoji} />
+        </span>
+      )}
+      {emoji && onSelectEmoji && (
         <>
           <Button
             className="page-header-controls__emoji"
@@ -100,7 +106,7 @@ export function PageHeaderControls({
             variant="ghost"
             interaction="subtle"
             aria-label="Change emoji"
-            onClick={onSelectEmoji ? () => setEmojiPickerOpen(true) : undefined}
+            onClick={() => setEmojiPickerOpen(true)}
           >
             <AppIcon emoji={emoji} />
           </Button>
@@ -112,7 +118,7 @@ export function PageHeaderControls({
             side="bottom"
             alignment="start"
             onSelect={(selected) => {
-              onSelectEmoji?.(selected);
+              onSelectEmoji(selected);
               setEmojiPickerOpen(false);
             }}
             onRemove={() => {

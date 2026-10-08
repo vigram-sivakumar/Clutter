@@ -134,7 +134,7 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
   it('Table has Name, Type, then Archived — the property labels, in registry order', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
 
-    expect(headers(container)).toEqual(['Name', 'Type', 'Archived']);
+    expect(headers(container)).toEqual(['Name', 'Type', 'Archived date']);
     expect(typeCells(container)).toEqual(['Folder', 'Image', 'Note', 'PDF']);
   });
 
@@ -142,7 +142,7 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
     const visible = archiveVisible('type');
     const table = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
 
-    expect(headers(table.container)).toEqual(['Name', 'Archived']);
+    expect(headers(table.container)).toEqual(['Name', 'Archived date']);
     expect(typeCells(table.container)).toEqual([]);
     cleanup();
 
@@ -184,10 +184,10 @@ describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the sa
     expect(listTitles(container).map((t) => t)).toEqual(['Old Project', 'hero', 'Old Note', 'manual']);
   });
 
-  it('the archived date column is headed "Archived" in the Table', () => {
+  it('the archived date column is headed "Archived date" in the Table', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
 
-    expect(headers(container)).toContain('Archived');
+    expect(headers(container)).toContain('Archived date');
     expect(headers(container)).not.toContain('Delete');
   });
 });
@@ -210,10 +210,39 @@ describe('ArchiveCollectionBody: a folder\'s row says what it holds', () => {
     expect(container.textContent).toContain('1 subfolder · 1 note');
   });
 
-  it('is the folder\'s contents, not a Description property — there is no Description in the Archive at all', () => {
-    const { container } = renderArchive({ folders: [makeFolderEntry({ description: 'About this folder' })], viewMode: 'list' });
+  it('a folder row always shows its contents, never a description — even with Description visible', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({
+        folders: [makeFolderEntry({ description: 'About this folder' })],
+        viewMode,
+        visible: ['name', 'description'],
+      });
 
-    expect(container.textContent).not.toContain('About this folder');
+      expect(container.textContent, viewMode).not.toContain('About this folder');
+      expect(container.querySelector('.collection-entry__description')?.textContent, viewMode).toBe('0 subfolders · 2 notes');
+    }
+  });
+});
+
+describe('ArchiveCollectionBody: Description is a property of archived notes, in List and Table', () => {
+  const noteWithDescription = makeNoteEntry({ description: 'About this note' });
+
+  it('is drawn under the note\'s title when visible, in both layouts', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({ notes: [noteWithDescription], viewMode, visible: archiveVisible().concat('description') });
+
+      expect(container.querySelector('.collection-entry__description')?.textContent, viewMode).toBe('About this note');
+      cleanup();
+    }
+  });
+
+  it('is off by default and absent when hidden', () => {
+    for (const viewMode of ['list', 'table'] as const) {
+      const { container } = renderArchive({ notes: [noteWithDescription], viewMode });
+
+      expect(container.textContent, viewMode).not.toContain('About this note');
+      cleanup();
+    }
   });
 });
 

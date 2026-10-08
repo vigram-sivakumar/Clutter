@@ -789,3 +789,98 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
     }
   });
 });
+
+describe('toCollectionPageModel — the Archive\'s folder rows count their archived contents', () => {
+  it('shows an archived folder\'s real subfolder and note counts, not 0 · 0', () => {
+    const archive = makeFolder({ id: 'archive-folder', name: 'Archive', path: `${ROOT}/Archive`, parentId: null });
+    const archivedFolder = makeFolder({
+      id: 'old',
+      name: 'Old',
+      path: `${ROOT}/Archive/Old`,
+      parentId: 'archive-folder',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const sub = makeFolder({ id: 'sub', name: 'Sub', path: `${ROOT}/Archive/Old/Sub`, parentId: 'old' });
+    const noteInside = makePage({ id: 'n1', path: `${ROOT}/Archive/Old/N1.md`, parentId: 'old' });
+    const noteInside2 = makePage({ id: 'n2', path: `${ROOT}/Archive/Old/N2.md`, parentId: 'old' });
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(
+      [archive, archivedFolder, sub],
+      [noteInside, noteInside2]
+    );
+
+    const model = toCollectionPageModel(archive, vault, query, effectivePageState, membershipSelector, workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
+    });
+
+    const row = model.folders.find((entry) => entry.id === 'old')!;
+    expect(row.subfolderCount).toBe(1);
+    expect(row.noteCount).toBe(2);
+  });
+});
+
+describe('toCollectionPageModel — an archived folder shows its real, archived contents', () => {
+  const build = (status: 'archived' | 'active') => {
+    const archive = makeFolder({ id: 'archive-folder', name: 'Archive', path: `${ROOT}/Archive`, parentId: null });
+    // Location decides: 'active' is the same folder after a restore, outside Archive/.
+    const base = status === 'archived' ? `${ROOT}/Archive` : ROOT;
+    const old = makeFolder({
+      id: 'old',
+      name: 'Old',
+      path: `${base}/Old`,
+      parentId: status === 'archived' ? 'archive-folder' : null,
+      metadata: { ...defaultFolderMetadata, status },
+    });
+    const sub = makeFolder({ id: 'sub', name: 'Sub', path: `${base}/Old/Sub`, parentId: 'old' });
+    const deep = makePage({ id: 'deep', path: `${base}/Old/Sub/Deep.md`, parentId: 'sub' });
+    const noteA = makePage({ id: 'a', path: `${base}/Old/A.md`, parentId: 'old' });
+    const noteB = makePage({ id: 'b', path: `${base}/Old/B.md`, parentId: 'old' });
+    const context = setup([archive, old, sub], [noteA, noteB, deep]);
+
+    return { ...context, old, sub };
+  };
+  const modelOf = (context: ReturnType<typeof build>, folder: Folder) =>
+    toCollectionPageModel(folder, context.vault, context.query, context.effectivePageState, context.membershipSelector, context.workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
+    });
+
+  it('opening an archived folder lists its child folders and notes, with their own counts', () => {
+    const context = build('archived');
+    const model = modelOf(context, context.old);
+
+    expect(model.notes.map((entry) => entry.id).sort()).toEqual(['a', 'b']);
+    expect(model.folders.map((entry) => entry.id)).toEqual(['sub']);
+    // The nested folder is archived too (inside one), and shows what it holds.
+    expect(model.folders[0]!.noteCount).toBe(1);
+    expect(model.folders[0]!.subfolderCount).toBe(0);
+  });
+
+  it('a child of an archived folder opens the same way, one level down', () => {
+    const context = build('archived');
+    const model = modelOf(context, context.sub);
+
+    expect(model.notes.map((entry) => entry.id)).toEqual(['deep']);
+  });
+
+  it('the Archive\'s row for the folder counts its children', () => {
+    const context = build('archived');
+    const archive = context.vault.getFolder('archive-folder')!;
+    const row = modelOf(context, archive).folders.find((entry) => entry.id === 'old')!;
+
+    expect(row.subfolderCount).toBe(1);
+    expect(row.noteCount).toBe(2);
+  });
+
+  it('once restored, the same folder lists the same children through the ordinary active views', () => {
+    const context = build('active');
+    const model = modelOf(context, context.old);
+
+    expect(context.membershipSelector.isEffectivelyArchived('old')).toBe(false);
+    expect(model.notes.map((entry) => entry.id).sort()).toEqual(['a', 'b']);
+    expect(model.folders.map((entry) => entry.id)).toEqual(['sub']);
+    expect(model.folders[0]!.noteCount).toBe(1);
+  });
+});

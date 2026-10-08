@@ -1776,7 +1776,7 @@ describe('VaultSyncService: external archive reconciliation', () => {
     );
   });
 
-  it('active page moved into Archive externally stays active and is not auto-archived', async () => {
+  it('active page moved into Archive externally is archived by location — and nothing is written', async () => {
     const activePage = buildPage('Projects/Note.md', 'Active body', 'page-active-2');
     const activeWithParent: Page = {
       ...activePage,
@@ -1809,10 +1809,31 @@ describe('VaultSyncService: external archive reconciliation', () => {
       '---\nid: page-active-2\nstatus: active\n---\nActive body'
     );
 
+    // Location is the archived state: archived without Clutter writing status: archived or provenance.
+    expect(vault.isPageEffectivelyArchived(moved)).toBe(true);
     const query = new VaultQuery(vault);
-    expect(query.getArchivedPages().map((page) => page.id)).not.toContain(
-      'page-active-2'
+    expect(query.getArchivedPages().map((page) => page.id)).toContain('page-active-2');
+  });
+
+  it('archived page moved OUT of Archive externally becomes active and its stale archive metadata is cleared', async () => {
+    const archivedPage = buildArchivedPage('Archive/Note.md', 'Body', 'page-archived-out');
+    const { vault, fileSystem, watcher } = setup(
+      [{ ...archivedPage, parentId: 'folder-archive' }],
+      [makeArchiveFolder(), makeProjectsFolder()]
     );
+
+    fileSystem.seedFile(`${ROOT}/Projects/Note.md`, archivedDiskDocument('page-archived-out', 'Body'));
+
+    watcher.emit({ type: 'moved', fromPath: 'Archive/Note.md', toPath: 'Projects/Note.md' });
+    await flush();
+
+    const moved = vault.getPage('page-archived-out')!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Note.md`);
+    expect(vault.isPageEffectivelyArchived(moved)).toBe(false);
+    expect(moved.metadata.status).toBe('active');
+    expect(moved.metadata.archivedAt).toBeNull();
+    expect(moved.metadata.originalPath).toBeNull();
+    expect(new VaultQuery(vault).getArchivedPages().map((page) => page.id)).not.toContain('page-archived-out');
   });
 
   it('stale archive metadata is repaired via changed event without a moved event', async () => {

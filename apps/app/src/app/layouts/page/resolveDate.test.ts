@@ -56,3 +56,36 @@ describe('createDateResolver', () => {
     });
   });
 });
+
+describe('createDateResolver in a read-only host (createMissing: false) — an archived note', () => {
+  const vaultWith = (existingPaths: string[]): Vault =>
+    ({ root: ROOT, getPageByPath: (path: string) => (existingPaths.includes(path) ? { id: 'daily' } : undefined) }) as unknown as Vault;
+  const PATH = `${ROOT}/Daily Notes/2026/August/2026-08-20.md`;
+
+  it('a date whose Daily Note does not exist opens nothing — no draft', () => {
+    const openAtPath = vi.fn();
+    const resolveDate = createDateResolver(vaultWith([]), fakePageOperations(openAtPath), { createMissing: false });
+
+    resolveDate('2026-08-20').activate();
+
+    expect(openAtPath).not.toHaveBeenCalled();
+  });
+
+  it('a date whose Daily Note exists still opens it', () => {
+    const openAtPath = vi.fn();
+    const resolveDate = createDateResolver(vaultWith([PATH]), fakePageOperations(openAtPath), { createMissing: false });
+
+    resolveDate('2026-08-20').activate();
+
+    expect(openAtPath).toHaveBeenCalledWith(PATH, { type: 'daily-note' });
+  });
+
+  it('the default still opens or drafts a missing one', () => {
+    const openAtPath = vi.fn();
+    const resolveDate = createDateResolver(vaultWith([]), fakePageOperations(openAtPath));
+
+    resolveDate('2026-08-20').activate();
+
+    expect(openAtPath).toHaveBeenCalledWith(PATH, { type: 'daily-note' });
+  });
+});

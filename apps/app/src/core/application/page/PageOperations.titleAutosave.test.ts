@@ -214,7 +214,7 @@ describe('PageOperations title channel (continuous commit + debounced autosave)'
     const moveSpy = vi.spyOn(inner, 'moveFile');
 
     pageOperations.commitTitle(page.id, 'Never persisted');
-    await pageOperations.delete(page.id);
+    await pageOperations.delete(page.id, { allowActive: true });
     moveSpy.mockClear();
 
     await vi.advanceTimersByTimeAsync(TITLE_AUTOSAVE_DEBOUNCE_MS + TITLE_AUTOSAVE_CEILING_MS);

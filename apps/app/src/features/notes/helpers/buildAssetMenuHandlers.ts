@@ -8,6 +8,8 @@ export interface AssetMenuActions {
   onRevealResourceInFinder?(resourceId: string): void;
   onCopyResourcePath?(resourceId: string, format: LocationPathFormat): void;
   onDownloadResource?(resourceId: string): void;
+  onRestoreResource?(resourceId: string): void;
+  onDeleteResource?(resourceId: string): void;
 }
 
 /**
@@ -24,6 +26,8 @@ export function buildAssetMenuHandlers(
     archive: () => actions.onArchiveResource?.(resourceId),
     'reveal-in-finder': () => actions.onRevealResourceInFinder?.(resourceId),
     download: () => actions.onDownloadResource?.(resourceId),
+    restore: () => actions.onRestoreResource?.(resourceId),
+    delete: () => actions.onDeleteResource?.(resourceId),
     'copy-path-at-vault': () => actions.onCopyResourcePath?.(resourceId, 'at-vault'),
     'copy-path-full-path': () => actions.onCopyResourcePath?.(resourceId, 'full-path'),
     'copy-path-as-markdown': () => actions.onCopyResourcePath?.(resourceId, 'as-markdown'),

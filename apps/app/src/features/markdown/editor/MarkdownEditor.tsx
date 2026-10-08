@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import { closeCompletion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import { isTauri } from '@tauri-apps/api/core';
@@ -16,7 +17,11 @@ import {
   getCachedEditorSession,
   setCachedEditorSession,
 } from './codemirror/editorHistoryCache';
-import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
+import {
+  buildSwitchableEditorExtensions,
+  switchEditorMode,
+  type BuildEditorExtensionsOptions,
+} from './codemirror/buildEditorExtensions';
 import { editorExitUp } from './codemirror/editorExitUp';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
@@ -236,6 +241,7 @@ export const MarkdownEditor = forwardRef<
     pageId,
     markdown,
     focusOnOpen,
+    readOnly = false,
     pendingReveal,
     onRevealApplied,
     foldStateStore,
@@ -294,6 +300,13 @@ export const MarkdownEditor = forwardRef<
    * itself.
    */
   const tableActiveCellControllerRef = useRef<TableActiveCellController | null>(null);
+  // The CURRENT mode, kept in a ref so everything captured at mount (the menu getters) reads the live value,
+  // and the options the extension factory was built from, kept so a mode switch can rebuild the mode-dependent
+  // groups on the live view.
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
+  const appliedReadOnlyRef = useRef(readOnly);
+  const extensionOptionsRef = useRef<Omit<BuildEditorExtensionsOptions, 'readOnly'> | null>(null);
   // The scroll ancestor's last known scrollTop, tracked continuously via
   // a `scroll` listener (see the mount effect below) rather than read
   // live at unmount. Necessary, not merely defensive — confirmed directly
@@ -1387,16 +1400,23 @@ export const MarkdownEditor = forwardRef<
     }
 
     view.dispatch({ effects: setRevealHighlight.of(clampedRanges) });
-    view.focus();
+
+    if (!readOnly) {
+      view.focus();
+    }
   }
 
   useImperativeHandle(ref, () => ({
     focus() {
+      if (readOnly) {
+        return;
+      }
+
       viewRef.current?.focus();
     },
     focusAtNewLineAtStart() {
       const view = viewRef.current;
-      if (!view) {
+      if (!view || readOnly) {
         return;
       }
       view.dispatch({
@@ -1408,7 +1428,7 @@ export const MarkdownEditor = forwardRef<
     },
     focusAtPoint(clientX, clientY) {
       const view = viewRef.current;
-      if (!view) {
+      if (!view || readOnly) {
         return;
       }
       const pos = view.posAtCoords({ x: clientX, y: clientY }, false);
@@ -1417,7 +1437,7 @@ export const MarkdownEditor = forwardRef<
     },
     focusAtTop(clientX) {
       const view = viewRef.current;
-      if (!view) {
+      if (!view || readOnly) {
         return;
       }
       const first = view.coordsAtPos(0);
@@ -1478,6 +1498,47 @@ export const MarkdownEditor = forwardRef<
     ]);
     tableActiveCellControllerRef.current = tableActiveCellController;
 
+    // The options of the extension factory, built once per mount and reused to switch the editor between
+    // editable and read-only on the live view. Every getter reads a ref, and the menu getters read the
+    // CURRENT mode (`readOnlyRef`), so a switch needs no rebuild of anything that holds them.
+    const extensionOptions = {
+      resolveWikiLink: () => resolveWikiLinkRef.current,
+      getWikiLinkSuggestions: () => getWikiLinkSuggestionsRef.current,
+      getEmbedSuggestions: () => getEmbedSuggestionsRef.current,
+      getEmbedHeadingSuggestions: () => getEmbedHeadingSuggestionsRef.current,
+      resolveEmbedImage: () => resolveEmbedImageRef.current,
+      resolveEmbedPdf: () => resolveEmbedPdfRef.current,
+      resolvePageEmbed: () => resolvePageEmbedRef.current,
+      onImageClick: () => onImageClickRef.current,
+      // A read-only editor offers no menu that changes the document or the embedded resource — the same
+      // stubs a note embed's nested view uses — instead of relying on CSS to hide the buttons that open them.
+      onOpenImageMenu: () => (readOnlyRef.current ? undefined : onOpenImageMenuRef.current),
+      onPdfEmbedClick: () => onPdfEmbedClickRef.current,
+      onOpenPdfMenu: () => (readOnlyRef.current ? undefined : onOpenPdfMenuRef.current),
+      onOpenPage: () => onOpenPageRef.current,
+      onOpenNoteEmbedMenu: () => (readOnlyRef.current ? undefined : onOpenNoteEmbedMenuRef.current),
+      onWikiLinkHover: () => wikiLinkHoverHandlersRef.current,
+      onOpenFencedCodeMenu: () => (readOnlyRef.current ? undefined : onOpenFencedCodeMenuRef.current),
+      onOpenUrlPasteMenu: () => (readOnlyRef.current ? undefined : onOpenUrlPasteMenuRef.current),
+      onOpenTableHandleMenu: () => (readOnlyRef.current ? undefined : onOpenTableHandleMenuRef.current),
+      resolveImageSrc: () => resolveImageSrcRef.current,
+      resolveTag: () => resolveTagRef.current,
+      getTagSuggestions: () => getTagSuggestionsRef.current,
+      resolveDate: () => resolveDateRef.current,
+      onTaskCheckboxToggled: () => onFlushRef.current?.(),
+      getTableActiveCellController: () => tableActiveCellControllerRef.current ?? undefined,
+      // Seeds this page's own id into the top-level ancestry so a note
+      // that embeds itself directly (`![[ThisPage]]`) is caught on
+      // first encounter, exactly like any other cycle — not just a
+      // cycle discovered one level of embedding deep. See
+      // `noteEmbedAncestry.ts`'s own doc comment.
+      ancestry: { ancestryPageIds: new Set([pageId]), depth: 0 },
+      getFoldStateStore: () => foldStateStoreRef.current,
+      hostPageId: pageId,
+    };
+    extensionOptionsRef.current = extensionOptions;
+    appliedReadOnlyRef.current = readOnly;
+
     const view = createEditorView({
       doc: markdown,
       parent: container,
@@ -1499,6 +1560,10 @@ export const MarkdownEditor = forwardRef<
       // createEditorView (see that option's own doc comment for why the
       // two are never merged into one restore-or-not decision).
       restoreFoldJSON: foldStateStore?.get(pageId),
+      // Read-only keeps folding: folding never changes the document, and a note's folded sections must
+      // stay expandable.
+      readOnly,
+      enableFolding: true,
       // The full rendering/interaction extension list is built by the one
       // shared factory (`buildEditorExtensions.ts`) a note embed's own
       // nested, permanently read-only `EditorView` also calls (from
@@ -1511,43 +1576,12 @@ export const MarkdownEditor = forwardRef<
       // `createEditorView()` call above implicitly uses — no explicit
       // `readOnly` option is passed to `createEditorView` for the
       // top-level editor, exactly as before this extraction.
-      extensions: [
-        ...buildEditorExtensions({
-        resolveWikiLink: () => resolveWikiLinkRef.current,
-        getWikiLinkSuggestions: () => getWikiLinkSuggestionsRef.current,
-        getEmbedSuggestions: () => getEmbedSuggestionsRef.current,
-        getEmbedHeadingSuggestions: () => getEmbedHeadingSuggestionsRef.current,
-        resolveEmbedImage: () => resolveEmbedImageRef.current,
-        resolveEmbedPdf: () => resolveEmbedPdfRef.current,
-        resolvePageEmbed: () => resolvePageEmbedRef.current,
-        onImageClick: () => onImageClickRef.current,
-        onOpenImageMenu: () => onOpenImageMenuRef.current,
-        onPdfEmbedClick: () => onPdfEmbedClickRef.current,
-        onOpenPdfMenu: () => onOpenPdfMenuRef.current,
-        onOpenPage: () => onOpenPageRef.current,
-        onOpenNoteEmbedMenu: () => onOpenNoteEmbedMenuRef.current,
-        onWikiLinkHover: () => wikiLinkHoverHandlersRef.current,
-        onOpenFencedCodeMenu: () => onOpenFencedCodeMenuRef.current,
-        onOpenUrlPasteMenu: () => onOpenUrlPasteMenuRef.current,
-        onOpenTableHandleMenu: () => onOpenTableHandleMenuRef.current,
-        resolveImageSrc: () => resolveImageSrcRef.current,
-        resolveTag: () => resolveTagRef.current,
-        getTagSuggestions: () => getTagSuggestionsRef.current,
-        resolveDate: () => resolveDateRef.current,
-        onTaskCheckboxToggled: () => onFlushRef.current?.(),
-        readOnly: false,
-        getTableActiveCellController: () => tableActiveCellControllerRef.current ?? undefined,
-        // Seeds this page's own id into the top-level ancestry so a note
-        // that embeds itself directly (`![[ThisPage]]`) is caught on
-        // first encounter, exactly like any other cycle — not just a
-        // cycle discovered one level of embedding deep. See
-        // `noteEmbedAncestry.ts`'s own doc comment.
-        ancestry: { ancestryPageIds: new Set([pageId]), depth: 0 },
-        getFoldStateStore: () => foldStateStoreRef.current,
-        hostPageId: pageId,
-      }),
+      // Mode-dependent groups live in compartments (buildSwitchableEditorExtensions), so archiving or restoring
+      // an open page re-configures THIS view instead of replacing it. Arrowing out of the top of the body into
+      // the title is a caret movement: the exit-up keymap exists only while editable.
+      extensions: buildSwitchableEditorExtensions(extensionOptions, readOnly, [
         editorExitUp(() => onExitUpRef.current),
-      ],
+      ]),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),
     });
@@ -1616,7 +1650,8 @@ export const MarkdownEditor = forwardRef<
     // fully constructed and attached (`createEditorView`'s `new
     // EditorView({..., parent})` already attaches synchronously —
     // `view.focus()` here is not called before that has happened).
-    if ((cachedSessionMatchesDoc && hasEstablishedEditingPosition(view)) || focusOnOpen) {
+    // A read-only editor never takes focus: there is no caret to place, and nothing to type.
+    if (!readOnly && ((cachedSessionMatchesDoc && hasEstablishedEditingPosition(view)) || focusOnOpen)) {
       view.focus();
     }
 
@@ -1732,6 +1767,44 @@ export const MarkdownEditor = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => activeEditorCleanupRef.current?.();
   }, []);
+
+  // Archiving or restoring an open page flips `readOnly` WITHOUT remounting: the live view is re-configured
+  // in place (`switchEditorMode`), so its document, history, selection, scroll, folds and every rendered
+  // widget carry on — images and PDFs do not reload. No focus is taken in either direction.
+  useEffect(() => {
+    const view = viewRef.current;
+    const options = extensionOptionsRef.current;
+
+    if (!view || !options || appliedReadOnlyRef.current === readOnly) {
+      return;
+    }
+
+    appliedReadOnlyRef.current = readOnly;
+
+    if (readOnly) {
+      // Editing UI that lives outside the document goes first: the active table cell's nested editor, and
+      // every menu that changes the document or an embedded resource. (Autocomplete and its popup go with
+      // the extensions that own them.)
+      tableActiveCellControllerRef.current?.deactivate();
+      // Closed explicitly, BEFORE its extension goes: it cancels the popup's pending timers, which would
+      // otherwise fire later against a state that no longer has the completion field.
+      closeCompletion(view);
+      closeImageMenu();
+      closePdfMenu();
+      closeNoteEmbedMenu();
+      closeTableHandleMenu();
+      closeFencedCodeMenu();
+      handleDismissUrlPaste();
+    }
+
+    switchEditorMode(view, options, readOnly, [editorExitUp(() => onExitUpRef.current)]);
+
+    if (readOnly && view.hasFocus) {
+      // A read-only editor holds no focus.
+      view.contentDOM.blur();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly]);
 
   // Applies a pending navigate-to-content reveal (Tasks sidebar "Open in
   // note", Tag collection "Open note", any future consumer of this same

@@ -112,6 +112,12 @@ type PageCoverProps = {
    * is a URL — one that already lives in the vault has nothing to save, so no item is offered.
    */
   onSaveToVault?: () => void;
+  /**
+   * `false` shows the cover and nothing else: no menu button, so no way to change, hide, remove,
+   * reposition or re-layout it (an archived page). Defaults to `true`. The cover itself and its stored
+   * metadata are untouched.
+   */
+  editable?: boolean;
   /** Saves the cover image file anywhere the user picks ("Download"). */
   onDownload?: () => void;
 };
@@ -148,6 +154,7 @@ export function PageCover({
   onSavePosition,
   hasEmoji,
   onSaveToVault,
+  editable = true,
   onDownload,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
@@ -389,53 +396,55 @@ export function PageCover({
       data-emoji-overlap={hasEmoji || undefined}
       data-repositioning={repositioning || undefined}
     >
-      <div className="page__cover__actions">
-        {repositioning ? (
-          <>
-            <Button
-              className="page__cover__reposition"
-              size="small"
-              onClick={handleSavePosition}
-            >
-              Save Position
-            </Button>
-            {/* Replaces the "More actions" kebab for the duration of
+      {editable && (
+        <div className="page__cover__actions">
+          {repositioning ? (
+            <>
+              <Button
+                className="page__cover__reposition"
+                size="small"
+                onClick={handleSavePosition}
+              >
+                Save Position
+              </Button>
+              {/* Replaces the "More actions" kebab for the duration of
                 repositioning — the kebab's own menu (Change cover image,
                 Position, Hide, Remove) has no meaning mid-drag, and this
                 is the one explicit way to cancel without saving by mouse
                 (Escape is the keyboard equivalent — both call the same
                 cancelRepositioning). */}
+              <Button
+                className="page__cover__cancel-reposition"
+                size="small"
+                isIconOnly
+                aria-label="Cancel repositioning"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  cancelRepositioning();
+                }}
+              >
+                <AppIcon icon="dismiss" />
+              </Button>
+            </>
+          ) : (
             <Button
-              className="page__cover__cancel-reposition"
+              className="page__cover__menu"
               size="small"
+              ref={triggerRef}
               isIconOnly
-              aria-label="Cancel repositioning"
+              aria-haspopup="menu"
+              aria-expanded={open}
+              aria-label="More actions"
               onClick={(event) => {
                 event.stopPropagation();
-                cancelRepositioning();
+                setOpen(!open);
               }}
             >
-              <AppIcon icon="dismiss" />
+              <AppIcon icon="moreVertical" />
             </Button>
-          </>
-        ) : (
-          <Button
-            className="page__cover__menu"
-            size="small"
-            ref={triggerRef}
-            isIconOnly
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label="More actions"
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpen(!open);
-            }}
-          >
-            <AppIcon icon="moreVertical" />
-          </Button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
       <Overlay
         open={open}
         onClose={() => setOpen(false)}

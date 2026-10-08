@@ -46,13 +46,12 @@ export function createEmbedSuggester(
   /** A loadable URL for a resource's file (its absolute path), for the popup's thumbnail. */
   resolveResourceUrl?: (path: string) => string,
   /**
-   * Whether a note is archived (itself, or inside an archived folder). Archived notes are not
-   * offered — except Daily Notes, which stay embeddable once archived. Default: none are.
+   * Whether a note is archived (itself, or inside an archived folder). Archived notes — Daily Notes
+   * included — are not offered. Default: the vault's own rule, `Vault.isPageEffectivelyArchived`.
    */
-  isArchived: (page: Page) => boolean = () => false
+  isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page)
 ): GetEmbedSuggestions {
-  const embeddablePages = () =>
-    Array.from(vault.pages()).filter((page) => page.type === 'daily-note' || !isArchived(page));
+  const embeddablePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
 
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();

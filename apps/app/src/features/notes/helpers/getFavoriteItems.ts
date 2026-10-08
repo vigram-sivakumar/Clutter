@@ -24,7 +24,9 @@ function toFavoriteItem(
     titleStyle,
     emoji,
     type: isPage ? 'note' : 'folder',
-    status: isPage ? undefined : entry.metadata.status,
+    // Favorites list only items outside Archive/ (location decides), so a folder here is active
+    // whatever stale provenance its own status carries.
+    status: isPage ? undefined : 'active',
     // A page knows it is a Template (EffectivePage.isTemplate); a folder sits in a Move hierarchy.
     isTemplate: isPage && entry.isTemplate ? true : undefined,
     moveZone: isPage ? undefined : assetsZoneOnly(getFolderMoveZone(entry.id)),

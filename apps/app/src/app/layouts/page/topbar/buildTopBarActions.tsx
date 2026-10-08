@@ -51,7 +51,8 @@ function buildMenuForType(
   state: TopBarPageState,
   isFavorite: boolean,
   isDeletable: boolean,
-  isTemplate: boolean = false
+  isTemplate: boolean = false,
+  isEffectivelyArchived: boolean = false
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
@@ -63,6 +64,7 @@ function buildMenuForType(
           isFavorite,
           isDeletable,
           isTemplate,
+          isEffectivelyArchived,
         },
         'topbar'
       );
@@ -75,6 +77,7 @@ function buildMenuForType(
           isDraft: state === 'draft',
           status: state === 'archived' ? 'archived' : 'active',
           isDeletable,
+          isEffectivelyArchived,
         },
         'topbar'
       );
@@ -160,9 +163,15 @@ export function buildTopBarActions(
   // MembershipSelector.isEffectivelyArchived already owns (ADR-026 §5), so
   // this composes that existing predicate with the resource's own status
   // rather than adding a new selector method or a parallel ad hoc check.
-  const isDeletable =
-    resource.metadata.status === 'archived' ||
-    options.membershipSelector.isEffectivelyArchived(resource.parentId);
+  // The shared effectively-archived policy (MembershipSelector.isEntityEffectivelyArchived): the
+  // resource itself or an archived folder above it. Also what hides every organizing/editing action.
+  const isEffectivelyArchived = options.membershipSelector.isEntityEffectivelyArchived(resource);
+  const isDeletable = isEffectivelyArchived;
+  // What the menu calls "archived" (and so offers Restore for) is location too: the item sits directly in
+  // Archive/. A deeper one is archived along with its folder and has Delete only.
+  const restorableState: 'active' | 'archived' = options.membershipSelector.isRestorable(resource)
+    ? 'archived'
+    : 'active';
   const menu = !isPage(resource) && resourceType === 'reserved-folder'
     ? options.onDeleteAll
       ? buildArchiveTopBarMenu(options.archiveIsEmpty ?? false)
@@ -170,14 +179,15 @@ export function buildTopBarActions(
     : isPage(resource)
     ? buildMenuForType(
         resource.type,
-        resource.metadata.status,
+        restorableState,
         isFavorite,
         isDeletable,
-        options.membershipSelector.isInTemplatesFolder(resource.parentId)
+        options.membershipSelector.isInTemplatesFolder(resource.parentId),
+        isEffectivelyArchived
       )
     : buildResourceActionMenu(
         'folder',
-        { status: resource.metadata.status, isFavorite, isDeletable },
+        { status: restorableState, isFavorite, isDeletable, isEffectivelyArchived },
         'topbar'
       );
 
@@ -211,7 +221,9 @@ export function buildTopBarActions(
       onMove: options.onMove,
       onCreateFolder: options.onCreateFolder,
       isFavorite,
-      onToggleFavorite: isFavoritable ? options.onToggleFavorite : undefined,
+      // An archived resource keeps its favorite flag (it returns to Favorites on restore) but has no
+      // star to change it from.
+      onToggleFavorite: isFavoritable && !isEffectivelyArchived ? options.onToggleFavorite : undefined,
       onRevealInFinder,
       onCopyPath,
     }),

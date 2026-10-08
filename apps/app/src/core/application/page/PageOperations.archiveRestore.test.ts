@@ -680,47 +680,73 @@ describe('PageOperations.restore()', () => {
   // status: 'archived' with no originalPath at all — no app-initiated
   // archive ever produces this (computeArchiveMetadataPatch always sets
   // originalPath), so there is no reliable original filename to recover.
-  // Per the agreed contract, restore goes straight to the vault root using
-  // the current (possibly timestamped) filename — never Inbox, never
-  // derived from originalParentId, and no new fallback mechanism.
-  it('originalPath is null (malformed/external archive): restores to vault root using the current filename, never Inbox', async () => {
-    const malformedArchive = new PageBuilder().build({
+  // A page with no recorded original location (it was put in Archive/ from outside Clutter — archived state is
+  // location) is NOT silently sent anywhere: the restore asks for a destination, and nothing moves until one is given.
+  const noProvenanceArchive = () =>
+    new PageBuilder().build({
       parentId: ARCHIVE_FOLDER_ID,
       page: {
         path: `${ROOT}/Archive/Test 2026-08-12 16.43.01.md`,
         directoryPath: `${ROOT}/Archive`,
-        frontmatter: {
-          id: 'page-1',
-          status: 'archived',
-          // originalPath deliberately omitted -> resolvePageMetadata
-          // defaults it to null.
-        },
+        // No status and no originalPath: just a file somebody dropped into Archive/.
+        frontmatter: { id: 'page-1' },
         frontmatterAnalysis: { aliases: [] },
         content: 'Content that must survive restoring.',
-        analysis: {
-          headings: [],
-          blockReferences: [],
-          tasks: [],
-          tags: [],
-          links: [],
-          embeds: [],
-        },
+        analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
       },
     });
-    expect(malformedArchive.metadata.originalPath).toBeNull();
 
-    const vault = makeVault([malformedArchive], [makeArchiveFolder(), makeInboxFolder()]);
-    const { fileSystem, pageOperations } = setup(malformedArchive, vault);
+  it('no recorded original location: restore asks for a destination, moves nothing, and invents no provenance', async () => {
+    const dropped = noProvenanceArchive();
+    expect(dropped.metadata.originalPath).toBeNull();
+    const vault = makeVault([dropped], [makeArchiveFolder(), makeInboxFolder()]);
+    const { fileSystem, pageOperations } = setup(dropped, vault);
 
-    await pageOperations.restore(malformedArchive.id);
+    const outcome = await pageOperations.restore(dropped.id);
 
-    const restored = vault.getPage(malformedArchive.id)!;
+    expect(outcome).toEqual({ status: 'needs-destination' });
+    const unchanged = vault.getPage(dropped.id)!;
+    expect(unchanged.path).toBe(dropped.path);
+    expect(unchanged.metadata.originalPath).toBeNull();
+    expect(fileSystem.hasFileSync(dropped.path)).toBe(true);
+  });
+
+  it('with a chosen destination it restores there — the vault root, or a folder — keeping the current filename', async () => {
+    const dropped = noProvenanceArchive();
+    const vault = makeVault([dropped], [makeArchiveFolder(), makeInboxFolder()]);
+    const { fileSystem, pageOperations } = setup(dropped, vault);
+
+    const toRoot = await pageOperations.restore(dropped.id, { destinationFolderId: null });
+
+    expect(toRoot).toEqual({ status: 'restored', movedToInbox: false });
+    const restored = vault.getPage(dropped.id)!;
     expect(restored.path).toBe(`${ROOT}/Test 2026-08-12 16.43.01.md`);
     expect(restored.parentId).toBeNull();
     expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.originalPath).toBeNull();
     expect(fileSystem.hasFileSync(`${ROOT}/Test 2026-08-12 16.43.01.md`)).toBe(true);
-    // Never Inbox, even though Inbox exists in the vault.
-    expect(fileSystem.hasFileSync(`${ROOT}/Inbox/Test 2026-08-12 16.43.01.md`)).toBe(false);
+  });
+
+  it('a chosen folder is honoured', async () => {
+    const dropped = noProvenanceArchive();
+    const vault = makeVault([dropped], [makeArchiveFolder(), makeInboxFolder()]);
+    const { pageOperations } = setup(dropped, vault);
+
+    await pageOperations.restore(dropped.id, { destinationFolderId: 'folder-inbox' });
+
+    expect(vault.getPage(dropped.id)!.path).toBe(`${ROOT}/Inbox/Test 2026-08-12 16.43.01.md`);
+  });
+
+  it('an app-archived page (with provenance) still restores to its original place with no question asked', async () => {
+    const page = buildActivePage({});
+    const vault = makeVault([page], [makeArchiveFolder()]);
+    const { pageOperations } = setup(page, vault);
+    await pageOperations.archive(page.id);
+
+    const outcome = await pageOperations.restore(page.id);
+
+    expect(outcome).toEqual({ status: 'restored', movedToInbox: false });
+    expect(vault.getPage(page.id)!.path).toBe(page.path);
   });
 
   it('reports a conflict (never overwrites) when the restore destination path is already occupied', async () => {

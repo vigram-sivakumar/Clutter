@@ -316,19 +316,19 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
   });
 });
 
-describe('CollectionViewMenu — the archive date, labelled "Archived" (Archive collection only)', () => {
+describe('CollectionViewMenu — the archive date, labelled "Archived date" (Archive collection only)', () => {
   it('offers no Archived property or sort option for an ordinary collection', () => {
     const { getByText, queryByText } = renderMenu();
 
-    expect(queryByText('Archived')).not.toBeInTheDocument();
+    expect(queryByText('Archived date')).not.toBeInTheDocument();
     openPropertiesSubmenu(getByText);
-    expect(queryByText('Archived')).not.toBeInTheDocument();
+    expect(queryByText('Archived date')).not.toBeInTheDocument();
   });
 
   it('the Archive offers an Archived sort option', () => {
     const { getByText, onSortChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
-    fireEvent.click(getByText('Archived'));
+    fireEvent.click(getByText('Archived date'));
 
     expect(onSortChange).toHaveBeenCalledWith({ property: 'archived', direction: 'down' });
   });
@@ -337,7 +337,7 @@ describe('CollectionViewMenu — the archive date, labelled "Archived" (Archive 
     const { getByText, onPropertyChange } = renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
     openPropertiesSubmenu(getByText);
-    fireEvent.click(getByText('Archived'));
+    fireEvent.click(getByText('Archived date'));
 
     expect(onPropertyChange).toHaveBeenCalledWith('archived', false);
   });
@@ -458,10 +458,10 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     }
   });
 
-  it('the Archive: Name, Type, Archived — no Description, Cover image, File size, Created or Last edited', () => {
+  it('the Archive: Name, Type, Description, Archived — no Cover image, File size, Created or Last edited', () => {
     renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
-    expect(sortLabels()).toEqual(['Name', 'Type', 'Archived']);
+    expect(sortLabels()).toEqual(['Name', 'Type', 'Description', 'Archived date']);
   });
 
   it('assets: Name and their file facts — File size, Created, Last edited — with the same active-row direction toggle', () => {
@@ -469,7 +469,7 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
 
     expect(sortLabels()).toEqual(['Name', 'File size', 'Created', 'Last edited']);
     // Nothing note-specific is offered.
-    for (const absent of ['Description', 'Cover image', 'Archived']) {
+    for (const absent of ['Description', 'Cover image', 'Archived date']) {
       expect(menuLabels()).not.toContain(absent);
     }
 

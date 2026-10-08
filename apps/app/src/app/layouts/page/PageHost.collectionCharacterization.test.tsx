@@ -363,7 +363,7 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
     await renderFolder(ARCHIVE);
 
     // Name, then its visible properties in registry order — Type is one of them.
-    expect(tableHeaders()).toEqual(['Name', 'Type', 'Archived']);
+    expect(tableHeaders()).toEqual(['Name', 'Type', 'Archived date']);
   });
 
   it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {

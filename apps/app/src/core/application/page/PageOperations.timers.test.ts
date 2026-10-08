@@ -202,7 +202,7 @@ describe('PageOperations: autosave timers, end-to-end through commitEdit/request
     const writeSpy = vi.spyOn(inner, 'writeFile');
 
     pageOperations.commitEdit(page.id, 'Never persisted');
-    await pageOperations.delete(page.id);
+    await pageOperations.delete(page.id, { allowActive: true });
     writeSpy.mockClear(); // delete() itself writes nothing here (file already gone), but clear to isolate the assertion below
 
     await vi.advanceTimersByTimeAsync(

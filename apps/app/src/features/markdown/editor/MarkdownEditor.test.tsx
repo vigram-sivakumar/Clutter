@@ -1827,3 +1827,112 @@ describe('MarkdownEditor: image options menu — Save to vault', () => {
   });
 });
 
+
+describe('MarkdownEditor readOnly (an archived note)', () => {
+  it('renders the document non-editable, takes no focus on open, and ignores the focus handle', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(
+      <MarkdownEditor pageId="ro-page" ref={ref} markdown="# Heading\n\nBody" readOnly focusOnOpen />
+    );
+    const content = container.querySelector('.cm-content') as HTMLElement;
+
+    expect(content.getAttribute('contenteditable')).toBe('false');
+    expect(document.activeElement).not.toBe(content);
+
+    ref.current?.focus();
+    ref.current?.focusAtTop?.(0);
+
+    expect(document.activeElement).not.toBe(content);
+    expect(content.textContent).toContain('Body');
+  });
+
+  it('focusAtNewLineAtStart does not insert anything', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(<MarkdownEditor pageId="ro-page" ref={ref} markdown="Existing" readOnly />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    ref.current?.focusAtNewLineAtStart();
+
+    expect(view.state.doc.toString()).toBe('Existing');
+  });
+
+  it('typing is refused, and no edit is reported to the host', () => {
+    const onEdit = vi.fn();
+    const { container } = render(<MarkdownEditor pageId="ro-page" markdown="Existing" readOnly onEdit={onEdit} />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    view.dispatch({ changes: { from: 0, insert: 'X' } });
+
+    expect(view.state.doc.toString()).toBe('Existing');
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it('follows the stored document when it changes elsewhere', () => {
+    const { container, rerender } = render(<MarkdownEditor pageId="ro-page" markdown="Before" readOnly />);
+
+    rerender(<MarkdownEditor pageId="ro-page" markdown="After a tag rename" readOnly />);
+
+    expect(EditorView.findFromDOM(container as unknown as HTMLElement)!.state.doc.toString()).toBe('After a tag rename');
+  });
+
+  it('keeps folding: a heading section can be folded and its state is saved', async () => {
+    const foldStateStore = await FoldStateStore.load(new InMemoryVaultFileSystem(), '/vault');
+    const { container, unmount } = render(
+      <MarkdownEditor pageId="ro-fold" markdown={'# Heading\n\nBody'} readOnly foldStateStore={foldStateStore} />
+    );
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    view.dispatch({ effects: foldEffect.of({ from: 9, to: view.state.doc.length }) });
+    expect(view.state.field(foldState).size).toBeGreaterThan(0);
+
+    unmount();
+    expect(foldStateStore.get('ro-fold')).toBeDefined();
+  });
+
+  it('an editable editor is unchanged: contenteditable, and the focus handle works', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(<MarkdownEditor pageId="rw-page" ref={ref} markdown="Hello" />);
+    const content = container.querySelector('.cm-content') as HTMLElement;
+
+    expect(content.getAttribute('contenteditable')).toBe('true');
+    ref.current?.focus();
+    expect(document.activeElement).toBe(content);
+  });
+});
+
+describe('MarkdownEditor readOnly: embedded images open no mutating menu', () => {
+  const IMAGE_MD = '![Mountain view](https://example.com/mountain.jpg)';
+
+  /** Clicks every control button on the image and reports whether any of them opened a menu. */
+  const clickControlsOpensMenu = (): boolean => {
+    for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>('.cm-media-controls button'))) {
+      fireEvent.mouseDown(button);
+      fireEvent.click(button);
+
+      if (document.querySelector('[role="menu"], .menu')) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  it('an editable editor\'s image controls open the image options menu', () => {
+    render(<MarkdownEditor pageId="rw-img" markdown={IMAGE_MD} onOpenImageOverlay={vi.fn()} />);
+
+    expect(clickControlsOpensMenu()).toBe(true);
+  });
+
+  it('a read-only editor\'s image controls open nothing (the getters are stubbed, not just hidden by CSS) — and clicking the image still opens the viewer', () => {
+    const onOpenImageOverlay = vi.fn();
+    render(<MarkdownEditor pageId="ro-img" markdown={IMAGE_MD} readOnly onOpenImageOverlay={onOpenImageOverlay} />);
+
+    expect(clickControlsOpensMenu()).toBe(false);
+
+    const imageButton = document.querySelector('button.cm-image-button') as HTMLButtonElement;
+    fireEvent.mouseDown(imageButton);
+    fireEvent.click(imageButton);
+
+    expect(onOpenImageOverlay).toHaveBeenCalledTimes(1);
+  });
+});

@@ -146,7 +146,7 @@ describe('CollectionDataTable', () => {
     expect(rows).toHaveLength(2);
     expect(last).toHaveClass('collection-table-row--new-item');
     expect(last).toHaveTextContent('New Note');
-    expect(last.querySelector('.collection-row--tone-action')).not.toBeNull();
+    expect(last.querySelector('.collection-entry--new')).not.toBeNull();
     fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);
   });

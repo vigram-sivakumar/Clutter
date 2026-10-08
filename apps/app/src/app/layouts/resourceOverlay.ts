@@ -33,6 +33,18 @@ export type ResourceOverlayState =
       readonly kind: 'image';
       readonly image: ImageOverlayImage;
       readonly onSetCoverImage?: () => void;
+      /**
+       * `false` for an image shown without any action on it (opened from an archived note, or from the
+       * Archive): the overlay then offers neither the vault-file menu nor the URL menu a resource-less
+       * image would otherwise get. Absent means actions are offered, as before.
+       */
+      readonly actionsEnabled?: boolean;
     }
-  | { readonly kind: 'pdf'; readonly resource: VaultResource; readonly actionsEnabled: boolean }
+  | {
+      readonly kind: 'pdf';
+      readonly resource: VaultResource;
+      readonly actionsEnabled: boolean;
+      /** The file is archived (opened from the Archive): its viewer offers Restore and Delete only. */
+      readonly archived?: boolean;
+    }
   | null;

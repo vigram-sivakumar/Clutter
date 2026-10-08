@@ -288,7 +288,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
       vaultRoot: ROOT,
       onDelete: () => void folderOperations.delete(archivedFolder.id),
       deleteConfirmationMessage:
-        'Delete this folder and everything inside it? This will permanently delete 0 folder(s) and 1 page(s). This cannot be undone.',
+        'Delete this folder and everything inside it? This will permanently delete 0 folder(s) and 1 page(s). You can’t undo this action.',
     });
     render(<>{actions}</>);
     openOverflowMenu();
@@ -314,7 +314,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
       membershipSelector,
       vaultRoot: ROOT,
       onDelete: () => void folderOperations.delete(archivedFolder.id),
-      deleteConfirmationMessage: 'This cannot be undone.',
+      deleteConfirmationMessage: 'You can’t undo this action.',
     });
     render(<>{actions}</>);
     openOverflowMenu();
@@ -339,7 +339,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
       membershipSelector,
       vaultRoot: ROOT,
       onDelete: () => void pageOperations.delete(page.id),
-      deleteConfirmationMessage: 'This cannot be undone.',
+      deleteConfirmationMessage: 'You can’t undo this action.',
     });
     render(<>{actions}</>);
     openOverflowMenu();
@@ -608,5 +608,56 @@ describe('buildTopBarActions: Create template', () => {
     openOverflowMenu();
 
     expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+  });
+});
+
+describe('buildTopBarActions: archived resources hide inapplicable actions (Phase 2)', () => {
+  const NOT_OFFERED = ['Duplicate', 'Move to…', 'Use as template', 'Copy path', 'Create template', 'Reveal in Finder', 'Rename'];
+  const expectOnlyRestoreAndDelete = () => {
+    openOverflowMenu();
+    expect(screen.getByText('Restore')).toBeInTheDocument();
+    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
+    for (const label of NOT_OFFERED) {
+      expect(screen.queryByText(label), label).not.toBeInTheDocument();
+    }
+  };
+
+  it('an archived note offers Restore and Delete only — nothing shown disabled', () => {
+    const page = makePage('page-1', `${ROOT}/Archive/Note.md`, null, 'archived');
+    const { membershipSelector } = setup([], [page]);
+
+    render(<>{buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT }).actions}</>);
+    expectOnlyRestoreAndDelete();
+  });
+
+  it('a note inside an archived folder (own status active) is treated the same', () => {
+    const archivedFolder = makeFolder('folder-1', `${ROOT}/Archive/Projects`, null, 'archived');
+    const page = makePage('page-1', `${ROOT}/Archive/Projects/Note.md`, 'folder-1', 'active');
+    const { membershipSelector } = setup([archivedFolder], [page]);
+
+    render(<>{buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT }).actions}</>);
+    openOverflowMenu();
+    for (const label of NOT_OFFERED) {
+      expect(screen.queryByText(label), label).not.toBeInTheDocument();
+    }
+    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
+  });
+
+  it('an archived folder offers Restore and Delete only', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Archive/Projects`, null, 'archived');
+    const { membershipSelector } = setup([folder]);
+
+    render(<>{buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT }).actions}</>);
+    expectOnlyRestoreAndDelete();
+  });
+
+  it('an active note keeps its organizing actions', () => {
+    const page = makePage('page-1', `${ROOT}/Note.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    render(<>{buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT }).actions}</>);
+    openOverflowMenu();
+    expect(screen.getByText('Duplicate')).toBeInTheDocument();
+    expect(screen.getByText('Move to…')).toBeInTheDocument();
   });
 });

@@ -126,22 +126,25 @@ export class VaultQuery {
     return sortResources(Array.from(this.vault.resources()));
   }
 
+  /**
+   * Favorites are active-app resources: an archived one — or one inside an archived folder — keeps its
+   * `favorite` flag but is not listed, and returns when restored.
+   */
   public getFavoriteFolders(): Folder[] {
     return Array.from(this.vault.folders()).filter(
-      (folder) =>
-        folder.metadata.favorite && folder.metadata.status !== 'archived'
+      (folder) => folder.metadata.favorite && !this.vault.isFolderEffectivelyArchived(folder.id)
     );
   }
 
   public getFavoritePages(): Page[] {
     return Array.from(this.vault.pages()).filter(
-      (page) => page.metadata.favorite && page.metadata.status !== 'archived'
+      (page) => page.metadata.favorite && !this.vault.isPageEffectivelyArchived(page)
     );
   }
 
   public getArchivedPages(): Page[] {
     return Array.from(this.vault.pages()).filter(
-      (page) => page.metadata.status === 'archived'
+      (page) => this.vault.isPageEffectivelyArchived(page)
     );
   }
 

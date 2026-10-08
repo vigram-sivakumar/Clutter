@@ -598,7 +598,7 @@ export class TagOperations {
           );
           changed = true;
 
-          if (session && page.metadata.status !== 'archived') {
+          if (session && !this.vault.isPageEffectivelyArchived(page)) {
             await this.pageOperations.requestSave(page.id);
           }
         }

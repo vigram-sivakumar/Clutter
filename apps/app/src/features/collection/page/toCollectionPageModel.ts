@@ -84,6 +84,16 @@ function toCollectionEntry(
 ): CollectionEntryModel {
   const type = isFolder(entry) ? 'folder' : 'note';
   const { title, icon, emoji } = buildEntryPresentation(entry);
+  // An active folder counts what the active app shows inside it; an archived one (a row in the Archive)
+  // counts what it physically holds, since the active views return nothing for an archived parent.
+  const folderCounts = isFolder(entry)
+    ? membershipSelector.isEffectivelyArchived(entry.id)
+      ? membershipSelector.countChildren(entry.id)
+      : {
+          subfolders: membershipSelector.getVisibleChildFolders(entry.id).length,
+          notes: membershipSelector.getVisibleChildPages(entry.id).length,
+        }
+    : undefined;
 
   return {
     id: entry.id,
@@ -94,12 +104,8 @@ function toCollectionEntry(
     values: isFolder(entry) ? toFolderValues(title, entry) : toNoteValues(title, entry),
     markdown: isFolder(entry) ? undefined : entry.markdown,
     coverPositionAbove: isFolder(entry) ? undefined : entry.coverPositionAbove,
-    subfolderCount: isFolder(entry)
-      ? membershipSelector.getVisibleChildFolders(entry.id).length
-      : undefined,
-    noteCount: isFolder(entry)
-      ? membershipSelector.getVisibleChildPages(entry.id).length
-      : undefined,
+    subfolderCount: isFolder(entry) ? folderCounts?.subfolders : undefined,
+    noteCount: isFolder(entry) ? folderCounts?.notes : undefined,
     onClick: () => {
       if (isFolder(entry)) {
         actions.onOpenFolder(entry.id);
@@ -276,14 +282,18 @@ function toFolderCollectionPageModel(
   // getVisibleChildPages apply that one presentation filter without
   // narrowing by page type, since a folder's own Collection page shows
   // every child it has, not just Notes.
-  const folders = membershipSelector
-    .getVisibleChildFolders(folder.id)
-    .map((child) =>
-      toCollectionEntry(child, actions, workspace.activeFolderId === child.id, membershipSelector)
-    );
+  // An archived folder's own page shows its real contents (the active views return nothing for an
+  // archived parent), read-only; every other folder lists what the active app shows inside it.
+  const archivedContents = membershipSelector.isEffectivelyArchived(folder.id)
+    ? membershipSelector.getArchivedFolderContents(folder.id)
+    : undefined;
 
-  const notes = membershipSelector
-    .getVisibleChildPages(folder.id)
+  const folders = (archivedContents?.folders ?? membershipSelector.getVisibleChildFolders(folder.id)).map(
+    (child) =>
+      toCollectionEntry(child, actions, workspace.activeFolderId === child.id, membershipSelector)
+  );
+
+  const notes = (archivedContents?.pages ?? membershipSelector.getVisibleChildPages(folder.id))
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id, membershipSelector)
     );

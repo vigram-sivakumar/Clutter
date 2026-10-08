@@ -43,12 +43,12 @@ describe('PageTitleSection — PageHeaderControls wiring', () => {
     const { rerender } = render(<PageTitleSection title="Untitled" />);
     expect(screen.queryByRole('button', { name: 'Change emoji' })).not.toBeInTheDocument();
 
-    rerender(<PageTitleSection title="Untitled" emoji="📌" />);
+    rerender(<PageTitleSection title="Untitled" emoji="📌" onSelectEmoji={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Change emoji' })).toBeInTheDocument();
   });
 
   it('renders the emoji before More actions, matching the required [emoji] [More actions] order', () => {
-    render(<PageTitleSection title="Untitled" emoji="📌" onEditDescription={vi.fn()} />);
+    render(<PageTitleSection title="Untitled" emoji="📌" onSelectEmoji={vi.fn()} onEditDescription={vi.fn()} />);
 
     const controls = document.querySelector('.page-header-controls');
     const buttons = controls!.querySelectorAll('button');
@@ -112,7 +112,7 @@ describe('PageTitleSection — belowDescription slot', () => {
 
 describe('PageTitleSection — the three page-header-controls configurations', () => {
   it('user-owned (e.g. a Note/Folder/Tag): shows the emoji when set, and always mounts More actions', () => {
-    render(<PageTitleSection title="My Note" emoji="🍄" onEditDescription={vi.fn()} />);
+    render(<PageTitleSection title="My Note" emoji="🍄" onSelectEmoji={vi.fn()} onEditDescription={vi.fn()} />);
 
     expect(screen.getByRole('button', { name: 'Change emoji' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
@@ -205,7 +205,7 @@ describe('PageTitleSection — there is no cover-image control in the header its
 
   it('keeps the controls to [emoji] [More actions] even when a cover is set', () => {
     render(
-      <PageTitleSection title="My Note" emoji="🍄" onSetCoverImage={vi.fn()} onEditDescription={vi.fn()} hasCoverImage />
+      <PageTitleSection title="My Note" emoji="🍄" onSelectEmoji={vi.fn()} onSetCoverImage={vi.fn()} onEditDescription={vi.fn()} hasCoverImage />
     );
 
     const controls = document.querySelector('.page-header-controls')!;
@@ -239,5 +239,15 @@ describe('PageTitleSection — there is no cover-image control in the header its
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
 
     expect(screen.getByText('Cover image')).toBeInTheDocument();
+  });
+});
+
+describe('PageTitleSection — an emoji nothing can change (an archived page)', () => {
+  it('is shown, but is not a button: no Change emoji control and no picker', () => {
+    const { container } = render(<PageTitleSection title="Old" emoji="🍄" />);
+
+    expect(screen.queryByRole('button', { name: 'Change emoji' })).not.toBeInTheDocument();
+    expect(container.querySelector('.page-header-controls__emoji--static')?.textContent).toContain('🍄');
+    expect(container.querySelector('button.page-header-controls__emoji')).toBeNull();
   });
 });

@@ -36,7 +36,7 @@ export async function reconcilePageTemplateMarker(
   deps: ReconcileTemplateMetadataDeps,
   page: Page
 ): Promise<Page | null> {
-  if (page.metadata.status === 'archived') {
+  if (deps.vault.isPageEffectivelyArchived(page)) {
     return null;
   }
 

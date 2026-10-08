@@ -402,9 +402,10 @@ describe('MembershipSelector Notes/Daily Notes classification (ADR-023 §4)', ()
 });
 
 describe('MembershipSelector.isArchivedPage', () => {
-  it('delegates to the same metadata.status predicate VaultQuery.getArchivedPages uses', () => {
+  it('is location: archived exactly when the page sits inside Archive/, whatever its status says', () => {
     const archived = makePage({
       id: 'archived-1',
+      path: `${ROOT}/Archive/archived-1.md`,
       metadata: { ...defaultPageMetadata, status: 'archived' },
     });
     const active = makePage({ id: 'active-1' });
@@ -454,9 +455,10 @@ describe('MembershipSelector.isEffectivelyArchived (ADR-026 §5)', () => {
     expect(membershipSelector.isEffectivelyArchived(null)).toBe(false);
   });
 
-  it('is true for an archived folder itself', () => {
+  it('is true for a folder inside Archive/ itself', () => {
     const archived = makeFolder({
       id: 'folder-1',
+      path: `${ROOT}/Archive/Folder`,
       metadata: { ...defaultFolderMetadata, status: 'archived' },
     });
     const { membershipSelector } = setup([archived]);
@@ -1096,9 +1098,9 @@ describe('MembershipSelector.getAllAssets (ADR-039)', () => {
       metadata: { ...defaultFolderMetadata, status: 'archived' },
     });
     const pages = [
-      pageWith({ id: 'archived', metadata: { ...defaultPageMetadata, status: 'archived' }, source: { markdown: `![](${remote})` } }),
+      pageWith({ id: 'archived', path: `${ROOT}/Archive/archived.md`, metadata: { ...defaultPageMetadata, status: 'archived' }, source: { markdown: `![](${remote})` } }),
       pageWith({ id: 'hidden', name: '.Secret', source: { markdown: '![](https://example.com/hidden.png)' } }),
-      pageWith({ id: 'nested', parentId: 'old', source: { markdown: '![](https://example.com/nested.png)' } }),
+      pageWith({ id: 'nested', path: `${ROOT}/Archive/Old/nested.md`, parentId: 'old', source: { markdown: '![](https://example.com/nested.png)' } }),
     ];
     const { membershipSelector } = setup([archivedFolder], pages);
 
@@ -1129,7 +1131,7 @@ describe('MembershipSelector.getAllVisiblePages (what the note picker and other 
     const archivedFolder = makeFolder({
       id: 'old',
       name: 'Old',
-      path: `${ROOT}/Old`,
+      path: `${ROOT}/Archive/Old`,
       metadata: { ...defaultFolderMetadata, status: 'archived' },
     });
     const pages = [
@@ -1140,11 +1142,90 @@ describe('MembershipSelector.getAllVisiblePages (what the note picker and other 
         path: `${ROOT}/Archive/Archived.md`,
         metadata: { ...defaultPageMetadata, status: 'archived' },
       }),
-      makePage({ id: 'in-archived-folder', name: 'Inside', path: `${ROOT}/Old/Inside.md`, parentId: 'old' }),
+      makePage({ id: 'in-archived-folder', name: 'Inside', path: `${ROOT}/Archive/Old/Inside.md`, parentId: 'old' }),
       makePage({ id: 'hidden', name: '.hidden', path: `${ROOT}/.hidden.md` }),
     ];
     const { membershipSelector } = setup([archivedFolder], pages);
 
     expect(membershipSelector.getAllVisiblePages().map((page) => page.id)).toEqual(['live']);
+  });
+});
+
+describe('MembershipSelector.isEntityEffectivelyArchived — archived state is physical location', () => {
+  const archiveFolder = makeFolder({ id: 'folder-archive', name: 'Archive', path: `${ROOT}/Archive`, parentId: null });
+  const archivedFolder = makeFolder({
+    id: 'folder-archived',
+    name: 'Old',
+    path: `${ROOT}/Archive/Old`,
+    parentId: 'folder-archive',
+    metadata: { ...defaultFolderMetadata, status: 'archived' },
+  });
+  const activeFolder = makeFolder({ id: 'folder-active', name: 'Projects', path: `${ROOT}/Projects` });
+  const folders = [archiveFolder, archivedFolder, activeFolder];
+  const archivedMeta = { ...defaultPageMetadata, status: 'archived' as const };
+
+  it('FOUR STATES — a Note: status archived or active INSIDE Archive/ is archived; either status OUTSIDE it is active', () => {
+    const inArchiveArchivedStatus = makePage({ id: 'a', path: `${ROOT}/Archive/a.md`, parentId: 'folder-archive', metadata: archivedMeta });
+    const inArchiveActiveStatus = makePage({ id: 'b', path: `${ROOT}/Archive/b.md`, parentId: 'folder-archive' });
+    const outsideArchivedStatus = makePage({ id: 'c', path: `${ROOT}/c.md`, metadata: archivedMeta });
+    const outsideActiveStatus = makePage({ id: 'd', path: `${ROOT}/d.md` });
+    const { membershipSelector } = setup(folders, [inArchiveArchivedStatus, inArchiveActiveStatus, outsideArchivedStatus, outsideActiveStatus]);
+
+    expect(membershipSelector.isEntityEffectivelyArchived(inArchiveArchivedStatus)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(inArchiveActiveStatus)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(outsideArchivedStatus)).toBe(false);
+    expect(membershipSelector.isEntityEffectivelyArchived(outsideActiveStatus)).toBe(false);
+  });
+
+  it('a Note inside an archived folder is archived (it is inside Archive/ too); one in an active folder is not', () => {
+    const inside = makePage({ id: 'n', path: `${ROOT}/Archive/Old/n.md`, parentId: 'folder-archived' });
+    const outside = makePage({ id: 'm', path: `${ROOT}/Projects/m.md`, parentId: 'folder-active' });
+    const { membershipSelector } = setup(folders, [inside, outside]);
+
+    expect(membershipSelector.isEntityEffectivelyArchived(inside)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(outside)).toBe(false);
+  });
+
+  it('a Folder is archived exactly when it is inside Archive/ — the Archive itself is not', () => {
+    const stale = makeFolder({ id: 'stale', path: `${ROOT}/Projects/Stale`, metadata: { ...defaultFolderMetadata, status: 'archived' } });
+    const dropped = makeFolder({ id: 'dropped', path: `${ROOT}/Archive/Dropped`, parentId: 'folder-archive' });
+    const { membershipSelector } = setup([...folders, stale, dropped]);
+
+    expect(membershipSelector.isEntityEffectivelyArchived(archivedFolder)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(dropped)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(stale)).toBe(false);
+    expect(membershipSelector.isEntityEffectivelyArchived(activeFolder)).toBe(false);
+    expect(membershipSelector.isEntityEffectivelyArchived(archiveFolder)).toBe(false);
+  });
+
+  it('an Asset: inside Archive/ (directly, or in an archived folder) is archived; elsewhere is not', () => {
+    const direct = makeResource({ id: 'r1', path: `${ROOT}/Archive/hero.png`, parentId: 'folder-archive' });
+    const nested = makeResource({ id: 'r2', path: `${ROOT}/Archive/Old/hero.png`, parentId: 'folder-archived' });
+    const active = makeResource({ id: 'r3', path: `${ROOT}/Projects/hero.png`, parentId: 'folder-active' });
+    const { membershipSelector } = setup(folders, [], [direct, nested, active]);
+
+    expect(membershipSelector.isEntityEffectivelyArchived(direct)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(nested)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(active)).toBe(false);
+  });
+
+  it('a Daily Note inside Archive/ is archived whatever its status; an active one outside is not', () => {
+    const archived = makePage({ id: 'd1', type: 'daily-note', path: `${ROOT}/Archive/d1.md`, parentId: 'folder-archive' });
+    const active = makePage({ id: 'd2', type: 'daily-note', path: `${ROOT}/d2.md` });
+    const { membershipSelector } = setup(folders, [archived, active]);
+
+    expect(membershipSelector.isEntityEffectivelyArchived(archived)).toBe(true);
+    expect(membershipSelector.isEntityEffectivelyArchived(active)).toBe(false);
+  });
+
+  it('only what sits DIRECTLY in Archive/ is restorable on its own', () => {
+    const direct = makePage({ id: 'a', path: `${ROOT}/Archive/a.md`, parentId: 'folder-archive' });
+    const deep = makePage({ id: 'b', path: `${ROOT}/Archive/Old/b.md`, parentId: 'folder-archived' });
+    const active = makePage({ id: 'c', path: `${ROOT}/c.md` });
+    const { membershipSelector } = setup(folders, [direct, deep, active]);
+
+    expect(membershipSelector.isRestorable(direct)).toBe(true);
+    expect(membershipSelector.isRestorable(deep)).toBe(false);
+    expect(membershipSelector.isRestorable(active)).toBe(false);
   });
 });

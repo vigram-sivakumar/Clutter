@@ -61,7 +61,7 @@ export const COLLECTION_PROPERTIES = {
   size: { label: 'File size', type: 'number', sort: 'number' },
   created: { label: systemPropertyLabel('created'), type: 'date', sort: 'date' },
   updated: { label: systemPropertyLabel('modified'), type: 'date', sort: 'date' },
-  archived: { label: 'Archived', type: 'date', sort: 'date' },
+  archived: { label: 'Archived date', type: 'date', sort: 'date' },
   // A task's own properties: its explicit due date (a calendar day, not an instant) and its
   // source — the note it lives in.
   dueDate: { label: 'Due date', type: 'day', sort: 'date' },

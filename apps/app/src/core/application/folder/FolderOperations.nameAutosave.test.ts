@@ -159,7 +159,7 @@ describe('FolderOperations name channel (continuous commit + debounced autosave)
     const moveSpy = vi.spyOn(fileSystem, 'moveFile');
 
     folderOperations.commitName('folder-1', 'Never persisted');
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
     moveSpy.mockClear();
 
     await vi.advanceTimersByTimeAsync(FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS + FOLDER_NAME_AUTOSAVE_CEILING_MS);

@@ -111,7 +111,14 @@ export class FolderOperations {
      * descendant page's), Workspace is left with no active page/folder at
      * all. FolderOperations still doesn't know what the fallback page is.
      */
-    private readonly openFallbackPage: () => void
+    private readonly openFallbackPage: () => void,
+    /**
+     * Saves pending edits of the given pages (`PageOperations.flushPagesBeforeArchive`), supplied by
+     * the Composition Root for the same reason `prepareNavigation` is: this facade has no concept of
+     * page saves. archive() calls it for every open page beneath the folder and aborts if it throws.
+     */
+    private readonly flushPagesBeforeArchive: (pageIds: readonly string[]) => Promise<void> = () =>
+      Promise.resolve()
   ) {}
 
   /**
@@ -171,6 +178,7 @@ export class FolderOperations {
    * + Vault registration all happen there, the one write path.
    */
   public async create(name: string, parentId: string | null): Promise<string> {
+    this.assertNotInArchivedFolder(parentId, 'Cannot add to an archived folder');
     const destination = this.pathResolver.createFolderPath(parentId, name);
     const id = this.folderCreator.generateId();
     const content = this.folderCreator.buildContent(id);
@@ -260,7 +268,16 @@ export class FolderOperations {
    * facade decides what the fallback is — both only recognize when one is
    * needed.
    */
-  public async delete(folderId: string): Promise<void> {
+  public async delete(folderId: string, options: { readonly allowActive?: boolean } = {}): Promise<void> {
+    // Permanent delete belongs to the Archive: an active folder is archived first.
+    if (
+      this.vault.getFolder(folderId) &&
+      !options.allowActive &&
+      !this.vault.isFolderEffectivelyArchived(folderId)
+    ) {
+      throw new Error(`Cannot permanently delete a folder that is not archived: ${folderId}. Archive it first.`);
+    }
+
     const folder = this.vault.getFolder(folderId);
     let descendantPageIds: readonly string[] = [];
 
@@ -420,6 +437,7 @@ export class FolderOperations {
    * collision now simply becomes one more reason this can throw.
    */
   public async rename(folderId: string, name: string): Promise<void> {
+    this.assertEditable(folderId);
     const folder = this.vault.getFolder(folderId);
 
     if (folder) {
@@ -453,6 +471,8 @@ export class FolderOperations {
     folderId: string,
     destinationFolderId: string | null
   ): Promise<void> {
+    this.assertEditable(folderId);
+    this.assertNotInArchivedFolder(destinationFolderId, 'Cannot move into an archived folder');
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'move-folder',
       destinationFolderId,
@@ -485,6 +505,23 @@ export class FolderOperations {
    * is soft, the subtree still exists.
    */
   public async archive(folderId: string): Promise<void> {
+    if (this.vault.getFolder(folderId) && this.vault.isFolderEffectivelyArchived(folderId)) {
+      throw new Error(`Folder is already archived: ${folderId}`);
+    }
+
+    // Never archive over unsaved changes: save every open page beneath the folder first (the archive
+    // relocates the subtree, and saves to it are rejected afterwards). A failure aborts the archive.
+    const folder = this.vault.getFolder(folderId);
+
+    if (folder) {
+      const openPageIds = this.vault
+        .getDescendantFoldersAndPages(folderId)
+        .pages.filter((page) => this.documentRegistry.get(page.id) !== undefined)
+        .map((page) => page.id);
+
+      await this.flushPagesBeforeArchive(openPageIds);
+    }
+
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'archive-folder',
     });
@@ -502,9 +539,15 @@ export class FolderOperations {
    * folder still exists, only relocated and restatused, so a currently
    * open folder simply keeps rendering itself at its restored location.
    */
-  public async restore(folderId: string): Promise<void> {
+  public async restore(
+    folderId: string,
+    options: { readonly destinationFolderId?: string | null } = {}
+  ): Promise<void> {
+    // Rejects with RestoreNeedsDestinationError for a folder put in Archive/ from outside Clutter (no
+    // recorded original location) until the caller supplies `destinationFolderId` (null = the vault root).
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'restore-folder',
+      ...(options.destinationFolderId !== undefined && { destinationFolderId: options.destinationFolderId }),
     });
 
     if (result.status !== 'folder-restored' && result.status !== 'abandoned') {
@@ -546,6 +589,7 @@ export class FolderOperations {
       >
     >
   ): Promise<void> {
+    this.assertEditable(folderId);
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'update-folder-metadata',
       metadata: patch,
@@ -560,6 +604,23 @@ export class FolderOperations {
   }
 
   /** The name channel's SaveCoordinator key — distinct from `folderId` so it can never collide with any other channel keyed by the same id. */
+  /**
+   * An archived folder — or one inside an archived folder — is frozen: nothing about it changes until it
+   * is restored (restore and delete are the exceptions, and do not come through here).
+   */
+  private assertEditable(folderId: string): void {
+    if (this.vault.getFolder(folderId) && this.vault.isFolderEffectivelyArchived(folderId)) {
+      throw new Error(`Cannot edit archived folder: ${folderId}. Restore it before editing.`);
+    }
+  }
+
+  /** Nothing is created in, or moved into, an archived folder. */
+  private assertNotInArchivedFolder(folderId: string | null, message: string): void {
+    if (folderId !== null && this.vault.isFolderEffectivelyArchived(folderId)) {
+      throw new Error(`${message}: ${folderId}`);
+    }
+  }
+
   private nameChannelKey(folderId: string): string {
     return `${folderId}:name`;
   }
@@ -571,6 +632,7 @@ export class FolderOperations {
    * (FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS/CEILING_MS).
    */
   public commitName(folderId: string, name: string): void {
+    this.assertEditable(folderId);
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {
@@ -689,6 +751,7 @@ export class FolderOperations {
    * description edit is an ordinary metadata write, not a directory rename.
    */
   public commitDescription(folderId: string, description: string): void {
+    this.assertEditable(folderId);
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {

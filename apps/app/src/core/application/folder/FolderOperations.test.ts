@@ -6,7 +6,7 @@ import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { Workspace } from '../../workspace/Workspace';
-import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
+import { PagePersistenceCoordinator, RestoreNeedsDestinationError } from '../../vault/persistence/PagePersistenceCoordinator';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
@@ -104,7 +104,8 @@ function setup(
   ids: string[] = ['folder-new'],
   prepareNavigation: () => void = () => {},
   pages: Page[] = [],
-  openFallbackPage: () => void = () => {}
+  openFallbackPage: () => void = () => {},
+  flushPagesBeforeArchive?: (pageIds: readonly string[]) => Promise<void>
 ) {
   const vault = makeVault(folders, pages);
   const workspace = new Workspace();
@@ -129,10 +130,11 @@ function setup(
     prepareNavigation,
     documentRegistry,
     saveCoordinator,
-    openFallbackPage
+    openFallbackPage,
+    flushPagesBeforeArchive
   );
 
-  return { vault, workspace, fileSystem, folderOperations, documentRegistry, saveCoordinator };
+  return { vault, workspace, fileSystem, folderOperations, documentRegistry, saveCoordinator, coordinator };
 }
 
 describe('FolderOperations.open()', () => {
@@ -393,7 +395,7 @@ describe('FolderOperations.delete() (ADR-024)', () => {
     const { vault, fileSystem, folderOperations } = setup([folder]);
     await fileSystem.createDirectory(folder.path);
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(vault.getFolder('folder-1')).toBeUndefined();
     expect(await fileSystem.exists(folder.path)).toBe(false);
@@ -411,7 +413,7 @@ describe('FolderOperations.delete() (ADR-024)', () => {
     documentRegistry.open('page-1', '# Notes');
     expect(documentRegistry.get('page-1')).toBeDefined();
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(documentRegistry.get('page-1')).toBeUndefined();
   });
@@ -427,7 +429,7 @@ describe('FolderOperations.delete() (ADR-024)', () => {
 
     const cancelSpy = vi.spyOn(saveCoordinator, 'cancelTimers');
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(cancelSpy).toHaveBeenCalledWith('page-1');
   });
@@ -435,7 +437,7 @@ describe('FolderOperations.delete() (ADR-024)', () => {
   it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
     const { folderOperations } = setup();
 
-    await expect(folderOperations.delete('does-not-exist')).resolves.toBeUndefined();
+    await expect(folderOperations.delete('does-not-exist', { allowActive: true })).resolves.toBeUndefined();
   });
 
   it('cascades to descendant pages and folders', async () => {
@@ -451,7 +453,7 @@ describe('FolderOperations.delete() (ADR-024)', () => {
     await fileSystem.createDirectory(design.path);
     await fileSystem.writeFile(notes.path, '# Notes');
 
-    await folderOperations.delete('folder-projects');
+    await folderOperations.delete('folder-projects', { allowActive: true });
 
     expect(vault.getFolder('folder-projects')).toBeUndefined();
     expect(vault.getFolder('folder-design')).toBeUndefined();
@@ -473,7 +475,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
     await fileSystem.createDirectory(folder.path);
     workspace.openFolder('folder-1');
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(vault.getFolder('folder-1')).toBeUndefined();
     expect(workspace.activeFolderId).toBeNull();
@@ -493,7 +495,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
     workspace.openPage('page-1');
     expect(workspace.isPageOpen('page-1')).toBe(true);
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(workspace.isPageOpen('page-1')).toBe(false);
   });
@@ -511,7 +513,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
     await fileSystem.createDirectory(folder.path);
     workspace.openFolder('folder-1');
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(openFallbackPage).toHaveBeenCalledTimes(1);
   });
@@ -531,7 +533,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
     await fileSystem.writeFile(page.path, '# Notes');
     workspace.openPage('page-1');
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(workspace.activeView).toBeNull();
     expect(openFallbackPage).toHaveBeenCalledTimes(1);
@@ -552,7 +554,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
     await fileSystem.createDirectory(toDelete.path);
     workspace.openFolder('folder-active');
 
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
 
     expect(workspace.activeFolderId).toBe('folder-active');
     expect(openFallbackPage).not.toHaveBeenCalled();
@@ -1117,6 +1119,48 @@ describe('FolderOperations.restore() (ADR-026 follow-up)', () => {
   });
 });
 
+describe('FolderOperations: a folder archived only by location (placed in Archive/ from outside Clutter)', () => {
+  const build = async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    // Active status, no provenance: only its path says it is archived.
+    const external = makeFolder('folder-external', `${ROOT}/Archive/External`, 'folder-archive');
+    const context = setup([archiveFolder, projects, external]);
+    await context.fileSystem.createDirectory(external.path);
+
+    return context;
+  };
+
+  it('is archived, and restoring it asks where to go — nothing is moved or invented', async () => {
+    const { folderOperations, vault } = await build();
+
+    expect(vault.isFolderEffectivelyArchived('folder-external')).toBe(true);
+    await expect(folderOperations.restore('folder-external')).rejects.toBeInstanceOf(RestoreNeedsDestinationError);
+
+    expect(vault.getFolder('folder-external')!.path).toBe(`${ROOT}/Archive/External`);
+    expect(vault.getFolder('folder-external')!.metadata.originalPath).toBeNull();
+  });
+
+  it('restores to a chosen folder, and to the vault root with null', async () => {
+    const first = await build();
+    await first.folderOperations.restore('folder-external', { destinationFolderId: 'folder-projects' });
+    expect(first.vault.getFolder('folder-external')!.path).toBe(`${ROOT}/Projects/External`);
+    expect(first.vault.isFolderEffectivelyArchived('folder-external')).toBe(false);
+
+    const second = await build();
+    await second.folderOperations.restore('folder-external', { destinationFolderId: null });
+    expect(second.vault.getFolder('folder-external')!.path).toBe(`${ROOT}/External`);
+  });
+
+  it('can be permanently deleted (Delete All) without ever having been archived by Clutter', async () => {
+    const { folderOperations, vault } = await build();
+
+    await folderOperations.delete('folder-external');
+
+    expect(vault.getFolder('folder-external')).toBeUndefined();
+  });
+});
+
 describe('FolderOperations.updateMetadata() (favorite)', () => {
   it('sets favorite=true in the vault and persists it to the .folder.md on disk', async () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
@@ -1273,5 +1317,160 @@ describe('FolderOperations.updateMetadata() (icon)', () => {
     expect(vault.getFolder('folder-1')!.metadata.icon).toBeNull();
     const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
     expect(content).not.toContain('icon:');
+  });
+});
+
+describe('FolderOperations.archive() saves open pages beneath the folder first', () => {
+  const build = (flush: (pageIds: readonly string[]) => Promise<void>) => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const design = makeFolder('folder-design', `${ROOT}/Projects/Design`, 'folder-projects');
+    const open = makePage('page-open', `${ROOT}/Projects/Design/Open.md`, 'folder-design');
+    const closed = makePage('page-closed', `${ROOT}/Projects/Closed.md`, 'folder-projects');
+    const elsewhere = makePage('page-elsewhere', `${ROOT}/Elsewhere.md`, null);
+    const context = setup([archiveFolder, projects, design], undefined, undefined, [open, closed, elsewhere], undefined, flush);
+
+    return { ...context, open, closed, elsewhere };
+  };
+
+  it('hands the hook exactly the descendant pages that have an open session — before anything moves', async () => {
+    const seen: string[][] = [];
+    const flush = vi.fn(async (pageIds: readonly string[]) => {
+      seen.push([...pageIds]);
+      expect(context.vault.getFolder('folder-projects')!.metadata.status).toBe('active');
+    });
+    const context = build(flush);
+    await context.fileSystem.createDirectory(`${ROOT}/Projects/Design`);
+    await context.fileSystem.writeFile(context.open.path, '# Open');
+    await context.fileSystem.writeFile(context.closed.path, '# Closed');
+    context.documentRegistry.open(context.open.id, context.open.source.markdown);
+    context.documentRegistry.open(context.elsewhere.id, context.elsewhere.source.markdown);
+
+    await context.folderOperations.archive('folder-projects');
+
+    expect(seen).toEqual([['page-open']]);
+    expect(context.vault.getFolder('folder-projects')!.metadata.status).toBe('archived');
+  });
+
+  it('aborts the archive, leaving the folder where it was, when a page cannot be saved', async () => {
+    const context = build(() => Promise.reject(new Error('Cannot archive: unsaved changes')));
+    await context.fileSystem.createDirectory(`${ROOT}/Projects/Design`);
+    context.documentRegistry.open(context.open.id, context.open.source.markdown);
+
+    await expect(context.folderOperations.archive('folder-projects')).rejects.toThrow(/unsaved/);
+
+    expect(context.vault.getFolder('folder-projects')!.metadata.status).toBe('active');
+    expect(context.vault.getFolder('folder-projects')!.path).toBe(`${ROOT}/Projects`);
+  });
+});
+
+describe('FolderOperations: an archived folder is frozen until it is restored', () => {
+  const build = async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const inner = makeFolder('folder-inner', `${ROOT}/Projects/Inner`, 'folder-projects');
+    const context = setup([archiveFolder, projects, inner]);
+    await context.fileSystem.createDirectory(inner.path);
+    await context.folderOperations.archive('folder-projects');
+
+    return context;
+  };
+
+  it('refuses rename, move, metadata changes and name or description edits — for the folder and for one inside it', async () => {
+    const { folderOperations } = await build();
+
+    for (const id of ['folder-projects', 'folder-inner']) {
+      await expect(folderOperations.rename(id, 'Other')).rejects.toThrow(/archived/);
+      await expect(folderOperations.move(id, null)).rejects.toThrow(/archived/);
+      await expect(folderOperations.updateMetadata(id, { favorite: true })).rejects.toThrow(/archived/);
+      expect(() => folderOperations.commitName(id, 'Other')).toThrow(/archived/);
+      expect(() => folderOperations.commitDescription(id, 'About')).toThrow(/archived/);
+    }
+  });
+
+  it('refuses a new folder inside it, and moving another folder into it', async () => {
+    const { folderOperations, vault } = await build();
+    const free = makeFolder('folder-free', `${ROOT}/Free`);
+    vault.addFolder(free);
+
+    await expect(folderOperations.create('New', 'folder-projects')).rejects.toThrow(/archived/);
+    await expect(folderOperations.create('New', 'folder-inner')).rejects.toThrow(/archived/);
+    await expect(folderOperations.move('folder-free', 'folder-projects')).rejects.toThrow(/archived/);
+  });
+
+  it('can still be restored and deleted — those are its own actions', async () => {
+    const { folderOperations, vault } = await build();
+
+    await folderOperations.restore('folder-projects');
+
+    expect(vault.getFolder('folder-projects')!.metadata.status).toBe('active');
+  });
+
+  it('after restore it behaves as an ordinary folder again, and so does everything inside it', async () => {
+    const { folderOperations, vault } = await build();
+    await folderOperations.restore('folder-projects');
+
+    expect(vault.isFolderEffectivelyArchived('folder-inner')).toBe(false);
+    await expect(folderOperations.updateMetadata('folder-projects', { favorite: true })).resolves.toBeUndefined();
+    await expect(folderOperations.create('Fresh', 'folder-inner')).resolves.toEqual(expect.any(String));
+    expect(vault.getFolder('folder-projects')!.metadata.favorite).toBe(true);
+  });
+});
+
+describe('FolderOperations: archive integrity at the domain (Phase 10)', () => {
+  const build = async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const inner = makeFolder('folder-inner', `${ROOT}/Projects/Inner`, 'folder-projects');
+    const context = setup([archiveFolder, projects, inner]);
+    await context.fileSystem.createDirectory(inner.path);
+
+    return context;
+  };
+
+  it('an active folder cannot be permanently deleted — it is archived first', async () => {
+    const { folderOperations, vault } = await build();
+
+    await expect(folderOperations.delete('folder-projects')).rejects.toThrow(/not archived/);
+
+    expect(vault.getFolder('folder-projects')).toBeDefined();
+  });
+
+  it('an archived folder, and one only inside an archived folder, can be deleted', async () => {
+    const { folderOperations, vault } = await build();
+    await folderOperations.archive('folder-projects');
+
+    await folderOperations.delete('folder-inner');
+    expect(vault.getFolder('folder-inner')).toBeUndefined();
+
+    await folderOperations.delete('folder-projects');
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+  });
+
+  it('an archived folder cannot be archived again, and neither can one inside it', async () => {
+    const { folderOperations, coordinator } = await build();
+    await folderOperations.archive('folder-projects');
+
+    await expect(folderOperations.archive('folder-projects')).rejects.toThrow(/already archived/);
+    await expect(folderOperations.archive('folder-inner')).rejects.toThrow(/already archived/);
+    await expect(coordinator.enqueue('folder-inner', { kind: 'archive-folder' })).rejects.toThrow(/already archived/);
+  });
+
+  it('the Gate refuses to move or rename a folder that is only inside an archived folder', async () => {
+    const { folderOperations, coordinator } = await build();
+    await folderOperations.archive('folder-projects');
+
+    await expect(coordinator.enqueue('folder-inner', { kind: 'move-folder', destinationFolderId: null })).rejects.toThrow(/archived/);
+    await expect(coordinator.enqueue('folder-inner', { kind: 'move-folder', destinationFolderId: 'folder-archive', name: 'Renamed' })).rejects.toThrow(/archived/);
+  });
+
+  it('restore is only for an archived folder', async () => {
+    const { folderOperations } = await build();
+
+    await expect(folderOperations.restore('folder-projects')).rejects.toThrow(/not archived/);
+
+    await folderOperations.archive('folder-projects');
+    await expect(folderOperations.restore('folder-inner')).rejects.toThrow(/not archived/);
+    await expect(folderOperations.restore('folder-projects')).resolves.toBeUndefined();
   });
 });

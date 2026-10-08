@@ -173,7 +173,7 @@ describe('CURRENT BEHAVIOR — Configure: the Layout / Properties / Sort by list
   const NOTES = FOLDER_COLLECTION;
   const ASSETS = ASSETS_COLLECTION;
   const NOTE_ROWS = ['Name', 'Description', 'Cover image', 'Created', 'Last edited'];
-  const ARCHIVE_ROWS = ['Name', 'Type', 'Archived'];
+  const ARCHIVE_ROWS = ['Name', 'Type', 'Description', 'Archived date'];
   const ASSET_ROWS = ['Name', 'File size', 'Created', 'Last edited'];
 
   /**

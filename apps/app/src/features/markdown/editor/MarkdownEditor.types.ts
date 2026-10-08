@@ -58,6 +58,15 @@ export interface MarkdownEditorProps {
    */
   readonly focusOnOpen?: boolean;
   /**
+   * Shows the document without any way to change it (an archived note): the same read-only view a
+   * note embed uses — no editing keymaps, autocomplete or table cell editor, `contenteditable` off,
+   * and every document change but the host's own `externalSync` refused — with rendering, links,
+   * embeds, selection, copy, scrolling and folding intact. Read once at mount, like `pageId`: a
+   * caller whose answer can change while the page is open re-keys the editor so it remounts.
+   * No caret or focus is taken on open.
+   */
+  readonly readOnly?: boolean;
+  /**
    * A pending navigate-to-content reveal request for *this* mount's own
    * page, if one is waiting — one or more `{ from, to }` ranges (an
    * occurrence's exact `startOffset`/`endOffset`), each resolved to its

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PagePersistenceCoordinator } from './PagePersistenceCoordinator';
+import { PagePersistenceCoordinator, RestoreNeedsDestinationError } from './PagePersistenceCoordinator';
 import { MoveService } from './MoveService';
 import { ResourceArchiveMetadataStore } from './ResourceArchiveMetadataStore';
 import { Vault } from '../../vault/models/Vault';
@@ -498,13 +498,27 @@ describe('PagePersistenceCoordinator: restore-resource', () => {
     expect(entries.has(`${ROOT}/Assets/hero.png`)).toBe(false);
   });
 
-  it('falls back to Assets/ when archive metadata is missing entirely', async () => {
+  it('asks for a destination when archive metadata is missing entirely — nothing is moved or recorded', async () => {
     const archiveFolder = makeArchiveFolder();
     const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
-    const { coordinator, vault } = setup(resource, [archiveFolder]);
-    // No resourceArchiveStore.record() call at all.
+    const { coordinator, vault, resourceArchiveStore } = setup(resource, [archiveFolder]);
+    // No resourceArchiveStore.record() call at all: it was put in Archive/ from outside Clutter.
 
-    await coordinator.enqueue(resource.id, { kind: 'restore-resource' });
+    await expect(coordinator.enqueue(resource.id, { kind: 'restore-resource' })).rejects.toBeInstanceOf(
+      RestoreNeedsDestinationError
+    );
+
+    expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Archive/hero.png`);
+    expect((await resourceArchiveStore.read()).size).toBe(0);
+  });
+
+  it('restores to a chosen destination when archive metadata is missing', async () => {
+    const archiveFolder = makeArchiveFolder();
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { coordinator, vault } = setup(resource, [archiveFolder, assets]);
+
+    await coordinator.enqueue(resource.id, { kind: 'restore-resource', destinationFolderId: 'folder-assets' });
 
     expect(vault.getResource('resource-1')!.path).toBe(`${ROOT}/Assets/hero.png`);
   });
@@ -512,7 +526,8 @@ describe('PagePersistenceCoordinator: restore-resource', () => {
   it('creates and registers Assets/ in Vault when it does not exist yet', async () => {
     const archiveFolder = makeArchiveFolder();
     const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
-    const { coordinator, vault, fileSystem } = setup(resource, [archiveFolder]);
+    const { coordinator, vault, fileSystem, resourceArchiveStore } = setup(resource, [archiveFolder]);
+    await resourceArchiveStore.record(`${ROOT}/Archive/hero.png`, `${ROOT}/Assets/hero.png`);
 
     await coordinator.enqueue(resource.id, { kind: 'restore-resource' });
 
@@ -726,8 +741,8 @@ describe('PagePersistenceCoordinator: move-resource', () => {
 
 describe('PagePersistenceCoordinator: delete-resource', () => {
   it('deletes the resource from the filesystem', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { coordinator, fileSystem } = setup(resource);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { coordinator, fileSystem } = setup(resource, [makeArchiveFolder()]);
 
     const result = await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
 
@@ -736,8 +751,8 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
   });
 
   it('removes the resource from the Vault', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { coordinator, vault } = setup(resource);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { coordinator, vault } = setup(resource, [makeArchiveFolder()]);
 
     await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
 
@@ -746,8 +761,8 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
   });
 
   it('removes any archive-provenance record for the resource', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { coordinator, resourceArchiveStore } = setup(resource);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { coordinator, resourceArchiveStore } = setup(resource, [makeArchiveFolder()]);
     await resourceArchiveStore.record(`${ROOT}/Archive/hero.png`, `${ROOT}/Projects/hero.png`);
 
     await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
@@ -756,19 +771,30 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
     expect(entries.has(`${ROOT}/Archive/hero.png`)).toBe(false);
   });
 
-  it('is a no-op when no archive-provenance record exists (deleting a resource that was never archived)', async () => {
+  it('permanent delete belongs to the Archive: a resource that was never archived is refused and left intact', async () => {
     const resource = makeResource('resource-1', `${ROOT}/hero.png`);
-    const { coordinator, resourceArchiveStore } = setup(resource);
+    const { coordinator, vault, fileSystem } = setup(resource, [makeArchiveFolder()]);
+
+    await expect(coordinator.enqueue(resource.id, { kind: 'delete-resource' })).rejects.toThrow(/not archived/);
+
+    expect(vault.getResource('resource-1')).toBeDefined();
+    expect(await fileSystem.exists(resource.path)).toBe(true);
+  });
+
+  it('a file archived only because its folder is (inside Archive/) can be deleted', async () => {
+    const old = makeFolder('folder-old', `${ROOT}/Archive/Old`);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/Old/hero.png`, 'folder-old');
+    const { coordinator, vault } = setup(resource, [makeArchiveFolder(), old]);
 
     const result = await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
 
     expect(result.status).toBe('resource-deleted');
-    expect((await resourceArchiveStore.read()).size).toBe(0);
+    expect(vault.getResource('resource-1')).toBeUndefined();
   });
 
   it('works identically for a pdf resource', async () => {
-    const resource: VaultResource = { ...makeResource('resource-1', `${ROOT}/Archive/spec.pdf`), kind: 'pdf' };
-    const { coordinator, vault, fileSystem } = setup(resource);
+    const resource: VaultResource = { ...makeResource('resource-1', `${ROOT}/Archive/spec.pdf`, ARCHIVE_FOLDER_ID), kind: 'pdf' };
+    const { coordinator, vault, fileSystem } = setup(resource, [makeArchiveFolder()]);
 
     const result = await coordinator.enqueue(resource.id, { kind: 'delete-resource' });
 
@@ -779,7 +805,7 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
 
   it('abandons harmlessly for an unknown resource id', async () => {
     const resource = makeResource('resource-1', `${ROOT}/hero.png`);
-    const { coordinator } = setup(resource);
+    const { coordinator } = setup(resource, [makeArchiveFolder()]);
 
     const result = await coordinator.enqueue('missing', { kind: 'delete-resource' });
 
@@ -790,8 +816,8 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
   });
 
   it('does not remove the archive-provenance record or the Vault entry if the filesystem delete fails', async () => {
-    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`);
-    const { resourceArchiveStore, fileSystem } = setup(resource);
+    const resource = makeResource('resource-1', `${ROOT}/Archive/hero.png`, ARCHIVE_FOLDER_ID);
+    const { resourceArchiveStore, fileSystem } = setup(resource, [makeArchiveFolder()]);
     await resourceArchiveStore.record(`${ROOT}/Archive/hero.png`, `${ROOT}/Projects/hero.png`);
     const vault = makeVault([], [resource]);
     const moveService = new MoveService(vault, fileSystem);

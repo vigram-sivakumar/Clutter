@@ -579,3 +579,22 @@ describe('PageCover — Reposition drag', () => {
     expect(objectPosition(img)).toBe('50% 30%');
   });
 });
+
+describe('PageCover — editable={false} (an archived page)', () => {
+  it('still displays the cover image, with no menu button at all', () => {
+    const { container } = render(
+      <PageCover src="cover.png" editable={false} onRemove={vi.fn()} onHide={vi.fn()} onSetCoverImage={vi.fn()} onDownload={vi.fn()} />
+    );
+
+    expect(container.querySelector('img')).not.toBeNull();
+    expect(container.querySelector('.page__cover__menu')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    expect(container.querySelector('.page__cover__actions')).toBeNull();
+  });
+
+  it('is editable by default: the menu button is there', () => {
+    const { container } = render(<PageCover src="cover.png" onRemove={vi.fn()} />);
+
+    expect(container.querySelector('.page__cover__menu')).not.toBeNull();
+  });
+});

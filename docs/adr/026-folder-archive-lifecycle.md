@@ -2,6 +2,28 @@
 
 **Status:** Accepted (design frozen; implementation may proceed against this contract)
 
+## Amendment (final Archive-state model): archived state is physical location
+
+**This amendment supersedes every statement below that derives "archived" from `status`, or from an ancestor's `status`.** Where the text below disagrees, this section governs.
+
+**A resource is archived if and only if it is physically inside the reserved `Archive/` hierarchy** (strictly inside: the `Archive/` folder itself is the container, not an archived item). `status`, `archivedAt`, `originalPath` and `originalParentId` are **provenance only** — a record of how Clutter put something there and where it can go back to — never a source of archived state.
+
+| Location | `status` | Effective state |
+|---|---|---|
+| inside `Archive/` | `archived` | **Archived** |
+| inside `Archive/` | `active` or absent | **Archived** |
+| outside `Archive/` | `archived` | **Active** (stale provenance; Sync clears it) |
+| outside `Archive/` | `active` or absent | **Active** |
+
+Consequences, applying to Notes, Daily Notes, Folders and Assets alike:
+
+1. **One predicate, path-only.** `Vault.isPageEffectivelyArchived` / `isFolderEffectivelyArchived` / `isResourceEffectivelyArchived` test `VaultPath.isDescendantOf(path, <vault>/Archive)`. `MembershipSelector`, `VaultQuery`, the Persistence Gate's guards and the UI delegate to them; no consumer re-checks `status === 'archived'`. The Vault's derived projections (tags, tasks, Daily Notes, embeds, graph) are built from the non-archived pages only, so they follow location too.
+2. **Entering `Archive/` externally protects without writing.** An active item moved into `Archive/` outside Clutter is archived the instant Sync sees it (read-only, excluded from active views and projections). Clutter does **not** write `status: archived` or fabricate provenance — Rule 2 (no auto-archive write) is unchanged, and is now simply not needed for correctness. An archived item moved within `Archive/` stays archived.
+3. **Leaving `Archive/` externally makes it active** and the existing reconciliation (rules 1–6 of the Sync amendment) clears the now-stale `status`/`archivedAt`/`originalPath`/`originalParentId`. That repair still fires on `outsideArchive && status === 'archived'`; it is cleanup of provenance, not the thing that makes the item active.
+4. **Restore.** Only an item directly in `Archive/` is restorable on its own; deeper items return with their folder. Clutter's Restore moves the item out of `Archive/` and clears the provenance as before. An item **with** provenance goes back to `originalPath` (else the vault root). An item **without** reliable provenance (placed in `Archive/` from outside Clutter) is never given an invented original path: the Gate throws `RestoreNeedsDestinationError`, the UI asks "Restore to…", and the chosen destination (the vault root by default) is used. Assets must stay inside the Assets zone (ADR-049), so for an asset the picker is limited to Assets and its default is the Assets root rather than the vault root.
+5. **Delete All / permanent delete** apply to anything inside `Archive/`, whether or not Clutter archived it.
+6. **Archived-resource UX.** Wiki-links to archived resources stay clickable and open read-only; embeds of them keep rendering; they are excluded from the graph; navigation history does not skip them; a tag in an archived note is clickable only if it currently exists in the tag model; Tidy up removes tags with no active usage (including tags used only by archived notes, and declared-but-unused tags) and restoring brings tags back through normal indexing.
+
 ## Amendment (implementation sequencing): restore deferred to a follow-up milestone
 
 Raised at acceptance time, mirroring ADR-024's own "defer `move` until the Folder Picker UI exists" amendment: the first implementation milestone against this ADR is scoped to **archive only** — `Vault.archiveFolder()`, the Gate's `'archive-folder'` kind, `FolderOperations.archive(folderId)`, and the `MembershipSelector.isEffectivelyArchived()` read-side predicate (§2–§5). `Vault.restoreFolder()`, the `'restore-folder'` Gate kind, `FolderOperations.restore(folderId)`, and `FolderPathResolver.resolveRestoreDestination` remain **not implemented** — this is an explicit, tracked incompleteness (per `implementation-rules.md` §3's "never silently half-done" checklist item), not a silent gap. This ADR's design for restore is otherwise unchanged and is the target for that follow-up milestone; nothing here narrows or reinterprets §2–§4's restore design.
@@ -71,7 +93,7 @@ Same unconditional-cascade shape as `FolderOperations.delete()` — no existence
 
 ### 5. Read side: an "effectively archived" predicate, owned by `MembershipSelector`
 
-A page or folder nested inside an archived folder must not appear in ordinary workspace views (folder tree, All Notes, etc.) even though its own `status` may still be `active` — the same visibility guarantee archived pages already have. This is a new predicate on `MembershipSelector` (ADR-023's existing sole owner of membership decisions) — e.g. `isEffectivelyArchived(pageOrFolder)`, checking the item's own status OR any ancestor folder's status — not a new subsystem, and not duplicated into `VaultQuery` or any UI component (rule 13 already requires page-list UIs to read through `EffectivePageState`/`MembershipSelector`, not re-derive this themselves).
+A page or folder nested inside an archived folder must not appear in ordinary workspace views (folder tree, All Notes, etc.) even though its own `status` may still be `active` — the same visibility guarantee archived pages already have. *(Amended: the predicate is now purely physical location — see the first amendment; "own status OR any ancestor folder's status" below is superseded.)* This is a new predicate on `MembershipSelector` (ADR-023's existing sole owner of membership decisions) — e.g. `isEffectivelyArchived(pageOrFolder)`, checking the item's own status OR any ancestor folder's status — not a new subsystem, and not duplicated into `VaultQuery` or any UI component (rule 13 already requires page-list UIs to read through `EffectivePageState`/`MembershipSelector`, not re-derive this themselves).
 
 ### 6. UI
 

@@ -49,6 +49,11 @@ export function createAliasSuggester(
     const spellings = new Map<string, Map<string, number>>();
 
     for (const page of vault.pages()) {
+      // An archived note's aliases are not offered for new ones to match.
+      if (vault.isPageEffectivelyArchived(page)) {
+        continue;
+      }
+
       for (const raw of page.metadata.aliases ?? []) {
         const alias = raw.trim();
 

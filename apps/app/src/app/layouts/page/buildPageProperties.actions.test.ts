@@ -3,7 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
 import type { Page } from '@core/vault/models/Page';
 
-import { buildPageProperties } from './buildPageProperties';
+import { buildPageProperties as buildPagePropertiesForHost } from './buildPageProperties';
+
+/**
+ * Archived state is LOCATION, and the host (PageHost) derives it and passes `isEffectivelyArchived`. These
+ * fixtures describe an archived page by its `status`, so this adapter plays the host: it passes that fact on.
+ */
+const buildPageProperties = (
+  page: Parameters<typeof buildPagePropertiesForHost>[0],
+  actions: NonNullable<Parameters<typeof buildPagePropertiesForHost>[1]> = {}
+) => buildPagePropertiesForHost(page, { isEffectivelyArchived: page.metadata.status === 'archived', ...actions });
 
 const ALL = 'properties:\n  visible:\n    - tags\n    - aliases\n    - created\n    - modified';
 
@@ -146,5 +155,48 @@ describe('buildPageProperties — each property’s menu actions', () => {
     expect(draft.name).toBe('');
     expect(draft.onClear).toBeUndefined();
     expect(draft.onDelete).toBeUndefined();
+  });
+});
+
+describe('buildPageProperties — effectively archived (a page inside an archived folder, own status active)', () => {
+  const build = (isEffectivelyArchived: boolean) => {
+    const handlers = {
+      onDeleteProperty: vi.fn(),
+      onRemoveSystemProperty: vi.fn(),
+      onCommitTags: vi.fn(),
+      aliases: { onCommit: vi.fn() },
+      onSetScalarValue: vi.fn(),
+      onCommitListValue: vi.fn(),
+      onRenameProperty: vi.fn(),
+      onRemoveListItem: vi.fn(),
+      drafts: { items: [{ id: 1, type: 'text' as const }], onName: vi.fn(), onAbandon: vi.fn() },
+    };
+
+    return buildPageProperties(pageFrom(`priority: high\n${ALL}`), { ...handlers, isEffectivelyArchived });
+  };
+
+  it('keeps every property visible', () => {
+    const names = (items: ReturnType<typeof build>) => items.map((item) => item.name);
+
+    expect(names(build(true))).toEqual(names(build(false)).filter((name) => name !== ''));
+  });
+
+  it('offers no menu action, no name or value edit, and no new-property draft', () => {
+    const items = build(true);
+
+    expect(items.some((item) => item.name === '')).toBe(false);
+    for (const item of items) {
+      expect(item.onClear, item.name).toBeUndefined();
+      expect(item.onDelete, item.name).toBeUndefined();
+      expect(item.onRemove, item.name).toBeUndefined();
+      expect(item.onRename, item.name).toBeUndefined();
+    }
+  });
+
+  it('an ordinary active page is unchanged: it still has its actions and draft row', () => {
+    const items = build(false);
+
+    expect(items.some((item) => item.onDelete !== undefined || item.onClear !== undefined)).toBe(true);
+    expect(items.some((item) => item.name === '')).toBe(true);
   });
 });

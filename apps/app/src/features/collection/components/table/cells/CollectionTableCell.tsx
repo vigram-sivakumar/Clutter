@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../../media/CollectionMedia';
-import { CollectionEntry } from '../../row/CollectionEntry';
-import { CollectionEntryProperties } from '../../row/CollectionEntryProperties';
+import { CollectionEntry } from '../../entry/CollectionEntry';
+import { CollectionEntryProperties } from '../../entry/CollectionEntryProperties';
 import './CollectionTableCell.css';
 
 /** The row's primary ("name") cell: icon or emoji, title, description. */

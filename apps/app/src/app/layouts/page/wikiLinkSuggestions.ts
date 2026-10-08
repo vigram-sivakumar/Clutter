@@ -42,11 +42,11 @@ export function createWikiLinkSuggester(
   pageOperations: PageOperations,
   folderOperations: FolderOperations,
   /**
-   * Whether a page is archived (itself, or inside an archived folder) — the workspace's own rule,
-   * `MembershipSelector`'s. Archived pages are not offered: the popup lists what the user can see
-   * and edit, the same pages the pickers offer. Default: none are.
+   * Whether a page is archived (itself, or inside an archived folder). Archived pages are not
+   * offered: the popup lists what the user can see and edit, the same pages the pickers offer.
+   * Default: the vault's own rule, `Vault.isPageEffectivelyArchived`.
    */
-  isArchived: (page: Page) => boolean = () => false
+  isArchived: (page: Page) => boolean = (page) => vault.isPageEffectivelyArchived(page)
 ): GetWikiLinkSuggestions {
   const livePages = () => Array.from(vault.pages()).filter((page) => !isArchived(page));
 

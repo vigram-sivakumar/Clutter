@@ -170,7 +170,7 @@ describe('FolderOperations description channel (continuous commit + debounced au
     await fileSystem.createDirectory(folder.path);
 
     folderOperations.commitDescription('folder-1', 'Never persisted');
-    await folderOperations.delete('folder-1');
+    await folderOperations.delete('folder-1', { allowActive: true });
     const writeSpy = vi.spyOn(fileSystem, 'writeFile');
 
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + 30000);

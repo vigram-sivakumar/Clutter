@@ -23,6 +23,10 @@ export interface PdfViewerMoreActionsProps {
     destinationFolderId: string | null
   ) => void;
   readonly onCreateFolder?: (name: string) => Promise<string>;
+  /** The file is archived (opened from the Archive): the menu is its archived one — Restore and Delete. */
+  readonly archived?: boolean;
+  readonly onRestoreResource?: (resourceId: string) => void;
+  readonly onDeleteResource?: (resourceId: string) => void;
 }
 
 /**
@@ -49,10 +53,18 @@ export function PdfViewerMoreActions({
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
+  archived = false,
+  onRestoreResource,
+  onDeleteResource,
 }: PdfViewerMoreActionsProps) {
   const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
     'asset',
-    { assetKind: 'pdf', status: 'active' },
+    {
+      assetKind: 'pdf',
+      status: archived && onRestoreResource ? 'archived' : 'active',
+      isEffectivelyArchived: archived,
+      isDeletable: archived,
+    },
     'overlay'
   );
   const [open, setOpen] = useState(false);
@@ -61,7 +73,7 @@ export function PdfViewerMoreActions({
   function handleSelect(id: string) {
     moveTrigger.handleSelect(id, (id) =>
       buildAssetMenuHandlers(
-        { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath },
+        { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath, onRestoreResource, onDeleteResource },
         resourceId
       )[id]?.()
     );

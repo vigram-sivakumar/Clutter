@@ -141,3 +141,34 @@ describe('createTagResolver', () => {
     });
   });
 });
+
+describe('createTagResolver — tags in an archived note', () => {
+  const archivedOnly = () => ({
+    ...makePage('old', ['retired']),
+    path: '/vault/Archive/old.md',
+    metadata: { ...defaultPageMetadata, status: 'archived' as const },
+  });
+
+  it('a tag that no longer exists in the tag model (used only by archived notes) is not clickable when existence is required', () => {
+    const vault = makeVault([archivedOnly()]);
+    const openTag = vi.fn();
+    const resolveTag = createTagResolver(fakeNavigation(openTag), vault, { requireExisting: true });
+
+    expect(vault.getTagByName('retired')).toBeUndefined();
+    resolveTag('retired').activate();
+
+    expect(openTag).not.toHaveBeenCalled();
+  });
+
+  it('a tag that currently exists still opens its Tag collection from an archived note', () => {
+    const live = makePage('live', ['shared']);
+    const archived = { ...makePage('old', ['shared']), path: '/vault/Archive/old.md' };
+    const vault = makeVault([live, archived]);
+    const openTag = vi.fn();
+    const resolveTag = createTagResolver(fakeNavigation(openTag), vault, { requireExisting: true });
+
+    resolveTag('shared').activate();
+
+    expect(openTag).toHaveBeenCalledWith('shared');
+  });
+});

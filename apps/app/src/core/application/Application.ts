@@ -512,7 +512,8 @@ export class Application {
       // second implementation of "what's the fallback page."
       () => {
         void this.openFallbackPage();
-      }
+      },
+      (pageIds) => this.pageOperations.flushPagesBeforeArchive(pageIds)
     );
     this.pageOperations = new PageOperations(
       vault,
@@ -755,6 +756,13 @@ export class Application {
    * with the Vault through Sync, like any imported asset. Returns the vault-relative reference.
    */
   public async importAsset(sourceAbsolutePath: string, destinationFolderPath?: string): Promise<string> {
+    // Nothing is added to an archived folder.
+    const destinationFolder = destinationFolderPath ? this.vault.getFolderByPath(destinationFolderPath) : undefined;
+
+    if (destinationFolder && this.vault.isFolderEffectivelyArchived(destinationFolder.id)) {
+      throw new Error(`Cannot add to an archived folder: ${destinationFolder.id}`);
+    }
+
     const reference = await importAsset(this.fileSystem, this.rootPath, sourceAbsolutePath, destinationFolderPath);
 
     await this.vaultSyncService.reconcileKnownPath(`${this.rootPath}/${reference}`);
@@ -806,9 +814,7 @@ export class Application {
       return inFlight;
     }
 
-    const isPageArchived = (page: Page): boolean =>
-      this.membershipSelector.isArchivedPage(page) ||
-      this.membershipSelector.isEffectivelyArchived(page.parentId);
+    const isPageArchived = (page: Page): boolean => this.vault.isPageEffectivelyArchived(page);
     const currentMarkdown = (page: Page): string =>
       this.documentRegistry.get(page.id)?.currentRevision.markdown ?? page.source.markdown;
 

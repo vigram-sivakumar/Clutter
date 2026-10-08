@@ -136,15 +136,15 @@ export const TEMPLATES_COLLECTION: CollectionDefinition = {
 
 /**
  * One unified collection of everything archived — folders, notes and files, as rows of the generic
- * List or Table (there is no Card). It offers only Name, Type (Note, Folder, Image, PDF) and
- * the date it was archived (Archived): when an item was created or last edited, or how big it is, is
+ * List or Table (there is no Card). It offers only Name, Type (Note, Folder, Image, PDF), Description (a note's; off
+ * until turned on) and the date it was archived (Archived): when an item was created or last edited, or how big it is, is
  * not what the Archive is for. A file has no archive date recorded, so its cell for that is simply
  * empty. Type and Archived are ordinary properties: they can be toggled and sorted like any other.
  */
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
   emptyMessage: 'Deleted items will appear here',
-  properties: ['name', 'type', 'archived'],
+  properties: ['name', 'type', 'description', 'archived'],
   defaultVisible: ['name', 'type', 'archived'],
   defaultVisibleByLayout: { list: ['name'] },
   layouts: ['list', 'table'],
@@ -153,6 +153,12 @@ export const ARCHIVE_COLLECTION: CollectionDefinition = {
   actions: {},
   required: { list: ['name'], table: ['name'] },
 };
+
+/**
+ * What an empty archived folder says: an archived folder is read-only, so the usual line (which
+ * invites creating something) does not apply. Informational only — no action goes with it.
+ */
+export const ARCHIVED_FOLDER_EMPTY_MESSAGE = 'Folder is empty';
 
 /** The calendar makes these pages' contents; nothing is created by hand at any level. */
 const DAILY_NOTES_BASE = {

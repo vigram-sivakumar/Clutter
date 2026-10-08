@@ -313,3 +313,29 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items.find((item) => item.id === 'f-o')?.moveZone).toBeUndefined();
   });
 });
+
+describe('getFavoriteItems — a favorite that is archived keeps its flag but is not listed', () => {
+  const archivedFolder = makeFolder({
+    id: 'folder-archived',
+    name: 'Old',
+    path: '/vault/Archive/Old',
+    metadata: { ...defaultFolderMetadata, status: 'archived' },
+  });
+
+  it('a favorite note or folder archived itself is not listed, and still has favorite: true', () => {
+    const note = makePage({ id: 'p', path: '/vault/Archive/p.md', metadata: { ...defaultPageMetadata, status: 'archived' } });
+    const { query, effectivePageState } = setup([archivedFolder], [note]);
+
+    expect(getFavoriteItems(query, effectivePageState)).toEqual([]);
+    expect(note.metadata.favorite).toBe(true);
+    expect(archivedFolder.metadata.favorite).toBe(true);
+  });
+
+  it('a favorite inside an archived folder (own status active) is not listed, and keeps its flag for restore', () => {
+    const inside = makePage({ id: 'p', path: '/vault/Archive/Old/n.md', parentId: 'folder-archived' });
+    const { query, effectivePageState } = setup([archivedFolder], [inside]);
+
+    expect(getFavoriteItems(query, effectivePageState)).toEqual([]);
+    expect(inside.metadata.favorite).toBe(true);
+  });
+});

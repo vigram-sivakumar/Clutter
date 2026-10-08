@@ -37,6 +37,12 @@ export type ResourceActionAvailability = 'enabled' | 'unavailable' | 'hidden';
 export interface ResourceActionContext {
   readonly isDraft?: boolean;
   readonly status?: 'active' | 'archived';
+  /**
+   * The resource is archived OR sits inside an archived folder (`MembershipSelector.
+   * isEntityEffectivelyArchived`). The surface supplies the fact; the definitions decide what it
+   * hides. `status` alone stays the resource's OWN state (what Restore reads).
+   */
+  readonly isEffectivelyArchived?: boolean;
   readonly isFavorite?: boolean;
   /** Tags only: whether the tag is pinned (stored as its `favorite` metadata). */
   readonly isPinned?: boolean;

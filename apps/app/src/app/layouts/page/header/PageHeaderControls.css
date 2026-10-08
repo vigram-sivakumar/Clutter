@@ -22,7 +22,12 @@
 .page-header-controls__emoji .emoji-icon {
   font-size: 72px;
 }
-.page-header-controls__emoji:hover {
+.page-header-controls__emoji--static {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-header-controls__emoji:not(.page-header-controls__emoji--static):hover {
   opacity: var(--opacity-subtle);
   transition: opacity 120ms ease;
 }

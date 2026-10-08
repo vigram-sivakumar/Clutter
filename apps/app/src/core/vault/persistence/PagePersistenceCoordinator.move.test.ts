@@ -196,7 +196,7 @@ describe('PagePersistenceCoordinator move kind', () => {
   });
 
   it('rejects moving an archived page', async () => {
-    const page = { ...buildPage(), metadata: { ...buildPage().metadata, status: 'archived' as const } };
+    const page = { ...buildPage(), path: `${ROOT}/Archive/Note.md`, metadata: { ...buildPage().metadata, status: 'archived' as const } };
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const { fileSystem, coordinator } = setup([page], [folder]);
 

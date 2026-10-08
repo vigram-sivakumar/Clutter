@@ -82,10 +82,15 @@ describe('Description is configured per view', () => {
     expect(resolveCollectionView(FOLDER_COLLECTION, { ...tableOnly, layout: 'list' }).visible).toEqual(['name']);
   });
 
-  it('a note collection offers Description in both layouts; the Archive does not offer it at all', () => {
+  it('a note collection offers Description in every layout; the Archive in List and Table (it has no Card), off by default', () => {
     for (const layout of ['list', 'table', 'card'] as const) {
       expect(resolveCollectionView(FOLDER_COLLECTION, { layout }).available).toContain('description');
     }
-    expect(resolveCollectionView(ARCHIVE_COLLECTION).available).not.toContain('description');
+    for (const layout of ['list', 'table'] as const) {
+      const view = resolveCollectionView(ARCHIVE_COLLECTION, { layout });
+      expect(view.available).toContain('description');
+      expect(view.visible).not.toContain('description');
+    }
+    expect(ARCHIVE_COLLECTION.layouts).toEqual(['list', 'table']);
   });
 });

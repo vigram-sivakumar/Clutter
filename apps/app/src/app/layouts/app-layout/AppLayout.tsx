@@ -23,6 +23,12 @@ import { createResourceLocationActions } from '@app/layouts/resourceLocationActi
 import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { Toast, type ToastMessage } from '@components/toast/Toast';
+import { Confirmation } from '@components/confirmation/Confirmation';
+import { Dialog } from '@components/dialog/Dialog';
+import { ROOT_DESTINATION_ID } from '@components/picker-list/PickerList.types';
+import { RestoreNeedsDestinationError } from '@core/vault/persistence/PagePersistenceCoordinator';
+import { RestoreDestinationPicker } from './RestoreDestinationPicker';
+import type { RestoreDestinationRequest } from '@app/layouts/page/restoreDestination';
 import { CoverNotePicker, type CoverTarget } from './CoverNotePicker';
 import { buildCoverNoteItems } from '@features/notes/helpers/buildCoverNoteItems';
 import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderItems';
@@ -160,16 +166,19 @@ export function AppLayout({ application }: AppLayoutProps) {
           image: {
             url: application.resolveResourceImageUrl(resource.path),
             alt: getResourceDisplayName(resource),
-            resourceId: actionsEnabled ? resource.id : undefined,
+            // An archived file keeps its id: its menu is the archived one (Download, Restore, Delete).
+            resourceId: resource.id,
+            archived: !actionsEnabled || undefined,
           },
           onSetCoverImage: actionsEnabled
             ? () =>
                 askForCoverNote(resource.path.slice(`${application.vault.root}/`.length))
             : undefined,
+          actionsEnabled,
         });
         return;
       case 'pdf':
-        setResourceOverlay({ kind: 'pdf', resource, actionsEnabled });
+        setResourceOverlay({ kind: 'pdf', resource, actionsEnabled, archived: !actionsEnabled || undefined });
         return;
     }
   }
@@ -182,9 +191,82 @@ export function AppLayout({ application }: AppLayoutProps) {
   // Markdown image URL, which has no VaultResource to synthesize.
   function openImageOverlay(
     image: ImageOverlayImage,
-    options?: { readonly onSetCoverImage?: () => void }
+    options?: { readonly onSetCoverImage?: () => void; readonly actionsEnabled?: boolean }
   ): void {
-    setResourceOverlay({ kind: 'image', image, onSetCoverImage: options?.onSetCoverImage });
+    setResourceOverlay({
+      kind: 'image',
+      image,
+      onSetCoverImage: options?.onSetCoverImage,
+      actionsEnabled: options?.actionsEnabled,
+    });
+  }
+
+  // Restore returns an archived file to where it was; Delete removes it for good, after a confirmation.
+  const [assetPendingDelete, setAssetPendingDelete] = useState<VaultResource | null>(null);
+
+  // A file archived by itself sits directly in Archive/ and has a record of where it came from; one
+  // inside an archived folder does not, so it can be deleted but not restored on its own.
+  function canRestoreResource(resourceId: string): boolean {
+    const archiveFolder = application.vault.getReservedFolder('archive');
+
+    return archiveFolder !== undefined && application.vault.getResource(resourceId)?.parentId === archiveFolder.id;
+  }
+
+  // Something put in Archive/ from outside Clutter has no recorded original location: its Restore asks where it
+  // should go (a note or folder: anywhere, the vault root first; an Asset: within Assets) and then restores there.
+  const [restoreRequest, setRestoreRequest] = useState<RestoreDestinationRequest | null>(null);
+
+  function restoreArchivedResource(resourceId: string): void {
+    setResourceOverlay(null);
+    application.resourceOperations.restoreResource(resourceId).catch((error: unknown) => {
+      if (error instanceof RestoreNeedsDestinationError) {
+        setRestoreRequest({ kind: 'asset', id: resourceId });
+        return;
+      }
+
+      console.error('Could not restore the file.', error);
+    });
+  }
+
+  function restoreItemTo(request: RestoreDestinationRequest, destinationId: string): void {
+    const { kind, id } = request;
+    // The vault root is the list's first row (a note or folder); an Asset's root row is the Assets folder itself.
+    const destinationFolderId = destinationId === ROOT_DESTINATION_ID ? null : destinationId;
+    const done = (error: unknown) => console.error('Could not restore.', error);
+
+    if (kind === 'page') {
+      void application.pageOperations.restore(id, { destinationFolderId }).catch(done);
+    } else if (kind === 'folder') {
+      void application.folderOperations.restore(id, { destinationFolderId }).catch(done);
+    } else {
+      void application.resourceOperations.restoreResource(id, { destinationFolderId }).catch(done);
+    }
+  }
+
+  function restoreDestinationItems(request: RestoreDestinationRequest) {
+    return buildMoveDestinationItems(
+      application.membershipSelector,
+      request.kind === 'folder' ? request.id : undefined,
+      request.kind === 'asset' ? 'assets' : 'workspace'
+    );
+  }
+
+  function askToDeleteResource(resourceId: string): void {
+    const resource = application.vault.getResource(resourceId);
+
+    if (resource) {
+      setAssetPendingDelete(resource);
+    }
+  }
+
+  function confirmDeleteResource(): void {
+    const resource = assetPendingDelete;
+    setAssetPendingDelete(null);
+
+    if (resource) {
+      setResourceOverlay(null);
+      void application.resourceOperations.deleteResource(resource.id);
+    }
   }
 
   // Save to vault runs immediately (like Archive and Move — no confirmation or
@@ -327,6 +409,7 @@ export function AppLayout({ application }: AppLayoutProps) {
           onOpenImageOverlay={openImageOverlay}
           onSetAssetAsCover={askForCoverNote}
           onShowToast={showToast}
+          onNeedsRestoreDestination={setRestoreRequest}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={updateTasksViewConfig}
           pendingReveal={pendingReveal}
@@ -350,22 +433,59 @@ export function AppLayout({ application }: AppLayoutProps) {
         onRevealResourceInFinder={revealResourceInFinder}
         onCopyResourcePath={copyResourcePath}
         onDownloadResource={downloadResourceById}
+        onRestoreResource={
+          resourceOverlay?.kind === 'image' &&
+          resourceOverlay.image.archived &&
+          resourceOverlay.image.resourceId &&
+          canRestoreResource(resourceOverlay.image.resourceId)
+            ? restoreArchivedResource
+            : undefined
+        }
+        onDeleteResource={askToDeleteResource}
         resourceMoveDestinations={resourceMoveDestinations}
         onMoveResource={(id, destinationFolderId) =>
           void application.resourceOperations.moveResource(id, destinationFolderId)
         }
         onCreateFolder={createAssetFolder}
-        remoteImageActions={{
-          onSaveToVault: startSaveToVault,
-          onOpenInBrowser: (url) => void openExternalUrl(url),
-          onCopyLink: (url) => void copyTextToClipboard(url),
-          onDownload: (url) => void downloadRemoteImage(url),
-        }}
+        remoteImageActions={
+          resourceOverlay?.kind === 'image' && resourceOverlay.actionsEnabled === false
+            ? undefined
+            : {
+                onSaveToVault: startSaveToVault,
+                onOpenInBrowser: (url) => void openExternalUrl(url),
+                onCopyLink: (url) => void copyTextToClipboard(url),
+                onDownload: (url) => void downloadRemoteImage(url),
+              }
+        }
         onSetCoverImage={
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined
         }
       />
       <Toast toast={toast} onDismiss={dismissToast} />
+      <RestoreDestinationPicker
+        open={restoreRequest !== null}
+        items={restoreRequest ? restoreDestinationItems(restoreRequest) : []}
+        onClose={() => setRestoreRequest(null)}
+        onSelect={(destinationId) => {
+          const request = restoreRequest;
+          setRestoreRequest(null);
+
+          if (request) {
+            restoreItemTo(request, destinationId);
+          }
+        }}
+      />
+      <Dialog open={assetPendingDelete !== null} onClose={() => setAssetPendingDelete(null)} size="medium">
+        {assetPendingDelete && (
+          <Confirmation
+            title="Delete permanently?"
+            description={`"${getResourceDisplayName(assetPendingDelete)}" will be deleted permanently. You can’t undo this action.`}
+            confirmLabel="Delete"
+            onConfirm={confirmDeleteResource}
+            onCancel={() => setAssetPendingDelete(null)}
+          />
+        )}
+      </Dialog>
       <CoverNotePicker
         open={coverTarget !== null}
         notes={coverTarget === null ? [] : buildCoverNoteItems(
@@ -379,6 +499,15 @@ export function AppLayout({ application }: AppLayoutProps) {
       <PdfOverlay
         resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
         onClose={closeResourceOverlay}
+        archived={resourceOverlay?.kind === 'pdf' ? resourceOverlay.archived : undefined}
+        onRestoreResource={
+          resourceOverlay?.kind === 'pdf' && resourceOverlay.archived && canRestoreResource(resourceOverlay.resource.id)
+            ? restoreArchivedResource
+            : undefined
+        }
+        onDeleteResource={
+          resourceOverlay?.kind === 'pdf' && resourceOverlay.archived ? askToDeleteResource : undefined
+        }
         resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
         onArchiveResource={
           resourceOverlay?.kind === 'pdf' && resourceOverlay.actionsEnabled

@@ -74,9 +74,15 @@ export class ResourceOperations {
    * 'restore-resource' dispatch (resolveResourceRestoreDestination). No
    * existence check of its own, same convention as archiveResource().
    */
-  public async restoreResource(resourceId: string): Promise<void> {
+  public async restoreResource(
+    resourceId: string,
+    options: { readonly destinationFolderId?: string | null } = {}
+  ): Promise<void> {
+    // Rejects with RestoreNeedsDestinationError for a file put in Archive/ from outside Clutter (no
+    // recorded original location) until the caller supplies a destination within Assets.
     const result = await this.coordinator.enqueue(resourceId, {
       kind: 'restore-resource',
+      ...(options.destinationFolderId !== undefined && { destinationFolderId: options.destinationFolderId }),
     });
 
     if (result.status === 'abandoned') {

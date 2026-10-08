@@ -17,6 +17,23 @@ import type { ResourceActionDefinition, ResourceActionContext, ResourceKind } fr
  * it, and the dividers follow from the groups.
  */
 
+/**
+ * An archived resource — its own status, or an archived folder above it — is read-only: an action
+ * that organizes, edits or relocates it does not apply, so it is hidden (never shown disabled), on
+ * every surface. Restore and Delete are the archived resource's own actions and do not use this.
+ */
+export function isArchivedContext(context: ResourceActionContext): boolean {
+  return context.status === 'archived' || context.isEffectivelyArchived === true;
+}
+
+/** The definition, hidden for an archived resource and otherwise unchanged. */
+function activeOnly(definition: ResourceActionDefinition): ResourceActionDefinition {
+  return {
+    ...definition,
+    availability: (context) => (isArchivedContext(context) ? 'hidden' : (definition.availability?.(context) ?? 'enabled')),
+  };
+}
+
 /** A draft has no Vault entry yet — nothing to rename, favorite, copy or move. */
 function persistedOnly(context: ResourceActionContext) {
   return context.isDraft ? ('unavailable' as const) : ('enabled' as const);
@@ -27,7 +44,7 @@ function activePersistedOnly(context: ResourceActionContext) {
   return context.isDraft || context.status === 'archived' ? ('unavailable' as const) : ('enabled' as const);
 }
 
-const RENAME: ResourceActionDefinition = {
+const RENAME: ResourceActionDefinition = activeOnly({
   id: 'rename',
   group: 'identity',
   order: 10,
@@ -35,36 +52,36 @@ const RENAME: ResourceActionDefinition = {
   icon: 'notePencil',
   opensInlineEdit: true,
   availability: persistedOnly,
-};
+});
 
-const CHANGE_ICON: ResourceActionDefinition = {
+const CHANGE_ICON: ResourceActionDefinition = activeOnly({
   id: 'change-icon',
   group: 'identity',
   order: 20,
   label: 'Change icon',
   icon: 'smile',
   availability: persistedOnly,
-};
+});
 
-const TOGGLE_FAVORITE: ResourceActionDefinition = {
+const TOGGLE_FAVORITE: ResourceActionDefinition = activeOnly({
   id: 'toggle-favorite',
   group: 'organize',
   order: 10,
   label: (context) => (context.isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL),
   icon: (context) => (context.isFavorite ? 'favouriteFilled' : 'favouriteOutline'),
   availability: persistedOnly,
-};
+});
 
-const DUPLICATE: ResourceActionDefinition = {
+const DUPLICATE: ResourceActionDefinition = activeOnly({
   id: 'duplicate',
   group: 'organize',
   order: 20,
   label: 'Duplicate',
   icon: 'duplicate',
   availability: persistedOnly,
-};
+});
 
-const MOVE_TO: ResourceActionDefinition = {
+const MOVE_TO: ResourceActionDefinition = activeOnly({
   id: 'move-to',
   group: 'organize',
   order: 30,
@@ -72,45 +89,45 @@ const MOVE_TO: ResourceActionDefinition = {
   icon: 'arrowDownRight',
   // Templates are a flat collection (ADR-049): a Template is never moved.
   availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
-};
+});
 
-const USE_AS_TEMPLATE: ResourceActionDefinition = {
+const USE_AS_TEMPLATE: ResourceActionDefinition = activeOnly({
   id: 'use-as-template',
   group: 'organize',
   order: 40,
   label: 'Use as template',
   icon: 'template',
   availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
-};
+});
 
 /**
  * "Create template": an independent copy of this page's content as a new Template — the source is
  * neither moved nor converted (that is Use as template). For a Note or a Daily Note; not for one
  * already in the Trash or already a Template.
  */
-const CREATE_TEMPLATE: ResourceActionDefinition = {
+const CREATE_TEMPLATE: ResourceActionDefinition = activeOnly({
   id: 'create-template',
   group: 'organize',
   order: 50,
   label: 'Create template',
   icon: 'template',
   availability: (context) =>
-    context.status === 'archived' || context.isTemplate ? 'hidden' : persistedOnly(context),
-};
+    context.isTemplate ? 'hidden' : persistedOnly(context),
+});
 
 function revealInFinder(): ResourceActionDefinition {
-  return {
+  return activeOnly({
     id: 'reveal-in-finder',
     group: 'location',
     order: 10,
     label: 'Reveal in Finder',
     icon: 'folder',
     availability: persistedOnly,
-  };
+  });
 }
 
 function copyPath(kind: LocationEntityKind): ResourceActionDefinition {
-  return {
+  return activeOnly({
     id: 'copy-path',
     group: 'location',
     order: 20,
@@ -118,7 +135,7 @@ function copyPath(kind: LocationEntityKind): ResourceActionDefinition {
     icon: 'link',
     submenu: buildCopyPathSubmenu(kind),
     availability: persistedOnly,
-  };
+  });
 }
 
 const ARCHIVE: ResourceActionDefinition = {
@@ -127,7 +144,7 @@ const ARCHIVE: ResourceActionDefinition = {
   order: 10,
   label: ARCHIVE_ACTION_LABEL,
   icon: 'archive',
-  availability: (context) => (context.status === 'archived' ? 'hidden' : persistedOnly(context)),
+  availability: (context) => (isArchivedContext(context) ? 'hidden' : persistedOnly(context)),
 };
 
 const RESTORE: ResourceActionDefinition = {
@@ -167,16 +184,16 @@ function forUrl(definition: ResourceActionDefinition): ResourceActionDefinition 
   };
 }
 
-const SAVE_TO_VAULT: ResourceActionDefinition = {
+const SAVE_TO_VAULT: ResourceActionDefinition = activeOnly({
   id: 'save-to-vault',
   group: 'organize',
   order: 35,
   label: 'Save to vault',
   icon: 'arrowDownRight',
-};
+});
 
 /** Sets this image as the cover of the note the asset is shown in — only where a surface supplies it. */
-const SET_AS_COVER_IMAGE: ResourceActionDefinition = {
+const SET_AS_COVER_IMAGE: ResourceActionDefinition = activeOnly({
   id: 'set-as-cover-image',
   group: 'organize',
   order: 40,
@@ -184,7 +201,7 @@ const SET_AS_COVER_IMAGE: ResourceActionDefinition = {
   icon: 'image',
   availability: (context) =>
     context.setAsCoverImage === 'enabled' ? 'enabled' : context.setAsCoverImage === 'disabled' ? 'unavailable' : 'hidden',
-};
+});
 
 const OPEN_IN_BROWSER: ResourceActionDefinition = {
   id: 'open-in-browser',
@@ -277,6 +294,9 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     forUrl(COPY_LINK),
     DOWNLOAD,
     forFile(ARCHIVE),
+    // An archived file is restored to where it was, or deleted for good — the only things done TO it.
+    forFile(RESTORE),
+    forFile(DELETE),
   ],
   tag: [RENAME, CHANGE_ICON, TOGGLE_PIN, DELETE_TAG],
   // A task is a line inside a Note: no rename, icon, favorite or move. Its removal is Delete.

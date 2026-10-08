@@ -222,7 +222,7 @@ describe('PageOperations description channel (continuous commit + debounced auto
     const { inner, pageOperations } = setup(page);
 
     pageOperations.commitDescription(page.id, 'Never persisted');
-    await pageOperations.delete(page.id);
+    await pageOperations.delete(page.id, { allowActive: true });
     const writeSpy = vi.spyOn(inner, 'writeFile');
 
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + 30000);

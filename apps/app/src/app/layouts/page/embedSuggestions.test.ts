@@ -302,10 +302,10 @@ describe('createEmbedSuggester — notes and Daily Notes alongside assets', () =
     expect(paths('Aug 25')).toEqual([]);
   });
 
-  it('includes an archived Daily Note, but not an archived regular note', () => {
+  it('offers neither an archived Daily Note nor an archived regular note — only the assets remain', () => {
     const archived = () => true;
-    expect(paths('', archived)).toEqual(['hero.png', 'Projects/plan.pdf', '2026-07-02', '2026-08-24']);
-    expect(paths('Aug', archived)).toEqual(['2026-08-24']);
+    expect(paths('', archived)).toEqual(['hero.png', 'Projects/plan.pdf']);
+    expect(paths('Aug', archived)).toEqual([]);
     expect(paths('Roadmap', archived)).toEqual([]);
   });
 

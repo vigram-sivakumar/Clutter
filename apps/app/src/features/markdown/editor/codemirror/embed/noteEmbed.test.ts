@@ -719,19 +719,19 @@ describe("a note embed's own extra content indent applies only when it's nested 
   // CSS tripwires already establish for this codebase, rather than a
   // `getComputedStyle` check that would silently pass against jsdom's own
   // unstyled defaults regardless of what the real rule says.
-  it("the .cm-note-embed__content left-padding rule is scoped under .cm-content[contenteditable='false'] — the bare, unscoped .cm-note-embed__content rule (top-level styling, e.g. margin-bottom) never carries padding-left itself", () => {
+  it("the .cm-note-embed__content base rule carries the content inset for every embed; the .cm-content[contenteditable='false'] rule only resets it for a nested embed", () => {
     const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8');
     const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
     const bareMatch = cssWithoutComments.match(/^\.cm-note-embed__content\s*\{([^}]*)\}/m);
     expect(bareMatch, 'bare .cm-note-embed__content rule not found').not.toBeNull();
-    expect(bareMatch![1]).not.toMatch(/padding-left\s*:/);
+    expect(bareMatch![1]).toMatch(/padding-inline-start\s*:/);
 
     const match = cssWithoutComments.match(
       /\.cm-content\[contenteditable='false'\]\s+\.cm-note-embed__content\s*\{([^}]*)\}/
     );
     expect(match, "scoped .cm-content[contenteditable='false'] .cm-note-embed__content rule not found").not.toBeNull();
-    expect(match![1]).toMatch(/padding-left\s*:/);
+    expect(match![1]).toMatch(/padding\s*:\s*0/);
   });
 
   it("a top-level embed's own .cm-note-embed__content never matches that scoped selector — it has no [contenteditable='false'] ancestor, only the main document's own editable .cm-content", () => {

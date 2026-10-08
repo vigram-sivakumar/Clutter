@@ -440,7 +440,7 @@ describe('Application: recovers when the active Vault resource disappears (exter
     const openSpy = vi.spyOn(application.pageOperations, 'open');
     const openAtPathSpy = vi.spyOn(application.pageOperations, 'openAtPath');
 
-    await application.pageOperations.delete('page-note');
+    await application.pageOperations.delete('page-note', { allowActive: true });
 
     expect(openSpy.mock.calls.length + openAtPathSpy.mock.calls.length).toBe(1);
     expect(application.workspace.activeView).not.toBeNull();
@@ -456,7 +456,7 @@ describe('Application: recovers when the active Vault resource disappears (exter
     const openSpy = vi.spyOn(application.pageOperations, 'open');
     const openAtPathSpy = vi.spyOn(application.pageOperations, 'openAtPath');
 
-    await application.folderOperations.delete('folder-projects');
+    await application.folderOperations.delete('folder-projects', { allowActive: true });
 
     expect(openSpy.mock.calls.length + openAtPathSpy.mock.calls.length).toBe(1);
     expect(application.workspace.activeView).not.toBeNull();

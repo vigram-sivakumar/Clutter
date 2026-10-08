@@ -40,9 +40,6 @@
   flex-shrink: 0;
 
   overflow: hidden;
-
-  --collection-media-width: var(--space-20);
-  --collection-media-height: var(--space-20);
 }
 .collection-entry--layout-cell .collection-entry__leading {
   /* Full height of the entry, icon at the top. `height: 100%` can't resolve against an auto-height
@@ -102,12 +99,10 @@
   min-height: 20px;
   min-width: 20px;
   flex-shrink: 0;
-
-  --collection-media-width: var(--space-32);
-  --collection-media-height: var(--space-20);
 }
 
 .collection-entry--new,
 .collection-entry--new .collection-entry__title {
+  font-weight: var(--fw-regular);
   color: var(--foreground-tertiary);
 }

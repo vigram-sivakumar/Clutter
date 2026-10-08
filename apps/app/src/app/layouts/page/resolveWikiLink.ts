@@ -43,7 +43,12 @@ export function createWikiLinkResolver(
   vault: Vault,
   pageOperations: PageOperations,
   folderOperations: FolderOperations,
-  effectivePageState?: EffectivePageState
+  effectivePageState?: EffectivePageState,
+  /**
+   * `createMissing: false` for a read-only host (an archived note): a link to an EXISTING page still
+   * opens it, but activating one that does not exist creates nothing. Default: creates, as always.
+   */
+  { createMissing = true }: { readonly createMissing?: boolean } = {}
 ): ResolveWikiLink {
   function resolvedTo(page: Page, localAlias: string | null): WikiLinkResolution {
     // Display-label precedence: local alias > target's primary frontmatter
@@ -119,9 +124,11 @@ export function createWikiLinkResolver(
       // FolderOperations.create() flows (create() already opens what it
       // creates — see PageOperations.create's own implementation) rather
       // than inventing a second creation or navigation path.
-      activate: () => {
-        void createReferencedPage(vault, folderOperations, pageOperations, path);
-      },
+      activate: createMissing
+        ? () => {
+            void createReferencedPage(vault, folderOperations, pageOperations, path);
+          }
+        : () => {},
     };
   };
 }
@@ -132,13 +139,17 @@ export function createWikiLinkResolver(
  * exact same alias-lookup rule instead of reimplementing it.
  */
 export function findPagesByAlias(vault: Vault, alias: string): Page[] {
-  const matches: Page[] = [];
+  const active: Page[] = [];
+  const archived: Page[] = [];
   for (const page of vault.pages()) {
     if (page.analysis.aliases.some((candidate) => candidate.value === alias)) {
-      matches.push(page);
+      (vault.isPageEffectivelyArchived(page) ? archived : active).push(page);
     }
   }
-  return matches;
+  // Active notes decide the match, so an archived note never makes a link ambiguous or steals it. A
+  // link whose only target is an archived note still resolves to it (opened read-only): explicit
+  // access to the archived resource itself stays possible.
+  return active.length > 0 ? active : archived;
 }
 
 /**

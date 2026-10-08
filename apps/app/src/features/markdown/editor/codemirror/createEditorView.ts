@@ -10,6 +10,7 @@ import {
 import { codeFolding, foldEffect, foldState, indentUnit } from '@codemirror/language';
 import {
   Annotation,
+  Compartment,
   EditorState,
   Transaction,
   type Extension,
@@ -61,6 +62,17 @@ const externalSync = Annotation.define<boolean>();
  * would be unnecessary complexity for a value that never changes after
  * construction.
  */
+const readOnlyCompartment = new Compartment();
+
+/**
+ * The effect that flips a live view between editable and read-only — `EditorState.readOnly` and
+ * `EditorView.editable` together, in the compartment `createEditorView` put them in. Dispatch it with
+ * the other mode-dependent reconfigurations in one transaction (`switchEditorMode`).
+ */
+export function readOnlyModeEffect(readOnly: boolean): StateEffect<unknown> {
+  return readOnlyCompartment.reconfigure(readOnlyExtensions(readOnly));
+}
+
 function readOnlyExtensions(readOnly: boolean): Extension[] {
   return [
     // Disables CM6's own built-in editing commands (keymaps/history) — a
@@ -87,16 +99,16 @@ function readOnlyExtensions(readOnly: boolean): Extension[] {
  * transaction regardless of what produced it — a keymap command, a
  * widget's button `view.dispatch()` call, anything — so this one check
  * is a robust backstop even if a future mutating control forgets its own
- * read-only awareness. No `externalSync` exemption: unlike the normal
- * editable editor, a note embed's `EditorView` is never reused across a
- * content change — `embedLivePreview.ts` rebuilds a fresh `NoteEmbedWidget`
- * (and therefore a fresh nested `EditorView`) whenever the resolved
- * markdown changes, so there is no "sync an existing read-only view"
- * scenario this needs to accommodate; keeping the check to exactly what
- * the actual consumer needs.
+ * read-only awareness. The one exemption is `externalSync` (see the filter
+ * below): a note embed's nested view is rebuilt rather than synced when its
+ * content changes, but an archived note's long-lived read-only editor is
+ * synced.
  */
 const blockReadOnlyEdits = EditorState.transactionFilter.of((tr) =>
-  tr.startState.readOnly && tr.docChanged ? [] : tr
+  // `externalSync` is the host re-aligning the view with the stored document (`syncMarkdownIntoView`):
+  // not a user edit, and a read-only view of a page that changes elsewhere (a tag rename that reaches
+  // an archived note) must follow it. Every other document change stays blocked.
+  tr.startState.readOnly && tr.docChanged && !tr.annotation(externalSync) ? [] : tr
 );
 
 export interface CreateEditorViewOptions {
@@ -244,7 +256,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const allExtensions = [
       updateListener,
       blurHandler,
-      ...readOnlyExtensions(readOnly),
+      readOnlyCompartment.of(readOnlyExtensions(readOnly)),
       blockReadOnlyEdits,
       // Synchronizes CM6's own generic `indentUnit` facet to Clutter's
       // canonical indentation-unit constant (`INDENT_STEP_SPACES`,

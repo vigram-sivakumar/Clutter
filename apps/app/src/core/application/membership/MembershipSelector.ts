@@ -6,7 +6,6 @@ import type { Vault } from '../../vault/models/Vault';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
 import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
-import { VaultPath } from '../../vault/ingest/VaultPath';
 import { moveZoneOfPath, type MovePickerZone, type MoveZone } from '../../vault/initialize/ReservedResources';
 import { AssetCatalogBuilder } from './AssetCatalogBuilder';
 
@@ -134,7 +133,16 @@ export class MembershipSelector {
    * independently.
    */
   public isArchivedPage(page: Page): boolean {
-    return page.metadata.status === 'archived';
+    return this.vault.isPageEffectivelyArchived(page);
+  }
+
+  /**
+   * Whether Clutter offers Restore for this item: it sits directly in `Archive/`. Anything deeper is archived
+   * along with the folder that holds it and returns with that folder. Archived state itself is location, so
+   * an item that was dropped there externally is restorable exactly like one the app archived.
+   */
+  public isRestorable(entity: Page | Folder | VaultResource): boolean {
+    return this.vault.isDirectlyInArchive(entity.path);
   }
 
   /**
@@ -165,23 +173,7 @@ export class MembershipSelector {
    * structurally, see above).
    */
   public isEffectivelyArchived(folderId: string | null): boolean {
-    let currentId = folderId;
-
-    while (currentId !== null) {
-      const folder = this.vault.getFolder(currentId);
-
-      if (!folder) {
-        return false;
-      }
-
-      if (folder.metadata.status === 'archived') {
-        return true;
-      }
-
-      currentId = folder.parentId;
-    }
-
-    return false;
+    return this.vault.isFolderEffectivelyArchived(folderId);
   }
 
   /**
@@ -385,16 +377,50 @@ export class MembershipSelector {
    * would pass that check and be wrongly treated as visible.
    */
   public isResourceArchived(resource: VaultResource): boolean {
-    const archiveFolder = this.vault.getReservedFolder('archive');
+    return this.vault.isResourceEffectivelyArchived(resource);
+  }
 
-    if (!archiveFolder) {
-      return false;
+  /**
+   * The one canonical answer to "is this currently archived?" for any resource the app shows — the single
+   * entry point action availability, header and cover controls, properties and the editor's read-only state
+   * ask. Archived state is LOCATION: the item sits inside the reserved `Archive/` (an archived folder's
+   * contents are inside it too). `status: archived` and its siblings are provenance, never consulted here.
+   * Delegates to the Vault's three predicates and adds no definition of its own. Pure, like every answer here.
+   */
+  public isEntityEffectivelyArchived(entity: Page | Folder | VaultResource): boolean {
+    if ('kind' in entity) {
+      return this.vault.isResourceEffectivelyArchived(entity);
     }
 
-    return (
-      resource.path === archiveFolder.path ||
-      VaultPath.isDescendantOf(resource.path, archiveFolder.path)
-    );
+    if ('type' in entity) {
+      return this.vault.isPageEffectivelyArchived(entity);
+    }
+
+    return this.vault.isFolderEffectivelyArchived(entity.id);
+  }
+
+  /**
+   * What an ARCHIVED folder (or one inside an archived folder) directly holds — its own page lists this,
+   * and the Archive's folder rows count it. Unlike `getVisibleChild*`, which are the active app's views and
+   * deliberately return nothing for an archived parent, this is the folder's real contents, so opening an
+   * archived folder shows its children. Dot-hidden entries are left out, like everywhere else. Only this
+   * folder's own page and the Archive use it; no active surface does.
+   */
+  public getArchivedFolderContents(folderId: string): {
+    readonly folders: Folder[];
+    readonly pages: EffectivePage[];
+  } {
+    return {
+      folders: this.query.getChildFolders(folderId).filter((folder) => this.isVisibleFolder(folder)),
+      pages: this.effectivePageState.getChildPages(folderId).filter((page) => this.isVisiblePage(page)),
+    };
+  }
+
+  /** How many folders and notes `getArchivedFolderContents` holds — the counts an Archive row shows. */
+  public countChildren(folderId: string): { readonly subfolders: number; readonly notes: number } {
+    const { folders, pages } = this.getArchivedFolderContents(folderId);
+
+    return { subfolders: folders.length, notes: pages.length };
   }
 
   /**
@@ -430,8 +456,7 @@ export class MembershipSelector {
     return Array.from(this.vault.pages()).filter(
       (page) =>
         this.isVisiblePage(page) &&
-        !this.isArchivedPage(page) &&
-        !this.isEffectivelyArchived(page.parentId)
+        !this.isArchivedPage(page)
     );
   }
 

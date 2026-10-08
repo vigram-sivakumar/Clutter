@@ -19,6 +19,8 @@ export interface ImageOverlayImage {
    * button, never an empty/disabled one.
    */
   readonly resourceId?: string;
+  /** The file is archived (opened from the Archive): its menu is Download, Restore and Delete. */
+  readonly archived?: boolean;
   /**
    * The vault-relative path, for a Resource embed only (mirrors
    * `ImageWidget.ts`'s own `copyUrl` field exactly) — carried through so
@@ -47,6 +49,8 @@ export interface ImageOverlayProps {
   ) => void;
   /** Same shape/reasoning as onRevealResourceInFinder above — see downloadResource.ts. */
   readonly onDownloadResource?: (resourceId: string) => void;
+  readonly onRestoreResource?: (resourceId: string) => void;
+  readonly onDeleteResource?: (resourceId: string) => void;
   readonly resourceMoveDestinations?: PickerListItem[];
   readonly onMoveResource?: (
     resourceId: string,
@@ -140,6 +144,8 @@ export function ImageOverlay({
   onRevealResourceInFinder,
   onCopyResourcePath,
   onDownloadResource,
+  onRestoreResource,
+  onDeleteResource,
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
@@ -174,6 +180,9 @@ export function ImageOverlay({
               onRevealResourceInFinder={onRevealResourceInFinder}
               onCopyResourcePath={onCopyResourcePath}
               onDownloadResource={onDownloadResource}
+              archived={image.archived}
+              onRestoreResource={onRestoreResource}
+              onDeleteResource={onDeleteResource}
               resourceMoveDestinations={resourceMoveDestinations}
               onMoveResource={onMoveResource}
               onCreateFolder={onCreateFolder}

@@ -1,7 +1,8 @@
 import type { HTMLAttributes } from 'react';
-import { CollectionRow } from '../row/CollectionRow';
-import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
+import type { CollectionEntryAttributes } from '../entry/collectionEntryAttributes';
 import { CollectionTableCell, type CollectionTableCellProps } from './cells/CollectionTableCell';
+import { AppIcon } from '@shared/icon';
+import { CollectionEntry } from '../entry/CollectionEntry';
 import { CollectionTable } from './CollectionTable';
 import { CollectionTableRow } from './CollectionTableRow';
 import {
@@ -23,7 +24,7 @@ export interface CollectionDataTableRow {
   /** Opens the row (click / Enter / Space). */
   readonly onClick?: () => void;
   /** Extra `data-*` / ARIA attributes for the row. */
-  readonly props?: CollectionRowAttributes;
+  readonly props?: CollectionEntryAttributes;
 }
 
 export interface CollectionDataTableProps extends HTMLAttributes<HTMLDivElement> {
@@ -56,7 +57,7 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
             className="collection-table-row--new-item"
             onClick={newItem.onClick}
           >
-            <CollectionRow layout="cell" tone="action" icon="plus" title={newItem.label} />
+            <CollectionEntry className="collection-entry--new" layout="cell" leading={<AppIcon icon="plus" />} title={newItem.label} />
           </CollectionTableRow>
         )
       }

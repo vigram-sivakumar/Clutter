@@ -758,7 +758,8 @@ export function FolderTree({
                   ? buildResourceActionMenu(
                       'folder',
                       {
-                        status: folder.metadata.status,
+                        // Archived state is location, not the folder's own status.
+                        status: membershipSelector.isEffectivelyArchived(folder.id) ? 'archived' : 'active',
                         isFavorite: folder.metadata.favorite,
                         sort: onFolderSortChange
                           ? (getFolderSort?.(folder.id) ?? DEFAULT_SIDEBAR_SORT)

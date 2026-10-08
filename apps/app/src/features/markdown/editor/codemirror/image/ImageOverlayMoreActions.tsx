@@ -42,6 +42,14 @@ export interface ImageOverlayMoreActionsProps {
   onCreateFolder?: (name: string) => Promise<string>;
   /** See ImageOverlayProps's own matching doc comment. */
   onSetCoverImage?: () => void;
+  /**
+   * The file is archived (opened from the Archive): its menu is the archived one — Download, Restore and
+   * Delete — by the canonical asset actions' own rule, with `onRestoreResource`/`onDeleteResource` behind
+   * the last two.
+   */
+  archived?: boolean;
+  onRestoreResource?: (resourceId: string) => void;
+  onDeleteResource?: (resourceId: string) => void;
 }
 
 /**
@@ -90,6 +98,9 @@ export function ImageOverlayMoreActions({
   onMoveResource,
   onCreateFolder,
   onSetCoverImage,
+  archived = false,
+  onRestoreResource,
+  onDeleteResource,
 }: ImageOverlayMoreActionsProps) {
   // The one asset menu (the canonical asset actions), adapted to the asset's
   // source: a vault file gets the resource menu, a remote image the same menu
@@ -103,7 +114,11 @@ export function ImageOverlayMoreActions({
     {
       assetKind: 'image',
       isRemote: Boolean(remote),
-      status: 'active',
+      // Restore is offered only where a restore handler is (a file archived by itself); one that is
+      // archived because its folder is — no record of its own — can only be deleted.
+      status: archived && onRestoreResource ? 'archived' : 'active',
+      isEffectivelyArchived: archived,
+      isDeletable: archived,
       setAsCoverImage: onSetCoverImage ? 'enabled' : remote ? 'disabled' : undefined,
     },
     'overlay'
@@ -128,7 +143,7 @@ export function ImageOverlayMoreActions({
         }
       } else if (resourceId !== undefined) {
         buildAssetMenuHandlers(
-          { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath, onDownloadResource },
+          { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath, onDownloadResource, onRestoreResource, onDeleteResource },
           resourceId
         )[id]?.();
       }

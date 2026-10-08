@@ -292,7 +292,11 @@ export class TableWidget extends WidgetType {
   private breakoutWidthHandle: BreakoutWidthHandle | null = null;
 
   override eq(other: TableWidget): boolean {
+    // The controller is part of what the DOM is built from: the same table drawn static (read-only) and
+    // drawn interactive (editable) is not the same DOM, and an editor switching modes in place must not
+    // reuse one for the other.
     return (
+      this.controller === other.controller &&
       this.rawText === other.rawText &&
       this.tableFrom === other.tableFrom &&
       this.activeFrom === other.activeFrom &&

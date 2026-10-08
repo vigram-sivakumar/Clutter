@@ -40,6 +40,9 @@ export interface PdfOverlayProps {
     destinationFolderId: string | null
   ) => void;
   readonly onCreateFolder?: (name: string) => Promise<string>;
+  readonly archived?: boolean;
+  readonly onRestoreResource?: (resourceId: string) => void;
+  readonly onDeleteResource?: (resourceId: string) => void;
 }
 
 /**
@@ -70,6 +73,9 @@ export function PdfOverlay({
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
+  archived,
+  onRestoreResource,
+  onDeleteResource,
 }: PdfOverlayProps) {
   const url = resource ? resolveResourceUrl(resource.path) : null;
 
@@ -93,6 +99,9 @@ export function PdfOverlay({
           resourceMoveDestinations={resourceMoveDestinations}
           onMoveResource={onMoveResource}
           onCreateFolder={onCreateFolder}
+          archived={archived}
+          onRestoreResource={onRestoreResource}
+          onDeleteResource={onDeleteResource}
         />
       )}
     </Overlay>

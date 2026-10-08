@@ -210,6 +210,82 @@ export class Vault {
       this.pagesById.set(page.id, page);
       this.pagesByPath.set(page.path, page);
     }
+
+    // The tags/embeds/graph handed in were derived from EVERY page. The active-app projections leave
+    // out archived pages (see isPageEffectivelyArchived), so when there are any, rebuild the tag index
+    // from the active ones now and let embeds/graph rebuild lazily on first use. (Tasks are filtered
+    // when read, in tasks().) A vault with nothing archived keeps what it was given.
+    if (this.hasEffectivelyArchivedPage()) {
+      this.tagIndex = TagIndex.build(this.activePages(), this.tagMetadata);
+      this.publishTags();
+      this._embeds = null;
+      this._knowledgeGraph = null;
+    }
+  }
+
+  /**
+   * THE definition of "currently archived" for a page: it sits physically inside the reserved `Archive/`
+   * hierarchy. Location is the one source of current archive state — `status: archived` and its siblings
+   * (`archivedAt`, `originalPath`, `originalParentId`) are provenance, never a current-state signal: a page
+   * with that status outside `Archive/` is active (Sync clears the stale metadata), and an active-status page
+   * that lands in `Archive/` is archived without anything being written to it. A page inside an archived
+   * folder is inside `Archive/` too, so that case needs no rule of its own. `MembershipSelector`'s archive
+   * checks delegate here. Raw accessors (`pages()`) stay unfiltered for maintenance and sync; every
+   * active-app projection goes through this.
+   */
+  isPageEffectivelyArchived(page: Pick<Page, 'path'>): boolean {
+    return this.isPathUnderArchive(page.path);
+  }
+
+  /** The same rule for a vault file (an Asset): archived exactly when it sits inside `Archive/`. */
+  isResourceEffectivelyArchived(resource: Pick<VaultResource, 'path'>): boolean {
+    return this.isPathUnderArchive(resource.path);
+  }
+
+  /**
+   * The same rule for a folder: archived exactly when it sits inside `Archive/`. The reserved Archive folder
+   * itself is the container, never archived. Takes an id (null = the root, never).
+   */
+  isFolderEffectivelyArchived(folderId: string | null): boolean {
+    const folder = folderId === null ? undefined : this.foldersById.get(folderId);
+
+    return folder !== undefined && this.isPathUnderArchive(folder.path);
+  }
+
+  /**
+   * Whether an item sits DIRECTLY in `Archive/` — the only place Clutter offers Restore: what is deeper is
+   * archived along with the folder that holds it and comes back with that folder.
+   */
+  isDirectlyInArchive(path: string): boolean {
+    return VaultPath.parentDirectory(path) === this.archivePath();
+  }
+
+  /** Strictly beneath the reserved `Archive/` folder — the Archive itself is the container, not an archived item. */
+  private isPathUnderArchive(path: string): boolean {
+    return VaultPath.isDescendantOf(path, this.archivePath());
+  }
+
+  private archivePath(): string {
+    return `${this.root}/${reservedFolderRelativePath('archive')}`;
+  }
+
+  /** The pages that take part in the active app: every page that is not effectively archived. */
+  private *activePages(): IterableIterator<Page> {
+    for (const page of this.pagesById.values()) {
+      if (!this.isPageEffectivelyArchived(page)) {
+        yield page;
+      }
+    }
+  }
+
+  private hasEffectivelyArchivedPage(): boolean {
+    for (const page of this.pagesById.values()) {
+      if (this.isPageEffectivelyArchived(page)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   getFolder(id: string): Folder | undefined {
@@ -413,6 +489,11 @@ export class Vault {
         continue;
       }
 
+      // An archived note's tasks are not active tasks (nor those of a note inside an archived folder).
+      if (page && this.isPageEffectivelyArchived(page)) {
+        continue;
+      }
+
       yield task;
     }
   }
@@ -469,7 +550,7 @@ export class Vault {
    * can drift from the Pages they were derived from.
    */
   private refreshProjections(): void {
-    this.tagIndex = TagIndex.build(this.pagesById.values(), this.tagMetadata);
+    this.tagIndex = TagIndex.build(this.activePages(), this.tagMetadata);
     this.publishTags();
     this.refreshTasks();
   }
@@ -485,12 +566,17 @@ export class Vault {
     readonly removedPageId?: string;
   }): void {
     const seeded = this.tagIndex !== null;
-    const index = this.tagIndex ?? TagIndex.build(this.pagesById.values(), this.tagMetadata);
+    const index = this.tagIndex ?? TagIndex.build(this.activePages(), this.tagMetadata);
     this.tagIndex = index;
 
     if (seeded) {
       if (change.page) {
-        index.upsertPage(change.page);
+        // An archived page contributes nothing; archiving removes its contribution, restoring re-adds it.
+        if (this.isPageEffectivelyArchived(change.page)) {
+          index.removePage(change.page.id);
+        } else {
+          index.upsertPage(change.page);
+        }
       }
 
       if (change.removedPageId) {
@@ -520,7 +606,7 @@ export class Vault {
   }
 
   private refreshTasks(): void {
-    const tasks = this.projectionBuilder.buildTasks(this.pagesById.values());
+    const tasks = this.projectionBuilder.buildTasks(this.activePages());
 
     this.taskList.length = 0;
     this.taskList.push(...tasks);
@@ -540,7 +626,7 @@ export class Vault {
       return;
     }
 
-    const lazy = this.projectionBuilder.buildLazy(this.pagesById.values());
+    const lazy = this.projectionBuilder.buildLazy(this.activePages());
 
     this._embeds = lazy.embeds;
     this._knowledgeGraph = lazy.knowledgeGraph;
@@ -591,7 +677,7 @@ export class Vault {
    * incrementally, so this never scans the vault per call.
    */
   pageIdsForTag(name: string): readonly string[] {
-    this.tagIndex ??= TagIndex.build(this.pagesById.values(), this.tagMetadata);
+    this.tagIndex ??= TagIndex.build(this.activePages(), this.tagMetadata);
 
     return this.tagIndex.pageIdsFor(normalizeTagName(name));
   }
@@ -969,9 +1055,10 @@ export class Vault {
   /**
    * In-place metadata patch for a folder (e.g. favorite) — path/parentId
    * and everything else about identity are untouched, the folder-scoped
-   * counterpart to replacePage() for a metadata-only page save. No
-   * projections refresh: unlike page content, a folder's metadata carries
-   * no tags/links the knowledge graph derives from.
+   * counterpart to replacePage() for a metadata-only page save. Projections
+   * refresh only when the folder's `status` changes: a folder's metadata
+   * carries no tags/links of its own, but becoming (or ceasing to be)
+   * archived changes which pages beneath it are active.
    */
   updateFolderMetadata(folderId: string, patch: Partial<FolderMetadata>): void {
     const folder = this.foldersById.get(folderId);
@@ -984,6 +1071,11 @@ export class Vault {
 
     this.foldersById.set(folderId, updated);
     this.foldersByPath.set(updated.path, updated);
+
+    // A folder becoming (or ceasing to be) archived changes which pages are active beneath it.
+    if (patch.status !== undefined && patch.status !== folder.metadata.status) {
+      this.refreshProjections();
+    }
 
     this.notify({
       type: 'folder-changed',
@@ -1431,7 +1523,7 @@ export class Vault {
 
   *dailyNotes(): IterableIterator<Page> {
     for (const page of this.pagesById.values()) {
-      if (page.type === 'daily-note') {
+      if (page.type === 'daily-note' && !this.isPageEffectivelyArchived(page)) {
         yield page;
       }
     }

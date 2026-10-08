@@ -12,11 +12,11 @@ import { describe, expect, it } from 'vitest';
  * activation behavior.
  *
  *   Domain -> mapper (note/ folder/ asset/) -> generic components
- *                                              (grid/ card/ row/ list/ table/ media/ scale/)
+ *                                              (grid/ card/ entry/ list/ table/ media/ scale/)
  */
 const COMPONENTS = dirname(fileURLToPath(import.meta.url));
 const SRC = join(COMPONENTS, '..', '..', '..');
-const GENERIC_DIRS = ['grid', 'card', 'row', 'list', 'table', 'media', 'scale', 'empty'];
+const GENERIC_DIRS = ['grid', 'card', 'entry', 'list', 'table', 'media', 'scale', 'empty'];
 const DOMAIN_DIRS = ['note', 'folder', 'asset'];
 
 function filesOf(dir: string, pattern: RegExp): string[] {
@@ -235,7 +235,7 @@ describe('the collection components share one activation behavior', () => {
   });
 
   it('every component that takes an onClick builds its interaction with buildActivationProps', () => {
-    for (const rel of ['card/CollectionCard.tsx', 'row/CollectionRow.tsx', 'row/CollectionEntry.tsx', 'table/CollectionTableRow.tsx']) {
+    for (const rel of ['card/CollectionCard.tsx', 'entry/CollectionEntry.tsx', 'table/CollectionTableRow.tsx']) {
       const file = GENERIC.find((candidate) => candidate.rel === rel)!;
       expect(importsOf(file.text), rel).toContain('@shared/interaction');
       expect(file.text, rel).toContain('buildActivationProps');
@@ -249,9 +249,8 @@ describe('the generic collection components own only their own CSS', () => {
     'grid/CollectionGrid.css': 'collection-grid',
     'card/CollectionCard.css': 'collection-card',
     'card/CardTitleSection.css': 'card-title-section',
-    'row/CollectionRow.css': 'collection-row',
-    'row/CollectionEntry.css': 'collection-entry',
-    'row/CollectionEntryProperties.css': 'collection-entry-properties',
+    'entry/CollectionEntry.css': 'collection-entry',
+    'entry/CollectionEntryProperties.css': 'collection-entry-properties',
     'list/CollectionDataList.css': 'collection-list',
     'table/CollectionTable.css': 'collection-table',
     'table/CollectionTableRow.css': 'collection-table-row',

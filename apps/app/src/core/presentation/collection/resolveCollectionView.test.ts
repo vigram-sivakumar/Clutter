@@ -56,9 +56,9 @@ describe('resolveCollectionView — order and membership', () => {
   it('Sort by is the sortable subset of the available properties — the same list, filtered', () => {
     const view = resolveCollectionView(ARCHIVE_COLLECTION);
 
-    expect(view.available).toEqual(['name', 'type', 'archived']);
+    expect(view.available).toEqual(['name', 'type', 'description', 'archived']);
     expect(view.sortable).toEqual(view.available.filter((id) => view.sortable.includes(id)));
-    expect(view.sortable).toEqual(['name', 'type', 'archived']);
+    expect(view.sortable).toEqual(['name', 'type', 'description', 'archived']);
   });
 });
 
@@ -203,8 +203,9 @@ describe('legacy snapshot → overrides', () => {
 
   it('a snapshot that is only defaults produces no override at all', () => {
     expect(migrateLegacyProperties(FOLDER_COLLECTION, SNAPSHOT_ALL_TRUE)).toBeUndefined();
-    // The Archive no longer offers Created or Last edited, so an old snapshot's choices about them are ignored.
-    expect(migrateLegacyProperties(ARCHIVE_COLLECTION, SNAPSHOT_ALL_TRUE)).toBeUndefined();
+    // The Archive does not offer Created or Last edited, so an old snapshot's choices about them are ignored.
+    // It offers Description off by default, so a snapshot that had it on is a real choice and is kept.
+    expect(migrateLegacyProperties(ARCHIVE_COLLECTION, SNAPSHOT_ALL_TRUE)).toEqual({ description: true });
   });
 
   it('keeps what the user hid: only differences from the collection\'s default become overrides', () => {

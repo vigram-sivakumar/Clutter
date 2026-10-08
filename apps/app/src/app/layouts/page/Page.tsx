@@ -156,6 +156,8 @@ type PageProps = {
    * open) ever animates. See Page.Cover.tsx's own `hidden` doc comment.
    */
   coverKey?: string;
+  /** `false` keeps the cover displayed but removes its menu button (an archived page). Default `true`. */
+  coverEditable?: boolean;
   /**
    * A handle onto whatever's rendered in `body`, so title's Enter can
    * advance focus into it — Page doesn't need to know what body actually
@@ -258,6 +260,7 @@ export function Page({
   coverPositionSide,
   onSaveCoverPosition,
   coverKey,
+  coverEditable = true,
   bodyFocusRef,
   pageFocusRef,
   onTitleCommit,
@@ -299,6 +302,7 @@ export function Page({
   const cover = coverImage && (
     <PageCover
       key={coverKey}
+      editable={coverEditable}
       src={coverImage}
       onRemove={onRemoveCoverImage}
       hidden={coverHidden}

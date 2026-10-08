@@ -570,3 +570,100 @@ describe('createWikiLinkResolver', () => {
     });
   });
 });
+
+describe('wiki-links and archived notes', () => {
+  const aliased = (overrides: Partial<Page> & Pick<Page, 'id' | 'path' | 'name'>, alias: string): Page =>
+    makePage({
+      analysis: { headings: [], aliases: [{ value: alias }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      ...overrides,
+    });
+  const archivedMeta = { ...defaultPageMetadata, status: 'archived' as const };
+
+  it('a link to an archived note still resolves, and activating it opens that note', () => {
+    const open = vi.fn();
+    const old = aliased({ id: 'old', path: '/vault/Archive/Old.md', name: 'Old', metadata: archivedMeta }, 'Old plan');
+    const vault = makeVault([old]);
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault, { open }), fakeFolderOperations(vault));
+
+    // Literal path to the archived file, and its alias (when nothing active claims it).
+    for (const target of ['Archive/Old', 'Old plan']) {
+      const resolution = resolve(target, null);
+
+      expect(resolution.status, target).toBe('resolved');
+      resolution.activate();
+      expect(open).toHaveBeenLastCalledWith('old');
+    }
+  });
+
+  it('an archived note never makes an alias ambiguous: the active note wins', () => {
+    const live = aliased({ id: 'live', path: '/vault/Live.md', name: 'Live' }, 'Plan');
+    const old = aliased({ id: 'old', path: '/vault/Archive/Old.md', name: 'Old', metadata: archivedMeta }, 'Plan');
+    const vault = makeVault([live, old]);
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+    const resolution = resolve('Plan', null);
+
+    expect(resolution.status).toBe('resolved');
+    expect((resolution as { pageId: string }).pageId).toBe('live');
+  });
+
+  it('a note inside an archived folder counts as archived for alias matching, but still resolves when alone', () => {
+    const archivedFolder = makeFolder({ id: 'f', path: '/vault/Archive/Old', metadata: { ...defaultFolderMetadata, status: 'archived' } });
+    const inside = aliased({ id: 'inside', path: '/vault/Archive/Old/N.md', name: 'N', parentId: 'f' }, 'Shared');
+    const live = aliased({ id: 'live', path: '/vault/Live.md', name: 'Live' }, 'Shared');
+    const vault = makeVault([inside, live], [archivedFolder]);
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+    expect((resolve('Shared', null) as { pageId: string }).pageId).toBe('live');
+  });
+});
+
+describe('wiki-links in a read-only host (createMissing: false) — an archived note', () => {
+  const readOnlyOptions = { createMissing: false } as const;
+
+  it('an unresolved link creates nothing: no page, no folder', async () => {
+    const create = vi.fn();
+    const createFolder = vi.fn();
+    const vault = makeVault([]);
+    const resolve = createWikiLinkResolver(
+      vault,
+      fakePageOperations(vault, { create }),
+      fakeFolderOperations(vault, { create: createFolder }),
+      undefined,
+      readOnlyOptions
+    );
+
+    const resolution = resolve('Brand new/Page', null);
+    resolution.activate();
+    await flushAsync();
+
+    expect(resolution.status).toBe('unresolved');
+    expect(create).not.toHaveBeenCalled();
+    expect(createFolder).not.toHaveBeenCalled();
+    expect(vault.getPageByPath('/vault/Brand new/Page.md')).toBeUndefined();
+  });
+
+  it('an existing target still opens', () => {
+    const open = vi.fn();
+    const page = makePage({ id: 'p1', path: '/vault/Real.md', name: 'Real' });
+    const vault = makeVault([page]);
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault, { open }), fakeFolderOperations(vault), undefined, readOnlyOptions);
+
+    const resolution = resolve('Real', null);
+    resolution.activate();
+
+    expect(resolution.status).toBe('resolved');
+    expect(open).toHaveBeenCalledWith('p1');
+  });
+
+  it('the default host still creates the missing page', async () => {
+    const create = vi.fn();
+    const vault = makeVault([]);
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault, { create }), fakeFolderOperations(vault));
+
+    resolve('Fresh', null).activate();
+    await flushAsync();
+
+    expect(create).toHaveBeenCalled();
+  });
+});

@@ -47,7 +47,7 @@ describe('buildPropertyTableColumns — Type is an ordinary property column', ()
       ['name', 'Name'],
       ['type', 'Type'],
       ['size', 'File size'],
-      ['archived', 'Archived'],
+      ['archived', 'Archived date'],
     ]);
   });
 });

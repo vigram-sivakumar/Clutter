@@ -803,6 +803,18 @@ describe('TagOperations.countUnusedTags / deleteUnusedTags', () => {
     expect(writes).toEqual([]);
   });
 
+  it('a tag used only by archived notes (inside Archive/) counts as unused: its declaration is removed; a tag an active note uses is kept', async () => {
+    const t = setup(
+      { 'Archive/old': 'retired #retired and #shared', live: 'active #shared' },
+      { retired: { name: 'retired', icon: '🗃' }, shared: { name: 'shared' }, never: { name: 'never' } }
+    );
+
+    expect(t.tagOperations.countUnusedTags()).toBe(2);
+    expect(await t.tagOperations.deleteUnusedTags()).toBe(2);
+
+    expect(t.definitionsOnDisk()).toEqual({ shared: { name: 'shared' } });
+  });
+
   it('reads usage when it writes: a tag that gained a usage since the caller looked is kept', async () => {
     const t = setup({ a: 'plain' }, { research: { name: 'research' } });
     expect(t.tagOperations.countUnusedTags()).toBe(1);

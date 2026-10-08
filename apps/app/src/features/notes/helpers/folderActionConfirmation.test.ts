@@ -94,7 +94,7 @@ describe('getFolderDeleteConfirmation', () => {
     const result = getFolderDeleteConfirmation(vault, 'folder-1');
 
     expect(result.hasDescendants).toBe(false);
-    expect(result.message).toBe('This cannot be undone.');
+    expect(result.message).toBe('You can’t undo this action.');
   });
 
   it('hasDescendants is true and the message names counts for a non-empty folder', () => {
@@ -107,7 +107,7 @@ describe('getFolderDeleteConfirmation', () => {
 
     expect(result.hasDescendants).toBe(true);
     expect(result.message).toBe(
-      'Delete this folder and everything inside it? This will permanently delete 1 folder(s) and 1 page(s). This cannot be undone.'
+      'Delete this folder and everything inside it? This will permanently delete 1 folder(s) and 1 page(s). You can’t undo this action.'
     );
   });
 });
@@ -134,6 +134,6 @@ describe('getFolderArchiveConfirmation (unchanged by the "always confirm delete"
 
 describe('PAGE_DELETE_CONFIRMATION_MESSAGE', () => {
   it('is a fixed, non-empty confirmation message for a Note/Daily Note delete', () => {
-    expect(PAGE_DELETE_CONFIRMATION_MESSAGE).toBe('This cannot be undone.');
+    expect(PAGE_DELETE_CONFIRMATION_MESSAGE).toBe('You can’t undo this action.');
   });
 });

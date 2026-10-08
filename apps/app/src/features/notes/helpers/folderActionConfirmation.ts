@@ -65,8 +65,8 @@ export function getFolderDeleteConfirmation(
 ): FolderActionConfirmation {
   return describeFolderAction(vault, folderId, (folderCount, pageCount) =>
     folderCount === 0 && pageCount === 0
-      ? 'This cannot be undone.'
-      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). This cannot be undone.`
+      ? 'You can’t undo this action.'
+      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). You can’t undo this action.`
   );
 }
 
@@ -78,4 +78,4 @@ export function getFolderDeleteConfirmation(
  * (buildTopBarActions.tsx's isDeletable), and every such delete now
  * requires confirmation.
  */
-export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'This cannot be undone.';
+export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'You can’t undo this action.';

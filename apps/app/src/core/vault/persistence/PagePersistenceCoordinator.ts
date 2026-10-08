@@ -54,7 +54,7 @@ export type PersistenceOperation =
   | { readonly kind: 'archive' }
   // `conflict: 'inbox'` is the answer to a RestoreConflictError (the original path is taken by
   // another page): restore into the Inbox instead. Without it, a taken original path rejects.
-  | { readonly kind: 'restore'; readonly conflict?: 'inbox' }
+  | { readonly kind: 'restore'; readonly conflict?: 'inbox'; readonly destinationFolderId?: string | null }
   | { readonly kind: 'delete' }
   | {
       readonly kind: 'move';
@@ -90,7 +90,7 @@ export type PersistenceOperation =
   // parameterization of the same one (same reasoning
   // 'delete-folder'/'move-folder' already established).
   | { readonly kind: 'archive-folder' }
-  | { readonly kind: 'restore-folder' }
+  | { readonly kind: 'restore-folder'; readonly destinationFolderId?: string | null }
   // Metadata-only folder patch (e.g. favorite) — the folder-scoped
   // counterpart to 'save's optional `metadata`, but its own kind rather
   // than piggybacking on 'save': a folder has no body `content` to write,
@@ -122,7 +122,7 @@ export type PersistenceOperation =
   // parameterization of the same one.
   | { readonly kind: 'rename-resource'; readonly title: string }
   | { readonly kind: 'archive-resource' }
-  | { readonly kind: 'restore-resource' }
+  | { readonly kind: 'restore-resource'; readonly destinationFolderId?: string | null }
   // The resource-scoped counterpart to 'move' — an arbitrary destination
   // folder rather than the fixed Archive/ destination 'archive-resource'
   // resolves to. `destinationFolderId: null` means the vault root, same
@@ -188,6 +188,18 @@ export type PersistenceResult =
   | {
       readonly status: 'resource-deleted';
     };
+
+/**
+ * A restore of something that has no recorded original location — it was put in `Archive/` from outside
+ * Clutter (archived state is location, so it is archived all the same). Clutter does not invent a previous
+ * place for it: the caller asks the user where it should go and restores again with that destination.
+ */
+export class RestoreNeedsDestinationError extends Error {
+  constructor(readonly entityId: string) {
+    super(`Restore needs a destination: ${entityId} has no recorded original location`);
+    this.name = 'RestoreNeedsDestinationError';
+  }
+}
 
 /**
  * A restore whose original path is already taken by another page. Carries the occupant so the
@@ -317,7 +329,7 @@ export class PagePersistenceCoordinator {
     }
 
     if (operation.kind === 'restore-folder') {
-      return this.runRestoreFolder(id);
+      return this.runRestoreFolder(id, operation.destinationFolderId);
     }
 
     if (operation.kind === 'update-folder-metadata') {
@@ -341,7 +353,7 @@ export class PagePersistenceCoordinator {
     }
 
     if (operation.kind === 'restore-resource') {
-      return this.runRestoreResource(id);
+      return this.runRestoreResource(id, operation.destinationFolderId);
     }
 
     if (operation.kind === 'delete-resource') {
@@ -371,7 +383,7 @@ export class PagePersistenceCoordinator {
       case 'archive':
         return this.runArchive(current);
       case 'restore':
-        return this.runRestore(current, operation.conflict);
+        return this.runRestore(current, operation.conflict, operation.destinationFolderId);
       case 'delete':
         return this.runDelete(current);
       case 'move':
@@ -406,7 +418,7 @@ export class PagePersistenceCoordinator {
       throw new Error(`Cannot move a Daily Note: ${current.id}`);
     }
 
-    if (current.metadata.status === 'archived') {
+    if (this.vault.isPageEffectivelyArchived(current)) {
       throw new Error(`Cannot move an archived page: ${current.id}`);
     }
 
@@ -437,6 +449,10 @@ export class PagePersistenceCoordinator {
    * `name` from the new path, title) index internally.
    */
   private async runRename(current: Page, title: string): Promise<PersistenceResult> {
+    if (this.vault.isPageEffectivelyArchived(current)) {
+      throw new Error(`Cannot rename an archived page: ${current.id}`);
+    }
+
     const destination = this.moveService.resolveRenameDestination(current, title);
 
     const updated: Page = {
@@ -764,7 +780,7 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    if (folder.metadata.status === 'archived') {
+    if (this.vault.isFolderEffectivelyArchived(folderId)) {
       throw new Error(`Cannot move an archived folder: ${folderId}`);
     }
 
@@ -836,7 +852,8 @@ export class PagePersistenceCoordinator {
    * failure shape identified for Folder Archive, closed here the same way.
    */
   private async runArchive(current: Page): Promise<PersistenceResult> {
-    if (current.metadata.status === 'archived') {
+    // Itself archived, or inside an archived folder: either way it is already in the Archive's care.
+    if (this.vault.isPageEffectivelyArchived(current)) {
       throw new Error(`Page is already archived: ${current.id}`);
     }
 
@@ -963,7 +980,7 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    if (folder.metadata.status === 'archived') {
+    if (this.vault.isFolderEffectivelyArchived(folderId)) {
       throw new Error(`Folder is already archived: ${folderId}`);
     }
 
@@ -1061,7 +1078,10 @@ export class PagePersistenceCoordinator {
    * directory already moved, redoing only the `.folder.md` write and the
    * Vault commit.
    */
-  private async runRestoreFolder(folderId: string): Promise<PersistenceResult> {
+  private async runRestoreFolder(
+    folderId: string,
+    destinationFolderId?: string | null
+  ): Promise<PersistenceResult> {
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {
@@ -1071,8 +1091,13 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    if (folder.metadata.status !== 'archived') {
+    // Archived state is location: only a folder directly in Archive/ is restorable, whatever its status says.
+    if (!this.vault.isFolderEffectivelyArchived(folderId)) {
       throw new Error(`Folder is not archived: ${folderId}`);
+    }
+
+    if (!this.vault.isDirectlyInArchive(folder.path)) {
+      throw new Error(`Folder is not archived on its own: ${folderId}. Restore the folder that holds it.`);
     }
 
     // Mirrors runRestore's own inline metadata clear exactly (kept inline
@@ -1087,7 +1112,17 @@ export class PagePersistenceCoordinator {
       originalPath: null,
       originalParentId: null,
     };
-    const destination = new FolderPathResolver(this.vault).resolveRestoreDestination(folderId);
+    const resolver = new FolderPathResolver(this.vault);
+    let destination: { path: string; parentId: string | null };
+
+    if (destinationFolderId !== undefined) {
+      destination = resolver.resolveMoveDestination(folderId, destinationFolderId);
+    } else if (folder.metadata.originalPath !== null) {
+      destination = resolver.resolveRestoreDestination(folderId);
+    } else {
+      // Put in Archive/ from outside: no recorded place, and none is invented.
+      throw new RestoreNeedsDestinationError(folderId);
+    }
 
     // Same collision guard runArchiveFolder applies at its own destination —
     // checked before any write, since this method calls fileSystem.moveFile()
@@ -1166,14 +1201,31 @@ export class PagePersistenceCoordinator {
 
   private async runRestore(
     current: Page,
-    conflict?: 'inbox'
+    conflict?: 'inbox',
+    destinationFolderId?: string | null
   ): Promise<PersistenceResult> {
-    if (current.metadata.status !== 'archived') {
+    // Archived state is location: only something directly in Archive/ is restorable (what is deeper comes back
+    // with its folder), whatever its status metadata says.
+    if (!this.vault.isPageEffectivelyArchived(current)) {
       throw new Error(`Page is not archived: ${current.id}`);
     }
 
+    if (!this.vault.isDirectlyInArchive(current.path)) {
+      throw new Error(`Page is not archived on its own: ${current.id}. Restore the folder that holds it.`);
+    }
+
     const now = new Date().toISOString();
-    let destination = this.moveService.resolveRestoreDestination(current);
+    let destination: { path: string; parentId: string | null };
+
+    if (destinationFolderId !== undefined) {
+      // The user chose where it goes.
+      destination = this.moveService.resolveMoveDestination(current, destinationFolderId);
+    } else if (current.metadata.originalPath !== null) {
+      destination = this.moveService.resolveRestoreDestination(current);
+    } else {
+      // Put in Archive/ from outside: no recorded place, and none is invented.
+      throw new RestoreNeedsDestinationError(current.id);
+    }
 
     // Another page already lives at the restore path: never overwrite it. The caller decides —
     // by default the restore rejects (RestoreConflictError); 'inbox' restores into the Inbox, with
@@ -1324,6 +1376,10 @@ export class PagePersistenceCoordinator {
       };
     }
 
+    if (this.vault.isResourceEffectivelyArchived(resource)) {
+      throw new Error(`Resource is already archived: ${resourceId}`);
+    }
+
     await this.ensureReservedFolderForOperation('archive');
 
     const destination = this.moveService.resolveResourceArchiveDestination(resource);
@@ -1369,7 +1425,10 @@ export class PagePersistenceCoordinator {
    * auto-renames, for Page/Folder or here; assertResourceDestinationAvailable
    * is what makes an occupied destination fail loudly instead.
    */
-  private async runRestoreResource(resourceId: string): Promise<PersistenceResult> {
+  private async runRestoreResource(
+    resourceId: string,
+    destinationFolderId?: string | null
+  ): Promise<PersistenceResult> {
     const resource = this.vault.getResource(resourceId);
 
     if (!resource) {
@@ -1379,12 +1438,26 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    const destination = await resolveResourceRestoreDestination(
-      resource,
-      this.vault,
-      this.fileSystem,
-      this.resourceArchiveStore
-    );
+    if (!this.vault.isResourceEffectivelyArchived(resource)) {
+      throw new Error(`Resource is not archived: ${resourceId}`);
+    }
+
+    let destination: { path: string; parentId: string | null };
+
+    if (destinationFolderId !== undefined) {
+      // The user chose where it goes (an Asset stays within Assets, ADR-049).
+      destination = this.moveService.resolveResourceMoveDestination(resource, destinationFolderId);
+    } else if ((await this.resourceArchiveStore.read()).has(resource.path)) {
+      destination = await resolveResourceRestoreDestination(
+        resource,
+        this.vault,
+        this.fileSystem,
+        this.resourceArchiveStore
+      );
+    } else {
+      // Put in Archive/ from outside: no recorded place, and none is invented.
+      throw new RestoreNeedsDestinationError(resourceId);
+    }
 
     if (destination.path !== resource.path) {
       this.assertResourceDestinationAvailable(destination.path, resource.id);
@@ -1432,6 +1505,11 @@ export class PagePersistenceCoordinator {
       };
     }
 
+    // Permanent delete is the Archive's: an active file is archived first.
+    if (!this.vault.isResourceEffectivelyArchived(resource)) {
+      throw new Error(`Cannot permanently delete a resource that is not archived: ${resourceId}`);
+    }
+
     await this.fileSystem.deleteFile(resource.path);
     await this.resourceArchiveStore.remove(resource.path);
     this.vault.removeResource(resourceId);
@@ -1464,6 +1542,16 @@ export class PagePersistenceCoordinator {
         status: 'abandoned',
         reason: `Resource no longer exists in the vault: ${resourceId}`,
       };
+    }
+
+    // The domain-level rule, not just the pickers': an archived file does not move, and nothing is moved
+    // into an archived folder.
+    if (this.vault.isResourceEffectivelyArchived(resource)) {
+      throw new Error(`Cannot move an archived resource: ${resourceId}`);
+    }
+
+    if (destinationFolderId !== null && this.vault.isFolderEffectivelyArchived(destinationFolderId)) {
+      throw new Error(`Cannot move into an archived folder: ${destinationFolderId}`);
     }
 
     const destination = this.moveService.resolveResourceMoveDestination(

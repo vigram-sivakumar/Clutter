@@ -1,9 +1,9 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionMedia';
-import { CollectionEntry } from '../row/CollectionEntry';
-import { CollectionEntryProperties } from '../row/CollectionEntryProperties';
-import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
+import { CollectionEntry } from '../entry/CollectionEntry';
+import { CollectionEntryProperties } from '../entry/CollectionEntryProperties';
+import type { CollectionEntryAttributes } from '../entry/collectionEntryAttributes';
 import './CollectionDataList.css';
 
 /** One item of a collection list, described by data only. */
@@ -12,7 +12,7 @@ export interface CollectionDataListItem {
 
   readonly icon?: SystemIcon;
   readonly emoji?: string;
-  /** Replaces the icon/emoji box — a thumbnail (`CollectionMedia fillHeight`) in front of the title, for one. */
+  /** Replaces the icon/emoji — a thumbnail (`CollectionMedia`), a checkbox — in front of the title, for one. */
   readonly leading?: ReactNode;
 
   readonly title: string;
@@ -24,10 +24,10 @@ export interface CollectionDataListItem {
   /** The muted trailing values (dates, a kind label), one per entry; none draws no metadata. */
   readonly metadata?: readonly string[];
 
-  /** A custom node after the metadata in the trailing slot (a link to somewhere, say); drawn in the same muted metadata run. */
+  /** A custom node after the metadata values in the entry's trailing slot (a link to somewhere, say), in its own `CollectionEntryProperties`. */
   readonly trailing?: ReactNode;
 
-  /** A thumbnail at the row's trailing end, in the shared media frame. */
+  /** A thumbnail at the entry's trailing end, in the shared media frame. */
   readonly media?: CollectionMediaProps;
 
   readonly isSelected?: boolean;
@@ -36,7 +36,7 @@ export interface CollectionDataListItem {
   readonly onClick?: () => void;
 
   /** Extra `data-*` / ARIA attributes for the row. */
-  readonly props?: CollectionRowAttributes;
+  readonly props?: CollectionEntryAttributes;
 }
 
 export interface CollectionDataListProps extends HTMLAttributes<HTMLDivElement> {

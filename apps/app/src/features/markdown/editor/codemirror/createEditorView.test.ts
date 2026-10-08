@@ -846,3 +846,51 @@ describe('createEditorView — fold-state persistence (serializeFoldState + rest
     expect(readFoldedRanges(reopenedB)).toEqual([]);
   });
 });
+
+describe('createEditorView — a read-only view follows the host\'s external sync but refuses user edits', () => {
+  const mount = (doc: string) => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+
+    return createEditorView({ doc, parent, readOnly: true, enableFolding: true });
+  };
+
+  it('syncMarkdownIntoView (externalSync) updates a read-only view', () => {
+    const view = mount('Original');
+
+    syncMarkdownIntoView(view, 'Changed elsewhere (a tag rename, say)');
+
+    expect(view.state.doc.toString()).toBe('Changed elsewhere (a tag rename, say)');
+  });
+
+  it('every other document change — a keymap command, a widget, any dispatch — is still dropped', () => {
+    const view = mount('Original');
+
+    view.dispatch({ changes: { from: 0, insert: 'typed ' } });
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+
+    expect(view.state.doc.toString()).toBe('Original');
+  });
+
+  it('the external sync is not an undoable user edit, and the update listener does not report it as one', () => {
+    const edits: string[] = [];
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = createEditorView({ doc: 'Original', parent, readOnly: true, onDocChange: (markdown) => edits.push(markdown) });
+
+    syncMarkdownIntoView(view, 'Synced');
+
+    expect(edits).toEqual([]);
+    expect(undoDepth(view.state)).toBe(0);
+  });
+
+  it('folding still works in it: fold state is separate from the document', () => {
+    const view = mount('# Heading\n\nBody');
+    forceParsing(view, view.state.doc.length, 5000);
+
+    view.dispatch({ effects: foldEffect.of({ from: 9, to: view.state.doc.length }) });
+
+    expect(view.state.doc.toString()).toBe('# Heading\n\nBody');
+    expect(view.dom.querySelector('.cm-fold-toggle')).not.toBeNull();
+  });
+});
