@@ -61,7 +61,7 @@ function renderArchive(
 const listTitles = (container: HTMLElement) =>
   [...container.querySelectorAll('.collection-list .collection-entry .collection-entry__title')].map((el) => el.textContent);
 const tableTitles = (container: HTMLElement) =>
-  [...container.querySelectorAll('.collection-table-row .collection-row__title')].map((el) => el.textContent);
+  [...container.querySelectorAll('.collection-table-row .collection-entry__title')].map((el) => el.textContent);
 
 const EVERYTHING = {
   folders: [makeFolderEntry({ archived: ARCHIVED_AT })],
@@ -183,7 +183,7 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
     for (const viewMode of ['list', 'table'] as const) {
       const { container } = renderArchive({ resources: [makeResource()], viewMode });
 
-      expect(container.querySelector('.collection-entry__description, .collection-row__description'), viewMode).toBeNull();
+      expect(container.querySelector('.collection-entry__description'), viewMode).toBeNull();
       expect(container.textContent, viewMode).not.toMatch(/No description/);
       cleanup();
     }
@@ -194,7 +194,7 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
 
     const archivedOf = (title: string) =>
       [...container.querySelectorAll('.collection-table-row')]
-        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
+        .find((row) => row.querySelector('.collection-entry__title')?.textContent === title)
         ?.querySelector('.collection-table-row__archived')?.textContent;
 
     expect(archivedOf('Old Note')).toBe(ARCHIVED_TEXT);
@@ -219,7 +219,7 @@ describe('ArchiveCollectionBody: a file\'s archive date comes from the archive r
 
     const archivedOf = (title: string) =>
       [...container.querySelectorAll('.collection-table-row')]
-        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
+        .find((row) => row.querySelector('.collection-entry__title')?.textContent === title)
         ?.querySelector('.collection-table-row__archived');
 
     expect(archivedOf('hero')).toHaveTextContent(RECORDED_TEXT);

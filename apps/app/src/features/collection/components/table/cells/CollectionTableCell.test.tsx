@@ -23,8 +23,8 @@ describe('CollectionTableCell — header variant', () => {
     );
 
     expect(cell(container)).toHaveClass(
-      'collection-row',
-      'collection-row--layout-cell',
+      'collection-entry',
+      'collection-entry--layout-cell',
       'collection-table-cell',
       'collection-table-cell--header',
       'col-name'
@@ -42,7 +42,7 @@ describe('CollectionTableCell — header variant', () => {
     expect(screen.getByLabelText('Rename')).toBeInTheDocument();
 
     rerender(<CollectionTableCell variant="header" title="Plan" descriptionPlaceholder="No description" />);
-    expect(screen.getByText('No description')).toHaveClass('collection-row__description--placeholder');
+    expect(screen.getByText('No description')).toHaveClass('collection-entry__description');
   });
 
   it('can show a thumbnail in place of the icon (leading), keeping the title and description', () => {
@@ -56,7 +56,7 @@ describe('CollectionTableCell — header variant', () => {
       />
     );
 
-    expect(cell(container).querySelector('.collection-row__leading [data-testid="thumb"]')).not.toBeNull();
+    expect(cell(container).querySelector('.collection-entry__leading [data-testid="thumb"]')).not.toBeNull();
     expect(cell(container).querySelector('svg')).toBeNull();
     expect(screen.getByText('photo.png')).toBeInTheDocument();
     expect(screen.getByText('4 MB')).toBeInTheDocument();

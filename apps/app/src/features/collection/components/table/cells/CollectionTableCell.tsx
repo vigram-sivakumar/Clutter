@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import type { SystemIcon } from '@shared/icon';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../../media/CollectionMedia';
-import { CollectionRow } from '../../row/CollectionRow';
+import { CollectionEntry } from '../../row/CollectionEntry';
 import './CollectionTableCell.css';
 
 /** The row's primary ("name") cell: icon or emoji, title, description. */
@@ -57,16 +57,13 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
   switch (props.variant) {
     case 'header':
       return (
-        <CollectionRow
+        <CollectionEntry
           layout="cell"
           className={join('collection-table-cell', 'collection-table-cell--header', props.className)}
-          icon={props.icon}
-          emoji={props.emoji}
-          leading={props.leading}
-          title={props.title}
+          leading={props.leading ?? (props.icon || props.emoji ? <AppIcon icon={props.icon} emoji={props.emoji} /> : undefined)}
+          title={props.title ?? ''}
           titleContent={props.titleContent}
-          description={props.description}
-          descriptionPlaceholder={props.descriptionPlaceholder}
+          description={props.description || props.descriptionPlaceholder}
         />
       );
 

@@ -133,10 +133,10 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
       return;
     }
     // The preview (the image itself / a PDF's first page) stands where the icon would, in the name.
-    // List's leading slot is the entry's, the table's name cell is still the row's.
-    expect(item(0).querySelector('.collection-entry__leading .collection-media img, .collection-row__leading .collection-media img')).not.toBeNull();
-    expect(item(1).querySelector('.collection-entry__leading .collection-media .asset-pdf-preview, .collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
-    expect(item(0).querySelector('.collection-entry__leading svg, .collection-row__leading svg')).toBeNull();
+    // The list's leading slot and the table's name cell are both the entry's.
+    expect(item(0).querySelector('.collection-entry__leading .collection-media img')).not.toBeNull();
+    expect(item(1).querySelector('.collection-entry__leading .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(item(0).querySelector('.collection-entry__leading svg')).toBeNull();
   });
 
   it('clicking an image invokes onOpenResource with the resource — the existing image overlay', () => {

@@ -1,6 +1,6 @@
 /*
- * A table cell, in three variants. The header variant is a CollectionRow and
- * takes its look from it; only the text and media variants have rules here.
+ * A table cell, in three variants. The header variant is a CollectionEntry
+ * (cell layout) and takes its look from it; only the text and media variants have rules here.
  * Per CLAUDE.md, no `margin` — spacing is padding only.
  */
 .collection-table-cell {

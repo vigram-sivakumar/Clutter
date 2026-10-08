@@ -533,7 +533,7 @@ describe('sorting notes (sortEntries with the notes\' tie-breaks)', () => {
       />
     );
 
-    const titles = [...container.querySelectorAll('.collection-table-cell--header .collection-row__title')].map(
+    const titles = [...container.querySelectorAll('.collection-table-cell--header .collection-entry__title')].map(
       (el) => el.textContent
     );
     expect(titles).toEqual(['Alpha', 'Bravo', 'Charlie']);
