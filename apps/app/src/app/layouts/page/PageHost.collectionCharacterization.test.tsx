@@ -169,7 +169,7 @@ const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixe
 const newButton = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]');
 const hasTable = () => document.querySelector('.collection-table') !== null;
 // The notes in a List — not its trailing "New Note" action row.
-const noteRows = () => document.querySelectorAll('.collection-list .collection-row:not(.collection-row--tone-action)').length;
+const noteRows = () => document.querySelectorAll('.collection-list .collection-entry:not(.collection-entry--new)').length;
 const bodyHasText = (text: string) => (document.body.textContent ?? '').includes(text);
 
 /** Opens the header's "New" menu and returns its rows (empty when "New" is a single-action button). */
@@ -424,7 +424,7 @@ describe('CURRENT BEHAVIOR — one Create capability per collection (header and 
 
       const found =
         layout === 'list'
-          ? document.querySelector('.collection-list > .collection-row--tone-action')
+          ? document.querySelector('.collection-list > .collection-entry--new')
           : layout === 'table'
             ? document.querySelector('.collection-table-row--new-item')
             : document.querySelector('.collection-grid:not(.collection-grid--fixed-rows) > .collection-card--empty');

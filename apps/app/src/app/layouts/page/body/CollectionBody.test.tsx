@@ -36,7 +36,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
 
     expect(container.querySelector('.collection-list')).toBeInTheDocument();
     expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
-    expect(getByText('My note').closest('.collection-row')).toBeInTheDocument();
+    expect(getByText('My note').closest('.collection-entry')).toBeInTheDocument();
   });
 
   it('renders a note title verbatim — no Markdown resolution (NoteList has no such slot)', () => {
@@ -53,7 +53,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody notes={[noteEntry({ onClick })]} viewMode="list" />
     );
 
-    fireEvent.click(getByText('My note').closest('.collection-row')!);
+    fireEvent.click(getByText('My note').closest('.collection-entry')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -84,7 +84,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
   it('renders an empty collection with no rows and no crash', () => {
     const { container } = render(<CollectionBody folders={[]} notes={[]} viewMode="list" />);
 
-    expect(container.querySelectorAll('.collection-row')).toHaveLength(0);
+    expect(container.querySelectorAll('.collection-entry')).toHaveLength(0);
     expect(container.querySelectorAll('.collection-card')).toHaveLength(0);
   });
 });

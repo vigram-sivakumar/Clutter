@@ -219,7 +219,7 @@ describe('CollectionBody — Table: Cover image column', () => {
 
 describe('CollectionBody — List: Cover image media', () => {
   const listMedia = (container: HTMLElement) =>
-    container.querySelector<HTMLButtonElement>('.collection-row .collection-row__media button.collection-media')!;
+    container.querySelector<HTMLButtonElement>('.collection-entry .collection-entry__trailing button.collection-media')!;
 
   it('shows each note\'s resolved cover as the row\'s trailing media, framed at its focal point', () => {
     const { container } = render(

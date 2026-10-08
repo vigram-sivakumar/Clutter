@@ -560,7 +560,7 @@ describe('CURRENT BEHAVIOR — Archive layouts (changed by the Archive migration
 
   it('List and Table draw folders AND notes as rows of the one generic layout — folders are no longer a card grid', () => {
     const list = renderArchive('list');
-    expect(list.container.querySelectorAll('.collection-list .collection-row')).toHaveLength(2);
+    expect(list.container.querySelectorAll('.collection-list .collection-entry')).toHaveLength(2);
     expect(list.container.querySelector('.collection-table')).toBeNull();
     expect(list.container.querySelector('.collection-card')).toBeNull();
     list.unmount();

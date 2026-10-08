@@ -38,7 +38,7 @@ const photo = (): Asset =>
 
 /** The affordance each layout draws, and the element a click goes to. */
 const AFFORDANCE = {
-  list: (c: HTMLElement) => c.querySelector<HTMLElement>('.collection-list > .collection-row--tone-action'),
+  list: (c: HTMLElement) => c.querySelector<HTMLElement>('.collection-list > .collection-entry--new'),
   table: (c: HTMLElement) => c.querySelector<HTMLElement>('.collection-table-row--new-item'),
   card: (c: HTMLElement) => c.querySelector<HTMLElement>('.collection-grid > .collection-card--empty'),
 };

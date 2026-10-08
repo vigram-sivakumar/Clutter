@@ -162,7 +162,7 @@ function folderCardNames(): string[] {
 const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-card--empty') !== null;
 const hasHeaderPlus = () => document.querySelector('button[aria-label="New"]') !== null;
 const noteRows = () =>
-  document.querySelectorAll('.collection-table__body .collection-table-row:not(.collection-table-row--new-item), .collection-list .collection-row').length;
+  document.querySelectorAll('.collection-table__body .collection-table-row:not(.collection-table-row--new-item), .collection-list .collection-entry').length;
 
 describe('Daily Notes collection pages (flag on)', () => {
   it('the Daily Notes page lists the years latest to oldest, with no notes section, no create-folder card and no "+"', async () => {

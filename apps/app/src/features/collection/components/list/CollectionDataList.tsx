@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import type { SystemIcon } from '@shared/icon';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionMedia';
-import { CollectionRow } from '../row/CollectionRow';
+import { CollectionEntry } from '../row/CollectionEntry';
 import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
 import './CollectionDataList.css';
 
@@ -49,54 +49,63 @@ export interface CollectionDataListProps extends HTMLAttributes<HTMLDivElement> 
 }
 
 /**
- * A list from data: one `CollectionRow` per item in a flush column. The
+ * A list from data: one `CollectionEntry` per item in a flush column. The
  * caller supplies values only; this draws them. It knows nothing about what
  * an item is.
+ *
+ * The entry's slot rule: `description` is only ever a real description; everything else the item
+ * carries (its `metadata` values, a custom `trailing` node, the `media` thumbnail) is drawn in the
+ * entry's one `trailing` slot, each as its own element.
  */
 export function CollectionDataList({ items, newItem, className, ...props }: CollectionDataListProps) {
   return (
     <div {...props} className={['collection-list', className].filter(Boolean).join(' ')}>
       {items.map((item) => (
-        <CollectionRow
+        <CollectionEntry
           {...item.props}
           key={item.id}
           layout="list"
-          icon={item.icon}
-          emoji={item.emoji}
-          leading={item.leading}
+          leading={item.leading ?? (item.icon || item.emoji ? <AppIcon icon={item.icon} emoji={item.emoji} /> : undefined)}
           title={item.title}
           titleContent={item.titleContent}
           description={item.description}
-          metadata={
-            (item.metadata && item.metadata.length > 0) || item.trailing ? (
-              <>
-                {item.metadata?.map((value, index) => (
-                  <span key={`${index}:${value}`}>{value}</span>
-                ))}
-                {item.trailing}
-              </>
-            ) : undefined
-          }
-          media={
-            item.media ? (
-              <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
-                {item.media.children}
-              </CollectionMedia>
-            ) : undefined
-          }
+          trailing={trailingOf(item)}
           isSelected={item.isSelected}
           onClick={item.onClick ? () => item.onClick?.() : undefined}
         />
       ))}
       {newItem && (
-        <CollectionRow
+        <CollectionEntry
+          className="collection-entry--new"
           layout="list"
-          tone="action"
-          icon="plus"
+          leading={<AppIcon icon="plus" />}
           title={newItem.label}
           onClick={newItem.onClick}
         />
       )}
     </div>
+  );
+}
+
+/** An item's trailing run — its metadata values, then any custom node, then the thumbnail — or nothing at all. */
+function trailingOf(item: CollectionDataListItem): ReactNode {
+  const hasMetadata = item.metadata !== undefined && item.metadata.length > 0;
+
+  if (!hasMetadata && !item.trailing && !item.media) {
+    return undefined;
+  }
+
+  return (
+    <>
+      {item.metadata?.map((value, index) => (
+        <span key={`${index}:${value}`}>{value}</span>
+      ))}
+      {item.trailing}
+      {item.media && (
+        <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
+          {item.media.children}
+        </CollectionMedia>
+      )}
+    </>
   );
 }

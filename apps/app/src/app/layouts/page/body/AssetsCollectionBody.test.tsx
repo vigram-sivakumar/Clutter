@@ -69,7 +69,7 @@ function renderAssets(
 
 /** The item element for each layout — the shared layer's own row/card class. */
 const ITEM_SELECTOR: Record<CollectionLayout, string> = {
-  list: '.collection-row',
+  list: '.collection-entry',
   table: '.collection-table-row',
   card: '.collection-card--layout-overlay',
 };
@@ -133,9 +133,10 @@ describe.each(LAYOUTS)('AssetsCollectionBody — %s layout', (viewMode) => {
       return;
     }
     // The preview (the image itself / a PDF's first page) stands where the icon would, in the name.
-    expect(item(0).querySelector('.collection-row__leading .collection-media img')).not.toBeNull();
-    expect(item(1).querySelector('.collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
-    expect(item(0).querySelector('.collection-row__leading svg')).toBeNull();
+    // List's leading slot is the entry's, the table's name cell is still the row's.
+    expect(item(0).querySelector('.collection-entry__leading .collection-media img, .collection-row__leading .collection-media img')).not.toBeNull();
+    expect(item(1).querySelector('.collection-entry__leading .collection-media .asset-pdf-preview, .collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(item(0).querySelector('.collection-entry__leading svg, .collection-row__leading svg')).toBeNull();
   });
 
   it('clicking an image invokes onOpenResource with the resource — the existing image overlay', () => {
@@ -251,7 +252,7 @@ describe('AssetsCollectionBody — which layout renders', () => {
   it('List uses the shared list grid + list rows (the same ones notes use)', () => {
     const { container } = renderAssets({ resources: resources(), viewMode: 'list' });
 
-    expect(container.querySelector('.collection-list > .collection-row')).not.toBeNull();
+    expect(container.querySelector('.collection-list > .collection-entry')).not.toBeNull();
     expect(container.querySelector('.collection-table, .collection-grid')).toBeNull();
   });
 
@@ -275,13 +276,13 @@ describe('AssetsCollectionBody — which layout renders', () => {
       viewMode: 'list',
     });
 
-    const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-row')];
-    expect(imageRow!.querySelector('.collection-row__leading .collection-media img')).toHaveAttribute(
+    const [imageRow, pdfRow] = [...container.querySelectorAll('.collection-entry')];
+    expect(imageRow!.querySelector('.collection-entry__leading .collection-media img')).toHaveAttribute(
       'src',
       'app://vault/Assets/house.png'
     );
-    expect(pdfRow!.querySelector('.collection-row__leading .collection-media .asset-pdf-preview')).not.toBeNull();
-    expect(imageRow!.querySelector('.collection-row__media')).toBeNull();
+    expect(pdfRow!.querySelector('.collection-entry__leading .collection-media .asset-pdf-preview')).not.toBeNull();
+    expect(imageRow!.querySelector('.collection-entry__trailing .collection-media')).toBeNull();
   });
 
   it('Table draws each asset with the generic header (led by the thumbnail) and text cells', () => {
@@ -588,13 +589,13 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
 
   it('List: the same Properties are the row metadata — size, created, last edited — and nothing when they are off', () => {
     const shown = renderAssets({ assets: [file()], viewMode: 'list', visible: on });
-    const metadata = [...shown.container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent);
+    const metadata = [...shown.container.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent);
     expect(metadata[0]).toBe('12 KB');
     expect(metadata).toHaveLength(3);
     shown.unmount();
 
     const hidden = renderAssets({ assets: [file()], viewMode: 'list', visible: off });
-    expect(hidden.container.querySelector('.collection-row__metadata')).toBeNull();
+    expect(hidden.container.querySelector('.collection-entry__trailing')).toBeNull();
   });
 
   it('the Card still lists the same facts as its own lines, from the same properties', () => {
@@ -641,7 +642,7 @@ describe('AssetsCollectionBody — Create affordance', () => {
       const onCreate = vi.fn();
       const { container, getByText, unmount } = renderAssets({ resources: [makeResource()], viewMode, onCreate });
 
-      const row = getByText('Create').closest(viewMode === 'list' ? '.collection-row' : '.collection-table-row--new-item')!;
+      const row = getByText('Create').closest(viewMode === 'list' ? '.collection-entry' : '.collection-table-row--new-item')!;
       expect(row.closest(viewMode === 'list' ? '.collection-list' : '.collection-table__body')!.lastElementChild).toBe(
         viewMode === 'list' ? row : row
       );

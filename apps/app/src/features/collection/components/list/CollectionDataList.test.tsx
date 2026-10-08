@@ -20,11 +20,11 @@ describe('CollectionDataList', () => {
   it('draws each item as one list row inside the list container, in order', () => {
     const { container } = render(<CollectionDataList items={[item(), item({ id: 'i2', title: 'Other' })]} />);
 
-    const rows = container.querySelectorAll('.collection-list > .collection-row');
+    const rows = container.querySelectorAll('.collection-list > .collection-entry');
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('Plan');
     expect(rows[1]).toHaveTextContent('Other');
-    expect(rows[0]).toHaveClass('collection-row--layout-list');
+    expect(rows[0]).toHaveClass('collection-entry--layout-list');
   });
 
   it('maps icon, emoji, title, description and titleContent onto the row', () => {
@@ -36,11 +36,11 @@ describe('CollectionDataList', () => {
         ]}
       />
     );
-    const [first, second] = [...container.querySelectorAll('.collection-row')];
+    const [first, second] = [...container.querySelectorAll('.collection-entry')];
 
     expect(first!.querySelector('.emoji-icon')).toHaveTextContent('🌊');
-    expect(first!.querySelector('.collection-row__description')).toHaveTextContent('Q4 goals');
-    expect(second!.querySelector('.collection-row__title input')).not.toBeNull();
+    expect(first!.querySelector('.collection-entry__description')).toHaveTextContent('Q4 goals');
+    expect(second!.querySelector('.collection-entry__title input')).not.toBeNull();
     expect(screen.queryByText('Hidden')).toBeNull();
   });
 
@@ -55,9 +55,9 @@ describe('CollectionDataList', () => {
         ]}
       />
     );
-    const row = container.querySelector('.collection-row')!;
+    const row = container.querySelector('.collection-entry')!;
 
-    expect(row.querySelector('.collection-row__leading .collection-media [data-testid="thumb"]')).not.toBeNull();
+    expect(row.querySelector('.collection-entry__leading .collection-media [data-testid="thumb"]')).not.toBeNull();
     expect(row.querySelector('svg')).toBeNull();
   });
 
@@ -65,13 +65,13 @@ describe('CollectionDataList', () => {
     const { container } = render(
       <CollectionDataList items={[item({ metadata: ['Today', 'Yesterday'] }), item({ id: 'i2', metadata: [] })]} />
     );
-    const [first, second] = [...container.querySelectorAll('.collection-row')];
+    const [first, second] = [...container.querySelectorAll('.collection-entry')];
 
-    expect([...first!.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual([
+    expect([...first!.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent)).toEqual([
       'Today',
       'Yesterday',
     ]);
-    expect(second!.querySelector('.collection-row__metadata')).toBeNull();
+    expect(second!.querySelector('.collection-entry__trailing')).toBeNull();
   });
 
   it('draws media in the shared frame; a clickable one is a labelled button that does not open the row', () => {
@@ -86,7 +86,7 @@ describe('CollectionDataList', () => {
       />
     );
 
-    expect(container.querySelectorAll('.collection-row__media .collection-media')).toHaveLength(2);
+    expect(container.querySelectorAll('.collection-entry__trailing .collection-media')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
     expect(onMedia).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
@@ -103,9 +103,9 @@ describe('CollectionDataList', () => {
         ]}
       />
     );
-    const row = container.querySelector('.collection-row')!;
+    const row = container.querySelector('.collection-entry')!;
 
-    expect(row).toHaveClass('collection-row--selected');
+    expect(row).toHaveClass('collection-entry--selected');
     expect(row).toHaveAttribute('data-resource-id', 'r1');
     expect(row).toHaveAttribute('aria-label', 'Plan row');
   });
@@ -113,7 +113,7 @@ describe('CollectionDataList', () => {
   it('opens an item on click and on Enter; an item without onClick is inert', () => {
     const onClick = vi.fn();
     const { container } = render(<CollectionDataList items={[item({ onClick }), item({ id: 'i2' })]} />);
-    const [first, second] = [...container.querySelectorAll('.collection-row')];
+    const [first, second] = [...container.querySelectorAll('.collection-entry')];
 
     fireEvent.click(first!);
     fireEvent.keyDown(first!, { key: 'Enter' });
@@ -123,15 +123,15 @@ describe('CollectionDataList', () => {
 
   it('draws no "new" row unless asked; the new row is an action row whose label is its whole title', () => {
     const { container, rerender } = render(<CollectionDataList items={[item()]} />);
-    expect(container.querySelectorAll('.collection-row')).toHaveLength(1);
+    expect(container.querySelectorAll('.collection-entry')).toHaveLength(1);
 
     const onClick = vi.fn();
     rerender(<CollectionDataList items={[item()]} newItem={{ label: 'New Note', onClick }} />);
-    const rows = container.querySelectorAll('.collection-row');
+    const rows = container.querySelectorAll('.collection-entry');
     const last = rows[rows.length - 1] as HTMLElement;
 
     expect(rows).toHaveLength(2);
-    expect(last).toHaveClass('collection-row--tone-action');
+    expect(last).toHaveClass('collection-entry--new');
     expect(last).toHaveTextContent('New Note');
     fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);

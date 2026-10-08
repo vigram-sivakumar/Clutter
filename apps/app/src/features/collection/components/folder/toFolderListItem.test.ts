@@ -19,16 +19,21 @@ describe('folderSummary — what a folder holds, as one line', () => {
 describe('toFolderListItem / toFolderTableRow — a folder as an item of the generic list and table', () => {
   const entry = folderEntry({ title: 'Projects', subfolderCount: 0, noteCount: 2, archived: '2026-08-12T14:20:00.000Z' });
 
-  it('the summary takes the description\'s place; it is never the Description property', () => {
+  it('the summary is the first trailing value, never the description (a folder has none in a list)', () => {
     const item = toFolderListItem(folderEntry({ title: 'P', description: 'About', subfolderCount: 1, noteCount: 0 }), { visible: ['name', 'description'] });
 
-    expect(item.description).toBe('1 subfolder · 0 notes');
+    expect(item.description).toBeUndefined();
+    expect(item.metadata).toEqual(['1 subfolder · 0 notes']);
     expect(item.icon).toBe('folder');
   });
 
-  it('metadata is the visible plain-value properties the folder has a value for — here its archive date', () => {
-    expect(toFolderListItem(entry, { visible: ['name', 'archived'] }).metadata).toHaveLength(1);
-    expect(toFolderListItem(entry, { visible: ['name', 'created', 'size'] }).metadata).toEqual([]);
+  it('after the summary, metadata is the visible plain-value properties the folder has a value for — here its archive date', () => {
+    expect(toFolderListItem(entry, { visible: ['name', 'archived'] }).metadata).toHaveLength(2);
+    expect(toFolderListItem(entry, { visible: ['name', 'created', 'size'] }).metadata).toEqual(['0 subfolders · 2 notes']);
+  });
+
+  it('a folder with no counts and no visible values has no metadata at all', () => {
+    expect(toFolderListItem(folderEntry({ title: 'Year' }), { visible: ['name'] }).metadata).toEqual([]);
   });
 
   it('the table row has the same name cell and summary, then one cell per visible value property', () => {

@@ -161,7 +161,7 @@ describe('TasksCollectionBody', () => {
 
     expect(getByText('Plan trip')).not.toBeNull();
     expect(container.querySelector('.collection__bottom-spacer')).not.toBeNull();
-    expect(container.querySelector('.collection-row__metadata')).toHaveTextContent('20 Aug 2026');
+    expect(container.querySelector('.collection-entry__trailing')).toHaveTextContent('20 Aug 2026');
     expect(container.querySelector('.pill')).toBeNull();
     expect(queryByRole('button', { name: 'Add due date' })).toBeNull();
     expect(queryByRole('button', { name: /more actions/i })).toBeNull();
@@ -184,7 +184,7 @@ describe('TasksCollectionBody', () => {
 
     // Not a pill, and it sits in the metadata (trailing) slot.
     expect(container.querySelector('.pill')).toBeNull();
-    const link = container.querySelector('.collection-row__metadata .task-row__source');
+    const link = container.querySelector('.collection-entry__trailing .task-row__source');
     expect(link).toHaveTextContent('Trips');
     // Identity emoji first, like a WikiLink in the editor.
     expect(link!.querySelector('.task-row__source-icon')).toHaveTextContent('✈️');
@@ -227,7 +227,7 @@ describe('TasksCollectionBody', () => {
     const titleGroup = container.querySelector('.task-row-title')!;
     expect(titleGroup).not.toContainElement(button);
     expect(titleGroup.lastElementChild).toHaveClass('task-title');
-    const trailing = container.querySelector('.collection-row__metadata')!;
+    const trailing = container.querySelector('.collection-entry__trailing')!;
     expect(trailing.firstElementChild).toBe(button);
     expect(trailing.lastElementChild).toHaveClass('task-row__source');
 
@@ -291,7 +291,7 @@ describe('TasksCollectionBody', () => {
       />
     );
 
-    const trailing = container.querySelector('.collection-row__metadata')!;
+    const trailing = container.querySelector('.collection-entry__trailing')!;
     expect(trailing.firstElementChild).toHaveClass('task-row__due-button', 'button--ghost');
     expect(trailing.firstElementChild).not.toHaveClass('button--outline-fill');
     expect(trailing.firstElementChild).toHaveTextContent('20 Aug 2026');
@@ -424,7 +424,7 @@ describe('TasksCollectionBody', () => {
 
       expect(container.querySelector('.task-row__due-button')).toBeNull();
       expect(container.querySelector('.task-row__source')).toBeNull();
-      expect(container.querySelectorAll('.collection-row')).toHaveLength(2);
+      expect(container.querySelectorAll('.collection-entry')).toHaveLength(2);
     });
 
     it('sorts by the chosen property with the shared engine; with Auto-sort completed on, incomplete tasks come before completed ones', () => {
@@ -444,7 +444,7 @@ describe('TasksCollectionBody', () => {
             {...noop}
           />
         );
-        const result = [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+        const result = [...container.querySelectorAll('.collection-entry .task-title')].map((el) => el.textContent);
         unmount();
         return result;
       };
@@ -463,7 +463,7 @@ describe('TasksCollectionBody', () => {
         const { container, unmount } = render(
           <TasksCollectionBody view="tasks-all" tasks={tasks} displayConfig={displayConfig} {...noop} />
         );
-        const result = [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+        const result = [...container.querySelectorAll('.collection-entry .task-title')].map((el) => el.textContent);
         unmount();
         return result;
       };
@@ -507,7 +507,7 @@ describe('TasksCollectionBody', () => {
         />
       );
 
-      expect([...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent)).toEqual([
+      expect([...container.querySelectorAll('.collection-entry .task-title')].map((el) => el.textContent)).toEqual([
         'Sooner',
         'Later',
         'No date',
@@ -551,7 +551,7 @@ describe('TasksCollectionBody', () => {
       'tasks-completed': ['T-done'],
     };
     const titlesIn = (container: HTMLElement) =>
-      [...container.querySelectorAll('.collection-row .task-title')].map((el) => el.textContent);
+      [...container.querySelectorAll('.collection-entry .task-title')].map((el) => el.textContent);
 
     it.each(VIEWS)('%s: draws its dataset as generic CollectionDataList rows, with the bottom spacer', (view) => {
       const { container } = render(<TasksCollectionBody view={view} tasks={everyDataset} {...noop} />);
@@ -626,7 +626,7 @@ describe('TasksCollectionBody', () => {
         <TasksCollectionBody view={view} tasks={everyDataset} getSource={() => ({ label: 'Src', icon: 'note', emoji: null })} {...noop} />
       );
 
-      expect(container.querySelector('.collection-row')).not.toBeNull();
+      expect(container.querySelector('.collection-entry')).not.toBeNull();
       expect(container.querySelector('.entry')).toBeNull();
       expect(container.querySelector('.task__due-date')).toBeNull();
       expect(container.querySelector('.pill')).toBeNull();

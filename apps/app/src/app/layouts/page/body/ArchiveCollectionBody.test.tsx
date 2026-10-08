@@ -59,7 +59,7 @@ function renderArchive(
 
 /** The rows of the generic list / table, in order — the table's "New" row (there is none here) excluded. */
 const listTitles = (container: HTMLElement) =>
-  [...container.querySelectorAll('.collection-list .collection-row .collection-row__title')].map((el) => el.textContent);
+  [...container.querySelectorAll('.collection-list .collection-entry .collection-entry__title')].map((el) => el.textContent);
 const tableTitles = (container: HTMLElement) =>
   [...container.querySelectorAll('.collection-table-row .collection-row__title')].map((el) => el.textContent);
 
@@ -119,9 +119,9 @@ describe('ArchiveCollectionBody: Type — the Archive\'s own presentation, not a
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list' });
 
     const firstMetadata = (title: string) =>
-      [...container.querySelectorAll('.collection-row')]
-        .find((row) => row.querySelector('.collection-row__title')?.textContent === title)
-        ?.querySelector('.collection-row__metadata span')?.textContent;
+      [...container.querySelectorAll('.collection-entry')]
+        .find((row) => row.querySelector('.collection-entry__title')?.textContent === title)
+        ?.querySelector('.collection-entry__trailing span')?.textContent;
 
     expect(firstMetadata('Old Project')).toBe('Folder');
     expect(firstMetadata('Old Note')).toBe('Note');
@@ -154,7 +154,7 @@ describe('ArchiveCollectionBody: Type — the Archive\'s own presentation, not a
 });
 
 describe('ArchiveCollectionBody: a folder\'s row says what it holds', () => {
-  const folderRow = (container: HTMLElement) => container.querySelector('.collection-row, .collection-table-row')!;
+  const folderRow = (container: HTMLElement) => container.querySelector('.collection-entry, .collection-table-row')!;
 
   it('shows "0 subfolders · 2 notes" where a description would be — in List and Table', () => {
     for (const viewMode of ['list', 'table'] as const) {
@@ -183,7 +183,7 @@ describe('ArchiveCollectionBody: files have no description, and no archive date'
     for (const viewMode of ['list', 'table'] as const) {
       const { container } = renderArchive({ resources: [makeResource()], viewMode });
 
-      expect(container.querySelector('.collection-row__description'), viewMode).toBeNull();
+      expect(container.querySelector('.collection-entry__description, .collection-row__description'), viewMode).toBeNull();
       expect(container.textContent, viewMode).not.toMatch(/No description/);
       cleanup();
     }
@@ -235,7 +235,7 @@ describe('ArchiveCollectionBody: a file\'s archive date comes from the archive r
       visible: ['name', 'archived'],
     });
 
-    expect([...container.querySelectorAll('.collection-row__metadata span')].map((s) => s.textContent)).toEqual(['Image', RECORDED_TEXT]);
+    expect([...container.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent)).toEqual(['Image', RECORDED_TEXT]);
   });
 
   it('files sort with notes and folders by that date: newest first for "down", a file with no date last', () => {

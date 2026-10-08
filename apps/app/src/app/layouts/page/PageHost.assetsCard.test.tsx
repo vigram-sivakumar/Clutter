@@ -245,8 +245,8 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     // Two assets, then the collection's trailing Create row.
-    expect(document.querySelectorAll('.collection-list > .collection-row:not(.collection-row--tone-action)')).toHaveLength(2);
-    expect(document.querySelectorAll('.collection-list > .collection-row--tone-action')).toHaveLength(1);
+    expect(document.querySelectorAll('.collection-list > .collection-entry:not(.collection-entry--new)')).toHaveLength(2);
+    expect(document.querySelectorAll('.collection-list > .collection-entry--new')).toHaveLength(1);
     expect(document.querySelector('.collection-grid, .collection-table')).toBeNull();
     expect(document.body.textContent).toContain('hero');
     expect(document.body.textContent).toContain('doc');
@@ -345,7 +345,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     render(<AppLayout application={application} />);
     await flush();
 
-    const row = document.querySelector<HTMLElement>('.collection-row')!;
+    const row = document.querySelector<HTMLElement>('.collection-entry')!;
     row.focus();
     fireEvent.keyDown(row, { key: 'F2' });
     await flush();
@@ -369,7 +369,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     const order = () =>
-      [...document.querySelectorAll<HTMLElement>('.collection-row:not(.collection-row--tone-action)')].map((row) => row.dataset.resourceId);
+      [...document.querySelectorAll<HTMLElement>('.collection-entry:not(.collection-entry--new)')].map((row) => row.dataset.resourceId);
     expect(order()).toEqual(['pdf-a', 'img-b']); // Name A→Z by default
 
     await openMenu();
@@ -393,7 +393,7 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     await flush();
 
     expect(
-      [...document.querySelectorAll<HTMLElement>('.collection-row:not(.collection-row--tone-action)')].map((row) => row.dataset.resourceId)
+      [...document.querySelectorAll<HTMLElement>('.collection-entry:not(.collection-entry--new)')].map((row) => row.dataset.resourceId)
     ).toEqual(['img-a', 'img-z']);
   });
 });

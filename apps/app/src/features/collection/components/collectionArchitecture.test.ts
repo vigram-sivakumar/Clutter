@@ -235,7 +235,7 @@ describe('the collection components share one activation behavior', () => {
   });
 
   it('every component that takes an onClick builds its interaction with buildActivationProps', () => {
-    for (const rel of ['card/CollectionCard.tsx', 'row/CollectionRow.tsx', 'table/CollectionTableRow.tsx']) {
+    for (const rel of ['card/CollectionCard.tsx', 'row/CollectionRow.tsx', 'row/CollectionEntry.tsx', 'table/CollectionTableRow.tsx']) {
       const file = GENERIC.find((candidate) => candidate.rel === rel)!;
       expect(importsOf(file.text), rel).toContain('@shared/interaction');
       expect(file.text, rel).toContain('buildActivationProps');
@@ -250,6 +250,7 @@ describe('the generic collection components own only their own CSS', () => {
     'card/CollectionCard.css': 'collection-card',
     'card/CardTitleSection.css': 'card-title-section',
     'row/CollectionRow.css': 'collection-row',
+    'row/CollectionEntry.css': 'collection-entry',
     'list/CollectionDataList.css': 'collection-list',
     'table/CollectionTable.css': 'collection-table',
     'table/CollectionTableRow.css': 'collection-table-row',

@@ -1,0 +1,114 @@
+.collection-entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--height-lg);
+  gap: var(--space-6);
+  border-radius: var(--radius-lg);
+  padding-inline: var(--space-6);
+  color: var(--foreground-secondary);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-label);
+
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.collection-entry--layout-cell {
+  padding-block: var(--space-4);
+  align-items: flex-start;
+}
+
+/* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
+.collection-entry--layout-list:hover {
+  background: var(--state-hover-medium);
+}
+
+/* Only an entry with an onClick gets a role (see buildActivationProps). */
+.collection-entry[role='button'] {
+  cursor: pointer;
+}
+
+.collection-entry__leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+
+  height: 100%;
+  min-height: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+
+  overflow: hidden;
+
+  --collection-media-width: var(--space-20);
+  --collection-media-height: var(--space-20);
+}
+.collection-entry--layout-cell .collection-entry__leading {
+  align-items: flex-start;
+}
+.collection-entry--layout-cell .collection-entry__leading > * {
+  height: 20px;
+}
+.collection-entry__content {
+  position: relative;
+
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+
+  flex: 1;
+  min-width: 0;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.collection-entry--layout-cell .collection-entry__content {
+  display: flex;
+  align-items: start;
+  flex-direction: column;
+  gap: var(--space-0);
+}
+
+.collection-entry__title {
+  color: var(--foreground-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: var(--fw-medium);
+}
+
+.collection-entry__description {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--foreground-tertiary);
+}
+
+.collection-entry__trailing {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-12);
+
+  color: var(--foreground-secondary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+
+  height: 100%;
+  min-height: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+
+  --collection-media-width: var(--space-32);
+  --collection-media-height: var(--space-20);
+}
+
+.collection-entry--new,
+.collection-entry--new .collection-entry__title {
+  color: var(--foreground-tertiary);
+}
