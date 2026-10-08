@@ -21,6 +21,9 @@ export interface CollectionDataListItem {
 
   readonly description?: string;
 
+  /** Drawn right after the title, as its sibling (see `CollectionEntry`'s `actions`). */
+  readonly actions?: ReactNode;
+
   /** The muted trailing values (dates, a kind label), one per entry; none draws no metadata. */
   readonly metadata?: readonly string[];
 
@@ -70,6 +73,7 @@ export function CollectionDataList({ items, newItem, className, ...props }: Coll
           title={item.title}
           titleContent={item.titleContent}
           description={item.description}
+          actions={item.actions}
           trailing={trailingOf(item)}
           isSelected={item.isSelected}
           onClick={item.onClick ? () => item.onClick?.() : undefined}

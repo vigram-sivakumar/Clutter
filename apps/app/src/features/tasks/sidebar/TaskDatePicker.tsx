@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RefObject } from 'react';
+import type { MutableRefObject, RefObject } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
@@ -16,6 +16,12 @@ export interface TaskDatePickerProps {
   date: string | undefined;
   onSelect: (date: string) => void;
   onClear: () => void;
+  /**
+   * Set `.current = true` right before closing to skip the one return of focus to the anchor — for a picker opened
+   * with the pointer, where handing focus back would leave the trigger focused (and anything keyed to focus pinned).
+   * See useOverlayFocus.
+   */
+  suppressReturnFocusRef?: MutableRefObject<boolean>;
 }
 
 /**
@@ -33,6 +39,7 @@ export function TaskDatePicker({
   date,
   onSelect,
   onClear,
+  suppressReturnFocusRef,
 }: TaskDatePickerProps) {
   const [mode, setMode] = useState<CalendarMode>('month');
 
@@ -41,6 +48,7 @@ export function TaskDatePicker({
       open={open}
       onClose={onClose}
       anchorRef={anchorRef}
+      suppressReturnFocusRef={suppressReturnFocusRef}
       side="bottom"
       alignment="start"
     >

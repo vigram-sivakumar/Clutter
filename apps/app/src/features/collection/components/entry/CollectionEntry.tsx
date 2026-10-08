@@ -26,6 +26,11 @@ export interface CollectionEntryProps extends Omit<
   /** Replaces the plain-text title (an inline rename editor, a task's compact-markdown title). */
   titleContent?: ReactNode;
   description?: string;
+  /**
+   * Drawn right after the title, as its SIBLING inside the content — never inside the title. The host supplies the
+   * `collection-entry__actions` element itself (Edit, a date picker…); see TaskTitleActions.
+   */
+  actions?: ReactNode;
   trailing?: ReactNode;
   isSelected?: boolean;
   onClick?: (event: MouseEvent<HTMLDivElement>) => void;
@@ -39,6 +44,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
       title,
       titleContent,
       description,
+      actions,
       trailing,
       isSelected = false,
       onClick,
@@ -66,6 +72,7 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
         {leading && <div className="collection-entry__leading">{leading}</div>}
         <div className="collection-entry__content">
           <div className="collection-entry__title">{titleContent ?? title}</div>
+          {actions}
           {description && (
             <div className="collection-entry__description">{description}</div>
           )}

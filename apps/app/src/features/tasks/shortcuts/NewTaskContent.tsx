@@ -9,8 +9,20 @@ import { formatTaskDueDate } from '@features/tasks/helpers/formatTaskDueDate';
 
 import './NewTaskContent.css';
 
+/** The task being edited — its title text (as the row shows it) and explicit due date. Present means Edit mode. */
+export interface EditingTask {
+  readonly title: string;
+  readonly dueDate: string | undefined;
+}
+
 export interface NewTaskContentProps {
   onClose(): void;
+  /**
+   * Edit mode: the modal opens prepopulated with this task, reads "Edit task" / "Save changes", and
+   * `onSubmit` saves the change to the EXISTING task (the host decides how — it never creates one).
+   * Absent: the New Task modal, unchanged.
+   */
+  editing?: EditingTask;
   /**
    * Creates the task in its target Daily Note and resolves once durable
    * (see TasksShortcutsProps.onCreateTask's own doc comment) — a plain
@@ -30,9 +42,10 @@ export interface NewTaskContentProps {
  * the next open already produces on its own; nothing needs to be reset or
  * lifted to the caller.
  */
-export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
-  const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState<ISODate | undefined>(undefined);
+export function NewTaskContent({ onClose, onSubmit, editing }: NewTaskContentProps) {
+  const isEditing = editing !== undefined;
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [dueDate, setDueDate] = useState<ISODate | undefined>(editing?.dueDate as ISODate | undefined);
   const datePicker = useOverlay<HTMLButtonElement>();
 
   // Disables the submit button while a request is in flight (prevents a
@@ -59,7 +72,7 @@ export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
     } catch (submitError) {
       setIsSubmitting(false);
       setError(
-        submitError instanceof Error ? submitError.message : 'Failed to create task.'
+        submitError instanceof Error ? submitError.message : isEditing ? 'Failed to save task.' : 'Failed to create task.'
       );
     }
   };
@@ -67,7 +80,7 @@ export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
   return (
     <div className="new-task">
       <div className="new-task__header">
-        <span className="new-task__title">New task</span>
+        <span className="new-task__title">{isEditing ? 'Edit task' : 'New task'}</span>
         <Button
           size="small"
           variant="ghost"
@@ -114,7 +127,7 @@ export function NewTaskContent({ onClose, onSubmit }: NewTaskContentProps) {
           disabled={trimmedTitle === '' || isSubmitting}
           onClick={handleSubmit}
         >
-          Create
+          {isEditing ? 'Save changes' : 'Create'}
         </Button>
       </div>
       <TaskDatePicker

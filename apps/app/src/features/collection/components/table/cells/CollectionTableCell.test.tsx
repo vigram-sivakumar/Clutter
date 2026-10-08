@@ -69,6 +69,34 @@ describe('CollectionTableCell — header variant', () => {
   });
 });
 
+describe('CollectionTableCell — custom variant', () => {
+  it('draws any node (a control, a link) as one value, in its own CollectionEntryProperties', () => {
+    const { container } = render(
+      <CollectionTableCell variant="custom" className="col-due">
+        <button type="button">Add due date</button>
+      </CollectionTableCell>
+    );
+
+    expect(cell(container)).toHaveClass('collection-table-cell', 'collection-table-cell--custom', 'col-due');
+    expect(cell(container).querySelector('.collection-entry-properties > button')).toHaveTextContent('Add due date');
+  });
+});
+
+describe('every value cell draws its value in a CollectionEntryProperties', () => {
+  it('text, media and custom alike', () => {
+    for (const props of [
+      { variant: 'text' as const, value: 'Image' },
+      { variant: 'media' as const, children: <img alt="" /> },
+      { variant: 'custom' as const, children: <span>x</span> },
+    ]) {
+      const { container } = render(<CollectionTableCell {...props} />);
+
+      expect(cell(container).firstElementChild, props.variant).toHaveClass('collection-entry-properties');
+      cleanup();
+    }
+  });
+});
+
 describe('CollectionTableCell — text variant', () => {
   it('draws one muted line of text', () => {
     const { container } = render(<CollectionTableCell variant="text" value="Image" className="col-type" />);

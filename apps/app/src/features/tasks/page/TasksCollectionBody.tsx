@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
+import { CollectionEntryProperties } from '@features/collection/components/entry/CollectionEntryProperties';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
 import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
+import { TaskTitleActions } from './TaskTitleActions';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import { formatTaskTitle } from '../helpers/formatTaskTitle';
@@ -47,6 +49,8 @@ export interface TasksCollectionBodyProps {
   readonly onOpenTask: (task: TaskOccurrence) => void;
   /** Opens a row's Change due date calendar; a date string sets it, null clears it — never moves the task. */
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
+  /** Opens the task in the Edit task modal. The row's Edit button (beside the title) is drawn only when this is given. */
+  readonly onEditTask?: (task: TaskOccurrence) => void;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference (see groupTasks.ts's
    * TaskDisplayConfig). Show completed decides MEMBERSHIP for the views that can hold both states and
@@ -99,6 +103,7 @@ export function TasksCollectionBody({
   onToggleComplete,
   onOpenTask,
   onChangeDueDate,
+  onEditTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   collectionView,
   getSource,
@@ -159,6 +164,40 @@ export function TasksCollectionBody({
     <Checkbox isChecked={task.completed} onCheckedChange={() => onToggleComplete(task)} />
   );
 
+  // The title (its own slot) and the actions drawn right after it (Edit and the due-date picker — never in an overflow menu), as
+  // the title's sibling inside the entry's content; one definition each for the List and the Table.
+  const titleSlotOf = (entry: TaskEntry) => <span className="task-row-title">{titleOf(entry)}</span>;
+  const actionsOf = (entry: TaskEntry) => (
+    <TaskTitleActions
+      dueDate={entry.task.dueDate}
+      onEdit={onEditTask && (() => onEditTask(entry.task))}
+      onChangeDueDate={(date) => onChangeDueDate(entry.task, date)}
+    />
+  );
+
+  // The due-date control — the task's date, only for a dated task (an undated one has no control; its date is set in
+  // the Edit task modal) — and the source as a wiki-link-styled link. One definition each for the List and the Table;
+  // none of them opens the row's note.
+  const dueDateOf = ({ task }: TaskEntry) =>
+    task.dueDate !== undefined && (
+      <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
+    );
+  const sourceOf = ({ task, source }: TaskEntry) =>
+    source && (
+      <CollectionEntryProperties
+        className="collection-entry-properties--wiki"
+        role="link"
+        aria-label={`Open ${source.label}`}
+        leading={<AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenTask(task);
+        }}
+      >
+        <span className="collection-entry-properties__text">{source.label}</span>
+      </CollectionEntryProperties>
+    );
+
   if (layout === 'table') {
     return (
       <TasksPageBody>
@@ -170,9 +209,15 @@ export function TasksCollectionBody({
               name: {
                 variant: 'header' as const,
                 leading: checkboxOf(entry),
-                titleContent: titleOf(entry),
+                titleContent: titleSlotOf(entry),
+                actions: actionsOf(entry),
               },
               ...propertyValueCells(visible, entry.values),
+              // The same controls as the List's trailing slot (a task with no source keeps the empty text cell).
+              ...(visible.includes('dueDate') &&
+                entry.task.dueDate !== undefined && { dueDate: { variant: 'custom' as const, children: dueDateOf(entry) } }),
+              ...(visible.includes('source') &&
+                entry.source && { source: { variant: 'custom' as const, children: sourceOf(entry) } }),
             },
             onClick: () => onOpenTask(entry.task),
           }))}
@@ -191,43 +236,13 @@ export function TasksCollectionBody({
       id: entry.id,
       title: task.text,
       leading: checkboxOf(entry),
-      titleContent: (
-        <span className="task-row-title">
-          {titleOf(entry)}
-        </span>
-      ),
-      // Trailing slot, in order: the due-date control — the task's date as a button, or for a task with
-      // no date the (hover-only) calendar icon button — then the source as a wiki-link-styled link.
-      // None of them opens the row's note.
+      titleContent: titleSlotOf(entry),
+      actions: actionsOf(entry),
+      // Trailing slot, in order: the due-date control, then the source link (see `dueDateOf` / `sourceOf`).
       trailing: (
         <>
-          {showDueDate && (
-            <TaskDueDateButton date={task.dueDate} onChange={(date) => onChangeDueDate(task, date)} />
-          )}
-          {showSource && source && (
-            <span
-              className="task-row__source"
-              role="link"
-              tabIndex={0}
-              aria-label={`Open ${source.label}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenTask(task);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onOpenTask(task);
-                }
-              }}
-            >
-              <span className="task-row__source-icon">
-                <AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />
-              </span>
-              <span className="task-row__source-title">{source.label}</span>
-            </span>
-          )}
+          {showDueDate && dueDateOf(entry)}
+          {showSource && source && sourceOf(entry)}
         </>
       ),
       onClick: () => onOpenTask(task),

@@ -59,6 +59,8 @@ type PageProps = {
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
+  /** Forwarded to PageTopBar's centered notice slot (the archived banner). */
+  banner?: ReactNode;
   /**
    * Trailing slot beside the page title itself (PageTitleSection's own
    * `actions` prop) — distinct from `actions` above, which reaches
@@ -235,6 +237,7 @@ export function Page({
   breadcrumbs,
   menu,
   actions,
+  banner,
   titleActions,
   belowDescription,
   emoji,
@@ -390,6 +393,7 @@ export function Page({
           breadcrumbs={breadcrumbs}
           menu={menu}
           actions={actions}
+          banner={banner}
           canNavigateBack={canNavigateBack}
           canNavigateForward={canNavigateForward}
           onNavigateBack={onNavigateBack}

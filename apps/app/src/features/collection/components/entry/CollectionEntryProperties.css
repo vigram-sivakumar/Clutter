@@ -11,3 +11,51 @@
   font-size: var(--text-label-small);
   line-height: var(--lh-label);
 }
+
+.collection-entry-properties__leading {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+/* Wiki-link variant (the note a task lives in): identity icon/emoji + underlined title, like the editor's .tok-wikilink. */
+.collection-entry-properties--wiki {
+  color: var(--md-wiki-foreground);
+  cursor: pointer;
+}
+.collection-entry-properties--wiki .collection-entry-properties__leading {
+  color: var(--md-wiki-icon-foreground);
+}
+.collection-entry-properties--wiki .collection-entry-properties__text {
+  text-decoration: underline;
+  text-decoration-thickness: var(--md-underline-thickness);
+  text-decoration-color: var(--md-wiki-underline);
+  text-underline-offset: var(--md-underline-offset);
+}
+
+/* A clickable value. The hover pill is a ::before that extends past the text (never padding or margin),
+   so the text stays aligned with its column title and the row's height does not change. */
+.collection-entry-properties--action {
+  position: relative;
+  isolation: isolate;
+  cursor: pointer;
+}
+.collection-entry-properties--action::before {
+  content: '';
+  position: absolute;
+  inset: -2px -6px;
+  z-index: -1;
+  border-radius: var(--radius-md);
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.collection-entry-properties--action:hover::before,
+.collection-entry-properties--action[aria-expanded='true']::before {
+  background: var(--state-hover-medium);
+}
+.collection-entry-properties--action:focus-visible {
+  outline: none;
+}
+.collection-entry-properties--action:focus-visible::before {
+  box-shadow: var(--shadow-inset-focus);
+}

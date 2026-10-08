@@ -119,6 +119,10 @@ html.theme-transitioning [data-themeable] *::after {
   --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
   --opacity-disabled: var(--opacity-strong);
 
+  /* Danger */
+  --danger-surface: #d73a49;
+  --danger-foreground: white;
+
   /* Secondary button */
   --button-secondary-surface: rgba(255, 255, 255, 0.055);
 
@@ -257,6 +261,10 @@ html.theme-transitioning [data-themeable] *::after {
   );
   --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
   --opacity-disabled: var(--opacity-medium);
+
+  /* Danger */
+  --danger-surface: #d43b4d;
+  --danger-foreground: white;
 
   /* Secondary button */
   --button-secondary-surface: rgba(0, 0, 0, 0.055);

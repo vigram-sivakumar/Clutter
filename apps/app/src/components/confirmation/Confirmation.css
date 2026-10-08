@@ -36,11 +36,6 @@
 .confirmation__actions .button {
   flex: 1;
 }
-.button-danger {
-  color: var(--calendar-accent);
-  background: rgba(255, 0, 0, 0.1);
-  opacity: var(--opacity-subtle);
-}
 
 /* The corner close button of a two-action confirmation (see Confirmation's alternate action). */
 .confirmation__dismiss {

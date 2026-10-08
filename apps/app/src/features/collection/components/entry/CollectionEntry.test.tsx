@@ -44,6 +44,26 @@ describe('CollectionEntry — slots', () => {
     expect(container.querySelector('.collection-entry__description')).toBeNull();
   });
 
+  it('actions is a slot drawn right after the title as its SIBLING under the content — never inside the title', () => {
+    const { container } = render(
+      <CollectionEntry title="Plan" description="Q4 goals" actions={<div className="collection-entry__actions"><button type="button">Edit</button></div>} />
+    );
+    const content = container.querySelector('.collection-entry__content')!;
+    const title = content.querySelector('.collection-entry__title')!;
+    const actions = content.querySelector('.collection-entry__actions')!;
+
+    expect(actions.parentElement).toBe(content);
+    expect(title.nextElementSibling).toBe(actions);
+    expect(actions.nextElementSibling).toHaveClass('collection-entry__description');
+    expect(title.contains(actions)).toBe(false);
+  });
+
+  it('draws no actions without the slot', () => {
+    const { container } = render(<CollectionEntry title="Plan" />);
+
+    expect(container.querySelector('.collection-entry__actions')).toBeNull();
+  });
+
   it('trailing is a slot for everything else, and absent without one', () => {
     const { container, rerender } = render(
       <CollectionEntry title="Plan" trailing={<><span>Today</span><span>12 KB</span></>} />

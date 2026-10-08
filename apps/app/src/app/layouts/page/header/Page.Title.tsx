@@ -101,6 +101,10 @@ export const PageTitle = forwardRef<EditableTextHandle, PageTitleProps>(function
           ref={ref}
           onSubmit={onSubmit}
         />
+      ) : children === '' ? (
+        // Read-only (an archived page) and untitled: the editable path's placeholder is a pseudo-element
+        // of EditableText, which isn't mounted here, so the same placeholder copy is shown as static text.
+        <span className="page-title__placeholder">{placeholder}</span>
       ) : (
         children
       )}

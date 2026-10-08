@@ -81,6 +81,11 @@
   color: var(--foreground-brand);
   font-weight: var(--fw-medium);
 }
+.button--danger {
+  color: var(--danger-foreground);
+  background: var(--danger-surface);
+  font-weight: var(--fw-medium);
+}
 
 /* State */
 .button:not(:disabled):hover {
@@ -127,5 +132,10 @@
   color: var(--foreground-tertiary);
   justify-content: start;
 }
-/* .button:not(:disabled):active {
-} */
+.button--danger:not(:disabled):hover {
+  background: color-mix(
+    in srgb,
+    var(--danger-surface),
+    rgb(var(--state-base)) var(--state-hover-strength-strong)
+  );
+}

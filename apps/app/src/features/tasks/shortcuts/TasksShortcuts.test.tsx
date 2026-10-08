@@ -38,7 +38,7 @@ function SidebarHost({
   onCreateTask,
   ...rest
 }: Omit<React.ComponentProps<typeof TasksShortcuts>, 'onRequestNewTask'> & {
-  onCreateTask: React.ComponentProps<typeof NewTaskDialog>['onCreateTask'];
+  onCreateTask: (title: string, dueDate: string | undefined) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
 

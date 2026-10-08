@@ -421,6 +421,30 @@ describe('TaskOperations', () => {
       expect([...vault.tasks()][0]).toMatchObject({ sourcePageId: 'daily-1', dueDate: '2026-10-10' });
     });
 
+    it('Edit task > Save: a changed due date is rewritten in place — same note, same single task, other tokens kept', async () => {
+      const page = dailyNoteWith('- [x] Submit report @2026-10-06 @completed:2026-10-06\n- [ ] Other');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), { title: 'Submit the report', dueDate: '2026-10-12' });
+
+      expect(vault.getPage('daily-1')!.source.markdown).toBe(
+        '- [x] Submit the report @completed:2026-10-06 @2026-10-12\n- [ ] Other'
+      );
+      const tasks = [...vault.tasks()];
+      expect(tasks).toHaveLength(2); // the existing task was updated, no new one created
+      expect(tasks[0]).toMatchObject({ sourcePageId: 'daily-1', dueDate: '2026-10-12', completed: true });
+    });
+
+    it('Edit task > Save: a title-only edit leaves the date and the note alone', async () => {
+      const page = dailyNoteWith('- [ ] Submit report @2026-10-06');
+      const { vault, taskOperations } = setup(page);
+
+      await taskOperations.update(firstTask(page), { title: 'Submit the report', dueDate: '2026-10-06' });
+
+      expect(vault.getPage('daily-1')!.source.markdown).toBe('- [ ] Submit the report @2026-10-06');
+      expect([...vault.tasks()][0]).toMatchObject({ sourcePageId: 'daily-1', dueDate: '2026-10-06' });
+    });
+
     it('clearing the due date makes it absent (no persisted "none" value), still in the same note', async () => {
       const page = dailyNoteWith('- [ ] Submit report @2026-10-08');
       const { vault, taskOperations } = setup(page);
@@ -432,6 +456,17 @@ describe('TaskOperations', () => {
       expect(task?.dueDate).toBeUndefined();
       expect(task?.sourcePageId).toBe('daily-1');
     });
+  });
+
+  it('Edit task > Save: a task in a normal note stays in that note when its due date changes', async () => {
+    const page = buildPage('p1', '- [ ] Collect the bill @2026-08-05\n- [ ] Other');
+    const { vault, taskOperations } = setup(page);
+
+    await taskOperations.update(firstTask(page), { title: 'Collect the bill', dueDate: '2026-10-06' });
+
+    expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill @2026-10-06\n- [ ] Other');
+    expect([...vault.tasks()].map((task) => task.sourcePageId)).toEqual(['p1', 'p1']);
+    expect([...vault.pages()]).toHaveLength(1); // no Daily Note was created or opened for it
   });
 
   describe('targets the exact occurrence among textually-identical task lines', () => {

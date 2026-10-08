@@ -55,19 +55,18 @@
   position: relative;
 
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-6);
 
   flex: 1;
   min-width: 0;
 
-  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .collection-entry--layout-cell .collection-entry__content {
   display: flex;
-  align-items: start;
+  align-items: stretch;
   flex-direction: column;
   gap: var(--space-0);
 }
@@ -105,4 +104,40 @@
 .collection-entry--new .collection-entry__title {
   font-weight: var(--fw-regular);
   color: var(--foreground-tertiary);
+}
+
+/* Actions drawn beside the title (Edit, a date picker…), for any collection view. `display: none` until the entry is
+   hovered or has focus, one of its controls has its picker open, or a keyboard open is still using it
+   (`data-keyboard-active`). A table's name cell (layout cell) is revealed by its ROW being hovered or focused — its
+   parent — so no table class is named here.
+   Focus is `:focus-within`, deliberately NOT `:focus-visible`/`:has(:focus-visible)`: a `display: none` button can't take
+   focus, so while Tab moves focus from the entry onto its buttons the entry must keep matching or the buttons vanish
+   mid-move and focus is lost (measured in the browser). What `:focus-within` would pin — focus left on a button by the
+   pointer — is prevented where it starts: a host must not hand focus back to a control after a pointer-opened overlay
+   closes (see TaskTitleActions). */
+.collection-entry__actions {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-primary);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  margin-block: -4px;
+}
+.collection-entry:hover .collection-entry__actions,
+.collection-entry:focus-within .collection-entry__actions,
+:hover > .collection-entry--layout-cell .collection-entry__actions,
+:focus-within > .collection-entry--layout-cell .collection-entry__actions,
+.collection-entry__actions:has([aria-expanded='true']),
+.collection-entry__actions[data-keyboard-active] {
+  display: flex;
+}
+.collection-entry--layout-cell .collection-entry__actions {
+  position: absolute;
+  top: 50%;
+  right: 0px;
+  transform: translateY(-50%);
+  margin-block: 0;
 }

@@ -14,3 +14,8 @@
 .page-title__button-outline-fill {
   box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
 }
+
+.page-title__placeholder {
+  color: var(--foreground-placeholder);
+  opacity: var(--opacity-medium);
+}

@@ -26,41 +26,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* The note a task lives in, drawn like a wiki link (the editor's .tok-wikilink: identity icon/emoji + underlined title) in the row's trailing slot. */
-.task-row__source {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--md-wiki-foreground);
-  cursor: pointer;
-}
-.task-row__source-icon {
-  display: inline-flex;
-  align-items: center;
-  color: var(--md-wiki-icon-foreground);
-}
-.task-row__source-title {
-  text-decoration: underline;
-  text-decoration-thickness: var(--md-underline-thickness);
-  text-decoration-color: var(--md-wiki-underline);
-  text-underline-offset: var(--md-underline-offset);
-}
-
-/* The due-date control (a Button, medium radius). With no date it is the icon-only calendar button in the trailing slot,
-   and only there to be reached for — shown while its row is hovered, a control inside the row has keyboard focus, or its
-   calendar is open. With a date it reads the date and is always visible. */
-.button.task-row__due-button {
-  border-radius: var(--radius-md);
-}
-.button.task-row__due-button--empty {
-  opacity: 0;
-}
-.collection-entry:hover .task-row__due-button--empty,
-.collection-entry:focus-within .task-row__due-button--empty,
-.button.task-row__due-button--empty.is-open {
-  opacity: 1;
-}
-
 /* Task list rows: a tighter gap between the trailing items (due date, note link) than the shared 12px. */
 .task-list .collection-entry-properties {
   gap: 4px;

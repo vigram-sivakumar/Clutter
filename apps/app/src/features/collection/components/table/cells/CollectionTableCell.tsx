@@ -17,6 +17,8 @@ export interface CollectionTableHeaderCellValue {
   /** Replaces the plain-text title — an inline rename editor, most commonly. */
   readonly titleContent?: ReactNode;
   readonly description?: string;
+  /** Drawn right after the title, as its sibling (see `CollectionEntry`'s `actions`). */
+  readonly actions?: ReactNode;
   /** Shown, muted, when `description` is empty. Absent, an empty description draws nothing. */
   readonly descriptionPlaceholder?: string;
   readonly className?: string;
@@ -41,15 +43,23 @@ export interface CollectionTableMediaCellValue extends CollectionMediaProps {
   readonly className?: string;
 }
 
+/** Anything else a column needs to show — a control, a link — drawn as one value, like the text and media variants. */
+export interface CollectionTableCustomCellValue {
+  readonly variant: 'custom';
+  readonly children: ReactNode;
+  readonly className?: string;
+}
+
 export type CollectionTableCellProps =
   | CollectionTableHeaderCellValue
   | CollectionTableTextCellValue
-  | CollectionTableMediaCellValue;
+  | CollectionTableMediaCellValue
+  | CollectionTableCustomCellValue;
 
 const join = (...names: Array<string | false | undefined>) => names.filter(Boolean).join(' ');
 
 /**
- * One cell of a collection table, in one of three variants: `header` (the
+ * One cell of a collection table, in one of four variants: `header` (the
  * row's name cell), `text` (a muted value, optionally with the instant it
  * stands for) or `media` (a thumbnail). Generic — a collection describes its
  * values in these terms and never brings a cell component of its own.
@@ -65,6 +75,7 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
           title={props.title ?? ''}
           titleContent={props.titleContent}
           description={props.description || props.descriptionPlaceholder}
+          actions={props.actions}
         />
       );
 
@@ -86,6 +97,13 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
               {props.children}
             </CollectionMedia>
           </CollectionEntryProperties>
+        </div>
+      );
+
+    case 'custom':
+      return (
+        <div className={join('collection-table-cell', 'collection-table-cell--custom', props.className)}>
+          <CollectionEntryProperties>{props.children}</CollectionEntryProperties>
         </div>
       );
   }

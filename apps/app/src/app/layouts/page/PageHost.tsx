@@ -103,6 +103,7 @@ import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
+import { ArchivedBanner } from './ArchivedBanner';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
   CollectionBody,
@@ -143,6 +144,8 @@ import {
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
+import { formatTaskTitle } from '@features/tasks/helpers/formatTaskTitle';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { TasksTabs } from '@features/tasks/page/TasksTabs';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
@@ -357,6 +360,8 @@ export function PageHost({
   // see CollectionViewMenu's own doc comment.
   // Whether the All Tasks page's New task dialog is open — local UI state, like the description-editor ids above.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  // The task open in the Edit task modal (the same dialog as New task, in edit mode), or none.
+  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
   // Which collection this is: its definition says which global properties it offers, which are
   // on by default, its layouts, default sort and which properties each layout requires. A page
@@ -1336,19 +1341,20 @@ export function PageHost({
     const folderMoveZone = moveZoneFor('folder', {
       moveZone: application.membershipSelector.getMoveZoneOfFolder(folder.id),
     });
+    const onRestoreFolder = (): void =>
+      void application.folderOperations.restore(folder.id).catch((error: unknown) => {
+        if (error instanceof RestoreNeedsDestinationError) {
+          onNeedsRestoreDestination?.({ kind: 'folder', id: folder.id });
+          return;
+        }
+
+        throw error;
+      });
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       vaultRoot: vault.root,
       onArchive: () => void application.folderOperations.archive(folder.id),
-      onRestore: () =>
-        void application.folderOperations.restore(folder.id).catch((error: unknown) => {
-          if (error instanceof RestoreNeedsDestinationError) {
-            onNeedsRestoreDestination?.({ kind: 'folder', id: folder.id });
-            return;
-          }
-
-          throw error;
-        }),
+      onRestore: onRestoreFolder,
       onDelete: () => void application.folderOperations.delete(folder.id),
       // The Archive page's page-level 'Delete all' — wired only for the Archive; every other
       // reserved folder keeps no top bar actions at all.
@@ -1509,6 +1515,16 @@ export function PageHost({
           }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
+          banner={
+            isFolderArchived ? (
+              <ArchivedBanner
+                archivedAt={folder.metadata.archivedAt}
+                onRestore={
+                  application.membershipSelector.isRestorable(folder) ? onRestoreFolder : undefined
+                }
+              />
+            ) : undefined
+          }
           titleActions={renderCollectionHeaderActions({
             onAdd: onCreate,
             onAddFolder: onCreateSubfolder,
@@ -1737,6 +1753,15 @@ export function PageHost({
                   )
                 }
               />
+              {editingTask && (
+                <NewTaskDialog
+                  open
+                  onClose={() => setEditingTask(undefined)}
+                  editing={{ title: formatTaskTitle(editingTask.text, editingTask.dueDate), dueDate: editingTask.dueDate }}
+                  // The one existing update path: edits the task's own line in place (ADR-044 — a due date never moves it).
+                  onSaveTask={(title, dueDate) => application.taskOperations.update(editingTask, { title, dueDate })}
+                />
+              )}
             </>
           )
         }
@@ -1755,6 +1780,7 @@ export function PageHost({
                 ? application.taskOperations.clearDate(task)
                 : application.taskOperations.setDate(task, date))
             }
+            onEditTask={setEditingTask}
             displayConfig={tasksViewConfig}
             collectionView={collectionView}
             getSource={(task) => {
@@ -2423,6 +2449,14 @@ export function PageHost({
               : breadcrumbs
           }
         />
+      }
+      banner={
+        isPageArchived ? (
+          <ArchivedBanner
+            archivedAt={page.metadata.archivedAt}
+            onRestore={application.membershipSelector.isRestorable(page) ? onRestore : undefined}
+          />
+        ) : undefined
       }
       actions={
         <>
