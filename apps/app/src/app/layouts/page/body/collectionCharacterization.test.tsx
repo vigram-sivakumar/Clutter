@@ -173,7 +173,7 @@ describe('CURRENT BEHAVIOR — Configure: the Layout / Properties / Sort by list
   const NOTES = FOLDER_COLLECTION;
   const ASSETS = ASSETS_COLLECTION;
   const NOTE_ROWS = ['Name', 'Description', 'Cover image', 'Created', 'Last edited'];
-  const ARCHIVE_ROWS = ['Name', 'Delete'];
+  const ARCHIVE_ROWS = ['Name', 'Type', 'Archived'];
   const ASSET_ROWS = ['Name', 'File size', 'Created', 'Last edited'];
 
   /**
@@ -312,7 +312,7 @@ describe('CURRENT BEHAVIOR — a required Name is enforced by the RESOLVER, what
 
 describe('CURRENT BEHAVIOR — what a Properties toggle reports and persists (changed: intent only, no full snapshot)', () => {
   it('toggling one property reports that ONE property and its new visibility — nothing else, no defaults', () => {
-    const { getByText, onPropertyChange } = renderMenu({ viewMode: 'list' });
+    const { getByText, onPropertyChange } = renderMenu({ viewMode: 'table' });
 
     readPropertiesSubmenu(getByText);
     fireEvent.click(getByText('Created'));
@@ -321,9 +321,9 @@ describe('CURRENT BEHAVIOR — what a Properties toggle reports and persists (ch
     expect(onPropertyChange).toHaveBeenCalledWith('created', false);
   });
 
-  it('the first-time defaults: notes show name, description, cover, created, last edited; the Archive name and delete date; assets only the name', () => {
+  it('the first-time defaults: notes show name, description, cover, created, last edited; the Archive name, type and archived date; assets only the name', () => {
     expect(resolveCollectionView(FOLDER_COLLECTION).visible).toEqual(['name', 'description', 'cover', 'created', 'updated']);
-    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'archived']);
+    expect(resolveCollectionView(ARCHIVE_COLLECTION).visible).toEqual(['name', 'type', 'archived']);
     expect(resolveCollectionView(ASSETS_COLLECTION).visible).toEqual(['name']);
   });
 });

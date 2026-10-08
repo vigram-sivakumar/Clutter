@@ -43,6 +43,7 @@ function entryOf(type: 'note' | 'folder', defaults: { id: string; title: string;
     onClick: onClick ?? vi.fn(),
     values: {
       name: title ?? defaults.title,
+      type: type === 'folder' ? 'Folder' : 'Note',
       ...(description !== undefined && { description }),
       ...(cover !== undefined && { cover }),
       ...(created !== undefined && { created }),

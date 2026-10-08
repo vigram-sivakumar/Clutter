@@ -56,9 +56,9 @@ describe('resolveCollectionView — order and membership', () => {
   it('Sort by is the sortable subset of the available properties — the same list, filtered', () => {
     const view = resolveCollectionView(ARCHIVE_COLLECTION);
 
-    expect(view.available).toEqual(['name', 'archived']);
+    expect(view.available).toEqual(['name', 'type', 'archived']);
     expect(view.sortable).toEqual(view.available.filter((id) => view.sortable.includes(id)));
-    expect(view.sortable).toEqual(['name', 'archived']);
+    expect(view.sortable).toEqual(['name', 'type', 'archived']);
   });
 });
 

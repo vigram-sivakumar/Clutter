@@ -49,28 +49,23 @@ const DEFAULT_VIEW = resolveCollectionView(ARCHIVE_COLLECTION);
 
 /**
  * One archived thing as a row, whatever it is: the values its domain adapter produced (what the
- * one sort engine orders by), the Archive's own Type label, and how to draw it as an item of the
+ * one sort engine orders by), and how to draw it as an item of the
  * generic List or a row of the generic Table. A local type of this body — not a universal item.
  */
 interface ArchiveRow {
   readonly id: string;
   readonly values: CollectionEntryValues;
-  readonly typeLabel: string;
   readonly listItem: CollectionDataListItem;
   readonly tableRow: CollectionDataTableRow;
 }
-
-/** What each archived thing is called in the Type column. Presentation of this collection — not a property. */
-const FILE_TYPE_LABEL: Record<VaultResource['kind'], string> = { image: 'Image', pdf: 'PDF' };
 
 /**
  * The page body of the Archive: ONE unified collection of everything archived — folders, notes and
  * files — drawn by the same generic List or Table every other collection uses, sorted together by
  * the one sort engine (never grouped folders → notes → files). Each kind enters through its domain
- * mapper; the generic components only place what they are given. The Archive adds one thing of its
- * own: a Type (Note, Folder, Image, PDF) — a leading metadata string in the List, a column right
- * after Name in the Table — and it is not a property, so it can be neither toggled nor sorted.
- * A file's archive date is the one the app recorded when it archived it. Rows carry no inline actions: a folder or note is restored or deleted from its own page, a file
+ * mapper; the generic components only place what they are given. Type (Note, Folder, Image,
+ * PDF) and Archived are ordinary properties the Archive's definition offers, so List and Table draw
+ * them from the same `visible` set as any other. A file's archive date is the one the app recorded when it archived it. Rows carry no inline actions: a folder or note is restored or deleted from its own page, a file
  * from its viewer.
  */
 export function ArchiveCollectionBody({
@@ -89,14 +84,12 @@ export function ArchiveCollectionBody({
     ...folders.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      typeLabel: 'Folder',
       listItem: toFolderListItem(entry, { visible }),
       tableRow: toFolderTableRow(entry, { visible }),
     })),
     ...notes.map((entry) => ({
       id: entry.id,
       values: entry.values,
-      typeLabel: 'Note',
       listItem: toNoteListItem(entry, { visible }),
       tableRow: toNoteTableRow(entry, { visible }),
     })),
@@ -113,7 +106,6 @@ export function ArchiveCollectionBody({
       return {
         id: resource.id,
         values: toAssetEntry(asset, archivedAt).values,
-        typeLabel: FILE_TYPE_LABEL[resource.kind],
         listItem: toAssetListItem(asset, options),
         tableRow: toAssetTableRow(asset, options),
       };
@@ -127,16 +119,11 @@ export function ArchiveCollectionBody({
         <CollectionEmptyState message={emptyMessage} />
       ) : viewMode === 'table' ? (
         <CollectionDataTable
-          columns={buildPropertyTableColumns(visible, { extraColumns: [{ id: 'type', label: 'Type' }] })}
-          rows={sorted.map((row) => ({
-            ...row.tableRow,
-            cells: { ...row.tableRow.cells, type: { variant: 'text' as const, value: row.typeLabel } },
-          }))}
+          columns={buildPropertyTableColumns(visible)}
+          rows={sorted.map((row) => row.tableRow)}
         />
       ) : (
-        <CollectionDataList
-          items={sorted.map((row) => ({ ...row.listItem, metadata: [row.typeLabel, ...(row.listItem.metadata ?? [])] }))}
-        />
+        <CollectionDataList items={sorted.map((row) => row.listItem)} />
       )}
       {/* Trailing breathing room below the last row — see
           .collection__bottom-spacer's own comment in

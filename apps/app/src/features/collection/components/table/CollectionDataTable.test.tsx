@@ -28,10 +28,9 @@ const row = (overrides: Partial<CollectionDataTableRow> = {}): CollectionDataTab
 });
 
 describe('CollectionDataTable', () => {
-  it('draws the header from the columns, and a row per entry on the same grid', () => {
+  it('draws the header from the columns, and a row per entry', () => {
     const { container } = render(<CollectionDataTable columns={columns} rows={[row(), row({ id: 'r2' })]} />);
 
-    const grid = (container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns;
     expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
       'Name',
       'Preview',
@@ -40,7 +39,6 @@ describe('CollectionDataTable', () => {
     ]);
     const rows = container.querySelectorAll('.collection-table-row');
     expect(rows).toHaveLength(2);
-    expect((rows[0] as HTMLElement).style.gridTemplateColumns).toBe(grid);
   });
 
   it('draws each cell with the variant its value names, in column order', () => {

@@ -4,8 +4,6 @@ import '../collectionTokens.css';
 import './CollectionTableRow.css';
 
 export interface CollectionTableRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onClick'> {
-  /** The same value the table's header uses (`buildCollectionTableGridTemplateColumns`) — what keeps cells under their headers. */
-  gridTemplateColumns: string;
   /** The row's cells, one per column, in column order. */
   children: ReactNode;
   isSelected?: boolean;
@@ -14,14 +12,15 @@ export interface CollectionTableRowProps extends Omit<HTMLAttributes<HTMLDivElem
 }
 
 /**
- * A table row's shell: the grid, the divider, hover and selected backgrounds,
+ * A table row's shell: a subgrid of the table's columns (so every cell sits under its header and a
+ * content-sized column is as wide as its widest cell in ANY row), the divider, hover and selected backgrounds,
  * and whole-row opening through the shared activation
  * behavior (clicks on a nested control are left to it). It knows nothing about
  * what the cells hold.
  */
 export const CollectionTableRow = forwardRef<HTMLDivElement, CollectionTableRowProps>(
   function CollectionTableRow(
-    { gridTemplateColumns, children, isSelected = false, onClick, className, role, tabIndex, style, ...props },
+    { children, isSelected = false, onClick, className, role, tabIndex, ...props },
     ref
   ) {
     return (
@@ -32,7 +31,6 @@ export const CollectionTableRow = forwardRef<HTMLDivElement, CollectionTableRowP
         className={['collection-table-row', isSelected && 'collection-table-row--selected', className]
           .filter(Boolean)
           .join(' ')}
-        style={{ gridTemplateColumns, ...style }}
       >
         {children}
       </div>

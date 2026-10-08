@@ -15,16 +15,22 @@ export interface CollectionTableProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * The table's container and header: the scroll container, the header row and
- * its cells, and the body the rows sit in. It knows nothing about what the
+ * The table's container and header: the scroll container — ONE grid that owns the columns — the
+ * header row and its cells, and the body the rows sit in. The header, the body and every row are
+ * subgrids of it, so a column sized by its content (`max-content`) is as wide as its widest cell
+ * across the header and all rows, and the columns can never drift apart. It knows nothing about what the
  * rows represent.
  */
-export function CollectionTable({ columns, children, footer, className, ...props }: CollectionTableProps) {
+export function CollectionTable({ columns, children, footer, className, style, ...props }: CollectionTableProps) {
   const gridTemplateColumns = buildCollectionTableGridTemplateColumns(columns);
 
   return (
-    <div {...props} className={['collection-table', className].filter(Boolean).join(' ')}>
-      <div className="collection-table__header" style={{ gridTemplateColumns }}>
+    <div
+      {...props}
+      className={['collection-table', className].filter(Boolean).join(' ')}
+      style={{ gridTemplateColumns, ...style }}
+    >
+      <div className="collection-table__header">
         {columns.map((column) => (
           <div
             key={column.id}

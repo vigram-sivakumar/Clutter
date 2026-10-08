@@ -124,14 +124,14 @@ describe('CURRENT BEHAVIOR — the persisted sort shape and its key vocabulary',
     expect(store.get('folder:up')).toEqual({ sort: { property: 'name', direction: 'up' } });
   });
 
-  it('retired keys still in a saved file: `lastOpened` and `type` as a sort key are dropped (the layout survives; `type` rejects its whole entry)', async () => {
+  it('a retired `lastOpened` sort key is dropped (the layout survives); `type` is now the Type property id and is kept', async () => {
     const store = await loadWith({
       'folder:last-opened': { layout: 'table', sort: { key: 'lastOpened', direction: 'down' } },
       'folder:type': { sort: { key: 'type', direction: 'down' } },
     });
 
     expect(store.get('folder:last-opened')).toEqual({ layout: 'table' });
-    expect(store.get('folder:type')).toBeUndefined();
+    expect(store.get('folder:type')).toEqual({ sort: { property: 'type', direction: 'down' } });
   });
 });
 

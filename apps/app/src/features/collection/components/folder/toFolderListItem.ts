@@ -28,26 +28,20 @@ export interface FolderRowOptions {
 }
 
 /**
- * A folder as an item of the generic collection list: the folder icon (or its emoji), its name, and —
- * in the entry's trailing run, first — the contents summary, then the visible plain-value properties it
- * has a value for. A folder has no description in a list (its own description is a different thing and
- * nothing in a collection shows it), so the entry's description slot stays empty. Drawing the row is
- * `CollectionDataList`'s job — a folder has no list component of its own.
+ * A folder as a list item. Folders only show up in a list or table in the Archive (everywhere else
+ * they are cards). The contents line ("1 subfolder · 1 note") goes in the description slot, and the
+ * visible values (like the archive date) go in the trailing run.
  */
 export function toFolderListItem(entry: CollectionEntryModel, { visible }: FolderRowOptions): CollectionDataListItem {
-  const summary = folderSummary(entry);
-
   return {
     id: entry.id,
     icon: 'folder',
     emoji: entry.emoji ?? undefined,
     title: entry.values.name,
-    metadata: [
-      ...(summary ? [summary] : []),
-      ...valueProperties(visible)
-        .map((id) => formatPropertyValue(id, entry.values))
-        .filter((value): value is string => Boolean(value)),
-    ],
+    description: folderSummary(entry),
+    metadata: valueProperties(visible)
+      .map((id) => formatPropertyValue(id, entry.values))
+      .filter((value): value is string => Boolean(value)),
     isSelected: entry.selected,
     onClick: entry.onClick,
   };

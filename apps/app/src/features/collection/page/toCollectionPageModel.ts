@@ -32,12 +32,12 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
 }
 
 /**
- * A folder's collection property values: its name — and, once it has been archived, the date it
+ * A folder's collection property values: its name, its type — and, once it has been archived, the date it
  * was (`FolderMetadata.archivedAt`, null everywhere but the Archive). A folder has no created or
  * last-edited dates, and nothing in a collection shows its description or cover.
  */
 export function toFolderValues(name: string, folder: Folder): CollectionEntryValues {
-  return { name, ...(folder.metadata.archivedAt && { archived: folder.metadata.archivedAt }) };
+  return { name, type: 'Folder', ...(folder.metadata.archivedAt && { archived: folder.metadata.archivedAt }) };
 }
 
 /**
@@ -49,6 +49,7 @@ export function toFolderValues(name: string, folder: Folder): CollectionEntryVal
 export function toNoteValues(name: string, page: EffectivePage): CollectionEntryValues {
   return {
     name,
+    type: 'Note',
     ...(page.description != null && { description: page.description }),
     ...(page.cover && !page.coverHidden && { cover: page.cover }),
     ...(page.createdAt && { created: page.createdAt }),

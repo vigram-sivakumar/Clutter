@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../media/CollectionMedia';
 import { CollectionEntry } from '../row/CollectionEntry';
+import { CollectionEntryProperties } from '../row/CollectionEntryProperties';
 import type { CollectionRowAttributes } from '../row/collectionRowAttributes';
 import './CollectionDataList.css';
 
@@ -53,9 +54,9 @@ export interface CollectionDataListProps extends HTMLAttributes<HTMLDivElement> 
  * caller supplies values only; this draws them. It knows nothing about what
  * an item is.
  *
- * The entry's slot rule: `description` is only ever a real description; everything else the item
- * carries (its `metadata` values, a custom `trailing` node, the `media` thumbnail) is drawn in the
- * entry's one `trailing` slot, each as its own element.
+ * `description` is the line under the title; everything else the item carries (its `metadata` values,
+ * a custom `trailing` node, the `media` thumbnail) is drawn in the entry's `trailing` slot, each in its own
+ * `CollectionEntryProperties`.
  */
 export function CollectionDataList({ items, newItem, className, ...props }: CollectionDataListProps) {
   return (
@@ -98,13 +99,15 @@ function trailingOf(item: CollectionDataListItem): ReactNode {
   return (
     <>
       {item.metadata?.map((value, index) => (
-        <span key={`${index}:${value}`}>{value}</span>
+        <CollectionEntryProperties key={`${index}:${value}`}>{value}</CollectionEntryProperties>
       ))}
-      {item.trailing}
+      {item.trailing && <CollectionEntryProperties>{item.trailing}</CollectionEntryProperties>}
       {item.media && (
-        <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
-          {item.media.children}
-        </CollectionMedia>
+        <CollectionEntryProperties>
+          <CollectionMedia onClick={item.media.onClick} label={item.media.label}>
+            {item.media.children}
+          </CollectionMedia>
+        </CollectionEntryProperties>
       )}
     </>
   );

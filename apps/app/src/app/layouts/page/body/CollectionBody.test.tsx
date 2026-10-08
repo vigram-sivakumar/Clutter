@@ -407,7 +407,7 @@ describe('CollectionBody — Properties visibility', () => {
     expect(queryByText('Last edited')).toBeInTheDocument();
   });
 
-  it('Table mode: the header and each row share the same narrowed grid-template-columns when columns are hidden', () => {
+  it('Table mode: the one table grid is narrowed when columns are hidden (the header and rows are subgrids of it)', () => {
     const { container } = render(
       <CollectionBody
         notes={[noteEntry({ created: CREATED_AT, updated: UPDATED_AT })]}
@@ -416,17 +416,15 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
-    const header = container.querySelector('.collection-table__header') as HTMLElement;
-    const row = container.querySelector('.collection-table-row') as HTMLElement;
+    const table = container.querySelector('.collection-table') as HTMLElement;
 
-    // Name + only the one visible optional column (Last edited) — Last
+    // Name + only the one visible optional column (Last edited, a date: sized by its content) — Last
     // opened/Created contribute no track at all, so the remaining
     // columns reflow rather than leaving reserved empty space.
-    expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr) 140px');
-    expect(row.style.gridTemplateColumns).toBe(header.style.gridTemplateColumns);
+    expect(table.style.gridTemplateColumns).toBe('minmax(400px, 1fr) max-content');
   });
 
-  it('Table mode: all columns hidden leaves only the Name column, on both header and row', () => {
+  it('Table mode: all columns hidden leaves only the Name column', () => {
     const { container } = render(
       <CollectionBody
         notes={[noteEntry()]}
@@ -435,11 +433,10 @@ describe('CollectionBody — Properties visibility', () => {
       />
     );
 
+    const table = container.querySelector('.collection-table') as HTMLElement;
     const header = container.querySelector('.collection-table__header') as HTMLElement;
-    const row = container.querySelector('.collection-table-row') as HTMLElement;
 
-    expect(header.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
-    expect(row.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
+    expect(table.style.gridTemplateColumns).toBe('minmax(400px, 1fr)');
     expect(header.querySelectorAll('.collection-table__header-cell')).toHaveLength(1);
   });
 });

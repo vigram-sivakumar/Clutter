@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 import { CollectionMedia, type CollectionMediaProps } from '../../media/CollectionMedia';
 import { CollectionEntry } from '../../row/CollectionEntry';
+import { CollectionEntryProperties } from '../../row/CollectionEntryProperties';
 import './CollectionTableCell.css';
 
 /** The row's primary ("name") cell: icon or emoji, title, description. */
@@ -73,16 +74,18 @@ export function CollectionTableCell(props: CollectionTableCellProps) {
           className={join('collection-table-cell', 'collection-table-cell--text', props.className)}
           data-date={props.dateTime}
         >
-          {props.value}
+          {props.value && <CollectionEntryProperties>{props.value}</CollectionEntryProperties>}
         </div>
       );
 
     case 'media':
       return (
         <div className={join('collection-table-cell', 'collection-table-cell--media', props.className)}>
-          <CollectionMedia onClick={props.onClick} label={props.label}>
-            {props.children}
-          </CollectionMedia>
+          <CollectionEntryProperties>
+            <CollectionMedia onClick={props.onClick} label={props.label}>
+              {props.children}
+            </CollectionMedia>
+          </CollectionEntryProperties>
         </div>
       );
   }

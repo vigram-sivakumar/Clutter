@@ -25,6 +25,9 @@ export function assetOfResource(resource: VaultResource): LocalAsset {
   return { id: resource.id, source: 'local', kind: resource.kind, name: resource.name, references: [], resource };
 }
 
+/** What each kind of file is called as a Type value. */
+const ASSET_TYPE_LABEL: Record<Asset['kind'], string> = { image: 'Image', pdf: 'PDF' };
+
 /**
  * The asset adapter: the one place that knows where an asset's property values come from. The
  * name is the extension-free name shown; size, Created and Last edited are the vault file's own
@@ -42,6 +45,7 @@ export function toAssetEntry(
     asset,
     values: {
       name: getResourceDisplayName(asset),
+      type: ASSET_TYPE_LABEL[asset.kind],
       ...(metadata && Number.isFinite(metadata.size) && { size: metadata.size }),
       ...(metadata?.createdAt && { created: metadata.createdAt }),
       ...(metadata?.modifiedAt && { updated: metadata.modifiedAt }),

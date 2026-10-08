@@ -362,8 +362,8 @@ describe('CURRENT BEHAVIOR — saved Configure state, resolved through the real 
   it('the Archive shows its Archived column by default', async () => {
     await renderFolder(ARCHIVE);
 
-    // Name, then the Archive's own Type column, then its visible properties in registry order.
-    expect(tableHeaders()).toEqual(['Name', 'Type', 'Delete']);
+    // Name, then its visible properties in registry order — Type is one of them.
+    expect(tableHeaders()).toEqual(['Name', 'Type', 'Archived']);
   });
 
   it('a saved `name: false` cannot hide the Name column — Name is required in a table', async () => {

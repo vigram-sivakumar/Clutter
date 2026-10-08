@@ -227,7 +227,7 @@ describe('TasksCollectionBody', () => {
     const titleGroup = container.querySelector('.task-row-title')!;
     expect(titleGroup).not.toContainElement(button);
     expect(titleGroup.lastElementChild).toHaveClass('task-title');
-    const trailing = container.querySelector('.collection-entry__trailing')!;
+    const trailing = container.querySelector('.collection-entry-properties')!;
     expect(trailing.firstElementChild).toBe(button);
     expect(trailing.lastElementChild).toHaveClass('task-row__source');
 
@@ -291,7 +291,7 @@ describe('TasksCollectionBody', () => {
       />
     );
 
-    const trailing = container.querySelector('.collection-entry__trailing')!;
+    const trailing = container.querySelector('.collection-entry-properties')!;
     expect(trailing.firstElementChild).toHaveClass('task-row__due-button', 'button--ghost');
     expect(trailing.firstElementChild).not.toHaveClass('button--outline-fill');
     expect(trailing.firstElementChild).toHaveTextContent('20 Aug 2026');
@@ -368,7 +368,7 @@ describe('TasksCollectionBody', () => {
       ]);
       const row = container.querySelector('.collection-table-row:not(.collection-table__header)') ?? container.querySelectorAll('.collection-table-row')[1];
       expect(row).toHaveTextContent('Plan trip');
-      expect(row).toHaveTextContent('20 Aug 2026');
+      expect(row).toHaveTextContent('20 August 2026');
       expect(row).toHaveTextContent('Alpha note');
       expect(getAllByRole('checkbox')).toHaveLength(1);
     });

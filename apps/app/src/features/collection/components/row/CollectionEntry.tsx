@@ -11,9 +11,9 @@ import './CollectionEntry.css';
  * SLOT RULE — read before changing or wiring this component:
  *  - `leading`     whatever sits before the title (icon / emoji via AppIcon, a thumbnail, a checkbox).
  *  - `title`       the name.
- *  - `description` ONLY a real description. Nothing else ever goes here.
- *  - `trailing`    EVERYTHING else: dates, sizes, a type label, a folder's "2 subfolders · 14 notes"
- *                  summary, a thumbnail, a due-date control, custom nodes — any number of them.
+ *  - `description` a real description, or a folder's contents line ("1 subfolder · 1 note"). Nothing else.
+ *  - `trailing`    EVERYTHING else: dates, sizes, a type label, a thumbnail, a due-date control,
+ *                  custom nodes — any number of them.
  * There are deliberately no `metadata` or `media` props.
  */
 export interface CollectionEntryProps extends Omit<

@@ -2,7 +2,7 @@
  * The global Collection Property registry — the ONE place a collection property is
  * defined. A collection property is a piece of information an item in a collection
  * (a note, a folder, an asset) can expose: its Name, Description, Cover image, File size,
- * Created, Last edited and Archived date.
+ * Type, Created, Last edited and Archived date.
  *
  * Not to be confused with a note's own frontmatter Properties (`systemProperties.ts`,
  * ADR-036): those are the Properties list on a note's page. A collection property reuses
@@ -54,12 +54,14 @@ export interface CollectionPropertyDefinition {
  */
 export const COLLECTION_PROPERTIES = {
   name: { label: 'Name', type: 'text', sort: 'text' },
+  // What kind of thing an item is (Note, Folder, Image, PDF). Offered only by collections that mix kinds (the Archive).
+  type: { label: 'Type', type: 'text', sort: 'text' },
   description: { label: 'Description', type: 'text', sort: 'text' },
   cover: { label: 'Cover image', type: 'media', sort: 'presence' },
   size: { label: 'File size', type: 'number', sort: 'number' },
   created: { label: systemPropertyLabel('created'), type: 'date', sort: 'date' },
   updated: { label: systemPropertyLabel('modified'), type: 'date', sort: 'date' },
-  archived: { label: 'Delete', type: 'date', sort: 'date' },
+  archived: { label: 'Archived', type: 'date', sort: 'date' },
   // A task's own properties: its explicit due date (a calendar day, not an instant) and its
   // source — the note it lives in.
   dueDate: { label: 'Due date', type: 'day', sort: 'date' },

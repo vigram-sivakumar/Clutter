@@ -274,8 +274,24 @@ describe("formatDateDisplay — 'condensedFullYear'", () => {
   });
 });
 
+describe("formatDateDisplay — 'longFullYear'", () => {
+  const REF = new Date(2026, 9, 2, 12);
+
+  it("is 'condensedFullYear' with the full month name", () => {
+    expect(formatDateDisplay('2026-10-02', 'longFullYear', REF)).toBe('Today');
+    expect(formatDateDisplay('2026-09-30', 'longFullYear', REF)).toBe('30 September 2026');
+    expect(formatDateDisplay('2027-11-11', 'longFullYear', REF)).toBe('11 November 2027');
+  });
+});
+
 describe('formatDateTimeDisplay', () => {
   const REF = new Date(2026, 9, 3, 12, 0);
+
+  it("spells the month out with monthStyle 'long' (default stays abbreviated)", () => {
+    expect(formatDateTimeDisplay(new Date(2026, 8, 12, 9, 3), REF, 'long')).toBe('12 September, 09:03 AM');
+    expect(formatDateTimeDisplay(new Date(2025, 8, 12, 9, 3), REF, 'long')).toBe('12 September 2025, 09:03 AM');
+    expect(formatDateTimeDisplay(new Date(2026, 8, 12, 9, 3), REF)).toBe('12 Sep, 09:03 AM');
+  });
 
   it('today, yesterday and tomorrow stay bare words before the time', () => {
     expect(formatDateTimeDisplay(new Date(2026, 9, 3, 14, 45), REF)).toBe('Today, 02:45 PM');

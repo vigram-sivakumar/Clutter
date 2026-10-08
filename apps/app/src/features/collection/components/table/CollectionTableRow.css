@@ -2,10 +2,10 @@
 .collection-table-row {
   position: relative;
   display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: var(--space-0);
-  width: fit-content;
-  min-width: 100%;
 }
 
 .collection-table-row[role='button'] {

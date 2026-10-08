@@ -66,6 +66,11 @@ export interface CollectionDefinition {
   readonly properties: readonly PropertyId[];
   /** The offered properties that are shown until the user says otherwise (a subset of `properties`). */
   readonly defaultVisible: readonly PropertyId[];
+  /**
+   * A layout's own default, where it differs from `defaultVisible` — the List starts as just the Title
+   * rather than inheriting the Table's columns. Read with `defaultVisibleFor`; never persisted.
+   */
+  readonly defaultVisibleByLayout?: Partial<Record<CollectionLayout, readonly PropertyId[]>>;
   readonly layouts: readonly CollectionLayout[];
   readonly defaultLayout: CollectionLayout;
   readonly defaultSort: CollectionSort;
@@ -96,6 +101,7 @@ const NOTE_PROPERTIES: readonly PropertyId[] = ['name', 'description', 'cover', 
 const NOTE_COLLECTION = {
   properties: NOTE_PROPERTIES,
   defaultVisible: NOTE_PROPERTIES,
+  defaultVisibleByLayout: { list: ['name'] },
   layouts: ALL_LAYOUTS,
   defaultLayout: 'table',
   defaultSort: DEFAULT_SORT,
@@ -130,16 +136,17 @@ export const TEMPLATES_COLLECTION: CollectionDefinition = {
 
 /**
  * One unified collection of everything archived — folders, notes and files, as rows of the generic
- * List or Table (there is no Card). It offers only Name and the date it was archived (labelled
- * "Delete"): when an item was created or last edited, or how big it is, is not what the Archive is for. A file has no archive date recorded, so
- * its cell for that is simply empty. The Type each row shows (Note, Folder, Image, PDF)
- * is the Archive's own presentation, not a property: it can't be toggled or sorted.
+ * List or Table (there is no Card). It offers only Name, Type (Note, Folder, Image, PDF) and
+ * the date it was archived (Archived): when an item was created or last edited, or how big it is, is
+ * not what the Archive is for. A file has no archive date recorded, so its cell for that is simply
+ * empty. Type and Archived are ordinary properties: they can be toggled and sorted like any other.
  */
 export const ARCHIVE_COLLECTION: CollectionDefinition = {
   kind: 'archive',
   emptyMessage: 'Deleted items will appear here',
-  properties: ['name', 'archived'],
-  defaultVisible: ['name', 'archived'],
+  properties: ['name', 'type', 'archived'],
+  defaultVisible: ['name', 'type', 'archived'],
+  defaultVisibleByLayout: { list: ['name'] },
   layouts: ['list', 'table'],
   defaultLayout: 'table',
   defaultSort: DEFAULT_SORT,

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CollectionViewConfigStore } from './CollectionViewConfigStore';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import { collectionViewKeyForFilteredView, deriveCollectionViewKey } from './collectionViewKey';
-import { TASKS_COLLECTION } from '../../presentation/collection/collectionDefinitions';
+import { ARCHIVE_COLLECTION, FOLDER_COLLECTION, TASKS_COLLECTION } from '../../presentation/collection/collectionDefinitions';
 import { resolveCollectionView, toCollectionViewConfig } from '../../presentation/collection/resolveCollectionView';
 
 const ROOT = '/vault';
@@ -424,12 +424,12 @@ describe('CollectionViewConfigStore — an entry written before the property reg
     expect(store.get('folder:old')).toEqual({ layout: 'list', legacyProperties: { ...BASE, cover: false } });
   });
 
-  it("accepts the Properties sort keys (size, description, cover…) and rejects any other key — including the retired 'type'", async () => {
+  it("accepts the Properties sort keys (size, description, cover, type…) and rejects any other key", async () => {
     const fileSystem = new InMemoryVaultFileSystem({
       [WORKSPACE_PATH]: JSON.stringify({
         collectionViewConfig: {
           'view:assets': { sort: { key: 'size', direction: 'up' } },
-          'view:bad': { sort: { key: 'type', direction: 'up' } },
+          'view:bad': { sort: { key: 'lastOpened', direction: 'up' } },
         },
       }),
     });
@@ -574,5 +574,40 @@ describe('CollectionViewConfigStore — sidebarSort', () => {
     expect((await CollectionViewConfigStore.load(fileSystem, ROOT)).get('folder:f1')).toEqual({
       layout: 'list',
     });
+  });
+});
+
+describe('CollectionViewConfigStore — the Archive uses the same store and key scheme as every collection', () => {
+  it('persists an Archive sort by Type or Archived under its folder key, and the resolver restores it after a reload', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({});
+    const store = await CollectionViewConfigStore.load(fileSystem, ROOT);
+    const key = deriveCollectionViewKey({ type: 'folder', id: 'Archive' });
+
+    expect(key).toBe('folder:Archive');
+
+    store.update(key!, { sort: { property: 'type', direction: 'up' } });
+    await flushMicrotasks();
+    const reloaded = await reload(fileSystem);
+
+    expect(resolveCollectionView(ARCHIVE_COLLECTION, toCollectionViewConfig(ARCHIVE_COLLECTION, reloaded.get(key!))).sort).toEqual({
+      property: 'type',
+      direction: 'up',
+    });
+  });
+
+  it('a hidden Type is persisted as an ordinary property override and read back for the Archive only', async () => {
+    const store = await loadWith({ 'folder:Archive': { propertyOverrides: { type: false } } });
+    const config = toCollectionViewConfig(ARCHIVE_COLLECTION, store.get('folder:Archive'));
+
+    expect(resolveCollectionView(ARCHIVE_COLLECTION, config).visible).toEqual(['name', 'archived']);
+    // A collection that does not offer Type ignores the override.
+    expect(resolveCollectionView(FOLDER_COLLECTION, config).visible).not.toContain('type');
+  });
+
+  it('a sort by Type saved for a collection that does not offer it falls back to that collection\'s default', async () => {
+    const store = await loadWith({ 'folder:Projects': { sort: { property: 'type', direction: 'down' } } });
+    const config = toCollectionViewConfig(FOLDER_COLLECTION, store.get('folder:Projects'));
+
+    expect(resolveCollectionView(FOLDER_COLLECTION, config).sort).toEqual(FOLDER_COLLECTION.defaultSort);
   });
 });

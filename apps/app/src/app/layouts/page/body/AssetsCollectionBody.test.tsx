@@ -589,7 +589,7 @@ describe('AssetsCollectionBody — the file-fact Properties govern List and Tabl
 
   it('List: the same Properties are the row metadata — size, created, last edited — and nothing when they are off', () => {
     const shown = renderAssets({ assets: [file()], viewMode: 'list', visible: on });
-    const metadata = [...shown.container.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent);
+    const metadata = [...shown.container.querySelectorAll('.collection-entry-properties')].map((s) => s.textContent);
     expect(metadata[0]).toBe('12 KB');
     expect(metadata).toHaveLength(3);
     shown.unmount();

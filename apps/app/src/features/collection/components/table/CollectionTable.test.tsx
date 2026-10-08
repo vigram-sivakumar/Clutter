@@ -30,12 +30,11 @@ describe('CollectionTable', () => {
     expect(cells[1]).toHaveClass('type-header');
   });
 
-  it('puts the same grid on the header that rows are given', () => {
+  it('owns the columns on its one grid; the header (and the rows) are subgrids of it', () => {
     const { container } = render(<CollectionTable columns={columns} />);
 
-    expect((container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns).toBe(
-      'minmax(400px, 1fr) 140px'
-    );
+    expect((container.firstElementChild as HTMLElement).style.gridTemplateColumns).toBe('minmax(400px, 1fr) 140px');
+    expect((container.querySelector('.collection-table__header') as HTMLElement).style.gridTemplateColumns).toBe('');
   });
 
   it('renders its rows, then the footer, inside the body', () => {

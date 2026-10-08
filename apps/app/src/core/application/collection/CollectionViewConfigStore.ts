@@ -7,6 +7,7 @@ import type { CollectionSort } from '../../properties/collectionSort';
 import { isSidebarSortKey, type SidebarSort } from '../../properties/sidebarSort';
 import {
   isCollectionLayout,
+  type CollectionLayout,
   type CollectionViewConfig,
   type LegacyCollectionProperties,
   type PersistedCollectionViewConfig,
@@ -266,10 +267,14 @@ export class CollectionViewConfigStore {
 
 /** An entry without its absent (undefined) fields, or `undefined` when nothing is left — so "clear this field" and "no entry" are the same thing. */
 function compact(entry: PersistedCollectionViewConfig): PersistedCollectionViewConfig | undefined {
-  const { layout, propertyOverrides, sort, sidebarSort, legacyProperties } = entry;
+  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, sort, sidebarSort, legacyProperties } = entry;
   const result: PersistedCollectionViewConfig = {
     ...(layout !== undefined && { layout }),
     ...(propertyOverrides !== undefined && Object.keys(propertyOverrides).length > 0 && { propertyOverrides }),
+    ...(listPropertyOverrides !== undefined &&
+      Object.keys(listPropertyOverrides).length > 0 && { listPropertyOverrides }),
+    ...(layoutPropertyOverrides !== undefined &&
+      Object.keys(layoutPropertyOverrides).length > 0 && { layoutPropertyOverrides }),
     ...(sort !== undefined && { sort }),
     ...(sidebarSort !== undefined && { sidebarSort }),
     ...(legacyProperties !== undefined && { legacyProperties }),
@@ -288,9 +293,11 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
     return undefined;
   }
 
-  const { layout, propertyOverrides, properties, sort, sidebarSort } = raw as {
+  const { layout, propertyOverrides, listPropertyOverrides, layoutPropertyOverrides, properties, sort, sidebarSort } = raw as {
     layout?: unknown;
     propertyOverrides?: unknown;
+    listPropertyOverrides?: unknown;
+    layoutPropertyOverrides?: unknown;
     properties?: unknown;
     sort?: unknown;
     sidebarSort?: unknown;
@@ -299,10 +306,33 @@ function parseCollectionViewConfigEntry(raw: unknown): PersistedCollectionViewCo
   return compact({
     ...(isCollectionLayout(layout) && { layout }),
     ...(parsePropertyOverrides(propertyOverrides) && { propertyOverrides: parsePropertyOverrides(propertyOverrides) }),
+    ...(parsePropertyOverrides(listPropertyOverrides) && {
+      listPropertyOverrides: parsePropertyOverrides(listPropertyOverrides),
+    }),
+    ...(parseLayoutPropertyOverrides(layoutPropertyOverrides) && {
+      layoutPropertyOverrides: parseLayoutPropertyOverrides(layoutPropertyOverrides),
+    }),
     ...(parseLegacyProperties(properties) && { legacyProperties: parseLegacyProperties(properties) }),
     ...(parseSort(sort) && { sort: parseSort(sort) }),
     ...(parseSidebarSort(sidebarSort) && { sidebarSort: parseSidebarSort(sidebarSort) }),
   });
+}
+
+/** `{ <layout>: { <property id>: boolean } }`: an unknown layout or a malformed entry is dropped one by one; nothing left means none. */
+function parseLayoutPropertyOverrides(raw: unknown): Partial<Record<CollectionLayout, PropertyOverrides>> | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const byLayout: Partial<Record<CollectionLayout, PropertyOverrides>> = {};
+  for (const [layout, value] of Object.entries(raw)) {
+    const overrides = parsePropertyOverrides(value);
+    if (isCollectionLayout(layout) && overrides) {
+      byLayout[layout] = overrides;
+    }
+  }
+
+  return Object.keys(byLayout).length > 0 ? byLayout : undefined;
 }
 
 /** `{ <property id>: boolean }`: unknown ids and non-boolean values are dropped one by one; nothing left means no overrides. */

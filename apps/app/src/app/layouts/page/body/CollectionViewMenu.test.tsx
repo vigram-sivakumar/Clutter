@@ -53,7 +53,10 @@ function renderMenu(
     overrides.view ??
     resolveCollectionView(overrides.definition ?? FOLDER_COLLECTION, {
       layout: overrides.layout ?? 'list',
-      propertyOverrides: overrides.propertyOverrides,
+      // The List has its own overrides; every other layout uses the shared ones.
+      ...((overrides.layout ?? 'list') === 'list'
+        ? { listPropertyOverrides: overrides.propertyOverrides }
+        : { propertyOverrides: overrides.propertyOverrides }),
       sort: overrides.sort,
     });
   const utils = render(
@@ -193,7 +196,7 @@ describe('CollectionViewMenu — Properties submenu', () => {
   });
 
   it('shows a tick icon for a checked property and an empty, same-sized indicator for an unchecked one', () => {
-    const { getByText } = renderMenu({ propertyOverrides: { created: false } });
+    const { getByText } = renderMenu({ layout: 'table', propertyOverrides: { created: false } });
     openPropertiesSubmenu(getByText);
 
     const descriptionRow = getByText('Description').closest('.entry')!;
@@ -208,7 +211,7 @@ describe('CollectionViewMenu — Properties submenu', () => {
   });
 
   it('toggling a property reports that one property and the new visibility, and keeps the submenu open', () => {
-    const { getByText, onPropertyChange } = renderMenu();
+    const { getByText, onPropertyChange } = renderMenu({ layout: 'table' });
     openPropertiesSubmenu(getByText);
 
     fireEvent.click(getByText('Description'));
@@ -313,28 +316,28 @@ describe('CollectionViewMenu — required properties are shown ticked and locked
   });
 });
 
-describe('CollectionViewMenu — the archive date, labelled "Delete" (Archive collection only)', () => {
-  it('offers no Delete property or sort option for an ordinary collection', () => {
+describe('CollectionViewMenu — the archive date, labelled "Archived" (Archive collection only)', () => {
+  it('offers no Archived property or sort option for an ordinary collection', () => {
     const { getByText, queryByText } = renderMenu();
 
-    expect(queryByText('Delete')).not.toBeInTheDocument();
+    expect(queryByText('Archived')).not.toBeInTheDocument();
     openPropertiesSubmenu(getByText);
-    expect(queryByText('Delete')).not.toBeInTheDocument();
+    expect(queryByText('Archived')).not.toBeInTheDocument();
   });
 
-  it('the Archive offers a Delete sort option', () => {
+  it('the Archive offers an Archived sort option', () => {
     const { getByText, onSortChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
 
-    fireEvent.click(getByText('Delete'));
+    fireEvent.click(getByText('Archived'));
 
     expect(onSortChange).toHaveBeenCalledWith({ property: 'archived', direction: 'down' });
   });
 
-  it('the Archive offers a Delete property toggle', () => {
-    const { getByText, onPropertyChange } = renderMenu({ definition: ARCHIVE_COLLECTION });
+  it('the Archive offers an Archived property toggle', () => {
+    const { getByText, onPropertyChange } = renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
     openPropertiesSubmenu(getByText);
-    fireEvent.click(getByText('Delete'));
+    fireEvent.click(getByText('Archived'));
 
     expect(onPropertyChange).toHaveBeenCalledWith('archived', false);
   });
@@ -455,10 +458,10 @@ describe('CollectionViewMenu — Sort by follows the collection', () => {
     }
   });
 
-  it('the Archive: Name, Delete — no Description, Cover image, File size, Created or Last edited', () => {
+  it('the Archive: Name, Type, Archived — no Description, Cover image, File size, Created or Last edited', () => {
     renderMenu({ definition: ARCHIVE_COLLECTION, layout: 'table' });
 
-    expect(sortLabels()).toEqual(['Name', 'Delete']);
+    expect(sortLabels()).toEqual(['Name', 'Type', 'Archived']);
   });
 
   it('assets: Name and their file facts — File size, Created, Last edited — with the same active-row direction toggle', () => {

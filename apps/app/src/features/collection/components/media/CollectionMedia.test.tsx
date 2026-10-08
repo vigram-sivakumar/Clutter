@@ -50,10 +50,10 @@ describe('CollectionMedia', () => {
     expect(currentTarget).toBe(button);
   });
 
-  it('has no size props: the parent sizes it through custom properties (default 32 × 24)', () => {
+  it('has no size props: the parent sizes it through custom properties (default 20 × 20)', () => {
     const css = readFileSync(join(__dirname, 'CollectionMedia.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
-    expect(css).toMatch(/width:\s*var\(--collection-media-width,\s*var\(--space-32\)\)/);
-    expect(css).toMatch(/height:\s*var\(--collection-media-height,\s*var\(--space-24\)\)/);
+    expect(css).toMatch(/width:\s*var\(--collection-media-width,\s*var\(--space-20\)\)/);
+    expect(css).toMatch(/height:\s*var\(--collection-media-height,\s*var\(--space-20\)\)/);
   });
 });

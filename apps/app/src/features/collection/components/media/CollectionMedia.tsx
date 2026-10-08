@@ -13,7 +13,7 @@ export interface CollectionMediaProps {
 /**
  * A thumbnail frame: border, radius, clipping. It has no size props — its
  * parent decides how big it is, through --collection-media-width and
- * --collection-media-height (default 32 × 24; `auto` height stretches it to
+ * --collection-media-height (default 20 × 20; `auto` height stretches it to
  * a flex parent). It knows nothing about what it frames. With `onClick` it is
  * a button that looks like the frame.
  */

@@ -1,6 +1,6 @@
 /*
  * The thumbnail frame. Its parent sets the size with --collection-media-width
- * and --collection-media-height (default 32 × 24); `contain: size` keeps what
+ * and --collection-media-height (default 20 × 20); `contain: size` keeps what
  * is inside (an image's intrinsic size) from driving it. Spacing is padding only
  * (CLAUDE.md: no margin on anything the collection layout manages).
  */
@@ -10,8 +10,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--collection-media-width, var(--space-32));
-  height: var(--collection-media-height, var(--space-24));
+  width: var(--collection-media-width, var(--space-20));
+  height: var(--collection-media-height, var(--space-20));
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);

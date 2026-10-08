@@ -1,10 +1,15 @@
 .collection-table {
+  /* The one grid that owns the columns (its template is set inline from the columns); the header,
+     body and rows are subgrids of it. */
+  display: grid;
+  /* Rows keep their natural height: without this a taller container would stretch the auto row tracks. */
+  align-content: start;
   width: 100%;
 
   /*
-   * The table is the horizontal-scroll container, not the page: its header and
-   * rows may grow past 100% (`width: fit-content; min-width: 100%`) and this
-   * contains that overflow locally. Vertical scrolling stays with the page,
+   * The table is the horizontal-scroll container, not the page: its columns may
+   * add up to more than 100% (a `minmax(400px, 1fr)` name plus content-sized and
+   * fixed columns) and this contains that overflow locally. Vertical scrolling stays with the page,
    * so overflow-y is hidden and overscroll-behavior-y restores normal
    * chaining (base.css sets `overscroll-behavior: none` globally, which would
    * otherwise swallow a vertical wheel over the table).
@@ -19,15 +24,23 @@
 .collection-table__header {
   position: relative;
   display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  width: fit-content;
-  min-width: 100%;
 
   font-size: var(--text-label-small);
   font-weight: var(--fw-medium);
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
   color: var(--foreground-tertiary);
+}
+
+/* The body only passes the columns on to its rows. */
+.collection-table__body {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-content: start;
 }
 
 .collection-table__header-cell {

@@ -1,4 +1,5 @@
 import {
+  COLLECTION_PROPERTIES,
   PROPERTY_IDS,
   propertyLabel,
   type PropertyId,
@@ -14,7 +15,7 @@ import { formatPropertyValue, valueProperties } from './formatProperty';
  * alike, because a column is a property drawn as a table column: the Name column always (the row
  * anchor, `minmax(400px, 1fr)`), then — in canonical property order — the Cover image column when
  * it is visible AND the host can change covers (`110px`), then every plain value property that
- * is visible (`140px`). A property that is not visible reserves no grid space at all.
+ * is visible (`140px`, or content-sized for a date — see `valueColumnWidth`). A property that is not visible reserves no grid space at all.
  *
  * Widths, classes and the cell shape are this layout's presentation; the property's id, label
  * and order are the registry's.
@@ -27,17 +28,23 @@ export interface PropertyTableColumnOptions {
    * assets table uses it: its File size column has always been headed "Size".
    */
   readonly headers?: Partial<Record<PropertyId, string>>;
-  /**
-   * Columns that are NOT properties — presentation a collection adds itself (the Archive's Type) —
-   * placed right after Name. They can't be toggled or sorted, because they aren't in the registry;
-   * the rows supply their cells under the same ids.
-   */
-  readonly extraColumns?: readonly { readonly id: string; readonly label: string }[];
+}
+
+/**
+ * The grid track a plain value property's column gets, decided by the property's TYPE so every
+ * property of a kind behaves the same: a date (`date`, `day`) is sized by its content (`max-content` —
+ * the table is a grid whose rows are subgrids, so the column is as wide as the widest rendered date
+ * and a short one makes no wider a column); everything else keeps its fixed 140px.
+ */
+export function valueColumnWidth(id: PropertyId): string {
+  const type = COLLECTION_PROPERTIES[id].type;
+
+  return type === 'date' || type === 'day' ? 'max-content' : '140px';
 }
 
 export function buildPropertyTableColumns(
   visible: readonly PropertyId[],
-  { cover = false, headers = {}, extraColumns = [] }: PropertyTableColumnOptions = {}
+  { cover = false, headers = {} }: PropertyTableColumnOptions = {}
 ): CollectionTableColumn[] {
   const columns: CollectionTableColumn[] = [
     {
@@ -47,16 +54,6 @@ export function buildPropertyTableColumns(
       className: 'collection-table__header-cell--name',
     },
   ];
-
-  for (const { id, label } of extraColumns) {
-    columns.push({
-      id,
-      label,
-      width: '140px',
-      className: `collection-table__header-cell--${id}`,
-      cellClassName: `collection-table-row__${id}`,
-    });
-  }
 
   for (const id of PROPERTY_IDS) {
     if (id === 'cover') {
@@ -73,7 +70,7 @@ export function buildPropertyTableColumns(
       columns.push({
         id,
         label: headers[id] ?? propertyLabel(id),
-        width: '140px',
+        width: valueColumnWidth(id),
         className: `collection-table__header-cell--${id}`,
         cellClassName: `collection-table-row__${id}`,
       });

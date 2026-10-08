@@ -63,6 +63,7 @@
   --height-lg: var(
     --space-30
   ); /* Default for most of the interactive elements */
+  --height-xl: var(--space-32);
 
   /* Markdown */
   /* Indentation unit: one tab = this value; one space = this value / 4.

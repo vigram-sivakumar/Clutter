@@ -11,36 +11,34 @@ afterEach(cleanup);
 const row = (container: HTMLElement) => container.firstElementChild as HTMLElement;
 
 describe('CollectionTableRow', () => {
-  it('lays its cells out on the grid it is given', () => {
+  it('draws its cells inside the row shell (the table\'s columns reach it as a subgrid)', () => {
     const { container } = render(
-      <CollectionTableRow gridTemplateColumns="1fr 140px">
+      <CollectionTableRow>
         <span>a</span>
         <span>b</span>
       </CollectionTableRow>
     );
 
     expect(row(container)).toHaveClass('collection-table-row');
-    expect(row(container).style.gridTemplateColumns).toBe('1fr 140px');
     expect(row(container)).toHaveTextContent('ab');
   });
 
-  it('keeps a caller style alongside the grid', () => {
+  it('keeps a caller style', () => {
     const { container } = render(
-      <CollectionTableRow gridTemplateColumns="1fr" style={{ opacity: 0.5 }}>
+      <CollectionTableRow style={{ opacity: 0.5 }}>
         x
       </CollectionTableRow>
     );
 
-    expect(row(container).style.gridTemplateColumns).toBe('1fr');
     expect(row(container).style.opacity).toBe('0.5');
   });
 
   it('marks a selected row', () => {
-    const { container, rerender } = render(<CollectionTableRow gridTemplateColumns="1fr">x</CollectionTableRow>);
+    const { container, rerender } = render(<CollectionTableRow>x</CollectionTableRow>);
     expect(row(container)).not.toHaveClass('collection-table-row--selected');
 
     rerender(
-      <CollectionTableRow gridTemplateColumns="1fr" isSelected>
+      <CollectionTableRow isSelected>
         x
       </CollectionTableRow>
     );
@@ -48,7 +46,7 @@ describe('CollectionTableRow', () => {
   });
 
   it('is inert without onClick', () => {
-    const { container } = render(<CollectionTableRow gridTemplateColumns="1fr">x</CollectionTableRow>);
+    const { container } = render(<CollectionTableRow>x</CollectionTableRow>);
 
     expect(row(container)).not.toHaveAttribute('role');
     expect(row(container)).not.toHaveAttribute('tabindex');
@@ -57,7 +55,7 @@ describe('CollectionTableRow', () => {
   it('with onClick it is one focusable button that opens on click, Enter and Space', () => {
     const onClick = vi.fn();
     const { container } = render(
-      <CollectionTableRow gridTemplateColumns="1fr" onClick={onClick}>
+      <CollectionTableRow onClick={onClick}>
         x
       </CollectionTableRow>
     );
@@ -74,7 +72,7 @@ describe('CollectionTableRow', () => {
     const onClick = vi.fn();
     const onNested = vi.fn();
     render(
-      <CollectionTableRow gridTemplateColumns="1fr 1fr" onClick={onClick}>
+      <CollectionTableRow onClick={onClick}>
         <span data-testid="cell">a</span>
         <button type="button" onClick={onNested}>
           Change

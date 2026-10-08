@@ -62,7 +62,7 @@
 }
 
 /* Task list rows: a tighter gap between the trailing items (due date, note link) than the shared 12px. */
-.task-list .collection-entry__trailing {
+.task-list .collection-entry-properties {
   gap: 4px;
 }
 

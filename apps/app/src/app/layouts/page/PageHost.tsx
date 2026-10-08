@@ -127,6 +127,8 @@ import {
 } from '@core/presentation/collection/collectionDefinitions';
 import {
   resolveCollectionView,
+  propertyOverridesFor,
+  propertyOverridesPatch,
   setPropertyVisibility,
   toCollectionViewConfig,
 } from '@core/presentation/collection/resolveCollectionView';
@@ -411,15 +413,19 @@ export function PageHost({
   // A required property can't be turned off, and a property at its default needs no override:
   // `setPropertyVisibility` is the one place that decides what a toggle writes.
   const setCollectionProperty = (id: PropertyId, visible: boolean): void =>
-    updateCollectionViewConfig({
-      propertyOverrides: setPropertyVisibility(
-        collectionDefinition,
+    updateCollectionViewConfig(
+      propertyOverridesPatch(
         collectionView.layout,
-        collectionViewConfig.propertyOverrides,
-        id,
-        visible
-      ),
-    });
+        setPropertyVisibility(
+          collectionDefinition,
+          collectionView.layout,
+          propertyOverridesFor(collectionDefinition, collectionViewConfig, collectionView.layout),
+          id,
+          visible
+        ),
+        collectionViewConfig
+      )
+    );
   const setCollectionSort = (sort: CollectionSort): void => updateCollectionViewConfig({ sort });
 
   // The collection's standard header actions (Settings / view mode + Add):

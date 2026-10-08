@@ -14,10 +14,10 @@ import {
 } from './collectionProperties';
 
 describe('the collection property registry', () => {
-  it('pins the canonical order: name, description, cover, size, created, updated, archived, dueDate, source', () => {
+  it('pins the canonical order: name, type, description, cover, size, created, updated, archived, dueDate, source', () => {
     // This order is what the Configure menu, a table's columns, a card's metadata lines and the
     // Sort by list all follow. Changing it is a product change, not a refactor — hence the pin.
-    expect(PROPERTY_IDS).toEqual(['name', 'description', 'cover', 'size', 'created', 'updated', 'archived', 'dueDate', 'source']);
+    expect(PROPERTY_IDS).toEqual(['name', 'type', 'description', 'cover', 'size', 'created', 'updated', 'archived', 'dueDate', 'source']);
   });
 
   it('derives the id list from the registry itself — one declaration, no second ordering', () => {
@@ -32,12 +32,13 @@ describe('the collection property registry', () => {
   it('preserves every user-facing label', () => {
     expect(Object.fromEntries(PROPERTY_IDS.map((id) => [id, propertyLabel(id)]))).toEqual({
       name: 'Name',
+      type: 'Type',
       description: 'Description',
       cover: 'Cover image',
       size: 'File size',
       created: 'Created',
       updated: 'Last edited',
-      archived: 'Delete',
+      archived: 'Archived',
       dueDate: 'Due date',
       source: 'Source',
     });
@@ -46,6 +47,7 @@ describe('the collection property registry', () => {
   it('gives each property a semantic type', () => {
     expect(Object.fromEntries(PROPERTY_IDS.map((id) => [id, COLLECTION_PROPERTIES[id].type]))).toEqual({
       name: 'text',
+      type: 'text',
       description: 'text',
       cover: 'media',
       size: 'number',
@@ -61,6 +63,7 @@ describe('the collection property registry', () => {
   it('gives each property its sort behavior — and cover sorts by presence, as it does today', () => {
     expect(Object.fromEntries(PROPERTY_IDS.map((id) => [id, COLLECTION_PROPERTIES[id].sort]))).toEqual({
       name: 'text',
+      type: 'text',
       description: 'text',
       cover: 'presence',
       size: 'number',
@@ -82,14 +85,14 @@ describe('the collection property registry', () => {
     for (const id of PROPERTY_IDS) {
       expect(isPropertyId(id)).toBe(true);
     }
-    for (const notAnId of ['modified', 'title', 'preview', 'type', 'lastOpened', '', 'toString', 'constructor', 5, null, undefined]) {
+    for (const notAnId of ['modified', 'title', 'preview', 'lastOpened', '', 'toString', 'constructor', 5, null, undefined]) {
       expect(isPropertyId(notAnId), String(notAnId)).toBe(false);
     }
   });
 
   it('the type of an id is the registry key (compile-time: PropertyId is derived, not declared again)', () => {
     const ids: PropertyId[] = [...PROPERTY_IDS];
-    expect(ids).toHaveLength(9);
+    expect(ids).toHaveLength(10);
   });
 });
 

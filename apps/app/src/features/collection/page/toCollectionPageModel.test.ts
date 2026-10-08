@@ -752,6 +752,7 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
 
     expect(model.notes[0]!.values).toEqual({
       name: 'Plan',
+      type: 'Note',
       description: 'About the plan',
       cover: 'Assets/hero.png',
       created: '2026-01-01T10:00:00.000Z',
@@ -763,7 +764,7 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
   it('a value the note does not have is absent, not blank', () => {
     const model = build(makePage({ name: 'Plain', metadata: defaultPageMetadata }));
 
-    expect(Object.keys(model.notes[0]!.values)).toEqual(['name']);
+    expect(Object.keys(model.notes[0]!.values)).toEqual(['name', 'type']);
   });
 
   it('a HIDDEN cover is no cover value — it is shown nowhere and does not count when sorting by Cover image', () => {
@@ -774,10 +775,10 @@ describe('toCollectionPageModel — the entry\'s collection property values (the
     expect(model.notes[0]!.values.cover).toBeUndefined();
   });
 
-  it('a folder carries only its name: it has no dates, and nothing in the collection shows a folder\'s description or cover', () => {
+  it('a folder carries only its name and type: it has no dates, and nothing in the collection shows a folder\'s description or cover', () => {
     const model = build(makePage({ name: 'Anything', metadata: defaultPageMetadata }));
 
-    expect(model.folders[0]!.values).toEqual({ name: 'Sub' });
+    expect(model.folders[0]!.values).toEqual({ name: 'Sub', type: 'Folder' });
   });
 
   it('the entry no longer carries the old per-property fields beside `values`', () => {

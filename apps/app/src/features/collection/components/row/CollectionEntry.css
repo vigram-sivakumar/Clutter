@@ -16,7 +16,6 @@
 }
 .collection-entry--layout-cell {
   padding-block: var(--space-4);
-  align-items: flex-start;
 }
 
 /* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
@@ -46,6 +45,10 @@
   --collection-media-height: var(--space-20);
 }
 .collection-entry--layout-cell .collection-entry__leading {
+  /* Full height of the entry, icon at the top. `height: 100%` can't resolve against an auto-height
+     parent and, being not `auto`, would also stop `align-self: stretch` — so it is reset here. */
+  height: auto;
+  align-self: stretch;
   align-items: flex-start;
 }
 .collection-entry--layout-cell .collection-entry__leading > * {
@@ -94,10 +97,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-12);
-
-  color: var(--foreground-secondary);
-  font-size: var(--text-label);
-  line-height: var(--lh-label);
 
   height: 100%;
   min-height: 20px;

@@ -5,7 +5,6 @@ import { CollectionTableCell, type CollectionTableCellProps } from './cells/Coll
 import { CollectionTable } from './CollectionTable';
 import { CollectionTableRow } from './CollectionTableRow';
 import {
-  buildCollectionTableGridTemplateColumns,
   type CollectionTableColumn,
 } from './collectionTableColumns';
 
@@ -47,8 +46,6 @@ const join = (...names: Array<string | undefined>) => names.filter(Boolean).join
  * nothing about what a row is.
  */
 export function CollectionDataTable({ columns, rows, newItem, ...props }: CollectionDataTableProps) {
-  const gridTemplateColumns = buildCollectionTableGridTemplateColumns(columns);
-
   return (
     <CollectionTable
       {...props}
@@ -57,7 +54,6 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
         newItem && (
           <CollectionTableRow
             className="collection-table-row--new-item"
-            gridTemplateColumns="minmax(0, 1fr)"
             onClick={newItem.onClick}
           >
             <CollectionRow layout="cell" tone="action" icon="plus" title={newItem.label} />
@@ -69,7 +65,6 @@ export function CollectionDataTable({ columns, rows, newItem, ...props }: Collec
         <CollectionTableRow
           {...row.props}
           key={row.id}
-          gridTemplateColumns={gridTemplateColumns}
           isSelected={row.isSelected}
           onClick={row.onClick ? () => row.onClick?.() : undefined}
         >

@@ -5,7 +5,13 @@
  *
  *   undefined          → no opinion: the collection's own default applies
  *   propertyOverrides  → `true` explicitly shows a property, `false` explicitly hides it;
- *                        a property the user returned to its default has NO entry
+ *                        a property the user returned to its default has NO entry. These are the
+ *                        Table's choices.
+ *   listPropertyOverrides → the same, for the List layout only. The List has its own visible
+ *                        properties: it never inherits the Table's, and customizing one never
+ *                        touches the other (both resolve against the same property registry)
+ *   layoutPropertyOverrides → the same, for every OTHER layout (the Card, and any layout added later),
+ *                        keyed by layout: each layout keeps its own and shares nothing with another
  *   sort               → the property to order by and the arrow direction
  *   sidebarSort        → the same, for the folder's own listing in the notes sidebar — chosen
  *                        independently of `sort` (the collection page's order)
@@ -31,6 +37,10 @@ export type PropertyOverrides = Partial<Record<PropertyId, boolean>>;
 export interface CollectionViewConfig {
   readonly layout?: CollectionLayout;
   readonly propertyOverrides?: PropertyOverrides;
+  /** The List layout's own overrides — see the module comment. Absent: the List shows its layout default. */
+  readonly listPropertyOverrides?: PropertyOverrides;
+  /** Every other layout's own overrides, by layout — see the module comment. */
+  readonly layoutPropertyOverrides?: Partial<Record<CollectionLayout, PropertyOverrides>>;
   readonly sort?: CollectionSort;
   /** How the notes sidebar orders this folder's children; absent means the sidebar's default order. */
   readonly sidebarSort?: SidebarSort;

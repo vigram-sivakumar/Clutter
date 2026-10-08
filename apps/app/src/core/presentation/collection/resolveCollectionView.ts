@@ -55,6 +55,57 @@ export function requiredProperties(definition: CollectionDefinition, layout: Col
   return (definition.required ?? DEFAULT_REQUIRED)[layout] ?? [];
 }
 
+/** The properties `layout` shows when the user has chosen nothing: the layout's own default, else the collection's. */
+export function defaultVisibleFor(definition: CollectionDefinition, layout: CollectionLayout): readonly PropertyId[] {
+  return definition.defaultVisibleByLayout?.[layout] ?? definition.defaultVisible;
+}
+
+/**
+ * The overrides that apply to `layout` — every layout keeps its own and none inherits another's.
+ * The Table's are `propertyOverrides`, the List's `listPropertyOverrides`, and any other layout's (the
+ * Card, a layout added later) are its entry in `layoutPropertyOverrides`. A collection whose own default
+ * layout is not the Table (the Tasks' List, the Assets' Card) also reads `propertyOverrides` for that
+ * layout until it is customized, so choices saved before layouts had their own survive. No other layout
+ * ever inherits the Table's.
+ */
+export function propertyOverridesFor(
+  definition: CollectionDefinition,
+  config: CollectionViewConfig,
+  layout: CollectionLayout
+): PropertyOverrides | undefined {
+  if (layout === 'table') {
+    return config.propertyOverrides;
+  }
+
+  const own = layout === 'list' ? config.listPropertyOverrides : config.layoutPropertyOverrides?.[layout];
+
+  return own ?? (definition.defaultLayout === layout ? config.propertyOverrides : undefined);
+}
+
+/**
+ * The config patch that stores `overrides` for `layout`, written onto `config` (the current intent):
+ * only that layout's own field changes. For a layout kept in `layoutPropertyOverrides` the other
+ * layouts' entries are carried over, since a patch replaces the whole field.
+ */
+export function propertyOverridesPatch(
+  layout: CollectionLayout,
+  overrides: PropertyOverrides | undefined,
+  config: CollectionViewConfig
+): Pick<CollectionViewConfig, 'propertyOverrides' | 'listPropertyOverrides' | 'layoutPropertyOverrides'> {
+  if (layout === 'table') {
+    return { propertyOverrides: overrides };
+  }
+
+  if (layout === 'list') {
+    return { listPropertyOverrides: overrides };
+  }
+
+  const others = Object.fromEntries(Object.entries(config.layoutPropertyOverrides ?? {}).filter(([key]) => key !== layout));
+  const next = { ...others, ...(overrides !== undefined && { [layout]: overrides }) };
+
+  return { layoutPropertyOverrides: Object.keys(next).length > 0 ? next : undefined };
+}
+
 export function availableProperties(definition: CollectionDefinition): readonly PropertyId[] {
   return PROPERTY_IDS.filter((id) => definition.properties.includes(id));
 }
@@ -69,9 +120,9 @@ export function resolveCollectionView(
   const available = availableProperties(definition);
   const required = requiredProperties(definition, layout);
   const locked = available.filter((id) => required.includes(id));
-  const visible = available.filter(
-    (id) => locked.includes(id) || (config.propertyOverrides?.[id] ?? definition.defaultVisible.includes(id))
-  );
+  const overrides = propertyOverridesFor(definition, config, layout);
+  const layoutDefault = defaultVisibleFor(definition, layout);
+  const visible = available.filter((id) => locked.includes(id) || (overrides?.[id] ?? layoutDefault.includes(id)));
   const sortable = available.filter(isSortableProperty);
   const sort =
     config.sort !== undefined && sortable.includes(config.sort.property) ? config.sort : definition.defaultSort;
@@ -99,7 +150,7 @@ export function setPropertyVisibility(
 
   const next: Partial<Record<PropertyId, boolean>> = { ...overrides };
 
-  if (visible === definition.defaultVisible.includes(id)) {
+  if (visible === defaultVisibleFor(definition, layout).includes(id)) {
     delete next[id];
   } else {
     next[id] = visible;

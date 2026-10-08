@@ -109,6 +109,7 @@ describe('toAssetEntry — where an asset\'s collection property values come fro
 
     expect(toAssetEntry(asset).values).toEqual({
       name: 'house',
+      type: 'Image',
       size: 12_345,
       created: facts.createdAt,
       updated: facts.modifiedAt,
@@ -118,6 +119,7 @@ describe('toAssetEntry — where an asset\'s collection property values come fro
   it('a vault file the platform could not stat has only a name', () => {
     expect(toAssetEntry(localAsset({ id: 'a', kind: 'image', name: 'house.png', path: '/vault/house.png', parentId: null })).values).toEqual({
       name: 'house',
+      type: 'Image',
     });
   });
 
@@ -131,13 +133,13 @@ describe('toAssetEntry — where an asset\'s collection property values come fro
       metadata: { size: 0, createdAt: null, modifiedAt: facts.modifiedAt },
     });
 
-    expect(toAssetEntry(partial).values).toEqual({ name: 'empty', size: 0, updated: facts.modifiedAt });
+    expect(toAssetEntry(partial).values).toEqual({ name: 'empty', type: 'Image', size: 0, updated: facts.modifiedAt });
   });
 
-  it('a remote asset is a URL with no file: only its name', () => {
+  it('a remote asset is a URL with no file: only its name and type', () => {
     const remote: Asset = { id: 'remote:https://example.com/r.jpg', source: 'remote', kind: 'image', name: 'r.jpg', url: 'https://example.com/r.jpg', references: [] };
 
-    expect(toAssetEntry(remote).values).toEqual({ name: 'r' });
+    expect(toAssetEntry(remote).values).toEqual({ name: 'r', type: 'Image' });
   });
 
   it('an archived file carries the date the app archived it as its `archived` value — and never as created or updated', () => {

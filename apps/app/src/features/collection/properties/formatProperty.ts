@@ -21,13 +21,13 @@ import type { ISODate } from '@shared/helpers/time/types';
 /**
  * Formats a persisted timestamp (a full ISO instant, e.g. `2026-07-08T14:03:00.000Z`) for the
  * collection views — `formatRelativeTimestamp`'s local-time `35 minutes ago` (under two hours) /
- * `Today, 09:03 AM` / `Yesterday, 09:03 AM` / `12 Aug, 09:03 AM` shape. Absent or unparseable
+ * `Today, 09:03 AM` / `Yesterday, 09:03 AM` / `12 August, 09:03 AM` shape (full month name). Absent or unparseable
  * renders as nothing.
  */
 export function formatEntryTimestamp(isoTimestamp: string | null | undefined): string | undefined {
   if (!isoTimestamp) return undefined;
   const parsed = new Date(isoTimestamp);
-  return Number.isNaN(parsed.getTime()) ? undefined : formatRelativeTimestamp(parsed);
+  return Number.isNaN(parsed.getTime()) ? undefined : formatRelativeTimestamp(parsed, new Date(), 'long');
 }
 
 /**
@@ -46,7 +46,7 @@ export function formatPropertyValue(id: PropertyId, values: PropertyValues): str
       return formatEntryTimestamp(value as string);
     case 'day':
       // A calendar day, not an instant: the shared date label with the year always shown.
-      return formatDateDisplay(value as ISODate, 'condensedFullYear');
+      return formatDateDisplay(value as ISODate, 'longFullYear');
     case 'number':
       return formatFileSize(value as number) || undefined;
     case 'text':

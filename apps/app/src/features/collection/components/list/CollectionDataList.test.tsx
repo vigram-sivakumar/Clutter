@@ -61,13 +61,13 @@ describe('CollectionDataList', () => {
     expect(row.querySelector('svg')).toBeNull();
   });
 
-  it('draws each metadata value as its own span — and no metadata when there is none', () => {
+  it('draws each metadata value as its own CollectionEntryProperties — and no metadata when there is none', () => {
     const { container } = render(
       <CollectionDataList items={[item({ metadata: ['Today', 'Yesterday'] }), item({ id: 'i2', metadata: [] })]} />
     );
     const [first, second] = [...container.querySelectorAll('.collection-entry')];
 
-    expect([...first!.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent)).toEqual([
+    expect([...first!.querySelectorAll('.collection-entry-properties')].map((s) => s.textContent)).toEqual([
       'Today',
       'Yesterday',
     ]);

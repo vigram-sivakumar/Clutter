@@ -114,42 +114,81 @@ describe('ArchiveCollectionBody: ONE unified collection drawn by the generic Lis
   });
 });
 
-describe('ArchiveCollectionBody: Type — the Archive\'s own presentation, not a property', () => {
+describe('ArchiveCollectionBody: Type is an ordinary property, drawn from the same `visible` set in List and Table', () => {
+  const metadataOf = (container: HTMLElement, title: string) =>
+    [...container.querySelectorAll('.collection-entry')]
+      .find((row) => row.querySelector('.collection-entry__title')?.textContent === title)
+      ?.querySelector('.collection-entry-properties')?.textContent;
+  const headers = (container: HTMLElement) => [...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent);
+  const typeCells = (container: HTMLElement) => [...container.querySelectorAll('.collection-table-row__type')].map((c) => c.textContent).sort();
+
   it('List shows the Type as the first metadata string of every row: Folder, Note, Image, PDF', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list' });
 
-    const firstMetadata = (title: string) =>
-      [...container.querySelectorAll('.collection-entry')]
-        .find((row) => row.querySelector('.collection-entry__title')?.textContent === title)
-        ?.querySelector('.collection-entry__trailing span')?.textContent;
-
-    expect(firstMetadata('Old Project')).toBe('Folder');
-    expect(firstMetadata('Old Note')).toBe('Note');
-    expect(firstMetadata('hero')).toBe('Image');
-    expect(firstMetadata('manual')).toBe('PDF');
+    expect(metadataOf(container, 'Old Project')).toBe('Folder');
+    expect(metadataOf(container, 'Old Note')).toBe('Note');
+    expect(metadataOf(container, 'hero')).toBe('Image');
+    expect(metadataOf(container, 'manual')).toBe('PDF');
   });
 
-  it('Table has a Type column right after Name, then the configured properties', () => {
+  it('Table has Name, Type, then Archived — the property labels, in registry order', () => {
     const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
 
-    // The Archive's default visible properties are Name and its date, labelled "Delete".
-    expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual([
-      'Name',
-      'Type',
-      'Delete',
-    ]);
-    expect([...container.querySelectorAll('.collection-table-row__type')].map((c) => c.textContent).sort()).toEqual([
-      'Folder',
-      'Image',
-      'Note',
-      'PDF',
-    ]);
+    expect(headers(container)).toEqual(['Name', 'Type', 'Archived']);
+    expect(typeCells(container)).toEqual(['Folder', 'Image', 'Note', 'PDF']);
   });
 
-  it('Type is not a property: hiding every property leaves it, and no property is called Type', () => {
-    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table', visible: ['name'] });
+  it('hiding Type removes it from the Table AND the List', () => {
+    const visible = archiveVisible('type');
+    const table = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
 
-    expect([...container.querySelectorAll('.collection-table__header-cell')].map((c) => c.textContent)).toEqual(['Name', 'Type']);
+    expect(headers(table.container)).toEqual(['Name', 'Archived']);
+    expect(typeCells(table.container)).toEqual([]);
+    cleanup();
+
+    const list = renderArchive({ ...EVERYTHING, viewMode: 'list', visible });
+    expect(metadataOf(list.container, 'Old Note')).toBe(ARCHIVED_TEXT);
+    expect(list.container.textContent).not.toMatch(/\b(Folder|Image|PDF)\b/);
+  });
+
+  it('hiding every property leaves only Name in both layouts — Type has no special standing', () => {
+    expect(headers(renderArchive({ ...EVERYTHING, viewMode: 'table', visible: ['name'] }).container)).toEqual(['Name']);
+    cleanup();
+
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list', visible: ['name'] });
+    expect(metadataOf(container, 'Old Note')).toBeUndefined();
+  });
+
+  it('List and Table show the same properties in the same order, for any visible set', () => {
+    for (const visible of [archiveVisible(), archiveVisible('type'), archiveVisible('archived'), archiveVisible('type', 'archived')]) {
+      const table = renderArchive({ ...EVERYTHING, viewMode: 'table', visible });
+      const tableValues = [...table.container.querySelectorAll('.collection-table-row')]
+        .find((row) => row.querySelector('.collection-entry__title')?.textContent === 'Old Note')!
+        .querySelectorAll('[class*="collection-table-row__"]');
+      const tableTexts = [...tableValues].map((c) => c.textContent);
+      cleanup();
+
+      const list = renderArchive({ ...EVERYTHING, viewMode: 'list', visible });
+      const listTexts = [...list.container.querySelectorAll('.collection-entry')]
+        .find((row) => row.querySelector('.collection-entry__title')?.textContent === 'Old Note')!
+        .querySelectorAll('.collection-entry-properties');
+      cleanup();
+
+      expect([...listTexts].map((c) => c.textContent), visible.join()).toEqual(tableTexts);
+    }
+  });
+
+  it('sorts by Type through the shared engine: A→Z for "down", folders, notes and files together', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'list', sort: { property: 'type', direction: 'down' } });
+
+    expect(listTitles(container).map((t) => t)).toEqual(['Old Project', 'hero', 'Old Note', 'manual']);
+  });
+
+  it('the archived date column is headed "Archived" in the Table', () => {
+    const { container } = renderArchive({ ...EVERYTHING, viewMode: 'table' });
+
+    expect(headers(container)).toContain('Archived');
+    expect(headers(container)).not.toContain('Delete');
   });
 });
 
@@ -232,10 +271,10 @@ describe('ArchiveCollectionBody: a file\'s archive date comes from the archive r
       resources: [hero],
       archivedAtByPath: new Map([[hero.path, RECORDED_AT]]),
       viewMode: 'list',
-      visible: ['name', 'archived'],
+      visible: ['name', 'type', 'archived'],
     });
 
-    expect([...container.querySelectorAll('.collection-entry__trailing span')].map((s) => s.textContent)).toEqual(['Image', RECORDED_TEXT]);
+    expect([...container.querySelectorAll('.collection-entry-properties')].map((s) => s.textContent)).toEqual(['Image', RECORDED_TEXT]);
   });
 
   it('files sort with notes and folders by that date: newest first for "down", a file with no date last', () => {

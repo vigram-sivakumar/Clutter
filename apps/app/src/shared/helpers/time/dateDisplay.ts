@@ -60,11 +60,14 @@ import type { ISODate } from './types';
  *   other mode; every other date — even one within the current week — is
  *   `'condensed'`'s abbreviated-month date with the year always shown,
  *   `"11 Nov 2026"`, never a weekday name.
+ * - `'longFullYear'` — the collection List/Table's due dates: exactly
+ *   `'condensedFullYear'`, but with the full month name — `"11 November 2026"`.
  */
 export type DateDisplayMode =
   | 'compact'
   | 'condensed'
   | 'condensedFullYear'
+  | 'longFullYear'
   | 'full'
   | 'shortWeekday'
   | 'contextual';
@@ -232,7 +235,7 @@ export function formatDateDisplay(
   const monthLabel = monthLabels[relation.month - 1]!;
   const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
 
-  if (mode === 'condensedFullYear') {
+  if (mode === 'condensedFullYear' || mode === 'longFullYear') {
     if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
       return dayIdentityLabel(relation, mode);
     }
@@ -291,7 +294,12 @@ export function formatTimeDisplay(date: Date): string {
  * `formatTimeDisplay`'s 12-hour label, joined with `", "` exactly like
  * the Property list's date-time values.
  */
-export function formatDateTimeDisplay(date: Date, referenceDate: Date = new Date()): string {
+export function formatDateTimeDisplay(
+  date: Date,
+  referenceDate: Date = new Date(),
+  /** `'long'` spells the month out (`12 September`); the default keeps `12 Sep`. */
+  monthStyle: 'short' | 'long' = 'short'
+): string {
   const isoDate = [
     String(date.getFullYear()).padStart(4, '0'),
     String(date.getMonth() + 1).padStart(2, '0'),
@@ -303,7 +311,7 @@ export function formatDateTimeDisplay(date: Date, referenceDate: Date = new Date
   if (relation.kind === 'today' || relation.kind === 'tomorrow' || relation.kind === 'yesterday') {
     dayLabel = dayIdentityLabel(relation, 'condensed');
   } else {
-    const monthLabel = MONTH_LABELS_SHORT[relation.month - 1]!;
+    const monthLabel = (monthStyle === 'long' ? MONTH_LABELS : MONTH_LABELS_SHORT)[relation.month - 1]!;
     dayLabel =
       relation.year === referenceDate.getFullYear()
         ? `${relation.day} ${monthLabel}`
@@ -329,7 +337,11 @@ function pluralize(count: number, unit: string): string {
  * answer anyway. Anything older, or a future instant (clock skew), falls
  * through to the absolute label.
  */
-export function formatRelativeTimestamp(date: Date, referenceDate: Date = new Date()): string {
+export function formatRelativeTimestamp(
+  date: Date,
+  referenceDate: Date = new Date(),
+  monthStyle: 'short' | 'long' = 'short'
+): string {
   const ageMs = referenceDate.getTime() - date.getTime();
 
   if (ageMs >= 0 && ageMs < RELATIVE_TIMESTAMP_MAX_MS) {
@@ -339,5 +351,5 @@ export function formatRelativeTimestamp(date: Date, referenceDate: Date = new Da
     return pluralize(Math.floor(minutes / 60), 'hour');
   }
 
-  return formatDateTimeDisplay(date, referenceDate);
+  return formatDateTimeDisplay(date, referenceDate, monthStyle);
 }
