@@ -89,12 +89,13 @@ function TaskCheckboxIcon({ checked }: { checked: boolean }): ReactNode {
           <path
             d="M5 8.42857L6.8 11L11 5"
             stroke="var(--icon-on-accent, #FFF)"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </>
       ) : (
-        <circle cx="8" cy="8" r="7.4" stroke="currentColor" />
+        <circle cx="8" cy="8" r="7.5" stroke="currentColor" />
       )}
     </svg>
   );

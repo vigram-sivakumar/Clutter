@@ -8,6 +8,7 @@
   <path
     d="M5 8.42857L6.8 11L11 5"
     stroke="var(--icon-on-accent, #FFF)"
+    stroke-width="1.5"
     stroke-linecap="round"
     stroke-linejoin="round"
   />
@@ -19,6 +20,7 @@
   <path
     d="M5 8.42857L6.8 11L11 5"
     stroke="var(--icon-on-accent, #FFF)"
+    stroke-width="1.5"
     stroke-linecap="round"
     stroke-linejoin="round"
   /> -->

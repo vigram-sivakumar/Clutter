@@ -50,12 +50,12 @@ export class TaskCheckboxWidget extends WidgetType {
       // square/rounded-rect path is commented out there, superseded by
       // this circle; this widget's inline SVG must track that same
       // change since it can't `import` the `.svg?react` asset directly).
-      button.innerHTML = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="currentColor"/><path d="M5 8.42857L6.8 11L11 5" stroke="var(--icon-on-accent, #FFF)" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      button.innerHTML = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="8" fill="currentColor"/><path d="M5 8.42857L6.8 11L11 5" stroke="var(--icon-on-accent, #FFF)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     } else {
       // Unchecked state: circle outline — matches
       // shared/icon/svg/checkbox-unchecked.svg exactly (same
       // square-to-circle supersession as the checked state above).
-      button.innerHTML = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.4" stroke="currentColor"/></svg>';
+      button.innerHTML = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7.5" stroke="currentColor"/></svg>';
     }
 
     return button;

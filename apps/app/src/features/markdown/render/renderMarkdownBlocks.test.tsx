@@ -87,7 +87,7 @@ describe('renderMarkdownBlocks — block mapping', () => {
 
     const [open, done] = [...root.querySelectorAll('.markdown-blocks__task-box')];
     expect(open!.tagName.toLowerCase()).toBe('svg');
-    expect(open!.querySelector('circle')?.getAttribute('r')).toBe('7.4');
+    expect(open!.querySelector('circle')?.getAttribute('r')).toBe('7.5');
     expect(open!.querySelector('path')).toBeNull();
     expect(done!.querySelector('circle')?.getAttribute('r')).toBe('8');
     expect(done!.querySelector('path')?.getAttribute('d')).toBe('M5 8.42857L6.8 11L11 5');
