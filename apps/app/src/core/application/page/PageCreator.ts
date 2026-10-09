@@ -39,7 +39,17 @@ export class PageCreator {
     metadata?: Partial<
       Pick<
         PageFrontmatter,
-        'description' | 'icon' | 'cover' | 'favorite' | 'tags' | 'aliases' | 'unownedLines'
+        | 'description'
+        | 'icon'
+        | 'cover'
+        | 'coverHidden'
+        | 'coverLayout'
+        | 'coverPositionAbove'
+        | 'coverPositionSide'
+        | 'favorite'
+        | 'tags'
+        | 'aliases'
+        | 'unownedLines'
       >
     >
   ): string {

@@ -1199,17 +1199,18 @@ export function PageHost({
   };
 
   // The Add menu's From template section: the templates come from the Templates folder (the
-  // source of truth), choosing one opens a new note in `targetFolderId` with its body, and the
+  // source of truth), choosing one opens a new note in `targetFolderId` with its body and the template's icon and cover, and the
   // leading "New template" row opens a new draft inside Templates (created on first use, ADR-030).
   const buildFromTemplate = (
     targetFolderId: string | null
   ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
     getTemplates: () =>
-      toTemplateEntries(vault, application.membershipSelector, (markdown) => {
+      toTemplateEntries(vault, application.membershipSelector, (markdown, templatePageId) => {
         void createNoteFromTemplate(
           application.pageOperations,
           targetFolderId,
-          markdown
+          markdown,
+          vault.getPage(templatePageId)?.metadata
         );
       }),
     onCreateTemplate: () => {

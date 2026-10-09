@@ -2325,10 +2325,34 @@ export class PageOperations {
   private toFrontmatterMetadataPatch(
     patch: Partial<EditablePageMetadata>
   ): Partial<
-    Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite' | 'tags' | 'aliases'>
+    Pick<
+      PageFrontmatter,
+      | 'description'
+      | 'icon'
+      | 'cover'
+      | 'coverHidden'
+      | 'coverLayout'
+      | 'coverPositionAbove'
+      | 'coverPositionSide'
+      | 'favorite'
+      | 'tags'
+      | 'aliases'
+    >
   > {
     const result: Partial<
-      Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite' | 'tags' | 'aliases'>
+      Pick<
+        PageFrontmatter,
+        | 'description'
+        | 'icon'
+        | 'cover'
+        | 'coverHidden'
+        | 'coverLayout'
+        | 'coverPositionAbove'
+        | 'coverPositionSide'
+        | 'favorite'
+        | 'tags'
+        | 'aliases'
+      >
     > = {};
 
     if ('description' in patch) {
@@ -2339,6 +2363,21 @@ export class PageOperations {
     }
     if ('cover' in patch) {
       result.cover = patch.cover ?? undefined;
+    }
+    // The cover's presentation settings travel with the cover into a draft's first
+    // frontmatter (a note created from a template inherits them) — without these the
+    // promoting create dropped them and only the later 'save' path wrote them.
+    if ('coverHidden' in patch) {
+      result.coverHidden = patch.coverHidden;
+    }
+    if ('coverLayout' in patch) {
+      result.coverLayout = patch.coverLayout;
+    }
+    if ('coverPositionAbove' in patch) {
+      result.coverPositionAbove = patch.coverPositionAbove;
+    }
+    if ('coverPositionSide' in patch) {
+      result.coverPositionSide = patch.coverPositionSide;
     }
     if ('favorite' in patch) {
       result.favorite = patch.favorite;

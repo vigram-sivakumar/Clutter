@@ -152,7 +152,7 @@ function toCollectionEntry(
 export function toTemplateEntries(
   vault: Vault,
   membershipSelector: MembershipSelector,
-  onUse: (markdown: string) => void
+  onUse: (markdown: string, templatePageId: string) => void
 ): CollectionEntryModel[] {
   const root = vault.getReservedFolder('templates');
 
@@ -168,14 +168,14 @@ export function toTemplateEntries(
         page,
         {
           onOpenFolder: unreachable,
-          onOpenNote: () => onUse(page.markdown),
-          onOpenDraftNote: () => onUse(page.markdown),
+          onOpenNote: () => onUse(page.markdown, page.id),
+          onOpenDraftNote: () => onUse(page.markdown, page.id),
         },
         false,
         membershipSelector
       );
 
-      entries.push({ ...entry, onClick: () => onUse(page.markdown) });
+      entries.push({ ...entry, onClick: () => onUse(page.markdown, page.id) });
     }
 
     for (const folder of membershipSelector.getVisibleChildFolders(folderId)) {
