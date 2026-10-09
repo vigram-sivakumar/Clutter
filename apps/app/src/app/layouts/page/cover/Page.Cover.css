@@ -33,7 +33,8 @@
      is actually under way. */
   transition:
     flex-basis 240ms ease,
-    flex-grow 240ms ease;
+    flex-grow 240ms ease,
+    margin-left 240ms ease;
 }
 .page__cover[data-hidden] {
   /* data-hidden reflects the durable `coverHidden` metadata
@@ -55,6 +56,14 @@
   flex-grow: 0;
   flex-basis: 0;
   min-width: 0;
+  /* The base rule's negative `margin-left` (the cover tucking under
+     .page__document's rounded right edge) must go too: a flex item's outer
+     size is basis + margins, so a collapsed cover would otherwise still
+     contribute -radius, making .page__document `radius` px wider than the
+     row — its right edge (and its inset-shadow border) then lands outside
+     `.page`, which clips it (`overflow: hidden`). Transitioned alongside the
+     flex properties above so the collapse stays in lockstep. */
+  margin-left: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
