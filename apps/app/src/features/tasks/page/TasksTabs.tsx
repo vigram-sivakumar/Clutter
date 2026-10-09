@@ -1,5 +1,4 @@
 import { Tab, Tabs } from '@components/tabs/Tabs';
-import '../sidebar/Task.css';
 import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
@@ -30,15 +29,12 @@ interface TasksTabsProps {
  */
 export function TasksTabs({ value, onValueChange }: TasksTabsProps) {
   return (
-    // The wrapper makes the strip hug its tabs instead of stretching.
-    <div className="tasks-tabs">
-      <Tabs value={value} variant="ghost" onValueChange={(next) => onValueChange(next as TasksTabValue)}>
-        {TASK_TABS.map((tab) => (
-          <Tab key={tab.value} value={tab.value}>
-            {tab.label}
-          </Tab>
-        ))}
-      </Tabs>
-    </div>
+    <Tabs value={value} variant="ghost" onValueChange={(next) => onValueChange(next as TasksTabValue)}>
+      {TASK_TABS.map((tab) => (
+        <Tab key={tab.value} value={tab.value}>
+          {tab.label}
+        </Tab>
+      ))}
+    </Tabs>
   );
 }

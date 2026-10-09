@@ -44,9 +44,9 @@ describe('TasksTabs', () => {
     });
   });
 
-  it('hugs its tabs: it sits in a wrapper that does not stretch', () => {
+  it('renders the Tabs component directly, with no wrapper element', () => {
     const { container } = render(<TasksTabs value="all" onValueChange={vi.fn()} />);
 
-    expect(container.firstElementChild).toHaveClass('tasks-tabs');
+    expect(container.firstElementChild).toHaveClass('tabs', 'tabs--ghost');
   });
 });

@@ -31,13 +31,3 @@
   gap: 4px;
 }
 
-/* The All Tasks tab strip (below the page title) hugs its tabs: it does not stretch across the header, and each tab is as wide as its label. */
-.tasks-tabs {
-  align-self: flex-start;
-  max-width: 100%;
-}
-.tasks-tabs .tab {
-  width: auto;
-  padding-inline: var(--space-12);
-  white-space: nowrap;
-}
