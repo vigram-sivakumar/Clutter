@@ -23,6 +23,12 @@ export interface PersistedTasksViewConfig {
   readonly autoSortCompleted?: boolean;
   /** Sidebar group ids (`today`/`overdue`/`upcoming`/`unscheduled`) the user has hidden. */
   readonly hiddenGroups?: readonly string[];
+  /**
+   * The tab selected on the Tasks page's tab strip (`all`/`today`/`upcoming`/`unscheduled`), so the page reopens on the
+   * tab the user left it on. Held as a plain string — like `hiddenGroups`, this store has no opinion on what the valid
+   * values are; the caller validates it and falls back to its default for anything it does not recognise.
+   */
+  readonly selectedTab?: string;
 }
 
 /**
@@ -150,10 +156,14 @@ function parseTasksViewConfig(raw: unknown): PersistedTasksViewConfig | undefine
     return undefined;
   }
 
-  const { showCompleted, autoSortCompleted, hiddenGroups } = raw as Record<string, unknown>;
+  const { showCompleted, autoSortCompleted, hiddenGroups, selectedTab } = raw as Record<string, unknown>;
 
-  const entry: { showCompleted?: boolean; autoSortCompleted?: boolean; hiddenGroups?: string[] } =
-    {};
+  const entry: {
+    showCompleted?: boolean;
+    autoSortCompleted?: boolean;
+    hiddenGroups?: string[];
+    selectedTab?: string;
+  } = {};
   let sawAnyValidField = false;
   let sawAnyField = false;
 
@@ -177,6 +187,14 @@ function parseTasksViewConfig(raw: unknown): PersistedTasksViewConfig | undefine
     sawAnyField = true;
     if (Array.isArray(hiddenGroups) && hiddenGroups.every((id) => typeof id === 'string')) {
       entry.hiddenGroups = hiddenGroups as string[];
+      sawAnyValidField = true;
+    }
+  }
+
+  if (selectedTab !== undefined) {
+    sawAnyField = true;
+    if (typeof selectedTab === 'string') {
+      entry.selectedTab = selectedTab;
       sawAnyValidField = true;
     }
   }

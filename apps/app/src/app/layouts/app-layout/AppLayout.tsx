@@ -47,6 +47,7 @@ import {
   type TaskDisplayConfig,
   type TaskGroupId,
 } from '@features/tasks/helpers/groupTasks';
+import { resolveTasksTab, type TasksTabValue } from '@features/tasks/page/TasksTabs';
 import type { TasksViewConfigStore } from '@core/application/task/TasksViewConfigStore';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 
@@ -119,6 +120,18 @@ export function AppLayout({ application }: AppLayoutProps) {
   function updateTasksViewConfig(next: TaskDisplayConfig): void {
     setTasksViewConfig(next);
     application.tasksViewConfigStore.update(next);
+  }
+
+  // The Tasks page's selected tab — lifted here for the same reason, and persisted in the same store (merged into
+  // the same `tasksViewConfig` entry, so the display preferences above are never overwritten by it, nor it by them),
+  // so the page reopens on the tab it was left on, across restarts.
+  const [tasksTab, setTasksTab] = useState<TasksTabValue>(() =>
+    resolveTasksTab(application.tasksViewConfigStore.get().selectedTab)
+  );
+
+  function updateTasksTab(next: TasksTabValue): void {
+    setTasksTab(next);
+    application.tasksViewConfigStore.update({ selectedTab: next });
   }
 
   // Navigate-to-content requests (Tasks sidebar "Show in note", Tag
@@ -422,6 +435,8 @@ export function AppLayout({ application }: AppLayoutProps) {
           onNeedsRestoreDestination={setRestoreRequest}
           tasksViewConfig={tasksViewConfig}
           onTasksViewConfigChange={updateTasksViewConfig}
+          tasksTab={tasksTab}
+          onTasksTabChange={updateTasksTab}
           pendingReveal={pendingReveal}
           onRequestReveal={setPendingReveal}
           onRevealHandled={() => setPendingReveal(null)}

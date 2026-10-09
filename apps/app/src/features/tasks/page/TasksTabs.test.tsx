@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { TASKS_TAB_VIEW, TasksTabs } from './TasksTabs';
+import { TASKS_TAB_VIEW, TasksTabs, resolveTasksTab } from './TasksTabs';
 
 afterEach(() => {
   cleanup();
@@ -48,5 +48,15 @@ describe('TasksTabs', () => {
     const { container } = render(<TasksTabs value="all" onValueChange={vi.fn()} />);
 
     expect(container.firstElementChild).toHaveClass('tabs', 'tabs--ghost');
+  });
+
+  it('resolveTasksTab keeps a known persisted tab and falls back to All Tasks for anything else', () => {
+    expect(resolveTasksTab('today')).toBe('today');
+    expect(resolveTasksTab('upcoming')).toBe('upcoming');
+    expect(resolveTasksTab('unscheduled')).toBe('unscheduled');
+    expect(resolveTasksTab('all')).toBe('all');
+    expect(resolveTasksTab(undefined)).toBe('all');
+    expect(resolveTasksTab('overdue')).toBe('all');
+    expect(resolveTasksTab('')).toBe('all');
   });
 });

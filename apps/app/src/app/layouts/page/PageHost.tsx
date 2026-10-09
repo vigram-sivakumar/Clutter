@@ -212,6 +212,9 @@ interface PageHostProps {
   readonly tasksViewConfig: TaskDisplayConfig;
   /** Persists a change to the shared Tasks-view display preference (owned by AppLayout). */
   readonly onTasksViewConfigChange: (next: TaskDisplayConfig) => void;
+  /** The Tasks page's selected tab, and its change handler — owned and persisted by AppLayout. */
+  readonly tasksTab: TasksTabValue;
+  readonly onTasksTabChange: (next: TasksTabValue) => void;
   /**
    * A pending "land on this content" request — from Sidebar's Tasks panel,
    * or from this component's own Tag collection "Open note" click (see
@@ -281,6 +284,8 @@ export function PageHost({
   onNeedsRestoreDestination,
   tasksViewConfig,
   onTasksViewConfigChange,
+  tasksTab,
+  onTasksTabChange,
   pendingReveal,
   onRequestReveal,
   onRevealHandled,
@@ -353,8 +358,6 @@ export function PageHost({
   // see CollectionViewMenu's own doc comment.
   // Whether the All Tasks page's New task dialog is open — local UI state, like the description-editor ids above.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  // The Tasks page's selected tab (title section `tabs` slot): which task dataset the list below shows.
-  const [tasksTab, setTasksTab] = useState<TasksTabValue>('all');
   // The task open in the Edit task modal (the same dialog as New task, in edit mode), or none.
   const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
@@ -1699,7 +1702,7 @@ export function PageHost({
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         // On All Tasks the tab strip sits below the title (presentation only), in the title section's tabs slot.
-        tabs={view === 'tasks-all' ? <TasksTabs value={tasksTab} onValueChange={setTasksTab} /> : undefined}
+        tabs={view === 'tasks-all' ? <TasksTabs value={tasksTab} onValueChange={onTasksTabChange} /> : undefined}
         titleActions={
           // Every task view is the one Task Collection: the same header actions as every collection
           // (Configure + Add), sharing one configuration; Add opens the New task dialog.

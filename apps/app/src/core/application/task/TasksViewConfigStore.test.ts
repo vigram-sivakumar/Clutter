@@ -187,3 +187,54 @@ describe('TasksViewConfigStore — hiddenGroups', () => {
     warn.mockRestore();
   });
 });
+
+describe('TasksViewConfigStore — selectedTab (the Tasks page tab)', () => {
+  it('persists the selected tab and restores it after a simulated app restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await TasksViewConfigStore.load(fileSystem, ROOT);
+
+    store.update({ selectedTab: 'upcoming' });
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get().selectedTab).toBe('upcoming');
+  });
+
+  it('the latest selection wins across several changes and a restart', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await TasksViewConfigStore.load(fileSystem, ROOT);
+
+    store.update({ selectedTab: 'today' });
+    store.update({ selectedTab: 'unscheduled' });
+    store.update({ selectedTab: 'all' });
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get().selectedTab).toBe('all');
+  });
+
+  it('choosing a tab never overwrites the display preferences, and changing them never loses the tab', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const store = await TasksViewConfigStore.load(fileSystem, ROOT);
+
+    store.update({ showCompleted: false, autoSortCompleted: true, hiddenGroups: ['overdue'] });
+    store.update({ selectedTab: 'today' });
+    store.update({ showCompleted: true });
+    await flushMicrotasks();
+
+    expect((await reload(fileSystem)).get()).toEqual({
+      showCompleted: true,
+      autoSortCompleted: true,
+      hiddenGroups: ['overdue'],
+      selectedTab: 'today',
+    });
+  });
+
+  it('a non-string selectedTab is discarded as malformed, keeping the other valid fields', async () => {
+    const fileSystem = new InMemoryVaultFileSystem({
+      [WORKSPACE_PATH]: JSON.stringify({ tasksViewConfig: { showCompleted: false, selectedTab: 42 } }),
+    });
+
+    const store = await TasksViewConfigStore.load(fileSystem, ROOT);
+
+    expect(store.get()).toEqual({ showCompleted: false });
+  });
+});

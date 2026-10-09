@@ -124,7 +124,8 @@ describe('PageTitleSection — tabs slot', () => {
     const content = document.querySelector('.page-title-section__content')!;
     const row = document.querySelector('.page-title-section__tabs-row')!;
     expect(content.nextElementSibling).toBe(row);
-    expect(row.querySelector('.page-title-section__tabs')).toContainElement(screen.getByTestId('tabs'));
+    // The tabs are the row's direct child — there is no wrapper element around them.
+    expect(screen.getByTestId('tabs').parentElement).toBe(row);
   });
 
   it('moves the title actions onto the tabs row while tabs are set', () => {

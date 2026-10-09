@@ -10,6 +10,11 @@ const TASK_TABS = [
 
 export type TasksTabValue = (typeof TASK_TABS)[number]['value'];
 
+/** A persisted tab value back to a valid tab — anything unrecognised (an old or hand-edited value) opens All Tasks. */
+export function resolveTasksTab(stored: string | undefined): TasksTabValue {
+  return TASK_TABS.find((tab) => tab.value === stored)?.value ?? TASK_TABS[0].value;
+}
+
 /** The dataset each tab shows — `tasksForView` decides its membership. */
 export const TASKS_TAB_VIEW: Readonly<Record<TasksTabValue, TaskViewKind>> = {
   all: 'tasks-all',
