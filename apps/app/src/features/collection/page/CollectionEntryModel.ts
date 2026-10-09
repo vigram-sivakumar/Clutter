@@ -44,6 +44,15 @@ export interface CollectionEntryModel {
    * note's cover is hidden), resolved to a loadable URL by the Card's injected resolver.
    */
   readonly coverPositionAbove?: number;
+  /**
+   * Only ever set on a Tag collection's matching-content entry — one per distinct body line that contains the tag
+   * (`getTagLineContexts`, the same lines the Tags sidebar lists as separate rows): that exact Markdown line. Such an
+   * entry's `id` is unique to the line, so `noteId` carries the source note's identity. An entry without it is the
+   * note itself (a frontmatter-membership note entry, like the sidebar's), drawn with the note's own name.
+   */
+  readonly tagLine?: string;
+  /** Only set on a matching-content entry: the id of the note the line belongs to (the entry's own `id` is per line). */
+  readonly noteId?: string;
   /** Only ever set for a `folder` entry, from the same membership queries its own page uses: the folder card's metadata line. */
   readonly subfolderCount?: number;
   readonly noteCount?: number;

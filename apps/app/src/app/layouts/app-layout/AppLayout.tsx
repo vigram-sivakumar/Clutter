@@ -1,10 +1,11 @@
-import { useCallback, useState, type CSSProperties } from 'react';
+import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
+import { useSidebarTransition } from './useSidebarTransition';
 import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
@@ -91,6 +92,9 @@ export function AppLayout({ application }: AppLayoutProps) {
   // collapse/expand toggle keeps its existing animation, unaffected,
   // since this is false the rest of the time.
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  // The collapse/expand slide, from the slot's own CSS transition: the resize handle is hidden for its duration.
+  const sidebarSlotRef = useRef<HTMLDivElement>(null);
+  const sidebarTransition = useSidebarTransition(workspace.isSidebarVisible, sidebarSlotRef);
 
   // The single "which resource overlay is open" state for the whole app —
   // AppLayout is the confirmed common ancestor of every overlay entry point
@@ -374,9 +378,14 @@ export function AppLayout({ application }: AppLayoutProps) {
       className="app-layout"
       data-sidebar-collapsed={!workspace.isSidebarVisible}
       data-resizing={isResizingSidebar || undefined}
+      data-sidebar-transitioning={sidebarTransition.transitioning || undefined}
       style={{ '--app-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
-      <div className="app-layout__sidebar-slot">
+      <div
+        ref={sidebarSlotRef}
+        className="app-layout__sidebar-slot"
+        onTransitionEnd={sidebarTransition.onTransitionEnd}
+      >
         <aside className="app-layout__sidepanel">
           <TauriDragStrip />
           {
@@ -398,6 +407,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         onResizeEnd={commitSidebarWidth}
         onResizingChange={setIsResizingSidebar}
         onToggleCollapse={() => workspace.toggleSidebarVisible()}
+        isCollapsed={!workspace.isSidebarVisible}
       />
       <main className="app-layout__page">
         <TauriDragStrip />

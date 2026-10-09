@@ -2,6 +2,7 @@ import type { PropertyId } from '@core/properties/collectionProperties';
 import {
   ARCHIVE_COLLECTION,
   FOLDER_COLLECTION,
+  TAG_COLLECTION,
   type CollectionDefinition,
 } from '@core/presentation/collection/collectionDefinitions';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
@@ -24,3 +25,6 @@ export const noteVisible = (...hidden: PropertyId[]): PropertyId[] => visibleWit
 
 /** The Archive's visible properties (which include Archived), minus `hidden`. */
 export const archiveVisible = (...hidden: PropertyId[]): PropertyId[] => visibleWithout(ARCHIVE_COLLECTION, hidden);
+
+/** The Tag collection's visible properties (which include Source), minus `hidden`. */
+export const tagVisible = (...hidden: PropertyId[]): PropertyId[] => visibleWithout(TAG_COLLECTION, hidden);

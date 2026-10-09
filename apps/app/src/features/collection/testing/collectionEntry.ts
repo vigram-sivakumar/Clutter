@@ -27,12 +27,18 @@ export interface EntryFixture {
   readonly archived?: string;
   readonly markdown?: string;
   readonly coverPositionAbove?: number;
+  /** The Source property value: the note a Tag collection matching-content entry's line lives in. */
+  readonly source?: string;
+  /** A Tag collection matching-content entry's body line (the entry then stands for that line, not the note). */
+  readonly tagLine?: string;
+  /** The source note's id of such an entry. */
+  readonly noteId?: string;
   readonly subfolderCount?: number;
   readonly noteCount?: number;
 }
 
 function entryOf(type: 'note' | 'folder', defaults: { id: string; title: string; icon: SystemIcon }, fixture: EntryFixture): CollectionEntryModel {
-  const { id, title, icon, emoji, selected, onClick, description, cover, created, updated, archived, ...payload } = fixture;
+  const { id, title, icon, emoji, selected, onClick, description, cover, created, updated, archived, source, ...payload } = fixture;
 
   return {
     id: id ?? defaults.id,
@@ -49,6 +55,7 @@ function entryOf(type: 'note' | 'folder', defaults: { id: string; title: string;
       ...(created !== undefined && { created }),
       ...(updated !== undefined && { updated }),
       ...(archived !== undefined && { archived }),
+      ...(source !== undefined && { source }),
     },
     ...payload,
   };

@@ -111,9 +111,30 @@
    direct child of .app-layout, not of .app-layout__sidepanel — it needs
    to straddle the Sidebar's right edge unclipped, which the sidepanel's
    own `overflow: hidden` above would otherwise prevent. That also means
-   it no longer inherits the sidepanel's collapsed-and-clipped
-   non-interactivity for free, so it's hidden explicitly here while
-   collapsed — matching the sidepanel's own covered/non-interactive state. */
+   it doesn't follow the sidepanel's collapse on its own, so while
+   collapsed it is re-docked to the app's left edge (where the Sidebar
+   used to start) and kept visible + interactive: hovering reveals its
+   bar, and a click expands the Sidebar again. Its width matches the
+   page's collapsed padding-left so it never covers page content. It is
+   separate from the Tauri window drag strip, which only moves the window. */
 .app-layout[data-sidebar-collapsed='true'] .sidebar-resize-handle {
-  display: none;
+  left: 0;
+  width: var(--space-20);
+  cursor: e-resize;
+}
+.app-layout[data-sidebar-collapsed='true']
+  .sidebar-resize-handle
+  .sidebar-resize-handle__bar {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: auto;
+}
+
+/* While the sidebar slides (`data-sidebar-transitioning`, set by useSidebarTransition from the slot's real
+   flex-basis transition: on at the toggle, off at its transitionend) the handle is hidden at once and stays hidden —
+   it neither animates on its own nor can be hovered or clicked mid-slide — and returns at its final position when the
+   slide ends. A manual drag never sets it, so a resize is unaffected. */
+.app-layout[data-sidebar-transitioning] .sidebar-resize-handle {
+  visibility: hidden;
 }

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, fireEvent } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 
@@ -19,7 +21,7 @@ afterEach(() => {
   cleanup();
 });
 
-function renderHandle(currentWidth: number) {
+function renderHandle(currentWidth: number, isCollapsed = false) {
   const onResize = vi.fn();
   const onResizeEnd = vi.fn();
   const onResizingChange = vi.fn();
@@ -33,6 +35,7 @@ function renderHandle(currentWidth: number) {
       onResizeEnd={onResizeEnd}
       onResizingChange={onResizingChange}
       onToggleCollapse={onToggleCollapse}
+      isCollapsed={isCollapsed}
     />
   );
   const handle = container.querySelector('.sidebar-resize-handle')!;
@@ -175,6 +178,87 @@ describe('SidebarResizeHandle', () => {
       fireEvent.pointerDown(handle, { clientX: 100, clientY: 100, button: 0 });
       fireEvent.pointerCancel(handle, { clientX: 100, clientY: 100 });
       expect(onToggleCollapse).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('collapsed state', () => {
+    it('is rendered when expanded', () => {
+      const { handle } = renderHandle(300, false);
+      expect(handle).not.toBeNull();
+      expect(handle.getAttribute('data-collapsed')).toBeNull();
+    });
+
+    it('is still rendered (and flagged collapsed) when collapsed', () => {
+      const { handle } = renderHandle(300, true);
+      expect(handle).not.toBeNull();
+      expect(handle.getAttribute('data-collapsed')).toBe('true');
+    });
+
+    it('a click while collapsed calls onToggleCollapse (expands)', () => {
+      const { handle, onToggleCollapse } = renderHandle(300, true);
+      click(handle);
+      expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it('a click while expanded calls onToggleCollapse (collapses)', () => {
+      const { handle, onToggleCollapse } = renderHandle(300, false);
+      click(handle);
+      expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it('dragging while collapsed never resizes', () => {
+      const { handle, onResize, onResizeEnd, onResizingChange } = renderHandle(300, true);
+      fireEvent.pointerDown(handle, { clientX: 100, clientY: 100, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: 160, clientY: 100 });
+      fireEvent.pointerUp(handle, { clientX: 160, clientY: 100 });
+      expect(onResize).not.toHaveBeenCalled();
+      expect(onResizeEnd).not.toHaveBeenCalled();
+      expect(onResizingChange).not.toHaveBeenCalled();
+    });
+
+    it('dragging while expanded still resizes', () => {
+      const { handle, onResize, onResizeEnd } = renderHandle(300, false);
+      fireEvent.pointerDown(handle, { clientX: 100, clientY: 100, button: 0 });
+      fireEvent.pointerMove(handle, { clientX: 140, clientY: 100 });
+      fireEvent.pointerUp(handle, { clientX: 140, clientY: 100 });
+      expect(onResize).toHaveBeenCalledWith(340);
+      expect(onResizeEnd).toHaveBeenCalledWith(340);
+    });
+  });
+
+  describe('AppLayout.css contract', () => {
+    const css = readFileSync(join(__dirname, '..', 'AppLayout.css'), 'utf8');
+    const collapsedRule = css.match(
+      /\.app-layout\[data-sidebar-collapsed='true'\] \.sidebar-resize-handle\s*\{([^}]*)\}/
+    );
+
+    it('keeps the handle displayed while collapsed, docked at the left edge', () => {
+      expect(collapsedRule).not.toBeNull();
+      expect(collapsedRule![1]).not.toMatch(/display\s*:\s*none/);
+      expect(collapsedRule![1]).toMatch(/left\s*:/);
+      expect(collapsedRule![1]).toMatch(/cursor\s*:/);
+    });
+
+    describe('the handle is hidden for the sidebar\'s slide instead of animating', () => {
+      const strip = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '');
+      const handleCss = strip(readFileSync(join(__dirname, 'SidebarResizeHandle.css'), 'utf8'));
+      const layoutCss = strip(css);
+
+      it('has no transition of its own on left or width', () => {
+        expect(handleCss).not.toMatch(/transition\s*:[^;]*(left|width)/);
+        expect(handleCss.match(/\.sidebar-resize-handle\s*\{([^}]*)\}/)![1]).not.toMatch(/transition/);
+      });
+
+      it('is hidden immediately while the sidebar is transitioning (visibility, so it is also not hoverable or clickable)', () => {
+        expect(layoutCss).toMatch(
+          /\.app-layout\[data-sidebar-transitioning\] \.sidebar-resize-handle\s*\{\s*visibility:\s*hidden;/
+        );
+      });
+
+      it('leaves the sidebar slot\'s own animation and the drag rule exactly as they were', () => {
+        expect(layoutCss).toMatch(/\.app-layout__sidebar-slot\s*\{[^}]*transition:\s*flex-basis var\(--sidebar-transition-duration\)/);
+        expect(layoutCss).toMatch(/\.app-layout\[data-resizing\] \.app-layout__sidebar-slot\s*\{\s*transition:\s*none;/);
+      });
     });
   });
 });

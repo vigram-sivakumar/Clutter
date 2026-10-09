@@ -137,6 +137,8 @@ interface RenderNoteListOptions {
   };
   /** The list's trailing Create row's handler; absent, none renders. */
   onCreate?: () => void;
+  /** Resolves a Tag collection's matching content lines (wiki links, tags, embeds) — the Card mode's `previewResolvers`. */
+  resolvers?: NotePreviewResolvers;
 }
 
 /**
@@ -153,7 +155,7 @@ interface RenderNoteListOptions {
 function renderNoteList(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate }: RenderNoteListOptions = {}
+  { coverFor, onCreate, resolvers }: RenderNoteListOptions = {}
 ) {
   return (
     <CollectionDataList
@@ -161,6 +163,7 @@ function renderNoteList(
         toNoteListItem(entry, {
           visible,
           cover: visible.includes('cover') ? coverFor?.(entry) : undefined,
+          resolvers,
         })
       )}
       newItem={createNewItem(onCreate)}
@@ -176,6 +179,8 @@ interface RenderNoteTableOptions {
   };
   /** The table's trailing Create row's handler — absent, none renders (the Archive has nothing to create). */
   onCreate?: () => void;
+  /** Resolves a Tag collection's matching content lines (wiki links, tags, embeds) — the Card mode's `previewResolvers`. */
+  resolvers?: NotePreviewResolvers;
 }
 
 /**
@@ -188,7 +193,7 @@ interface RenderNoteTableOptions {
 function renderNoteTable(
   entries: readonly CollectionEntryModel[],
   visible: readonly PropertyId[] = DEFAULT_VIEW.visible,
-  { coverFor, onCreate }: RenderNoteTableOptions = {}
+  { coverFor, onCreate, resolvers }: RenderNoteTableOptions = {}
 ) {
   return (
     <CollectionDataTable
@@ -197,6 +202,7 @@ function renderNoteTable(
         toNoteTableRow(entry, {
           visible,
           cover: coverFor?.(entry),
+          resolvers,
         })
       )}
       newItem={createNewItem(onCreate)}
@@ -228,7 +234,7 @@ export function CollectionBody({
   // is kept in a ref rather than state).
   const [coverNoteId, setCoverNoteId] = useState<string | null>(null);
   const coverAnchorRef = useRef<HTMLElement | null>(null);
-  const coverNote = coverNoteId ? notes.find((note) => note.id === coverNoteId) : undefined;
+  const coverNote = coverNoteId ? notes.find((note) => (note.noteId ?? note.id) === coverNoteId) : undefined;
   const closeCoverPicker = () => setCoverNoteId(null);
 
   // Each note's cover thumbnail, for the Table's Cover image column and the
@@ -240,7 +246,8 @@ export function CollectionBody({
         url: entry.values.cover ? noteCover.resolveUrl(entry.values.cover) : null,
         onClick: (event: MouseEvent<HTMLButtonElement>) => {
           coverAnchorRef.current = event.currentTarget;
-          setCoverNoteId(entry.id);
+          // A Tag collection's matching-content entry changes its source note's cover.
+          setCoverNoteId(entry.noteId ?? entry.id);
         },
       })
     : undefined;
@@ -255,6 +262,7 @@ export function CollectionBody({
       // Only when something can be created here: a Create row that does nothing is a dead control.
       onCreate: createInNotes,
       coverFor,
+      resolvers: previewResolvers,
     }) : viewMode === 'card' ? (
       <CollectionGrid columns={NOTE_GRID}>
         {sortedNotes.map((entry) => (
@@ -271,6 +279,7 @@ export function CollectionBody({
     ) : renderNoteList(sortedNotes, visible, {
       onCreate: createInNotes,
       coverFor,
+      resolvers: previewResolvers,
     });
 
   // A collection with nothing in it at all — no folders and no notes (in the sections it draws) —
@@ -295,9 +304,9 @@ export function CollectionBody({
           open
           onClose={closeCoverPicker}
           anchorRef={coverAnchorRef as RefObject<HTMLElement>}
-          onSetCoverImage={(url) => noteCover.onSet(coverNote.id, url)}
-          onSetCoverImageFromUpload={(sourcePath) => noteCover.onSetFromUpload(coverNote.id, sourcePath)}
-          onRemove={() => noteCover.onRemove(coverNote.id)}
+          onSetCoverImage={(url) => noteCover.onSet(coverNote.noteId ?? coverNote.id, url)}
+          onSetCoverImageFromUpload={(sourcePath) => noteCover.onSetFromUpload(coverNote.noteId ?? coverNote.id, sourcePath)}
+          onRemove={() => noteCover.onRemove(coverNote.noteId ?? coverNote.id)}
         />
       )}
       {/* Trailing breathing room below the last row/card — see this

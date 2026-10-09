@@ -722,6 +722,192 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
   });
 });
 
+describe("toCollectionPageModel — a 'tag' view's matching content (the same lines the Tags sidebar lists)", () => {
+  const MARKDOWN = 'Intro line\nShip the #project plan today\nSecond #project mention and #project again\nplain';
+  const occurrences = (id: string) => {
+    const find = (from: number) => MARKDOWN.indexOf('#project', from);
+    const first = find(0);
+    const second = find(first + 1);
+    const third = find(second + 1);
+    return [first, second, third].map((startOffset) => ({
+      name: 'project',
+      sourcePageId: id,
+      startOffset,
+      endOffset: startOffset + '#project'.length,
+    }));
+  };
+
+  const build = (kind: 'tag' | 'folder') => {
+    const inline = makePage({
+      id: 'inline',
+      name: 'Inline',
+      parentId: null,
+      source: { markdown: MARKDOWN },
+      analysis: { ...defaultAnalysis, tags: occurrences('inline') },
+    });
+    const frontmatterOnly = makePage({
+      id: 'frontmatter',
+      name: 'Frontmatter',
+      parentId: null,
+      source: { markdown: 'No inline tag here' },
+      metadata: { ...defaultPageMetadata, tags: ['project'] },
+    });
+    const both = makePage({
+      id: 'both',
+      name: 'Both',
+      parentId: null,
+      source: { markdown: MARKDOWN },
+      metadata: { ...defaultPageMetadata, tags: ['project'] },
+      analysis: { ...defaultAnalysis, tags: occurrences('both') },
+    });
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([], [inline, frontmatterOnly, both]);
+
+    return toCollectionPageModel(
+      kind === 'tag' ? { view: { kind: 'tag', tagName: 'project' } } : { view: { kind: 'workspace' } },
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+  };
+
+  type Built = ReturnType<typeof build>;
+  const entriesOf = (model: Built, noteId: string) =>
+    model.notes.filter((note) => (note.noteId ?? note.id) === noteId);
+
+  it('each distinct matching line is its own entry, in document order (two tags on one line are one line, as in the sidebar)', () => {
+    const model = build('tag');
+    const entries = entriesOf(model, 'inline');
+
+    expect(entries.map((entry) => entry.tagLine)).toEqual([
+      'Ship the #project plan today',
+      'Second #project mention and #project again',
+    ]);
+    // Each keeps its source note's identity, with an id of its own.
+    expect(entries.every((entry) => entry.noteId === 'inline')).toBe(true);
+    expect(new Set(entries.map((entry) => entry.id)).size).toBe(2);
+  });
+
+  it('frontmatter-only membership is the sidebar\'s note entry (no invented line); a note with both has the note entry and its lines', () => {
+    const model = build('tag');
+
+    expect(entriesOf(model, 'frontmatter')).toEqual([expect.objectContaining({ id: 'frontmatter', tagLine: undefined })]);
+    const both = entriesOf(model, 'both');
+    expect(both.map((entry) => entry.tagLine)).toEqual([
+      undefined,
+      'Ship the #project plan today',
+      'Second #project mention and #project again',
+    ]);
+    expect(both[0]!.id).toBe('both');
+  });
+
+  it('an inline-only note has no note entry — just its lines — and every note is still represented', () => {
+    const model = build('tag');
+
+    expect(entriesOf(model, 'inline').some((entry) => entry.tagLine === undefined)).toBe(false);
+    expect(new Set(model.notes.map((entry) => entry.noteId ?? entry.id))).toEqual(new Set(['inline', 'frontmatter', 'both']));
+  });
+
+  it('notes with an inline occurrence come first, then frontmatter-only ones — the sidebar\'s order', () => {
+    const model = build('tag');
+
+    expect(model.notes.map((entry) => entry.noteId ?? entry.id)).toEqual([
+      'inline',
+      'inline',
+      'both',
+      'both',
+      'both',
+      'frontmatter',
+    ]);
+  });
+
+  it('a line entry\'s Name is the line (so sorting by name sorts what is shown); the note\'s other values and its open action are kept', () => {
+    const model = build('tag');
+    const line = entriesOf(model, 'inline')[0]!;
+
+    expect(line.values.name).toBe('Ship the #project plan today');
+    expect(line.type).toBe('note');
+  });
+
+  it('other collections have no line entries at all', () => {
+    const model = build('folder');
+
+    expect(model.notes.every((note) => note.tagLine === undefined && note.noteId === undefined)).toBe(true);
+  });
+});
+
+describe("toCollectionPageModel — a 'tag' view's content entries carry their source note as the Source property value (its display label, not its path)", () => {
+  const inlineNote = (id: string, name: string, parentId: string | null) =>
+    makePage({
+      id,
+      name,
+      parentId,
+      path: `${ROOT}/${name}.md`,
+      source: { markdown: 'a #project line' },
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: id, startOffset: 2, endOffset: 10 }] },
+    });
+  const frontmatterNote = (id: string, name: string, parentId: string | null) =>
+    makePage({ id, name, parentId, path: `${ROOT}/${name}.md`, metadata: { ...defaultPageMetadata, tags: ['project'] } });
+  const folders = [
+    makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects`, parentId: null }),
+    makeFolder({ id: 'design', name: 'Design', path: `${ROOT}/Projects/Design`, parentId: 'projects' }),
+    makeFolder({ id: 'elsewhere', name: 'Elsewhere', path: `${ROOT}/Elsewhere`, parentId: null }),
+  ];
+
+  const build = (pages: Page[]) => {
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(folders, pages);
+    const model = () =>
+      toCollectionPageModel(
+        { view: { kind: 'tag', tagName: 'project' } },
+        vault,
+        query,
+        effectivePageState,
+        membershipSelector,
+        workspace,
+        { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+      );
+
+    return { vault, model };
+  };
+  type Built = ReturnType<ReturnType<typeof build>['model']>;
+  const sourceOf = (model: Built, noteId: string) => model.notes.find((entry) => entry.noteId === noteId)?.values.source;
+
+  it('a root note and a nested note are both named by their display label — never a folder path, no .md', () => {
+    const { model } = build([inlineNote('root', 'Bullets', null), inlineNote('two', 'Other', 'design')]);
+    const built = model();
+
+    expect(sourceOf(built, 'root')).toBe('Bullets');
+    expect(sourceOf(built, 'two')).toBe('Other');
+  });
+
+  it('only a content entry names its source note: a note entry (frontmatter membership) carries none', () => {
+    const { model } = build([frontmatterNote('fm', 'Bullets', 'design'), inlineNote('inline', 'Other', 'design')]);
+    const built = model();
+
+    expect(built.notes.find((entry) => entry.id === 'fm')?.values.source).toBeUndefined();
+    expect(sourceOf(built, 'inline')).toBe('Other');
+  });
+
+  it('is the same label the note entry itself (the sidebar\'s note row) shows, and is read fresh each build: a rename shows at once', () => {
+    const { vault, model } = build([inlineNote('note', 'Bullets', 'design'), frontmatterNote('fm', 'Bullets', 'design')]);
+    const built = model();
+    expect(sourceOf(built, 'note')).toBe(built.notes.find((entry) => entry.id === 'fm')?.values.name);
+
+    (vault.getPage('note') as { name: string }).name = 'Renamed';
+    expect(sourceOf(model(), 'note')).toBe('Renamed');
+  });
+
+  it('navigation is unchanged: the content entry keeps the source note\'s identity in noteId', () => {
+    const { model } = build([inlineNote('note', 'Bullets', 'design')]);
+    const entry = model().notes[0]!;
+
+    expect(entry.noteId).toBe('note');
+    expect(entry.id).not.toBe('note');
+  });
+});
+
 describe('toCollectionPageModel — the entry\'s collection property values (the domain adapter)', () => {
   const build = (page: Page) => {
     const active = makeFolder({ id: 'folder-1' });

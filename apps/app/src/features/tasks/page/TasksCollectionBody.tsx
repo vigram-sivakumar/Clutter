@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
-import { CollectionEntryProperties } from '@features/collection/components/entry/CollectionEntryProperties';
+import { CollectionSourceLink } from '@features/collection/components/entry/CollectionSourceLink';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
-import { AppIcon } from '@shared/icon';
 import { TaskDueDateButton } from './TaskDueDateButton';
 import { TaskTitleActions } from './TaskTitleActions';
 import { Checkbox } from '@components/checkbox/Checkbox';
@@ -184,18 +183,12 @@ export function TasksCollectionBody({
     );
   const sourceOf = ({ task, source }: TaskEntry) =>
     source && (
-      <CollectionEntryProperties
-        className="collection-entry-properties--wiki"
-        role="link"
-        aria-label={`Open ${source.label}`}
-        leading={<AppIcon icon={source.icon} emoji={source.emoji} size={14} slotSize={16} />}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenTask(task);
-        }}
-      >
-        <span className="collection-entry-properties__text">{source.label}</span>
-      </CollectionEntryProperties>
+      <CollectionSourceLink
+        label={source.label}
+        icon={source.icon}
+        emoji={source.emoji}
+        onOpen={() => onOpenTask(task)}
+      />
     );
 
   if (layout === 'table') {

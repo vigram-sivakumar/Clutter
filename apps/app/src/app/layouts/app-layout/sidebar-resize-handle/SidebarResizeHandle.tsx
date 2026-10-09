@@ -24,6 +24,12 @@ interface SidebarResizeHandleProps {
   readonly onResizingChange?: (isResizing: boolean) => void;
   /** A single click (no drag) toggles Sidebar collapse/expand, immediately. */
   readonly onToggleCollapse?: () => void;
+  /**
+   * The Sidebar is collapsed: the handle stays mounted at the app's left
+   * edge as an expand affordance, and is click-only — there is no Sidebar
+   * width to drag while it has none, so movement never starts a resize.
+   */
+  readonly isCollapsed?: boolean;
 }
 
 /**
@@ -46,6 +52,7 @@ export function SidebarResizeHandle({
   onResizeEnd,
   onResizingChange,
   onToggleCollapse,
+  isCollapsed = false,
 }: SidebarResizeHandleProps) {
   const [isResizing, setIsResizing] = useState(false);
   const dragState = useRef<{
@@ -72,6 +79,7 @@ export function SidebarResizeHandle({
     const drag = dragState.current;
     if (!drag) return;
     const delta = e.clientX - drag.startX;
+    if (isCollapsed) return; // click-only while collapsed
     if (!drag.hasMoved) {
       const dy = e.clientY - drag.startY;
       if (Math.abs(delta) <= CLICK_MOVEMENT_THRESHOLD_PX && Math.abs(dy) <= CLICK_MOVEMENT_THRESHOLD_PX) {
@@ -128,6 +136,7 @@ export function SidebarResizeHandle({
     <div
       className="sidebar-resize-handle"
       data-resizing={isResizing || undefined}
+      data-collapsed={isCollapsed || undefined}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}

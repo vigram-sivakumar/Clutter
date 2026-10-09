@@ -186,8 +186,16 @@ export const FAVORITES_COLLECTION: CollectionDefinition = {
   actions: {},
 };
 
+/**
+ * The note properties plus Source — the note a matching-content entry's line lives in (the same registry property the
+ * Task Collection offers). A note entry has no Source. On in the Table like the other columns; the List stays Title-only.
+ */
+const TAG_PROPERTIES: readonly PropertyId[] = [...NOTE_PROPERTIES, 'source'];
+
 export const TAG_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
+  properties: TAG_PROPERTIES,
+  defaultVisible: TAG_PROPERTIES,
   kind: 'tag',
   emptyMessage: 'Notes you tag will appear here',
   actions: { create: true },

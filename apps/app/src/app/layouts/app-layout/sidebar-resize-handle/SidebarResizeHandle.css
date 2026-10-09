@@ -6,10 +6,10 @@
    relative to the whole layout, not the sidepanel. Positioned from the
    Sidebar's own width (not a hardcoded offset) so it tracks --app-sidebar-
    width live during a drag exactly like the sidepanel does. No transition
-   on `left`: this only ever changes during a manual resize (never via
-   collapse/expand, which toggles this element's `display` instead — see
-   AppLayout.css), and manual resize is always immediate in both
-   directions per product decision. */
+   on `left`/`width`: the handle never animates on its own. A manual resize
+   moves it immediately, and collapse/expand hides it for the slide and shows
+   it at its final position afterwards (`data-sidebar-transitioning`,
+   AppLayout.css). */
 .sidebar-resize-handle {
   position: absolute;
   top: 0;

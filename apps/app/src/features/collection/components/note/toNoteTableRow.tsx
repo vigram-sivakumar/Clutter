@@ -9,6 +9,8 @@ import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import { propertyValueCells } from '../../properties/tableColumns';
 import { toNoteCoverImage } from './toNoteCoverImage';
+import { toNoteTagContent } from './toNoteTagContent';
+import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
 
 /**
  * The empty-description fallback text. Currently NOT shown in the table (an empty description
@@ -18,6 +20,8 @@ const EMPTY_DESCRIPTION_PLACEHOLDER = 'No description';
 const SHOW_EMPTY_DESCRIPTION_PLACEHOLDER = false;
 
 export interface NoteTableRowOptions {
+  /** How a Tag collection's matching content lines resolve their wiki links, tags and embeds (see `toNoteTagContent`). */
+  readonly resolvers?: CompactMarkdownResolvers;
   /**
    * The visible properties (from the resolved view) — must be the same ones the table's columns
    * were built from. Description is not a column: it is drawn inside the Name cell (its
@@ -43,15 +47,18 @@ export interface NoteTableRowOptions {
  */
 export function toNoteTableRow(
   entry: CollectionEntryModel,
-  { visible, cover }: NoteTableRowOptions
+  { visible, cover, resolvers }: NoteTableRowOptions
 ): CollectionDataTableRow {
   const showDescription = visible.includes('description');
+  const tagContent = toNoteTagContent(entry, resolvers);
   const cells: Record<string, CollectionTableCellValue> = {
     name: {
       variant: 'header',
       icon: 'note',
       emoji: entry.emoji ?? undefined,
       title: entry.values.name,
+      // Tag collection: a matching-content entry's Name is the line (see `toNoteTagContent`).
+      ...(tagContent && { leading: tagContent.leading, titleContent: tagContent.titleContent }),
       description: showDescription ? entry.values.description : undefined,
       descriptionPlaceholder:
         showDescription && SHOW_EMPTY_DESCRIPTION_PLACEHOLDER
@@ -59,6 +66,8 @@ export function toNoteTableRow(
           : undefined,
     },
     ...propertyValueCells(visible, entry.values),
+    // A matching-content entry's Source is the same link the Task Collection draws (see `toNoteTagContent`).
+    ...(tagContent?.source && visible.includes('source') && { source: { variant: 'custom' as const, children: tagContent.source } }),
   };
 
   if (visible.includes('cover') && cover) {

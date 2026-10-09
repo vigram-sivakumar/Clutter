@@ -82,12 +82,12 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
   opacity: var(--opacity-medium);
 } */
 
-.compact-markdown-tag {
+/* .compact-markdown-tag {
   color: var(--md-tag-foreground);
-  /* background-color: var(--md-tag-surface);
+  background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
-  padding: var(--md-badge-padding); */
-}
+  padding: var(--md-badge-padding);
+} */
 .compact-markdown-tag .compact-markdown-tag-prefix {
   opacity: var(--opacity-medium);
   padding-right: 2px;
@@ -126,6 +126,13 @@ IMPORTANT: I manually commented out few of the css the comments in the css might
  * `-wikilink-title`, which own the underline separately. Mirrors the
  * editor's `.tok-strike`. */
 .compact-markdown-struck {
+  text-decoration-line: none;
+  /* text-decoration-line: line-through; */
+}
+
+/* Plain struck text is a bare `<s>` (renderCompactMarkdown.tsx), which the
+ * browser strikes by default. Kept in step with `.compact-markdown-struck`. */
+s {
   text-decoration-line: none;
   /* text-decoration-line: line-through; */
 }

@@ -62,8 +62,8 @@ export const COLLECTION_PROPERTIES = {
   created: { label: systemPropertyLabel('created'), type: 'date', sort: 'date' },
   updated: { label: systemPropertyLabel('modified'), type: 'date', sort: 'date' },
   archived: { label: 'Archived date', type: 'date', sort: 'date' },
-  // A task's own properties: its explicit due date (a calendar day, not an instant) and its
-  // source — the note it lives in.
+  // A task's own due date (a calendar day, not an instant), and Source — the note an item (a task, or a Tag
+  // collection's matching line) lives in.
   dueDate: { label: 'Due date', type: 'day', sort: 'date' },
   source: { label: 'Source', type: 'text', sort: 'text' },
 } as const satisfies Record<string, CollectionPropertyDefinition>;

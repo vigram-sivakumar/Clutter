@@ -68,7 +68,7 @@ describe('membership — which global properties each collection offers (order i
   const NOTE = ['name', 'description', 'cover', 'created', 'updated'];
 
   it('every note-shaped collection offers the note properties', () => {
-    for (const definition of [FOLDER_COLLECTION, INBOX_COLLECTION, TEMPLATES_COLLECTION, WORKSPACE_COLLECTION, FAVORITES_COLLECTION, TAG_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
+    for (const definition of [FOLDER_COLLECTION, INBOX_COLLECTION, TEMPLATES_COLLECTION, WORKSPACE_COLLECTION, FAVORITES_COLLECTION, DAILY_NOTES_ROOT_COLLECTION, DAILY_NOTES_YEAR_COLLECTION, DAILY_NOTES_MONTH_COLLECTION]) {
       expect([...definition.properties].sort(), definition.kind).toEqual([...NOTE].sort());
       expect([...definition.defaultVisible].sort(), definition.kind).toEqual([...NOTE].sort());
     }
@@ -96,6 +96,12 @@ describe('membership — which global properties each collection offers (order i
 });
 
 describe('the Tasks collection', () => {
+  it('the Tag Collection offers Source (the registry property the Task Collection uses), on by default in the Table, with the List still Title-only', () => {
+    expect(TAG_COLLECTION.properties).toContain('source');
+    expect(TAG_COLLECTION.defaultVisible).toContain('source');
+    expect(TAG_COLLECTION.defaultVisibleByLayout?.list).toEqual(['name']);
+  });
+
   it('offers a task\'s own properties — Name, Due date and Source — all on by default; no created/edited time', () => {
     expect([...TASKS_COLLECTION.properties].sort()).toEqual(['dueDate', 'name', 'source']);
     expect([...TASKS_COLLECTION.defaultVisible].sort()).toEqual(['dueDate', 'name', 'source']);

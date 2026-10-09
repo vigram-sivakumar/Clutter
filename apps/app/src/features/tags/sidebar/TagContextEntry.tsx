@@ -5,6 +5,9 @@ import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/Mark
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import './TagContextEntry.css';
 
+/** The icon that marks a piece of matching content under a tag — the Tags sidebar's context rows and the Tag collection's entries both use it. */
+export const TAG_CONTEXT_ICON = 'squiggleLine';
+
 export interface TagContextEntryProps extends Omit<EntryProps, 'children' | 'leading'> {
   /** The exact containing Markdown line — never a generated snippet. */
   lineText: string;
@@ -44,7 +47,7 @@ export function TagContextEntry({
   return (
     <Entry
       {...entryProps}
-      leading={<AppIcon className="tag-context-entry__icon" icon="squiggleLine" />}
+      leading={<AppIcon className="tag-context-entry__icon" icon={TAG_CONTEXT_ICON} />}
     >
       <span className="tag-context-entry__text">
         {renderCompactMarkdown(lineText, { resolveWikiLink, resolveTag, resolveEmbed })}

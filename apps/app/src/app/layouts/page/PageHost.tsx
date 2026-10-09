@@ -62,6 +62,7 @@ import type { SystemLocationId } from '@core/presentation/systemPresentation';
 import { Page, type PageFocusHandle } from '@app/layouts/page/Page';
 import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNavControls';
+import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
@@ -589,19 +590,22 @@ export function PageHost({
   const getTagSuggestions = createTagSuggester(vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveDate = createDateResolver(vault, application.pageOperations);
+  // The one resolver set every note preview draws through — the floating WikiLink preview and every collection body
+  // (the Card previews and a Tag collection's matching-content lines), so a wiki-link, embed or tag in a line
+  // resolves to the same display label everywhere, as in the Tags sidebar.
+  const notePreviewResolvers: NotePreviewResolvers = {
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed: resolvePageEmbed,
+    resolveEmbedImage,
+    resolveImageSrc,
+    resolveCoverImage: (cover) => application.resolveCoverImageForDisplay(cover),
+  };
   // Same per-render glue: the floating WikiLink preview's content (settled hovers only).
   const renderWikiLinkPreview = createWikiLinkPreviewRenderer(
     vault,
     application.effectivePageState,
-    {
-      resolveWikiLink,
-      resolveTag,
-      resolveEmbed: resolvePageEmbed,
-      resolveEmbedImage,
-      resolveImageSrc,
-      resolveCoverImage: (cover) =>
-        application.resolveCoverImageForDisplay(cover),
-    }
+    notePreviewResolvers
   );
   // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
   // this exact same resolveDate/openAtPath flow — the same one the
@@ -1608,15 +1612,7 @@ export function PageHost({
                 emptyMessage={isFolderArchived ? ARCHIVED_FOLDER_EMPTY_MESSAGE : collectionDefinition.emptyMessage}
                 // A frozen folder's notes show their covers but offer no way to change one.
                 noteCover={isFolderArchived ? undefined : noteCoverActions}
-                previewResolvers={{
-                  resolveWikiLink,
-                  resolveTag,
-                  resolveEmbed: resolvePageEmbed,
-                  resolveEmbedImage,
-                  resolveImageSrc,
-                  resolveCoverImage: (cover) =>
-                    application.resolveCoverImageForDisplay(cover),
-                }}
+                previewResolvers={notePreviewResolvers}
               />
             )
           }
@@ -1963,6 +1959,7 @@ export function PageHost({
             emptyCreateLabel="New note"
             emptyMessage={collectionDefinition.emptyMessage}
             noteCover={noteCoverActions}
+            previewResolvers={notePreviewResolvers}
           />
         }
       />
