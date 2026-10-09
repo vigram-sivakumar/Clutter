@@ -32,15 +32,19 @@
      keeps the rendered width itself at genuinely 0 until the transition
      is actually under way. */
   /* The sidebar's directional pair at the cover's own duration
-     (--layout-transition-duration-cover): the spring curve here (Show claims
+     (--layout-transition-duration): the spring curve here (Show claims
      space), the calmer standard curve in the [data-hidden] rule below (Hide
      gives it up). A transition takes its timing from the state it is heading
      to, so each state carries its own. */
   transition:
-    flex-basis var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
-    flex-grow var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
-    min-width var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
-    margin-left var(--layout-transition-duration-cover) var(--layout-transition-expand-easing);
+    flex-basis var(--layout-transition-duration)
+      var(--layout-transition-expand-easing),
+    flex-grow var(--layout-transition-duration)
+      var(--layout-transition-expand-easing),
+    min-width var(--layout-transition-duration)
+      var(--layout-transition-expand-easing),
+    margin-left var(--layout-transition-duration)
+      var(--layout-transition-expand-easing);
 }
 .page__cover[data-hidden] {
   /* data-hidden reflects the durable `coverHidden` metadata
