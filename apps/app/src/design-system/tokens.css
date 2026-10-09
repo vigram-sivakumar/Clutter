@@ -23,6 +23,15 @@
   --duration-interaction: 120ms;
   --easing-interaction: ease;
 
+  /* Layout slides — the sidebar collapse/expand and the side cover hide/show
+     share one duration and one directional easing pair: the spring curve when
+     space is being claimed (expand/show), the calmer no-overshoot curve when
+     it is given up (collapse/hide). Declared on :root so every layout
+     component inherits them. */
+  --layout-transition-duration: 340ms;
+  --layout-transition-expand-easing: cubic-bezier(0.34, 1.28, 0.64, 1);
+  --layout-transition-collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
   /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
   --duration-tab-slide: 360ms;
   --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);

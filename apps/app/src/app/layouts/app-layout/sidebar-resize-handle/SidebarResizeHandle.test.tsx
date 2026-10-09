@@ -256,7 +256,7 @@ describe('SidebarResizeHandle', () => {
       });
 
       it('leaves the sidebar slot\'s own animation and the drag rule exactly as they were', () => {
-        expect(layoutCss).toMatch(/\.app-layout__sidebar-slot\s*\{[^}]*transition:\s*flex-basis var\(--sidebar-transition-duration\)/);
+        expect(layoutCss).toMatch(/\.app-layout__sidebar-slot\s*\{[^}]*transition:\s*flex-basis var\(--layout-transition-duration\)/);
         expect(layoutCss).toMatch(/\.app-layout\[data-resizing\] \.app-layout__sidebar-slot\s*\{\s*transition:\s*none;/);
       });
     });

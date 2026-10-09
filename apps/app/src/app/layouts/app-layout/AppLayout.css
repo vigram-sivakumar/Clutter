@@ -1,15 +1,10 @@
 .app-layout {
-  /* Reused verbatim from the pre-cleanup sidebar transition (same values,
-     same names) — --sidebar-transition-* is the spring/expand curve,
-     --sidebar-collapse-* is the calmer no-overshoot curve used for
-     collapse, in each direction. Applied to .app-layout__sidebar-slot's
+  /* The sidebar slide uses the shared --layout-transition-* tokens
+     (design-system/tokens.css): spring easing on expand, the calmer
+     no-overshoot curve on collapse. Applied to .app-layout__sidebar-slot's
      `flex-basis` and .app-layout__page's `padding-left` below — the
      sidepanel itself never animates; it keeps a constant physical width
      and has no transition/transform/opacity of its own. */
-  --sidebar-transition-duration: 340ms;
-  --sidebar-transition-easing: cubic-bezier(0.34, 1.28, 0.64, 1);
-  --sidebar-collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
-
   display: flex;
   height: 100vh;
   width: 100%;
@@ -34,8 +29,8 @@
   flex: 0 0 var(--app-sidebar-width);
   min-width: 0;
   overflow: hidden;
-  transition: flex-basis var(--sidebar-transition-duration)
-    var(--sidebar-transition-easing);
+  transition: flex-basis var(--layout-transition-duration)
+    var(--layout-transition-expand-easing);
 }
 
 /* This element's flex-basis is driven by two distinct interactions:
@@ -76,8 +71,8 @@
   z-index: 2;
   background: var(--surface-secondary);
 
-  transition: padding-left var(--sidebar-transition-duration)
-    var(--sidebar-transition-easing);
+  transition: padding-left var(--layout-transition-duration)
+    var(--layout-transition-expand-easing);
 }
 
 /* Manual collapse. Workspace.isSidebarVisible is still the only source
@@ -92,19 +87,19 @@
    manual-only. */
 .app-layout[data-sidebar-collapsed='true'] .app-layout__sidebar-slot {
   flex-basis: 0px;
-  transition-timing-function: var(--sidebar-collapse-easing);
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
 .app-layout[data-sidebar-collapsed='false'] .app-layout__sidebar-slot {
   flex-basis: var(--app-sidebar-width);
-  transition-timing-function: var(--sidebar-transition-easing);
+  transition-timing-function: var(--layout-transition-expand-easing);
 }
 .app-layout[data-sidebar-collapsed='true'] .app-layout__page {
   padding-left: var(--space-8);
-  transition-timing-function: var(--sidebar-collapse-easing);
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
 .app-layout[data-sidebar-collapsed='false'] .app-layout__page {
   padding-left: 0;
-  transition-timing-function: var(--sidebar-transition-easing);
+  transition-timing-function: var(--layout-transition-expand-easing);
 }
 
 /* The resize handle (sidebar-resize-handle/SidebarResizeHandle.tsx) is a

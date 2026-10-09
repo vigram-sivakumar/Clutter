@@ -72,7 +72,7 @@
    only — not .page, the editor, sidebar, or general layout — and not
    permanent: removed the moment the sidebar re-expands. */
 /* Collapsed sidebar — browser. Padding is growing (page has just started
-   covering the sidebar), so this reuses --sidebar-collapse-easing — the
+   covering the sidebar), so this reuses --layout-transition-collapse-easing — the
    same standard-decel/no-overshoot curve the page's own collapse motion
    already uses (AppLayout.css) — quick off the mark, settling smoothly
    into its larger value rather than snapping straight there.

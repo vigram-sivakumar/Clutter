@@ -32,9 +32,9 @@
      keeps the rendered width itself at genuinely 0 until the transition
      is actually under way. */
   transition:
-    flex-basis 240ms ease,
-    flex-grow 240ms ease,
-    margin-left 240ms ease;
+    flex-basis var(--layout-transition-duration) var(--layout-transition-expand-easing),
+    flex-grow var(--layout-transition-duration) var(--layout-transition-expand-easing),
+    margin-left var(--layout-transition-duration) var(--layout-transition-expand-easing);
 }
 .page__cover[data-hidden] {
   /* data-hidden reflects the durable `coverHidden` metadata
@@ -64,6 +64,11 @@
      `.page`, which clips it (`overflow: hidden`). Transitioned alongside the
      flex properties above so the collapse stays in lockstep. */
   margin-left: 0;
+  /* Hide is the collapse direction: a transition uses the destination
+     state's timing function, so this state carries the no-overshoot curve
+     (the base rule above carries the spring one for Show) — the same
+     directional pair the sidebar slide uses. */
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
 
 @media (prefers-reduced-motion: reduce) {
