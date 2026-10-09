@@ -34,6 +34,7 @@
   transition:
     flex-basis var(--layout-transition-duration) var(--layout-transition-expand-easing),
     flex-grow var(--layout-transition-duration) var(--layout-transition-expand-easing),
+    min-width var(--layout-transition-duration) var(--layout-transition-expand-easing),
     margin-left var(--layout-transition-duration) var(--layout-transition-expand-easing);
 }
 .page__cover[data-hidden] {
@@ -224,4 +225,22 @@
    ImagePicker itself sets no width). */
 .page__cover__picker {
   width: 320px;
+}
+
+/* Side layout: the cover collapses the way the sidebar does. `.page__cover`
+   is the clipping slot (its `overflow: hidden` + animated width, above); the
+   image inside is not sized by the slot but keeps the width the cover had
+   while settled (`--page-cover-natural-width`, measured in Page.Cover.tsx),
+   anchored to the right edge — so as the slot narrows, .page__document
+   slides over the image and clips it from the left instead of the image
+   rescaling with the shrinking box. The fallback (a cover that has never
+   been measured, e.g. one that mounts already hidden) is the slot's own
+   max width. Not applied to the Above layout, where the cover is a
+   full-width block that never collapses gradually. */
+.page > .page__cover > .page-cover__image {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--page-cover-natural-width, var(--app-sidebar-width));
+  max-width: none;
 }

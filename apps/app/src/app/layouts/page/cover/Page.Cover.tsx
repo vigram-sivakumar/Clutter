@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
@@ -246,6 +246,70 @@ export function PageCover({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [repositioning]);
 
+  // Side layout only. The collapsing cover is a clipping slot, like the
+  // sidebar's (AppLayout.css's `.app-layout__sidebar-slot`): its width
+  // animates, but the image inside keeps the width the cover had while
+  // settled (`--page-cover-natural-width`, consumed by Page.Cover.css), so
+  // the document slides over a cover that doesn't rescale. The sidebar can
+  // use a constant CSS width for this; the cover's expanded width is a flex
+  // result, so it is measured instead. Updates are skipped while hidden or
+  // while a hide/show transition is running, so the value always reflects
+  // the settled, visible width.
+  const coverRef = useRef<HTMLElement>(null);
+  const transitioningRef = useRef(false);
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
+  const prevHiddenRef = useRef(hidden);
+
+  function syncNaturalWidth(): void {
+    const el = coverRef.current;
+    if (!el || hiddenRef.current || transitioningRef.current) {
+      return;
+    }
+    el.style.setProperty('--page-cover-natural-width', `${el.getBoundingClientRect().width}px`);
+  }
+
+  useEffect(() => {
+    const el = coverRef.current;
+    if (layout !== 'side' || !el || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(syncNaturalWidth);
+    observer.observe(el);
+    // React has no `onTransitionCancel`; a cancelled transition (e.g. the
+    // cover is toggled again mid-slide) must not leave the guard stuck on.
+    const onCancel = () => {
+      transitioningRef.current = false;
+    };
+    el.addEventListener('transitioncancel', onCancel);
+    return () => {
+      observer.disconnect();
+      el.removeEventListener('transitioncancel', onCancel);
+    };
+  }, [layout]);
+
+  useLayoutEffect(() => {
+    // Compared against the previous value (not a "first run" flag) so a
+    // StrictMode double-invoked mount effect can't be mistaken for a toggle.
+    if (prevHiddenRef.current === hidden) {
+      return;
+    }
+    prevHiddenRef.current = hidden;
+    const el = coverRef.current;
+    // Only a real animation ends in `transitionend`; with reduced motion or
+    // the Above layout (`transition: none`) there is nothing to wait for.
+    transitioningRef.current =
+      layout === 'side' && !!el && parseFloat(getComputedStyle(el).transitionDuration) > 0;
+  }, [hidden, layout]);
+
+  function handleCoverTransitionEnd(event: { target: EventTarget; currentTarget: EventTarget; propertyName: string }): void {
+    if (event.target !== event.currentTarget || event.propertyName !== 'flex-basis') {
+      return;
+    }
+    transitioningRef.current = false;
+    syncNaturalWidth();
+  }
+
   if (!src) {
     return null;
   }
@@ -391,7 +455,9 @@ export function PageCover({
 
   return (
     <aside
+      ref={coverRef}
       className="page__cover"
+      onTransitionEnd={handleCoverTransitionEnd}
       data-hidden={hidden || undefined}
       data-emoji-overlap={hasEmoji || undefined}
       data-repositioning={repositioning || undefined}
