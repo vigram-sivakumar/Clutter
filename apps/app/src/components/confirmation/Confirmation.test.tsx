@@ -63,8 +63,8 @@ describe('Confirmation', () => {
     it('styles Replace as the destructive action and Move to Inbox as the primary one; the primary takes focus', () => {
       setup();
 
-      expect(screen.getByRole('button', { name: 'Replace' })).toHaveClass('button-danger');
-      expect(screen.getByRole('button', { name: 'Move to Inbox' })).not.toHaveClass('button-danger');
+      expect(screen.getByRole('button', { name: 'Replace' })).toHaveClass('button--danger');
+      expect(screen.getByRole('button', { name: 'Move to Inbox' })).not.toHaveClass('button--danger');
       expect(screen.getByRole('button', { name: 'Move to Inbox' })).toHaveFocus();
     });
   });

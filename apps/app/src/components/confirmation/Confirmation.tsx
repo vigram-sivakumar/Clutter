@@ -73,8 +73,7 @@ export function Confirmation({
       <div className="confirmation__actions">
         {hasAlternate ? (
           <Button
-            className={alternateVariant === 'danger' ? 'button-danger' : undefined}
-            variant={alternateVariant === 'danger' ? 'filled' : 'primary'}
+            variant={alternateVariant === 'danger' ? 'danger' : 'primary'}
             size={'large'}
             onClick={onAlternate}
           >
@@ -88,8 +87,7 @@ export function Confirmation({
 
         <Button
           ref={confirmRef}
-          className={confirmVariant === 'danger' ? 'button-danger' : undefined}
-          variant={confirmVariant === 'danger' ? 'filled' : 'primary'}
+          variant={confirmVariant === 'danger' ? 'danger' : 'primary'}
           size={'large'}
           onClick={onConfirm}
         >

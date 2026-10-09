@@ -92,7 +92,7 @@ describe('Trash page "More actions" — Empty trash', () => {
 
     const buttons = screen.getAllByRole('button', { name: 'Empty trash' });
     const confirm = buttons[buttons.length - 1]!;
-    expect(confirm.className).toContain('button-danger');
+    expect(confirm.className).toContain('button--danger');
     expect(confirm.className).not.toContain('button--primary');
 
     fireEvent.click(confirm);

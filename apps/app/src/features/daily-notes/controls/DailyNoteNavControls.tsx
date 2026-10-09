@@ -42,7 +42,7 @@ export function DailyNoteNavControls({
         ref={calendar.anchorRef}
         isIconOnly
         size="small"
-        variant="outline-fill"
+        variant="ghost"
         aria-label="Open calendar"
         onClick={calendar.toggle}
       >
