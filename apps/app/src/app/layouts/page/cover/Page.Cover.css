@@ -31,15 +31,15 @@
      fix, just on entry instead of at rest. Animating both in lockstep
      keeps the rendered width itself at genuinely 0 until the transition
      is actually under way. */
-  /* One duration and one curve for both directions. The sidebar's spring
+  /* One duration (--layout-transition-duration-cover) and one curve for both directions. The sidebar's spring
      expand curve is front-loaded (~95% of the travel in the first half of
      the duration), which made Show read as near-instant next to Hide; the
      standard curve keeps the reveal spread over the whole duration. */
   transition:
-    flex-basis var(--layout-transition-duration) var(--layout-transition-collapse-easing),
-    flex-grow var(--layout-transition-duration) var(--layout-transition-collapse-easing),
-    min-width var(--layout-transition-duration) var(--layout-transition-collapse-easing),
-    margin-left var(--layout-transition-duration) var(--layout-transition-collapse-easing);
+    flex-basis var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
+    flex-grow var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
+    min-width var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
+    margin-left var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing);
 }
 .page__cover[data-hidden] {
   /* data-hidden reflects the durable `coverHidden` metadata

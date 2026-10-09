@@ -29,6 +29,8 @@
      it is given up (collapse/hide). Declared on :root so every layout
      component inherits them. */
   --layout-transition-duration: 340ms;
+  /* The side cover's hide/show: a lighter, content-free slide reads as too quick at the sidebar's duration. */
+  --layout-transition-duration-cover: 500ms;
   --layout-transition-expand-easing: cubic-bezier(0.34, 1.28, 0.64, 1);
   --layout-transition-collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
 
