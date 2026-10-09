@@ -31,15 +31,16 @@
      fix, just on entry instead of at rest. Animating both in lockstep
      keeps the rendered width itself at genuinely 0 until the transition
      is actually under way. */
-  /* One duration (--layout-transition-duration-cover) and one curve for both directions. The sidebar's spring
-     expand curve is front-loaded (~95% of the travel in the first half of
-     the duration), which made Show read as near-instant next to Hide; the
-     standard curve keeps the reveal spread over the whole duration. */
+  /* The sidebar's directional pair at the cover's own duration
+     (--layout-transition-duration-cover): the spring curve here (Show claims
+     space), the calmer standard curve in the [data-hidden] rule below (Hide
+     gives it up). A transition takes its timing from the state it is heading
+     to, so each state carries its own. */
   transition:
-    flex-basis var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
-    flex-grow var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
-    min-width var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing),
-    margin-left var(--layout-transition-duration-cover) var(--layout-transition-collapse-easing);
+    flex-basis var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
+    flex-grow var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
+    min-width var(--layout-transition-duration-cover) var(--layout-transition-expand-easing),
+    margin-left var(--layout-transition-duration-cover) var(--layout-transition-expand-easing);
 }
 .page__cover[data-hidden] {
   /* data-hidden reflects the durable `coverHidden` metadata
@@ -69,6 +70,7 @@
      `.page`, which clips it (`overflow: hidden`). Transitioned alongside the
      flex properties above so the collapse stays in lockstep. */
   margin-left: 0;
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
 
 @media (prefers-reduced-motion: reduce) {
