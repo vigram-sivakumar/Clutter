@@ -11,6 +11,15 @@ interface PageTitleSectionProps extends Omit<
   title: ReactNode;
   description?: ReactNode;
   /**
+   * Optional tabs rendered below the title and description.
+   * When provided, title actions are aligned with the tabs
+   * instead of the title.
+   *
+   * Always use the `ghost` variant for tabs rendered in the
+   * PageTitleSection.
+   */
+  tabs?: ReactNode;
+  /**
    * The page's own emoji, if it has one — forwarded to PageHeaderControls.
    * Every page type may have one; not collection-specific. Mutually
    * exclusive with `icon` in practice, decided by the caller (PageHost),
@@ -75,6 +84,7 @@ export function PageTitleSection({
   propertiesControl,
   actions,
   belowDescription,
+  tabs,
   className,
   ...props
 }: PageTitleSectionProps) {
@@ -104,15 +114,21 @@ export function PageTitleSection({
       <div className="page-title-section__content">
         <div className="page-title-section__row">
           {title}
-
+          {tabs === undefined && actions && (
+            <div className="page-title-section__actions">{actions}</div>
+          )}
+        </div>
+        {description}
+      </div>
+      {belowDescription}
+      {tabs && (
+        <div className="page-title-section__tabs-row">
+          <div className="page-title-section__tabs">{tabs}</div>
           {actions && (
             <div className="page-title-section__actions">{actions}</div>
           )}
         </div>
-
-        {description}
-      </div>
-      {belowDescription}
+      )}
     </header>
   );
 }

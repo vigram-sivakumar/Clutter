@@ -4,6 +4,14 @@ import './Tabs.css';
 
 type TabsProps = {
   value: string;
+  /**
+   * Optional tabs rendered below the title and description.
+   * When provided, title actions are aligned with the tabs
+   * instead of the title.
+   *
+   * Always use the `ghost` variant for tabs rendered in the
+   * PageTitleSection.
+   */
   variant?: 'filled' | 'ghost';
   children?: ReactNode;
   onValueChange: (value: string) => void;
