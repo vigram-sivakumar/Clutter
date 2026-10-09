@@ -30,10 +30,6 @@ export type SidebarTab = (typeof SIDEBAR_TABS)[number];
 const FILTERED_VIEW_KINDS: Record<FilteredViewKind, true> = {
   workspace: true,
   favorites: true,
-  'tasks-today': true,
-  'tasks-overdue': true,
-  'tasks-upcoming': true,
-  'tasks-completed': true,
   'tasks-all': true,
   'tasks-unscheduled': true,
   tag: true,

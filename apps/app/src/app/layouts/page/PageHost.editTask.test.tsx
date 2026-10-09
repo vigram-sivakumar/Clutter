@@ -114,7 +114,7 @@ function setup(pages: Page[]) {
   application.collectionViewConfigStore.update('view:tasks', {
     layout: 'list',
   });
-  application.navigation.openTasksOverdue();
+  application.navigation.openAllTasks();
 
   return { application, vault };
 }

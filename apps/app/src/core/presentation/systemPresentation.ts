@@ -17,10 +17,6 @@ export type SystemLocationId =
   | 'notes'
   | 'daily-notes'
   | 'tasks'
-  | 'tasks-today'
-  | 'tasks-overdue'
-  | 'tasks-upcoming'
-  | 'tasks-completed'
   | 'tasks-all'
   | 'tasks-unscheduled'
   | 'tags'
@@ -77,26 +73,6 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
     collectionIcon: 'calendarDots',
   },
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
-  'tasks-today': {
-    id: 'tasks-today',
-    label: 'Today',
-    icon: 'squareCheckOutline',
-  },
-  'tasks-overdue': {
-    id: 'tasks-overdue',
-    label: 'Overdue',
-    icon: 'squareCheckOutline',
-  },
-  'tasks-upcoming': {
-    id: 'tasks-upcoming',
-    label: 'Upcoming',
-    icon: 'squareCheckOutline',
-  },
-  'tasks-completed': {
-    id: 'tasks-completed',
-    label: 'Completed',
-    icon: 'circleTick',
-  },
   'tasks-all': {
     id: 'tasks-all',
     label: 'Tasks',

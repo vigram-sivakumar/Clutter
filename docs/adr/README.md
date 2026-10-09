@@ -47,3 +47,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [047](./047-tag-restyle-is-a-casing-only-one-time-operation.md) | `TagOperations.restyle()` — a casing-only, one-time Tag operation (not a setting) | Accepted |
 | [048](./048-canonical-resource-actions.md) | Canonical resource actions — one definition per resource; groups, order and dividers derived; surface visibility explicit | Accepted |
 | [049](./049-move-zones.md) | Move zones — Templates and Assets are sealed hierarchies; a Template stays in Templates, an Asset in Assets | Accepted |
+| [050](./050-remove-unreachable-task-views.md) | Remove the unreachable Today / Overdue / Upcoming / Completed task views (amends ADR-046 and ADR-027); the sidebar sections stay | Accepted |

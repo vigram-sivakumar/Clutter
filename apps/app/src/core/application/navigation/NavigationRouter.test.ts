@@ -208,20 +208,6 @@ describe('NavigationRouter', () => {
     expect(openFolder).not.toHaveBeenCalled();
   });
 
-  it('openTasksOverdue shows the tasks-overdue filtered view directly, without touching FolderOperations', () => {
-    const openFilteredView = vi.fn();
-    const openFolder = vi.fn();
-    const navigation = createNavigationRouter({
-      folderOperations: { open: openFolder },
-      workspace: { openFilteredView },
-    });
-
-    navigation.openTasksOverdue();
-
-    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tasks-overdue' });
-    expect(openFolder).not.toHaveBeenCalled();
-  });
-
   it('openAssets shows the assets filtered view directly, without touching FolderOperations', () => {
     const openFilteredView = vi.fn();
     const openFolder = vi.fn();
@@ -538,9 +524,9 @@ describe('NavigationRouter.restore (ADR-035)', () => {
     });
 
     await expect(
-      navigation.restore({ type: 'filtered-view', view: { kind: 'tasks-today' } })
+      navigation.restore({ type: 'filtered-view', view: { kind: 'tasks-all' } })
     ).resolves.toBe(true);
-    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tasks-today' }, { recordHistory: false });
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tasks-all' }, { recordHistory: false });
   });
 
   it('restores a tag view only while the tag still exists', async () => {

@@ -21,7 +21,7 @@ import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/Mark
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import { DEFAULT_TASK_DISPLAY_CONFIG, type TaskDisplayConfig } from '../helpers/groupTasks';
 import { getCompletedTasks } from '../helpers/getCompletedTasks';
-import { taskViewHasFixedOrder, tasksForView, type TaskViewKind } from '../helpers/tasksForView';
+import { tasksForView, type TaskViewKind } from '../helpers/tasksForView';
 
 /** The Task Collection's views — the `tasks-*` FilteredView kinds; each is a dataset (see `tasksForView`). */
 export type TasksCollectionView = TaskViewKind;
@@ -124,23 +124,19 @@ export function TasksCollectionBody({
     };
   };
 
-  // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default) — except a view
-  // with a fixed semantic order of its own (Done: newest-completed-first, applied by `tasksForView`),
-  // which the shared sort does not reorder. Otherwise Auto-sort completed on moves completed tasks
-  // (newest-completed-first before sorting) below the incomplete ones, each group sorted by the chosen
-  // property; off leaves them in their sorted place among the rest.
+  // The view decides the dataset. Ordering: the collection's sort (Name A→Z by default). Auto-sort completed
+  // on moves completed tasks (newest-completed-first before sorting) below the incomplete ones, each group
+  // sorted by the chosen property; off leaves them in their sorted place among the rest.
   const dataset = tasksForView(view, tasks, displayConfig);
-  const entries = taskViewHasFixedOrder(view)
-    ? dataset.map(toEntry)
-    : displayConfig.autoSortCompleted
-      ? [
-          ...sortEntries(dataset.filter((task) => !task.completed).map(toEntry), sort),
-          ...sortEntries(getCompletedTasks(dataset).map(toEntry), sort),
-        ]
-      : sortEntries(
-          [...dataset.filter((task) => !task.completed), ...getCompletedTasks(dataset)].map(toEntry),
-          sort
-        );
+  const entries = displayConfig.autoSortCompleted
+    ? [
+        ...sortEntries(dataset.filter((task) => !task.completed).map(toEntry), sort),
+        ...sortEntries(getCompletedTasks(dataset).map(toEntry), sort),
+      ]
+    : sortEntries(
+        [...dataset.filter((task) => !task.completed), ...getCompletedTasks(dataset)].map(toEntry),
+        sort
+      );
 
   if (entries.length === 0) {
     return (

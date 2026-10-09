@@ -693,7 +693,7 @@ describe("buildBreadcrumbs — today's Daily Note gets the dotted calendar icon"
 });
 
 describe('buildSystemLocationBreadcrumbs', () => {
-  it.each(['assets', 'workspace', 'favorites', 'tasks-today', 'tags'] as const)(
+  it.each(['assets', 'workspace', 'favorites', 'tasks-all', 'tags'] as const)(
     'gives %s one current crumb with its canonical label and icon',
     (id) => {
       const presentation = getSystemLocationPresentation(id);

@@ -50,10 +50,10 @@ describe('deriveCollectionViewKey', () => {
     expect(collectionViewKeyForFilteredView('assets')).toBe('view:assets');
   });
 
-  it('all six task views share ONE configuration key — they are datasets of the one Task Collection', () => {
+  it('the task views share ONE configuration key — they are datasets of the one Task Collection', () => {
     expect(collectionViewKeyForFilteredView('tasks')).toBe('view:tasks');
 
-    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-unscheduled', 'tasks-completed'] as const) {
+    for (const kind of ['tasks-all', 'tasks-unscheduled'] as const) {
       expect(deriveCollectionViewKey({ type: 'filtered-view', view: { kind } }), kind).toBe('view:tasks');
     }
   });

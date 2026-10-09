@@ -32,100 +32,6 @@ describe('TasksCollectionBody', () => {
     vi.useRealTimers();
   });
 
-  it('renders incomplete tasks due today for the tasks-today view', () => {
-    const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
-    const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
-
-    const { getByText, queryByText } = render(
-      <TasksCollectionBody
-        view="tasks-today"
-        tasks={[dueToday, dueTomorrow]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={vi.fn()}
-        onChangeDueDate={vi.fn()}
-      />
-    );
-
-    expect(getByText('Review designs')).not.toBeNull();
-    expect(queryByText('Book flights')).toBeNull();
-  });
-
-  it('renders only explicitly-future tasks for the tasks-upcoming view — never overdue, today or unscheduled ones', () => {
-    const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
-    const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
-    const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
-    const unscheduled = task({ text: 'Someday maybe' });
-
-    const { getByText, queryByText } = render(
-      <TasksCollectionBody
-        view="tasks-upcoming"
-        tasks={[dueTomorrow, dueToday, overdue, unscheduled]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={vi.fn()}
-        onChangeDueDate={vi.fn()}
-      />
-    );
-
-    expect(getByText('Book flights')).not.toBeNull();
-    expect(queryByText('Review designs')).toBeNull();
-    expect(queryByText('Fix navigation')).toBeNull();
-    expect(queryByText('Someday maybe')).toBeNull();
-  });
-
-  it('renders only incomplete, past-due tasks for the tasks-overdue view', () => {
-    const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
-    const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
-    const dueTomorrow = task({ text: 'Book flights', dueDate: '2026-08-05' });
-    const completedOverdue = task({
-      text: 'Old report',
-      completed: true,
-      dueDate: '2026-07-01',
-    });
-
-    const { getByText, queryByText } = render(
-      <TasksCollectionBody
-        view="tasks-overdue"
-        tasks={[overdue, dueToday, dueTomorrow, completedOverdue]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={vi.fn()}
-        onChangeDueDate={vi.fn()}
-      />
-    );
-
-    expect(getByText('Fix navigation')).not.toBeNull();
-    expect(queryByText('Review designs')).toBeNull();
-    expect(queryByText('Book flights')).toBeNull();
-    expect(queryByText('Old report')).toBeNull();
-  });
-
-  it('renders every completed task, newest-completed-first, for the tasks-completed view', () => {
-    const oldCompleted = task({
-      text: 'Old completed',
-      completed: true,
-      completedAt: '2026-07-01',
-    });
-    const recentCompleted = task({
-      text: 'Recent completed',
-      completed: true,
-      completedAt: '2026-08-04',
-    });
-    const incomplete = task({ text: 'Still open' });
-
-    const { getByText, queryByText } = render(
-      <TasksCollectionBody
-        view="tasks-completed"
-        tasks={[oldCompleted, recentCompleted, incomplete]}
-        onToggleComplete={vi.fn()}
-        onOpenTask={vi.fn()}
-        onChangeDueDate={vi.fn()}
-      />
-    );
-
-    expect(getByText('Old completed')).not.toBeNull();
-    expect(getByText('Recent completed')).not.toBeNull();
-    expect(queryByText('Still open')).toBeNull();
-  });
-
   it('renders every task, incomplete and completed, for the tasks-all view', () => {
     const incomplete = task({ text: 'Still open' });
     const completed = task({
@@ -287,14 +193,7 @@ describe('TasksCollectionBody', () => {
     );
   });
 
-  it.each([
-    'tasks-today',
-    'tasks-overdue',
-    'tasks-upcoming',
-    'tasks-completed',
-    'tasks-unscheduled',
-    'tasks-all',
-  ] as const)(
+  it.each(['tasks-unscheduled', 'tasks-all'] as const)(
     '%s ends with the shared collection__bottom-spacer, once',
     (view) => {
       const { container } = render(
@@ -593,14 +492,7 @@ describe('TasksCollectionBody', () => {
   });
 
   it('does not draw the tab strip in the page body — it lives in the page header', () => {
-    for (const view of [
-      'tasks-all',
-      'tasks-today',
-      'tasks-overdue',
-      'tasks-upcoming',
-      'tasks-completed',
-      'tasks-unscheduled',
-    ] as const) {
+    for (const view of ['tasks-all', 'tasks-unscheduled'] as const) {
       const { container, unmount } = render(
         <TasksCollectionBody
           view={view}
@@ -776,15 +668,8 @@ describe('TasksCollectionBody', () => {
     });
   });
 
-  describe('one Task Collection: all six views render through the shared collection renderer', () => {
-    const VIEWS = [
-      'tasks-all',
-      'tasks-today',
-      'tasks-overdue',
-      'tasks-upcoming',
-      'tasks-unscheduled',
-      'tasks-completed',
-    ] as const;
+  describe('one Task Collection: every task view renders through the shared collection renderer', () => {
+    const VIEWS = ['tasks-all', 'tasks-unscheduled'] as const;
     const noop = {
       onToggleComplete: vi.fn(),
       onOpenTask: vi.fn(),
@@ -811,11 +696,7 @@ describe('TasksCollectionBody', () => {
         'T-unscheduled',
         'T-upcoming',
       ],
-      'tasks-today': ['T-today'],
-      'tasks-overdue': ['T-overdue'],
-      'tasks-upcoming': ['T-upcoming'],
       'tasks-unscheduled': ['T-unscheduled'],
-      'tasks-completed': ['T-done'],
     };
     const titlesIn = (container: HTMLElement) =>
       [...container.querySelectorAll('.collection-entry .task-title')].map(
@@ -883,58 +764,10 @@ describe('TasksCollectionBody', () => {
         const shown = [
           ...container.querySelectorAll('.collection-table .task-title'),
         ].map((el) => el.textContent);
-        // Name Z→A for every view — except Done, whose newest-completed-first order is its own.
-        expect(shown).toEqual(
-          view === 'tasks-completed'
-            ? expected[view]
-            : [...expected[view]].sort().reverse()
-        );
+        // Name Z→A for every view.
+        expect(shown).toEqual([...expected[view]].sort().reverse());
       }
     );
-
-    it('Done keeps newest-completed-first whatever the shared sort says', () => {
-      const completed = [
-        task({
-          text: 'Alpha (oldest)',
-          completed: true,
-          completedAt: '2026-08-01',
-          startOffset: 0,
-        }),
-        task({
-          text: 'Zulu (newest)',
-          completed: true,
-          completedAt: '2026-08-03',
-          startOffset: 1,
-        }),
-        task({
-          text: 'Mike (middle)',
-          completed: true,
-          completedAt: '2026-08-02',
-          startOffset: 2,
-        }),
-      ];
-
-      for (const sort of [
-        { property: 'name', direction: 'down' },
-        { property: 'name', direction: 'up' },
-        { property: 'dueDate', direction: 'down' },
-      ] as const) {
-        const { container, unmount } = render(
-          <TasksCollectionBody
-            view="tasks-completed"
-            tasks={completed}
-            collectionView={resolveCollectionView(TASKS_COLLECTION, { sort })}
-            {...noop}
-          />
-        );
-        expect(titlesIn(container)).toEqual([
-          'Zulu (newest)',
-          'Mike (middle)',
-          'Alpha (oldest)',
-        ]);
-        unmount();
-      }
-    });
 
     it.each(VIEWS)(
       '%s: uses the canonical collection row — none of the legacy sidebar-task row UI',
@@ -963,7 +796,7 @@ describe('TasksCollectionBody', () => {
     it("a view's empty dataset shows the collection empty state, not an empty list", () => {
       const { getByRole, container } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-unscheduled"
           tasks={[task({ text: 'Later', dueDate: '2026-09-01' })]}
           {...noop}
         />
@@ -1019,7 +852,7 @@ describe('TasksCollectionBody', () => {
   });
 
   describe('displayConfig', () => {
-    it('hides completed tasks from tasks-today by default (DEFAULT_TASK_DISPLAY_CONFIG shows them, so this checks the explicit-off case)', () => {
+    it('hides completed tasks from tasks-all by default (DEFAULT_TASK_DISPLAY_CONFIG shows them, so this checks the explicit-off case)', () => {
       const completedToday = task({
         text: 'Submit expenses',
         completed: true,
@@ -1028,7 +861,7 @@ describe('TasksCollectionBody', () => {
 
       const { queryByText } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-all"
           tasks={[completedToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
@@ -1040,7 +873,7 @@ describe('TasksCollectionBody', () => {
       expect(queryByText('Submit expenses')).toBeNull();
     });
 
-    it('shows a completed task due today in tasks-today when showCompleted is true', () => {
+    it('shows a completed task in tasks-all when showCompleted is true', () => {
       const completedToday = task({
         text: 'Submit expenses',
         completed: true,
@@ -1049,7 +882,7 @@ describe('TasksCollectionBody', () => {
 
       const { getByText } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-all"
           tasks={[completedToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
@@ -1061,56 +894,7 @@ describe('TasksCollectionBody', () => {
       expect(getByText('Submit expenses')).not.toBeNull();
     });
 
-    it('Upcoming honours Show completed: a completed future task shows when on, not when off', () => {
-      const completedFuture = task({
-        text: 'Booked already',
-        completed: true,
-        dueDate: '2026-08-20',
-      });
-      const renderUpcoming = (showCompleted: boolean) =>
-        render(
-          <TasksCollectionBody
-            view="tasks-upcoming"
-            tasks={[completedFuture]}
-            onToggleComplete={vi.fn()}
-            onOpenTask={vi.fn()}
-            onChangeDueDate={vi.fn()}
-            displayConfig={{ showCompleted, autoSortCompleted: false }}
-          />
-        );
-
-      const on = renderUpcoming(true);
-      expect(on.queryByText('Booked already')).not.toBeNull();
-      on.unmount();
-
-      const off = renderUpcoming(false);
-      expect(off.queryByText('Booked already')).toBeNull();
-    });
-
-    it('a completed task that was due before today is in neither Overdue nor Upcoming, whatever Show completed says', () => {
-      const completedOverdue = task({
-        text: 'Old report',
-        completed: true,
-        dueDate: '2026-07-01',
-      });
-
-      for (const view of ['tasks-overdue', 'tasks-upcoming'] as const) {
-        const { queryByText, unmount } = render(
-          <TasksCollectionBody
-            view={view}
-            tasks={[completedOverdue]}
-            onToggleComplete={vi.fn()}
-            onOpenTask={vi.fn()}
-            onChangeDueDate={vi.fn()}
-            displayConfig={{ showCompleted: true, autoSortCompleted: false }}
-          />
-        );
-        expect(queryByText('Old report'), view).toBeNull();
-        unmount();
-      }
-    });
-
-    it('auto-sort moves a completed task to the bottom of tasks-today', () => {
+    it('auto-sort moves a completed task to the bottom of tasks-all', () => {
       const completed = task({
         text: 'Completed task',
         completed: true,
@@ -1120,7 +904,7 @@ describe('TasksCollectionBody', () => {
 
       const { container } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-all"
           tasks={[completed, active]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
@@ -1137,7 +921,7 @@ describe('TasksCollectionBody', () => {
   });
 
   describe('compact Markdown title rendering, with resolvers threaded to every view', () => {
-    it('renders WikiLink/Tag titles as compact Markdown in the tasks-today view, resolving through injected resolvers', () => {
+    it('renders WikiLink/Tag titles as compact Markdown in the tasks-all view, resolving through injected resolvers', () => {
       const dueToday = task({
         text: '[[Project Alpha]] #urgent',
         dueDate: '2026-08-04',
@@ -1155,7 +939,7 @@ describe('TasksCollectionBody', () => {
 
       const { container } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-all"
           tasks={[dueToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
@@ -1176,35 +960,7 @@ describe('TasksCollectionBody', () => {
       );
     });
 
-    it('renders WikiLink/Tag titles through the injected resolvers in the tasks-upcoming view', () => {
-      const dueTomorrow = task({
-        text: '[[Project Alpha]] #urgent',
-        dueDate: '2026-08-05',
-      });
-      const resolveWikiLink = vi.fn().mockReturnValue({
-        status: 'resolved' as const,
-        displayLabel: 'Resolved Link',
-        activate: () => {},
-      });
-
-      const { container } = render(
-        <TasksCollectionBody
-          view="tasks-upcoming"
-          tasks={[dueTomorrow]}
-          onToggleComplete={vi.fn()}
-          onOpenTask={vi.fn()}
-          onChangeDueDate={vi.fn()}
-          resolveWikiLink={resolveWikiLink}
-        />
-      );
-
-      expect(resolveWikiLink).toHaveBeenCalledWith('Project Alpha', null);
-      expect(
-        container.querySelector('.compact-markdown-wikilink')
-      ).toHaveTextContent('Resolved Link');
-    });
-
-    it('renders bold/italic Markdown in the tasks-completed, tasks-unscheduled, and tasks-all views', () => {
+    it('renders bold/italic Markdown in the tasks-unscheduled and tasks-all views', () => {
       const completed = task({
         text: '**Ship** it',
         completed: true,
@@ -1213,7 +969,7 @@ describe('TasksCollectionBody', () => {
 
       const completedResult = render(
         <TasksCollectionBody
-          view="tasks-completed"
+          view="tasks-all"
           tasks={[completed]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}
@@ -1261,7 +1017,7 @@ describe('TasksCollectionBody', () => {
 
       const { container } = render(
         <TasksCollectionBody
-          view="tasks-today"
+          view="tasks-all"
           tasks={[dueToday]}
           onToggleComplete={vi.fn()}
           onOpenTask={vi.fn()}

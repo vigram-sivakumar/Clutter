@@ -22,10 +22,6 @@ const FOLDER_BACKED_LOCATIONS: readonly SystemLocationId[] = [
 const VIEW_LOCATIONS: readonly SystemLocationId[] = [
   'notes',
   'tasks',
-  'tasks-today',
-  'tasks-overdue',
-  'tasks-upcoming',
-  'tasks-completed',
   'tasks-all',
   'tasks-unscheduled',
   'tags',
@@ -41,7 +37,7 @@ describe('getSystemLocationPresentation', () => {
     });
 
     it('returns the canonical icon for a non-folder view location, unaffected by the page-header flag', () => {
-      expect(getSystemLocationPresentation('tasks-today').icon).toBe(
+      expect(getSystemLocationPresentation('tasks-all').icon).toBe(
         'squareCheckOutline'
       );
     });

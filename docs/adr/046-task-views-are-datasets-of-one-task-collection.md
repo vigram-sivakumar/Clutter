@@ -1,6 +1,6 @@
 # ADR-046: Task views are datasets of one Task Collection
 
-**Status:** Accepted (product decision, Vigram, 2026-10-06). Extends ADR-045.
+**Status:** Accepted (product decision, Vigram, 2026-10-06). Extends ADR-045. Amended by [ADR-050](./050-remove-unreachable-task-views.md): the Today, Overdue, Upcoming and Done views (point 1's identities, point 5's fixed order) were removed as unreachable; only `tasks-all` and `tasks-unscheduled` remain.
 
 ## Context
 

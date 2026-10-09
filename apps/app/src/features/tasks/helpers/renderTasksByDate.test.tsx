@@ -38,10 +38,8 @@ function task(overrides: Partial<TaskOccurrence>): TaskOccurrence {
 
 function fakeNavigation(): NavigationRouter {
   return {
-    openTasksToday: vi.fn(),
-    openTasksOverdue: vi.fn(),
-    openTasksUpcoming: vi.fn(),
-    openTasksCompleted: vi.fn(),
+    openAllTasks: vi.fn(),
+    openTasksUnscheduled: vi.fn(),
   } as unknown as NavigationRouter;
 }
 
@@ -378,9 +376,8 @@ describe('renderTasksByDate', () => {
       expect(workspace.isSectionExpanded(id)).toBe(true);
       expect(queryByText(child)).not.toBeNull();
 
-      expect(navigation.openTasksToday).not.toHaveBeenCalled();
-      expect(navigation.openTasksOverdue).not.toHaveBeenCalled();
-      expect(navigation.openTasksUpcoming).not.toHaveBeenCalled();
+      expect(navigation.openAllTasks).not.toHaveBeenCalled();
+      expect(navigation.openTasksUnscheduled).not.toHaveBeenCalled();
     });
 
     it('Today (empty, but expanded so it can say so): clicking collapses it, exposes aria-expanded, works from the keyboard, never navigates', () => {
@@ -399,7 +396,7 @@ describe('renderTasksByDate', () => {
       rerender(ui());
       expect(header().getAttribute('aria-expanded')).toBe('true');
 
-      expect(navigation.openTasksToday).not.toHaveBeenCalled();
+      expect(navigation.openAllTasks).not.toHaveBeenCalled();
     });
   });
 
@@ -495,7 +492,7 @@ describe('renderTasksByDate', () => {
 
       fireEvent.click(getByText('Overdue'));
 
-      expect(navigation.openTasksOverdue).not.toHaveBeenCalled();
+      expect(navigation.openAllTasks).not.toHaveBeenCalled();
     });
 
     it('places Overdue between Today and Upcoming', () => {

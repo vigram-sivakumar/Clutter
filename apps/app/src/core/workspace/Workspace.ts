@@ -19,10 +19,6 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
 export type FilteredView =
   | { readonly kind: 'workspace' }
   | { readonly kind: 'favorites' }
-  | { readonly kind: 'tasks-today' }
-  | { readonly kind: 'tasks-overdue' }
-  | { readonly kind: 'tasks-upcoming' }
-  | { readonly kind: 'tasks-completed' }
   | { readonly kind: 'tasks-all' }
   | { readonly kind: 'tasks-unscheduled' }
   | { readonly kind: 'tag'; readonly tagName: string }

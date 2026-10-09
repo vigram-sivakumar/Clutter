@@ -484,7 +484,7 @@ describe('CollectionViewConfigStore — the Task Collection (one shared key, vie
 
     const restarted = await reload(fileSystem);
     // every task view derives the same key, so each reads this same entry
-    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-unscheduled', 'tasks-completed'] as const) {
+    for (const kind of ['tasks-all', 'tasks-unscheduled'] as const) {
       const viewKey = deriveCollectionViewKey({ type: 'filtered-view', view: { kind } })!;
       const view = resolveCollectionView(TASKS_COLLECTION, toCollectionViewConfig(TASKS_COLLECTION, restarted.get(viewKey)));
 

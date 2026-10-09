@@ -232,42 +232,6 @@ export class NavigationRouter {
   }
 
   /**
-   * Shows the Today tasks collection view (Phase 2E) — incomplete tasks
-   * due today plus the completed-today accordion, the same filtered-view
-   * shape as openWorkspace()/openFavorites(). Not folder-backed, same
-   * reasoning as those two.
-   */
-  public openTasksToday(): void {
-    this.workspace.openFilteredView({ kind: 'tasks-today' });
-  }
-
-  /**
-   * Shows the Overdue tasks collection view — incomplete tasks whose due
-   * date is before today, oldest first. Never includes a completed task
-   * (see groupTasks.ts's `overdue` doc comment for why).
-   */
-  public openTasksOverdue(): void {
-    this.workspace.openFilteredView({ kind: 'tasks-overdue' });
-  }
-
-  /**
-   * Shows the Upcoming tasks collection view (Phase 2E) — future-dated and
-   * unscheduled tasks, in that order (overdue tasks have their own
-   * dedicated view as of the Overdue section split — see openTasksOverdue).
-   */
-  public openTasksUpcoming(): void {
-    this.workspace.openFilteredView({ kind: 'tasks-upcoming' });
-  }
-
-  /**
-   * Shows the Completed tasks collection view — every completed task
-   * regardless of completion date, newest first.
-   */
-  public openTasksCompleted(): void {
-    this.workspace.openFilteredView({ kind: 'tasks-completed' });
-  }
-
-  /**
    * Shows every task, incomplete and completed alike.
    */
   public openAllTasks(): void {

@@ -185,7 +185,7 @@ describe('TasksShortcuts', () => {
     it('has no Completed quick-access row', () => {
       renderTasksShortcuts();
 
-      expect(screen.queryByText(getSystemLocationPresentation('tasks-completed').label)).toBeNull();
+      expect(screen.queryByText('Completed')).toBeNull();
     });
 
     it('is the last row, and All tasks carries no settings button any more', () => {

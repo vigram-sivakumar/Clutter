@@ -12,8 +12,7 @@ import type { ActiveView } from '../../workspace/Workspace';
  *    backing `Folder` (ADR-022) → `view:workspace` / `view:favorites`.
  *  - A tag — a filtered view parameterized by name → `tag:<tagName>`.
  *
- * All six task views (`tasks-all`, `tasks-today`, `tasks-overdue`, `tasks-upcoming`,
- * `tasks-unscheduled`, `tasks-completed`) are datasets of ONE Task Collection and share ONE
+ * The task views (`tasks-all`, `tasks-unscheduled`) are datasets of ONE Task Collection and share ONE
  * configuration: `view:tasks` (ADR-046). `view:tasks-all` was the key All Tasks briefly used on its
  * own; `CollectionViewConfigStore` still reads it as a fallback so no saved choice is lost.
  */
@@ -71,14 +70,7 @@ export function deriveCollectionViewKey(
       return collectionViewKeyForFilteredView(view.kind);
     }
 
-    if (
-      view.kind === 'tasks-all' ||
-      view.kind === 'tasks-today' ||
-      view.kind === 'tasks-overdue' ||
-      view.kind === 'tasks-upcoming' ||
-      view.kind === 'tasks-unscheduled' ||
-      view.kind === 'tasks-completed'
-    ) {
+    if (view.kind === 'tasks-all' || view.kind === 'tasks-unscheduled') {
       return collectionViewKeyForFilteredView('tasks');
     }
 

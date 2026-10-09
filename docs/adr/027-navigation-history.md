@@ -1,6 +1,6 @@
 # ADR-027: Navigation History (Previous / Next), Owned by `Workspace` and `NavigationRouter`
 
-**Status:** Accepted
+**Status:** Accepted. Note: [ADR-050](./050-remove-unreachable-task-views.md) later removed four of the task view intents listed below (`openTasksToday/Upcoming/Completed` and `openTasksOverdue`).
 
 ## Context
 

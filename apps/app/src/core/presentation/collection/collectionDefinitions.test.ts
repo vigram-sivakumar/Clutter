@@ -231,7 +231,7 @@ describe('which definition a page is', () => {
     expect(collectionDefinitionForFilteredView({ kind: 'favorites' })).toBe(FAVORITES_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'tag', tagName: 'todo' })).toBe(TAG_COLLECTION);
     expect(collectionDefinitionForFilteredView({ kind: 'assets' })).toBe(ASSETS_COLLECTION);
-    for (const kind of ['tasks-all', 'tasks-today', 'tasks-overdue', 'tasks-upcoming', 'tasks-completed', 'tasks-unscheduled'] as const) {
+    for (const kind of ['tasks-all', 'tasks-unscheduled'] as const) {
       expect(collectionDefinitionForFilteredView({ kind }), kind).toBe(TASKS_COLLECTION);
     }
   });

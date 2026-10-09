@@ -280,11 +280,7 @@ export function collectionDefinitionForFilteredView(view: FilteredView): Collect
       return ASSETS_COLLECTION;
     // Every task view is a dataset of the one Task Collection (ADR-046).
     case 'tasks-all':
-    case 'tasks-today':
-    case 'tasks-overdue':
-    case 'tasks-upcoming':
     case 'tasks-unscheduled':
-    case 'tasks-completed':
       return TASKS_COLLECTION;
     default:
       return undefined;
