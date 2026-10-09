@@ -37,6 +37,12 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     it('no due date → Unscheduled', () => {
       expect(titles('tasks-unscheduled', all)).toEqual(['no date']);
     });
+    it('due today → Today', () => {
+      expect(titles('tasks-today', all)).toEqual(['due today']);
+    });
+    it('due after today → Upcoming; unscheduled tasks are never Upcoming', () => {
+      expect(titles('tasks-upcoming', all)).toEqual(['due tomorrow']);
+    });
   });
 
   describe('Daily Note independence (ADR-044)', () => {
@@ -57,9 +63,14 @@ describe('tasksForView — the single authority on which tasks belong to each ta
     const completedNoDate = task('done undated', { completed: true, completedAt: '2026-10-03' });
     const everyCompleted = [completedToday, completedNoDate];
 
-    it('Show completed applies to Tasks', () => {
+    it('Show completed applies to Tasks, Today and Upcoming', () => {
+      const completedFuture = task('done future', { completed: true, dueDate: '2026-10-09', completedAt: '2026-10-05' });
       expect(titles('tasks-all', everyCompleted, SHOW)).toHaveLength(2);
       expect(titles('tasks-all', everyCompleted, HIDE)).toEqual([]);
+      expect(titles('tasks-today', everyCompleted, SHOW)).toEqual(['done today']);
+      expect(titles('tasks-today', everyCompleted, HIDE)).toEqual([]);
+      expect(titles('tasks-upcoming', [completedFuture], SHOW)).toEqual(['done future']);
+      expect(titles('tasks-upcoming', [completedFuture], HIDE)).toEqual([]);
     });
 
     it('a completed task never appears in Unscheduled — with Show completed on or off', () => {
@@ -69,10 +80,12 @@ describe('tasksForView — the single authority on which tasks belong to each ta
   });
 
   describe('invalid due dates', () => {
-    it('a shape-valid but invalid date is unscheduled', () => {
+    it('a shape-valid but invalid date is unscheduled — never Today or Upcoming', () => {
       const bad = task('malformed', { dueDate: '2026-13-45' });
 
       expect(titles('tasks-unscheduled', [bad])).toEqual(['malformed']);
+      expect(titles('tasks-today', [bad])).toEqual([]);
+      expect(titles('tasks-upcoming', [bad])).toEqual([]);
     });
   });
 });

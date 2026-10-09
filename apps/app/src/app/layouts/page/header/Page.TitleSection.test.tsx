@@ -110,6 +110,33 @@ describe('PageTitleSection — belowDescription slot', () => {
   });
 });
 
+describe('PageTitleSection — tabs slot', () => {
+  it('renders nothing extra, and keeps the actions beside the title, when tabs is omitted', () => {
+    render(<PageTitleSection title="Untitled" actions={<button>View</button>} />);
+
+    expect(document.querySelector('.page-title-section__tabs-row')).toBeNull();
+    expect(document.querySelector('.page-title-section__row .page-title-section__actions')).toBeInTheDocument();
+  });
+
+  it('renders the tabs in their own row after the title block', () => {
+    render(<PageTitleSection title="Untitled" tabs={<div data-testid="tabs">tabs</div>} />);
+
+    const content = document.querySelector('.page-title-section__content')!;
+    const row = document.querySelector('.page-title-section__tabs-row')!;
+    expect(content.nextElementSibling).toBe(row);
+    expect(row.querySelector('.page-title-section__tabs')).toContainElement(screen.getByTestId('tabs'));
+  });
+
+  it('moves the title actions onto the tabs row while tabs are set', () => {
+    render(<PageTitleSection title="Untitled" tabs={<div>tabs</div>} actions={<button>View</button>} />);
+
+    expect(document.querySelector('.page-title-section__row .page-title-section__actions')).toBeNull();
+    expect(
+      document.querySelector('.page-title-section__tabs-row > .page-title-section__actions')
+    ).toContainElement(screen.getByRole('button', { name: 'View' }));
+  });
+});
+
 describe('PageTitleSection — the three page-header-controls configurations', () => {
   it('user-owned (e.g. a Note/Folder/Tag): shows the emoji when set, and always mounts More actions', () => {
     render(<PageTitleSection title="My Note" emoji="🍄" onSelectEmoji={vi.fn()} onEditDescription={vi.fn()} />);

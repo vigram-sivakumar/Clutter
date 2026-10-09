@@ -146,7 +146,7 @@ import {
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { formatTaskTitle } from '@features/tasks/helpers/formatTaskTitle';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-import { TasksTabs } from '@features/tasks/page/TasksTabs';
+import { TASKS_TAB_VIEW, TasksTabs, type TasksTabValue } from '@features/tasks/page/TasksTabs';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
@@ -353,6 +353,8 @@ export function PageHost({
   // see CollectionViewMenu's own doc comment.
   // Whether the All Tasks page's New task dialog is open — local UI state, like the description-editor ids above.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  // The Tasks page's selected tab (title section `tabs` slot): which task dataset the list below shows.
+  const [tasksTab, setTasksTab] = useState<TasksTabValue>('all');
   // The task open in the Edit task modal (the same dialog as New task, in edit mode), or none.
   const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
@@ -1682,7 +1684,8 @@ export function PageHost({
     workspace.activeView?.type === 'filtered-view' &&
     TASK_COLLECTION_VIEWS.has(workspace.activeView.view.kind)
   ) {
-    const view = workspace.activeView.view.kind as TasksCollectionView;
+    // The page's own view (what the title, breadcrumbs and icon describe) — the tab below picks the dataset, not the page.
+    const view = workspace.activeView.view.kind as Extract<TasksCollectionView, 'tasks-all' | 'tasks-unscheduled'>;
 
     return (
       <Page
@@ -1695,8 +1698,8 @@ export function PageHost({
         breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />}
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
-        // On All Tasks the tab strip sits below the title (presentation only).
-        belowDescription={view === 'tasks-all' ? <TasksTabs /> : undefined}
+        // On All Tasks the tab strip sits below the title (presentation only), in the title section's tabs slot.
+        tabs={view === 'tasks-all' ? <TasksTabs value={tasksTab} onValueChange={setTasksTab} /> : undefined}
         titleActions={
           // Every task view is the one Task Collection: the same header actions as every collection
           // (Configure + Add), sharing one configuration; Add opens the New task dialog.
@@ -1750,7 +1753,7 @@ export function PageHost({
         }
         body={
           <TasksCollectionBody
-            view={view}
+            view={view === 'tasks-all' ? TASKS_TAB_VIEW[tasksTab] : view}
             tasks={[...vault.tasks()]}
             onToggleComplete={(task) =>
               void application.taskOperations.toggleComplete(task)

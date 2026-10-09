@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Tab, Tabs } from '@components/tabs/Tabs';
 import '../sidebar/Task.css';
+import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
   { value: 'all', label: 'All Tasks' },
@@ -9,17 +9,30 @@ const TASK_TABS = [
   { value: 'unscheduled', label: 'Unscheduled' },
 ] as const;
 
-/**
- * The tab strip below the All Tasks page title. Presentation only for now: it holds just its own selected
- * tab and is not connected to the list, filtering or any task data.
- */
-export function TasksTabs() {
-  const [value, setValue] = useState<string>(TASK_TABS[0].value);
+export type TasksTabValue = (typeof TASK_TABS)[number]['value'];
 
+/** The dataset each tab shows — `tasksForView` decides its membership. */
+export const TASKS_TAB_VIEW: Readonly<Record<TasksTabValue, TaskViewKind>> = {
+  all: 'tasks-all',
+  today: 'tasks-today',
+  upcoming: 'tasks-upcoming',
+  unscheduled: 'tasks-unscheduled',
+};
+
+interface TasksTabsProps {
+  readonly value: TasksTabValue;
+  readonly onValueChange: (value: TasksTabValue) => void;
+}
+
+/**
+ * The tab strip below the Tasks page title (the title section's `tabs` slot). Controlled: the page owns the selected
+ * tab and shows the matching dataset (`TASKS_TAB_VIEW`) in the list below.
+ */
+export function TasksTabs({ value, onValueChange }: TasksTabsProps) {
   return (
     // The wrapper makes the strip hug its tabs instead of stretching.
     <div className="tasks-tabs">
-      <Tabs value={value} onValueChange={setValue}>
+      <Tabs value={value} variant="ghost" onValueChange={(next) => onValueChange(next as TasksTabValue)}>
         {TASK_TABS.map((tab) => (
           <Tab key={tab.value} value={tab.value}>
             {tab.label}

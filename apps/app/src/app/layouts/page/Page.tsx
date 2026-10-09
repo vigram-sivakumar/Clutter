@@ -76,6 +76,12 @@ type PageProps = {
    * below.
    */
   belowDescription?: ReactNode;
+  /**
+   * Forwarded to PageTitleSection's own `tabs` slot — a tab strip below the title and description; while it is
+   * set, the title actions (`titleActions`) sit on the tabs row instead of beside the title. Only the Tasks
+   * page currently supplies one.
+   */
+  tabs?: ReactNode;
   /** Forwarded to PageTitleSection's own `emoji`/`icon`/`showMoreActions` — see that component's doc comment for the three page-header-controls configurations (user-owned, system-reserved, Daily Notes). PageHost decides which applies per page type; Page itself just forwards whatever it's given. */
   emoji?: string;
   icon?: SystemIcon;
@@ -240,6 +246,7 @@ export function Page({
   banner,
   titleActions,
   belowDescription,
+  tabs,
   emoji,
   icon,
   showMoreActions,
@@ -440,6 +447,7 @@ export function Page({
               }
               actions={titleActions}
               belowDescription={belowDescription}
+              tabs={tabs}
               emoji={emoji}
               icon={icon}
               showMoreActions={showMoreActions}
