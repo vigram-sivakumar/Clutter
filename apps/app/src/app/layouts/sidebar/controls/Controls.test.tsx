@@ -27,6 +27,7 @@ afterEach(() => {
 function renderControls() {
   const handlers = {
     onNewNote: vi.fn(),
+    onOpenDailyNote: vi.fn(),
     onNewTask: vi.fn(),
     onNewFolder: vi.fn(),
     onNewTag: vi.fn(),
@@ -85,6 +86,7 @@ describe('Controls creation launcher', () => {
     expect(screen.getByRole('button', { name: 'Create' })).toHaveClass('button--active');
     for (const handler of [
       handlers.onNewNote,
+      handlers.onOpenDailyNote,
       handlers.onNewTask,
       handlers.onNewFolder,
       handlers.onNewTag,
@@ -101,13 +103,18 @@ describe('Controls creation launcher', () => {
 
     expect(screen.getByText('Create New')).toBeInTheDocument();
 
-    const items = screen.getAllByRole('menuitem').map((item) => item.textContent);
-    expect(items).toEqual(['Note', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
+    const items = screen
+      .getAllByRole('menuitem')
+      // The calendar-today icon draws the current day number as text — not part of the label.
+      .map((item) => item.textContent?.replace(/^\d+/, ''));
+    // Daily Note carries its muted trailing metadata ("Today") in the same row.
+    expect(items).toEqual(['Note', 'Daily NoteToday', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
     expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
   it.each([
     ['Note', 'onNewNote'],
+    ['Daily Note', 'onOpenDailyNote'],
     ['Task', 'onNewTask'],
     ['Folder', 'onNewFolder'],
     ['Tag', 'onNewTag'],
@@ -117,9 +124,17 @@ describe('Controls creation launcher', () => {
     const handlers = renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    fireEvent.click(screen.getByRole('menuitem', { name: label }));
+    fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(`^${label}`) }));
 
     expect(handlers[handlerName]).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('shows "Today" as muted trailing metadata on Daily Note, using the shared entry meta slot', () => {
+    renderControls();
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    const row = screen.getByRole('menuitem', { name: /^Daily Note/ });
+    expect(row.querySelector('.entry__meta')).toHaveTextContent('Today');
   });
 });

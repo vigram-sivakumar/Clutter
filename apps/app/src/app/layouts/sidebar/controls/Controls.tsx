@@ -6,6 +6,7 @@ import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { useRef } from 'react';
 
 /**
@@ -26,6 +27,7 @@ import { useRef } from 'react';
  */
 interface ControlsProps {
   readonly onNewNote: () => void;
+  readonly onOpenDailyNote: () => void;
   readonly onNewTask: () => void;
   readonly onNewFolder: () => void;
   readonly onNewTag: () => void;
@@ -35,6 +37,7 @@ interface ControlsProps {
 
 export function Controls({
   onNewNote,
+  onOpenDailyNote,
   onNewTask,
   onNewFolder,
   onNewTag,
@@ -88,6 +91,13 @@ export function Controls({
           <MenuGroupTitle>Create New</MenuGroupTitle>
           <MenuItem leading={<AppIcon icon="note" />} onClick={choose(onNewNote)}>
             Note
+          </MenuItem>
+          <MenuItem
+            leading={<AppIcon icon={getSystemLocationPresentation('daily-notes').icon} />}
+            trailing="Today"
+            onClick={choose(onOpenDailyNote)}
+          >
+            Daily Note
           </MenuItem>
           <MenuItem leading={<AppIcon icon="squareCheckOutline" />} onClick={choose(onNewTask)}>
             Task

@@ -231,6 +231,13 @@ export function Sidebar({
           itself — see SidebarToggle (app-layout/sidebar-toggle). */}
       <Controls
         onNewNote={() => void createNoteInInbox(folderOperations, pageOperations).catch(() => {})}
+        onOpenDailyNote={() =>
+          void pageOperations
+            .openAtPath(DailyNotePath.absoluteFrom(vault.root, new Date()), {
+              type: 'daily-note',
+            })
+            .catch(() => {})
+        }
         onNewTask={() => setCreationDialog('task')}
         onNewFolder={() => setCreationDialog('folder')}
         onNewTag={() => setCreationDialog('tag')}
