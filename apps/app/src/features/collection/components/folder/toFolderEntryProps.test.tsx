@@ -4,32 +4,29 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CollectionCard } from '@features/collection/components/card/CollectionCard';
+import { CollectionEntry } from '@features/collection/components/entry/CollectionEntry';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
 import { folderEntry, type EntryFixture } from '../../testing/collectionEntry';
 
-import { FOLDER_GRID, toFolderCardProps } from './toFolderCardProps';
+import { FOLDER_GRID, toFolderEntryProps } from './toFolderEntryProps';
 
 afterEach(cleanup);
 
 const entry = (fixture: EntryFixture = {}): CollectionEntryModel =>
   folderEntry({ id: 'f1', title: 'Projects', onClick: () => {}, subfolderCount: 2, noteCount: 5, ...fixture });
 
-const draw = (model: CollectionEntryModel) => render(<CollectionCard {...toFolderCardProps(model)} />);
+const draw = (model: CollectionEntryModel) => render(<CollectionEntry {...toFolderEntryProps(model)} />);
 
-describe('toFolderCardProps', () => {
-  it('is a header-only card: the folder icon, its name and its counts — no media, no content', () => {
+describe('toFolderEntryProps', () => {
+  it('is a CollectionEntry cell: the folder icon, its name and its counts as the description', () => {
     const { container } = draw(entry());
     const card = container.firstElementChild!;
 
-    expect(card.querySelector('.card-title-section__title')).toHaveTextContent('Projects');
-    expect(card.querySelector('.card-title-section__leading svg')).not.toBeNull();
-    expect([...card.querySelectorAll('.card-title-section__metadata-item')].map((i) => i.textContent)).toEqual([
-      '2 Subfolders',
-      '5 Notes',
-    ]);
-    expect(card.querySelector('.collection-card__media, .collection-card__content')).toBeNull();
-    expect((card as HTMLElement).style.aspectRatio).toBe('');
+    expect(card).toHaveClass('collection-entry', 'collection-entry--layout-cell', 'collection-entry--folder-card');
+    expect(card.querySelector('.collection-entry__title')).toHaveTextContent('Projects');
+    expect(card.querySelector('.collection-entry__leading svg')).not.toBeNull();
+    expect(card.querySelector('.collection-entry__description')).toHaveTextContent('2 Subfolders · 5 Notes');
+    expect(card.querySelector('.collection-entry__trailing')).toBeNull();
   });
 
   it("draws the folder's emoji instead of the icon", () => {
@@ -40,14 +37,11 @@ describe('toFolderCardProps', () => {
 
   it('a count the entry lacks defaults to zero, but an entry with no counts at all shows just its name', () => {
     const { container, rerender } = draw(entry({ subfolderCount: undefined }));
-    expect([...container.querySelectorAll('.card-title-section__metadata-item')].map((i) => i.textContent)).toEqual([
-      '0 Subfolders',
-      '5 Notes',
-    ]);
+    expect(container.querySelector('.collection-entry__description')).toHaveTextContent('0 Subfolders · 5 Notes');
 
-    rerender(<CollectionCard {...toFolderCardProps(entry({ subfolderCount: undefined, noteCount: undefined }))} />);
-    expect(container.querySelector('.card-title-section__metadata')).toBeNull();
-    expect(container.querySelector('.card-title-section__title')).toHaveTextContent('Projects');
+    rerender(<CollectionEntry {...toFolderEntryProps(entry({ subfolderCount: undefined, noteCount: undefined }))} />);
+    expect(container.querySelector('.collection-entry__description')).toBeNull();
+    expect(container.querySelector('.collection-entry__title')).toHaveTextContent('Projects');
   });
 
   it('is selected when the entry is, and opens the folder on click and Enter', () => {
@@ -55,7 +49,7 @@ describe('toFolderCardProps', () => {
     const { container } = draw(entry({ selected: true, onClick }));
     const card = container.firstElementChild!;
 
-    expect(card).toHaveClass('collection-card--selected');
+    expect(card).toHaveClass('collection-entry--selected');
     fireEvent.click(card);
     fireEvent.keyDown(card, { key: 'Enter' });
     expect(onClick).toHaveBeenCalledTimes(2);

@@ -154,12 +154,12 @@ async function renderDailyNote(isoDate: string): Promise<Application> {
 
 /** The folder cards on the page, by the year / month name they start with (the card also carries counts). */
 function folderCardNames(): string[] {
-  return Array.from(document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)')).map(
+  return Array.from(document.querySelectorAll('.collection-grid--fixed-rows > .collection-entry--folder-card:not(.collection-entry--folder-card-new)')).map(
     (card) => (card.textContent ?? '').match(/^(\d{4}|[A-Za-z]+)/)?.[1] ?? ''
   );
 }
 
-const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-card--empty') !== null;
+const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-entry--folder-card-new') !== null;
 const hasHeaderPlus = () => document.querySelector('button[aria-label="New"]') !== null;
 const noteRows = () =>
   document.querySelectorAll('.collection-table__body .collection-table-row:not(.collection-table-row--new-item), .collection-list .collection-entry').length;
@@ -289,7 +289,7 @@ describe('Daily Notes collection pages (flag off)', () => {
     const before = folderCardNames();
     expect(before.length).toBeGreaterThan(0);
 
-    fireEvent.click(document.querySelector('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)')!);
+    fireEvent.click(document.querySelector('.collection-grid--fixed-rows > .collection-entry--folder-card:not(.collection-entry--folder-card-new)')!);
     await flush();
 
     await waitFor(() => expect(folderCardNames()).toEqual(before));

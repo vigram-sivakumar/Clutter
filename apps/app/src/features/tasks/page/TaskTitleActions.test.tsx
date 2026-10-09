@@ -25,15 +25,31 @@ afterAll(() => {
 
 afterEach(cleanup);
 
+const wrapper = () => document.querySelector('.collection-entry__actions')!;
+
 const renderActions = (onChangeDueDate = vi.fn()) => {
   render(<TaskTitleActions dueDate="2026-08-20" onEdit={vi.fn()} onChangeDueDate={onChangeDueDate} />);
 
   return { onChangeDueDate, button: screen.getByRole('button', { name: 'Change due date' }) };
 };
 
-/** A pointer click carries `detail >= 1`; a keyboard activation (Enter/Space) dispatches a click with `detail` 0. */
-const pointerOpen = (button: HTMLElement) => fireEvent.click(button, { detail: 1 });
-const keyboardOpen = (button: HTMLElement) => fireEvent.click(button, { detail: 0 });
+/**
+ * A real pointer press: mousedown (whose default action focuses the button — jsdom doesn't do that on its own, so it is
+ * emulated here unless the handler prevented it, as a browser would), then a click with `detail >= 1`.
+ * Without this the focus a pointer press leaves behind — the cause of the actions staying revealed after the picker
+ * closed (`:focus-within`) — is invisible to the tests.
+ */
+const pointerOpen = (button: HTMLElement) => {
+  if (fireEvent.mouseDown(button)) {
+    button.focus();
+  }
+  fireEvent.click(button, { detail: 1 });
+};
+/** A keyboard activation (Enter/Space) on a button that Tab already focused: a click with `detail` 0. */
+const keyboardOpen = (button: HTMLElement) => {
+  button.focus();
+  fireEvent.click(button, { detail: 0 });
+};
 
 describe('TaskTitleActions — what closing the due-date picker leaves behind', () => {
   it('open with the pointer → Escape: the picker closes and focus is NOT left on the button (so nothing pins the actions revealed)', () => {
@@ -102,8 +118,46 @@ describe('TaskTitleActions — what closing the due-date picker leaves behind', 
   });
 });
 
+describe('a pointer press never takes focus (so nothing can pin the actions revealed after the picker closes)', () => {
+  it.each(['Edit task', 'Change due date'])('mousedown on "%s" is default-prevented — the browser does not focus it', (name) => {
+    renderActions();
+
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name }))).toBe(false);
+  });
+
+  it('after any pointer dismissal, focus is not left anywhere inside the actions — only hover keeps them revealed', () => {
+    for (const dismiss of [
+      () => fireEvent.keyDown(document, { key: 'Escape' }),
+      () => fireEvent.click(document.querySelector('.overlay__backdrop')!),
+      () => fireEvent.click(screen.getByText('15')),
+      () => fireEvent.click(screen.getByText('Clear date')),
+    ]) {
+      const { button } = renderActions();
+
+      pointerOpen(button);
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+      dismiss();
+
+      const actions = document.querySelector('.collection-entry__actions')!;
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+      expect(actions.contains(document.activeElement)).toBe(false);
+      expect(actions).not.toHaveAttribute('data-keyboard-active');
+      cleanup();
+    }
+  });
+
+  it('while the picker is open the actions are kept revealed by the open picker itself (no React visibility state)', () => {
+    const { button } = renderActions();
+
+    pointerOpen(button);
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(wrapper()).not.toHaveAttribute('data-keyboard-active');
+    expect(wrapper()).not.toHaveAttribute('style');
+  });
+});
+
 describe('keyboard use with the actions `display: none` unless revealed', () => {
-  const wrapper = () => document.querySelector('.collection-entry__actions')!;
 
   it('a keyboard open keeps the actions displayed (data-keyboard-active) so closing can return focus to the button', () => {
     const { button } = renderActions();

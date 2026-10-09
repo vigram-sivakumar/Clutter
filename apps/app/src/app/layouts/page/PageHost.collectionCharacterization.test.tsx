@@ -165,7 +165,7 @@ async function renderFolderSavedAs(path: string, savedEntry: Record<string, unkn
 const tableHeaders = () =>
   [...document.querySelectorAll('.collection-table__header-cell')].map((cell) => cell.textContent);
 
-const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-card--empty') !== null;
+const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-entry--folder-card-new') !== null;
 const newButton = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]');
 const hasTable = () => document.querySelector('.collection-table') !== null;
 // The notes in a List — not its trailing "New Note" action row.
@@ -249,7 +249,7 @@ describe('CURRENT BEHAVIOR — a persisted layout applies per folder, to Inbox l
     await renderFolder(INBOX, 'card');
 
     expect(hasTable()).toBe(false);
-    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty), .collection-entry--folder-card:not(.collection-entry--folder-card-new)').length).toBeGreaterThan(0);
     expect(noteRows()).toBe(0);
   });
 });
@@ -259,7 +259,7 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
   // card, so a folder created there never appeared. Templates is now an ordinary folder hierarchy that can
   // create notes and folders (and is not offered "From template").
   const folderCards = () =>
-    document.querySelectorAll('.collection-grid--fixed-rows > .collection-card:not(.collection-card--empty)');
+    document.querySelectorAll('.collection-grid--fixed-rows > .collection-entry--folder-card:not(.collection-entry--folder-card-new)');
 
   it('Templates are flat: no create-folder card — a folder already on disk is still listed, never created from here', async () => {
     await renderFolder(TEMPLATES);
@@ -300,7 +300,7 @@ describe('FIXED BY THE ARCHIVE MIGRATION — the Archive has no Card', () => {
 
     expect(hasTable()).toBe(true);
     expect(bodyHasText('Old note')).toBe(true);
-    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)')).toHaveLength(0);
+    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty), .collection-entry--folder-card:not(.collection-entry--folder-card-new)')).toHaveLength(0);
   });
 
   it('a persisted List layout on the Archive is honoured', async () => {
@@ -314,7 +314,7 @@ describe('FIXED BY THE ARCHIVE MIGRATION — the Archive has no Card', () => {
     await renderFolder(PROJECTS, 'card');
 
     expect(noteRows()).toBe(0);
-    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty)').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.collection-card:not(.collection-card--empty), .collection-entry--folder-card:not(.collection-entry--folder-card-new)').length).toBeGreaterThan(0);
   });
 });
 

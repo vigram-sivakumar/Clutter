@@ -35,7 +35,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
     );
 
     expect(container.querySelector('.collection-list')).toBeInTheDocument();
-    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.collection-entry--folder-card')).toBeInTheDocument();
     expect(getByText('My note').closest('.collection-entry')).toBeInTheDocument();
   });
 
@@ -64,7 +64,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       <CollectionBody folders={[folderEntry({ onClick })]} viewMode="list" />
     );
 
-    fireEvent.click(getByText('My Folder').closest('.collection-card')!);
+    fireEvent.click(getByText('My Folder').closest('.collection-entry--folder-card')!);
 
     expect(onClick).toHaveBeenCalled();
   });
@@ -77,8 +77,7 @@ describe('CollectionBody — List mode (viewMode="list")', () => {
       />
     );
 
-    expect(getByText('2 Subfolders')).toBeInTheDocument();
-    expect(getByText('5 Notes')).toBeInTheDocument();
+    expect(getByText('2 Subfolders · 5 Notes')).toBeInTheDocument();
   });
 
   it('renders an empty collection with no rows and no crash', () => {
@@ -106,7 +105,7 @@ describe('CollectionBody — Table mode (the default)', () => {
     expect(getByText('My note').closest('.collection-table-row')).toBeInTheDocument();
     // Folders don't switch with viewMode — they have no table columns'
     // worth of data, so they stay as cards in their grid.
-    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.collection-entry--folder-card')).toBeInTheDocument();
     expect(container.querySelector('.collection-grid')).toBeInTheDocument();
   });
 
@@ -169,7 +168,7 @@ describe('CollectionBody — Card mode (viewMode="card")', () => {
     expect(container.querySelector('.collection-list')).not.toBeInTheDocument();
     expect(container.querySelector('.collection-table')).not.toBeInTheDocument();
     expect(getByText('My note').closest('.collection-card')).toBeInTheDocument();
-    expect(getByText('My Folder').closest('.collection-card')).toBeInTheDocument();
+    expect(getByText('My Folder').closest('.collection-entry--folder-card')).toBeInTheDocument();
   });
 
   it('clicking a card fires that note\'s own onClick', () => {
@@ -390,8 +389,7 @@ describe('CollectionBody — Properties visibility', () => {
     );
 
     expect(getByText('My Folder')).toBeInTheDocument();
-    expect(getByText('1 Subfolders')).toBeInTheDocument();
-    expect(getByText('2 Notes')).toBeInTheDocument();
+    expect(getByText('1 Subfolders · 2 Notes')).toBeInTheDocument();
   });
 
   it('Table mode: an unchecked column removes its header cell entirely, not just its row values', () => {
@@ -583,7 +581,7 @@ describe('CollectionBody — foldersInGivenOrder', () => {
     folderEntry({ id: 'c', title: '2025' }),
   ];
   const titles = (container: HTMLElement) =>
-    Array.from(container.querySelectorAll('.collection-card .card-title-section__title')).map((title) => title.textContent);
+    Array.from(container.querySelectorAll('.collection-entry--folder-card:not(.collection-entry--folder-card-new) .collection-entry__title')).map((title) => title.textContent);
 
   it('sorts folders by the Configure menu\'s sort by default (name, ascending here)', () => {
     const { container } = render(

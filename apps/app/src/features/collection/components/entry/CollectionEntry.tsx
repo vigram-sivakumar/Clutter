@@ -27,8 +27,8 @@ export interface CollectionEntryProps extends Omit<
   titleContent?: ReactNode;
   description?: string;
   /**
-   * Drawn right after the title, as its SIBLING inside the content — never inside the title. The host supplies the
-   * `collection-entry__actions` element itself (Edit, a date picker…); see TaskTitleActions.
+   * Drawn right after the body (title + description), as its SIBLING in the entry's main row — never inside the body
+   * or the title. The host supplies the `collection-entry__actions` element itself (Edit, a date picker…); see TaskTitleActions.
    */
   actions?: ReactNode;
   trailing?: ReactNode;
@@ -58,7 +58,11 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
     return (
       <div
         {...props}
-        {...buildActivationProps<HTMLDivElement>({ onActivate: onClick, role, tabIndex })}
+        {...buildActivationProps<HTMLDivElement>({
+          onActivate: onClick,
+          role,
+          tabIndex,
+        })}
         ref={ref}
         className={[
           'collection-entry',
@@ -69,13 +73,24 @@ export const CollectionEntry = forwardRef<HTMLDivElement, CollectionEntryProps>(
           .filter(Boolean)
           .join(' ')}
       >
-        {leading && <div className="collection-entry__leading">{leading}</div>}
-        <div className="collection-entry__content">
-          <div className="collection-entry__title">{titleContent ?? title}</div>
-          {actions}
-          {description && (
-            <div className="collection-entry__description">{description}</div>
+        <div className="collection-entry__main">
+          {leading && (
+            <div className="collection-entry__leading">{leading}</div>
           )}
+          {(titleContent || title) && (
+            <div className="collection-entry__body">
+              <div className="collection-entry__title">
+                {titleContent ?? title}
+              </div>
+
+              {description && (
+                <div className="collection-entry__description">
+                  {description}
+                </div>
+              )}
+            </div>
+          )}
+          {actions}
         </div>
         {trailing && (
           <div className="collection-entry__trailing">{trailing}</div>

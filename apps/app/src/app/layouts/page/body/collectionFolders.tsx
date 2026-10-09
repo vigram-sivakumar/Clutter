@@ -5,9 +5,8 @@ import { EditableText } from '@components/editable-text/EditableText';
 import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
-import { CollectionCard } from '@features/collection/components/card/CollectionCard';
-import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
-import { FOLDER_GRID, toFolderCardProps } from '@features/collection/components/folder/toFolderCardProps';
+import { CollectionEntry } from '@features/collection/components/entry/CollectionEntry';
+import { FOLDER_GRID, toFolderEntryProps } from '@features/collection/components/folder/toFolderEntryProps';
 
 /**
  * A folder being created, inline: the page shows a card with a focused, empty name field and creates
@@ -44,37 +43,36 @@ function NewFolderCard({ creation }: { creation: FolderCreation }) {
   const placeholder = getFolderTitlePlaceholder();
 
   return (
-    <CollectionCard
-      header={
-        <CardTitleSection
-          icon="folder"
-          titleContent={
-            // Only Enter commits, and the editor does not say which key ended a session before its
-            // blur callbacks run, so the key is noted on the way in.
-            <span className="collection-new-folder__name" onKeyDownCapture={(event) => (enteredRef.current = event.key === 'Enter')}>
-              <EditableText
-                value=""
-                placeholder={placeholder}
-                className="editable-text--nowrap"
-                autoFocus
-                onCommit={(typed) => {
-                  const name = typed.trim();
-                  if (name !== '' && (!isAllowedFolderName(name) || (creation.canCreate && !creation.canCreate(name)))) {
-                    enteredRef.current = false;
-                    return false;
-                  }
-                  typedRef.current = name;
-                }}
-                onEditingEnd={() => {
-                  if (settledRef.current) return;
-                  settledRef.current = true;
-                  if (enteredRef.current) creation.onCommit(typedRef.current || placeholder);
-                  else creation.onCancel();
-                }}
-              />
-            </span>
-          }
-        />
+    <CollectionEntry
+      layout="cell"
+      className="collection-entry--folder-card"
+      leading={<AppIcon icon="folder" />}
+      title=""
+      titleContent={
+        // Only Enter commits, and the editor does not say which key ended a session before its
+        // blur callbacks run, so the key is noted on the way in.
+        <span className="collection-new-folder__name" onKeyDownCapture={(event) => (enteredRef.current = event.key === 'Enter')}>
+          <EditableText
+            value=""
+            placeholder={placeholder}
+            className="editable-text--nowrap"
+            autoFocus
+            onCommit={(typed) => {
+              const name = typed.trim();
+              if (name !== '' && (!isAllowedFolderName(name) || (creation.canCreate && !creation.canCreate(name)))) {
+                enteredRef.current = false;
+                return false;
+              }
+              typedRef.current = name;
+            }}
+            onEditingEnd={() => {
+              if (settledRef.current) return;
+              settledRef.current = true;
+              if (enteredRef.current) creation.onCommit(typedRef.current || placeholder);
+              else creation.onCancel();
+            }}
+          />
+        </span>
       }
     />
   );
@@ -94,15 +92,20 @@ export function renderFolderGrid(
   return (
     <CollectionGrid {...FOLDER_GRID}>
       {entries.map((entry) => (
-        <CollectionCard key={entry.id} {...toFolderCardProps(entry)} />
+        <CollectionEntry key={entry.id} {...toFolderEntryProps(entry)} />
       ))}
       {creation ? (
         <NewFolderCard creation={creation} />
       ) : (
         onCreateFolder && (
-          <CollectionCard isEmpty aria-label="New folder" onClick={onCreateFolder}>
-            <AppIcon icon="plus" />
-          </CollectionCard>
+          <CollectionEntry
+            layout="cell"
+            className="collection-entry--folder-card collection-entry--folder-card-new"
+            leading={<AppIcon icon="plus" />}
+            title=""
+            aria-label="New folder"
+            onClick={onCreateFolder}
+          />
         )
       )}
     </CollectionGrid>

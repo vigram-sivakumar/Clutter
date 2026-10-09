@@ -25,9 +25,10 @@ export function TaskTitleActions({
 }: TaskTitleActionsProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const dateButtonRef = useRef<HTMLButtonElement>(null);
-  // How the picker was opened. Closing hands focus back to the button only for a keyboard open: after a pointer open it would
-  // leave the button focused, so the row's actions would stay revealed after the pointer left. Every dismissal path
-  // (Escape, outside click, choosing or clearing a date) closes through `closePicker`.
+  // How the picker was opened. Closing hands focus back to the button only for a keyboard open: handing it back after a
+  // pointer open would leave the button focused, so the row's actions would stay revealed (`:focus-within`) after the
+  // pointer left. Every dismissal path (Escape, outside click, choosing or clearing a date) closes through `closePicker`.
+  // That only works if a pointer press never took focus in the first place — see `onMouseDown` on the wrapper below.
   const openedByKeyboardRef = useRef(false);
   // The actions are `display: none` unless revealed, and a `display: none` button can't take focus back. A keyboard open therefore keeps
   // them displayed (`data-keyboard-active`) from the open until focus leaves them, so closing the picker can return focus to its button.
@@ -44,6 +45,10 @@ export function TaskTitleActions({
       <div
         className="collection-entry__actions"
         data-keyboard-active={keyboardActive ? '' : undefined}
+        // A pointer press must not focus a button here (the browser's default on mousedown): the Overlay never moves focus
+        // off the trigger, so a pointer-focused button would still hold focus after the picker closes and pin the actions
+        // revealed through `:focus-within` once the pointer leaves. Keyboard focus (Tab, Enter) is unaffected.
+        onMouseDown={(event) => event.preventDefault()}
         onBlur={(event) => {
           // Focus moving into the picker (still open) or between the two buttons keeps it; leaving them ends it.
           if (!pickerOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) {

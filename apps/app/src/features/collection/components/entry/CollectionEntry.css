@@ -3,7 +3,7 @@
   align-items: center;
   width: 100%;
   min-height: var(--height-lg);
-  gap: var(--space-6);
+  gap: var(--space-16);
   border-radius: var(--radius-lg);
   padding-inline: var(--space-6);
   color: var(--foreground-secondary);
@@ -14,18 +14,15 @@
     background-color 120ms ease,
     color 120ms ease;
 }
-.collection-entry--layout-cell {
-  padding-block: var(--space-4);
-}
 
-/* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
-.collection-entry--layout-list:hover {
-  background: var(--state-hover-medium);
-}
-
-/* Only an entry with an onClick gets a role (see buildActivationProps). */
-.collection-entry[role='button'] {
-  cursor: pointer;
+.collection-entry__main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-6);
+  flex: 1;
+  min-width: 0;
 }
 
 .collection-entry__leading {
@@ -34,7 +31,6 @@
   justify-content: center;
   gap: var(--space-12);
 
-  height: 100%;
   min-height: 20px;
   min-width: 20px;
   flex-shrink: 0;
@@ -43,17 +39,13 @@
 }
 .collection-entry--layout-cell .collection-entry__leading {
   /* Full height of the entry, icon at the top. `height: 100%` can't resolve against an auto-height
-     parent and, being not `auto`, would also stop `align-self: stretch` — so it is reset here. */
+  parent and, being not `auto`, would also stop `align-self: stretch` — so it is reset here. */
   height: auto;
   align-self: stretch;
   align-items: flex-start;
 }
-.collection-entry--layout-cell .collection-entry__leading > * {
-  height: 20px;
-}
-.collection-entry__content {
-  position: relative;
 
+.collection-entry__body {
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -63,12 +55,6 @@
 
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.collection-entry--layout-cell .collection-entry__content {
-  display: flex;
-  align-items: stretch;
-  flex-direction: column;
-  gap: var(--space-0);
 }
 
 .collection-entry__title {
@@ -106,15 +92,74 @@
   color: var(--foreground-tertiary);
 }
 
+/* Variants */
+/* List: hug content, but shrink when needed */
+.collection-entry--layout-list .collection-entry__body {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Cell: fill available width */
+.collection-entry--layout-cell .collection-entry__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.collection-entry--layout-cell .collection-entry__body {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.collection-entry--layout-cell {
+  padding-block: var(--space-6);
+}
+
+/* Folder Cards */
+.collection-entry--folder-card {
+  background: var(--surface-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-inset-thin-strong);
+}
+.collection-entry--folder-card-new {
+  color: var(--foreground-tertiary);
+  background: transparent;
+  box-shadow: var(--shadow-inset-thin);
+}
+.collection-entry--folder-card-new .collection-entry__main {
+  justify-content: center;
+}
+
+/* Interaction States */
+
+/* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
+.collection-entry--layout-list:hover,
+.collection-entry--folder-card-new:hover {
+  background: var(--state-hover-medium);
+}
+.collection-entry--folder-card:hover {
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle) 99%,
+    rgb(var(--state-base)) 1%
+  );
+}
+/* Actions */
+/* Only an entry with an onClick gets a role (see buildActivationProps). */
+.collection-entry[role='button'] {
+  cursor: pointer;
+}
+
 /* Actions drawn beside the title (Edit, a date picker…), for any collection view. `display: none` until the entry is
-   hovered or has focus, one of its controls has its picker open, or a keyboard open is still using it
-   (`data-keyboard-active`). A table's name cell (layout cell) is revealed by its ROW being hovered or focused — its
-   parent — so no table class is named here.
-   Focus is `:focus-within`, deliberately NOT `:focus-visible`/`:has(:focus-visible)`: a `display: none` button can't take
-   focus, so while Tab moves focus from the entry onto its buttons the entry must keep matching or the buttons vanish
-   mid-move and focus is lost (measured in the browser). What `:focus-within` would pin — focus left on a button by the
-   pointer — is prevented where it starts: a host must not hand focus back to a control after a pointer-opened overlay
-   closes (see TaskTitleActions). */
+hovered or has focus, one of its controls has its picker open, or a keyboard open is still using it
+(`data-keyboard-active`). A table's name cell (layout cell) is revealed by its ROW being hovered or focused — its
+parent — so no table class is named here.
+Focus is `:focus-within`, deliberately NOT `:focus-visible`/`:has(:focus-visible)`: a `display: none` button can't take
+focus, so while Tab moves focus from the entry onto its buttons the entry must keep matching or the buttons vanish
+mid-move and focus is lost (measured in the browser). What `:focus-within` would pin — focus left on a button by the
+pointer — is prevented where it starts: a host must not hand focus back to a control after a pointer-opened overlay
+closes (see TaskTitleActions). */
 .collection-entry__actions {
   display: none;
   flex: none;

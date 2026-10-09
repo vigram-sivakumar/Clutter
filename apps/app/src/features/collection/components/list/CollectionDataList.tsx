@@ -21,7 +21,7 @@ export interface CollectionDataListItem {
 
   readonly description?: string;
 
-  /** Drawn right after the title, as its sibling (see `CollectionEntry`'s `actions`). */
+  /** Drawn right after the title and description, as the body's sibling (see `CollectionEntry`'s `actions`). */
   readonly actions?: ReactNode;
 
   /** The muted trailing values (dates, a kind label), one per entry; none draws no metadata. */

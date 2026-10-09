@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,51 +16,97 @@ import { CollectionEntry } from './CollectionEntry';
 
 afterEach(cleanup);
 
-const entry = (container: HTMLElement) => container.firstElementChild as HTMLElement;
+const entry = (container: HTMLElement) =>
+  container.firstElementChild as HTMLElement;
 
 describe('CollectionEntry — slots', () => {
   it('draws the title, and titleContent in its place', () => {
     const { rerender } = render(<CollectionEntry title="Plan" />);
     expect(screen.getByText('Plan')).toHaveClass('collection-entry__title');
 
-    rerender(<CollectionEntry title="Hidden" titleContent={<input aria-label="Rename" />} />);
+    rerender(
+      <CollectionEntry
+        title="Hidden"
+        titleContent={<input aria-label="Rename" />}
+      />
+    );
     expect(screen.queryByText('Hidden')).toBeNull();
-    expect(screen.getByLabelText('Rename').closest('.collection-entry__title')).not.toBeNull();
+    expect(
+      screen.getByLabelText('Rename').closest('.collection-entry__title')
+    ).not.toBeNull();
   });
 
   it('leading is a slot: an AppIcon (or its emoji) or any node, drawn before the content — and absent without one', () => {
-    const { container, rerender } = render(<CollectionEntry title="Plan" leading={<AppIcon icon="note" />} />);
-    expect(container.querySelector('.collection-entry__leading svg')).not.toBeNull();
+    const { container, rerender } = render(
+      <CollectionEntry title="Plan" leading={<AppIcon icon="note" />} />
+    );
+    expect(
+      container.querySelector('.collection-entry__leading svg')
+    ).not.toBeNull();
 
     rerender(<CollectionEntry title="Plan" leading={<AppIcon emoji="🌊" />} />);
-    expect(container.querySelector('.collection-entry__leading .emoji-icon')).toHaveTextContent('🌊');
+    expect(
+      container.querySelector('.collection-entry__leading .emoji-icon')
+    ).toHaveTextContent('🌊');
 
-    rerender(<CollectionEntry title="Plan" leading={<span data-testid="thumb" />} />);
-    expect(container.querySelector('.collection-entry__leading [data-testid="thumb"]')).not.toBeNull();
+    rerender(
+      <CollectionEntry title="Plan" leading={<span data-testid="thumb" />} />
+    );
+    expect(
+      container.querySelector(
+        '.collection-entry__leading [data-testid="thumb"]'
+      )
+    ).not.toBeNull();
 
     rerender(<CollectionEntry title="Plan" />);
     expect(container.querySelector('.collection-entry__leading')).toBeNull();
   });
 
-  it('draws the description line only when there is one', () => {
-    const { container, rerender } = render(<CollectionEntry title="Plan" description="Q4 goals" />);
-    expect(container.querySelector('.collection-entry__description')).toHaveTextContent('Q4 goals');
+  it('draws the body (title + description) only when there is a title or titleContent — an icon-only entry has none', () => {
+    const { container, rerender } = render(<CollectionEntry title="" leading={<AppIcon icon="plus" />} />);
+    expect(container.querySelector('.collection-entry__body')).toBeNull();
+    expect(container.querySelector('.collection-entry__leading')).not.toBeNull();
 
-    rerender(<CollectionEntry title="Plan" />);
-    expect(container.querySelector('.collection-entry__description')).toBeNull();
+    // A name that is only a titleContent node (a task's markdown title, a rename editor) still draws.
+    rerender(<CollectionEntry title="" titleContent={<span>Rich</span>} />);
+    expect(container.querySelector('.collection-entry__title')).toHaveTextContent('Rich');
   });
 
-  it('actions is a slot drawn right after the title as its SIBLING under the content — never inside the title', () => {
-    const { container } = render(
-      <CollectionEntry title="Plan" description="Q4 goals" actions={<div className="collection-entry__actions"><button type="button">Edit</button></div>} />
+  it('draws the description line only when there is one', () => {
+    const { container, rerender } = render(
+      <CollectionEntry title="Plan" description="Q4 goals" />
     );
-    const content = container.querySelector('.collection-entry__content')!;
-    const title = content.querySelector('.collection-entry__title')!;
-    const actions = content.querySelector('.collection-entry__actions')!;
+    expect(
+      container.querySelector('.collection-entry__description')
+    ).toHaveTextContent('Q4 goals');
 
-    expect(actions.parentElement).toBe(content);
-    expect(title.nextElementSibling).toBe(actions);
-    expect(actions.nextElementSibling).toHaveClass('collection-entry__description');
+    rerender(<CollectionEntry title="Plan" />);
+    expect(
+      container.querySelector('.collection-entry__description')
+    ).toBeNull();
+  });
+
+  it('actions is a slot drawn right after the body (title + description) as its SIBLING in the main row — never inside the body or the title', () => {
+    const { container } = render(
+      <CollectionEntry
+        title="Plan"
+        description="Q4 goals"
+        actions={
+          <div className="collection-entry__actions">
+            <button type="button">Edit</button>
+          </div>
+        }
+      />
+    );
+    const main = container.querySelector('.collection-entry__main')!;
+    const body = main.querySelector('.collection-entry__body')!;
+    const title = body.querySelector('.collection-entry__title')!;
+    const actions = main.querySelector('.collection-entry__actions')!;
+
+    expect(actions.parentElement).toBe(main);
+    expect(body.nextElementSibling).toBe(actions);
+    expect(title.nextElementSibling).toHaveClass('collection-entry__description');
+    expect(body.contains(actions)).toBe(false);
     expect(title.contains(actions)).toBe(false);
   });
 
@@ -66,12 +118,21 @@ describe('CollectionEntry — slots', () => {
 
   it('trailing is a slot for everything else, and absent without one', () => {
     const { container, rerender } = render(
-      <CollectionEntry title="Plan" trailing={<><span>Today</span><span>12 KB</span></>} />
+      <CollectionEntry
+        title="Plan"
+        trailing={
+          <>
+            <span>Today</span>
+            <span>12 KB</span>
+          </>
+        }
+      />
     );
-    expect([...container.querySelectorAll('.collection-entry__trailing > span')].map((s) => s.textContent)).toEqual([
-      'Today',
-      '12 KB',
-    ]);
+    expect(
+      [...container.querySelectorAll('.collection-entry__trailing > span')].map(
+        (s) => s.textContent
+      )
+    ).toEqual(['Today', '12 KB']);
 
     rerender(<CollectionEntry title="Plan" />);
     expect(container.querySelector('.collection-entry__trailing')).toBeNull();
@@ -79,9 +140,12 @@ describe('CollectionEntry — slots', () => {
 });
 
 describe('CollectionEntry — layouts and state', () => {
-  it('list is the default layout; cell is the table\'s name cell', () => {
+  it("list is the default layout; cell is the table's name cell", () => {
     const { container, rerender } = render(<CollectionEntry title="Plan" />);
-    expect(entry(container)).toHaveClass('collection-entry', 'collection-entry--layout-list');
+    expect(entry(container)).toHaveClass(
+      'collection-entry',
+      'collection-entry--layout-list'
+    );
 
     rerender(<CollectionEntry title="Plan" layout="cell" />);
     expect(entry(container)).toHaveClass('collection-entry--layout-cell');
@@ -89,7 +153,9 @@ describe('CollectionEntry — layouts and state', () => {
   });
 
   it('marks a selected entry with one class', () => {
-    const { container, rerender } = render(<CollectionEntry title="Plan" isSelected />);
+    const { container, rerender } = render(
+      <CollectionEntry title="Plan" isSelected />
+    );
     expect(entry(container)).toHaveClass('collection-entry--selected');
 
     rerender(<CollectionEntry title="Plan" />);
@@ -99,7 +165,13 @@ describe('CollectionEntry — layouts and state', () => {
   it('forwards ref, merges className and passes attributes through', () => {
     const ref = createRef<HTMLDivElement>();
     const { container } = render(
-      <CollectionEntry ref={ref} title="Plan" className="mine" data-resource-id="r1" aria-label="Plan entry" />
+      <CollectionEntry
+        ref={ref}
+        title="Plan"
+        className="mine"
+        data-resource-id="r1"
+        aria-label="Plan entry"
+      />
     );
 
     expect(ref.current).toBe(entry(container));
@@ -119,7 +191,9 @@ describe('CollectionEntry — interaction', () => {
 
   it('with onClick it is one focusable button that opens on click, Enter and Space', () => {
     const onClick = vi.fn();
-    const { container } = render(<CollectionEntry title="Plan" onClick={onClick} />);
+    const { container } = render(
+      <CollectionEntry title="Plan" onClick={onClick} />
+    );
 
     expect(entry(container)).toHaveAttribute('role', 'button');
     expect(entry(container)).toHaveAttribute('tabindex', '0');
@@ -137,7 +211,11 @@ describe('CollectionEntry — interaction', () => {
       <CollectionEntry
         title="Plan"
         onClick={onOpen}
-        trailing={<button type="button" onClick={onThumb}>Change cover</button>}
+        trailing={
+          <button type="button" onClick={onThumb}>
+            Change cover
+          </button>
+        }
       />
     );
 
@@ -147,7 +225,9 @@ describe('CollectionEntry — interaction', () => {
   });
 
   it('lets a caller override the role', () => {
-    const { container } = render(<CollectionEntry title="Plan" onClick={() => {}} role="link" />);
+    const { container } = render(
+      <CollectionEntry title="Plan" onClick={() => {}} role="link" />
+    );
 
     expect(entry(container)).toHaveAttribute('role', 'link');
     expect(createEvent.click(entry(container))).toBeTruthy();

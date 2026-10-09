@@ -36,7 +36,7 @@ import { PageBody } from './Page.Body';
  *    of CollectionCards. Folders have no table rows (they carry no table
  *    columns' worth of data), which is why they don't switch with the notes
  *    section. What a note or folder shows is decided by the domain mappers
- *    (toNoteCardProps, toNoteListItem, toNoteTableRow, toFolderCardProps);
+ *    (toNoteCardProps, toNoteListItem, toNoteTableRow, toFolderEntryProps);
  *    drawing it is the generic Collection primitives' job.
  */
 /**
