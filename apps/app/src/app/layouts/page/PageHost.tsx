@@ -71,7 +71,6 @@ import { createEmbedHeadingSuggester } from '@app/layouts/page/headingSuggestion
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
 import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
-import { createWikiLinkPreviewRenderer } from '@app/layouts/page/renderWikiLinkPreview';
 import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
 import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
@@ -590,7 +589,7 @@ export function PageHost({
   const getTagSuggestions = createTagSuggester(vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveDate = createDateResolver(vault, application.pageOperations);
-  // The one resolver set every note preview draws through — the floating WikiLink preview and every collection body
+  // The one resolver set every note preview draws through — every collection body
   // (the Card previews and a Tag collection's matching-content lines), so a wiki-link, embed or tag in a line
   // resolves to the same display label everywhere, as in the Tags sidebar.
   const notePreviewResolvers: NotePreviewResolvers = {
@@ -601,12 +600,6 @@ export function PageHost({
     resolveImageSrc,
     resolveCoverImage: (cover) => application.resolveCoverImageForDisplay(cover),
   };
-  // Same per-render glue: the floating WikiLink preview's content (settled hovers only).
-  const renderWikiLinkPreview = createWikiLinkPreviewRenderer(
-    vault,
-    application.effectivePageState,
-    notePreviewResolvers
-  );
   // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
   // this exact same resolveDate/openAtPath flow — the same one the
   // editor's inline date links and Sidebar's calendar already open
@@ -2256,7 +2249,6 @@ export function PageHost({
               onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
               resolveWikiLink={resolveWikiLink}
-              renderWikiLinkPreview={renderWikiLinkPreview}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
               getEmbedSuggestions={getEmbedSuggestions}
               getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
@@ -2522,7 +2514,6 @@ export function PageHost({
             onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
             resolveWikiLink={editorResolveWikiLink}
-              renderWikiLinkPreview={renderWikiLinkPreview}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
             getEmbedSuggestions={getEmbedSuggestions}
             getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}

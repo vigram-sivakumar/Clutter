@@ -57,7 +57,6 @@ import { wikiLinkAutocomplete } from './wikilink/wikiLinkAutocomplete';
 import { embedAutocomplete } from './embed/embedAutocomplete';
 import { wikiLinkLivePreview } from './wikilink/wikiLinkLivePreview';
 import { wikiLinkMouseHandlers } from './wikilink/wikiLinkMouseHandlers';
-import { wikiLinkHoverPreview, type WikiLinkHoverHandlers } from './wikilink/wikiLinkHoverPreview';
 import type { ResolveEmbedImage } from './embed/embedImageResolution';
 import type { ResolveEmbedPdf } from './pdf/embedPdfResolution';
 import type { ResolvePageEmbed } from '../../render/blocks/pageEmbedResolution';
@@ -133,8 +132,6 @@ export interface BuildEditorExtensionsOptions {
   readonly onOpenPage?: () => ((pageId: string) => void) | undefined;
   /** A note embed's own "More actions" trigger (Turn into WikiLink/Remove) — see `NoteEmbedMoreActions.tsx`'s doc comment. Unused when `resolvePageEmbed` is omitted. */
   readonly onOpenNoteEmbedMenu?: () => OnOpenNoteEmbedMenu | undefined;
-  /** Hover reporting for resolved WikiLinks (the floating note preview) — see `wikiLinkHoverPreview.ts`. Omitted (never wired) for a read-only nested view. */
-  readonly onWikiLinkHover?: () => WikiLinkHoverHandlers | undefined;
   /** A fenced code block's own "More actions" trigger (Format code, Change Language, Download, Remove) — see `FencedCodeActionsMenu.tsx`'s doc comment. Omitted (never wired) for a read-only nested view — every one of those actions mutates the document, none has meaning once editing is blocked. */
   readonly onOpenFencedCodeMenu?: () => OnOpenFencedCodeMenu | undefined;
   /** Opens the "Paste as" menu for a just-pasted plain HTTPS URL (Markdown link / URL) — see `UrlPasteMenu.tsx`'s doc comment. Omitted for a read-only nested view — pasting has no meaning once editing is blocked. */
@@ -256,7 +253,6 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     onOpenPdfMenu,
     onOpenPage,
     onOpenNoteEmbedMenu,
-    onWikiLinkHover,
     onOpenFencedCodeMenu,
     onOpenUrlPasteMenu,
     onOpenTableHandleMenu,
@@ -329,7 +325,6 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     blockSeparatorDecoration(),
     leadingIndentDecoration(),
     wikiLinkMouseHandlers(resolveWikiLink),
-    wikiLinkHoverPreview(() => onWikiLinkHover?.()),
     tagMouseHandlers(resolveTag),
     dateMouseHandlers(resolveDate),
     linkMouseHandlers(),

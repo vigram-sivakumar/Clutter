@@ -12,7 +12,6 @@ import type { ResolveImageSrc } from './codemirror/image/imageSrcResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
-import type { RenderWikiLinkPreview } from './codemirror/wikilink/WikiLinkPreviewPopover';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 import type { ResolvePageEmbed } from '../render/blocks/pageEmbedResolution';
 import type { FoldStateStore } from '@core/application/editor/FoldStateStore';
@@ -138,14 +137,6 @@ export interface MarkdownEditorProps {
    * introduced in §6.
    */
   readonly resolveWikiLink?: ResolveWikiLink;
-  /**
-   * Draws the floating preview shown when the pointer rests on a WikiLink —
-   * the target page's preview for a resolved link, an empty-note preview
-   * under the link's own title for an unresolved one (`null` for none).
-   * Injected by the app layer, which loads the page: the editor only owns the
-   * hover lifecycle and the popover. Omitted, WikiLinks show no preview.
-   */
-  readonly renderWikiLinkPreview?: RenderWikiLinkPreview;
   /**
    * Supplies WikiLink autocomplete candidates for a given in-progress
    * `[[query` — supplied entirely by the feature/app layer, same

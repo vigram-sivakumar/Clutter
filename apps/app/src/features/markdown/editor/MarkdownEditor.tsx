@@ -50,9 +50,6 @@ import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
 import type { OnOpenPdfMenu, OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 import { PdfEmbedMoreActions, type PdfEmbedMoreActionsAnchor } from './codemirror/pdf/PdfEmbedMoreActions';
-import { useWikiLinkPreviewHover } from './codemirror/wikilink/useWikiLinkPreviewHover';
-import { WikiLinkPreviewPopover } from './codemirror/wikilink/WikiLinkPreviewPopover';
-import type { WikiLinkHoverHandlers } from './codemirror/wikilink/wikiLinkHoverPreview';
 import { NoteEmbedMoreActions, type NoteEmbedMoreActionsAnchor } from './codemirror/embed/NoteEmbedMoreActions';
 import type { OnOpenNoteEmbedMenu } from './codemirror/embed/NoteEmbedWidget';
 import { FencedCodeActionsMenu, type FencedCodeActionsMenuAnchor } from './codemirror/fencedCode/FencedCodeActionsMenu';
@@ -249,7 +246,6 @@ export const MarkdownEditor = forwardRef<
     onFlush,
     onExitUp,
     resolveWikiLink,
-    renderWikiLinkPreview,
     getWikiLinkSuggestions,
     getEmbedSuggestions,
     getEmbedHeadingSuggestions,
@@ -348,10 +344,6 @@ export const MarkdownEditor = forwardRef<
   // Read by the decoration layer's ViewPlugin on every rebuild via the
   // accessor passed below — same freshness pattern as onEdit/onFlush,
   // now with an actual reader.
-  // Floating WikiLink preview: the hover timing lives in the hook, the editor only reports enter/leave.
-  const wikiLinkPreviewHover = useWikiLinkPreviewHover();
-  const wikiLinkHoverHandlersRef = useRef<WikiLinkHoverHandlers | undefined>(undefined);
-  wikiLinkHoverHandlersRef.current = renderWikiLinkPreview ? wikiLinkPreviewHover.editorHandlers : undefined;
   const resolveWikiLinkRef = useRef(resolveWikiLink);
   resolveWikiLinkRef.current = resolveWikiLink;
 
@@ -1517,7 +1509,6 @@ export const MarkdownEditor = forwardRef<
       onOpenPdfMenu: () => (readOnlyRef.current ? undefined : onOpenPdfMenuRef.current),
       onOpenPage: () => onOpenPageRef.current,
       onOpenNoteEmbedMenu: () => (readOnlyRef.current ? undefined : onOpenNoteEmbedMenuRef.current),
-      onWikiLinkHover: () => wikiLinkHoverHandlersRef.current,
       onOpenFencedCodeMenu: () => (readOnlyRef.current ? undefined : onOpenFencedCodeMenuRef.current),
       onOpenUrlPasteMenu: () => (readOnlyRef.current ? undefined : onOpenUrlPasteMenuRef.current),
       onOpenTableHandleMenu: () => (readOnlyRef.current ? undefined : onOpenTableHandleMenuRef.current),
@@ -1908,13 +1899,6 @@ export const MarkdownEditor = forwardRef<
         resourceMoveDestinations={resourceMoveDestinations}
         onMoveResource={onMoveResource}
         onCreateFolder={onCreateFolder}
-      />
-      <WikiLinkPreviewPopover
-        target={wikiLinkPreviewHover.target}
-        render={renderWikiLinkPreview}
-        onPointerEnter={wikiLinkPreviewHover.onPreviewEnter}
-        onPointerLeave={wikiLinkPreviewHover.onPreviewLeave}
-        onClose={wikiLinkPreviewHover.close}
       />
       <NoteEmbedMoreActions
         anchor={noteEmbedMenu?.anchor ?? null}
