@@ -99,7 +99,7 @@ export function Controls({
           >
             Daily Note
           </MenuItem>
-          <MenuItem leading={<AppIcon icon="squareCheckOutline" />} onClick={choose(onNewTask)}>
+          <MenuItem leading={<AppIcon icon="circleTick" />} onClick={choose(onNewTask)}>
             Task
           </MenuItem>
           <MenuItem leading={<AppIcon icon="folder" />} onClick={choose(onNewFolder)}>

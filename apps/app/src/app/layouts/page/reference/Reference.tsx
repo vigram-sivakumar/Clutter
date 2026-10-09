@@ -61,7 +61,7 @@ export function References({
               ? 'note'
               : type === 'dailyNote'
                 ? 'calendar'
-                : 'squareCheckOutline';
+                : 'circleTick';
 
           return (
             <div

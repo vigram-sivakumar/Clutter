@@ -72,11 +72,11 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
     icon: 'calendarToday',
     collectionIcon: 'calendarDots',
   },
-  tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
+  tasks: { id: 'tasks', label: 'Tasks', icon: 'circleTick' },
   'tasks-all': {
     id: 'tasks-all',
     label: 'Tasks',
-    icon: 'squareCheckOutline',
+    icon: 'circleTick',
   },
   'tasks-unscheduled': {
     id: 'tasks-unscheduled',

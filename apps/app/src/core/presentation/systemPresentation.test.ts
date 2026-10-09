@@ -38,7 +38,7 @@ describe('getSystemLocationPresentation', () => {
 
     it('returns the canonical icon for a non-folder view location, unaffected by the page-header flag', () => {
       expect(getSystemLocationPresentation('tasks-all').icon).toBe(
-        'squareCheckOutline'
+        'circleTick'
       );
     });
 
