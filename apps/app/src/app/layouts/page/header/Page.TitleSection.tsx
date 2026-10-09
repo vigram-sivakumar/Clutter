@@ -123,7 +123,7 @@ export function PageTitleSection({
       {belowDescription}
       {tabs && (
         <div className="page-title-section__tabs-row">
-          <div className="page-title-section__tabs">{tabs}</div>
+          {tabs}
           {actions && (
             <div className="page-title-section__actions">{actions}</div>
           )}

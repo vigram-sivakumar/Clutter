@@ -37,11 +37,20 @@
      overflow this row uncontained. */
   min-width: 0;
 }
-
 .page-title-section__actions {
   display: flex;
   align-items: center;
   flex-shrink: 0;
   gap: var(--space-6);
+}
+.page-title-section__row .page-title-section__actions {
+  min-height: var(--lh-display);
+}
+
+.page-title-section__tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-24);
   min-height: var(--lh-display);
 }

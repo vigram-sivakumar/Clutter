@@ -37,8 +37,17 @@
     border-color 160ms ease;
 }
 
-.tab:hover {
+.tab--filled .tab:hover {
   color: var(--foreground-primary);
+}
+
+.tabs--ghost .tab {
+  width: auto;
+  padding-inline: var(--space-12);
+  white-space: nowrap;
+}
+.tabs--ghost .tab:hover {
+  background: var(--state-hover-strong);
 }
 
 .tab--active {
