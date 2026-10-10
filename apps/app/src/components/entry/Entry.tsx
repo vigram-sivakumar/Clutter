@@ -94,10 +94,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     >
       {leading && <div className="entry__leading">{leading}</div>}
 
-      <div className="entry__content">
-        {children}
-        {/* <span className="entry__title">{children}</span> */}
-      </div>
+      <div className="entry__content">{children}</div>
 
       {(trailing || actions) && (
         <div className="entry__trailing">

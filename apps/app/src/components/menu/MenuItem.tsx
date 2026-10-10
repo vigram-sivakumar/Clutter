@@ -37,13 +37,7 @@ export function MenuItem({
         props.onMouseEnter?.(event);
       }}
     >
-      {/* A plain-text label gets its own element so it can ellipsize (see .menu__item-label); custom
-          content (an element) is rendered as given and owns its own layout. */}
-      {typeof children === 'string' || typeof children === 'number' ? (
-        <span className="menu__item-label">{children}</span>
-      ) : (
-        children
-      )}
+      <span className="menu__item-label">{children}</span>
     </Entry>
   );
 }
