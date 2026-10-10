@@ -254,24 +254,23 @@ describe('CollectionHeaderActions', () => {
       return utils;
     };
     const setDefaultItem = () =>
-      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Set default template')!;
+      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Select template')!;
 
-    it('adds a divider, a non-interactive "Default template" heading and "Set default template" after From template — existing items untouched', () => {
+    it('adds a divider, a non-interactive "Default template" heading and "Select template" after From template — existing items untouched', () => {
       open({ currentId: null, onChange: vi.fn() });
 
       const menu = document.querySelector('.menu')!;
       expect([...menu.children].map((el) => el.getAttribute('role') ?? el.textContent?.trim())).toEqual([
         'menuitem', // New folder
-        'separator',
-        'menuitem', // From template
+        'menuitem', // From template — no divider above it
         'separator',
         'Default template', // the heading: not a menuitem
-        'menuitem', // Set default template
+        'menuitem', // Select template
       ]);
       expect([...menu.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual([
         'New folder',
         'From template',
-        'Set default template',
+        'Select template',
       ]);
     });
 
@@ -297,11 +296,38 @@ describe('CollectionHeaderActions', () => {
       expect(document.querySelector('.picker-card')).toBeNull();
     });
 
-    it('with a default set, the picker marks it, can change it, and can clear it', () => {
+    const menuRows = () => [...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')];
+    const menuItem = (text: string) => menuRows().find((row) => row.textContent === text)!;
+
+    it('with a default set, the template (with the Default pill), Edit template and Remove replace Select template', () => {
+      open({ currentId: 'a', onChange: vi.fn() });
+
+      expect(setDefaultItem()).toBeUndefined();
+      expect(menuRows().map((row) => row.textContent)).toEqual([
+        'New folder',
+        'From template',
+        'MeetingDefault',
+        'Edit template',
+        'Remove',
+      ]);
+      expect(menuRows()[2]!.querySelector('.entry__meta .pill.pill--small')?.textContent).toBe('Default');
+      // Only the divider ahead of the Default template section.
+      expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
+    });
+
+    it('a default that no longer resolves falls back to Select template', () => {
+      open({ currentId: 'gone', onChange: vi.fn() });
+
+      expect(setDefaultItem()).toBeDefined();
+      expect(menuItem('Edit template')).toBeUndefined();
+    });
+
+    it('Edit template opens the picker with the current default marked; another template changes it, the first row clears it', () => {
       const onChange = vi.fn();
       open({ currentId: 'a', onChange });
-      fireEvent.click(setDefaultItem());
+      fireEvent.click(menuItem('Edit template'));
 
+      expect(document.querySelector('.menu')).toBeNull();
       expect(rowTitles()[0]).toContain('No default template');
       expect(rows()[1]!.textContent).toContain('Default');
       expect(rows()[2]!.textContent).not.toContain('Default');
@@ -312,9 +338,19 @@ describe('CollectionHeaderActions', () => {
       cleanup();
       const clear = vi.fn();
       open({ currentId: 'a', onChange: clear });
-      fireEvent.click(setDefaultItem());
+      fireEvent.click(menuItem('Edit template'));
       fireEvent.click(rows()[0]!);
       expect(clear).toHaveBeenCalledWith(null);
+    });
+
+    it('Remove clears the default and closes the menu', () => {
+      const onChange = vi.fn();
+      open({ currentId: 'a', onChange });
+
+      fireEvent.click(menuItem('Remove'));
+
+      expect(onChange).toHaveBeenCalledWith(null);
+      expect(document.querySelector('.menu')).toBeNull();
     });
   });
 });

@@ -187,7 +187,7 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     await renderFolder(PROJECTS);
 
     expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
     expect(hasCreateFolderCard()).toBe(true);
     expect(hasTable()).toBe(true);
   });
@@ -290,11 +290,11 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
 
   it('ordinary folders — including a nested one — offer New folder and From template beside the New plus', async () => {
     await renderFolder(PROJECTS);
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
     cleanup();
 
     await renderFolder(`${PROJECTS}/Sub`);
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
   });
 });
 
@@ -452,20 +452,20 @@ describe('Default template — the folder Add menu section, by collection kind',
   const openSetDefault = () => {
     newMenuRows();
     fireEvent.click(
-      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Set default template')!
+      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Select template')!
     );
   };
 
   it('an ordinary folder (and a nested one) shows the section after From template, under a non-interactive heading', async () => {
     await renderFolder(PROJECTS);
 
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
     expect(bodyHasText('Default template')).toBe(true);
     expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).not.toContain('Default template');
     cleanup();
 
     await renderFolder(`${PROJECTS}/Sub`);
-    expect(newMenuRows()).toContain('Set default template');
+    expect(newMenuRows()).toContain('Select template');
   });
 
   it('Inbox, Templates and the Archive never show it', async () => {
@@ -483,7 +483,10 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(bodyHasText('Default template')).toBe(false);
   });
 
-  it('choosing a template stores its page id on the folder; reopening marks it and can change or clear it', async () => {
+  const menuItem = (text: string) =>
+    [...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent === text)!;
+
+  it('Select template stores the page id and the menu then shows the template with Default, Edit template and Remove; Edit changes it; Remove restores Select template', async () => {
     const application = await renderFolder(PROJECTS);
     const stored = () => application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId;
 
@@ -494,11 +497,28 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(stored()).toBe('tpl');
     expect(document.querySelector('.picker-card')).toBeNull();
 
-    openSetDefault();
+    // The chosen template stands in the menu for Select template, with Edit template / Remove beneath it.
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'MeetingDefault', 'Edit template', 'Remove']);
+    expect(document.querySelector('.menu .pill.pill--small')?.textContent).toBe('Default');
+    // No divider above From template or above Edit template: only the one ahead of the section.
+    expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
+
+    // Edit template opens the picker with the current default marked and a way to clear it.
+    fireEvent.click(menuItem('Edit template'));
     expect(rowTitles()).toEqual(['No default template', 'MeetingDefault']);
     fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[0]!);
     await flush();
     expect(stored()).toBeNull();
+
+    // Back to the initial state; Select a template again, then Remove.
+    openSetDefault();
+    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    await flush();
+    newMenuRows();
+    fireEvent.click(menuItem('Remove'));
+    await flush();
+    expect(stored()).toBeNull();
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
   });
 
   it('a stored id that is no longer a template is treated as unavailable: nothing marked, nothing substituted', async () => {

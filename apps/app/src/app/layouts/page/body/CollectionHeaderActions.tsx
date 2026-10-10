@@ -3,6 +3,7 @@ import { Button } from '@components/button/Button';
 import { Menu } from '@components/menu/Menu';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { MenuItem } from '@components/menu/MenuItem';
+import { Pill } from '@components/property-list/Pill';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 
@@ -162,6 +163,17 @@ export function CollectionHeaderActions({
   // Read when the picker opens, so it lists the templates as they are now.
   const templates =
     templatesOpen && fromTemplate ? fromTemplate.getTemplates() : [];
+  // The chosen default, shown in the menu in place of "Select template" — read as the menu opens.
+  const currentDefault =
+    open && fromTemplate && defaultTemplate?.currentId
+      ? fromTemplate.getTemplates().find((template) => template.id === defaultTemplate.currentId)
+      : undefined;
+  const openDefaultPicker = (event: { stopPropagation(): void }) => {
+    event.stopPropagation();
+    suppressReturnFocusRef.current = true;
+    setOpen(false);
+    setDefaultPickerOpen(true);
+  };
   const defaultPickerTemplates =
     defaultPickerOpen && fromTemplate && defaultTemplate ? fromTemplate.getTemplates() : [];
 
@@ -227,8 +239,6 @@ export function CollectionHeaderActions({
             )}
             {fromTemplate && (
               <>
-                {/* Only after the New folder entry — as the menu's first entry a divider would lead nowhere. */}
-                {onAddFolder && <div className="menu__divider" role="separator" />}
                 <MenuItem
                   leading={<AppIcon icon="template" />}
                   onClick={(event) => {
@@ -244,17 +254,38 @@ export function CollectionHeaderActions({
                   <>
                     <div className="menu__divider" role="separator" />
                     <MenuGroupTitle>Default template</MenuGroupTitle>
-                    <MenuItem
-                      leading={<AppIcon icon="template" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        suppressReturnFocusRef.current = true;
-                        setOpen(false);
-                        setDefaultPickerOpen(true);
-                      }}
-                    >
-                      Set default template
-                    </MenuItem>
+                    {currentDefault ? (
+                      <>
+                        {/* The chosen template, in place of Select template; not itself an action. */}
+                        <MenuItem
+                          leading={
+                            currentDefault.emoji ? (
+                              <span>{currentDefault.emoji}</span>
+                            ) : (
+                              <AppIcon icon="template" />
+                            )
+                          }
+                          trailing={<Pill size="small">Default</Pill>}
+                          hideTrailingOnHover={false}
+                        >
+                          {currentDefault.values.name}
+                        </MenuItem>
+                        <MenuItem onClick={openDefaultPicker}>Edit template</MenuItem>
+                        <MenuItem
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpen(false);
+                            defaultTemplate.onChange(null);
+                          }}
+                        >
+                          Remove
+                        </MenuItem>
+                      </>
+                    ) : (
+                      <MenuItem leading={<AppIcon icon="plus" />} onClick={openDefaultPicker}>
+                        Select template
+                      </MenuItem>
+                    )}
                   </>
                 )}
               </>
