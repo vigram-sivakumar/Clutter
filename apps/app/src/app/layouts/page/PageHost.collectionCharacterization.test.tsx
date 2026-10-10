@@ -483,6 +483,7 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(bodyHasText('Default template')).toBe(false);
   });
 
+  const menuRowsNow = () => [...document.querySelectorAll('.menu [role="menuitem"]')].map((i) => i.textContent?.trim() ?? '');
   const menuItem = (text: string) =>
     [...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent === text)!;
 
@@ -497,25 +498,26 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(stored()).toBe('tpl');
     expect(document.querySelector('.picker-card')).toBeNull();
 
-    // The chosen template stands in the menu for Select template, with Edit template / Remove beneath it.
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'MeetingDefault', 'Edit template', 'Remove']);
+    // Back in the still-open create menu, with the chosen template (and its Default pill) already shown.
+    expect(menuRowsNow()).toEqual(['New folder', 'From template', 'MeetingDefault', 'Edit template', 'Remove']);
+
     expect(document.querySelector('.menu .pill.pill--small')?.textContent).toBe('Default');
     // No divider above From template or above Edit template: only the one ahead of the section.
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
 
-    // Edit template opens the same picker, the current default marked with the Default pill.
-    fireEvent.click(menuItem('Edit template'));
+    // Clicking the selected template's row opens the same picker, the current default marked with the Default pill.
+    fireEvent.click([...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent?.includes('Meeting'))!);
     expect(rowTitles()).toEqual(['MeetingDefault']);
     expect(document.querySelector('.picker-card .pill.pill--small')?.textContent).toBe('Default');
     fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
     await flush();
     expect(stored()).toBe('tpl');
 
-    newMenuRows();
     fireEvent.click(menuItem('Remove'));
     await flush();
     expect(stored()).toBeNull();
-    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Select template']);
+    // The menu stays open and shows Select template again.
+    expect(menuRowsNow()).toEqual(['New folder', 'From template', 'Select template']);
   });
 
   it('a stored id that is no longer a template is treated as unavailable: nothing marked, nothing substituted', async () => {
@@ -527,5 +529,111 @@ describe('Default template — the folder Add menu section, by collection kind',
 
     expect(rowTitles()).toEqual(['Meeting']);
     expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBe('deleted-template');
+  });
+
+  const withSpies = (application: Application) => ({
+    openDraft: vi.spyOn(application.pageOperations, 'openDraft'),
+    mutateBody: vi.spyOn(application.pageOperations, 'mutateBody'),
+    open: vi.spyOn(application.pageOperations, 'open'),
+  });
+  const plus = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]')!;
+
+  it('the + button without a default template creates a blank note in the folder', async () => {
+    const application = await renderFolder(PROJECTS);
+    const spies = withSpies(application);
+
+    fireEvent.click(plus());
+    await flush();
+
+    expect(spies.openDraft).toHaveBeenCalledWith({ folderId: PROJECTS });
+    expect(spies.mutateBody).not.toHaveBeenCalled();
+  });
+
+  it('the + button with a valid default creates the note straight from that template, in the folder, without the picker', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });
+    await flush();
+    const spies = withSpies(application);
+
+    fireEvent.click(plus());
+    await flush();
+
+    expect(spies.openDraft).toHaveBeenCalledWith({ folderId: PROJECTS });
+    expect(spies.mutateBody).toHaveBeenCalledTimes(1);
+    expect(spies.mutateBody.mock.calls[0]![1]('')).toBe('Meeting body');
+    expect(document.querySelector('.picker-card')).toBeNull();
+    expect(document.querySelector('.menu')).toBeNull();
+  });
+
+  it('the + button falls back to a blank note when the default no longer resolves to a template', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'deleted-template' });
+    await flush();
+    const spies = withSpies(application);
+
+    fireEvent.click(plus());
+    await flush();
+
+    expect(spies.openDraft).toHaveBeenCalledWith({ folderId: PROJECTS });
+    expect(spies.mutateBody).not.toHaveBeenCalled();
+  });
+
+  it('the dropdown\'s From template still creates from the chosen template, whatever the default is', async () => {
+    const application = await renderFolder(PROJECTS);
+    const spies = withSpies(application);
+
+    newMenuRows();
+    fireEvent.click(menuItem('From template'));
+    // Rows: "New template", then Meeting.
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[1]!);
+    await flush();
+
+    expect(spies.openDraft).toHaveBeenCalledWith({ folderId: PROJECTS });
+    expect(spies.mutateBody).toHaveBeenCalledTimes(1);
+    expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBeNull();
+  });
+
+  it('clicking the selected template row opens the picker; choosing another template updates the persisted default', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });
+    await flush();
+
+    newMenuRows();
+    fireEvent.click([...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent?.includes('Meeting'))!);
+    expect(rowTitles()).toEqual(['MeetingDefault']);
+    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    await flush();
+
+    expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBe('tpl');
+  });
+
+  it('Edit template opens the actual template for editing (no picker, no copy); Remove clears the default and keeps the template', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });
+    await flush();
+    const spies = withSpies(application);
+
+    newMenuRows();
+    fireEvent.click(menuItem('Edit template'));
+    await flush();
+
+    expect(spies.open).toHaveBeenCalledWith('tpl');
+    expect(spies.openDraft).not.toHaveBeenCalled();
+    expect(document.querySelector('.picker-card')).toBeNull();
+  });
+
+  it('Remove clears the persisted default and leaves the template itself untouched', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });
+    await flush();
+    const before = application.vault.getPage('tpl')!;
+
+    newMenuRows();
+    fireEvent.click(menuItem('Remove'));
+    await flush();
+
+    expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBeNull();
+    expect(application.vault.getPage('tpl')).toBe(before);
+    expect(document.querySelector('.menu')!.textContent).toContain('Select template');
   });
 });

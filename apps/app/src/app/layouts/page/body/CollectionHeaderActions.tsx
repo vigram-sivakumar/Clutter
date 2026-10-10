@@ -93,6 +93,8 @@ export interface CollectionHeaderActionsProps {
   defaultTemplate?: {
     currentId: string | null;
     onChange: (templateId: string | null) => void;
+    /** Opens the default template itself in the editor. */
+    onEdit: (templateId: string) => void;
   };
   /**
    * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
@@ -232,8 +234,9 @@ export function CollectionHeaderActions({
                     <MenuGroupTitle>Default template</MenuGroupTitle>
                     {currentDefault ? (
                       <>
-                        {/* The chosen template, in place of Select template; not itself an action. */}
+                        {/* The chosen template, in place of Select template; clicking it opens the picker to change it. */}
                         <MenuItem
+                          onClick={openDefaultPicker}
                           leading={
                             currentDefault.emoji ? (
                               <span>{currentDefault.emoji}</span>
@@ -246,11 +249,23 @@ export function CollectionHeaderActions({
                         >
                           {currentDefault.values.name}
                         </MenuItem>
-                        <MenuItem onClick={openDefaultPicker}>Edit template</MenuItem>
                         <MenuItem
+                          variant="muted"
+                          leading={<AppIcon icon="edit" />}
                           onClick={(event) => {
                             event.stopPropagation();
                             setOpen(false);
+                            defaultTemplate.onEdit(currentDefault.id);
+                          }}
+                        >
+                          Edit template
+                        </MenuItem>
+                        <MenuItem
+                          variant="muted"
+                          leading={<AppIcon icon="dismiss" />}
+                          onClick={(event) => {
+                            // The menu stays open: the section simply goes back to Select template.
+                            event.stopPropagation();
                             defaultTemplate.onChange(null);
                           }}
                         >
@@ -299,6 +314,8 @@ export function CollectionHeaderActions({
             onSelect={(item) => {
               setTemplatesOpen(false);
               if (pickerPurpose === 'default' && defaultTemplate) {
+                // Back to the create menu it replaced, now showing the new default.
+                setOpen(true);
                 defaultTemplate.onChange(item.id);
               } else if (item.id === NEW_TEMPLATE_ID) {
                 fromTemplate.onCreateTemplate();

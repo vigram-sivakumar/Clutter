@@ -1203,18 +1203,29 @@ export function PageHost({
   // The Add menu's From template section: the templates come from the Templates folder (the
   // source of truth), choosing one opens a new note in `targetFolderId` with its body and the template's icon and cover, and the
   // leading "New template" row opens a new draft inside Templates (created on first use, ADR-030).
+  // The one way a note is made from a template page: its body, icon and cover into a new note in
+  // `targetFolderId` (createNoteFromTemplate). Shared by From template and a folder's default template.
+  const createNoteFromTemplatePage = (targetFolderId: string | null, templatePageId: string): void => {
+    // The body as the Templates list reads it (the effective page, unsaved edits included), the icon and cover from the vault.
+    const template = application.effectivePageState.getPage(templatePageId);
+
+    if (template) {
+      void createNoteFromTemplate(
+        application.pageOperations,
+        targetFolderId,
+        template.markdown,
+        vault.getPage(templatePageId)?.metadata
+      );
+    }
+  };
+
   const buildFromTemplate = (
     targetFolderId: string | null
   ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
     getTemplates: () =>
-      toTemplateEntries(vault, application.membershipSelector, (markdown, templatePageId) => {
-        void createNoteFromTemplate(
-          application.pageOperations,
-          targetFolderId,
-          markdown,
-          vault.getPage(templatePageId)?.metadata
-        );
-      }),
+      toTemplateEntries(vault, application.membershipSelector, (_markdown, templatePageId) =>
+        createNoteFromTemplatePage(targetFolderId, templatePageId)
+      ),
     onCreateTemplate: () => {
       void createTemplate(application.folderOperations, application.pageOperations);
     },
@@ -1446,10 +1457,18 @@ export function PageHost({
     // What Create DOES here is the collection's: a note in a note folder; for a folder inside Assets/ —
     // an Assets page — the file picker, importing into this folder.
     const isAssetsFolderPage = collectionDefinition.kind === 'assets';
+    // A user folder's default template — only while it still resolves to a template; otherwise (unset,
+    // deleted, archived) the folder's blank note is made, never a different template.
+    const defaultTemplateId =
+      collectionDefinition.kind === 'folder' && isFolderUserEditable
+        ? resolveDefaultTemplateId(vault, application.membershipSelector, folder.metadata.defaultTemplateId)
+        : null;
     const onCreate = collectionDefinition.actions.create && !isFolderArchived
       ? isAssetsFolderPage
         ? () => uploadAssetsInto(folder.path)
-        : () => void application.pageOperations.openDraft({ folderId: folder.id })
+        : defaultTemplateId !== null
+          ? () => createNoteFromTemplatePage(folder.id, defaultTemplateId)
+          : () => void application.pageOperations.openDraft({ folderId: folder.id })
       : undefined;
     // Folders grid's "Create folder" card handler (CollectionBody's onCreateFolder) — reusing
     // FolderOperations.create()/open() via createAndOpenFolder.ts, the same create-then-open
@@ -1536,11 +1555,8 @@ export function PageHost({
             defaultTemplate:
               collectionDefinition.kind === 'folder' && isFolderUserEditable
                 ? {
-                    currentId: resolveDefaultTemplateId(
-                      vault,
-                      application.membershipSelector,
-                      folder.metadata.defaultTemplateId
-                    ),
+                    currentId: defaultTemplateId,
+                    onEdit: (templateId) => openNoteFromCollection(templateId),
                     onChange: (templateId) =>
                       void application.folderOperations.updateMetadata(folder.id, {
                         defaultTemplateId: templateId,
