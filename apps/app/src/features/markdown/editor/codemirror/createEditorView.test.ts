@@ -9,7 +9,7 @@ import {
   createEditorView,
   docTextMatches,
   hasEstablishedEditingPosition,
-  serializeEditorHistory,
+  captureEditorHistory,
   serializeFoldState,
   syncMarkdownIntoView,
 } from './createEditorView';
@@ -237,15 +237,15 @@ describe('syncMarkdownIntoView — external syncs must not corrupt undo history'
  * preservation (docs/editor-architecture-decisions.md's entries of that
  * name). `MarkdownEditor.tsx`'s own mount/unmount effect is the real
  * integration point (`getCachedEditorSession`/`setCachedEditorSession`
- * around `createEditorView`'s `restoreHistoryJSON`/`restoreScrollEffect`
- * options and `serializeEditorHistory`/`view.scrollSnapshot()`) — these
+ * around `createEditorView`'s `restoreHistory`/`restoreScrollEffect`
+ * options and `captureEditorHistory`/`view.scrollSnapshot()`) — these
  * tests exercise the same functions directly, at the level a page switch
- * actually operates: "unmount page A" is `serializeEditorHistory` +
+ * actually operates: "unmount page A" is `captureEditorHistory` +
  * `scrollSnapshot()` + `setCachedEditorSession` + `view.destroy()`;
  * "mount page A again" is `getCachedEditorSession` +
- * `createEditorView({..., restoreHistoryJSON, restoreScrollEffect})`.
+ * `createEditorView({..., restoreHistory, restoreScrollEffect})`.
  */
-describe('Per-document undo/redo history preservation (editorHistoryCache + restoreHistoryJSON)', () => {
+describe('Per-document undo/redo history preservation (editorHistoryCache + restoreHistory)', () => {
   beforeEach(() => {
     __clearAllCachedEditorHistoryForTests();
   });
@@ -264,7 +264,7 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     const view = createEditorView({
       doc: markdown,
       parent,
-      restoreHistoryJSON: cached?.historyJSON,
+      restoreHistory: cached?.history,
       restoreScrollEffect: cached?.scrollEffect,
     });
     // Mirrors MarkdownEditor.tsx's own gate exactly: a restorable cached
@@ -274,7 +274,7 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     // decides when there's no such session.
     const hasRestorableSession =
       cached !== undefined &&
-      docTextMatches(cached.historyJSON, markdown) &&
+      docTextMatches(cached.history, markdown) &&
       hasEstablishedEditingPosition(view);
     if (hasRestorableSession || focusOnOpen) {
       view.focus();
@@ -285,7 +285,7 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
   /** Mirrors MarkdownEditor.tsx's unmount cleanup: serialize -> cache -> destroy. */
   function closePage(pageId: string, view: EditorView): void {
     setCachedEditorSession(pageId, {
-      historyJSON: serializeEditorHistory(view),
+      history: captureEditorHistory(view),
       scrollEffect: view.scrollSnapshot(),
       // No real scrollable-ancestor DOM to measure in this test harness
       // (that's `MarkdownEditor.tsx`'s `findScrollableAncestor`, verified
@@ -405,7 +405,7 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     const a = openPage('page-a', 'A');
     const scrollEffect = a.scrollSnapshot();
     setCachedEditorSession('page-a', {
-      historyJSON: serializeEditorHistory(a),
+      history: captureEditorHistory(a),
       scrollEffect,
       domScrollTop: 42,
     });

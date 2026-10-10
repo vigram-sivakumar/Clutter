@@ -9,7 +9,7 @@ import {
   createEditorView,
   docTextMatches,
   hasEstablishedEditingPosition,
-  serializeEditorHistory,
+  captureEditorHistory,
   serializeFoldState,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
@@ -1552,17 +1552,17 @@ export const MarkdownEditor = forwardRef<
       // Per-document CM6 undo/redo history + scroll preservation
       // (docs/editor-architecture-decisions.md's entries of that name):
       // `createEditorView` itself guards both against a stale/mismatched
-      // cache entry (its own `restoreHistoryJSON`/`restoreScrollEffect`
+      // cache entry (its own `restoreHistory`/`restoreScrollEffect`
       // doc comments) — silently falls back to a fresh state (and default
       // scroll) if the cached snapshot's embedded document no longer
       // matches `markdown`, e.g. because something changed this page's
       // content elsewhere while it was closed (`PageOperations.mutateBody()`).
       // This lookup is therefore always safe to pass through
       // unconditionally, cache hit or miss.
-      restoreHistoryJSON: cachedSession?.historyJSON,
+      restoreHistory: cachedSession?.history,
       restoreScrollEffect: cachedSession?.scrollEffect,
       // ADR-033: durable, cross-restart fold-range restoration — a
-      // separate source (FoldStateStore) from restoreHistoryJSON's
+      // separate source (FoldStateStore) from restoreHistory's
       // session-lifetime cachedSession above, independently gated inside
       // createEditorView (see that option's own doc comment for why the
       // two are never merged into one restore-or-not decision).
@@ -1591,7 +1591,7 @@ export const MarkdownEditor = forwardRef<
       ]),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       canEdit: () => canEditRef.current?.() ?? true,
-      onMetadataHistoryStep: (patch) => onMetadataHistoryStepRef.current?.(patch),
+      onMetadataHistoryStep: (change) => onMetadataHistoryStepRef.current?.(change),
       onBlur: () => onFlushRef.current?.(),
     });
     viewRef.current = view;
@@ -1614,7 +1614,7 @@ export const MarkdownEditor = forwardRef<
     // `scrollTop` is a plain DOM write, done here once the view's content
     // (and therefore the ancestor's real `scrollHeight`) exists. Gated on
     // the identical doc-match check `createEditorView` already applies to
-    // `restoreHistoryJSON`/`restoreScrollEffect` — a session's scroll
+    // `restoreHistory`/`restoreScrollEffect` — a session's scroll
     // position is exactly as untrustworthy to restore as its history when
     // the underlying document changed externally while this page was
     // closed, and this is a *separate* restore path that needs its own
@@ -1622,7 +1622,7 @@ export const MarkdownEditor = forwardRef<
     // internal gate already covered it.
     scrollAncestorRef.current = findScrollableAncestor(container);
     const cachedSessionMatchesDoc =
-      cachedSession !== undefined && docTextMatches(cachedSession.historyJSON, markdown);
+      cachedSession !== undefined && docTextMatches(cachedSession.history, markdown);
     if (scrollAncestorRef.current && cachedSession?.domScrollTop !== undefined && cachedSessionMatchesDoc) {
       scrollAncestorRef.current.scrollTop = cachedSession.domScrollTop;
       lastKnownScrollTopRef.current = cachedSession.domScrollTop;
@@ -1630,7 +1630,7 @@ export const MarkdownEditor = forwardRef<
       lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
     }
 
-    // Restoring the *document*'s previous selection (via `restoreHistoryJSON`
+    // Restoring the *document*'s previous selection (via `restoreHistory`
     // above) never implies restoring *focus* — `EditorState.fromJSON`
     // carries selection along automatically, but focus is a DOM/EditorView
     // concern EditorState knows nothing about (confirmed by reading CM6's
@@ -1699,7 +1699,7 @@ export const MarkdownEditor = forwardRef<
 
       // Captured before destroy() (which invalidates the view) — this is
       // the write side of the session cache read via
-      // restoreHistoryJSON/restoreScrollEffect/domScrollTop above. Runs on
+      // restoreHistory/restoreScrollEffect/domScrollTop above. Runs on
       // every unmount, including a real page switch (the common, intended
       // case) and this component's own StrictMode double-invoke in dev
       // (harmless: the second mount's own read overwrites this with the
@@ -1711,7 +1711,7 @@ export const MarkdownEditor = forwardRef<
       // counterpart that actually matters in this app's layout — see its
       // own doc comment for why a live read here is already too late.
       setCachedEditorSession(pageId, {
-        historyJSON: serializeEditorHistory(view),
+        history: captureEditorHistory(view),
         scrollEffect: view.scrollSnapshot(),
         domScrollTop: lastKnownScrollTopRef.current,
       });
@@ -1751,7 +1751,7 @@ export const MarkdownEditor = forwardRef<
     // registered once here, at real-mount time, matching this effect's own
     // existing "mounted once per pageId" contract; it re-runs `mountEditor()`
     // through the exact same construction path (including the
-    // `getCachedEditorSession`/`restoreHistoryJSON`/`restoreScrollEffect`
+    // `getCachedEditorSession`/`restoreHistory`/`restoreScrollEffect`
     // read and the cleanup's own `setCachedEditorSession` write), so
     // document, undo/redo history, and scroll position survive the rebuild
     // exactly as they already do for an ordinary page-switch remount.

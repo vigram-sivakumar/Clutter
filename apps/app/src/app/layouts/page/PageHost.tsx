@@ -45,8 +45,10 @@ import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTe
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import {
   applyTemplateToNote,
+  metadataPatchStillApplicable,
   type ExistingNoteMetadata,
 } from '@features/notes/helpers/applyTemplateToNote';
+import type { MetadataHistoryChange } from '@features/markdown/editor/codemirror/metadataHistoryStep';
 import {
   shouldSuggestTemplates,
   sortTemplatesNewestFirst,
@@ -793,9 +795,18 @@ export function PageHost({
   const onUpdateMarkdown = (pageId: string, markdown: string): void => {
     application.pageOperations.commitEdit(pageId, markdown);
   };
-  // Undoing or redoing a template application also reverses or reapplies the metadata it changed.
-  const onMetadataHistoryStep = (patch: Parameters<typeof application.pageOperations.updateMetadata>[1]): void => {
+  // Undoing or redoing a template application also reverses or reapplies the metadata it changed — only the
+  // properties still holding what the application left, never ones the user has changed since. A failure is
+  // reported: the body has already moved, so the properties must not be left behind silently.
+  const onMetadataHistoryStep = ({ apply, expect }: MetadataHistoryChange): void => {
     if (!activePageId) {
+      return;
+    }
+
+    const current = vault.getPage(activePageId)?.metadata;
+    const patch = current ? metadataPatchStillApplicable(current, apply, expect) : apply;
+
+    if (Object.keys(patch).length === 0) {
       return;
     }
 

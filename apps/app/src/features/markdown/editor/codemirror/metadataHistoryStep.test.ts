@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { isolateHistory, redo, undo, undoDepth } from '@codemirror/commands';
+import { isolateHistory, redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
+import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import type { EditablePageMetadata } from '@core/application/page/PageOperations';
 import {
   createEditorView,
-  serializeEditorHistory,
+  captureEditorHistory,
+  type EditorHistorySnapshot,
   syncMarkdownIntoView,
 } from './createEditorView';
 import { __clearAllCachedEditorHistoryForTests } from './editorHistoryCache';
@@ -14,26 +16,31 @@ import { applyBodyWithMetadataStep } from './metadataHistoryStep';
 
 /**
  * A metadata step is one logical entry in the editor's own undo stack: undoing it reports its inverse, redoing
- * it reports the step, and neighbouring typing never does. The log survives the per-note history cache.
+ * it reports the step, and neighbouring typing never does. The step is an effect on the history entry itself, so
+ * it moves with the entry through trimming, mapping and the per-note history cache (which carries the history
+ * value in memory — CodeMirror's JSON form of the history drops effects).
  */
 
 const STEP = {
   patch: { icon: '📅', tags: ['a', 'b'] } as Partial<EditablePageMetadata>,
   inverse: { icon: '📝', tags: ['a'] } as Partial<EditablePageMetadata>,
 };
+/** What the host is told for an undo and for a redo of `STEP`. */
+const UNDONE = { apply: STEP.inverse, expect: STEP.patch };
+const REDONE = { apply: STEP.patch, expect: STEP.inverse };
 
 beforeEach(() => {
   __clearAllCachedEditorHistoryForTests();
 });
 
-function mount(doc = '', restoreHistoryJSON?: unknown) {
+function mount(doc = '', restoreHistory?: EditorHistorySnapshot) {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const onStep = vi.fn();
   const view = createEditorView({
     doc,
     parent,
-    restoreHistoryJSON,
+    restoreHistory,
     onMetadataHistoryStep: onStep,
   });
 
@@ -60,12 +67,12 @@ describe('metadata history step', () => {
     undo(view);
     expect(view.state.doc.toString()).toBe('');
     expect(onStep).toHaveBeenCalledTimes(1);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
 
     redo(view);
     expect(view.state.doc.toString()).toBe('# Body');
     expect(onStep).toHaveBeenCalledTimes(2);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.patch);
+    expect(onStep).toHaveBeenLastCalledWith(REDONE);
   });
 
   it('typing before and after is ordinary history: only the template entry reports', () => {
@@ -84,7 +91,7 @@ describe('metadata history step', () => {
 
     undo(view); // the template
     expect(onStep).toHaveBeenCalledTimes(1);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
 
     undo(view); // the deletion before it
     expect(view.state.doc.toString()).toBe('a');
@@ -93,7 +100,7 @@ describe('metadata history step', () => {
     redo(view);
     redo(view); // the template again
     expect(onStep).toHaveBeenCalledTimes(2);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.patch);
+    expect(onStep).toHaveBeenLastCalledWith(REDONE);
 
     redo(view); // the typing after
     expect(view.state.doc.toString()).toBe('# Body more');
@@ -120,9 +127,9 @@ describe('metadata history step', () => {
     expect(undoDepth(view.state)).toBe(1);
 
     undo(view);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
     redo(view);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.patch);
+    expect(onStep).toHaveBeenLastCalledWith(REDONE);
   });
 
   it('writes the body only into a blank document, but still records the step', () => {
@@ -132,7 +139,7 @@ describe('metadata history step', () => {
 
     expect(view.state.doc.toString()).toBe('typed');
     undo(view);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
   });
 
   it('an external sync (not a history entry) neither shifts nor loses the step', () => {
@@ -143,7 +150,7 @@ describe('metadata history step', () => {
     expect(undoDepth(view.state)).toBe(1);
 
     undo(view);
-    expect(onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
     expect(view.state.doc.toString()).toBe('>> ');
   });
 
@@ -151,9 +158,7 @@ describe('metadata history step', () => {
     const first = mount();
     applyBodyWithMetadataStep(first.view, '# Body', STEP);
     type(first.view, ' tail');
-    const snapshot = JSON.parse(
-      JSON.stringify(serializeEditorHistory(first.view))
-    );
+    const snapshot = captureEditorHistory(first.view);
 
     const restored = mount('# Body tail', snapshot);
     expect(undoDepth(restored.view.state)).toBe(2);
@@ -162,25 +167,114 @@ describe('metadata history step', () => {
     expect(restored.onStep).not.toHaveBeenCalled();
     undo(restored.view); // the template
     expect(restored.view.state.doc.toString()).toBe('');
-    expect(restored.onStep).toHaveBeenLastCalledWith(STEP.inverse);
+    expect(restored.onStep).toHaveBeenLastCalledWith(UNDONE);
 
     redo(restored.view);
-    expect(restored.onStep).toHaveBeenLastCalledWith(STEP.patch);
+    expect(restored.onStep).toHaveBeenLastCalledWith(REDONE);
   });
 
-  it('a history cached before this existed (no step log) still restores', () => {
+  it('a restored step with no text change can be undone and redone', () => {
+    const first = mount('abc');
+    applyBodyWithMetadataStep(first.view, '', STEP);
+    const restored = mount('abc', captureEditorHistory(first.view));
+
+    undo(restored.view);
+    expect(redoDepth(restored.view.state)).toBe(1);
+    expect(restored.onStep).toHaveBeenLastCalledWith(UNDONE);
+    redo(restored.view);
+    expect(restored.onStep).toHaveBeenLastCalledWith(REDONE);
+  });
+
+  it('survives being restored twice, with enough later edits that the stack is trimmed', () => {
+    const first = mount();
+    for (let i = 0; i < 29; i++) type(first.view, 'a');
+    applyBodyWithMetadataStep(first.view, '', STEP);
+    const second = mount(first.view.state.doc.toString(), captureEditorHistory(first.view));
+    for (let i = 0; i < 100; i++) type(second.view, 'b');
+    expect(undoDepth(second.view.state)).toBeLessThan(130); // CodeMirror trimmed the oldest entries
+    const third = mount(second.view.state.doc.toString(), captureEditorHistory(second.view));
+
+    while (undo(third.view));
+
+    expect(third.onStep).toHaveBeenCalledTimes(1);
+    expect(third.onStep).toHaveBeenLastCalledWith(UNDONE);
+  });
+
+  it('an identical paste after undoing a restored step is not mistaken for the step', () => {
+    const first = mount();
+    applyBodyWithMetadataStep(first.view, 'T-BODY', STEP);
+    const restored = mount('T-BODY', captureEditorHistory(first.view));
+    undo(restored.view);
+    restored.onStep.mockClear();
+
+    restored.view.dispatch({
+      changes: { from: 0, insert: 'T-BODY' },
+      annotations: isolateHistory.of('full'),
+      userEvent: 'input.paste',
+    });
+    undo(restored.view);
+    redo(restored.view);
+
+    expect(restored.onStep).not.toHaveBeenCalled();
+  });
+
+  it('a step applied late in a long history is found exactly at its own entry (stack at the cap)', () => {
+    const { view, onStep } = mount();
+    for (let i = 0; i < 130; i++) type(view, 'a');
+    applyBodyWithMetadataStep(view, '', STEP);
+    for (let i = 0; i < 5; i++) type(view, 'b');
+
+    let undos = 0;
+    while (undo(view)) {
+      undos += 1;
+      if (onStep.mock.calls.length > 0) break;
+    }
+
+    expect(undos).toBe(6); // five typing entries, then the step
+    expect(onStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('an external change that rewrites the template body keeps the step with its entry', () => {
+    const { view, onStep } = mount();
+    applyBodyWithMetadataStep(view, 'TEMPLATE', STEP);
+
+    view.dispatch({
+      changes: { from: 2, to: 4, insert: '--' },
+      annotations: [Transaction.addToHistory.of(false)],
+    });
+    undo(view);
+
+    expect(onStep).toHaveBeenCalledTimes(1);
+    expect(onStep).toHaveBeenLastCalledWith(UNDONE);
+  });
+
+  it('a history that never held a step restores and undoes as before', () => {
     const first = mount();
     type(first.view, 'abc');
-    const snapshot = JSON.parse(
-      JSON.stringify(serializeEditorHistory(first.view))
-    );
-    delete snapshot.metadataSteps;
-
-    const restored = mount('abc', snapshot);
+    const restored = mount('abc', captureEditorHistory(first.view));
 
     expect(undoDepth(restored.view.state)).toBe(1);
     undo(restored.view);
     expect(restored.view.state.doc.toString()).toBe('');
     expect(restored.onStep).not.toHaveBeenCalled();
+  });
+
+  it('pins the behaviour the cache relies on: a history value started in a new state keeps its entries and their effects', () => {
+    const first = mount();
+    applyBodyWithMetadataStep(first.view, '# Body', STEP);
+    type(first.view, ' tail');
+    const snapshot = captureEditorHistory(first.view);
+
+    // Two independent editors started from the same snapshot (React StrictMode mounts twice) do not affect
+    // each other or the snapshot.
+    const one = mount('# Body tail', snapshot);
+    const two = mount('# Body tail', snapshot);
+    type(one.view, '!');
+
+    expect(undoDepth(one.view.state)).toBe(3);
+    expect(undoDepth(two.view.state)).toBe(2);
+    undo(two.view);
+    undo(two.view);
+    expect(two.onStep).toHaveBeenLastCalledWith(UNDONE);
   });
 });

@@ -1,5 +1,4 @@
-import type { EditablePageMetadata } from '@core/application/page/PageOperations';
-import type { MetadataHistoryStep } from './codemirror/metadataHistoryStep';
+import type { MetadataHistoryChange, MetadataHistoryStep } from './codemirror/metadataHistoryStep';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 import type { ImageOverlayImage } from './codemirror/image/ImageOverlay';
@@ -124,10 +123,10 @@ export interface MarkdownEditorProps {
   readonly canEdit?: () => boolean;
   /**
    * Fires when the user undoes or redoes an edit that was applied together with a metadata change
-   * (`applyBodyWithMetadata`), with the metadata patch that reverses or reapplies it. The host applies it to
-   * the page; the editor only carries it through its history.
+   * (`applyBodyWithMetadata`), with what to write and what those properties must still hold (`MetadataHistoryChange`). The host applies it
+   * to the page; the editor only carries it through its history.
    */
-  readonly onMetadataHistoryStep?: (patch: Partial<EditablePageMetadata>) => void;
+  readonly onMetadataHistoryStep?: (change: MetadataHistoryChange) => void;
   /**
    * Fires on blur — a save request, not a payload (autosave-execution-model.md
    * §0): asks the system to make this session durable if it isn't already,

@@ -650,3 +650,81 @@ describe('applying a template is one undoable step', () => {
     expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
   });
 });
+
+describe('undoing and redoing a template application respects what the user changed since', () => {
+  it('a property the user changed after the template is kept by undo; the others are still restored', async () => {
+    const env = await setup({ tags: ['mine'], icon: '📝' }, { metadata: FULL_TEMPLATE });
+    await env.apply();
+
+    // The user picks their own icon afterwards.
+    await act(async () => {
+      await env.application.pageOperations.updateMetadata(env.noteId, { icon: '🎯' });
+    });
+    await flush();
+
+    await env.pressUndo();
+    expect(env.doc()).toBe('');
+    // Kept: the user's later icon. Restored: everything they did not touch.
+    expect(env.metadata().icon).toBe('🎯');
+    expect(env.metadata().cover).toBeNull();
+    expect(env.metadata().description).toBeNull();
+    expect(env.metadata().tags).toEqual(['mine']);
+
+    // Redo must not take the user's icon back either.
+    await env.pressRedo();
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🎯');
+    expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
+    expect(env.metadata().tags).toEqual(['mine', 'tpl', 'meeting']);
+  });
+
+  it('tags added after the template are kept, and so are the rest of the tags (they move together)', async () => {
+    const env = await setup({ tags: ['mine'] }, { metadata: FULL_TEMPLATE });
+    await env.apply();
+    await act(async () => {
+      await env.application.pageOperations.updateMetadata(env.noteId, {
+        tags: [...(env.metadata().tags ?? []), 'later'],
+      });
+    });
+    await flush();
+
+    await env.pressUndo();
+
+    expect(env.doc()).toBe('');
+    expect(env.metadata().tags).toEqual(['mine', 'tpl', 'meeting', 'later']);
+    // Properties the user did not touch are still restored.
+    expect(env.metadata().icon).toBeNull();
+    expect(env.metadata().description).toBeNull();
+  });
+});
+
+describe('a metadata save that fails while undoing or redoing', () => {
+  it('is reported (not silent), the properties are left as they were, and redo then undo work once saving works', async () => {
+    const env = await setup({ tags: ['mine'], icon: '📝' }, { metadata: FULL_TEMPLATE });
+    await env.apply();
+    const operations = env.application.pageOperations;
+    const real = operations.updateMetadata.bind(operations);
+    let failing = true;
+    vi.spyOn(operations, 'updateMetadata').mockImplementation((...args) =>
+      failing ? Promise.reject(new Error('disk full')) : real(...args)
+    );
+
+    await env.pressUndo();
+
+    // The body moved with the editor's own history; the properties could not be written, and the user is told.
+    expect(env.doc()).toBe('');
+    expect(env.metadata().icon).toBe('🧾');
+    expect(document.body.textContent).toContain('Couldn’t update the note’s properties');
+
+    // Saving works again: redo restores the body; the properties already hold the template's values.
+    failing = false;
+    await env.pressRedo();
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🧾');
+
+    await env.pressUndo();
+    expect(env.doc()).toBe('');
+    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().tags).toEqual(['mine']);
+  });
+});
