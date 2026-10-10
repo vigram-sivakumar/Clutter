@@ -16,6 +16,7 @@ import type { Folder } from './Folder';
  */
 
 const folderMeta = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

@@ -117,6 +117,7 @@ function buildFolder(id: string, path: string, status: 'active' | 'archived', fa
     path,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: '📁',
       favorite,
       description: null,

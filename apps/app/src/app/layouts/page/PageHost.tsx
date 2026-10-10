@@ -43,6 +43,7 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
+import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import {
   buildMoveDestinationItems,
@@ -443,6 +444,7 @@ export function PageHost({
     onAdd,
     onAddFolder,
     fromTemplate,
+    defaultTemplate,
     menuLabels,
     addLabel,
     toggles,
@@ -451,6 +453,7 @@ export function PageHost({
     onAdd?: () => void;
     onAddFolder?: () => void;
     fromTemplate?: CollectionHeaderActionsProps['fromTemplate'];
+    defaultTemplate?: CollectionHeaderActionsProps['defaultTemplate'];
     menuLabels?: CollectionHeaderActionsProps['menuLabels'];
     addLabel?: string;
   } = {}) => (
@@ -465,6 +468,7 @@ export function PageHost({
       onAdd={onAdd}
       onAddFolder={onAddFolder}
       fromTemplate={fromTemplate}
+      defaultTemplate={defaultTemplate}
       menuLabels={menuLabels}
       addLabel={addLabel}
     />
@@ -1527,6 +1531,22 @@ export function PageHost({
             fromTemplate: collectionDefinition.actions.fromTemplate && !isFolderArchived
               ? buildFromTemplate(folder.id)
               : undefined,
+            // Only an ordinary user folder has a default template: not a reserved, Assets or
+            // Daily Notes folder (the collection kind), and not an archived one.
+            defaultTemplate:
+              collectionDefinition.kind === 'folder' && isFolderUserEditable
+                ? {
+                    currentId: resolveDefaultTemplateId(
+                      vault,
+                      application.membershipSelector,
+                      folder.metadata.defaultTemplateId
+                    ),
+                    onChange: (templateId) =>
+                      void application.folderOperations.updateMetadata(folder.id, {
+                        defaultTemplateId: templateId,
+                      }),
+                  }
+                : undefined,
             ...(isAssetsFolderPage && { menuLabels: ASSET_MENU_LABELS, addLabel: 'Upload' }),
             // Templates are flat: one Add action, creating a template (a draft in Templates).
             ...(collectionDefinition.kind === 'templates' && { addLabel: 'New template' }),

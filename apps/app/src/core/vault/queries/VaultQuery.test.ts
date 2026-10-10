@@ -20,6 +20,7 @@ function makeFolder(
     path: `${ROOT}/${name}`,
     parentId,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

@@ -28,6 +28,7 @@ function makeAssetsFolder(): Folder {
     path: `${ROOT}/Assets`,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

@@ -29,6 +29,7 @@ import type { Page } from '@core/vault/models/Page';
 const ROOT = '/vault';
 
 const defaultFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: true,
   description: '',

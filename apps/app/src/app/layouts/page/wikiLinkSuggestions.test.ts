@@ -66,6 +66,7 @@ function fakeFolderOperations(): FolderOperations {
 }
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

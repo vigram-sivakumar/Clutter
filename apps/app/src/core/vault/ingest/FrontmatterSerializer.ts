@@ -222,6 +222,7 @@ export class FrontmatterSerializer {
         'coverPositionSide',
         folder.metadata.coverPositionSide === 50 ? undefined : folder.metadata.coverPositionSide,
       ],
+      ['defaultTemplateId', folder.metadata.defaultTemplateId],
       ['status', folder.metadata.status],
       ['archivedAt', folder.metadata.archivedAt],
       ['originalPath', folder.metadata.originalPath],

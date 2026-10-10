@@ -30,6 +30,7 @@ import type { Folder } from '@core/vault/models/Folder';
 const ROOT = '/vault';
 
 const defaultFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

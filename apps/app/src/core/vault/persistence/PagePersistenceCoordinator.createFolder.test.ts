@@ -96,6 +96,7 @@ describe('PagePersistenceCoordinator create-folder vertical slice', () => {
       path: `${ROOT}/Occupied`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -166,6 +167,7 @@ describe('PagePersistenceCoordinator create-folder vertical slice', () => {
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',

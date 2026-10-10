@@ -22,6 +22,13 @@ export interface FolderMetadata {
   /** See PageMetadata.coverPositionSide — same semantics, folder-scoped. */
   readonly coverPositionSide: number;
 
+  /**
+   * The persisted id of the template page ("Default template" of this folder), or null when
+   * unset. An id, never a name or path: a template can be renamed. Resolved at use time —
+   * a deleted/archived template simply reads as unavailable.
+   */
+  readonly defaultTemplateId: string | null;
+
   readonly status: 'active' | 'archived';
   readonly archivedAt: string | null;
   readonly originalPath: string | null;

@@ -4,6 +4,7 @@ import { formatDailyNoteDateLabel } from './formatDailyNoteTitle';
 import type { Folder } from '@core/vault/models/Folder';
 
 const defaultMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

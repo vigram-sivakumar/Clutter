@@ -13,6 +13,7 @@ import type { Page } from '@core/vault/models/Page';
 const ROOT = '/vault';
 
 const activeFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

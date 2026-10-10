@@ -84,6 +84,7 @@ function makeFolder(id: string, path: string, parentId: string | null): Folder {
     path,
     parentId,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',
@@ -660,6 +661,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     const folder: Folder = {
       ...makeFolder('folder-1', `${ROOT}/Archive/Projects`, 'folder-archive'),
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -710,6 +712,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     const folder: Folder = {
       ...makeFolder('folder-1', `${ROOT}/Projects`, null),
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: true,
         description: '',

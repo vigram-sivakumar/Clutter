@@ -74,6 +74,7 @@ afterEach(() => {
 const ROOT = '/vault';
 
 const activeFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

@@ -27,6 +27,7 @@ function makeFolder(id: string, path: string, parentId: string | null = null): F
     path,
     parentId,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',
@@ -786,6 +787,7 @@ describe('FolderOperations.archive() (ADR-026)', () => {
     const folder: Folder = {
       ...makeFolder('folder-1', `${ROOT}/Archive/Projects`, 'folder-archive'),
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -957,6 +959,7 @@ function makeArchivedFolder(options: {
     path: options.archivePath,
     parentId: 'folder-archive',
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',
@@ -1472,5 +1475,103 @@ describe('FolderOperations: archive integrity at the domain (Phase 10)', () => {
     await folderOperations.archive('folder-projects');
     await expect(folderOperations.restore('folder-inner')).rejects.toThrow(/not archived/);
     await expect(folderOperations.restore('folder-projects')).resolves.toBeUndefined();
+  });
+});
+
+describe('FolderOperations — defaultTemplateId (folder default template)', () => {
+  const diskFrontmatter = async (
+    fileSystem: { readFile(path: string): Promise<string> },
+    path: string
+  ) => new FrontmatterParser().parse(await fileSystem.readFile(`${path}/.folder.md`)).frontmatter;
+
+  it('an existing folder without the field reads as null, and no .folder.md is created for it', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    expect(vault.getFolder('folder-1')!.metadata.defaultTemplateId).toBeNull();
+    expect(await fileSystem.exists(`${folder.path}/.folder.md`)).toBe(false);
+  });
+
+  it('sets the template page id in the vault and in the .folder.md frontmatter', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-meeting-note' });
+
+    expect(vault.getFolder('folder-1')!.metadata.defaultTemplateId).toBe('template-meeting-note');
+    expect(await fileSystem.readFile(`${folder.path}/.folder.md`)).toContain(
+      'defaultTemplateId: template-meeting-note'
+    );
+    expect((await diskFrontmatter(fileSystem, folder.path)).defaultTemplateId).toBe('template-meeting-note');
+  });
+
+  it('changes the value, then clears it by removing the key — never an empty or invalid id', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-a' });
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-b' });
+    expect((await diskFrontmatter(fileSystem, folder.path)).defaultTemplateId).toBe('template-b');
+
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: null });
+
+    expect(vault.getFolder('folder-1')!.metadata.defaultTemplateId).toBeNull();
+    expect(await fileSystem.readFile(`${folder.path}/.folder.md`)).not.toContain('defaultTemplateId');
+  });
+
+  it('survives other metadata updates, and those survive it', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-a', icon: '🚀' });
+    await folderOperations.updateMetadata('folder-1', { favorite: true });
+    await folderOperations.updateMetadata('folder-1', { description: 'Hello' });
+
+    const metadata = vault.getFolder('folder-1')!.metadata;
+    expect(metadata).toMatchObject({ defaultTemplateId: 'template-a', icon: '🚀', favorite: true, description: 'Hello' });
+    expect(await diskFrontmatter(fileSystem, folder.path)).toMatchObject({
+      defaultTemplateId: 'template-a',
+      icon: '🚀',
+      favorite: true,
+      description: 'Hello',
+    });
+  });
+
+  it('survives a move', async () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const destination = makeFolder('folder-2', `${ROOT}/Elsewhere`);
+    const { vault, fileSystem, folderOperations } = setup([source, destination]);
+    await fileSystem.createDirectory(source.path);
+    await fileSystem.createDirectory(destination.path);
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-a' });
+
+    await folderOperations.move('folder-1', 'folder-2');
+
+    const moved = vault.getFolder('folder-1')!;
+    expect(moved.metadata.defaultTemplateId).toBe('template-a');
+    expect((await diskFrontmatter(fileSystem, moved.path)).defaultTemplateId).toBe('template-a');
+  });
+
+  it('survives archive and restore', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([archiveFolder, folder]);
+    await fileSystem.createDirectory(folder.path);
+    await folderOperations.updateMetadata('folder-1', { defaultTemplateId: 'template-a' });
+
+    await folderOperations.archive('folder-1');
+    const archived = vault.getFolder('folder-1')!;
+    expect(archived.metadata.defaultTemplateId).toBe('template-a');
+    expect((await diskFrontmatter(fileSystem, archived.path)).defaultTemplateId).toBe('template-a');
+
+    await folderOperations.restore('folder-1');
+    const restored = vault.getFolder('folder-1')!;
+    expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.defaultTemplateId).toBe('template-a');
+    expect((await diskFrontmatter(fileSystem, restored.path)).defaultTemplateId).toBe('template-a');
   });
 });

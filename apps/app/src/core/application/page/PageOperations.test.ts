@@ -51,6 +51,7 @@ const ROOT = '/vault';
 const ARCHIVE_FOLDER_ID = 'folder-archive';
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',
@@ -1531,6 +1532,7 @@ function makeFolder(id: string, path: string): Folder {
     path,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
 import { Menu } from '@components/menu/Menu';
+import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon, type SystemIcon } from '@shared/icon';
@@ -17,6 +18,7 @@ import {
 } from './CollectionViewMenu';
 
 const NEW_TEMPLATE_ID = '__new-template__';
+const CLEAR_DEFAULT_ID = '__clear-default-template__';
 
 /** The template picker's rows: a leading "New template" row, then every template as a flat note row. */
 function templateItems(
@@ -36,6 +38,37 @@ function templateItems(
       emoji: template.emoji,
       level: 0,
       parentId: null,
+    })),
+  ];
+}
+
+/**
+ * The Set-default-template picker's rows: the same templates as From template (no "New template"
+ * row), the current default marked, and — only while one is set — a leading row that clears it.
+ */
+function defaultTemplateItems(
+  templates: readonly CollectionEntryModel[],
+  currentId: string | null
+): PickerListItem[] {
+  return [
+    ...(currentId !== null
+      ? [
+          {
+            id: CLEAR_DEFAULT_ID,
+            title: 'No default template',
+            icon: 'dismiss' as const,
+            level: 0,
+            parentId: null,
+          },
+        ]
+      : []),
+    ...templates.map((template) => ({
+      id: template.id,
+      title: template.values.name,
+      emoji: template.emoji,
+      level: 0,
+      parentId: null,
+      ...(template.id === currentId && { secondaryLabel: 'Default' }),
     })),
   ];
 }
@@ -76,6 +109,16 @@ export interface CollectionHeaderActionsProps {
     onCreateTemplate: () => void;
   };
   /**
+   * A user folder's "Default template" setting, shown in the Add menu below From template (so it
+   * needs `fromTemplate`, whose template list it reuses). `currentId` is the stored default when it
+   * still resolves to a template, else null; `onChange` receives the chosen template's id, or null
+   * to clear it.
+   */
+  defaultTemplate?: {
+    currentId: string | null;
+    onChange: (templateId: string | null) => void;
+  };
+  /**
    * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
    * note" and "New folder" for notes, "Upload" and "New folder" for assets). Absent: the notes' words.
    */
@@ -103,12 +146,14 @@ export function CollectionHeaderActions({
   onAdd,
   onAddFolder,
   fromTemplate,
+  defaultTemplate,
   menuLabels = NOTE_MENU_LABELS,
   addLabel = 'New',
   addIcon = 'plus',
 }: CollectionHeaderActionsProps) {
   const [open, setOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [defaultPickerOpen, setDefaultPickerOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   // The From template item hands focus to the template list's search field, not back to the caret.
   const suppressReturnFocusRef = useRef(false);
@@ -117,6 +162,8 @@ export function CollectionHeaderActions({
   // Read when the picker opens, so it lists the templates as they are now.
   const templates =
     templatesOpen && fromTemplate ? fromTemplate.getTemplates() : [];
+  const defaultPickerTemplates =
+    defaultPickerOpen && fromTemplate && defaultTemplate ? fromTemplate.getTemplates() : [];
 
   return (
     <>
@@ -193,6 +240,23 @@ export function CollectionHeaderActions({
                 >
                   From template
                 </MenuItem>
+                {defaultTemplate && (
+                  <>
+                    <div className="menu__divider" role="separator" />
+                    <MenuGroupTitle>Default template</MenuGroupTitle>
+                    <MenuItem
+                      leading={<AppIcon icon="template" />}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        suppressReturnFocusRef.current = true;
+                        setOpen(false);
+                        setDefaultPickerOpen(true);
+                      }}
+                    >
+                      Set default template
+                    </MenuItem>
+                  </>
+                )}
               </>
             )}
           </Menu>
@@ -226,6 +290,36 @@ export function CollectionHeaderActions({
                   .find((template) => template.id === item.id)
                   ?.onClick();
               }
+            }}
+          />
+        </Popover>
+      )}
+      {fromTemplate && defaultTemplate && (
+        <Popover
+          anchorRef={anchorRef}
+          open={defaultPickerOpen}
+          onClose={() => setDefaultPickerOpen(false)}
+          returnFocusRef={anchorRef}
+          side="bottom"
+          alignment="end"
+        >
+          <PickerCard
+            title="Default template"
+            // Dismiss (×) goes back to the Add menu it replaced, like the From template picker.
+            onClose={() => {
+              setDefaultPickerOpen(false);
+              setOpen(true);
+            }}
+            items={
+              defaultPickerOpen
+                ? defaultTemplateItems(defaultPickerTemplates, defaultTemplate.currentId)
+                : []
+            }
+            placeholder="Search templates"
+            leadingIcon="template"
+            onSelect={(item) => {
+              setDefaultPickerOpen(false);
+              defaultTemplate.onChange(item.id === CLEAR_DEFAULT_ID ? null : item.id);
             }}
           />
         </Popover>

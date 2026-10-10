@@ -11,6 +11,7 @@ export interface FolderFrontmatter {
   coverLayout?: CoverLayout;
   coverPositionAbove?: number;
   coverPositionSide?: number;
+  defaultTemplateId?: string;
   status?: 'active' | 'archived';
   archivedAt?: string | null;
   originalPath?: string | null;

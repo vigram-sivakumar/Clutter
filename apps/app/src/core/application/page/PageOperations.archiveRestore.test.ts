@@ -32,6 +32,7 @@ const PROJECTS_FOLDER_ID = 'folder-projects';
 const DESIGN_FOLDER_ID = 'folder-design';
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

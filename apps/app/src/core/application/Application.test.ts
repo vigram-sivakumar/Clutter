@@ -146,6 +146,7 @@ describe('Application.close — EffectivePageState disposal (ADR-020, M2)', () =
 });
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

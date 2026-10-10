@@ -106,6 +106,7 @@ function dayInMonth(monthIso: string, day: number): string {
 }
 
 const defaultFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

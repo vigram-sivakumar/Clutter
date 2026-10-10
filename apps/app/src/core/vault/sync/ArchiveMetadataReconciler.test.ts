@@ -17,6 +17,7 @@ function buildFolder(path: string, status: 'active' | 'archived'): Folder {
     path: `${ROOT}/${path}`,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

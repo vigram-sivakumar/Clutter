@@ -81,6 +81,7 @@ function makeResource(
 }
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',
@@ -460,6 +461,7 @@ describe('VaultSyncService', () => {
       path: `${ROOT}/notes`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -708,6 +710,7 @@ describe('VaultSyncService: resource lifecycle', () => {
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -788,6 +791,7 @@ describe('VaultSyncService: resource lifecycle via folder subtree (bulk/coalesce
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -822,6 +826,7 @@ describe('VaultSyncService: resource lifecycle via folder subtree (bulk/coalesce
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',

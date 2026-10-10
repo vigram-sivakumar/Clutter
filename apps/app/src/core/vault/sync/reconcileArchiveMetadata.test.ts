@@ -18,6 +18,7 @@ import {
 const ROOT = '/vault';
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

@@ -159,6 +159,7 @@ describe('Archiving a Folder survives an externally-deleted Archive folder', () 
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',
@@ -194,6 +195,7 @@ describe('Archiving a Folder survives an externally-deleted Archive folder', () 
       path: `${ROOT}/Projects`,
       parentId: null,
       metadata: {
+        defaultTemplateId: null,
         icon: null,
         favorite: false,
         description: '',

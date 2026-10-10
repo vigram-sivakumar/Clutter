@@ -190,6 +190,11 @@ export class FrontmatterParser {
             frontmatter.favorite = scalar;
           }
           break;
+        case 'defaultTemplateId':
+          if (typeof scalar === 'string' && scalar !== '') {
+            frontmatter.defaultTemplateId = scalar;
+          }
+          break;
         case 'status':
           if (
             typeof scalar === 'string' &&

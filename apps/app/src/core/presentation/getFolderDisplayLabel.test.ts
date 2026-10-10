@@ -4,6 +4,7 @@ import { getPageDisplayLabelStyle } from './getPageDisplayLabel';
 import type { Folder } from '../vault/models/Folder';
 
 const defaultMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

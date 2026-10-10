@@ -16,6 +16,7 @@ const ROOT = '/vault';
 const ARCHIVE_FOLDER_ID = 'folder-archive';
 
 const defaultFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

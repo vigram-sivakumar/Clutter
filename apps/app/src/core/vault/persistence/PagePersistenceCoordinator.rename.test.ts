@@ -21,6 +21,7 @@ function makeFolder(id: string, path: string, parentId: string | null = null): F
     path,
     parentId,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

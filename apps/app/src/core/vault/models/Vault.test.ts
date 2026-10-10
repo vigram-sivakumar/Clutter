@@ -31,6 +31,7 @@ function makeVault(
 }
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

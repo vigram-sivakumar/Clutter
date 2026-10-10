@@ -45,6 +45,7 @@ function makeArchiveFolder(): Folder {
     path: `${ROOT}/Archive`,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

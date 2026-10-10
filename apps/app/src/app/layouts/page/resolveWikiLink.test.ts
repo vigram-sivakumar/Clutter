@@ -25,6 +25,7 @@ function makeVault(pages: Page[], folders: Folder[] = []): Vault {
 }
 
 const defaultFolderMetadata = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

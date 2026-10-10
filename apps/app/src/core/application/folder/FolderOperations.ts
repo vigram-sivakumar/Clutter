@@ -586,6 +586,7 @@ export class FolderOperations {
         | 'coverPositionSide'
         | 'icon'
         | 'description'
+        | 'defaultTemplateId'
       >
     >
   ): Promise<void> {

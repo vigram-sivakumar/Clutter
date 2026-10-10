@@ -31,6 +31,7 @@ function renderActions(props: Partial<Parameters<typeof CollectionHeaderActions>
       onAdd={props.onAdd}
       onAddFolder={props.onAddFolder}
       fromTemplate={props.fromTemplate}
+      defaultTemplate={props.defaultTemplate}
       addLabel={props.addLabel}
     />
   );
@@ -236,5 +237,84 @@ describe('CollectionHeaderActions', () => {
 
     fireEvent.change(search(), { target: { value: 'week' } });
     expect(rowTitles()).toEqual(['Weekly']);
+  });
+
+  describe('Default template', () => {
+    const open = (
+      defaultTemplate?: { currentId: string | null; onChange: (id: string | null) => void },
+      templates: unknown[] = [template('a', 'Meeting'), template('b', 'Weekly')]
+    ) => {
+      const utils = renderActions({
+        onAdd: vi.fn(),
+        onAddFolder: vi.fn(),
+        fromTemplate: { getTemplates: () => templates as never[], onCreateTemplate: vi.fn() },
+        defaultTemplate,
+      });
+      fireEvent.click(utils.getByLabelText('Add options'));
+      return utils;
+    };
+    const setDefaultItem = () =>
+      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Set default template')!;
+
+    it('adds a divider, a non-interactive "Default template" heading and "Set default template" after From template — existing items untouched', () => {
+      open({ currentId: null, onChange: vi.fn() });
+
+      const menu = document.querySelector('.menu')!;
+      expect([...menu.children].map((el) => el.getAttribute('role') ?? el.textContent?.trim())).toEqual([
+        'menuitem', // New folder
+        'separator',
+        'menuitem', // From template
+        'separator',
+        'Default template', // the heading: not a menuitem
+        'menuitem', // Set default template
+      ]);
+      expect([...menu.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual([
+        'New folder',
+        'From template',
+        'Set default template',
+      ]);
+    });
+
+    it('is absent without the prop (note collections, tag and system pages)', () => {
+      open(undefined);
+
+      expect(setDefaultItem()).toBeUndefined();
+      expect(document.body.textContent).not.toContain('Default template');
+    });
+
+    it('opens the template picker (no "New template" row); choosing a template reports its id and closes it', () => {
+      const onChange = vi.fn();
+      open({ currentId: null, onChange });
+
+      fireEvent.click(setDefaultItem());
+
+      expect(document.querySelector('.menu')).toBeNull();
+      expect(rowTitles()).toEqual(['Meeting', 'Weekly']);
+
+      fireEvent.click(rows()[1]!);
+
+      expect(onChange).toHaveBeenCalledWith('b');
+      expect(document.querySelector('.picker-card')).toBeNull();
+    });
+
+    it('with a default set, the picker marks it, can change it, and can clear it', () => {
+      const onChange = vi.fn();
+      open({ currentId: 'a', onChange });
+      fireEvent.click(setDefaultItem());
+
+      expect(rowTitles()[0]).toContain('No default template');
+      expect(rows()[1]!.textContent).toContain('Default');
+      expect(rows()[2]!.textContent).not.toContain('Default');
+
+      fireEvent.click(rows()[2]!);
+      expect(onChange).toHaveBeenLastCalledWith('b');
+
+      cleanup();
+      const clear = vi.fn();
+      open({ currentId: 'a', onChange: clear });
+      fireEvent.click(setDefaultItem());
+      fireEvent.click(rows()[0]!);
+      expect(clear).toHaveBeenCalledWith(null);
+    });
   });
 });

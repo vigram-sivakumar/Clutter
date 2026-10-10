@@ -21,6 +21,7 @@ import type { IdGenerator } from '../../shared/identity/IdGenerator';
 const ROOT = '/vault';
 
 const defaultFolderMetadata: Folder['metadata'] = {
+  defaultTemplateId: null,
   icon: null,
   favorite: false,
   description: '',

@@ -23,6 +23,7 @@ function makeFolder(id: string, path: string): Folder {
     path,
     parentId: null,
     metadata: {
+      defaultTemplateId: null,
       icon: null,
       favorite: false,
       description: '',

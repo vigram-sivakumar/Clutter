@@ -187,7 +187,7 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     await renderFolder(PROJECTS);
 
     expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
     expect(hasCreateFolderCard()).toBe(true);
     expect(hasTable()).toBe(true);
   });
@@ -290,11 +290,11 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
 
   it('ordinary folders — including a nested one — offer New folder and From template beside the New plus', async () => {
     await renderFolder(PROJECTS);
-    expect(newMenuRows()).toEqual(['New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
     cleanup();
 
     await renderFolder(`${PROJECTS}/Sub`);
-    expect(newMenuRows()).toEqual(['New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
   });
 });
 
@@ -443,5 +443,72 @@ describe('CURRENT BEHAVIOR — one Create capability per collection (header and 
     expect(document.querySelector('[role="status"]')).not.toBeNull();
     expect(document.querySelector('.collection-table-row--new-item')).toBeNull();
     expect(newButton()).not.toBeNull();
+  });
+});
+
+describe('Default template — the folder Add menu section, by collection kind', () => {
+  const rowTitles = () =>
+    [...document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')].map((row) => row.textContent ?? '');
+  const openSetDefault = () => {
+    newMenuRows();
+    fireEvent.click(
+      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Set default template')!
+    );
+  };
+
+  it('an ordinary folder (and a nested one) shows the section after From template, under a non-interactive heading', async () => {
+    await renderFolder(PROJECTS);
+
+    expect(newMenuRows()).toEqual(['New folder', 'From template', 'Set default template']);
+    expect(bodyHasText('Default template')).toBe(true);
+    expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).not.toContain('Default template');
+    cleanup();
+
+    await renderFolder(`${PROJECTS}/Sub`);
+    expect(newMenuRows()).toContain('Set default template');
+  });
+
+  it('Inbox, Templates and the Archive never show it', async () => {
+    await renderFolder(INBOX);
+    expect(newMenuRows()).toEqual(['From template']);
+    expect(bodyHasText('Default template')).toBe(false);
+    cleanup();
+
+    await renderFolder(TEMPLATES);
+    expect(newMenuRows()).toEqual([]);
+    cleanup();
+
+    await renderFolder(ARCHIVE);
+    expect(newMenuRows()).toEqual([]);
+    expect(bodyHasText('Default template')).toBe(false);
+  });
+
+  it('choosing a template stores its page id on the folder; reopening marks it and can change or clear it', async () => {
+    const application = await renderFolder(PROJECTS);
+    const stored = () => application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId;
+
+    openSetDefault();
+    expect(rowTitles()).toEqual(['Meeting']);
+    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    await flush();
+    expect(stored()).toBe('tpl');
+    expect(document.querySelector('.picker-card')).toBeNull();
+
+    openSetDefault();
+    expect(rowTitles()).toEqual(['No default template', 'MeetingDefault']);
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[0]!);
+    await flush();
+    expect(stored()).toBeNull();
+  });
+
+  it('a stored id that is no longer a template is treated as unavailable: nothing marked, nothing substituted', async () => {
+    const application = await renderFolder(PROJECTS);
+    await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'deleted-template' });
+    await flush();
+
+    openSetDefault();
+
+    expect(rowTitles()).toEqual(['Meeting']);
+    expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBe('deleted-template');
   });
 });
