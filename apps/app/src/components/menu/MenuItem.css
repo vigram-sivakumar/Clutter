@@ -1,6 +1,16 @@
 .menu__item {
   color: var(--foreground-primary);
 }
+/* A plain-text label: as a flex item of `.entry__content` it may shrink below its text width
+ * (`min-width: 0`) and ellipsizes there, so a long label gives way to the leading icon and the
+ * trailing metadata (a Default pill, a shortcut) instead of overflowing or pushing them out. Scoped
+ * to menu rows: Entry itself, and every other Entry consumer, is unchanged. */
+.menu__item-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .menu__item--muted {
   color: var(--foreground-secondary);
 }

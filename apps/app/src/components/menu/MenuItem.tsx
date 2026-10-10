@@ -10,6 +10,7 @@ export interface MenuItemProps extends EntryProps {
 export function MenuItem({
   variant = 'default',
   id: idProp,
+  children,
   ...props
 }: MenuItemProps) {
   const generatedId = useId();
@@ -35,6 +36,14 @@ export function MenuItem({
         setActiveId(id);
         props.onMouseEnter?.(event);
       }}
-    />
+    >
+      {/* A plain-text label gets its own element so it can ellipsize (see .menu__item-label); custom
+          content (an element) is rendered as given and owns its own layout. */}
+      {typeof children === 'string' || typeof children === 'number' ? (
+        <span className="menu__item-label">{children}</span>
+      ) : (
+        children
+      )}
+    </Entry>
   );
 }
