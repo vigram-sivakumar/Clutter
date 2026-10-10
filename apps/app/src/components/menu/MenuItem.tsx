@@ -3,9 +3,15 @@ import { Entry, EntryProps } from '@components/entry/Entry';
 import { useId } from 'react';
 import './MenuItem.css';
 
-export interface MenuItemProps extends EntryProps {}
+export interface MenuItemProps extends EntryProps {
+  variant?: 'default' | 'muted';
+}
 
-export function MenuItem({ id: idProp, ...props }: MenuItemProps) {
+export function MenuItem({
+  variant = 'default',
+  id: idProp,
+  ...props
+}: MenuItemProps) {
   const generatedId = useId();
   // A caller that needs to correlate keyboard activity back to a specific
   // item (OverflowMenu resolving ArrowRight against its own item configs)
@@ -15,7 +21,9 @@ export function MenuItem({ id: idProp, ...props }: MenuItemProps) {
   const isKeyboardActive = activeId === id;
   return (
     <Entry
-      className="menu__item"
+      className={['menu__item', `menu__item--${variant}`]
+        .filter(Boolean)
+        .join(' ')}
       id={id}
       role="menuitem"
       // The keyboard-navigated item should look hovered, the same

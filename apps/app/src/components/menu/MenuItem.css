@@ -1,7 +1,9 @@
 .menu__item {
   color: var(--foreground-primary);
 }
-
+.menu__item--muted {
+  color: var(--foreground-secondary);
+}
 /* A state indicator (selection tick, active sort direction) placed in a
  * menu row's `trailing` slot. That slot renders inside Entry's
  * `.entry__meta`, which is muted (`--entry-muted-foreground`) because it's
