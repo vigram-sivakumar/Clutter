@@ -116,8 +116,7 @@ describe('Fenced code "More actions" — Change Language', () => {
     fireEvent.click(menuItemFor('Go'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```go', 'fn main() {}', '```'].join('\n'),
-      expect.any(String)
+      ['```go', 'fn main() {}', '```'].join('\n')
     );
   });
 
@@ -165,8 +164,7 @@ describe('Fenced code "More actions" — Change Language', () => {
     fireEvent.click(menuItemFor('JSX'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```jsx', 'const x = <div />;', '```'].join('\n'),
-      expect.any(String)
+      ['```jsx', 'const x = <div />;', '```'].join('\n')
     );
   });
 
@@ -184,8 +182,7 @@ describe('Fenced code "More actions" — Change Language', () => {
     fireEvent.click(menuItemFor('JSX'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```jsx', 'const x = 1;', '```'].join('\n'),
-      expect.any(String)
+      ['```jsx', 'const x = 1;', '```'].join('\n')
     );
   });
 
@@ -203,8 +200,7 @@ describe('Fenced code "More actions" — Change Language', () => {
     fireEvent.click(menuItemFor('TSX'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```tsx', 'const x: number = 1;', '```'].join('\n'),
-      expect.any(String)
+      ['```tsx', 'const x: number = 1;', '```'].join('\n')
     );
   });
 
@@ -222,8 +218,7 @@ describe('Fenced code "More actions" — Change Language', () => {
     fireEvent.click(menuItemFor('JavaScript'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```javascript', 'const x = <div />;', '```'].join('\n'),
-      expect.any(String)
+      ['```javascript', 'const x = <div />;', '```'].join('\n')
     );
   });
 });
@@ -516,8 +511,7 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
     fireEvent.click(menuItemFor('Python'));
 
     expect(onEdit).toHaveBeenCalledWith(
-      ['```python', 'const x = 1;', '```'].join('\n'),
-      expect.any(String)
+      ['```python', 'const x = 1;', '```'].join('\n')
     );
     expect(screen.queryByPlaceholderText('Search languages')).toBeNull();
   });

@@ -266,30 +266,102 @@ describe('editor isolation and history across notes', () => {
     expect(revision('a') - before).toBe(1);
   });
 
-  it('a keystroke typed before React renders an external write keeps both the write and the keystroke', async () => {
-    const { operations, view, doc, markdown, revision } = await setup();
-    const current = view();
-    current.focus();
-    const before = revision('a');
+  /**
+   * The real scheduler, no act(): React decides when to render, as in the app. The guarantee is that an external
+   * write has reached the editor by the time any later input event can run, so the next keystroke is made from
+   * the text the session already holds and both survive. (The previous version of this test dispatched the
+   * keystroke inside act(), which defers rendering and so stood in for the gap rather than reproducing it.)
+   */
+  describe('an external write followed by a keystroke (real scheduler, no act)', () => {
+    const realScheduler = async <T,>(run: () => Promise<T>): Promise<T> => {
+      const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+      env.IS_REACT_ACT_ENVIRONMENT = false;
+      try {
+        return await run();
+      } finally {
+        env.IS_REACT_ACT_ENVIRONMENT = true;
+      }
+    };
+    const microtasks = async () => {
+      for (let i = 0; i < 50; i++) {
+        await Promise.resolve();
+      }
+    };
+    const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 20));
 
-    await act(async () => {
-      // The external write reaches the session; React has not rendered it into the editor yet.
-      await operations.mutateBody('a', (text) => `${text} [ext]`);
-      expect(current.state.doc.toString()).toBe('Alpha');
-      // The next keystroke, made from the text the editor still has.
-      current.dispatch({
-        changes: { from: 5, insert: '!' },
-        selection: { anchor: 6 },
-        userEvent: 'input.type',
+    it('the editor shows the write before any later task, and the next keystroke keeps both', async () => {
+      const { operations, view, doc, markdown, revision } = await setup();
+      view().focus();
+      const before = revision('a');
+
+      await realScheduler(async () => {
+        await operations.mutateBody('a', (text) => `${text} [ext]`);
+        await microtasks();
+        // Only microtasks have run. The editor already holds the external text, so an input event queued behind
+        // this point is made from it.
+        expect(doc()).toBe('Alpha [ext]');
+
+        const current = view();
+        current.dispatch({
+          changes: { from: current.state.doc.length, insert: '!' },
+          selection: { anchor: current.state.doc.length + 1 },
+          userEvent: 'input.type',
+        });
+        await nextTask();
       });
-    });
-    await flush();
 
-    expect(markdown('a')).toBe('Alpha [ext]!');
-    expect(doc()).toBe('Alpha [ext]!');
-    // One revision for the write, one for the keystroke; the sync adds none.
-    expect(revision('a') - before).toBe(2);
-    // The caret stays right after what the user typed, which now sits after the external text.
-    expect(view().state.selection.main.head).toBe('Alpha [ext]!'.length);
+      expect(markdown('a')).toBe('Alpha [ext]!');
+      expect(doc()).toBe('Alpha [ext]!');
+      // One revision for the write, one for the keystroke; the sync adds none.
+      expect(revision('a') - before).toBe(2);
+      expect(view().state.selection.main.head).toBe('Alpha [ext]!'.length);
+    });
+
+    it('a write from a non-React task (timer) reaches the editor before the next task', async () => {
+      const { operations, view, doc, markdown } = await setup();
+      view().focus();
+
+      await realScheduler(async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(async () => {
+            await operations.mutateBody('a', (text) => `${text} [t]`);
+            await microtasks();
+            expect(doc()).toBe('Alpha [t]');
+            resolve();
+          }, 0);
+        });
+        const current = view();
+        current.dispatch({
+          changes: { from: 0, insert: '>' },
+          userEvent: 'input.type',
+        });
+        await nextTask();
+      });
+
+      expect(markdown('a')).toBe('>Alpha [t]');
+      expect(doc()).toBe('>Alpha [t]');
+    });
+
+    it('alternating keystrokes and external writes lose neither', async () => {
+      const { operations, view, doc, markdown } = await setup();
+      view().focus();
+
+      await realScheduler(async () => {
+        for (let i = 0; i < 4; i++) {
+          await operations.mutateBody('a', (text) => `${text}<${i}>`);
+          await microtasks();
+          const current = view();
+          current.dispatch({
+            changes: { from: current.state.doc.length, insert: String(i) },
+            userEvent: 'input.type',
+          });
+          await nextTask();
+        }
+      });
+
+      const expected = 'Alpha<0>0<1>1<2>2<3>3';
+      expect(markdown('a')).toBe(expected);
+      expect(doc()).toBe(expected);
+    });
   });
 });

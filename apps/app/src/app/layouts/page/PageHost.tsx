@@ -790,8 +790,8 @@ export function PageHost({
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
   // no persistence. Durable-stage persistence is a separate, payload-free
   // request (onRequestSave below), fired on blur.
-  const onUpdateMarkdown = (pageId: string, markdown: string, basedOn?: string): void => {
-    application.pageOperations.commitEdit(pageId, markdown, { basedOn });
+  const onUpdateMarkdown = (pageId: string, markdown: string): void => {
+    application.pageOperations.commitEdit(pageId, markdown);
   };
   // Undoing or redoing a template application also reverses or reapplies the metadata it changed.
   const onMetadataHistoryStep = (patch: Parameters<typeof application.pageOperations.updateMetadata>[1]): void => {
@@ -2382,7 +2382,7 @@ export function PageHost({
               pendingReveal={editorPendingReveal}
               onRevealApplied={onRevealHandled}
               foldStateStore={application.foldStateStore}
-              onEdit={(markdown, previous) => model.updateMarkdown(markdown, previous)}
+              onEdit={(markdown) => model.updateMarkdown(markdown)}
               onMetadataHistoryStep={onMetadataHistoryStep}
               onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
@@ -2656,7 +2656,7 @@ export function PageHost({
             pendingReveal={editorPendingReveal}
             onRevealApplied={onRevealHandled}
             foldStateStore={application.foldStateStore}
-            onEdit={(markdown, previous) => model.updateMarkdown(markdown, previous)}
+            onEdit={(markdown) => model.updateMarkdown(markdown)}
               onMetadataHistoryStep={onMetadataHistoryStep}
             onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}

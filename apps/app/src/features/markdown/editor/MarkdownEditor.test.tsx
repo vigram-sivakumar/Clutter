@@ -488,7 +488,7 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
 
     view.dispatch({ changes: { from: 3, insert: 'd' }, selection: { anchor: 4 }, userEvent: 'input.type' });
     expect(onEdit).toHaveBeenCalledTimes(1);
-    expect(onEdit).toHaveBeenLastCalledWith('abcd', 'abc');
+    expect(onEdit).toHaveBeenLastCalledWith('abcd');
 
     // The host feeds the committed text back as the prop, as PageHost does through the session.
     rerender(<MarkdownEditor pageId="test-page" markdown="abcd" onEdit={onEdit} />);
@@ -562,7 +562,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
 
     view.dispatch({ changes: { from: 5, insert: ', edited' } });
 
-    expect(onEdit).toHaveBeenCalledWith('Hello, edited', 'Hello');
+    expect(onEdit).toHaveBeenCalledWith('Hello, edited');
   });
 
   it('calls onEdit again for a second change, unconditionally (no local diffing)', () => {
@@ -573,8 +573,8 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
     view.dispatch({ changes: { from: 0, insert: 'H' } });
     view.dispatch({ changes: { from: 1, insert: 'e' } });
 
-    expect(onEdit).toHaveBeenNthCalledWith(1, 'H', '');
-    expect(onEdit).toHaveBeenNthCalledWith(2, 'He', 'H');
+    expect(onEdit).toHaveBeenNthCalledWith(1, 'H');
+    expect(onEdit).toHaveBeenNthCalledWith(2, 'He');
   });
 
   it('does not throw when onEdit is not provided', () => {
@@ -1045,7 +1045,7 @@ describe('MarkdownEditor: image options menu — Set as cover image', () => {
     expect(item).not.toBeNull();
     fireEvent.click(item!);
 
-    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter', expect.any(String));
+    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter');
   });
 
   it('places Edit source before the size/options button, matching PdfEmbedWidget\'s Expand/Edit source/More actions order', () => {

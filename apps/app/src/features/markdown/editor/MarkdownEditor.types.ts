@@ -115,7 +115,7 @@ export interface MarkdownEditorProps {
    * filters out anything that isn't a real change, so this component
    * doesn't need its own diffing.
    */
-  readonly onEdit?: (markdown: string, previousMarkdown: string) => void;
+  readonly onEdit?: (markdown: string) => void;
   /**
    * Fires when the user undoes or redoes an edit that was applied together with a metadata change
    * (`applyBodyWithMetadata`), with the metadata patch that reverses or reapplies it. The host applies it to

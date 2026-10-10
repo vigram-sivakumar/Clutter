@@ -24,7 +24,7 @@ afterEach(() => {
 
 function mount(
   doc: string,
-  onDocChange: (markdown: string, previous: string) => void
+  onDocChange: (markdown: string) => void
 ): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);

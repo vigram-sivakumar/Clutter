@@ -1085,3 +1085,15 @@ Three further findings, each reproduced before it was fixed.
 
 **Tests.** `mergeConcurrentEdit.test.ts`, `PageOperations.commitEdit.test.ts` (basedOn), `createEditorView.refusedEdit.test.ts`, `metadataHistoryStep.test.ts` (depth log, cache round-trip, pre-existing caches), `PageHost.editorSync.test.tsx` (keystroke-before-render keeps both), `PageHost.templateUndo.test.tsx` (the Meeting Notes example, typing before/after, draft, metadata-only/body-only templates, real Ctrl+Z / Ctrl+Y shortcuts, picker path with focus, a save in between, switching notes and back).
 
+
+## Concurrent edits: the session reaches React synchronously, so no merge — **Locked** (2026-10-10, supersedes finding 1 of "Lost updates, refused edits, and template undo/redo")
+
+**Supersedes** the `basedOn` / `mergeConcurrentEdit` mechanism (finding 1 above), which is removed along with the `previousMarkdown` argument of `onDocChange`/`onEdit`. `minimalReplaceChange` is back in `createEditorView.ts`, where it was before.
+
+**Evidence (jsdom, real React 18 scheduler, no `act()`):** `useDocumentSession` was `useState` + a subscribing effect, so a session change made outside a React event (a `mutateBody` promise continuation, a timer) was a DefaultLane update, rendered in a *later task*. After `await mutateBody(...)` and 50 microtasks the editor still showed the old text; a keystroke dispatched there reached `commitEdit` with `basedOn` ≠ the session's text. So the window was real, and the earlier `act()`-based test only stood in for it. With `useSyncExternalStore` the same write is in the editor after microtasks alone, and no mismatch occurred.
+
+**Decision:** `useDocumentSession` is a `useSyncExternalStore` whose snapshot is derived from the session (`revisionNumber:state:savedRevision.number`). The layout-effect sync of the `markdown` prop therefore runs before any later input event, an edit is always made from the text the session holds, and `commitEdit` commits the editor's text as it did originally. No conflict policy is needed because the conflict cannot arise outside a single synchronous run.
+
+**Cost, measured:** PageHost rendered twice per session change (79 renders for 40 keystrokes, against 40): `useEffectivePageState` in `AppLayout` is still a DefaultLane `useState`, so its re-render no longer coalesces with the synchronous one. About +1.3 ms per keystroke in jsdom (≈4 ms → ≈5.5 ms of render per keystroke; p95 ≈5 ms); not a browser measurement. Converting `useEffectivePageState` the same way brought it back to 40 renders, but it is left alone: it also reacts to vault and workspace notifications, where per-notification synchronous renders could cost more than they save.
+
+**Tests:** `useDocumentSession.test.tsx` (real scheduler: microtask-only visibility, render counts, lifecycle changes, change between render and subscribe, session switch, unmount); `PageHost.editorSync.test.tsx` "an external write followed by a keystroke (real scheduler, no act)" replaces the `act()`-based test — they fail against the old hook (3 of 3 in PageHost.editorSync, 4 of 6 in the hook test).

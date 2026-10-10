@@ -35,7 +35,6 @@ import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
 import { listItemFoldService } from './fold/listItemFoldService';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
-import { minimalReplaceChange } from '@core/engine/minimalReplace';
 import type { EditablePageMetadata } from '@core/application/page/PageOperations';
 import { metadataHistoryStep, metadataStepLogField } from './metadataHistoryStep';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
@@ -143,11 +142,7 @@ export interface CreateEditorViewOptions {
   readonly doc: string;
   readonly parent: HTMLElement;
   readonly extensions?: readonly Extension[];
-  /**
-   * Called with the document after every user edit and the document it was made from, so the host can tell
-   * an edit made from the text it already has from one made from text that has since been replaced.
-   */
-  readonly onDocChange?: (markdown: string, previousMarkdown: string) => void;
+  readonly onDocChange?: (markdown: string) => void;
   /**
    * Called with the metadata patch to apply when the user undoes or redoes an edit that was made together
    * with a metadata change (see `applyBodyWithMetadataStep`).
@@ -283,7 +278,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     }
 
     try {
-      onDocChange?.(update.state.doc.toString(), update.startState.doc.toString());
+      onDocChange?.(update.state.doc.toString());
     } catch (error) {
       // The host refused this edit (`commitEdit` throws for an archived page), so the session still holds the
       // text the edit was made from. Take the view back to it instead of leaving it ahead of the session.
@@ -611,6 +606,49 @@ export function serializeFoldState(view: EditorView): { doc: string; fold: numbe
 export function hasEstablishedEditingPosition(view: EditorView): boolean {
   const { head } = view.state.selection.main;
   return (head !== 0 && head !== view.state.doc.length) || undoDepth(view.state) > 0;
+}
+
+/**
+ * The smallest single `{from, to, insert}` change that turns `current` into
+ * `next` — a common-prefix/common-suffix diff, not a general (multi-hunk)
+ * diff algorithm. That's deliberate, not a simplification taken for
+ * expedience: `syncMarkdownIntoView`'s callers (task-checkbox toggles from
+ * a different UI surface, any other single-`PageOperations.mutateBody()`-
+ * style external mutation) each make one small, localized edit to an
+ * otherwise-unchanged document, which a prefix/suffix diff finds exactly
+ * and cheaply (no dependency, no O(n²)/Myers-diff cost). Its job here is
+ * narrower than "compute a good diff" — it's "touch as little of the
+ * document's position-space as possible," so that CM6's history mapping
+ * (see `syncMarkdownIntoView`'s own doc comment) has the best chance of
+ * keeping an *unrelated* prior user edit's undo entry intact. A full
+ * `{from: 0, to: current.length, insert: next}` replace (the previous
+ * behavior) touches the *entire* document's position-space on every sync,
+ * regardless of how small the actual external change was — proven to be
+ * more damage than the mapping can reliably recover from (see the doc
+ * comment below).
+ */
+function minimalReplaceChange(
+  current: string,
+  next: string
+): { from: number; to: number; insert: string } {
+  const maxCommon = Math.min(current.length, next.length);
+  let prefix = 0;
+  while (prefix < maxCommon && current[prefix] === next[prefix]) {
+    prefix++;
+  }
+  let suffix = 0;
+  const maxSuffix = maxCommon - prefix;
+  while (
+    suffix < maxSuffix &&
+    current[current.length - 1 - suffix] === next[next.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+  return {
+    from: prefix,
+    to: current.length - suffix,
+    insert: next.slice(prefix, next.length - suffix),
+  };
 }
 
 /**

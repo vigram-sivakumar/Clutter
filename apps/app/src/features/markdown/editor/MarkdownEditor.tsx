@@ -1586,8 +1586,7 @@ export const MarkdownEditor = forwardRef<
       extensions: buildSwitchableEditorExtensions(extensionOptions, readOnly, [
         editorExitUp(() => onExitUpRef.current),
       ]),
-      onDocChange: (nextMarkdown, previousMarkdown) =>
-        onEditRef.current?.(nextMarkdown, previousMarkdown),
+      onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onMetadataHistoryStep: (patch) => onMetadataHistoryStepRef.current?.(patch),
       onBlur: () => onFlushRef.current?.(),
     });
@@ -1861,17 +1860,15 @@ export const MarkdownEditor = forwardRef<
   //     (toResourcePageModel), never a stored copy, so any render carries the latest committed revision.
   //  2. Every edit this editor makes reaches that session before anything can render it: the update listener
   //     calls onDocChange -> onEdit -> commitEdit -> session.commit synchronously, inside the dispatch.
-  //  3. Render and commit are not interleaved with user input: React 18.3 renders default/discrete-lane
-  //     updates synchronously (`includesBlockingLane` -> `renderRootSync`), and there is no Suspense/lazy or
-  //     transition above the editor that could commit an older render later. This is a layout effect, so
-  //     it runs in the commit of that same render.
-  // So the view and the prop differ only when something other than this editor wrote the document. An
-  // *older* value reaching here would need a render that read the session, then a newer edit, then that same
-  // render committing — which (3) rules out; an editor-only re-render reuses the previous props, whose
+  //  3. The session reaches React through `useDocumentSession`, which is a `useSyncExternalStore`: a session
+  //     change from any task (a promise continuation, a timer) is rendered, and this effect run, in a microtask,
+  //     before the next input event can run. There is no Suspense/lazy/transition above the editor that could
+  //     commit an older render later.
+  // So the view and the prop differ only within a single synchronous run, and an edit made from the view
+  // always starts from the text the session holds. An editor-only re-render reuses the previous props, whose
   // `markdown` is unchanged, so this effect does not run at all.
-  // Known edges, both pre-existing in kind: a keystroke that lands before React renders an external write
-  // emits the editor's own text and so replaces it; and an edit the session refused (commitEdit throws for an
-  // archived page) leaves the view ahead of the session until the next prop change realigns it.
+  // Known edge: an edit the session refused (commitEdit throws for an archived page) leaves the view ahead of
+  // the session until the next prop change realigns it.
   // The dispatch is a minimal diff, so CodeMirror maps the selection through it and keeps the history
   // intact; it is tagged `externalSync` and `addToHistory: false` (see syncMarkdownIntoView).
   useLayoutEffect(() => {
