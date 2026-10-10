@@ -343,6 +343,32 @@ describe('applying a template through the picker (+N more)', () => {
     expect(content.contains(document.activeElement)).toBe(true);
   });
 
+  it('a pointer click: the browser moves focus onto the suggestion on mousedown, and applying does not hand it back to the editor', async () => {
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/note.jpg',
+    });
+    const content = document.querySelector<HTMLElement>('.cm-content')!;
+    content.focus();
+    expect(content.contains(document.activeElement)).toBe(true);
+    const item = document.querySelector<HTMLElement>('.template-suggestions__item')!;
+
+    // What a real click does before `click` fires (jsdom does not do it): mousedown focuses the control.
+    item.setAttribute('tabindex', '0');
+    fireEvent.mouseDown(item);
+    item.focus();
+    expect(content.contains(document.activeElement)).toBe(false);
+    fireEvent.mouseUp(item);
+    fireEvent.click(item);
+    await flush();
+
+    expect(editorText()).toBe('# Agenda');
+    expect(
+      application.pageOperations.getSession(noteId)!.currentRevision.markdown
+    ).toBe('# Agenda');
+    // Neither during nor after the apply is focus returned to the editor.
+    expect(content.contains(document.activeElement)).toBe(false);
+  });
+
   it('applying a template does not force focus into the editor', async () => {
     const { application, noteId } = await setup({
       cover: 'https://example.com/note.jpg',
