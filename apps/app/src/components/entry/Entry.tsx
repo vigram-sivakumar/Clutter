@@ -95,8 +95,9 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
       {leading && <div className="entry__leading">{leading}</div>}
 
       <div className="entry__content">
-        {children}
-        {/* <span className="entry__title">{children}</span> */}
+        {/* Bare text is wrapped so it truncates: Entry.css's `.entry__content span` rule is what ellipsizes
+            (text-overflow does not reach an anonymous flex item). Element children are left as given. */}
+        {typeof children === 'string' || typeof children === 'number' ? <span>{children}</span> : children}
       </div>
 
       {(trailing || actions) && (

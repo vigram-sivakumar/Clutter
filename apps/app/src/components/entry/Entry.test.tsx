@@ -132,3 +132,30 @@ describe('Entry.css — long titles actually ellipsize, not just get clipped', (
     expect(match![1]).toMatch(/text-overflow\s*:\s*ellipsis\s*;/);
   });
 });
+
+describe('Entry: bare-text children truncate', () => {
+  it('wraps plain text (and numbers) in a span, the element Entry.css ellipsizes', () => {
+    const { container } = render(<Entry>A very long title</Entry>);
+
+    const content = container.querySelector('.entry__content')!;
+    expect(content.children).toHaveLength(1);
+    expect(content.firstElementChild!.tagName).toBe('SPAN');
+    expect(content.firstElementChild!.textContent).toBe('A very long title');
+    cleanup();
+
+    render(<Entry>{42}</Entry>);
+    expect(document.querySelector('.entry__content > span')!.textContent).toBe('42');
+  });
+
+  it('leaves element children as given — no extra wrapper', () => {
+    const { container } = render(
+      <Entry>
+        <div className="custom">Title</div>
+      </Entry>
+    );
+
+    const content = container.querySelector('.entry__content')!;
+    expect(content.children).toHaveLength(1);
+    expect(content.firstElementChild).toHaveClass('custom');
+  });
+});
