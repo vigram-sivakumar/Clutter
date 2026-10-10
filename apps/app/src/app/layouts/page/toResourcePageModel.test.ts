@@ -67,7 +67,18 @@ describe('toResourcePageModel', () => {
     const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn());
     model.updateMarkdown('New content');
 
-    expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
+    // No `basedOn` given, none forwarded.
+    expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content', undefined);
+  });
+
+  it('updateMarkdown forwards the text the edit was made from (basedOn)', () => {
+    const page = buildPage();
+    const session = new DocumentSession(page.id, page.source.markdown);
+    const onUpdateMarkdown = vi.fn();
+
+    toResourcePageModel(page, session, onUpdateMarkdown, vi.fn()).updateMarkdown('New content', 'Old content');
+
+    expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content', 'Old content');
   });
 
   it('requestSave delegates to the onRequestSave callback with the page id, no payload', () => {
@@ -245,7 +256,7 @@ describe('toDraftPageModel (ADR-017)', () => {
       vi.fn()
     ).updateMarkdown('New content');
 
-    expect(onUpdateMarkdown).toHaveBeenCalledWith('draft-1', 'New content');
+    expect(onUpdateMarkdown).toHaveBeenCalledWith('draft-1', 'New content', undefined);
   });
 
   it('requestSave delegates to onRequestSave with the draft id, no payload', () => {

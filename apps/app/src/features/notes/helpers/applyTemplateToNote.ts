@@ -3,6 +3,7 @@ import type {
   PageOperations,
 } from '@core/application/page/PageOperations';
 import { splitKeyBlocks } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import { resolvePageMetadata } from '@core/vault/ingest/resolvePageMetadata';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 import type { PageType } from '@core/vault/models/Page';
 
@@ -12,9 +13,41 @@ import { pickInheritedTemplateMetadata } from './createNoteFromTemplate';
 export type ExistingNoteMetadata = Partial<
   Pick<
     PageMetadata,
-    'icon' | 'cover' | 'description' | 'tags' | 'unownedFrontmatter'
+    | 'icon'
+    | 'cover'
+    | 'coverHidden'
+    | 'coverLayout'
+    | 'coverPositionAbove'
+    | 'coverPositionSide'
+    | 'description'
+    | 'tags'
+    | 'unownedFrontmatter'
   >
 >;
+
+/** The metadata change a template application made, and the one that puts it back. */
+export interface TemplateApplicationStep {
+  readonly patch: Partial<EditablePageMetadata>;
+  readonly inverse: Partial<EditablePageMetadata>;
+}
+
+/**
+ * The patch that restores what `patch` overwrote: for each key it sets, the note's own value before the
+ * application, or the blank-page default when it had none. Only the keys the patch touched are reverted.
+ */
+export function inverseMetadataPatch(
+  existing: ExistingNoteMetadata,
+  patch: Partial<EditablePageMetadata>
+): Partial<EditablePageMetadata> {
+  const defaults = resolvePageMetadata({});
+  const before: Record<string, unknown> = {};
+
+  for (const key of Object.keys(patch) as (keyof EditablePageMetadata)[]) {
+    before[key] = existing[key as keyof ExistingNoteMetadata] ?? defaults[key];
+  }
+
+  return before as Partial<EditablePageMetadata>;
+}
 
 /** `kind` is the template marker's key; a template's kind never describes the note it is applied to. */
 const KIND_KEY = 'kind';
@@ -133,14 +166,38 @@ export async function applyTemplateToNote(
   noteType: PageType,
   existing: ExistingNoteMetadata,
   templateMarkdown: string,
-  templateMetadata?: Parameters<typeof pickInheritedTemplateMetadata>[0]
+  templateMetadata?: Parameters<typeof pickInheritedTemplateMetadata>[0],
+  options: {
+    /**
+     * Puts the body into the note, given the metadata step that came with it, instead of `mutateBody`. The
+     * open editor passes one that records both as a single undoable edit. Called even for a template with no
+     * body when it changed metadata, so that change is undoable too.
+     */
+    readonly applyBody?: (
+      markdown: string,
+      step: TemplateApplicationStep | undefined
+    ) => void | Promise<void>;
+  } = {}
 ): Promise<void> {
   const patch = templateMetadata
     ? pickTemplateMetadataToMerge(existing, templateMetadata, noteType)
     : {};
+  const hasMetadata = Object.keys(patch).length > 0;
 
-  if (Object.keys(patch).length > 0) {
+  if (hasMetadata) {
     await pageOperations.updateMetadata(noteId, patch);
+  }
+
+  if (options.applyBody) {
+    const step = hasMetadata
+      ? { patch, inverse: inverseMetadataPatch(existing, patch) }
+      : undefined;
+
+    if (templateMarkdown.trim() !== '' || step) {
+      await options.applyBody(templateMarkdown, step);
+    }
+
+    return;
   }
 
   if (templateMarkdown.trim() !== '') {

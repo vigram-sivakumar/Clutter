@@ -1,3 +1,4 @@
+import { mergeConcurrentEdit } from '@core/engine/mergeConcurrentEdit';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -187,6 +188,11 @@ interface DraftDescriptor {
  */
 export interface EditOptions {
   readonly allowArchived?: boolean;
+}
+
+/** `commitEdit`'s options: `EditOptions` plus the text an editor's edit was made from. */
+export interface CommitEditOptions extends EditOptions {
+  readonly basedOn?: string;
 }
 
 /**
@@ -1113,7 +1119,7 @@ export class PageOperations {
    * already holding), so an identical-content commit never wastes a timer
    * reset on nothing actually having changed.
    */
-  public commitEdit(pageId: string, markdown: string, options: EditOptions = {}): void {
+  public commitEdit(pageId: string, markdown: string, options: CommitEditOptions = {}): void {
     const session = this.documentRegistry.get(pageId);
 
     if (!session) {
@@ -1123,7 +1129,15 @@ export class PageOperations {
     this.assertEditable(pageId, options);
 
     const revisionBefore = session.currentRevision;
-    const revisionAfter = session.commit(new DocumentTransaction(markdown));
+    // `basedOn` is the text the editor made this edit from. If the session has moved past it, something else
+    // wrote the document and the editor has not received that yet (React has not rendered it): committing the
+    // editor's whole text would silently replace that write, so keep both changes. In ordinary typing the
+    // two are equal and this is skipped.
+    const next =
+      options.basedOn !== undefined && options.basedOn !== revisionBefore.markdown
+        ? mergeConcurrentEdit(options.basedOn, markdown, revisionBefore.markdown)
+        : markdown;
+    const revisionAfter = session.commit(new DocumentTransaction(next));
 
     if (revisionAfter === revisionBefore) {
       return;

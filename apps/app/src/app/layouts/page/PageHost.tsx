@@ -790,8 +790,18 @@ export function PageHost({
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
   // no persistence. Durable-stage persistence is a separate, payload-free
   // request (onRequestSave below), fired on blur.
-  const onUpdateMarkdown = (pageId: string, markdown: string): void => {
-    application.pageOperations.commitEdit(pageId, markdown);
+  const onUpdateMarkdown = (pageId: string, markdown: string, basedOn?: string): void => {
+    application.pageOperations.commitEdit(pageId, markdown, { basedOn });
+  };
+  // Undoing or redoing a template application also reverses or reapplies the metadata it changed.
+  const onMetadataHistoryStep = (patch: Parameters<typeof application.pageOperations.updateMetadata>[1]): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations
+      .updateMetadata(activePageId, patch)
+      .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t update the note’s properties' }));
   };
   const onRequestSave = (pageId: string): void => {
     void application.pageOperations.requestSave(pageId);
@@ -1283,7 +1293,21 @@ export function PageHost({
         note.type,
         note.existing,
         template.markdown,
-        vault.getPage(templatePageId)?.metadata
+        vault.getPage(templatePageId)?.metadata,
+        {
+          // Through the open editor, so the body and the metadata it brought undo and redo as one step.
+          applyBody: (markdown, step) => {
+            const editor = editorRef.current;
+
+            if (editor) {
+              editor.applyBodyWithMetadata(markdown, step);
+            } else {
+              return application.pageOperations.mutateBody(note.id, (current) =>
+                current.trim() === '' ? markdown : current
+              );
+            }
+          },
+        }
       )
         .then(() => editorRef.current?.focus())
         .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' }));
@@ -2358,7 +2382,8 @@ export function PageHost({
               pendingReveal={editorPendingReveal}
               onRevealApplied={onRevealHandled}
               foldStateStore={application.foldStateStore}
-              onEdit={(markdown) => model.updateMarkdown(markdown)}
+              onEdit={(markdown, previous) => model.updateMarkdown(markdown, previous)}
+              onMetadataHistoryStep={onMetadataHistoryStep}
               onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
               resolveWikiLink={resolveWikiLink}
@@ -2631,7 +2656,8 @@ export function PageHost({
             pendingReveal={editorPendingReveal}
             onRevealApplied={onRevealHandled}
             foldStateStore={application.foldStateStore}
-            onEdit={(markdown) => model.updateMarkdown(markdown)}
+            onEdit={(markdown, previous) => model.updateMarkdown(markdown, previous)}
+              onMetadataHistoryStep={onMetadataHistoryStep}
             onFlush={() => model.requestSave()}
               onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
             resolveWikiLink={editorResolveWikiLink}

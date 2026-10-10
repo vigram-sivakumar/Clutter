@@ -3,6 +3,7 @@
 import { createRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import { foldEffect, foldState } from '@codemirror/language';
 
@@ -443,39 +444,72 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
     expect(editor.textContent).toBe('Changed externally');
   });
 
-  it('does NOT overwrite the DOM from a markdown prop change while the editor has focus', () => {
+  it('syncs an external markdown prop change even while the editor has focus', () => {
     const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
-    const editor = container.querySelector('[contenteditable]') as HTMLElement;
-    editor.focus();
-    expect(document.activeElement).toBe(editor);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    view.focus();
+    expect(view.hasFocus).toBe(true);
 
-    // Simulate the editor's own in-progress typing that hasn't round-tripped
-    // back through the markdown prop yet.
-    editor.textContent = 'Hello, mid-edit';
+    rerender(<MarkdownEditor pageId="test-page" markdown="Changed externally" />);
 
-    // A stale/round-tripped prop update arrives (e.g. this editor's own
-    // earlier commit re-rendering) — must not clobber in-progress typing.
-    rerender(<MarkdownEditor pageId="test-page" markdown="Hello" />);
-
-    expect(editor.textContent).toBe('Hello, mid-edit');
+    expect(view.state.doc.toString()).toBe('Changed externally');
+    expect(view.hasFocus).toBe(true);
   });
 
-  it('resumes syncing from the prop once focus leaves the editor', () => {
-    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
-    const editor = container.querySelector('[contenteditable]') as HTMLElement;
-    editor.focus();
-    editor.textContent = 'Mid-edit';
-    rerender(<MarkdownEditor pageId="test-page" markdown="Hello" />);
-    expect(editor.textContent).toBe('Mid-edit');
+  it('an external change while focused keeps the selection mapped and the user\'s undo history intact', () => {
+    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="one two" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    view.focus();
+    // A real user edit (enters history), with the caret after it.
+    view.dispatch({
+      changes: { from: 7, insert: '!' },
+      selection: { anchor: 8 },
+      userEvent: 'input.type',
+    });
+    expect(undoDepth(view.state)).toBe(1);
 
-    // jsdom's fireEvent.blur only dispatches the event, it doesn't move
-    // document.activeElement the way a real browser's focus change would —
-    // .blur() is what actually clears activeElement here, which is the
-    // condition the component's effect checks.
-    editor.blur();
+    // Something else rewrites the start of the document (same length diff: text inserted before the caret).
+    rerender(<MarkdownEditor pageId="test-page" markdown="PREFIX one two!" />);
+
+    expect(view.state.doc.toString()).toBe('PREFIX one two!');
+    // The caret followed the text it was after, not its numeric position.
+    expect(view.state.selection.main.head).toBe('PREFIX one two!'.length);
+    // The sync is not an undo step, and the user's own edit still is.
+    expect(undoDepth(view.state)).toBe(1);
+  });
+
+  it('does not re-apply or re-report the editor\'s own typing when it round-trips through the prop', () => {
+    const onEdit = vi.fn();
+    const { container, rerender } = render(
+      <MarkdownEditor pageId="test-page" markdown="abc" onEdit={onEdit} />
+    );
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    view.focus();
+
+    view.dispatch({ changes: { from: 3, insert: 'd' }, selection: { anchor: 4 }, userEvent: 'input.type' });
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenLastCalledWith('abcd', 'abc');
+
+    // The host feeds the committed text back as the prop, as PageHost does through the session.
+    rerender(<MarkdownEditor pageId="test-page" markdown="abcd" onEdit={onEdit} />);
+
+    expect(view.state.doc.toString()).toBe('abcd');
+    expect(view.state.selection.main.head).toBe(4);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps syncing from the prop after focus leaves the editor', () => {
+    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    view.focus();
+    rerender(<MarkdownEditor pageId="test-page" markdown="While focused" />);
+    expect(view.state.doc.toString()).toBe('While focused');
+
+    view.contentDOM.blur();
     rerender(<MarkdownEditor pageId="test-page" markdown="Reconciled value" />);
 
-    expect(editor.textContent).toBe('Reconciled value');
+    expect(view.state.doc.toString()).toBe('Reconciled value');
   });
 });
 
@@ -528,7 +562,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
 
     view.dispatch({ changes: { from: 5, insert: ', edited' } });
 
-    expect(onEdit).toHaveBeenCalledWith('Hello, edited');
+    expect(onEdit).toHaveBeenCalledWith('Hello, edited', 'Hello');
   });
 
   it('calls onEdit again for a second change, unconditionally (no local diffing)', () => {
@@ -539,8 +573,8 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
     view.dispatch({ changes: { from: 0, insert: 'H' } });
     view.dispatch({ changes: { from: 1, insert: 'e' } });
 
-    expect(onEdit).toHaveBeenNthCalledWith(1, 'H');
-    expect(onEdit).toHaveBeenNthCalledWith(2, 'He');
+    expect(onEdit).toHaveBeenNthCalledWith(1, 'H', '');
+    expect(onEdit).toHaveBeenNthCalledWith(2, 'He', 'H');
   });
 
   it('does not throw when onEdit is not provided', () => {
@@ -1011,7 +1045,7 @@ describe('MarkdownEditor: image options menu — Set as cover image', () => {
     expect(item).not.toBeNull();
     fireEvent.click(item!);
 
-    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter');
+    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter', expect.any(String));
   });
 
   it('places Edit source before the size/options button, matching PdfEmbedWidget\'s Expand/Edit source/More actions order', () => {

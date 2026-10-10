@@ -23,6 +23,7 @@ import {
   highlightActiveLine,
   highlightSpecialChars,
   keymap,
+  type ViewUpdate,
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
@@ -34,6 +35,9 @@ import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
 import { listItemFoldService } from './fold/listItemFoldService';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
+import { minimalReplaceChange } from '@core/engine/minimalReplace';
+import type { EditablePageMetadata } from '@core/application/page/PageOperations';
+import { metadataHistoryStep, metadataStepLogField } from './metadataHistoryStep';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
 // own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
 // (the stale commented-out import that used to sit here) was retired
@@ -111,11 +115,44 @@ const blockReadOnlyEdits = EditorState.transactionFilter.of((tr) =>
   tr.startState.readOnly && tr.docChanged && !tr.annotation(externalSync) ? [] : tr
 );
 
+/**
+ * Undoes a user edit the host refused, as an external, non-history transaction — the same kind
+ * `syncMarkdownIntoView` dispatches: not reported back through `onDocChange`, not an undo step, and allowed
+ * through a read-only view. Inverting the edit's own changes (not replacing the document) keeps the selection
+ * mapped, the rest of the history intact, and leaves the view mounted.
+ *
+ * Deferred to a microtask because CodeMirror forbids dispatching from inside an update listener. Skipped when
+ * the view is gone or has changed since, in which case the next sync from the host realigns it.
+ */
+function revertRefusedEdit(update: ViewUpdate): void {
+  queueMicrotask(() => {
+    const view = update.view;
+
+    if (!view.dom.isConnected || !view.state.doc.eq(update.state.doc)) {
+      return;
+    }
+
+    view.dispatch({
+      changes: update.changes.invert(update.startState.doc),
+      annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
+    });
+  });
+}
+
 export interface CreateEditorViewOptions {
   readonly doc: string;
   readonly parent: HTMLElement;
   readonly extensions?: readonly Extension[];
-  readonly onDocChange?: (markdown: string) => void;
+  /**
+   * Called with the document after every user edit and the document it was made from, so the host can tell
+   * an edit made from the text it already has from one made from text that has since been replaced.
+   */
+  readonly onDocChange?: (markdown: string, previousMarkdown: string) => void;
+  /**
+   * Called with the metadata patch to apply when the user undoes or redoes an edit that was made together
+   * with a metadata change (see `applyBodyWithMetadataStep`).
+   */
+  readonly onMetadataHistoryStep?: (patch: Partial<EditablePageMetadata>) => void;
   readonly onBlur?: () => void;
   /**
    * Defaults to editable (`false`). Fixed for this view's lifetime — the
@@ -225,6 +262,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     parent,
     extensions = [],
     onDocChange,
+    onMetadataHistoryStep,
     onBlur,
     restoreHistoryJSON,
     restoreScrollEffect,
@@ -244,7 +282,15 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       return;
     }
 
-    onDocChange?.(update.state.doc.toString());
+    try {
+      onDocChange?.(update.state.doc.toString(), update.startState.doc.toString());
+    } catch (error) {
+      // The host refused this edit (`commitEdit` throws for an archived page), so the session still holds the
+      // text the edit was made from. Take the view back to it instead of leaving it ahead of the session.
+      revertRefusedEdit(update);
+      // Still surfaced: CodeMirror reports an update listener's exception (the edit was not saved).
+      throw error;
+    }
   });
 
   const blurHandler = EditorView.domEventHandlers({
@@ -292,7 +338,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // styling (MarkdownEditor.css) is what's visible now.
       drawSelection(),
       EditorView.lineWrapping,
-      ...(enableHistory ? [history()] : []),
+      ...(enableHistory ? [history(), metadataHistoryStep((patch) => onMetadataHistoryStep?.(patch))] : []),
       EditorState.allowMultipleSelections.of(true),
       // Purely visual/pointer standard CM6 extensions — no keymap, no
       // change to Backspace/Enter/Delete/Tab/Arrow handling. highlightSpecialChars()
@@ -429,7 +475,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       ? EditorState.fromJSON(
           restoreHistoryJSON,
           { extensions: allExtensions },
-          { history: historyField }
+          { history: historyField, metadataSteps: metadataStepLogField }
         )
       : null;
 
@@ -519,7 +565,12 @@ export function docTextMatches(serialized: unknown, doc: string): boolean {
  * verification.
  */
 export function serializeEditorHistory(view: EditorView): unknown {
-  return view.state.toJSON({ history: historyField });
+  // The metadata step log rides along (when this editor has one): it is what lets undoing a restored note's
+  // template application still reverse its metadata, which CodeMirror's own history JSON cannot carry.
+  return view.state.toJSON({
+    history: historyField,
+    ...(view.state.field(metadataStepLogField, false) && { metadataSteps: metadataStepLogField }),
+  });
 }
 
 /**
@@ -563,55 +614,12 @@ export function hasEstablishedEditingPosition(view: EditorView): boolean {
 }
 
 /**
- * The smallest single `{from, to, insert}` change that turns `current` into
- * `next` — a common-prefix/common-suffix diff, not a general (multi-hunk)
- * diff algorithm. That's deliberate, not a simplification taken for
- * expedience: `syncMarkdownIntoView`'s callers (task-checkbox toggles from
- * a different UI surface, any other single-`PageOperations.mutateBody()`-
- * style external mutation) each make one small, localized edit to an
- * otherwise-unchanged document, which a prefix/suffix diff finds exactly
- * and cheaply (no dependency, no O(n²)/Myers-diff cost). Its job here is
- * narrower than "compute a good diff" — it's "touch as little of the
- * document's position-space as possible," so that CM6's history mapping
- * (see `syncMarkdownIntoView`'s own doc comment) has the best chance of
- * keeping an *unrelated* prior user edit's undo entry intact. A full
- * `{from: 0, to: current.length, insert: next}` replace (the previous
- * behavior) touches the *entire* document's position-space on every sync,
- * regardless of how small the actual external change was — proven to be
- * more damage than the mapping can reliably recover from (see the doc
- * comment below).
- */
-function minimalReplaceChange(
-  current: string,
-  next: string
-): { from: number; to: number; insert: string } {
-  const maxCommon = Math.min(current.length, next.length);
-  let prefix = 0;
-  while (prefix < maxCommon && current[prefix] === next[prefix]) {
-    prefix++;
-  }
-  let suffix = 0;
-  const maxSuffix = maxCommon - prefix;
-  while (
-    suffix < maxSuffix &&
-    current[current.length - 1 - suffix] === next[next.length - 1 - suffix]
-  ) {
-    suffix++;
-  }
-  return {
-    from: prefix,
-    to: current.length - suffix,
-    insert: next.slice(prefix, next.length - suffix),
-  };
-}
-
-/**
  * Replaces the view's document with `markdown` to match an external change
  * — the page's content changed somewhere other than this same editor
  * instance (`PageOperations.mutateBody()`, e.g. a task-checkbox toggle from
- * a different UI surface acting on the same open-but-unfocused page; see
- * `MarkdownEditor.tsx`'s own call site for the focus-gating this always
- * runs under). Tagged `externalSync` so the update listener above skips
+ * a different UI surface, or a template applied to the open page — whether
+ * or not the editor has focus; see `MarkdownEditor.tsx`'s own call site for
+ * why that is safe). Tagged `externalSync` so the update listener above skips
  * `onDocChange` for it (prevents a feedback loop back into the very state
  * this sync is reconciling from) — completely independent of, and
  * unaffected by, the history annotation below; that annotation governs

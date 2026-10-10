@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { closeCompletion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
@@ -13,6 +13,7 @@ import {
   serializeFoldState,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
+import { applyBodyWithMetadataStep } from './codemirror/metadataHistoryStep';
 import {
   getCachedEditorSession,
   setCachedEditorSession,
@@ -243,6 +244,7 @@ export const MarkdownEditor = forwardRef<
     onRevealApplied,
     foldStateStore,
     onEdit,
+    onMetadataHistoryStep,
     onFlush,
     onExitUp,
     resolveWikiLink,
@@ -338,6 +340,8 @@ export const MarkdownEditor = forwardRef<
   onEditRef.current = onEdit;
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
+  const onMetadataHistoryStepRef = useRef(onMetadataHistoryStep);
+  onMetadataHistoryStepRef.current = onMetadataHistoryStep;
   const onExitUpRef = useRef(onExitUp);
   onExitUpRef.current = onExitUp;
 
@@ -1399,6 +1403,15 @@ export const MarkdownEditor = forwardRef<
   }
 
   useImperativeHandle(ref, () => ({
+    applyBodyWithMetadata(markdown, step) {
+      const view = viewRef.current;
+
+      if (!view || readOnly) {
+        return;
+      }
+
+      applyBodyWithMetadataStep(view, markdown, step);
+    },
     focus() {
       if (readOnly) {
         return;
@@ -1573,7 +1586,9 @@ export const MarkdownEditor = forwardRef<
       extensions: buildSwitchableEditorExtensions(extensionOptions, readOnly, [
         editorExitUp(() => onExitUpRef.current),
       ]),
-      onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
+      onDocChange: (nextMarkdown, previousMarkdown) =>
+        onEditRef.current?.(nextMarkdown, previousMarkdown),
+      onMetadataHistoryStep: (patch) => onMetadataHistoryStepRef.current?.(patch),
       onBlur: () => onFlushRef.current?.(),
     });
     viewRef.current = view;
@@ -1838,22 +1853,31 @@ export const MarkdownEditor = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingReveal]);
 
-  useEffect(() => {
+  // Re-aligns the view with the `markdown` prop when it differs from the view's own document — an external
+  // change (a template applied, a task toggled elsewhere, a tag rename), whether or not the editor has focus.
+  //
+  // Safe without a focus check because of three facts, each in code, not in React's guarantees alone:
+  //  1. The prop is the session's *live* text: PageHost reads `session.currentRevision.markdown` at render
+  //     (toResourcePageModel), never a stored copy, so any render carries the latest committed revision.
+  //  2. Every edit this editor makes reaches that session before anything can render it: the update listener
+  //     calls onDocChange -> onEdit -> commitEdit -> session.commit synchronously, inside the dispatch.
+  //  3. Render and commit are not interleaved with user input: React 18.3 renders default/discrete-lane
+  //     updates synchronously (`includesBlockingLane` -> `renderRootSync`), and there is no Suspense/lazy or
+  //     transition above the editor that could commit an older render later. This is a layout effect, so
+  //     it runs in the commit of that same render.
+  // So the view and the prop differ only when something other than this editor wrote the document. An
+  // *older* value reaching here would need a render that read the session, then a newer edit, then that same
+  // render committing — which (3) rules out; an editor-only re-render reuses the previous props, whose
+  // `markdown` is unchanged, so this effect does not run at all.
+  // Known edges, both pre-existing in kind: a keystroke that lands before React renders an external write
+  // emits the editor's own text and so replaces it; and an edit the session refused (commitEdit throws for an
+  // archived page) leaves the view ahead of the session until the next prop change realigns it.
+  // The dispatch is a minimal diff, so CodeMirror maps the selection through it and keeps the history
+  // intact; it is tagged `externalSync` and `addToHistory: false` (see syncMarkdownIntoView).
+  useLayoutEffect(() => {
     const view = viewRef.current;
 
     if (!view) {
-      return;
-    }
-
-    // While this editor has focus, its own document is authoritative
-    // over itself — a markdown prop update here is this same editor's
-    // own committed content round-tripping back through
-    // onDocChange->commit()->notify()->re-render, not an external
-    // change. Overwriting it in that case would clobber in-progress
-    // typing and reset CM6's own undo history. Only sync from the prop
-    // while genuinely unfocused, exactly as the previous contentEditable
-    // implementation did via document.activeElement.
-    if (view.hasFocus) {
       return;
     }
 

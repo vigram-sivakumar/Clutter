@@ -92,7 +92,7 @@ describe('Note embed "More actions" — Turn into WikiLink / Remove', () => {
 
     fireEvent.click(findMenuItem('Turn into WikiLink')!);
 
-    expect(onEdit).toHaveBeenCalledWith('Before\n\n[[Other Note]]\n\nAfter');
+    expect(onEdit).toHaveBeenCalledWith('Before\n\n[[Other Note]]\n\nAfter', expect.any(String));
     expect(onOpenPage).not.toHaveBeenCalled();
   });
 
@@ -116,7 +116,7 @@ describe('Note embed "More actions" — Turn into WikiLink / Remove', () => {
 
     fireEvent.click(findMenuItem('Remove')!);
 
-    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter');
+    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter', expect.any(String));
     expect(onOpenPage).not.toHaveBeenCalled();
   });
 

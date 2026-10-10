@@ -140,7 +140,7 @@ describe('PDF embed "More actions" — Remove/Download/Archive separation', () =
 
     fireEvent.click(findMenuItem('Remove')!);
 
-    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter');
+    expect(onEdit).toHaveBeenCalledWith('Before\n\nAfter', expect.any(String));
     expect(onArchiveResource).not.toHaveBeenCalled();
   });
 

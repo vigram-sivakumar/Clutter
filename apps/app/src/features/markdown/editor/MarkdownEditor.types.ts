@@ -1,3 +1,5 @@
+import type { EditablePageMetadata } from '@core/application/page/PageOperations';
+import type { MetadataHistoryStep } from './codemirror/metadataHistoryStep';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 import type { ImageOverlayImage } from './codemirror/image/ImageOverlay';
@@ -113,7 +115,13 @@ export interface MarkdownEditorProps {
    * filters out anything that isn't a real change, so this component
    * doesn't need its own diffing.
    */
-  readonly onEdit?: (markdown: string) => void;
+  readonly onEdit?: (markdown: string, previousMarkdown: string) => void;
+  /**
+   * Fires when the user undoes or redoes an edit that was applied together with a metadata change
+   * (`applyBodyWithMetadata`), with the metadata patch that reverses or reapplies it. The host applies it to
+   * the page; the editor only carries it through its history.
+   */
+  readonly onMetadataHistoryStep?: (patch: Partial<EditablePageMetadata>) => void;
   /**
    * Fires on blur — a save request, not a payload (autosave-execution-model.md
    * §0): asks the system to make this session durable if it isn't already,
@@ -359,6 +367,12 @@ export interface MarkdownEditorProps {
  */
 export interface MarkdownEditorHandle {
   focus(): void;
+  /**
+   * Puts `markdown` into the (still blank) document as one undoable edit together with `step`, the metadata
+   * change that came with it, so a single undo reverses both and a single redo restores both. Text typed
+   * since is never replaced. Reported through `onEdit` like any other edit.
+   */
+  applyBodyWithMetadata(markdown: string, step?: MetadataHistoryStep): void;
   /**
    * Used when focus arrives from the page title's Enter key: inserts a new
    * blank line at the very top of the body and places the cursor on it,
