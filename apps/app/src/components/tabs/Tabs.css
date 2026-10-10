@@ -37,7 +37,7 @@
     border-color 160ms ease;
 }
 
-.tab--filled .tab:hover {
+.tabs--filled .tab:hover {
   color: var(--foreground-primary);
 }
 

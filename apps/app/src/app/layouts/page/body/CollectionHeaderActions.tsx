@@ -9,6 +9,7 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import { Popover } from '@components/popover/Popover';
 import { PickerCard } from '@components/picker-card/PickerCard';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import './CollectionHeaderAction.css';
 
 import {
   CollectionViewMenu,
@@ -44,7 +45,10 @@ function templateItems(
  * "New …" (a note, a folder; Templates, being flat, have no menu — their single Add button is "New template"). Assets' first entry is "Upload": it imports files, it does
  * not make a blank one.
  */
-export const NOTE_MENU_LABELS = { create: 'New note', createFolder: 'New folder' } as const;
+export const NOTE_MENU_LABELS = {
+  create: 'New note',
+  createFolder: 'New folder',
+} as const;
 export const ASSET_MENU_LABELS = {
   create: 'Upload',
   createFolder: 'New folder',
@@ -75,7 +79,11 @@ export interface CollectionHeaderActionsProps {
    * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
    * note" and "New folder" for notes, "Upload" and "New folder" for assets). Absent: the notes' words.
    */
-  menuLabels?: { readonly create: string; readonly createFolder: string; readonly createIcon?: SystemIcon };
+  menuLabels?: {
+    readonly create: string;
+    readonly createFolder: string;
+    readonly createIcon?: SystemIcon;
+  };
   /** Accessible label of the Add button — "New" for notes, "Upload" for assets. */
   addLabel?: string;
   /** Icon of the Add button — the page passes it; absent, a plus. */
@@ -114,17 +122,34 @@ export function CollectionHeaderActions({
     <>
       <CollectionViewMenu {...menu} />
       {onAdd && (
-        <Button
-          ref={anchorRef}
-          isIconOnly
-          variant="primary"
-          aria-label={addLabel}
-          aria-haspopup={hasAddMenu ? 'menu' : undefined}
-          aria-expanded={hasAddMenu ? open : undefined}
-          onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
-        >
-          <AppIcon icon={addIcon} />
-        </Button>
+        <div className="collection-header-actions__add-button">
+          <Button
+            ref={anchorRef}
+            isIconOnly
+            size="medium"
+            variant="primary"
+            aria-label={addLabel}
+            aria-haspopup={hasAddMenu ? 'menu' : undefined}
+            aria-expanded={hasAddMenu ? open : undefined}
+            onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
+          >
+            <AppIcon icon={addIcon} />
+          </Button>
+          <span className="collection-header-actions__add-button-divider" />
+          <Button
+            className="collection-header-actions__add-menu-caret"
+            ref={anchorRef}
+            isIconOnly
+            size="medium"
+            variant="primary"
+            aria-label={addLabel}
+            aria-haspopup={hasAddMenu ? 'menu' : undefined}
+            aria-expanded={hasAddMenu ? open : undefined}
+            onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
+          >
+            <AppIcon icon="caretDown" size={12} />
+          </Button>
+        </div>
       )}
       {hasAddMenu && (
         <Overlay

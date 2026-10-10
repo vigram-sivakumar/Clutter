@@ -106,14 +106,14 @@
   background: color-mix(
     in srgb,
     var(--surface-subtle),
-    rgb(var(--state-base)) var(--state-hover-strength-medium)
+    rgb(var(--state-base)) var(--state-hover-strength-strong)
   );
 }
 .button--outline-fill:not(:disabled):hover {
   background: color-mix(
     in srgb,
-    var(--button--outline-fill-surface) 98%,
-    rgb(var(--state-base)) 2%
+    var(--button--outline-fill-surface),
+    rgb(var(--state-base)) var(--state-hover-strength-medium)
   );
 }
 .button--active {
