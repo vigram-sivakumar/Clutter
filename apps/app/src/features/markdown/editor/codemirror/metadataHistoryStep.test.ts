@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isolateHistory, redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
-import { Transaction } from '@codemirror/state';
+import { ChangeSet, EditorSelection, Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import type { EditablePageMetadata } from '@core/application/page/PageOperations';
@@ -246,6 +246,28 @@ describe('metadata history step', () => {
 
     expect(onStep).toHaveBeenCalledTimes(1);
     expect(onStep).toHaveBeenLastCalledWith(UNDONE);
+  });
+
+  it("does not set the selection: the caret is wherever CodeMirror's own mapping puts the one the user had", () => {
+    const { view } = mount('\n\n');
+    view.dispatch({ selection: { anchor: 1 } });
+    const change = { from: 0, to: 2, insert: '# Body' };
+    const expected = EditorSelection.cursor(1).map(ChangeSet.of(change, 2)).head;
+
+    applyBodyWithMetadataStep(view, '# Body', STEP);
+
+    expect(view.state.doc.toString()).toBe('# Body');
+    expect(view.state.selection.main.head).toBe(expected);
+    expect(view.state.selection.main.empty).toBe(true);
+  });
+
+  it('a step with no text change leaves the caret exactly where it was', () => {
+    const { view } = mount('abc');
+    view.dispatch({ selection: { anchor: 2 } });
+
+    applyBodyWithMetadataStep(view, '', STEP);
+
+    expect(view.state.selection.main.head).toBe(2);
   });
 
   it('a history that never held a step restores and undoes as before', () => {

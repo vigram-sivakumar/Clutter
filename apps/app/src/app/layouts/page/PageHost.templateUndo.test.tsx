@@ -520,8 +520,8 @@ describe('applying a template is one undoable step', () => {
       { metadata: FULL_TEMPLATE }
     );
     await env.apply();
-    // The editor holds focus after applying, so the shortcuts reach it.
-    expect(env.view().hasFocus).toBe(true);
+    // Applying does not move focus; the user clicks into the editor and the shortcuts reach it.
+    env.view().focus();
 
     await env.pressUndoShortcut();
     expect(env.doc()).toBe('');
@@ -596,7 +596,7 @@ describe('applying a template is one undoable step', () => {
       ['with metadata', { metadata: FULL_TEMPLATE }],
       ['without metadata', {}],
     ])(
-      '%s: the editor keeps focus, and the shortcuts undo and redo the template',
+      '%s: applying does not force focus, and the shortcuts undo and redo the template',
       async (_label, template) => {
         const env = await setup({ icon: '📝', tags: ['work'] }, template, {
           extraTemplates: 3,
@@ -604,7 +604,9 @@ describe('applying a template is one undoable step', () => {
 
         await env.pickInPicker('Meeting Notes');
         expect(env.doc()).toBe(TEMPLATE_BODY);
-        expect(env.view().hasFocus).toBe(true);
+        // The picker path does not take the editor's focus either; the user clicks in to carry on.
+        expect(env.view().hasFocus).toBe(false);
+        env.view().focus();
 
         await env.pressUndoShortcut();
         expect(env.doc()).toBe('');

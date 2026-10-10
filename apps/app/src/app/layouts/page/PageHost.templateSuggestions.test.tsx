@@ -339,7 +339,28 @@ describe('applying a template through the picker (+N more)', () => {
     // The session and the editor agree — before, the editor kept showing nothing while the session held the body.
     expect(editorText()).toBe('# Agenda');
     expect(suggestionsShown()).toBe(false);
-    // And the editor takes focus again once the template is in.
+    // Focus is not touched: the editor had it, and still has it.
     expect(content.contains(document.activeElement)).toBe(true);
+  });
+
+  it('applying a template does not force focus into the editor', async () => {
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/note.jpg',
+    });
+    const content = document.querySelector<HTMLElement>('.cm-content')!;
+    // Focus is somewhere else (here: nowhere), exactly as before the user chooses where to type.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(content.contains(document.activeElement)).toBe(false);
+
+    fireEvent.click(document.querySelector('.template-suggestions__item')!);
+    await flush();
+
+    // The template is in the session and in the editor, immediately...
+    expect(
+      application.pageOperations.getSession(noteId)!.currentRevision.markdown
+    ).toBe('# Agenda');
+    expect(editorText()).toBe('# Agenda');
+    // ...and the editor was not given focus by it.
+    expect(content.contains(document.activeElement)).toBe(false);
   });
 });

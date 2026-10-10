@@ -1320,7 +1320,7 @@ export function PageHost({
           },
         }
       )
-        .then(() => editorRef.current?.focus())
+        // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
         .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' }));
     };
 
