@@ -19,45 +19,19 @@ import {
 } from './CollectionViewMenu';
 
 const NEW_TEMPLATE_ID = '__new-template__';
-const CLEAR_DEFAULT_ID = '__clear-default-template__';
 
 /** The template picker's rows: a leading "New template" row, then every template as a flat note row. */
 function templateItems(
-  templates: readonly CollectionEntryModel[]
-): PickerListItem[] {
-  return [
-    {
-      id: NEW_TEMPLATE_ID,
-      title: 'New template',
-      icon: 'plus',
-      level: 0,
-      parentId: null,
-    },
-    ...templates.map((template) => ({
-      id: template.id,
-      title: template.values.name,
-      emoji: template.emoji,
-      level: 0,
-      parentId: null,
-    })),
-  ];
-}
-
-/**
- * The Set-default-template picker's rows: the same templates as From template (no "New template"
- * row), the current default marked, and — only while one is set — a leading row that clears it.
- */
-function defaultTemplateItems(
   templates: readonly CollectionEntryModel[],
-  currentId: string | null
+  { includeNew, defaultId }: { includeNew: boolean; defaultId: string | null }
 ): PickerListItem[] {
   return [
-    ...(currentId !== null
+    ...(includeNew
       ? [
           {
-            id: CLEAR_DEFAULT_ID,
-            title: 'No default template',
-            icon: 'dismiss' as const,
+            id: NEW_TEMPLATE_ID,
+            title: 'New template',
+            icon: 'plus' as const,
             level: 0,
             parentId: null,
           },
@@ -69,7 +43,8 @@ function defaultTemplateItems(
       emoji: template.emoji,
       level: 0,
       parentId: null,
-      ...(template.id === currentId && { secondaryLabel: 'Default' }),
+      // The folder's default template is identified by the Default pill.
+      ...(template.id === defaultId && { pill: 'Default' }),
     })),
   ];
 }
@@ -154,7 +129,8 @@ export function CollectionHeaderActions({
 }: CollectionHeaderActionsProps) {
   const [open, setOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [defaultPickerOpen, setDefaultPickerOpen] = useState(false);
+  // What choosing a template in the picker does: make a note from it, or make it the folder's default.
+  const [pickerPurpose, setPickerPurpose] = useState<'create' | 'default'>('create');
   const anchorRef = useRef<HTMLButtonElement>(null);
   // The From template item hands focus to the template list's search field, not back to the caret.
   const suppressReturnFocusRef = useRef(false);
@@ -172,10 +148,9 @@ export function CollectionHeaderActions({
     event.stopPropagation();
     suppressReturnFocusRef.current = true;
     setOpen(false);
-    setDefaultPickerOpen(true);
+    setPickerPurpose('default');
+    setTemplatesOpen(true);
   };
-  const defaultPickerTemplates =
-    defaultPickerOpen && fromTemplate && defaultTemplate ? fromTemplate.getTemplates() : [];
 
   return (
     <>
@@ -245,6 +220,7 @@ export function CollectionHeaderActions({
                     event.stopPropagation();
                     suppressReturnFocusRef.current = true;
                     setOpen(false);
+                    setPickerPurpose('create');
                     setTemplatesOpen(true);
                   }}
                 >
@@ -309,48 +285,28 @@ export function CollectionHeaderActions({
               setTemplatesOpen(false);
               setOpen(true);
             }}
-            items={templatesOpen ? templateItems(templates) : []}
+            items={
+              templatesOpen
+                ? templateItems(templates, {
+                    // Choosing a default is among existing templates: no "New template" row.
+                    includeNew: pickerPurpose === 'create',
+                    defaultId: defaultTemplate?.currentId ?? null,
+                  })
+                : []
+            }
             placeholder="Search templates"
             leadingIcon="template"
             onSelect={(item) => {
               setTemplatesOpen(false);
-              if (item.id === NEW_TEMPLATE_ID) {
+              if (pickerPurpose === 'default' && defaultTemplate) {
+                defaultTemplate.onChange(item.id);
+              } else if (item.id === NEW_TEMPLATE_ID) {
                 fromTemplate.onCreateTemplate();
               } else {
                 templates
                   .find((template) => template.id === item.id)
                   ?.onClick();
               }
-            }}
-          />
-        </Popover>
-      )}
-      {fromTemplate && defaultTemplate && (
-        <Popover
-          anchorRef={anchorRef}
-          open={defaultPickerOpen}
-          onClose={() => setDefaultPickerOpen(false)}
-          returnFocusRef={anchorRef}
-          side="bottom"
-          alignment="end"
-        >
-          <PickerCard
-            title="Default template"
-            // Dismiss (×) goes back to the Add menu it replaced, like the From template picker.
-            onClose={() => {
-              setDefaultPickerOpen(false);
-              setOpen(true);
-            }}
-            items={
-              defaultPickerOpen
-                ? defaultTemplateItems(defaultPickerTemplates, defaultTemplate.currentId)
-                : []
-            }
-            placeholder="Search templates"
-            leadingIcon="template"
-            onSelect={(item) => {
-              setDefaultPickerOpen(false);
-              defaultTemplate.onChange(item.id === CLEAR_DEFAULT_ID ? null : item.id);
             }}
           />
         </Popover>

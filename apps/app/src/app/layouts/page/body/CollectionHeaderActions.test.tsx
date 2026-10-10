@@ -322,25 +322,32 @@ describe('CollectionHeaderActions', () => {
       expect(menuItem('Edit template')).toBeUndefined();
     });
 
-    it('Edit template opens the picker with the current default marked; another template changes it, the first row clears it', () => {
+    it('Edit template opens the one template picker (no "New template" or clear row) with the default marked by the Default pill; choosing another changes it', () => {
       const onChange = vi.fn();
       open({ currentId: 'a', onChange });
       fireEvent.click(menuItem('Edit template'));
 
       expect(document.querySelector('.menu')).toBeNull();
-      expect(rowTitles()[0]).toContain('No default template');
-      expect(rows()[1]!.textContent).toContain('Default');
-      expect(rows()[2]!.textContent).not.toContain('Default');
+      expect(rowTitles()).toEqual(['MeetingDefault', 'Weekly']);
+      expect(rows()[0]!.querySelector('.pill.pill--small')?.textContent).toBe('Default');
+      expect(rows()[1]!.querySelector('.pill')).toBeNull();
 
+      fireEvent.click(rows()[1]!);
+      expect(onChange).toHaveBeenCalledWith('b');
+      expect(document.querySelector('.picker-card')).toBeNull();
+    });
+
+    it('From template still creates a note from the chosen template (and marks the default), never changing the default', () => {
+      const onChange = vi.fn();
+      const use = vi.fn();
+      open({ currentId: 'a', onChange }, [template('a', 'Meeting'), template('b', 'Weekly', use)]);
+      fireEvent.click(fromTemplateItem());
+
+      expect(rowTitles()).toEqual(['New template', 'MeetingDefault', 'Weekly']);
       fireEvent.click(rows()[2]!);
-      expect(onChange).toHaveBeenLastCalledWith('b');
 
-      cleanup();
-      const clear = vi.fn();
-      open({ currentId: 'a', onChange: clear });
-      fireEvent.click(menuItem('Edit template'));
-      fireEvent.click(rows()[0]!);
-      expect(clear).toHaveBeenCalledWith(null);
+      expect(use).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it('Remove clears the default and closes the menu', () => {

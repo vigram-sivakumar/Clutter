@@ -36,6 +36,8 @@ export interface PickerListItem {
    * ellipsizes under width pressure.
    */
   secondaryLabel?: string;
+  /** A small pill in the row's trailing slot, e.g. "Default" on a folder's default template. */
+  pill?: string;
   /**
    * Marks the destination list's root row — the vault root, or Templates/Assets for a Move inside
    * one of those hierarchies. A flat destination list pins it first; selecting it is an ordinary

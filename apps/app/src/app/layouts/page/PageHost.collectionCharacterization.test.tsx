@@ -503,17 +503,14 @@ describe('Default template — the folder Add menu section, by collection kind',
     // No divider above From template or above Edit template: only the one ahead of the section.
     expect(document.querySelectorAll('.menu [role="separator"]')).toHaveLength(1);
 
-    // Edit template opens the picker with the current default marked and a way to clear it.
+    // Edit template opens the same picker, the current default marked with the Default pill.
     fireEvent.click(menuItem('Edit template'));
-    expect(rowTitles()).toEqual(['No default template', 'MeetingDefault']);
-    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[0]!);
-    await flush();
-    expect(stored()).toBeNull();
-
-    // Back to the initial state; Select a template again, then Remove.
-    openSetDefault();
+    expect(rowTitles()).toEqual(['MeetingDefault']);
+    expect(document.querySelector('.picker-card .pill.pill--small')?.textContent).toBe('Default');
     fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
     await flush();
+    expect(stored()).toBe('tpl');
+
     newMenuRows();
     fireEvent.click(menuItem('Remove'));
     await flush();

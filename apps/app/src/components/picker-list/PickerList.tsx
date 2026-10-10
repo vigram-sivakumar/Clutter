@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import type { PickerListItem, PickerListProps } from './PickerList.types';
 import { Search } from '@components/search/Search';
 import { Entry } from '@components/entry/Entry';
+import { Pill } from '@components/property-list/Pill';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { FolderLeading } from '@features/notes/sidebar/FolderLeading';
 import { AppIcon } from '@shared/icon';
@@ -319,6 +320,8 @@ export function PickerList({
               trailing={
                 item.secondaryLabel ? (
                   <span className="picker-list__secondary">{item.secondaryLabel}</span>
+                ) : item.pill ? (
+                  <Pill size="small">{item.pill}</Pill>
                 ) : undefined
               }
               leading={
