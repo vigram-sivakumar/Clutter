@@ -132,6 +132,12 @@ export type EditablePageMetadata = Pick<
   | 'favorite'
   | 'tags'
   | 'aliases'
+  /**
+   * The raw frontmatter lines of the page's custom properties (keys Clutter doesn't own). Settable
+   * here only so a note made from a template gets them in the same create as everything else it
+   * inherits; every other custom-property edit goes through the dedicated property methods.
+   */
+  | 'unownedFrontmatter'
 >;
 
 /** The public shape UI reads for a draft it can't find in the Vault yet — see PageOperations.getDraft(). */
@@ -1708,7 +1714,11 @@ export class PageOperations {
     const body =
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
-    await this.persistDraft(pageId, descriptor, body, patch);
+    // Custom-property lines are not a PageFrontmatter field: persistDraft writes them as their own
+    // `unownedLines`, in the same create.
+    const { unownedFrontmatter, ...metadataPatch } = patch;
+
+    await this.persistDraft(pageId, descriptor, body, metadataPatch, unownedFrontmatter);
   }
 
   /**

@@ -593,6 +593,34 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBeNull();
   });
 
+  it('+ with a default and From template inherit the same metadata from the template (one shared creation)', async () => {
+    const inheritedBy = async (create: (application: Application) => void): Promise<unknown> => {
+      const application = await renderFolder(PROJECTS);
+      await application.pageOperations.updateMetadata('tpl', { icon: '🧾', description: 'About', tags: ['meeting'] });
+      await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });
+      await flush();
+      const updateMetadata = vi.spyOn(application.pageOperations, 'updateMetadata');
+
+      create(application);
+      await flush();
+
+      expect(updateMetadata).toHaveBeenCalledTimes(1);
+      const patch = updateMetadata.mock.calls[0]![1];
+      cleanup();
+      return patch;
+    };
+
+    const viaPlus = await inheritedBy(() => fireEvent.click(plus()));
+    const viaMenu = await inheritedBy(() => {
+      newMenuRows();
+      fireEvent.click(menuItem('From template'));
+      fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[1]!);
+    });
+
+    expect(viaPlus).toEqual({ icon: '🧾', description: 'About', tags: ['meeting'] });
+    expect(viaMenu).toEqual(viaPlus);
+  });
+
   it('clicking the selected template row opens the picker; choosing another template updates the persisted default', async () => {
     const application = await renderFolder(PROJECTS);
     await application.folderOperations.updateMetadata(PROJECTS, { defaultTemplateId: 'tpl' });

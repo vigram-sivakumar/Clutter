@@ -34,7 +34,7 @@ function buildTemplate(frontmatter: Partial<PageFrontmatter>, body = '# Agenda\n
     page: {
       path: `${ROOT}/Template.md`,
       directoryPath: ROOT,
-      frontmatter: { id: 'template-1', description: 'Template description', tags: ['tpl'], ...frontmatter },
+      frontmatter: { id: 'template-1', ...frontmatter },
       frontmatterAnalysis: { aliases: [] },
       content: body,
       analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
@@ -125,7 +125,7 @@ describe('createNoteFromTemplate — icon and cover inheritance', () => {
     expect(note!.source.markdown).toBe('# Agenda\n\n- item');
   });
 
-  it('never copies identity or unrelated fields — tags, description and the template’s id/timestamps stay the template’s own', async () => {
+  it('a template with only a cover and icon leaves tags and description empty on the note', async () => {
     const env = setup(VISUAL);
 
     await useTemplate(env);
@@ -181,7 +181,6 @@ describe('createNoteFromTemplate — icon and cover inheritance', () => {
     expect(onDisk).toContain('# Agenda');
     // The id on disk is the new note's own, not the template's.
     expect(onDisk).toContain(`id: ${note!.id}`);
-    expect(onDisk).not.toContain('Template description');
   });
 
   it('6. changing the new note’s icon and cover leaves the template unchanged', async () => {
@@ -204,5 +203,115 @@ describe('createNoteFromTemplate — icon and cover inheritance', () => {
     await createNoteFromTemplate(env.pageOperations, null, '  \n', env.vault.getPage('template-1')!.metadata);
 
     expect(env.created()).toHaveLength(0);
+  });
+});
+
+const FULL_TEMPLATE: Partial<PageFrontmatter> = {
+  ...VISUAL,
+  description: 'Template description',
+  tags: ['tpl', 'meeting'],
+  aliases: ['Tpl alias'],
+  favorite: true,
+  created: '2020-01-01T00:00:00.000Z',
+  modified: '2020-02-02T00:00:00.000Z',
+  unownedLines: ['kind: template', 'Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true'],
+};
+
+describe('createNoteFromTemplate — full inheritance rules', () => {
+  it('inherits the body, icon, cover (with its presentation), tags, description and custom properties', async () => {
+    const env = setup(FULL_TEMPLATE);
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    expect(env.created()).toHaveLength(1);
+    expect(note!.source.markdown).toBe('# Agenda\n\n- item');
+    expect(note!.metadata).toMatchObject({
+      icon: '🧾',
+      cover: 'Assets/cover.png',
+      coverHidden: true,
+      coverLayout: 'above',
+      coverPositionAbove: 30,
+      coverPositionSide: 70,
+      description: 'Template description',
+      tags: ['tpl', 'meeting'],
+    });
+    expect(note!.metadata.unownedFrontmatter).toEqual(['Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true']);
+  });
+
+  it('does not inherit aliases, favorite, id, created, modified or the kind: template marker', async () => {
+    const env = setup(FULL_TEMPLATE);
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    expect(note!.metadata.aliases ?? []).toEqual([]);
+    expect(note!.metadata.favorite).toBe(false);
+    expect(note!.id).not.toBe('template-1');
+    expect(note!.metadata.createdAt).not.toBe('2020-01-01T00:00:00.000Z');
+    expect(note!.metadata.updatedAt).not.toBe('2020-02-02T00:00:00.000Z');
+    expect(note!.metadata.unownedFrontmatter!.join('\n')).not.toMatch(/kind/);
+  });
+
+  it('writes the custom properties, tags and description to the file — all in one create, the template untouched', async () => {
+    const env = setup(FULL_TEMPLATE);
+    const templateBefore = await env.fileSystem.readFile(env.template.path);
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    const onDisk = await env.fileSystem.readFile(note!.path);
+    expect(onDisk).toContain(`id: ${note!.id}`);
+    expect(onDisk).toContain('description: Template description');
+    expect(onDisk).toMatch(/tpl/);
+    expect(onDisk).toContain('Priority: High');
+    expect(onDisk).toContain('Attendees:\n  - Ann\n  - Bo');
+    expect(onDisk).toContain('reviewed: true');
+    expect(onDisk).not.toContain('kind: template');
+    expect(onDisk).not.toContain('Tpl alias');
+    expect(onDisk).not.toContain('favorite');
+    expect(onDisk).not.toContain('2020-01-01');
+    expect(await env.fileSystem.readFile(env.template.path)).toBe(templateBefore);
+  });
+
+  it('the custom properties survive a reload of the file (parse and rebuild)', async () => {
+    const env = setup(FULL_TEMPLATE);
+    await useTemplate(env);
+    const [note] = env.created();
+
+    const reparsed = new FrontmatterParser().parse(await env.fileSystem.readFile(note!.path)).frontmatter;
+
+    expect(reparsed.unownedLines).toEqual(['Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true']);
+    expect(reparsed.id).toBe(note!.id);
+    expect(reparsed.tags).toEqual(['tpl', 'meeting']);
+  });
+
+  it('a user\'s own non-template `kind` is a custom property and is kept', async () => {
+    const env = setup({ unownedLines: ['kind: book', 'rating: 5'] });
+
+    await useTemplate(env);
+
+    expect(env.created()[0]!.metadata.unownedFrontmatter).toEqual(['kind: book', 'rating: 5']);
+  });
+
+  it('a template with only custom properties still makes the note (with them), and one with none stays a draft', async () => {
+    const withProps = setup({ unownedLines: ['rating: 5'] });
+    await useTemplate(withProps);
+    expect(withProps.created()).toHaveLength(1);
+
+    const none = setup({ unownedLines: ['kind: template'] });
+    await useTemplate(none);
+    expect(none.created()).toHaveLength(0);
+  });
+
+  it('a note made from a template that lacks a property leaves that property at its normal default', async () => {
+    const env = setup({ ...VISUAL });
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    expect(note!.metadata.description).toBeNull();
+    expect(note!.metadata.tags ?? []).toEqual([]);
+    expect(note!.metadata.unownedFrontmatter ?? []).toEqual([]);
   });
 });

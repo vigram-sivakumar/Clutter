@@ -1,23 +1,30 @@
 import type { EditablePageMetadata, PageOperations } from '@core/application/page/PageOperations';
+import { evaluateTemplateMarker } from '@core/vault/ingest/frontmatter/templateMarker';
 import type { PageMetadata } from '@core/vault/models/PageMetadata';
 
 /**
- * The template's visual identity a new note inherits: its icon and cover (the
- * reference only — a vault-relative `Assets/…` path or a URL, so the image file
- * is shared, never duplicated) plus how that cover is presented. Nothing else:
- * id, timestamps, tags, aliases, favorite, description and custom properties
- * stay the new note's own.
+ * What a new note inherits from its template's metadata, besides the body:
  *
- * Only values that differ from a page's defaults are returned, so a template
- * with no visual metadata yields an empty patch and the note stays a plain
- * draft. The cover's presentation settings are meaningless without a cover, so
- * they are inherited only alongside one.
+ *  - the icon, and the cover (the reference only — a vault-relative `Assets/…` path or a URL, so the
+ *    image file is shared, never duplicated) with how it is presented;
+ *  - the tags and the description;
+ *  - the custom properties (the user's own frontmatter keys), minus the `kind: template` marker, which
+ *    marks a page living in Templates and is not the new note's to carry (ADR-041).
+ *
+ * Never inherited: aliases, favorite, id, created/modified and the archive fields. They are not in the
+ * returned patch, so the new note's own id and timestamps come from its creation, and nothing here can
+ * carry them across.
+ *
+ * Only values that differ from a page's defaults are returned, so a template with none of these yields
+ * an empty patch and the note stays a plain draft. The cover's presentation settings are meaningless
+ * without a cover, so they are inherited only alongside one.
  */
 export function pickInheritedTemplateMetadata(
   template: Pick<
     PageMetadata,
     'icon' | 'cover' | 'coverHidden' | 'coverLayout' | 'coverPositionAbove' | 'coverPositionSide'
-  >
+  > &
+    Partial<Pick<PageMetadata, 'description' | 'tags' | 'unownedFrontmatter'>>
 ): Partial<EditablePageMetadata> {
   const patch: { -readonly [K in keyof EditablePageMetadata]?: EditablePageMetadata[K] } = {};
 
@@ -33,6 +40,23 @@ export function pickInheritedTemplateMetadata(
     patch.coverPositionSide = template.coverPositionSide;
   }
 
+  if (template.description) {
+    patch.description = template.description;
+  }
+
+  if (template.tags && template.tags.length > 0) {
+    patch.tags = template.tags;
+  }
+
+  const customLines = template.unownedFrontmatter ?? [];
+  // The one marker rule (evaluateTemplateMarker): outside Templates, `kind: template` is removed and any
+  // other `kind` — the user's own — is kept. null: already nothing to remove.
+  const properties = evaluateTemplateMarker(customLines, false) ?? customLines;
+
+  if (properties.length > 0) {
+    patch.unownedFrontmatter = properties;
+  }
+
   return patch;
 }
 
@@ -41,14 +65,15 @@ export function pickInheritedTemplateMetadata(
  * (the same openDraft(...) every other "New note" entry point uses), then puts
  * the template's body into it through mutateBody() — the sanctioned route for
  * template insertion (ADR-031). The template itself is never opened or
- * changed. The body is copied, and — when `templateMetadata` is given — so are
- * the template's icon and cover (pickInheritedTemplateMetadata); the title,
- * tags and properties are not. The new note has its own id (the draft's).
+ * changed. The body is copied, and — when `templateMetadata` is given — so is
+ * what pickInheritedTemplateMetadata picks (icon, cover, tags, description,
+ * custom properties); the title, aliases and favorite are not. The new note has its own id and
+ * timestamps (the draft's).
  *
- * Inheriting an icon or cover goes through updateMetadata(), which — like any
- * icon/cover change on a draft — makes the note a real page at once, with the
+ * Inheriting any of it goes through updateMetadata(), which — like any
+ * metadata change on a draft — makes the note a real page at once, with the
  * body and the inherited fields written in that one create. A template with
- * neither leaves the note a draft until it is saved like any other new note,
+ * none of it leaves the note a draft until it is saved like any other new note,
  * and a blank template with neither leaves the empty draft.
  */
 export async function createNoteFromTemplate(

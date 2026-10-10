@@ -99,3 +99,36 @@ describe('createNoteFromTemplate — inherited metadata', () => {
     expect(updateMetadata).not.toHaveBeenCalled();
   });
 });
+
+describe('pickInheritedTemplateMetadata — tags, description, custom properties', () => {
+  it('picks tags, description and custom properties, and drops the kind: template marker', () => {
+    expect(
+      pickInheritedTemplateMetadata({
+        ...DEFAULTS,
+        description: 'About',
+        tags: ['a', 'b'],
+        unownedFrontmatter: ['kind: template', 'rating: 5'],
+      })
+    ).toEqual({ description: 'About', tags: ['a', 'b'], unownedFrontmatter: ['rating: 5'] });
+  });
+
+  it('omits what the template does not have (null description, no tags, only the marker)', () => {
+    expect(
+      pickInheritedTemplateMetadata({ ...DEFAULTS, description: null, tags: [], unownedFrontmatter: ['kind: template'] })
+    ).toEqual({});
+  });
+
+  it('never returns aliases, favorite, id or timestamps, whatever the template carries', () => {
+    const patch = pickInheritedTemplateMetadata({
+      ...DEFAULTS,
+      icon: '📌',
+      aliases: ['x'],
+      favorite: true,
+      id: 'template-1',
+      createdAt: '2020-01-01T00:00:00.000Z',
+      updatedAt: '2020-01-02T00:00:00.000Z',
+    } as never);
+
+    expect(Object.keys(patch)).toEqual(['icon']);
+  });
+});
