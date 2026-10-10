@@ -492,8 +492,8 @@ describe('Default template — the folder Add menu section, by collection kind',
     const stored = () => application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId;
 
     openSetDefault();
-    expect(rowTitles()).toEqual(['Meeting']);
-    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    expect(rowTitles()).toEqual(['New template', 'Meeting']);
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[1]!);
     await flush();
     expect(stored()).toBe('tpl');
     expect(document.querySelector('.picker-card')).toBeNull();
@@ -507,9 +507,9 @@ describe('Default template — the folder Add menu section, by collection kind',
 
     // Clicking the selected template's row opens the same picker, the current default marked with the Default pill.
     fireEvent.click([...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent?.includes('Meeting'))!);
-    expect(rowTitles()).toEqual(['MeetingDefault']);
+    expect(rowTitles()).toEqual(['New template', 'MeetingDefault']);
     expect(document.querySelector('.picker-card .pill.pill--small')?.textContent).toBe('Default');
-    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[1]!);
     await flush();
     expect(stored()).toBe('tpl');
 
@@ -527,7 +527,7 @@ describe('Default template — the folder Add menu section, by collection kind',
 
     openSetDefault();
 
-    expect(rowTitles()).toEqual(['Meeting']);
+    expect(rowTitles()).toEqual(['New template', 'Meeting']);
     expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBe('deleted-template');
   });
 
@@ -628,8 +628,8 @@ describe('Default template — the folder Add menu section, by collection kind',
 
     newMenuRows();
     fireEvent.click([...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')].find((i) => i.textContent?.includes('Meeting'))!);
-    expect(rowTitles()).toEqual(['MeetingDefault']);
-    fireEvent.click(document.querySelector<HTMLElement>('.picker-card [role="menuitem"]')!);
+    expect(rowTitles()).toEqual(['New template', 'MeetingDefault']);
+    fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[1]!);
     await flush();
 
     expect(application.vault.getFolder(PROJECTS)!.metadata.defaultTemplateId).toBe('tpl');

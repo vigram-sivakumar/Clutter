@@ -23,20 +23,16 @@ const NEW_TEMPLATE_ID = '__new-template__';
 /** The template picker's rows: a leading "New template" row, then every template as a flat note row. */
 function templateItems(
   templates: readonly CollectionEntryModel[],
-  { includeNew, defaultId }: { includeNew: boolean; defaultId: string | null }
+  defaultId: string | null
 ): PickerListItem[] {
   return [
-    ...(includeNew
-      ? [
-          {
-            id: NEW_TEMPLATE_ID,
-            title: 'New template',
-            icon: 'plus' as const,
-            level: 0,
-            parentId: null,
-          },
-        ]
-      : []),
+    {
+      id: NEW_TEMPLATE_ID,
+      title: 'New template',
+      icon: 'plus' as const,
+      level: 0,
+      parentId: null,
+    },
     ...templates.map((template) => ({
       id: template.id,
       title: template.values.name,
@@ -302,23 +298,20 @@ export function CollectionHeaderActions({
             }}
             items={
               templatesOpen
-                ? templateItems(templates, {
-                    // Choosing a default is among existing templates: no "New template" row.
-                    includeNew: pickerPurpose === 'create',
-                    defaultId: defaultTemplate?.currentId ?? null,
-                  })
+                ? templateItems(templates, defaultTemplate?.currentId ?? null)
                 : []
             }
             placeholder="Search templates"
             leadingIcon="template"
             onSelect={(item) => {
               setTemplatesOpen(false);
-              if (pickerPurpose === 'default' && defaultTemplate) {
+              if (item.id === NEW_TEMPLATE_ID) {
+                // The same "New template" as From template: a new template draft; no default is set.
+                fromTemplate.onCreateTemplate();
+              } else if (pickerPurpose === 'default' && defaultTemplate) {
                 // Back to the create menu it replaced, now showing the new default.
                 setOpen(true);
                 defaultTemplate.onChange(item.id);
-              } else if (item.id === NEW_TEMPLATE_ID) {
-                fromTemplate.onCreateTemplate();
               } else {
                 templates
                   .find((template) => template.id === item.id)

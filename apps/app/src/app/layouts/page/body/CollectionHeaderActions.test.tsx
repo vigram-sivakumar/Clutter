@@ -281,16 +281,16 @@ describe('CollectionHeaderActions', () => {
       expect(document.body.textContent).not.toContain('Default template');
     });
 
-    it('opens the template picker (no "New template" row); choosing a template reports its id and closes it', () => {
+    it('opens the same template picker as From template (New template row included); choosing a template reports its id and closes it', () => {
       const onChange = vi.fn();
       open({ currentId: null, onChange });
 
       fireEvent.click(setDefaultItem());
 
       expect(document.querySelector('.menu')).toBeNull();
-      expect(rowTitles()).toEqual(['Meeting', 'Weekly']);
+      expect(rowTitles()).toEqual(['New template', 'Meeting', 'Weekly']);
 
-      fireEvent.click(rows()[1]!);
+      fireEvent.click(rows()[2]!);
 
       expect(onChange).toHaveBeenCalledWith('b');
       expect(document.querySelector('.picker-card')).toBeNull();
@@ -322,17 +322,17 @@ describe('CollectionHeaderActions', () => {
       expect(menuItem('Edit template')).toBeUndefined();
     });
 
-    it('clicking the selected template row opens the one template picker (no "New template" or clear row) with the default marked by the Default pill; choosing another changes it', () => {
+    it('clicking the selected template row opens the one template picker (New template first, no clear row) with the default marked by the Default pill; choosing another changes it', () => {
       const onChange = vi.fn();
       open({ currentId: 'a', onChange });
       fireEvent.click(menuRows()[2]!);
 
       expect(document.querySelector('.menu')).toBeNull();
-      expect(rowTitles()).toEqual(['MeetingDefault', 'Weekly']);
-      expect(rows()[0]!.querySelector('.pill.pill--small')?.textContent).toBe('Default');
-      expect(rows()[1]!.querySelector('.pill')).toBeNull();
+      expect(rowTitles()).toEqual(['New template', 'MeetingDefault', 'Weekly']);
+      expect(rows()[1]!.querySelector('.pill.pill--small')?.textContent).toBe('Default');
+      expect(rows()[2]!.querySelector('.pill')).toBeNull();
 
-      fireEvent.click(rows()[1]!);
+      fireEvent.click(rows()[2]!);
       expect(onChange).toHaveBeenCalledWith('b');
       // The picker closes on its own and the create menu it replaced is open again.
       expect(document.querySelector('.picker-card')).toBeNull();
@@ -361,6 +361,24 @@ describe('CollectionHeaderActions', () => {
       expect(menuItem('Edit template')).toHaveClass('menu__item--muted');
       expect(menuItem('Remove')).toHaveClass('menu__item--muted');
       expect(menuRows()[2]).toHaveClass('menu__item--default');
+    });
+
+    it('"New template" in the default picker does what it does in From template: creates a template and sets no default', () => {
+      const onChange = vi.fn();
+      const onCreateTemplate = vi.fn();
+      const utils = renderActions({
+        onAdd: vi.fn(),
+        onAddFolder: vi.fn(),
+        fromTemplate: { getTemplates: () => [template('a', 'Meeting')] as never[], onCreateTemplate },
+        defaultTemplate: { currentId: null, onChange, onEdit: vi.fn() },
+      });
+      fireEvent.click(utils.getByLabelText('Add options'));
+      fireEvent.click(setDefaultItem());
+
+      fireEvent.click(rows()[0]!);
+
+      expect(onCreateTemplate).toHaveBeenCalledTimes(1);
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it('From template still creates a note from the chosen template (and marks the default), never changing the default', () => {
