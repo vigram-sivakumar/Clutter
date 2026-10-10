@@ -110,9 +110,9 @@ export function CollectionHeaderActions({
   const [open, setOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
-  // The From template item hands focus to the template list's search field, not back to the Add button.
+  // The From template item hands focus to the template list's search field, not back to the caret.
   const suppressReturnFocusRef = useRef(false);
-  // The Add button is a menu as soon as there is more than one way to add: New folder, or From template.
+  // The Add button gains a creation menu (a caret beside the plus) as soon as there is more than one way to add: New folder, or From template.
   const hasAddMenu = Boolean(onAdd && (onAddFolder || fromTemplate));
   // Read when the picker opens, so it lists the templates as they are now.
   const templates =
@@ -123,32 +123,35 @@ export function CollectionHeaderActions({
       <CollectionViewMenu {...menu} />
       {onAdd && (
         <div className="collection-header-actions__add-button">
+          {/* The plus is the page's default creation (a new note, task, template...), straight away — it never opens the menu. */}
           <Button
-            ref={anchorRef}
             isIconOnly
             size="medium"
             variant="primary"
             aria-label={addLabel}
-            aria-haspopup={hasAddMenu ? 'menu' : undefined}
-            aria-expanded={hasAddMenu ? open : undefined}
-            onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
+            onClick={onAdd}
           >
             <AppIcon icon={addIcon} />
           </Button>
-          <span className="collection-header-actions__add-button-divider" />
-          <Button
-            className="collection-header-actions__add-menu-caret"
-            ref={anchorRef}
-            isIconOnly
-            size="medium"
-            variant="primary"
-            aria-label={addLabel}
-            aria-haspopup={hasAddMenu ? 'menu' : undefined}
-            aria-expanded={hasAddMenu ? open : undefined}
-            onClick={hasAddMenu ? () => setOpen((value) => !value) : onAdd}
-          >
-            <AppIcon icon="caretDown" size={12} />
-          </Button>
+          {/* The caret and its divider exist only where there is a creation menu: more ways to add than the default. */}
+          {hasAddMenu && (
+            <>
+              <span className="collection-header-actions__add-button-divider" />
+              <Button
+                className="collection-header-actions__add-menu-caret"
+                ref={anchorRef}
+                isIconOnly
+                size="medium"
+                variant="primary"
+                aria-label="Add options"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={() => setOpen((value) => !value)}
+              >
+                <AppIcon icon="caretDown" size={12} />
+              </Button>
+            </>
+          )}
         </div>
       )}
       {hasAddMenu && (
@@ -161,16 +164,6 @@ export function CollectionHeaderActions({
           suppressReturnFocusRef={suppressReturnFocusRef}
         >
           <Menu size="medium">
-            <MenuItem
-              leading={<AppIcon icon={menuLabels.createIcon ?? 'note'} />}
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                onAdd?.();
-              }}
-            >
-              {menuLabels.create}
-            </MenuItem>
             {onAddFolder && (
               <MenuItem
                 leading={<AppIcon icon="folder" />}
@@ -187,7 +180,8 @@ export function CollectionHeaderActions({
             )}
             {fromTemplate && (
               <>
-                <div className="menu__divider" role="separator" />
+                {/* Only after the New folder entry — as the menu's first entry a divider would lead nowhere. */}
+                {onAddFolder && <div className="menu__divider" role="separator" />}
                 <MenuItem
                   leading={<AppIcon icon="template" />}
                   onClick={(event) => {

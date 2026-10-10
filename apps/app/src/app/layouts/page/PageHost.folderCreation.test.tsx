@@ -84,9 +84,9 @@ async function renderProjects() {
   return { application, create };
 }
 
-/** Header "+" → the Add menu's "New folder": the inline name field appears. */
+/** Header caret → the Add menu's "New folder": the inline name field appears. */
 async function startCreatingFolder(): Promise<HTMLElement> {
-  fireEvent.click(document.querySelector('button[aria-label="New"]')!);
+  fireEvent.click(document.querySelector('button[aria-label="Add options"]')!);
   await flush();
   const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
     (entry) => entry.textContent === 'New folder'

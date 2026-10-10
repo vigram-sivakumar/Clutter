@@ -200,10 +200,12 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     makeResource({ id: 'img-1', kind: 'image', name: 'hero.png', path: `${ROOT}/hero.png` });
   const pdf = () => makeResource({ id: 'pdf-1', kind: 'pdf', name: 'doc.pdf', path: `${ROOT}/doc.pdf` });
 
-  // Scoped to the header actions (beside Upload): the sidebar's create chevron is a menu button too.
+  // Scoped to the header actions (beside Upload): the sidebar's create chevron is a menu button too, and so is the
+  // Add caret inside the Upload button group — the Settings button is the first menu button in the header actions.
   const settingsButton = () =>
     document
       .querySelector('button[aria-label="Upload"]')
+      ?.closest('.collection-header-actions__add-button')
       ?.parentElement?.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]') ?? null;
   const menuLabels = () =>
     [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((item) => item.textContent?.trim());
@@ -219,11 +221,13 @@ describe('PageHost: the Assets collection plugs into the standard collection arc
     expect(settingsButton()).not.toBeNull();
     expect(document.querySelector('button[aria-label="Upload"]')).not.toBeNull();
     // Same two controls, same order, as every other collection: Settings, then the primary Add.
-    const actions = document.querySelector('button[aria-label="Upload"]')!.parentElement!;
-    expect([...actions.children].map((el) => el.getAttribute('aria-label') ?? el.getAttribute('aria-haspopup'))).toEqual([
+    const addGroup = document.querySelector('button[aria-label="Upload"]')!.closest('.collection-header-actions__add-button')!;
+    const actions = addGroup.parentElement!;
+    expect([...actions.children].map((el) => (el === addGroup ? 'add' : el.getAttribute('aria-haspopup')))).toEqual([
       'menu',
-      'Upload',
+      'add',
     ]);
+    expect(addGroup.querySelector('button')).toHaveAttribute('aria-label', 'Upload');
   });
 
   const pick = async (label: string) => {

@@ -172,27 +172,31 @@ const hasTable = () => document.querySelector('.collection-table') !== null;
 const noteRows = () => document.querySelectorAll('.collection-list .collection-entry:not(.collection-entry--new)').length;
 const bodyHasText = (text: string) => (document.body.textContent ?? '').includes(text);
 
-/** Opens the header's "New" menu and returns its rows (empty when "New" is a single-action button). */
+/** Opens the header's Add menu (the caret beside "New") and returns its rows (empty when there is no caret: "New" is a single-action button). */
 function newMenuRows(): string[] {
-  fireEvent.click(newButton()!);
+  const caret = document.querySelector<HTMLButtonElement>('button[aria-label="Add options"]');
+  if (!caret) {
+    return [];
+  }
+  fireEvent.click(caret);
   return [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim() ?? '');
 }
 
 describe('CURRENT BEHAVIOR — header actions and create affordances, by collection kind', () => {
-  it('an ordinary folder: a New menu with New note / New folder / From template, a create-folder card, Table by default', async () => {
+  it('an ordinary folder: a New plus with a menu of New folder / From template, a create-folder card, Table by default', async () => {
     await renderFolder(PROJECTS);
 
     expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New note', 'New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template']);
     expect(hasCreateFolderCard()).toBe(true);
     expect(hasTable()).toBe(true);
   });
 
-  it('Inbox: a New menu with New note and From template — no New folder, no create-folder card, no folders section; Table by default', async () => {
+  it('Inbox: a New plus with a menu of From template only — no New folder, no create-folder card, no folders section; Table by default', async () => {
     await renderFolder(INBOX);
 
     expect(newButton()).not.toBeNull();
-    expect(newMenuRows()).toEqual(['New note', 'From template']);
+    expect(newMenuRows()).toEqual(['From template']);
     expect(hasCreateFolderCard()).toBe(false);
     expect(hasTable()).toBe(true);
     expect(bodyHasText('Captured')).toBe(true);
@@ -284,13 +288,13 @@ describe('FIXED BY THE COLLECTION DEFINITION — Templates lists the subfolders 
     expect(bodyHasText('New folder')).toBe(false);
   });
 
-  it('ordinary folders — including a nested one — still say New note, with From template', async () => {
+  it('ordinary folders — including a nested one — offer New folder and From template beside the New plus', async () => {
     await renderFolder(PROJECTS);
-    expect(newMenuRows()).toEqual(['New note', 'New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template']);
     cleanup();
 
     await renderFolder(`${PROJECTS}/Sub`);
-    expect(newMenuRows()).toEqual(['New note', 'New folder', 'From template']);
+    expect(newMenuRows()).toEqual(['New folder', 'From template']);
   });
 });
 
@@ -412,8 +416,8 @@ describe('CURRENT BEHAVIOR — one Create capability per collection (header and 
     expect(openDraft).toHaveBeenCalledTimes(1);
     expect(openDraft).toHaveBeenLastCalledWith({ folderId: INBOX });
 
+    // The header's plus creates the note straight away.
     fireEvent.click(newButton()!);
-    fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'New note')!);
     expect(openDraft).toHaveBeenCalledTimes(2);
     expect(openDraft).toHaveBeenLastCalledWith({ folderId: INBOX });
   });

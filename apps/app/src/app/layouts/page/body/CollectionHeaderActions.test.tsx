@@ -42,7 +42,9 @@ describe('CollectionHeaderActions', () => {
 
     const [first, second] = [...container.children];
     expect(first).toHaveAttribute('aria-haspopup', 'menu');
-    expect(second).toHaveAttribute('aria-label', 'New');
+    // The Add action is the button group after it: here just the plus.
+    expect(second).toHaveClass('collection-header-actions__add-button');
+    expect(second!.querySelector('button')).toHaveAttribute('aria-label', 'New');
   });
 
   it('Add calls onAdd and uses the collection-supplied label', () => {
@@ -75,27 +77,58 @@ describe('CollectionHeaderActions', () => {
     expect(assetLabels).toEqual(['List', 'Table', 'Card', 'Properties', 'Name', 'File size', 'Created', 'Last edited']);
   });
 
-  it('the Add button is a menu with New note and From template — and no New folder — when no folder can be created', () => {
+  it('the Add menu offers From template — and neither New note nor New folder — when no folder can be created', () => {
     const { getByLabelText } = renderActions({
       onAdd: vi.fn(),
       fromTemplate: { getTemplates: () => [], onCreateTemplate: vi.fn() },
     });
 
-    fireEvent.click(getByLabelText('New'));
+    fireEvent.click(getByLabelText('Add options'));
 
-    expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim()).filter((t) => t !== 'List' && t !== 'Table' && t !== 'Card')).toEqual(
-      expect.arrayContaining(['New note', 'From template'])
-    );
-    expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).not.toContain('New folder');
+    const labels = [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent?.trim()).filter((t) => t !== 'List' && t !== 'Table' && t !== 'Card');
+    expect(labels).toEqual(expect.arrayContaining(['From template']));
+    expect(labels).not.toContain('New note');
+    expect(labels).not.toContain('New folder');
+    // No New folder entry above it, so no divider leading the menu.
+    expect(document.querySelector('.menu [role="separator"]')).toBeNull();
   });
 
-  it('with neither New folder nor From template, Add stays a single action', () => {
+  it('with neither New folder nor From template, Add is a standalone plus: no caret, no divider, no menu', () => {
     const onAdd = vi.fn();
-    const { getByLabelText } = renderActions({ onAdd });
+    const { getByLabelText, queryByLabelText, container } = renderActions({ onAdd });
 
     expect(getByLabelText('New')).not.toHaveAttribute('aria-haspopup');
+    expect(queryByLabelText('Add options')).toBeNull();
+    expect(container.querySelector('.collection-header-actions__add-button-divider')).toBeNull();
+    expect(container.querySelectorAll('.collection-header-actions__add-button button')).toHaveLength(1);
+
     fireEvent.click(getByLabelText('New'));
     expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it('with a creation menu, Add is a split button: the plus, a divider, then the caret', () => {
+    const { container } = renderActions({ onAdd: vi.fn(), onAddFolder: vi.fn() });
+
+    const group = container.querySelector('.collection-header-actions__add-button')!;
+    expect([...group.children].map((el) => el.tagName === 'SPAN' ? 'divider' : el.getAttribute('aria-label'))).toEqual([
+      'New',
+      'divider',
+      'Add options',
+    ]);
+  });
+
+  it('the plus creates immediately — it never opens the menu — and the caret never triggers it', () => {
+    const onAdd = vi.fn();
+    const { getByLabelText } = renderActions({ onAdd, onAddFolder: vi.fn() });
+
+    fireEvent.click(getByLabelText('New'));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.menu')).toBeNull();
+    expect(getByLabelText('Add options')).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(getByLabelText('Add options'));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(getByLabelText('Add options')).toHaveAttribute('aria-expanded', 'true');
   });
 
   function template(id: string, title: string, onClick = vi.fn()) {
@@ -107,7 +140,7 @@ describe('CollectionHeaderActions', () => {
       onAddFolder: vi.fn(),
       fromTemplate: { getTemplates: () => templates as never[], onCreateTemplate },
     });
-    fireEvent.click(utils.getByLabelText('New'));
+    fireEvent.click(utils.getByLabelText('Add options'));
     return utils;
   }
   function openPicker(templates: unknown[], onCreateTemplate = vi.fn()) {
@@ -121,22 +154,21 @@ describe('CollectionHeaderActions', () => {
   const rowTitles = () => rows().map((row) => row.textContent);
   const search = () => document.querySelector<HTMLInputElement>('input[type="search"]')!;
 
-  it('with onAddFolder, Plus opens New note / New folder and each action closes the menu', () => {
+  it('with onAddFolder, the caret opens a menu of New folder only (New note is the plus now) and the action closes it', () => {
     const onAdd = vi.fn();
     const onAddFolder = vi.fn();
     const { getByLabelText } = renderActions({ onAdd, onAddFolder });
 
-    fireEvent.click(getByLabelText('New'));
+    fireEvent.click(getByLabelText('Add options'));
     expect(onAdd).not.toHaveBeenCalled();
     const labels = () => [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
-    expect(labels()).toEqual(['New note', 'New folder']);
+    expect(labels()).toEqual(['New folder']);
 
-    fireEvent.click(document.querySelectorAll('[role="menuitem"]')[1]!);
+    fireEvent.click(document.querySelectorAll('[role="menuitem"]')[0]!);
     expect(onAddFolder).toHaveBeenCalledTimes(1);
     expect(labels()).toEqual([]);
 
     fireEvent.click(getByLabelText('New'));
-    fireEvent.click(document.querySelectorAll('[role="menuitem"]')[0]!);
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 
@@ -144,7 +176,6 @@ describe('CollectionHeaderActions', () => {
     openWithTemplates([template('a', 'Meeting')]);
 
     expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual([
-      'New note',
       'New folder',
       'From template',
     ]);
@@ -152,7 +183,7 @@ describe('CollectionHeaderActions', () => {
     expect(rows()).toHaveLength(0);
   });
 
-  it('From template swaps the menu for a searchable list anchored to the same button: a focused search, "New template" first, then every template', () => {
+  it('From template swaps the menu for a searchable list anchored to the same caret: a focused search, "New template" first, then every template', () => {
     openPicker([template('a', 'Meeting'), template('b', 'Weekly')]);
 
     expect(document.querySelector('.menu')).toBeNull();
@@ -170,7 +201,7 @@ describe('CollectionHeaderActions', () => {
     expect(use).toHaveBeenCalledTimes(1);
     expect(search()).toBeNull();
 
-    fireEvent.click(getByLabelText('New'));
+    fireEvent.click(getByLabelText('Add options'));
     fireEvent.click(fromTemplateItem());
     fireEvent.click(rows()[0]!);
     expect(onCreateTemplate).toHaveBeenCalledTimes(1);
@@ -185,7 +216,6 @@ describe('CollectionHeaderActions', () => {
 
     expect(search()).toBeNull();
     expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual([
-      'New note',
       'New folder',
       'From template',
     ]);
