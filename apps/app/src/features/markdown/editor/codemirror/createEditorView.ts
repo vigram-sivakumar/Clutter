@@ -23,7 +23,6 @@ import {
   highlightActiveLine,
   highlightSpecialChars,
   keymap,
-  type ViewUpdate,
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
@@ -114,30 +113,6 @@ const blockReadOnlyEdits = EditorState.transactionFilter.of((tr) =>
   tr.startState.readOnly && tr.docChanged && !tr.annotation(externalSync) ? [] : tr
 );
 
-/**
- * Undoes a user edit the host refused, as an external, non-history transaction — the same kind
- * `syncMarkdownIntoView` dispatches: not reported back through `onDocChange`, not an undo step, and allowed
- * through a read-only view. Inverting the edit's own changes (not replacing the document) keeps the selection
- * mapped, the rest of the history intact, and leaves the view mounted.
- *
- * Deferred to a microtask because CodeMirror forbids dispatching from inside an update listener. Skipped when
- * the view is gone or has changed since, in which case the next sync from the host realigns it.
- */
-function revertRefusedEdit(update: ViewUpdate): void {
-  queueMicrotask(() => {
-    const view = update.view;
-
-    if (!view.dom.isConnected || !view.state.doc.eq(update.state.doc)) {
-      return;
-    }
-
-    view.dispatch({
-      changes: update.changes.invert(update.startState.doc),
-      annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
-    });
-  });
-}
-
 export interface CreateEditorViewOptions {
   readonly doc: string;
   readonly parent: HTMLElement;
@@ -149,6 +124,15 @@ export interface CreateEditorViewOptions {
    */
   readonly onMetadataHistoryStep?: (patch: Partial<EditablePageMetadata>) => void;
   readonly onBlur?: () => void;
+  /**
+   * Asked, live, before every user edit is applied: `false` refuses it, exactly as `readOnly` does, so the view
+   * never gets ahead of a host that would reject the edit (`PageOperations.commitEdit` throws for an archived
+   * page, and `readOnly` only follows after React has rendered the archive). Refusing here, where transactions
+   * are dispatched (so undo and redo are covered, which bypass transaction filters), leaves no state to repair:
+   * no document change, no history entry, the selection untouched. Does not apply to `externalSync`
+   * transactions (the host realigning the view).
+   */
+  readonly canEdit?: () => boolean;
   /**
    * Defaults to editable (`false`). Fixed for this view's lifetime — the
    * only caller that passes `true` (`NoteEmbedWidget.ts`, a note embed's
@@ -259,6 +243,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     onDocChange,
     onMetadataHistoryStep,
     onBlur,
+    canEdit,
     restoreHistoryJSON,
     restoreScrollEffect,
     restoreFoldJSON,
@@ -277,15 +262,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       return;
     }
 
-    try {
-      onDocChange?.(update.state.doc.toString());
-    } catch (error) {
-      // The host refused this edit (`commitEdit` throws for an archived page), so the session still holds the
-      // text the edit was made from. Take the view back to it instead of leaving it ahead of the session.
-      revertRefusedEdit(update);
-      // Still surfaced: CodeMirror reports an update listener's exception (the edit was not saved).
-      throw error;
-    }
+    onDocChange?.(update.state.doc.toString());
   });
 
   const blurHandler = EditorView.domEventHandlers({
@@ -488,6 +465,21 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     // partial/best-effort restore this whole mechanism is designed to
     // avoid (see `restoreScrollEffect`'s own doc comment).
     scrollTo: restoredState ? restoreScrollEffect : undefined,
+    // The one place every transaction passes through before it is applied — including undo and redo, which
+    // CodeMirror's history creates with `filter: false` and so never reach a transaction filter. A refused
+    // edit is dropped whole, so no state (document, history, selection) has to be repaired afterwards.
+    dispatchTransactions: canEdit
+      ? (transactions, editorView) => {
+          const refused = transactions.some(
+            (transaction) =>
+              transaction.docChanged && !transaction.annotation(externalSync) && !canEdit()
+          );
+
+          if (!refused) {
+            editorView.update(transactions);
+          }
+        }
+      : undefined,
   });
 
   // ADR-033: fold restoration is independently gated from history/scroll

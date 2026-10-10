@@ -2649,6 +2649,13 @@ export function PageHost({
             // place (its `readOnly` prop), it does not rebuild it.
             key={activePageId}
             readOnly={isPageArchived}
+            // `readOnly` follows the archive only after React has rendered it; this is the same rule asked live,
+            // so a keystroke in between is refused instead of reaching commitEdit (which throws for an archived page).
+            canEdit={() => {
+              const current = vault.getPage(activePageId);
+
+              return !current || !application.membershipSelector.isEntityEffectivelyArchived(current);
+            }}
             pageId={activePageId}
             ref={editorRef}
             markdown={model.markdown}

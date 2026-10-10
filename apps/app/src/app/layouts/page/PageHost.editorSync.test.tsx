@@ -111,7 +111,7 @@ async function setup() {
   );
   const application = new Application(
     vault,
-    new InMemoryVaultFileSystem(),
+    new InMemoryVaultFileSystem({ '/vault/A.md': 'Alpha', '/vault/B.md': 'Beta' }),
     new SelfWriteRegistry()
   );
   application.attachVault(
@@ -363,5 +363,45 @@ describe('editor isolation and history across notes', () => {
       expect(markdown('a')).toBe(expected);
       expect(doc()).toBe(expected);
     });
+  });
+});
+
+describe('archiving the open note while the editor still accepts input', () => {
+  it('a keystroke between the archive and the editor turning read-only never reaches the view or the session', async () => {
+    const { operations, view, doc, markdown } = await setup();
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    view().focus();
+    const env = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    env.IS_REACT_ACT_ENVIRONMENT = false;
+
+    try {
+      await operations.archive('a');
+      for (let i = 0; i < 50; i++) {
+        await Promise.resolve();
+      }
+      // The archive has resolved; React has not yet rendered it, so the editor is not read-only yet.
+      expect(view().state.readOnly).toBe(false);
+
+      const current = view();
+      current.dispatch({
+        changes: { from: current.state.doc.length, insert: '1' },
+        selection: { anchor: current.state.doc.length + 1 },
+        userEvent: 'input.type',
+      });
+      current.dispatch({
+        changes: { from: current.state.doc.length, insert: '2' },
+        userEvent: 'input.type',
+      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 60));
+    } finally {
+      env.IS_REACT_ACT_ENVIRONMENT = true;
+    }
+
+    // Neither edit was applied, nothing was reported as an error, and the view equals the session.
+    expect(doc()).toBe('Alpha');
+    expect(markdown('a')).toBe('Alpha');
+    expect(view().state.readOnly).toBe(true);
+    expect(undoDepth(view().state)).toBe(0);
+    expect(errors).not.toHaveBeenCalled();
   });
 });

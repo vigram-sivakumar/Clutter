@@ -244,6 +244,7 @@ export const MarkdownEditor = forwardRef<
     onRevealApplied,
     foldStateStore,
     onEdit,
+    canEdit,
     onMetadataHistoryStep,
     onFlush,
     onExitUp,
@@ -340,6 +341,8 @@ export const MarkdownEditor = forwardRef<
   onEditRef.current = onEdit;
   const onFlushRef = useRef(onFlush);
   onFlushRef.current = onFlush;
+  const canEditRef = useRef(canEdit);
+  canEditRef.current = canEdit;
   const onMetadataHistoryStepRef = useRef(onMetadataHistoryStep);
   onMetadataHistoryStepRef.current = onMetadataHistoryStep;
   const onExitUpRef = useRef(onExitUp);
@@ -1587,6 +1590,7 @@ export const MarkdownEditor = forwardRef<
         editorExitUp(() => onExitUpRef.current),
       ]),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
+      canEdit: () => canEditRef.current?.() ?? true,
       onMetadataHistoryStep: (patch) => onMetadataHistoryStepRef.current?.(patch),
       onBlur: () => onFlushRef.current?.(),
     });

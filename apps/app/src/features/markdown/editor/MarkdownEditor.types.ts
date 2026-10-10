@@ -117,6 +117,12 @@ export interface MarkdownEditorProps {
    */
   readonly onEdit?: (markdown: string) => void;
   /**
+   * Asked, live, before every user edit is applied; `false` refuses it. For a host whose own edit path can
+   * reject an edit (an archived page) before `readOnly` has caught up — see `CreateEditorViewOptions.canEdit`.
+   * Read per edit, so it need not be stable.
+   */
+  readonly canEdit?: () => boolean;
+  /**
    * Fires when the user undoes or redoes an edit that was applied together with a metadata change
    * (`applyBodyWithMetadata`), with the metadata patch that reverses or reapplies it. The host applies it to
    * the page; the editor only carries it through its history.
