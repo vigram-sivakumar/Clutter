@@ -3,6 +3,8 @@ import { Button } from '@components/button/Button';
 import { Menu } from '@components/menu/Menu';
 import { MenuGroupTitle } from '@components/menu/MenuGroupTitle';
 import { MenuItem } from '@components/menu/MenuItem';
+import { OverflowMenu, type OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import { Pill } from '@components/property-list/Pill';
 import { Overlay } from '@components/overlay/Overlay';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 
@@ -117,6 +119,8 @@ export interface CollectionHeaderActionsProps {
   defaultTemplate?: {
     currentId: string | null;
     onChange: (templateId: string | null) => void;
+    /** Opens the default template itself, to edit it. */
+    onEdit: (templateId: string) => void;
   };
   /**
    * What the Add menu's entries are called, and the first one's icon — the page's own wording ("New
@@ -154,6 +158,7 @@ export function CollectionHeaderActions({
   const [open, setOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [defaultPickerOpen, setDefaultPickerOpen] = useState(false);
+  const [defaultActionsOpen, setDefaultActionsOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   // The From template item hands focus to the template list's search field, not back to the caret.
   const suppressReturnFocusRef = useRef(false);
@@ -162,6 +167,15 @@ export function CollectionHeaderActions({
   // Read when the picker opens, so it lists the templates as they are now.
   const templates =
     templatesOpen && fromTemplate ? fromTemplate.getTemplates() : [];
+  // The chosen default, shown in the menu in place of "Set default template" — read as the menu opens.
+  const currentDefault =
+    open && fromTemplate && defaultTemplate?.currentId
+      ? fromTemplate.getTemplates().find((template) => template.id === defaultTemplate.currentId)
+      : undefined;
+  const defaultActions: OverflowMenuItemConfig[] = [
+    { id: 'edit', label: 'Edit template', icon: 'edit' },
+    { id: 'remove', label: 'Remove', icon: 'dismiss' },
+  ];
   const defaultPickerTemplates =
     defaultPickerOpen && fromTemplate && defaultTemplate ? fromTemplate.getTemplates() : [];
 
@@ -244,17 +258,59 @@ export function CollectionHeaderActions({
                   <>
                     <div className="menu__divider" role="separator" />
                     <MenuGroupTitle>Default template</MenuGroupTitle>
-                    <MenuItem
-                      leading={<AppIcon icon="template" />}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        suppressReturnFocusRef.current = true;
-                        setOpen(false);
-                        setDefaultPickerOpen(true);
-                      }}
-                    >
-                      Set default template
-                    </MenuItem>
+                    {currentDefault ? (
+                      // The chosen template, with a Default pill; clicking the row changes it.
+                      <MenuItem
+                        leading={
+                          currentDefault.emoji ? (
+                            <span>{currentDefault.emoji}</span>
+                          ) : (
+                            <AppIcon icon="template" />
+                          )
+                        }
+                        trailing={<Pill size="small">Default</Pill>}
+                        hideTrailingOnHover={false}
+                        forceHover={defaultActionsOpen}
+                        actions={
+                          <OverflowMenu
+                            items={defaultActions}
+                            open={defaultActionsOpen}
+                            onOpenChange={setDefaultActionsOpen}
+                            onSelect={(id) => {
+                              setDefaultActionsOpen(false);
+                              setOpen(false);
+                              if (id === 'edit') {
+                                defaultTemplate.onEdit(currentDefault.id);
+                              } else {
+                                defaultTemplate.onChange(null);
+                              }
+                            }}
+                            buttonProps={{ 'aria-label': 'Default template actions' }}
+                            icon="moreHorizontal"
+                          />
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          suppressReturnFocusRef.current = true;
+                          setOpen(false);
+                          setDefaultPickerOpen(true);
+                        }}
+                      >
+                        {currentDefault.values.name}
+                      </MenuItem>
+                    ) : (
+                      <MenuItem
+                        leading={<AppIcon icon="template" />}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          suppressReturnFocusRef.current = true;
+                          setOpen(false);
+                          setDefaultPickerOpen(true);
+                        }}
+                      >
+                        Set default template
+                      </MenuItem>
+                    )}
                   </>
                 )}
               </>

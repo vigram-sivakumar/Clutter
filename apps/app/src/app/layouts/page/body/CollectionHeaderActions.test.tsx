@@ -241,14 +241,18 @@ describe('CollectionHeaderActions', () => {
 
   describe('Default template', () => {
     const open = (
-      defaultTemplate?: { currentId: string | null; onChange: (id: string | null) => void },
+      defaultTemplate?: {
+        currentId: string | null;
+        onChange: (id: string | null) => void;
+        onEdit?: (id: string) => void;
+      },
       templates: unknown[] = [template('a', 'Meeting'), template('b', 'Weekly')]
     ) => {
       const utils = renderActions({
         onAdd: vi.fn(),
         onAddFolder: vi.fn(),
         fromTemplate: { getTemplates: () => templates as never[], onCreateTemplate: vi.fn() },
-        defaultTemplate,
+        defaultTemplate: defaultTemplate && { onEdit: vi.fn(), ...defaultTemplate },
       });
       fireEvent.click(utils.getByLabelText('Add options'));
       return utils;
@@ -297,10 +301,51 @@ describe('CollectionHeaderActions', () => {
       expect(document.querySelector('.picker-card')).toBeNull();
     });
 
-    it('with a default set, the picker marks it, can change it, and can clear it', () => {
+    const menuRows = () => [...document.querySelectorAll<HTMLElement>('.menu [role="menuitem"]')];
+    const defaultRow = () => menuRows().find((row) => row.textContent?.includes('Meeting'))!;
+
+    it('with a default set, the menu shows that template with a small Default pill instead of "Set default template"', () => {
+      open({ currentId: 'a', onChange: vi.fn() });
+
+      expect(setDefaultItem()).toBeUndefined();
+      expect(menuRows().map((row) => row.textContent)).toEqual(['New folder', 'From template', 'MeetingDefault']);
+      expect(defaultRow().querySelector('.entry__meta .pill.pill--small')?.textContent).toBe('Default');
+      expect(defaultRow().querySelector('.entry__actions button[aria-label="Default template actions"]')).not.toBeNull();
+    });
+
+    it('a default that no longer resolves falls back to "Set default template"', () => {
+      open({ currentId: 'gone', onChange: vi.fn() });
+
+      expect(setDefaultItem()).toBeDefined();
+    });
+
+    it('its more menu offers Edit template and Remove; Edit opens the template, Remove clears the default', () => {
+      const onChange = vi.fn();
+      const onEdit = vi.fn();
+      open({ currentId: 'a', onChange, onEdit });
+
+      fireEvent.click(defaultRow().querySelector('button[aria-label="Default template actions"]')!);
+      const actions = () => [...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent);
+      expect(actions().slice(-2)).toEqual(['Edit template', 'Remove']);
+      expect(onChange).not.toHaveBeenCalled();
+
+      fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Edit template')!);
+      expect(onEdit).toHaveBeenCalledWith('a');
+      expect(onChange).not.toHaveBeenCalled();
+      expect(document.querySelector('.menu')).toBeNull();
+
+      cleanup();
+      const remove = vi.fn();
+      open({ currentId: 'a', onChange: remove, onEdit });
+      fireEvent.click(defaultRow().querySelector('button[aria-label="Default template actions"]')!);
+      fireEvent.click([...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent === 'Remove')!);
+      expect(remove).toHaveBeenCalledWith(null);
+    });
+
+    it('clicking the default row opens the picker with it marked; another template changes it, and the first row clears it', () => {
       const onChange = vi.fn();
       open({ currentId: 'a', onChange });
-      fireEvent.click(setDefaultItem());
+      fireEvent.click(defaultRow());
 
       expect(rowTitles()[0]).toContain('No default template');
       expect(rows()[1]!.textContent).toContain('Default');
@@ -312,7 +357,7 @@ describe('CollectionHeaderActions', () => {
       cleanup();
       const clear = vi.fn();
       open({ currentId: 'a', onChange: clear });
-      fireEvent.click(setDefaultItem());
+      fireEvent.click(defaultRow());
       fireEvent.click(rows()[0]!);
       expect(clear).toHaveBeenCalledWith(null);
     });

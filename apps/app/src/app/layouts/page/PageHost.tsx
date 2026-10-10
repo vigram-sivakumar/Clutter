@@ -1541,6 +1541,7 @@ export function PageHost({
                       application.membershipSelector,
                       folder.metadata.defaultTemplateId
                     ),
+                    onEdit: (templateId) => openNoteFromCollection(templateId),
                     onChange: (templateId) =>
                       void application.folderOperations.updateMetadata(folder.id, {
                         defaultTemplateId: templateId,
