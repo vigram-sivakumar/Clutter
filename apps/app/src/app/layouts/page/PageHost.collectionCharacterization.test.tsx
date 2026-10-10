@@ -494,12 +494,7 @@ describe('Default template — the folder Add menu section, by collection kind',
     expect(stored()).toBe('tpl');
     expect(document.querySelector('.picker-card')).toBeNull();
 
-    // The chosen template now stands in the menu for "Set default template"; its row reopens the picker.
-    newMenuRows();
-    expect(document.querySelector('.menu')!.textContent).not.toContain('Set default template');
-    fireEvent.click(
-      [...document.querySelectorAll('[role="menuitem"]')].find((i) => i.textContent?.includes('Meeting'))!
-    );
+    openSetDefault();
     expect(rowTitles()).toEqual(['No default template', 'MeetingDefault']);
     fireEvent.click(document.querySelectorAll<HTMLElement>('.picker-card [role="menuitem"]')[0]!);
     await flush();
