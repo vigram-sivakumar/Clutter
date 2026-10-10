@@ -1,0 +1,79 @@
+/* "Start with template" for an empty note: the outer wrapper spans the document and is anchored 48px from
+   its bottom, above the bottom fade (z-index 2); `.template-suggestions` takes the editor's own width, so
+   the row is never wider than the editor column. Click-through except on the row itself. */
+.page__template-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 48px;
+  z-index: 3;
+
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.template-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: var(--content-width);
+  max-width: var(--editor-width-max);
+  min-width: 0;
+  pointer-events: auto;
+}
+.template-suggestions__title {
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  font-weight: var(--fw-medium);
+}
+.template-suggestions__list {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-8);
+  min-width: 0;
+  margin-left: -8px;
+}
+
+/* Entries hug their content up to 120px (a longer title ellipsizes inside Entry). The row never squeezes
+   them, so what is measured is what is shown (the overflow count decides what fits instead). Two classes,
+   so this beats Entry's `.entry { width: 100% }` whatever order the stylesheets load in. */
+.template-suggestions__list .template-suggestions__item {
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: 180px;
+  white-space: nowrap;
+  /* background: var(--surface-secondary); */
+  border-radius: 24px;
+  padding-right: 12px;
+}
+.template-suggestions__item--overflow {
+  background: color-mix(
+    in srgb,
+    var(--surface-secondary) 97%,
+    rgb(var(--state-base)) 3%
+  );
+  padding-inline: 12px;
+}
+
+/* Hover: the same slightly lifted surface a clickable Pill gets. Specific enough to beat Entry's own
+   `.entry-interactive:not(...):not(...):hover` background. */
+.template-suggestions__list
+  .template-suggestions__item:not(.entry-disabled):not(.entry-selected):hover {
+  background: color-mix(
+    in srgb,
+    var(--surface-secondary) 97%,
+    rgb(var(--state-base)) 3%
+  );
+}
+.template-suggestions__list
+  .template-suggestions__item--overflow:not(.entry-disabled):not(
+    .entry-selected
+  ):hover {
+  background: color-mix(
+    in srgb,
+    var(--surface-secondary) 94%,
+    rgb(var(--state-base)) 6%
+  );
+}

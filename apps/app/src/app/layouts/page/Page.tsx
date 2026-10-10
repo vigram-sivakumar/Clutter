@@ -100,6 +100,11 @@ type PageProps = {
   /** Forwarded to the More-actions Properties control — see PropertiesControl. */
   propertiesControl?: PropertiesControl;
   body?: ReactNode;
+  /**
+   * Rendered inside `.page__document` after the scrolling `.page__content`, so it can be anchored to the
+   * document's bottom without scrolling with the content. Owns no presentation here.
+   */
+  bodyOverlay?: ReactNode;
   coverImage?: string;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
   onRemoveCoverImage?(): void;
@@ -257,6 +262,7 @@ export function Page({
   properties,
   propertiesControl,
   body,
+  bodyOverlay,
   coverImage,
   onRemoveCoverImage,
   coverHidden,
@@ -469,6 +475,7 @@ export function Page({
             {body}
           </main>
         </div>
+        {bodyOverlay}
       </div>
       {coverLayout === 'side' && cover}
     </div>

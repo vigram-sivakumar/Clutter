@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -43,6 +43,16 @@ import type { CollectionEntryModel } from '@features/collection/page/CollectionE
 import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
+import {
+  applyTemplateToNote,
+  type ExistingNoteMetadata,
+} from '@features/notes/helpers/applyTemplateToNote';
+import {
+  shouldSuggestTemplates,
+  sortTemplatesNewestFirst,
+} from '@features/notes/helpers/templateSuggestions';
+import type { PageType } from '@core/vault/models/Page';
+import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import {
@@ -1231,6 +1241,65 @@ export function PageHost({
     },
   });
 
+  // "Start with template" for the open note, while its body is empty: the same templates as From
+  // template (newest first), applied to THIS note (applyTemplateToNote) instead of making a new one.
+  const buildTemplateSuggestions = (note: {
+    readonly id: string;
+    readonly type: PageType;
+    readonly markdown: string;
+    readonly isArchived: boolean;
+    readonly folderId: string | null;
+    readonly existing: ExistingNoteMetadata;
+  }): ReactNode => {
+    if (
+      !shouldSuggestTemplates({
+        type: note.type,
+        markdown: note.markdown,
+        isArchived: note.isArchived,
+        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(note.folderId),
+      })
+    ) {
+      return undefined;
+    }
+
+    const templates = sortTemplatesNewestFirst(
+      toTemplateEntries(vault, application.membershipSelector, () => undefined)
+    );
+
+    if (templates.length === 0) {
+      return undefined;
+    }
+
+    const applyTemplate = (templatePageId: string): void => {
+      const template = application.effectivePageState.getPage(templatePageId);
+
+      if (!template) {
+        return;
+      }
+
+      void applyTemplateToNote(
+        application.pageOperations,
+        note.id,
+        note.type,
+        note.existing,
+        template.markdown,
+        vault.getPage(templatePageId)?.metadata
+      )
+        .then(() => editorRef.current?.focus())
+        .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' }));
+    };
+
+    return (
+      <CurrentNoteTemplateSuggestions
+        templates={templates}
+        onApply={applyTemplate}
+        onCreateTemplate={() => {
+          void createTemplate(application.folderOperations, application.pageOperations);
+        }}
+      />
+    );
+  };
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -2270,6 +2339,14 @@ export function PageHost({
             ? (title) => void application.pageOperations.updateDraftTitle(activePageId, title)
             : undefined
         }
+        bodyOverlay={buildTemplateSuggestions({
+          id: activePageId,
+          type: draft.type,
+          markdown: model.markdown,
+          isArchived: false,
+          folderId: draft.folderId,
+          existing: { tags: draft.tags },
+        })}
         body={
           <MarkdownBody>
             <MarkdownEditor
@@ -2532,6 +2609,14 @@ export function PageHost({
       // An archived page is view-only: nothing can be added to it.
       propertiesControl={propertiesControl}
       properties={propertiesSection}
+      bodyOverlay={buildTemplateSuggestions({
+        id: activePageId,
+        type: page.type,
+        markdown: model.markdown,
+        isArchived: isPageArchived,
+        folderId: page.parentId,
+        existing: page.metadata,
+      })}
       body={
         <MarkdownBody>
           <MarkdownEditor

@@ -10,40 +10,13 @@ import { AppIcon, type SystemIcon } from '@shared/icon';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { Popover } from '@components/popover/Popover';
 import { PickerCard } from '@components/picker-card/PickerCard';
-import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import { NEW_TEMPLATE_ID, templateItems } from '@components/template-picker/TemplatePicker';
 import './CollectionHeaderAction.css';
 
 import {
   CollectionViewMenu,
   type CollectionViewMenuProps,
 } from './CollectionViewMenu';
-
-const NEW_TEMPLATE_ID = '__new-template__';
-
-/** The template picker's rows: a leading "New template" row, then every template as a flat note row. */
-function templateItems(
-  templates: readonly CollectionEntryModel[],
-  defaultId: string | null
-): PickerListItem[] {
-  return [
-    {
-      id: NEW_TEMPLATE_ID,
-      title: 'New template',
-      icon: 'plus' as const,
-      level: 0,
-      parentId: null,
-    },
-    ...templates.map((template) => ({
-      id: template.id,
-      title: template.values.name,
-      emoji: template.emoji,
-      level: 0,
-      parentId: null,
-      // The folder's default template is identified by the Default pill.
-      ...(template.id === defaultId && { pill: 'Default' }),
-    })),
-  ];
-}
 
 /**
  * What each kind of collection's Add menu calls its entries — one convention: creation reads
