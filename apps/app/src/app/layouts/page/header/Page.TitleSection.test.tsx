@@ -110,6 +110,33 @@ describe('PageTitleSection — belowDescription slot', () => {
   });
 });
 
+describe('PageTitleSection — the controls wrapper stays mounted', () => {
+  it('renders the wrapper with no children when there is no emoji, no icon and no More actions menu', () => {
+    render(<PageTitleSection title="Tasks" showMoreActions={false} />);
+
+    const controls = document.querySelector('.page-header-controls')!;
+    expect(controls).toBeInTheDocument();
+    expect(controls.children).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+  });
+
+  it('does not render the More actions button when the menu has nothing to offer, but keeps the wrapper', () => {
+    // No emoji handler, cover handler, description handler or properties: nothing for the menu to list.
+    render(<PageTitleSection title="Untitled" />);
+
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(document.querySelector('.page-header-controls')).toBeInTheDocument();
+    expect(document.querySelector('.page-header-controls')!.children).toHaveLength(0);
+  });
+
+  it('renders the More actions button inside the same wrapper when there is something to offer', () => {
+    render(<PageTitleSection title="Untitled" onEditDescription={vi.fn()} />);
+
+    const controls = document.querySelector('.page-header-controls')!;
+    expect(controls.querySelector('.page-header-controls__menu')).toBeInTheDocument();
+  });
+});
+
 describe('PageTitleSection — tabs slot', () => {
   it('renders nothing extra, and keeps the actions beside the title, when tabs is omitted', () => {
     render(<PageTitleSection title="Untitled" actions={<button>View</button>} />);

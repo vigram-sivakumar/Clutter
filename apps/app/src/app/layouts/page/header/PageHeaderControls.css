@@ -3,6 +3,11 @@
   align-items: flex-end;
   gap: var(--space-12);
   z-index: 1;
+  /* The wrapper is always mounted, even when it has nothing in it (a system page, an archived note, a
+     page with no menu items left). This keeps the More actions button's own height (16px,
+     .page-header-controls__menu below) so the title does not shift as that button comes and goes.
+     An emoji or icon (72px) is taller and is unaffected. */
+  min-height: 16px;
 }
 .page-header-controls__emoji {
   height: 72px;
