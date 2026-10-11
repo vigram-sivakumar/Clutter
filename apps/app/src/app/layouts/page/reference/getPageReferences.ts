@@ -13,11 +13,19 @@ export interface PageReference {
   readonly page: Page;
   /** Every place in `page` that links to or embeds the open page, in document order. */
   readonly ranges: readonly SourceRange[];
+  /** The first referencing line, trimmed of its list/heading marker — the context a reference entry shows. */
+  readonly excerpt: string;
+}
+
+/** A task that references the open page, with the page its line lives in. */
+export interface TaskReference {
+  readonly task: TaskOccurrence;
+  readonly page: Page;
 }
 
 export interface PageReferences {
   /** Tasks whose own line links to or embeds the open page, by due date (undated last). */
-  readonly tasks: readonly TaskOccurrence[];
+  readonly tasks: readonly TaskReference[];
   /** Notes that reference the open page, A–Z by display title. */
   readonly notes: readonly PageReference[];
   /** Daily notes that reference the open page, newest first. */
@@ -58,7 +66,7 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
     }
   }
 
-  const tasks: TaskOccurrence[] = [];
+  const tasks: TaskReference[] = [];
   const notes: PageReference[] = [];
   const dailyNotes: PageReference[] = [];
 
@@ -74,14 +82,14 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
     }
 
     const ranges = toRanges(sourceEdges);
-    const reference: PageReference = { page: source, ranges };
+    const reference: PageReference = { page: source, ranges, excerpt: toExcerpt(source.source.markdown, ranges) };
 
     (source.type === 'daily-note' ? dailyNotes : notes).push(reference);
 
     // A task references the page when a link or embed to it sits inside the task's own line.
     for (const task of source.analysis.tasks) {
       if (ranges.some((range) => isWithin(range, task))) {
-        tasks.push(task);
+        tasks.push({ task, page: source });
       }
     }
   }
@@ -91,6 +99,26 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
     notes: notes.sort(byTitle),
     dailyNotes: dailyNotes.sort(byDateNewestFirst),
   };
+}
+
+// A list, task, quote or heading marker at the start of a line is structure, not context.
+const LINE_MARKER = /^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|>+\s*|#{1,6}\s+)/;
+
+/** The line holding the first reference, as the context to show beside the source page's title. */
+function toExcerpt(markdown: string, ranges: readonly SourceRange[]): string {
+  const first = ranges[0];
+
+  if (!first) {
+    return '';
+  }
+
+  const start = markdown.lastIndexOf('\n', first.from - 1) + 1;
+  const end = markdown.indexOf('\n', first.from);
+
+  return markdown
+    .slice(start, end === -1 ? markdown.length : end)
+    .replace(LINE_MARKER, '')
+    .trim();
 }
 
 /** The edges' offsets, deduplicated and in document order; an edge without a range reveals nothing. */
@@ -117,7 +145,7 @@ function isWithin(range: SourceRange, task: TaskOccurrence): boolean {
 
 // ISO dates sort lexicographically. `Array.prototype.sort` is stable, so tasks tied on due date (and the
 // undated ones) keep their source order.
-function byDueDate(a: TaskOccurrence, b: TaskOccurrence): number {
+function byDueDate({ task: a }: TaskReference, { task: b }: TaskReference): number {
   if (a.dueDate === b.dueDate) {
     return 0;
   }

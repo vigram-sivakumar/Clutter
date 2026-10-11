@@ -86,7 +86,7 @@ describe('getPageReferences', () => {
     ]);
     const references = getPageReferences(vault, 'target');
 
-    expect(references.tasks.map((task) => task.text)).toEqual(['Follow up [[Projects/Target]]']);
+    expect(references.tasks.map(({ task }) => task.text)).toEqual(['Follow up [[Projects/Target]]']);
     expect(ids(references.notes).sort()).toEqual(['note', 'task-note']);
     expect(ids(references.dailyNotes)).toEqual(['d-2026-10-10']);
   });
@@ -97,13 +97,37 @@ describe('getPageReferences', () => {
       page('n', 'N.md', '- [ ] unrelated task\n- [ ] linked [[Projects/Target]]\nSee [[Projects/Target]] too'),
     ]);
 
-    expect(getPageReferences(vault, 'target').tasks.map((task) => task.text)).toEqual(['linked [[Projects/Target]]']);
+    expect(getPageReferences(vault, 'target').tasks.map(({ task }) => task.text)).toEqual(['linked [[Projects/Target]]']);
   });
 
   it('counts an embedded task line the same as a linked one', () => {
     const vault = makeVault([TARGET, page('n', 'N.md', '- [ ] with embed ![[Projects/Target]]')]);
 
     expect(getPageReferences(vault, 'target').tasks).toHaveLength(1);
+  });
+
+  it('gives each task the page its line lives in, for the entry header', () => {
+    const vault = makeVault([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Projects/Target]]')]);
+
+    expect(getPageReferences(vault, 'target').tasks.map(({ page: source }) => source.id)).toEqual(['t']);
+  });
+
+  it('gives a note the first referencing line as its excerpt, without the list marker', () => {
+    const vault = makeVault([
+      TARGET,
+      page('a', 'A.md', 'Intro line\nWe decided on [[Projects/Target]] today.\nlater [[Projects/Target]]'),
+      page('b', 'B.md', '- [ ] Call about [[Projects/Target]]'),
+      page('c', 'C.md', '## Heading with ![[Projects/Target]]'),
+    ]);
+    const excerpts = Object.fromEntries(
+      getPageReferences(vault, 'target').notes.map(({ page: source, excerpt }) => [source.id, excerpt])
+    );
+
+    expect(excerpts).toEqual({
+      a: 'We decided on [[Projects/Target]] today.',
+      b: 'Call about [[Projects/Target]]',
+      c: 'Heading with ![[Projects/Target]]',
+    });
   });
 
   it('sorts tasks by due date ascending with undated last, keeping source order among ties', () => {
@@ -113,7 +137,7 @@ describe('getPageReferences', () => {
       page('b', 'B.md', '- [ ] sooner @2026-10-20 [[Projects/Target]]\n- [ ] undated two [[Projects/Target]]'),
     ]);
 
-    expect(getPageReferences(vault, 'target').tasks.map((task) => task.text)).toEqual([
+    expect(getPageReferences(vault, 'target').tasks.map(({ task }) => task.text)).toEqual([
       'sooner @2026-10-20 [[Projects/Target]]',
       'later @2026-12-01 [[Projects/Target]]',
       'undated one [[Projects/Target]]',

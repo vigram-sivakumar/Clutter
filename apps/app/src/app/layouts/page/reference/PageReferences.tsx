@@ -78,7 +78,7 @@ export function PageReferences({
     <References
       tasks={
         references.tasks.length > 0
-          ? references.tasks.map((task) =>
+          ? references.tasks.map(({ task }) =>
               renderTaskRow(task, {
                 onToggleComplete: (target) => void taskOperations.toggleComplete(target),
                 onOpenTask: openTask,
