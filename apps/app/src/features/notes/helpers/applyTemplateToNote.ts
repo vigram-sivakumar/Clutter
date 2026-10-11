@@ -49,6 +49,31 @@ export function inverseMetadataPatch(
   return before as Partial<EditablePageMetadata>;
 }
 
+/**
+ * The part of `apply` that is still safe to write: each property only if it still holds the value in `expect`
+ * (what the opposite direction of the template application wrote). Undoing or redoing a template application
+ * must not overwrite a property the user has changed since.
+ */
+export function metadataPatchStillApplicable(
+  current: ExistingNoteMetadata,
+  apply: Partial<EditablePageMetadata>,
+  expect: Partial<EditablePageMetadata>
+): Partial<EditablePageMetadata> {
+  const defaults = resolvePageMetadata({});
+  const safe: Record<string, unknown> = {};
+
+  for (const key of Object.keys(apply) as (keyof EditablePageMetadata)[]) {
+    const held = current[key as keyof ExistingNoteMetadata] ?? defaults[key];
+    const wanted = expect[key] ?? defaults[key];
+
+    if (JSON.stringify(held) === JSON.stringify(wanted)) {
+      safe[key] = apply[key];
+    }
+  }
+
+  return safe as Partial<EditablePageMetadata>;
+}
+
 /** `kind` is the template marker's key; a template's kind never describes the note it is applied to. */
 const KIND_KEY = 'kind';
 
@@ -194,7 +219,17 @@ export async function applyTemplateToNote(
       : undefined;
 
     if (templateMarkdown.trim() !== '' || step) {
-      await options.applyBody(templateMarkdown, step);
+      try {
+        await options.applyBody(templateMarkdown, step);
+      } catch (error) {
+        // The metadata was saved first; without the body (and the undo step that would reverse it) it would
+        // stay behind on its own. Put it back, best effort, and report the failure.
+        if (step) {
+          await pageOperations.updateMetadata(noteId, step.inverse).catch(() => undefined);
+        }
+
+        throw error;
+      }
     }
 
     return;

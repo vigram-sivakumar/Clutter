@@ -799,6 +799,56 @@
   padding-block: var(--space-6);
 }
 
+/*
+ * The header's icon — the same `code.svg` the shared icon set has, in the same box as an embed header's icon
+ * (`--md-marker-width` x `--md-marker-height`, a `--icon-md` glyph centred in it, tertiary colour, followed by
+ * `--md-marker-text-gap`), at the same inset from the card's edge (`--space-6`, an embed header's own padding)
+ * and with the text after it starting where an embed's title starts.
+ *
+ * A `::before` on the block's first line: that line exists for every fenced block — with or without a language,
+ * expanded or folded (a fold only hides the later lines) — so no widget or decoration is involved, the document
+ * and its positions are untouched, and the icon stays while the raw fence is shown for editing (the text keeps
+ * its place, so engaging the block does not shift it). `position: absolute` takes no part in layout, like the
+ * line numbers below; the room for it is `padding` on the line, never `margin`, per this codebase's permanent
+ * fenced-code layout rule. `pointer-events`/`user-select: none` keep it out of hit-testing and clipboard copies.
+ * A mask of the SVG file itself (like the wavy rule's mask) so the shape is `code.svg`'s and the colour a token.
+ */
+.cm-editor .cm-code-block-line--first {
+  padding-inline-start: calc(
+    var(--space-6) + var(--md-marker-width) + var(--md-marker-text-gap)
+  );
+}
+
+.cm-editor .cm-code-block-line--first::before {
+  content: '';
+  position: absolute;
+  left: var(--space-6);
+  top: 50%;
+  width: var(--md-marker-width);
+  height: var(--md-marker-height);
+  transform: translateY(-50%);
+  background-color: var(--foreground-tertiary);
+  -webkit-mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md) var(--icon-md) no-repeat;
+  mask: url('../../../shared/icon/svg/code.svg') center / var(--icon-md) var(--icon-md) no-repeat;
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+ * While the opening fence itself is being edited (`.cm-code-block-line--editing-fence`, set by
+ * `fencedCodeBlockLineDecoration.ts` when the caret is on that line and the raw fence is showing) the header is
+ * Markdown, not a rendered header: the icon steps aside and the line goes back to the padding it had before the
+ * icon, so the raw fence sits where it always did. Writing code in the body, or a caret on the closing fence,
+ * never sets the class, so the icon stays; a collapsed block keeps it too unless its own fence is being edited.
+ */
+.cm-editor .cm-code-block-line--first.cm-code-block-line--editing-fence {
+  padding-inline-start: var(--space-12);
+}
+
+.cm-editor .cm-code-block-line--first.cm-code-block-line--editing-fence::before {
+  display: none;
+}
+
 .cm-editor
   .cm-code-block-line:not(.cm-code-block-line--first):not(
     .cm-code-block-line--last

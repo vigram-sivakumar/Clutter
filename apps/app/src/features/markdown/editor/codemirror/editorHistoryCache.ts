@@ -1,5 +1,7 @@
 import type { StateEffect } from '@codemirror/state';
 
+import type { EditorHistorySnapshot } from './createEditorView';
+
 /**
  * In-memory `pageId -> CachedEditorSession` cache, keyed by the same
  * `activePageId` React already uses as `<MarkdownEditor key={activePageId}>`
@@ -9,20 +11,20 @@ import type { StateEffect } from '@codemirror/state';
  * investigation this implements (verified end-to-end against the real
  * `@codemirror/state`/`commands` APIs before this was written): each
  * `EditorState.toJSON({history: historyField})` snapshot (built by
- * `createEditorView.ts`'s `serializeEditorHistory`) round-trips through
+ * `createEditorView.ts`'s `captureEditorHistory`) round-trips through
  * `EditorState.fromJSON(..., {history: historyField})` with its own
  * undo/redo history *and* selection fully intact, with zero cross-document
  * leakage — confirmed directly, not assumed from the API shape.
  *
  * **`scrollEffect` (2026-08-28)** — scroll position is a view-level
  * concern, not part of `EditorState`, so it's cached alongside
- * `historyJSON` rather than inside it: `EditorView.scrollSnapshot()`
+ * `history` rather than inside it: `EditorView.scrollSnapshot()`
  * (CM6's own documented mechanism for exactly this — "capture the
  * current... scroll position", intended to be handed to a later
  * `EditorViewConfig.scrollTo`) is captured at the same unmount moment as
- * `historyJSON` and applied at the same mount moment, gated behind the
+ * `history` and applied at the same mount moment, gated behind the
  * *same* stale-document check as history (see `createEditorView.ts`'s
- * `restoreHistoryJSON`/`restoreScrollEffect` doc comments) — a session is
+ * `restoreHistory`/`restoreScrollEffect` doc comments) — a session is
  * restored as one unit or not at all, never partially. `StateEffect`
  * instances are plain in-memory JS objects, not required to be
  * JSON-serializable for this cache's purposes (this cache is never itself
@@ -66,7 +68,7 @@ import type { StateEffect } from '@codemirror/state';
  * distinct pages in a sitting (this app's own daily-notes-plus-notes
  * model doesn't encourage hundreds of simultaneously-recent pages the way
  * e.g. a browser's tab history might), and each entry's dominant cost is
- * the `historyJSON` blob — proportional to how much *unsaved-in-this-
+ * the `history` blob — proportional to how much *unsaved-in-this-
  * session* edit history that one page accumulated, not to document size.
  * A genuinely pathological session (thousands of pages touched, each with
  * a long edit history, never reloading the app) would grow this
@@ -77,9 +79,9 @@ import type { StateEffect } from '@codemirror/state';
  * this cache needs today.
  */
 export interface CachedEditorSession {
-  /** `EditorState.toJSON({history: historyField})` — see `createEditorView.ts`'s `serializeEditorHistory`. */
-  readonly historyJSON: unknown;
-  /** `EditorView.scrollSnapshot()`'s result, captured at the same moment as `historyJSON`. */
+  /** The closed editor's history, selection and document — see `createEditorView.ts`'s `captureEditorHistory`. */
+  readonly history: EditorHistorySnapshot;
+  /** `EditorView.scrollSnapshot()`'s result, captured at the same moment as `history`. */
   readonly scrollEffect: StateEffect<unknown>;
   /**
    * The real scrolling ancestor's `scrollTop` (see the module doc comment's

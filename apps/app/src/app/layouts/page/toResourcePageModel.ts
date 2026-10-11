@@ -13,7 +13,7 @@ import { formatDailyNoteTitle } from '@core/presentation/formatDailyNoteTitle';
 export function toResourcePageModel(
   page: Page,
   session: DocumentSession,
-  onUpdateMarkdown: (pageId: string, markdown: string, basedOn?: string) => void,
+  onUpdateMarkdown: (pageId: string, markdown: string) => void,
   onRequestSave: (pageId: string) => void
 ): ResourcePageModel {
   const revision = session.currentRevision;
@@ -56,8 +56,8 @@ export function toResourcePageModel(
     coverPositionAbove: page.metadata.coverPositionAbove,
     coverPositionSide: page.metadata.coverPositionSide,
 
-    updateMarkdown(markdown: string, basedOn?: string): void {
-      onUpdateMarkdown(page.id, markdown, basedOn);
+    updateMarkdown(markdown: string): void {
+      onUpdateMarkdown(page.id, markdown);
     },
 
     requestSave(): void {
@@ -76,7 +76,7 @@ export function toDraftPageModel(
   type: PageType,
   title: string | undefined,
   session: DocumentSession,
-  onUpdateMarkdown: (pageId: string, markdown: string, basedOn?: string) => void,
+  onUpdateMarkdown: (pageId: string, markdown: string) => void,
   onRequestSave: (pageId: string) => void
 ): ResourcePageModel {
   const revision = session.currentRevision;
@@ -98,8 +98,8 @@ export function toDraftPageModel(
     coverPositionAbove: 50,
     coverPositionSide: 50,
 
-    updateMarkdown(markdown: string, basedOn?: string): void {
-      onUpdateMarkdown(draftId, markdown, basedOn);
+    updateMarkdown(markdown: string): void {
+      onUpdateMarkdown(draftId, markdown);
     },
 
     requestSave(): void {
@@ -118,7 +118,6 @@ export interface ResourcePageModel {
   coverPositionAbove: number;
   coverPositionSide: number;
 
-  /** `basedOn` is the text the edit was made from — see PageOperations.commitEdit. */
-  updateMarkdown(markdown: string, basedOn?: string): void;
+  updateMarkdown(markdown: string): void;
   requestSave(): void;
 }

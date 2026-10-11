@@ -1,0 +1,13 @@
+.wiki {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.wiki__title {
+  color: var(--foreground-primary);
+  font-size: var(--text-label-small);
+  text-decoration: underline;
+  text-underline-offset: var(--md-underline-offset);
+  text-decoration-color: var(--md-wiki-underline);
+}

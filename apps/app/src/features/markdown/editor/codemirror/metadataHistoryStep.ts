@@ -1,140 +1,84 @@
-import {
-  invertedEffects,
-  isolateHistory,
-  undoDepth,
-} from '@codemirror/commands';
-import {
-  StateEffect,
-  StateField,
-  Transaction,
-  type Extension,
-} from '@codemirror/state';
+import { invertedEffects, isolateHistory } from '@codemirror/commands';
+import { StateEffect, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import type { EditablePageMetadata } from '@core/application/page/PageOperations';
 
 /**
  * A change to the page's metadata that undoes and redoes together with a Markdown edit — one logical step.
- * CodeMirror's history only knows the document, so the metadata is kept beside it: `patch` is what the host
- * applied for the edit, `inverse` what puts it back.
+ * CodeMirror's history only knows the document, so the metadata rides along with the history entry as an
+ * effect: `patch` is what the host applied for the edit, `inverse` what puts it back.
  */
 export interface MetadataHistoryStep {
   readonly patch: Partial<EditablePageMetadata>;
   readonly inverse: Partial<EditablePageMetadata>;
 }
 
-interface LoggedStep extends MetadataHistoryStep {
-  /** The step's place in the undo stack once recorded (`undoDepth` right after it). */
-  readonly depth: number;
-}
-
-interface StepLog {
-  readonly steps: readonly LoggedStep[];
-  /** The patch to hand the host for the transaction that just ran (an undo or redo of a logged step), if any. */
-  readonly fired: Partial<EditablePageMetadata> | null;
-}
-
-/** Carries a step on the transaction that applies it; `depth` is where that edit lands in the undo stack. */
-const applyStepEffect = StateEffect.define<LoggedStep>();
-
-/** Inert: only there so a step with no text change is still recorded as an undo step (see below). */
-const recordedMarker = StateEffect.define<null>();
-
 /**
- * Remembers which undo-stack entries carry a metadata step, and reports the step whenever the user undoes
- * or redoes one. The link is the entry's depth in the undo stack, not an effect on the history event:
- * CodeMirror serializes a history's changes and selections but not its effects, so an effect-based link
- * would be lost the moment the per-note history cache restores a note, leaving its text undoable and its
- * metadata not. The log is a state field with its own `toJSON`/`fromJSON`, serialized with the history
- * (see `serializeEditorHistory`).
- *
- * Kept consistent with CodeMirror's own rules:
- *  - a new undoable edit made after an undo discards the redo stack, so steps beyond the current depth go;
- *  - a transaction that is not recorded in history (an external sync, `addToHistory: false`) changes nothing.
- * A step is reported only for the undo/redo of the entry at its depth, never for neighbouring typing.
+ * What the host is told when the user undoes or redoes a step: write `apply`, but only the properties that still
+ * hold the value in `expect` (what the opposite direction wrote). A property the user has changed since is left
+ * alone — undo must not overwrite newer work.
  */
-const stepLogField = StateField.define<StepLog>({
-  create: () => ({ steps: [], fired: null }),
-  update(log, transaction) {
-    const applied = transaction.effects.find((effect) =>
-      effect.is(applyStepEffect)
-    );
+export interface MetadataHistoryChange {
+  readonly apply: Partial<EditablePageMetadata>;
+  readonly expect: Partial<EditablePageMetadata>;
+}
 
-    if (applied) {
-      const step = applied.value as LoggedStep;
-
-      return {
-        steps: [
-          ...log.steps.filter((logged) => logged.depth < step.depth),
-          step,
-        ],
-        fired: null,
-      };
-    }
-
-    if (transaction.isUserEvent('undo')) {
-      const depth = undoDepth(transaction.startState);
-
-      return {
-        steps: log.steps,
-        fired: log.steps.find((step) => step.depth === depth)?.inverse ?? null,
-      };
-    }
-
-    if (transaction.isUserEvent('redo')) {
-      const depth = undoDepth(transaction.startState) + 1;
-
-      return {
-        steps: log.steps,
-        fired: log.steps.find((step) => step.depth === depth)?.patch ?? null,
-      };
-    }
-
-    if (
-      transaction.docChanged &&
-      transaction.annotation(Transaction.addToHistory) !== false
-    ) {
-      const depth = undoDepth(transaction.startState);
-      const kept = log.steps.filter((step) => step.depth <= depth);
-
-      return kept.length === log.steps.length
-        ? { steps: log.steps, fired: null }
-        : { steps: kept, fired: null };
-    }
-
-    return log.fired === null ? log : { steps: log.steps, fired: null };
-  },
-  toJSON: (log) => log.steps,
-  fromJSON: (json) => ({ steps: json as readonly LoggedStep[], fired: null }),
-});
-
-/** The field `serializeEditorHistory` and the restore path carry beside `historyField`. */
-export const metadataStepLogField = stepLogField;
+type Direction = 'applied' | 'reverted';
 
 /**
- * Installs the step log and its reporting. `onStep` receives the metadata patch to apply when the user
- * undoes (the step's inverse) or redoes (the step itself) an edit made with `applyBodyWithMetadataStep`.
+ * The step travels as a state effect on the edit's own history entry. `invertedEffects` below tells CodeMirror's
+ * history to store the opposite direction as the entry's inverse, so the entry's undo dispatches `reverted` and
+ * the redo made from that undo dispatches `applied`. The link is the entry itself — nothing else keeps track of
+ * where it is, so trimming the stack, an external change mapping the entry, or a new edit discarding the redo
+ * stack cannot leave a step attached to the wrong entry. An effect-only transaction (a template with no body)
+ * is recorded as an undo entry because its inverse is non-empty.
+ */
+const stepEffect = StateEffect.define<{
+  readonly step: MetadataHistoryStep;
+  readonly direction: Direction;
+}>();
+
+/**
+ * Installs the step link and its reporting. `onStep` receives what to write when the user undoes or redoes an
+ * edit made with `applyBodyWithMetadataStep`; applying the edit itself never reports (the host did that).
  */
 export function metadataHistoryStep(
-  onStep: (patch: Partial<EditablePageMetadata>) => void
+  onStep: (change: MetadataHistoryChange) => void
 ): Extension {
   return [
-    stepLogField,
-    // A step with no text change is an effect-only transaction, which CodeMirror's history records only if
-    // some effect needs inverting; this inert one makes it do so — for the edit, for its undo (so a redo exists),
-    // and for that redo.
     invertedEffects.of((transaction) =>
-      transaction.effects.some(
-        (effect) => effect.is(applyStepEffect) || effect.is(recordedMarker)
+      transaction.effects.flatMap((effect) =>
+        effect.is(stepEffect)
+          ? [
+              stepEffect.of({
+                step: effect.value.step,
+                direction:
+                  effect.value.direction === 'applied' ? 'reverted' : 'applied',
+              }),
+            ]
+          : []
       )
-        ? [recordedMarker.of(null)]
-        : []
     ),
     EditorView.updateListener.of((update) => {
-      const fired = update.state.field(stepLogField).fired;
+      for (const transaction of update.transactions) {
+        if (!transaction.isUserEvent('undo') && !transaction.isUserEvent('redo')) {
+          continue;
+        }
 
-      if (fired) {
-        onStep(fired);
+        for (const effect of transaction.effects) {
+          if (!effect.is(stepEffect)) {
+            continue;
+          }
+
+          const { step, direction } = effect.value;
+
+          onStep(
+            direction === 'reverted'
+              ? { apply: step.inverse, expect: step.patch }
+              : { apply: step.patch, expect: step.inverse }
+          );
+        }
       }
     }),
   ];
@@ -165,10 +109,8 @@ export function applyBodyWithMetadataStep(
 
   view.dispatch({
     changes,
-    // `isolateHistory: 'full'` makes this its own undo entry, so it lands one deeper than the stack is now.
-    effects: step
-      ? applyStepEffect.of({ ...step, depth: undoDepth(view.state) + 1 })
-      : [],
+    effects: step ? [stepEffect.of({ step, direction: 'applied' })] : [],
+    // `isolateHistory: 'full'` makes this its own undo entry, so it never merges with the typing around it.
     annotations: isolateHistory.of('full'),
     userEvent: 'input.template',
     scrollIntoView: true,

@@ -1,84 +1,61 @@
+import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import './Reference.css';
-import { Button, type ButtonProps } from '@components/button/Button';
+import { Button } from '@components/button/Button';
+import { Checkbox } from '@components/checkbox/Checkbox';
+import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
+import { Wiki } from '@components/wiki/Wiki';
 
-interface ReferenceSummary {
-  type: 'note' | 'dailyNote' | 'task';
-  count: number;
-}
-
-interface ReferencesProps extends Omit<
-  ButtonProps,
-  'leading' | 'children' | 'onClick'
-> {
-  references?: ReferenceSummary[];
+interface ReferencesProps {
   isExpanded: boolean;
   onExpandToggle: () => void;
-  children?: React.ReactNode;
+  tasks?: React.ReactNode;
+  notes?: React.ReactNode;
 }
 
 export function References({
-  references = [],
-  isExpanded,
+  isExpanded = true,
   onExpandToggle,
-  children,
-  ...buttonProps
+  tasks,
+  notes,
 }: ReferencesProps) {
-  const totalReferences = references.reduce(
-    (total, reference) => total + reference.count,
-    0
-  );
-
-  const isEmpty = totalReferences === 0;
-
-  const referenceTypes: ReferenceSummary['type'][] = [
-    'note',
-    'dailyNote',
-    'task',
-  ];
-
   return (
-    <div className="references">
-      <Button
-        className="reference-button"
+    <section className="references">
+      <Header
         interaction="subtle"
-        {...buttonProps}
-        disabled={isEmpty}
         onClick={onExpandToggle}
-        leading={
-          <AppIcon icon={isExpanded ? 'caretDown' : 'caretRight'} size={12} />
-        }
-      >
-        References
-      </Button>
-      <div className="references__icons">
-        {referenceTypes.map((type) => {
-          const count =
-            references.find((reference) => reference.type === type)?.count ?? 0;
-
-          const icon =
-            type === 'note'
-              ? 'note'
-              : type === 'dailyNote'
-                ? 'calendar'
-                : 'circleTick';
-
-          return (
-            <div
-              key={type}
-              className={
-                count === 0
-                  ? 'references__summary references__summary--disabled'
-                  : 'references__summary'
-              }
+        isCollapsible
+        title="References"
+      />
+      {isExpanded && (
+        <div className="references__content">
+          {/* Task items will be shown in this list */}
+          <div className="references__list">
+            <Entry
+              onClick={() => {}}
+              leading={<Checkbox />}
+              trailing={<Wiki icon="note" emoji="🍒" title="Meeting notes" />}
             >
-              <AppIcon icon={icon} />
-              <span>{count}</span>
-            </div>
-          );
-        })}
-      </div>
-      {isExpanded && !isEmpty && children}
-    </div>
+              <span className="reference-entry__body">
+                Meeting with the stakeholders about the next steps and here i go
+                writing really long just to text the css
+              </span>
+            </Entry>
+          </div>
+          {/* Notes and Dailynotes will be shown in this list */}
+          <div className="references__list">
+            <Entry className="reference-entry" onClick={() => {}}>
+              <span className="reference-entry__path">Meeting notes</span>
+              <span className="reference-entry__body">
+                Empty the trash before evening this could be or might be more
+                than few lines but I think we should cap it at two lines or at
+                specific words I never tried words as a max limit may be i will
+                try and see how it looks with different paragraphs.
+              </span>
+            </Entry>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

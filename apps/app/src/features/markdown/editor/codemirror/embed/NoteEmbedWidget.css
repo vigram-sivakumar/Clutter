@@ -141,17 +141,19 @@
   color: var(--foreground-tertiary);
 }
 
-.cm-note-embed__title {
+/* The title and path group, the title and the path are laid out and styled by the invalid card's own rules
+ * (`mediaPresentation/invalidEmbedCard.css`: `.cm-invalid-embed__text` / `__title` / `__source`), so the two
+ * states cannot drift. Only what is specific to this header is here: the group takes the row's free space so
+ * the controls stay at its end, and the title truncates and keeps its font-size transition. */
+.cm-note-embed__text {
   flex: 1 1 auto;
+}
+
+.cm-note-embed__title {
+  flex: 0 1 auto;
   min-width: 0;
-  color: var(--foreground-tertiary);
-  font-size: var(--text-label);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-body-small);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
   transition: font-size 150ms ease;
 }
 

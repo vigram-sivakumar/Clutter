@@ -25,7 +25,7 @@ import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSy
 import type { PageFrontmatter } from '@core/vault/ingest/frontmatter/PageFrontmatter';
 
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { applyTemplateToNote } from './applyTemplateToNote';
+import { applyTemplateToNote, metadataPatchStillApplicable } from './applyTemplateToNote';
 
 const ROOT = '/vault';
 
@@ -309,5 +309,72 @@ describe('applyTemplateToNote — a daily note', () => {
     expect(onDisk).toContain('type: daily-note');
     expect(onDisk).toContain(`id: ${draftId}`);
     expect(env.vault.getPageByPath(path)!.id).toBe(draftId);
+  });
+});
+
+describe('applyTemplateToNote — applying the body through the editor fails', () => {
+  it('puts back the metadata it had already saved and reports the failure', async () => {
+    const env = setup(TEMPLATE, { icon: '📌', tags: ['mine'] });
+    await env.pageOperations.open('note-1');
+    const before = { ...env.vault.getPage('note-1')!.metadata };
+
+    await expect(
+      applyTemplateToNote(
+        env.pageOperations,
+        'note-1',
+        'note',
+        before,
+        env.template.source.markdown,
+        env.vault.getPage('template-1')!.metadata,
+        {
+          applyBody: () => {
+            throw new Error('editor is gone');
+          },
+        }
+      )
+    ).rejects.toThrow('editor is gone');
+
+    const after = env.vault.getPage('note-1')!.metadata;
+    expect(after.icon).toBe('📌');
+    expect(after.tags).toEqual(['mine']);
+    expect(after.cover).toBeNull();
+    expect(after.description).toBeNull();
+  });
+});
+
+describe('metadataPatchStillApplicable', () => {
+  const apply = { icon: 'I', tags: ['a'], description: 'D', coverLayout: 'side' } as const;
+  const expectNow = { icon: 'P', tags: ['a', 'b'], description: 'T', coverLayout: 'above' } as const;
+
+  it('keeps a property that still holds what the other direction wrote, and drops one that changed', () => {
+    const current = { icon: 'P', tags: ['a', 'b', 'later'], description: 'T', coverLayout: 'above' } as never;
+
+    expect(metadataPatchStillApplicable(current, apply as never, expectNow as never)).toEqual({
+      icon: 'I',
+      description: 'D',
+      coverLayout: 'side',
+    });
+  });
+
+  it('treats an absent value, null and the default as the same "nothing" in both places', () => {
+    // The page has no icon / cover / description; the expectation records them as absent too.
+    const current = { coverLayout: 'side' } as never;
+
+    expect(
+      metadataPatchStillApplicable(
+        current,
+        { icon: 'X', cover: 'Y', description: 'Z', tags: ['t'] } as never,
+        { icon: null, cover: undefined, description: null, tags: [] } as never
+      )
+    ).toEqual({ icon: 'X', cover: 'Y', description: 'Z', tags: ['t'] });
+  });
+
+  it('compares tags by their exact value and order', () => {
+    expect(
+      metadataPatchStillApplicable({ tags: ['b', 'a'] } as never, { tags: ['x'] } as never, { tags: ['a', 'b'] } as never)
+    ).toEqual({});
+    expect(
+      metadataPatchStillApplicable({ tags: ['a', 'b'] } as never, { tags: ['x'] } as never, { tags: ['a', 'b'] } as never)
+    ).toEqual({ tags: ['x'] });
   });
 });

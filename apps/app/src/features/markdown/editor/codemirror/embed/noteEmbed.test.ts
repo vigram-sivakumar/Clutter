@@ -13,7 +13,7 @@ import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 import type { NoteEmbedAncestry } from './noteEmbedAncestry';
-import { trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
+import { embedFolderPath, trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
 
 /** Every fixture here targets a page (never a real Vault resource) — both resolvers always decline, matching real production wiring. */
 const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
@@ -118,6 +118,81 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     // Rendered through a real nested EditorView, not a hand-built DOM copy
     // — the embedded note's own content lives inside `.cm-content`.
     expect(card?.querySelector('.cm-content')?.textContent).toContain('Body text.');
+  });
+
+  it("shows the note's folder path beside the title, without the note's own name, in the header's title-and-path group", () => {
+    const view = mountView(
+      '![[Projects/Weekly/Other Note]]',
+      resolverFor({
+        'Projects/Weekly/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const header = view.dom.querySelector('.cm-note-embed__header')!;
+    const group = header.querySelector('.cm-note-embed__text')!;
+    const title = group.querySelector('.cm-note-embed__title');
+    const path = group.querySelector<HTMLElement>('.cm-note-embed__path');
+    expect(title?.textContent).toBe('Other Note');
+    expect(path?.textContent).toBe('Projects/Weekly');
+    expect(path?.tagName).toBe('SPAN');
+    // The path follows the title in the same group, and the controls stay a sibling of the group, at the row's end.
+    expect(title?.nextElementSibling).toBe(path);
+    expect(group.nextElementSibling).toBe(header.querySelector('.cm-note-embed__controls'));
+    // Full text is available when it is truncated.
+    expect(path?.title).toBe('Projects/Weekly');
+  });
+
+  it('shows no path when the target has no folder: the title already says the note', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const group = view.dom.querySelector('.cm-note-embed__text')!;
+    expect(group.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
+    expect(group.querySelector('.cm-note-embed__path')).toBeNull();
+  });
+
+  it('a heading target shows the folder of its note, not the heading', () => {
+    const view = mountView(
+      '![[Notes/Other Note#Details]]',
+      resolverFor({
+        'Notes/Other Note#Details': { status: 'resolved', pageId: 'page-other', title: 'Other Note › Details', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    expect(view.dom.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note › Details');
+    expect(view.dom.querySelector('.cm-note-embed__path')?.textContent).toBe('Notes');
+  });
+
+  it('the path is not interactive: clicking it does not open the note', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Folder/Other Note]]',
+      resolverFor({
+        'Folder/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    view.dom.querySelector<HTMLElement>('.cm-note-embed__path')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(onOpenPage).not.toHaveBeenCalled();
+  });
+
+  it('a nested embed shows its own folder path in its own header too', () => {
+    const view = mountView(
+      '![[Top/Outer]]',
+      resolverFor({
+        'Top/Outer': { status: 'resolved', pageId: 'outer', title: 'Outer', markdown: '![[Deep/Down/Inner]]', icon: 'note', emoji: null },
+        'Deep/Down/Inner': { status: 'resolved', pageId: 'inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const paths = [...view.dom.querySelectorAll('.cm-note-embed__path')].map((el) => el.textContent);
+    expect(paths).toEqual(['Top', 'Deep/Down']);
   });
 
   it('the title has no click handler and does nothing when clicked', () => {
@@ -1361,5 +1436,22 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     // toggled its own collapse, and the shared embedded-pageId fold state
     // has no bearing on either host's own independent outer-collapse flag.
     expect(hostB.dom.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+  });
+});
+
+describe('embedFolderPath', () => {
+  it.each([
+    ['Projects/Weekly/Note', 'Projects/Weekly'],
+    ['Folder/Note', 'Folder'],
+    ['Note', ''],
+    ['Folder/Note#Heading', 'Folder'],
+    ['Note#Heading', ''],
+    ['Note#Head/ing', ''],
+    ['A/B/Note#One/Two', 'A/B'],
+    ['  Folder / Note ', 'Folder'],
+    ['/Note', ''],
+    ['', ''],
+  ])('%j -> %j', (target, expected) => {
+    expect(embedFolderPath(target)).toBe(expected);
   });
 });
