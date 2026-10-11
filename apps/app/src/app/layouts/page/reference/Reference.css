@@ -53,12 +53,4 @@
 .reference-entry__body {
   font-size: var(--text-body-small);
   color: var(--foreground-primary);
-
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  white-space: normal;
-  /* A long unbroken token (a URL) wraps instead of overflowing past the clamp. */
-  overflow-wrap: anywhere;
 }

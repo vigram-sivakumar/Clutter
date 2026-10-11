@@ -32,7 +32,7 @@ export function References({
               leading={<Checkbox />}
               trailing={<Wiki icon="note" emoji="🍒" title="Meeting notes" />}
             >
-              <span className="reference-entry__body">
+              <span className="reference-entry__body truncate">
                 Meeting with the stakeholders about the next steps and here i go
                 writing really long just to text the css
               </span>
@@ -41,8 +41,10 @@ export function References({
           {/* Notes and Dailynotes will be shown in this list */}
           <div className="references__list">
             <Entry className="reference-entry" onClick={() => {}}>
-              <span className="reference-entry__path truncate">Meeting notes</span>
-              <span className="reference-entry__body">
+              <span className="reference-entry__path truncate">
+                Meeting notes
+              </span>
+              <span className="reference-entry__body line-clamp-2">
                 Empty the trash before evening this could be or might be more
                 than few lines but I think we should cap it at two lines or at
                 specific words I never tried words as a max limit may be i will
