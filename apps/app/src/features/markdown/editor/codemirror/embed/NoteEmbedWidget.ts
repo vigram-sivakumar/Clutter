@@ -305,7 +305,7 @@ export class NoteEmbedWidget extends WidgetType {
       PageEmbedResolution,
       { status: 'resolved' }
     > | null,
-    /** The raw, unresolved embed target text (`match.path` from `embedLivePreview.ts`'s own scan) — always present, but only ever shown to the user as the broken card's own secondary text (`renderBroken` below); the working state shows `resolution.title` instead. */
+    /** The raw, unresolved embed target text (`match.path` from `embedLivePreview.ts`'s own scan) — always present: the broken card's own secondary text (`renderBroken` below), and the resolved header's path beside `resolution.title`. */
     readonly path: string,
     readonly extensions: readonly Extension[],
     readonly ui: ImageUiState,
@@ -435,6 +435,18 @@ export class NoteEmbedWidget extends WidgetType {
     titleSpan.classList.add('cm-note-embed__title');
     titleSpan.textContent = resolution.title;
     titleSpan.title = resolution.title;
+
+    // The embed's target as written (`![[Folder/Note]]` -> `Folder/Note`), beside the title in the invalid
+    // card's own secondary-text styling (`.cm-invalid-embed__source`, shared in `invalidEmbedCard.css`).
+    const pathSpan = document.createElement('span');
+    pathSpan.classList.add('cm-note-embed__path');
+    pathSpan.textContent = this.path;
+    pathSpan.title = this.path;
+
+    // Title and path as one unit, like `.cm-invalid-embed__text`, so the controls stay at the row's end.
+    const text = document.createElement('div');
+    text.classList.add('cm-note-embed__text');
+    text.append(titleSpan, pathSpan);
 
     const controls = document.createElement('div');
     controls.classList.add('cm-note-embed__controls');
@@ -574,7 +586,7 @@ export class NoteEmbedWidget extends WidgetType {
     // "belongs at the very start of the construct it owns" position
     // every other fold toggle in this codebase already uses (before the
     // `#`/marker/opening fence), here meaning before the identity icon.
-    header.append(collapseButton, iconWrap, titleSpan, controls);
+    header.append(collapseButton, iconWrap, text, controls);
 
     // The excerpt's own closing boundary — a passage-from-another-document
     // feel, not a card: the wavy "End of note" divider after the nested

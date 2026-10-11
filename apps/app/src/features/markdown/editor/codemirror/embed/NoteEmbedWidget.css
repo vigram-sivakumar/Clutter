@@ -141,8 +141,18 @@
   color: var(--foreground-tertiary);
 }
 
-.cm-note-embed__title {
+/* Title and path side by side, the same arrangement as the invalid card's `.cm-invalid-embed__text`; this
+ * group takes the row's free space so the controls stay at its end. */
+.cm-note-embed__text {
+  display: flex;
+  align-items: baseline;
   flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-6);
+}
+
+.cm-note-embed__title {
+  flex: 0 1 auto;
   min-width: 0;
   color: var(--foreground-tertiary);
   font-size: var(--text-label);

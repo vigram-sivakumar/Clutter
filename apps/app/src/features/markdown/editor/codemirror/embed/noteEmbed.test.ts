@@ -120,6 +120,66 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(card?.querySelector('.cm-content')?.textContent).toContain('Body text.');
   });
 
+  it("shows the embed's path beside the title, as plain text in the header's own title-and-path group", () => {
+    const view = mountView(
+      '![[Projects/Other Note]]',
+      resolverFor({
+        'Projects/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const header = view.dom.querySelector('.cm-note-embed__header')!;
+    const group = header.querySelector('.cm-note-embed__text')!;
+    const title = group.querySelector('.cm-note-embed__title');
+    const path = group.querySelector<HTMLElement>('.cm-note-embed__path');
+    expect(title?.textContent).toBe('Other Note');
+    expect(path?.textContent).toBe('Projects/Other Note');
+    expect(path?.tagName).toBe('SPAN');
+    // The path follows the title in the same group, and the controls stay a sibling of the group, at the row's end.
+    expect(title?.nextElementSibling).toBe(path);
+    expect(group.nextElementSibling).toBe(header.querySelector('.cm-note-embed__controls'));
+    // Full text is available when it is truncated.
+    expect(path?.title).toBe('Projects/Other Note');
+  });
+
+  it('the path is not interactive: clicking it does not open the note', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    view.dom.querySelector<HTMLElement>('.cm-note-embed__path')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(onOpenPage).not.toHaveBeenCalled();
+  });
+
+  it('a nested embed shows its own path in its own header too', () => {
+    const view = mountView(
+      '![[Outer]]',
+      resolverFor({
+        Outer: { status: 'resolved', pageId: 'outer', title: 'Outer', markdown: '![[Inner]]', icon: 'note', emoji: null },
+        Inner: { status: 'resolved', pageId: 'inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const paths = [...view.dom.querySelectorAll('.cm-note-embed__path')].map((el) => el.textContent);
+    expect(paths).toEqual(['Outer', 'Inner']);
+  });
+
+  it("the path shares the invalid card's source styling by sharing its CSS rule, and defines no style of its own", () => {
+    const shared = readFileSync(join(__dirname, '../mediaPresentation/invalidEmbedCard.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const own = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // One rule: `.cm-invalid-embed__source` and `.cm-note-embed__path` together.
+    expect(shared).toMatch(/\.cm-editor \.cm-invalid-embed__source,\s*\.cm-editor \.cm-note-embed__path\s*\{/);
+    // No second copy of those declarations in the note embed's own stylesheet.
+    expect(own).not.toContain('.cm-note-embed__path');
+  });
+
   it('the title has no click handler and does nothing when clicked', () => {
     const onOpenPage = vi.fn();
     const view = mountView(

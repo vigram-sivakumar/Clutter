@@ -206,7 +206,10 @@
   white-space: nowrap;
 }
 
-.cm-editor .cm-invalid-embed__source {
+/* Shared with the resolved note embed's header (`NoteEmbedWidget.ts`): its path sits beside the title in this
+   same secondary-text style, so the two states read alike. */
+.cm-editor .cm-invalid-embed__source,
+.cm-editor .cm-note-embed__path {
   font-size: var(--text-label);
   line-height: var(--lh-body-small);
   color: var(--foreground-tertiary);
