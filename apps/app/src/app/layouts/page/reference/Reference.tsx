@@ -1,54 +1,35 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { Fragment } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 import { Header } from '@app/layouts/sidebar/section/Section.Header';
+import { Checkbox } from '@components/checkbox/Checkbox';
+import { Wiki } from '@components/wiki/Wiki';
+import type { SystemIcon } from '@shared/icon';
 import './Reference.css';
 
 interface ReferencesProps {
+  isExpanded: boolean;
+  onExpandToggle: () => void;
+  /** The task list. Null (or omitted) when there are no task references. */
   tasks?: ReactNode;
+  /** One list for notes and daily notes together. Null (or omitted) when there are none. */
   notes?: ReactNode;
-  dailyNotes?: ReactNode;
 }
 
-type GroupKey = 'tasks' | 'notes' | 'daily-notes';
+export function References({
+  isExpanded = true,
+  onExpandToggle,
+  tasks,
+  notes,
+}: ReferencesProps) {
+  const lists = [
+    { key: 'tasks', content: tasks },
+    { key: 'notes', content: notes },
+  ].filter((list) => list.content != null);
 
-/** In display order. A group with nothing to show is passed as null and is not rendered. */
-const GROUP_TITLES: readonly { readonly key: GroupKey; readonly title: string }[] = [
-  { key: 'tasks', title: 'Tasks' },
-  { key: 'notes', title: 'Notes' },
-  { key: 'daily-notes', title: 'Daily notes' },
-];
-
-/**
- * One References section with up to three groups. The section and each group collapse on their own; which
- * groups exist is the caller's decision (an empty one is simply not passed).
- */
-export function References({ tasks, notes, dailyNotes }: ReferencesProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<GroupKey>>(new Set());
-
-  const content: Record<GroupKey, ReactNode> = {
-    tasks,
-    notes,
-    'daily-notes': dailyNotes,
-  };
-  const groups = GROUP_TITLES.filter((group) => content[group.key] != null);
-
-  if (groups.length === 0) {
+  if (lists.length === 0) {
     return null;
   }
-
-  const toggleGroup = (key: GroupKey): void => {
-    setCollapsedGroups((current) => {
-      const next = new Set(current);
-
-      if (!next.delete(key)) {
-        next.add(key);
-      }
-
-      return next;
-    });
-  };
 
   return (
     <section className="reference">
@@ -58,33 +39,65 @@ export function References({ tasks, notes, dailyNotes }: ReferencesProps) {
         isCollapsible
         isTitleToggle
         isExpanded={isExpanded}
-        onExpandToggle={() => setIsExpanded((expanded) => !expanded)}
+        onExpandToggle={onExpandToggle}
       />
-
       {isExpanded && (
         <div className="reference__content">
-          {groups.map((group, index) => {
-            const isGroupExpanded = !collapsedGroups.has(group.key);
-
-            return (
-              <div key={group.key} className="reference__group">
-                {index > 0 && <span className="reference__divider" />}
-
-                <Header
-                  interaction="subtle"
-                  title={group.title}
-                  isCollapsible
-                  isTitleToggle
-                  isExpanded={isGroupExpanded}
-                  onExpandToggle={() => toggleGroup(group.key)}
-                />
-
-                {isGroupExpanded && <div className="reference__list">{content[group.key]}</div>}
-              </div>
-            );
-          })}
+          {lists.map((list, index) => (
+            <Fragment key={list.key}>
+              {index > 0 && <span className="reference__divider" />}
+              <div className="reference__list">{list.content}</div>
+            </Fragment>
+          ))}
         </div>
       )}
     </section>
+  );
+}
+
+interface ReferenceEntryProps {
+  /** The source page's own identity — what the Wiki header shows. */
+  icon: SystemIcon;
+  emoji?: string;
+  title: string;
+  /** The clamped context: a task's text, or the line that references the open page. */
+  children: ReactNode;
+  /** Present only for a task: renders the checkbox. */
+  isChecked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  /** Opens the source page (and reveals the reference). */
+  onOpen: () => void;
+}
+
+export function ReferenceEntry({
+  icon,
+  emoji,
+  title,
+  children,
+  isChecked,
+  onCheckedChange,
+  onOpen,
+}: ReferenceEntryProps) {
+  // The checkbox is its own control: toggling a task must not also open its note.
+  const onClick = (event: MouseEvent<HTMLDivElement>): void => {
+    if (!(event.target as HTMLElement).closest('[role="checkbox"]')) {
+      onOpen();
+    }
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      onOpen();
+    }
+  };
+
+  return (
+    <div className="reference__entry" role="button" tabIndex={0} onClick={onClick} onKeyDown={onKeyDown}>
+      <Wiki icon={icon} emoji={emoji} title={title} />
+      <div className="reference__main">
+        {onCheckedChange && <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />}
+        <span className={`reference-entry__body line-clamp-3${isChecked ? ' is-completed' : ''}`}>{children}</span>
+      </div>
+    </div>
   );
 }

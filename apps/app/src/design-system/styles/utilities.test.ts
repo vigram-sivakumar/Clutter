@@ -19,13 +19,13 @@ describe('utilities.css — .truncate', () => {
   });
 });
 
-describe('utilities.css — .line-clamp-2', () => {
+describe('utilities.css — .line-clamp-3', () => {
   const css = readFileSync(join(__dirname, 'utilities.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const rule = css.match(/\.line-clamp-2\s*\{([^}]*)\}/)?.[1] ?? '';
+  const rule = css.match(/\.line-clamp-3\s*\{([^}]*)\}/)?.[1] ?? '';
 
-  it('clamps to two lines', () => {
-    expect(rule).toMatch(/-webkit-line-clamp\s*:\s*2\s*;/);
-    expect(rule).toMatch(/line-clamp\s*:\s*2\s*;/);
+  it('clamps to three lines', () => {
+    expect(rule).toMatch(/-webkit-line-clamp\s*:\s*3\s*;/);
+    expect(rule).toMatch(/line-clamp\s*:\s*3\s*;/);
     expect(rule).toMatch(/overflow\s*:\s*hidden\s*;/);
   });
 

@@ -24,9 +24,13 @@ export interface TaskReference {
 }
 
 export interface PageReferences {
-  /** Tasks whose own line links to or embeds the open page, by due date (undated last). */
+  /**
+   * Tasks whose own line links to or embeds the open page: open dated (due date ascending), open undated,
+   * then completed (most recently completed first; ones with no completion date by due date). Ties go to
+   * the most recently modified source note.
+   */
   readonly tasks: readonly TaskReference[];
-  /** Notes that reference the open page, A–Z by display title. */
+  /** Notes that reference the open page, most recently modified first, then A–Z by display title. */
   readonly notes: readonly PageReference[];
   /** Daily notes that reference the open page, newest first. */
   readonly dailyNotes: readonly PageReference[];
@@ -95,8 +99,8 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
   }
 
   return {
-    tasks: tasks.sort(byDueDate),
-    notes: notes.sort(byTitle),
+    tasks: tasks.sort(byTaskOrder),
+    notes: notes.sort(byModifiedThenTitle),
     dailyNotes: dailyNotes.sort(byDateNewestFirst),
   };
 }
@@ -143,22 +147,79 @@ function isWithin(range: SourceRange, task: TaskOccurrence): boolean {
   );
 }
 
-// ISO dates sort lexicographically. `Array.prototype.sort` is stable, so tasks tied on due date (and the
-// undated ones) keep their source order.
-function byDueDate({ task: a }: TaskReference, { task: b }: TaskReference): number {
-  if (a.dueDate === b.dueDate) {
+// ISO dates and timestamps sort lexicographically. `Array.prototype.sort` is stable, so anything still tied
+// keeps its source order.
+
+/** Newest first; a page with no `modified` stamp sorts last. */
+function byModifiedDesc(a: Page, b: Page): number {
+  const left = a.metadata.updatedAt;
+  const right = b.metadata.updatedAt;
+
+  if (left === right) {
     return 0;
   }
 
-  if (a.dueDate === undefined) {
+  if (left === null) {
     return 1;
   }
 
-  if (b.dueDate === undefined) {
+  if (right === null) {
     return -1;
   }
 
-  return a.dueDate < b.dueDate ? -1 : 1;
+  return left < right ? 1 : -1;
+}
+
+/** Oldest first; no date sorts last. */
+function byDateAsc(a: string | undefined, b: string | undefined): number {
+  if (a === b) {
+    return 0;
+  }
+
+  if (a === undefined) {
+    return 1;
+  }
+
+  if (b === undefined) {
+    return -1;
+  }
+
+  return a < b ? -1 : 1;
+}
+
+/** The task list's sections, in order: open dated, open undated, completed (by completion), completed (without one). */
+function taskSection({ task }: TaskReference): 0 | 1 | 2 | 3 {
+  if (!task.completed) {
+    return task.dueDate === undefined ? 1 : 0;
+  }
+
+  return task.completedAt === undefined ? 3 : 2;
+}
+
+// A task has no timestamp of its own, so a tie goes to the note it lives in: the one modified most recently.
+function byTaskOrder(a: TaskReference, b: TaskReference): number {
+  const sectionA = taskSection(a);
+  const sectionB = taskSection(b);
+
+  if (sectionA !== sectionB) {
+    return sectionA - sectionB;
+  }
+
+  switch (sectionA) {
+    case 0:
+    case 3:
+      // Due date ascending (undated last): the only ordering for a completed task that has no completion date.
+      return byDateAsc(a.task.dueDate, b.task.dueDate) || byModifiedDesc(a.page, b.page);
+    case 2:
+      // Most recently completed first.
+      return -byDateAsc(a.task.completedAt, b.task.completedAt) || byModifiedDesc(a.page, b.page);
+    default:
+      return byModifiedDesc(a.page, b.page);
+  }
+}
+
+function byModifiedThenTitle(a: PageReference, b: PageReference): number {
+  return byModifiedDesc(a.page, b.page) || byTitle(a, b);
 }
 
 function byTitle(a: PageReference, b: PageReference): number {

@@ -99,21 +99,23 @@ function setup(pages: Page[], pageId = 'target') {
 const TARGET = page('target', 'Target.md');
 
 describe('PageReferences', () => {
+  const entries = (list: number) =>
+    [...(document.querySelectorAll('.reference__list')[list]?.querySelectorAll('.reference__entry') ?? [])] as HTMLElement[];
+
   it('renders nothing when the page has no references', () => {
     const { container } = setup([TARGET, page('x', 'X.md', 'unrelated')]);
 
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows only the groups that have results', () => {
+  it('shows only the list that has results, with no divider', () => {
     setup([TARGET, page('n', 'Alpha.md', 'see [[Target]]')]);
 
-    const titles = [...document.querySelectorAll('.section-header__title')].map((node) => node.textContent);
-
-    expect(titles).toEqual(['References', 'Notes']);
+    expect(document.querySelectorAll('.reference__list')).toHaveLength(1);
+    expect(document.querySelectorAll('.reference__divider')).toHaveLength(0);
   });
 
-  it('lists a task, a note and a daily note in their own groups', () => {
+  it('puts tasks in one list and notes, then daily notes, in the other, split by one divider', () => {
     setup([
       TARGET,
       page('t', 'Planner.md', '- [ ] Follow up [[Target]]'),
@@ -121,21 +123,30 @@ describe('PageReferences', () => {
       page('d', 'Daily Notes/2026-10-10.md', 'Today: [[Target]]', 'daily-note'),
     ]);
 
-    const rows = (group: string) =>
-      [...(screen.getByRole('button', { name: group }).closest('.reference__group')?.querySelectorAll('.reference__list .entry') ?? [])].map(
-        (row) => row.textContent
-      );
+    expect(document.querySelectorAll('.reference__divider')).toHaveLength(1);
+    expect(entries(0).map((row) => row.textContent)).toEqual([expect.stringContaining('Follow up')]);
+    // Notes first (A–Z when equally recent; Planner is here too, through its task line), then the daily
+    // note. Each entry is the source's title over the referencing line.
+    expect(entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)).toEqual([
+      'Alpha',
+      'Planner',
+      expect.any(String),
+    ]);
+    expect(entries(1)[0]!.textContent).toContain('see Target');
+    expect(entries(1)[2]!.textContent).toContain('Today:');
+  });
 
-    expect(rows('Tasks')[0]).toContain('Follow up');
-    expect(rows('Notes').join()).toContain('Alpha');
-    expect(rows('Daily notes').join()).toContain('Today:');
+  it("a task entry shows its source note's title above the task text", () => {
+    setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
+
+    expect(entries(0)[0]!.querySelector('.wiki__title')?.textContent).toBe('Planner');
   });
 
   it('opens a note and reveals every reference range in it', () => {
     const markdown = '[[Target]] and ![[Target]]';
     const { pageOperations, onRequestReveal } = setup([TARGET, page('n', 'Alpha.md', markdown)]);
 
-    fireEvent.click(screen.getByText('Alpha'));
+    fireEvent.click(entries(0)[0]!);
 
     expect(pageOperations.open).toHaveBeenCalledWith('n');
     expect(onRequestReveal).toHaveBeenCalledWith({
@@ -151,7 +162,7 @@ describe('PageReferences', () => {
     const markdown = '- [ ] unrelated\n- [ ] Follow up [[Target]]';
     const { pageOperations, onRequestReveal } = setup([TARGET, page('t', 'Planner.md', markdown)]);
 
-    fireEvent.click(screen.getByText(/Follow up/));
+    fireEvent.click(entries(0)[0]!);
 
     const line = '- [ ] Follow up [[Target]]';
     const from = markdown.indexOf(line);
@@ -160,16 +171,33 @@ describe('PageReferences', () => {
     expect(onRequestReveal).toHaveBeenCalledWith({ pageId: 't', ranges: [{ from, to: from + line.length }] });
   });
 
+  it('toggles a task from its checkbox without opening the note', () => {
+    const { pageOperations, taskOperations } = setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
+
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    expect(taskOperations.toggleComplete).toHaveBeenCalledTimes(1);
+    expect(pageOperations.open).not.toHaveBeenCalled();
+  });
+
   it('opens a daily note and reveals the reference in it', () => {
     const { pageOperations, onRequestReveal } = setup([
       TARGET,
       page('d', 'Daily Notes/2026-10-10.md', 'Met [[Target]]', 'daily-note'),
     ]);
 
-    fireEvent.click(screen.getByText(/Met/));
+    fireEvent.click(entries(0)[0]!);
 
     expect(pageOperations.open).toHaveBeenCalledWith('d');
     expect(onRequestReveal).toHaveBeenCalledWith({ pageId: 'd', ranges: [{ from: 4, to: 14 }] });
+  });
+
+  it('collapses the whole section from its header', () => {
+    setup([TARGET, page('n', 'Alpha.md', 'see [[Target]]')]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'References' }));
+
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(0);
   });
 
   it('updates when the underlying content changes', () => {
@@ -195,12 +223,12 @@ describe('PageReferences', () => {
       TARGET,
       page('n', 'Alpha.md', '[[Target]]'),
     ]);
-    const graph = vi.spyOn(vault, 'getPage');
+    const lookups = vi.spyOn(vault, 'getPage');
     const props = { pageId: 'target', vault, pageOperations, taskOperations, onRequestReveal };
 
     rerender(<PageReferences {...props} />);
     rerender(<PageReferences {...props} />);
 
-    expect(graph).not.toHaveBeenCalled();
+    expect(lookups).not.toHaveBeenCalled();
   });
 });

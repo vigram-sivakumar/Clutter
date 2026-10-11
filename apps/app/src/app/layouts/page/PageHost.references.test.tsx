@@ -9,7 +9,8 @@ import { AppLayout } from '../app-layout/AppLayout';
 import { Application } from '@core/application/Application';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
-import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
+import { KnowledgeGraphBuilder } from '@core/vault/knowledge/KnowledgeGraphBuilder';
+import { MarkdownAnalyzer } from '@core/vault/ingest/analysis/MarkdownAnalyzer';
 import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 import { SelfWriteRegistry } from '@core/vault/providers/SelfWriteRegistry';
 import { PageCreator } from '@core/application/page/PageCreator';
@@ -23,9 +24,10 @@ import { createTemplate } from '@features/notes/helpers/createTemplate';
 import type { Page } from '@core/vault/models/Page';
 
 /**
- * The References section through the real AppLayout -> PageHost: it renders for a regular note, a daily note and
- * an unsaved draft, inside the page body in the editor's own column right after the editor, outside CodeMirror's
- * DOM — and the editor and the template suggestions behave as before.
+ * The References section through the real AppLayout -> PageHost: it renders, from the knowledge graph, for a
+ * regular note and a daily note that other notes reference — never for a page nothing references, or an unsaved
+ * draft — inside the page body in the editor's own column right after the editor, outside CodeMirror's DOM. The
+ * editor and the template suggestions behave as before.
  */
 
 class ResizeObserverMock {
@@ -86,6 +88,32 @@ function dailyNote(isoDate: string, markdown: string): Page {
   });
 }
 
+/** A second note whose markdown references other pages; its analysis comes from the real analyzer. */
+function source(markdown: string): Page {
+  const scanned = new MarkdownAnalyzer().analyze(markdown);
+
+  return new PageBuilder(ROOT).build({
+    parentId: null,
+    page: {
+      path: `${ROOT}/Source.md`,
+      directoryPath: ROOT,
+      frontmatter: { id: 'source-1' },
+      frontmatterAnalysis: { aliases: [] },
+      content: markdown,
+      analysis: scanned,
+    },
+  });
+}
+
+/** What VaultBuilder hands the Vault at scan time: the graph derived from every page. */
+const graphOf = (pages: Page[]) =>
+  new KnowledgeGraphBuilder().build(
+    pages,
+    pages.flatMap((page) => page.analysis.links),
+    pages.flatMap((page) => page.analysis.embeds),
+    ROOT
+  );
+
 function makeApplication(pages: Page[], folderPaths: string[] = []): Application {
   const folders = folderPaths.map((path) =>
     new FolderBuilder().build({ parentId: null, directory: { path, parentPath: null, frontmatter: null } })
@@ -97,7 +125,7 @@ function makeApplication(pages: Page[], folderPaths: string[] = []): Application
     [],
     [],
     [],
-    new KnowledgeGraph([]),
+    graphOf(pages),
     new VaultProjectionBuilder(),
     new Map(),
     []
@@ -122,13 +150,13 @@ async function show(application: Application, open: () => Promise<unknown>): Pro
   await flush();
 }
 
-const section = () => document.querySelector<HTMLElement>('.references');
+const section = () => document.querySelector<HTMLElement>('.reference');
 
 /** The checks that hold wherever the section renders. */
 function expectPlacedAfterTheEditor() {
   const references = section();
   expect(references).not.toBeNull();
-  expect(document.querySelectorAll('.references')).toHaveLength(1);
+  expect(document.querySelectorAll('.reference')).toHaveLength(1);
 
   // A direct child of .page__body, beside .page-content.markdown__editor: not inside the Markdown
   // content, and not inside CodeMirror.
@@ -145,38 +173,51 @@ function expectPlacedAfterTheEditor() {
 }
 
 describe('PageHost: the References section', () => {
-  it('renders for a regular note, beside the Markdown content', async () => {
-    const application = makeApplication([note('Some text')]);
+  it('renders for a regular note that another note references, beside the Markdown content', async () => {
+    const application = makeApplication([note('Some text'), source('See [[Note]] for details.')]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     expectPlacedAfterTheEditor();
   });
 
-  it('renders for a daily note, beside the Markdown content', async () => {
+  it('renders for a daily note that a note references, beside the Markdown content', async () => {
     const page = dailyNote('2026-01-15', 'Daily text');
-    const application = makeApplication([page]);
+    const link = DailyNotePath.from(new Date(2026, 0, 15)).replace(/\.md$/, '');
+    const application = makeApplication([page, source(`Written on [[${link}]].`)]);
     await show(application, () => application.pageOperations.open(page.id));
 
     expectPlacedAfterTheEditor();
   });
 
-  it('renders for an unsaved draft note, beside the Markdown content', async () => {
-    const application = makeApplication([]);
-    await show(application, () => application.pageOperations.openDraft({ folderId: null }));
-
-    expectPlacedAfterTheEditor();
-  });
-
-  it('shows the existing collapsed, empty References summary', async () => {
-    const application = makeApplication([note('Some text')]);
+  it('lists the referencing note as an entry: its title over the line that references the page', async () => {
+    const application = makeApplication([note('Some text'), source('See [[Note]] for details.')]);
     await show(application, () => application.pageOperations.open('note-1'));
 
-    expect(section()!.textContent).toBe('References000');
-    expect(section()!.querySelector('button')!.hasAttribute('disabled')).toBe(true);
+    const entries = section()!.querySelectorAll('.reference__entry');
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.querySelector('.wiki__title')!.textContent).toBe('Source');
+    expect(entries[0]!.textContent).toContain('See');
+    // Only the section title: no group headers, and no counts.
+    expect([...section()!.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual(['References']);
+  });
+
+  it('is not rendered for a page that nothing references', async () => {
+    const application = makeApplication([note('Some text'), source('Nothing about it.')]);
+    await show(application, () => application.pageOperations.open('note-1'));
+
+    expect(section()).toBeNull();
+  });
+
+  it('is not rendered for an unsaved draft, which nothing can reference yet', async () => {
+    const application = makeApplication([source('See [[Note]].')]);
+    await show(application, () => application.pageOperations.openDraft({ folderId: null }));
+
+    expect(section()).toBeNull();
   });
 
   it('is not rendered by the collection pages', async () => {
-    const application = makeApplication([note('Some text')], [`${ROOT}/Projects`]);
+    const application = makeApplication([note('Some text'), source('See [[Note]].')], [`${ROOT}/Projects`]);
     await show(application, () => application.folderOperations.open(`${ROOT}/Projects`));
 
     expect(section()).toBeNull();
@@ -187,7 +228,7 @@ describe('PageHost: the editor and template suggestions are unchanged by it', ()
   const editorView = () => EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-content')!)!;
 
   it('typing in the editor works and does not touch the section', async () => {
-    const application = makeApplication([note('Hello')]);
+    const application = makeApplication([note('Hello'), source('See [[Note]].')]);
     await show(application, () => application.pageOperations.open('note-1'));
     const before = section()!.outerHTML;
 
@@ -204,7 +245,7 @@ describe('PageHost: the editor and template suggestions are unchanged by it', ()
   });
 
   it('an empty note still offers its templates, outside the section and as before', async () => {
-    const application = makeApplication([note('')]);
+    const application = makeApplication([note(''), source('See [[Note]].')]);
     await createTemplate(application.folderOperations, application.pageOperations);
     const templateDraft = application.workspace.activePageId!;
     await application.pageOperations.mutateBody(templateDraft, () => '# Agenda');

@@ -2,9 +2,10 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { References } from './Reference';
+import { ReferenceEntry, References } from './Reference';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -16,60 +17,113 @@ beforeAll(() => vi.stubGlobal('ResizeObserver', ResizeObserverMock));
 afterAll(() => vi.unstubAllGlobals());
 afterEach(() => cleanup());
 
-const toggle = (title: string) => fireEvent.click(screen.getByRole('button', { name: title }));
+function Harness({ tasks, notes }: { tasks?: React.ReactNode; notes?: React.ReactNode }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return <References isExpanded={isExpanded} onExpandToggle={() => setIsExpanded((value) => !value)} tasks={tasks} notes={notes} />;
+}
+
+const lists = () => [...document.querySelectorAll('.reference__list')].map((list) => list.textContent);
+const dividers = () => document.querySelectorAll('.reference__divider').length;
 
 describe('References', () => {
-  it('renders nothing when no group has content', () => {
-    const { container } = render(<References />);
+  it('renders nothing when there are no references at all', () => {
+    const { container } = render(<Harness />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows only the groups it is given, in Tasks, Notes, Daily notes order, with no counts', () => {
-    render(<References dailyNotes={<div>daily row</div>} tasks={<div>task row</div>} />);
+  it('shows one list and no divider when only one kind has results', () => {
+    render(<Harness tasks={<div>task row</div>} />);
 
-    const titles = [...document.querySelectorAll('.section-header__title')].map((node) => node.textContent);
+    expect(lists()).toEqual(['task row']);
+    expect(dividers()).toBe(0);
 
-    expect(titles).toEqual(['References', 'Tasks', 'Daily notes']);
-    expect(screen.queryByRole('button', { name: 'Notes' })).toBeNull();
+    cleanup();
+    render(<Harness notes={<div>note row</div>} />);
+
+    expect(lists()).toEqual(['note row']);
+    expect(dividers()).toBe(0);
+  });
+
+  it('shows tasks, then a single divider, then the notes list', () => {
+    render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
+
+    expect(lists()).toEqual(['task row', 'note row']);
+    expect(dividers()).toBe(1);
+    expect([...document.querySelector('.reference__content')!.children].map((child) => child.className)).toEqual([
+      'reference__list',
+      'reference__divider',
+      'reference__list',
+    ]);
+  });
+
+  it('has no group headers and no counts — only the section title', () => {
+    render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
+
+    expect([...document.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual(['References']);
     expect(document.querySelector('.reference')?.textContent).not.toMatch(/\d/);
   });
 
-  it('collapses and expands each group on its own', () => {
-    render(<References tasks={<div>task row</div>} notes={<div>note row</div>} dailyNotes={<div>daily row</div>} />);
+  it('collapses and expands the whole section, reflecting it in aria-expanded', () => {
+    render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
 
-    toggle('Tasks');
+    const header = screen.getByRole('button', { name: 'References' });
+
+    expect(header).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(header);
     expect(screen.queryByText('task row')).toBeNull();
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(header);
+    expect(screen.getByText('task row')).toBeInTheDocument();
     expect(screen.getByText('note row')).toBeInTheDocument();
-    expect(screen.getByText('daily row')).toBeInTheDocument();
+  });
+});
 
-    toggle('Notes');
-    expect(screen.queryByText('note row')).toBeNull();
-    expect(screen.getByText('daily row')).toBeInTheDocument();
+describe('ReferenceEntry', () => {
+  const entry = (props: Partial<React.ComponentProps<typeof ReferenceEntry>> = {}) => {
+    const onOpen = vi.fn();
+    render(
+      <ReferenceEntry icon="note" title="Source note" onOpen={onOpen} {...props}>
+        some context
+      </ReferenceEntry>
+    );
 
-    toggle('Tasks');
-    expect(screen.getByText('task row')).toBeInTheDocument();
-    expect(screen.queryByText('note row')).toBeNull();
+    return { onOpen, row: document.querySelector('.reference__entry') as HTMLElement };
+  };
+
+  it('shows the source title and the clamped body, without a checkbox for a note', () => {
+    entry();
+
+    expect(screen.getByText('Source note')).toBeInTheDocument();
+    expect(document.querySelector('.reference-entry__body')).toHaveClass('line-clamp-3');
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
-  it('collapses the whole section, and keeps each group\'s own state when it comes back', () => {
-    render(<References tasks={<div>task row</div>} notes={<div>note row</div>} />);
+  it('opens on click, Enter and Space', () => {
+    const { onOpen, row } = entry();
 
-    toggle('Notes');
-    toggle('References');
-    expect(screen.queryByText('task row')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull();
+    fireEvent.click(row);
+    fireEvent.keyDown(row, { key: 'Enter' });
+    fireEvent.keyDown(row, { key: ' ' });
 
-    toggle('References');
-    expect(screen.getByText('task row')).toBeInTheDocument();
-    expect(screen.queryByText('note row')).toBeNull();
+    expect(onOpen).toHaveBeenCalledTimes(3);
   });
 
-  it('reflects expansion on every header through aria-expanded', () => {
-    render(<References tasks={<div>task row</div>} />);
+  it('a task entry shows its checkbox, and toggling it does not open the note', () => {
+    const onCheckedChange = vi.fn();
+    const { onOpen } = entry({ isChecked: false, onCheckedChange });
 
-    expect(screen.getByRole('button', { name: 'Tasks' })).toHaveAttribute('aria-expanded', 'true');
-    toggle('Tasks');
-    expect(screen.getByRole('button', { name: 'Tasks' })).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    expect(onCheckedChange).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('marks a completed task body as completed', () => {
+    entry({ isChecked: true, onCheckedChange: vi.fn() });
+
+    expect(document.querySelector('.reference-entry__body')).toHaveClass('is-completed');
   });
 });

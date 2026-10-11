@@ -130,30 +130,63 @@ describe('getPageReferences', () => {
     });
   });
 
-  it('sorts tasks by due date ascending with undated last, keeping source order among ties', () => {
+  const modified = (updatedAt: string | null): Partial<Page> => ({ metadata: { ...pageMeta, updatedAt } });
+  const taskTexts = (vault: Vault) =>
+    getPageReferences(vault, 'target').tasks.map(({ task }) => task.text.replace(' [[Projects/Target]]', ''));
+
+  it('orders open tasks by due date ascending, undated after dated, ties going to the most recently modified note', () => {
     const vault = makeVault([
       TARGET,
-      page('a', 'A.md', '- [ ] undated one [[Projects/Target]]\n- [ ] later @2026-12-01 [[Projects/Target]]'),
-      page('b', 'B.md', '- [ ] sooner @2026-10-20 [[Projects/Target]]\n- [ ] undated two [[Projects/Target]]'),
+      page('old', 'Old.md', '- [ ] dated old @2026-10-20 [[Projects/Target]]\n- [ ] undated old [[Projects/Target]]', modified('2026-01-01T00:00:00Z')),
+      page('new', 'New.md', '- [ ] dated new @2026-10-20 [[Projects/Target]]\n- [ ] undated new [[Projects/Target]]', modified('2026-06-01T00:00:00Z')),
+      page('soon', 'Soon.md', '- [ ] soonest @2026-10-12 [[Projects/Target]]', modified('2025-01-01T00:00:00Z')),
     ]);
 
-    expect(getPageReferences(vault, 'target').tasks.map(({ task }) => task.text)).toEqual([
-      'sooner @2026-10-20 [[Projects/Target]]',
-      'later @2026-12-01 [[Projects/Target]]',
-      'undated one [[Projects/Target]]',
-      'undated two [[Projects/Target]]',
+    expect(taskTexts(vault)).toEqual([
+      'soonest @2026-10-12',
+      'dated new @2026-10-20',
+      'dated old @2026-10-20',
+      'undated new',
+      'undated old',
     ]);
   });
 
-  it('sorts notes alphabetically by display title, ignoring case', () => {
+  it('puts completed tasks after every open task, most recently completed first', () => {
     const vault = makeVault([
       TARGET,
-      page('z', 'zebra.md', '[[Projects/Target]]'),
-      page('a', 'Apple.md', '[[Projects/Target]]'),
-      page('m', 'mango.md', '[[Projects/Target]]'),
+      page(
+        'a',
+        'A.md',
+        '- [x] done early @completed:2026-10-01 [[Projects/Target]]\n- [ ] open undated [[Projects/Target]]\n- [x] done late @completed:2026-10-09 [[Projects/Target]]\n- [ ] open dated @2026-12-01 [[Projects/Target]]'
+      ),
     ]);
 
-    expect(ids(getPageReferences(vault, 'target').notes)).toEqual(['a', 'm', 'z']);
+    expect(taskTexts(vault)).toEqual(['open dated @2026-12-01', 'open undated', 'done late', 'done early']);
+  });
+
+  it('orders completed tasks with no completion date after the dated completions, by due date', () => {
+    const vault = makeVault([
+      TARGET,
+      page(
+        'a',
+        'A.md',
+        '- [x] done no stamp undated [[Projects/Target]]\n- [x] done no stamp @2026-10-05 [[Projects/Target]]\n- [x] done stamped @completed:2026-09-01 [[Projects/Target]]'
+      ),
+    ]);
+
+    expect(taskTexts(vault)).toEqual(['done stamped', 'done no stamp @2026-10-05', 'done no stamp undated']);
+  });
+
+  it('sorts notes by modified date newest first, then A–Z, with an unstamped note last', () => {
+    const vault = makeVault([
+      TARGET,
+      page('z', 'zebra.md', '[[Projects/Target]]', modified('2026-05-01T00:00:00Z')),
+      page('a', 'Apple.md', '[[Projects/Target]]', modified('2026-05-01T00:00:00Z')),
+      page('fresh', 'Mango.md', '[[Projects/Target]]', modified('2026-09-01T00:00:00Z')),
+      page('none', 'Banana.md', '[[Projects/Target]]', modified(null)),
+    ]);
+
+    expect(ids(getPageReferences(vault, 'target').notes)).toEqual(['fresh', 'a', 'z', 'none']);
   });
 
   it('sorts daily notes newest first', () => {
