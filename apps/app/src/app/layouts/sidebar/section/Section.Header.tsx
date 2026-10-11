@@ -4,6 +4,7 @@ import './Section.Header.css';
 
 export interface HeaderProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  interaction?: 'default' | 'subtle';
   actions?: React.ReactNode;
 
   isCollapsible?: boolean;
@@ -20,6 +21,7 @@ export interface HeaderProps extends Omit<EntryProps, 'children'> {
 
 export function Header({
   title,
+  interaction = 'default',
   actions,
   isCollapsible = false,
   isExpanded = false,
@@ -37,7 +39,7 @@ export function Header({
 
   return (
     <Entry
-      className="section-header"
+      className={`section-header section-header--${interaction}`}
       {...entryProps}
       {...toggleProps}
       actions={actions}

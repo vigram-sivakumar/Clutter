@@ -4,7 +4,10 @@ import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { createResourceLocationActions } from '@app/layouts/resourceLocationActions';
 import { getTagOccurrenceRanges } from '@core/presentation/getTagOccurrenceRanges';
-import { getPageDisplayLabel, toPageDisplayLabelInput } from '@core/presentation/getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  toPageDisplayLabelInput,
+} from '@core/presentation/getPageDisplayLabel';
 import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
 
 import { useActivePage } from '@app/hooks/useActivePage';
@@ -40,7 +43,10 @@ import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder
 import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
 import type { Asset } from '@core/vault/models/Asset';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { deleteAllArchived, hasArchivedItems } from '@features/notes/helpers/deleteAllArchived';
+import {
+  deleteAllArchived,
+  hasArchivedItems,
+} from '@features/notes/helpers/deleteAllArchived';
 import { createNoteFromTemplate } from '@features/notes/helpers/createNoteFromTemplate';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import {
@@ -57,16 +63,17 @@ import type { PageType } from '@core/vault/models/Page';
 import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
-import {
-  buildMoveDestinationItems,
-} from '@features/notes/helpers/buildMoveDestinationItems';
+import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { Pill } from '@components/property-list/Pill';
 import {
   toResourcePageModel,
   toDraftPageModel,
 } from '@app/layouts/page/toResourcePageModel';
-import { toCollectionPageModel, toTemplateEntries } from '@features/collection/page/toCollectionPageModel';
+import {
+  toCollectionPageModel,
+  toTemplateEntries,
+} from '@features/collection/page/toCollectionPageModel';
 import {
   getSystemLocationPresentation,
   getSystemLocationForFolder,
@@ -131,7 +138,10 @@ import {
 import { deriveCollectionViewKey } from '@core/application/collection/collectionViewKey';
 import type { PropertyId } from '@core/properties/collectionProperties';
 import type { CollectionSort } from '@core/properties/collectionSort';
-import type { CollectionLayout, CollectionViewConfig } from '@core/properties/collectionViewConfig';
+import type {
+  CollectionLayout,
+  CollectionViewConfig,
+} from '@core/properties/collectionViewConfig';
 import {
   ASSETS_COLLECTION,
   ARCHIVE_COLLECTION,
@@ -160,7 +170,11 @@ import {
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
 import { formatTaskTitle } from '@features/tasks/helpers/formatTaskTitle';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
-import { TASKS_TAB_VIEW, TasksTabs, type TasksTabValue } from '@features/tasks/page/TasksTabs';
+import {
+  TASKS_TAB_VIEW,
+  TasksTabs,
+  type TasksTabValue,
+} from '@features/tasks/page/TasksTabs';
 import { createTaskInDailyNote } from '@features/tasks/helpers/createTaskInDailyNote';
 import type { TaskDisplayConfig } from '@features/tasks/helpers/groupTasks';
 import {
@@ -174,7 +188,11 @@ import { buildPageProperties } from './buildPageProperties';
 import { newCoverPatch } from '@core/application/page/coverPatch';
 import { isDailyNotesCollectionPagesEnabled } from '@core/featureFlags';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { foldersOrderOf, showsFolders, showsNotes } from '@core/presentation/collection/collectionBehaviors';
+import {
+  foldersOrderOf,
+  showsFolders,
+  showsNotes,
+} from '@core/presentation/collection/collectionBehaviors';
 import {
   isRemoteImageReference,
   useImageFileActions,
@@ -209,10 +227,15 @@ interface PageHostProps {
   /** Shows a transient message (a toast) — owned by `AppLayout`, which hosts the toast. */
   readonly onShowToast?: (toast: Omit<ToastMessage, 'id'>) => void;
   /** Asks the user where to restore something that has no recorded original location (`AppLayout` owns the picker). */
-  readonly onNeedsRestoreDestination?: (request: RestoreDestinationRequest) => void;
+  readonly onNeedsRestoreDestination?: (
+    request: RestoreDestinationRequest
+  ) => void;
   readonly onOpenImageOverlay: (
     image: ImageOverlayImage,
-    options?: { readonly onSetCoverImage?: () => void; readonly actionsEnabled?: boolean }
+    options?: {
+      readonly onSetCoverImage?: () => void;
+      readonly actionsEnabled?: boolean;
+    }
   ) => void;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference
@@ -373,17 +396,24 @@ export function PageHost({
   // Whether the All Tasks page's New task dialog is open — local UI state, like the description-editor ids above.
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   // The task open in the Edit task modal (the same dialog as New task, in edit mode), or none.
-  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
+  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(
+    undefined
+  );
   const collectionViewKey = deriveCollectionViewKey(workspace.activeView);
   // Which collection this is: its definition says which global properties it offers, which are
   // on by default, its layouts, default sort and which properties each layout requires. A page
   // or a task view is not a collection of this kind and never renders the Configure control, so
   // the ordinary folder definition stands in for them and is never read.
   const activeView = workspace.activeView;
-  const activeCollectionFolder = activeView?.type === 'folder' ? vault.getFolder(activeView.id) : undefined;
+  const activeCollectionFolder =
+    activeView?.type === 'folder' ? vault.getFolder(activeView.id) : undefined;
   const collectionDefinition: CollectionDefinition =
     (activeCollectionFolder
-      ? collectionDefinitionForFolder(activeCollectionFolder, vault.root, application.membershipSelector)
+      ? collectionDefinitionForFolder(
+          activeCollectionFolder,
+          vault.root,
+          application.membershipSelector
+        )
       : activeView?.type === 'filtered-view'
         ? collectionDefinitionForFilteredView(activeView.view)
         : undefined) ?? FOLDER_COLLECTION;
@@ -401,21 +431,30 @@ export function PageHost({
   const readCollectionViewConfig = (): CollectionViewConfig =>
     toCollectionViewConfig(
       collectionDefinition,
-      collectionViewKey ? application.collectionViewConfigStore.get(collectionViewKey) : undefined
+      collectionViewKey
+        ? application.collectionViewConfigStore.get(collectionViewKey)
+        : undefined
     );
-  const [lastCollectionViewKey, setLastCollectionViewKey] = useState(collectionViewKey);
-  const [collectionViewConfig, setCollectionViewConfig] = useState<CollectionViewConfig>(readCollectionViewConfig);
+  const [lastCollectionViewKey, setLastCollectionViewKey] =
+    useState(collectionViewKey);
+  const [collectionViewConfig, setCollectionViewConfig] =
+    useState<CollectionViewConfig>(readCollectionViewConfig);
   if (collectionViewKey !== lastCollectionViewKey) {
     setLastCollectionViewKey(collectionViewKey);
     setCollectionViewConfig(readCollectionViewConfig());
   }
 
-  const collectionView = resolveCollectionView(collectionDefinition, collectionViewConfig);
+  const collectionView = resolveCollectionView(
+    collectionDefinition,
+    collectionViewConfig
+  );
 
   // The Archive lists its files with the date each was archived, read from the archive record. Only
   // that collection reads it; the read is re-done when the set of archived files changes.
   const isArchiveCollection = collectionDefinition.kind === 'archive';
-  const archivedResources = isArchiveCollection ? application.membershipSelector.getArchivedResources() : [];
+  const archivedResources = isArchiveCollection
+    ? application.membershipSelector.getArchivedResources()
+    : [];
   const archivedAtByPath = useArchivedResourceDates(
     application,
     archivedResources.map((resource) => resource.path),
@@ -426,13 +465,16 @@ export function PageHost({
   // view is actually a collection (collectionViewKey defined), persists the same patch — a page
   // or an out-of-scope filtered view (tasks) never renders the menu, so collectionViewKey is only
   // ever undefined here when these handlers can't be reached, but the guard keeps this correct.
-  const updateCollectionViewConfig = (patch: Partial<CollectionViewConfig>): void => {
+  const updateCollectionViewConfig = (
+    patch: Partial<CollectionViewConfig>
+  ): void => {
     setCollectionViewConfig((previous) => ({ ...previous, ...patch }));
     if (collectionViewKey) {
       application.collectionViewConfigStore.update(collectionViewKey, patch);
     }
   };
-  const setCollectionLayout = (layout: CollectionLayout): void => updateCollectionViewConfig({ layout });
+  const setCollectionLayout = (layout: CollectionLayout): void =>
+    updateCollectionViewConfig({ layout });
   // A required property can't be turned off, and a property at its default needs no override:
   // `setPropertyVisibility` is the one place that decides what a toggle writes.
   const setCollectionProperty = (id: PropertyId, visible: boolean): void =>
@@ -442,14 +484,19 @@ export function PageHost({
         setPropertyVisibility(
           collectionDefinition,
           collectionView.layout,
-          propertyOverridesFor(collectionDefinition, collectionViewConfig, collectionView.layout),
+          propertyOverridesFor(
+            collectionDefinition,
+            collectionViewConfig,
+            collectionView.layout
+          ),
           id,
           visible
         ),
         collectionViewConfig
       )
     );
-  const setCollectionSort = (sort: CollectionSort): void => updateCollectionViewConfig({ sort });
+  const setCollectionSort = (sort: CollectionSort): void =>
+    updateCollectionViewConfig({ sort });
 
   // The collection's standard header actions (Settings / view mode + Add):
   // one component for every collection type — see CollectionHeaderActions.
@@ -613,7 +660,8 @@ export function PageHost({
     resolveEmbed: resolvePageEmbed,
     resolveEmbedImage,
     resolveImageSrc,
-    resolveCoverImage: (cover) => application.resolveCoverImageForDisplay(cover),
+    resolveCoverImage: (cover) =>
+      application.resolveCoverImageForDisplay(cover),
   };
   // Daily Notes nav row (PageTitleSection's belowDescription slot) reuses
   // this exact same resolveDate/openAtPath flow — the same one the
@@ -635,7 +683,9 @@ export function PageHost({
     readonly dayLabel: string;
   } | null>(null);
   // The page whose title "Properties" was just chosen, before its first property.
-  const [startingPropertyPageId, setStartingPropertyPageId] = useState<string | null>(null);
+  const [startingPropertyPageId, setStartingPropertyPageId] = useState<
+    string | null
+  >(null);
   // The collection (by its view key) in which a folder is being named inline — the card shows only on
   // that collection's page, and creates nothing until the name is committed.
   const [namingFolderIn, setNamingFolderIn] = useState<string | null>(null);
@@ -660,7 +710,9 @@ export function PageHost({
   // is that component's own job now, not an imperative
   // `revealRange()`/`revealRanges()` call from an effect here.
   const editorPendingReveal =
-    pendingReveal && pendingReveal.pageId === activePageId ? { ranges: pendingReveal.ranges } : null;
+    pendingReveal && pendingReveal.pageId === activePageId
+      ? { ranges: pendingReveal.ranges }
+      : null;
 
   // Shared by both `toCollectionPageModel` call sites below (folder
   // branch, filtered-view branch) — opens the note exactly like every
@@ -693,7 +745,10 @@ export function PageHost({
   // year and month folders have no page to open — nothing that asks for one gets it.
   const isDailyNotesTreeFolder = (id: string): boolean => {
     const target = vault.getFolder(id);
-    return target !== undefined && DailyNotePath.folderLevel(vault.root, target.path) !== null;
+    return (
+      target !== undefined &&
+      DailyNotePath.folderLevel(vault.root, target.path) !== null
+    );
   };
   const onOpenFolder = (id: string) => {
     if (!isDailyNotesCollectionPagesEnabled() && isDailyNotesTreeFolder(id)) {
@@ -701,7 +756,10 @@ export function PageHost({
     }
     // The physical Assets/ folder IS the Assets collection: opening it opens that page.
     const target = vault.getFolder(id);
-    if (target && application.membershipSelector.isAssetsStorageFolder(target)) {
+    if (
+      target &&
+      application.membershipSelector.isAssetsStorageFolder(target)
+    ) {
       application.navigation.openAssets();
       return;
     }
@@ -715,11 +773,15 @@ export function PageHost({
   // itself on the top-level page — via the same import the cover upload uses (collision-free naming),
   // and let the vault's normal ingest/watch pick them up as resources.
   const uploadAssetsInto = (destinationFolderPath?: string): void => {
-    void uploadAssets((source, destination) => application.importAsset(source, destination), destinationFolderPath);
+    void uploadAssets(
+      (source, destination) => application.importAsset(source, destination),
+      destinationFolderPath
+    );
   };
 
   // Create folder: start naming it inline — the folder itself is made only when the name is committed.
-  const startFolderCreation = (): void => setNamingFolderIn(collectionViewKey ?? '');
+  const startFolderCreation = (): void =>
+    setNamingFolderIn(collectionViewKey ?? '');
 
   // The inline folder card, while this collection is the one naming a folder. `resolveParentId` is read
   // at commit (Assets/ may not exist yet); `checkParentId` is the parent already known, for the duplicate check.
@@ -729,11 +791,16 @@ export function PageHost({
   ): FolderCreation | undefined =>
     namingFolderIn !== null && namingFolderIn === (collectionViewKey ?? '')
       ? {
-          canCreate: (name) => application.folderOperations.canCreate(name, checkParentId),
+          canCreate: (name) =>
+            application.folderOperations.canCreate(name, checkParentId),
           onCommit: (name) => {
             setNamingFolderIn(null);
             void (async () => {
-              await createAndOpenFolder(application.folderOperations, name, await resolveParentId());
+              await createAndOpenFolder(
+                application.folderOperations,
+                name,
+                await resolveParentId()
+              );
             })();
           },
           onCancel: () => setNamingFolderIn(null),
@@ -742,20 +809,26 @@ export function PageHost({
 
   // Where a folder made on an Assets page goes: inside the folder the page shows — or, on the
   // top-level page, inside `Assets/`, which is created first if the vault has none yet.
-  const assetsParentResolver = (parentFolderId: string | null) => async (): Promise<string | null> =>
-    parentFolderId ??
-    application.membershipSelector.getAssetsStorageFolder()?.id ??
-    (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
+  const assetsParentResolver =
+    (parentFolderId: string | null) => async (): Promise<string | null> =>
+      parentFolderId ??
+      application.membershipSelector.getAssetsStorageFolder()?.id ??
+      (await application.folderOperations.create(ASSETS_DIRECTORY_NAME, null));
 
   // The assets one Assets page lists — only its DIRECT ones: a folder's own files, or on the top-level
   // page everything in the catalog (remote images and files elsewhere in the vault included) except the
   // files that live in a folder inside Assets/, which show in that folder instead.
   const assetsOfPage = (folderId: string | null): Asset[] =>
-    application.membershipSelector.getAllAssets().filter((asset) =>
-      folderId === null
-        ? !(asset.source === 'local' && application.membershipSelector.isInAssetsSubfolder(asset.resource))
-        : asset.source === 'local' && asset.resource.parentId === folderId
-    );
+    application.membershipSelector
+      .getAllAssets()
+      .filter((asset) =>
+        folderId === null
+          ? !(
+              asset.source === 'local' &&
+              application.membershipSelector.isInAssetsSubfolder(asset.resource)
+            )
+          : asset.source === 'local' && asset.resource.parentId === folderId
+      );
 
   // The body of an Assets page (top-level or a folder): same list/table/card, a folders section at the top.
   const renderAssetsBody = (props: {
@@ -787,7 +860,9 @@ export function PageHost({
       emptyCreateLabel="Upload"
       emptyMessage={ASSETS_COLLECTION.emptyMessage}
       emptyCreateIcon="upload"
-      onRenameResource={(id, name) => void application.resourceOperations.renameResource(id, name)}
+      onRenameResource={(id, name) =>
+        void application.resourceOperations.renameResource(id, name)
+      }
     />
   );
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
@@ -799,13 +874,18 @@ export function PageHost({
   // Undoing or redoing a template application also reverses or reapplies the metadata it changed — only the
   // properties still holding what the application left, never ones the user has changed since. A failure is
   // reported: the body has already moved, so the properties must not be left behind silently.
-  const onMetadataHistoryStep = ({ apply, expect }: MetadataHistoryChange): void => {
+  const onMetadataHistoryStep = ({
+    apply,
+    expect,
+  }: MetadataHistoryChange): void => {
     if (!activePageId) {
       return;
     }
 
     const current = vault.getPage(activePageId)?.metadata;
-    const patch = current ? metadataPatchStillApplicable(current, apply, expect) : apply;
+    const patch = current
+      ? metadataPatchStillApplicable(current, apply, expect)
+      : apply;
 
     if (Object.keys(patch).length === 0) {
       return;
@@ -813,7 +893,12 @@ export function PageHost({
 
     void application.pageOperations
       .updateMetadata(activePageId, patch)
-      .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t update the note’s properties' }));
+      .catch(() =>
+        onShowToast?.({
+          tone: 'error',
+          text: 'Couldn’t update the note’s properties',
+        })
+      );
   };
   const onRequestSave = (pageId: string): void => {
     void application.pageOperations.requestSave(pageId);
@@ -868,7 +953,10 @@ export function PageHost({
 
   // Folder-scoped counterpart to the three handlers above — same channel
   // shape, backed by FolderOperations.commitDescription() instead.
-  const onEditFolderDescription = (folderId: string, description: string): void => {
+  const onEditFolderDescription = (
+    folderId: string,
+    description: string
+  ): void => {
     descriptionDraftValues.current.set(folderId, description);
     application.folderOperations.commitDescription(folderId, description);
   };
@@ -944,7 +1032,8 @@ export function PageHost({
         return;
       }
 
-      const originalPath = application.vault.getPage(pageId)?.metadata.originalPath;
+      const originalPath =
+        application.vault.getPage(pageId)?.metadata.originalPath;
       const date = originalPath ? VaultPath.pageName(originalPath) : '';
       setRestoreConflict({
         pageId,
@@ -963,15 +1052,20 @@ export function PageHost({
     const { pageId } = restoreConflict;
     setRestoreConflict(null);
 
-    void application.pageOperations.restore(pageId, { onConflict: choice }).then((outcome) => {
-      if (outcome.status === 'restored' && outcome.movedToInbox) {
-        onShowToast?.({
-          tone: 'default',
-          text: 'Restored to Inbox',
-          action: { label: 'Open', onAction: () => void application.pageOperations.open(pageId) },
-        });
-      }
-    });
+    void application.pageOperations
+      .restore(pageId, { onConflict: choice })
+      .then((outcome) => {
+        if (outcome.status === 'restored' && outcome.movedToInbox) {
+          onShowToast?.({
+            tone: 'default',
+            text: 'Restored to Inbox',
+            action: {
+              label: 'Open',
+              onAction: () => void application.pageOperations.open(pageId),
+            },
+          });
+        }
+      });
   };
 
   const onDelete = (): void => {
@@ -1088,7 +1182,10 @@ export function PageHost({
   // one point where a drag preview actually becomes persisted metadata.
   // Only the layout currently being repositioned is patched; the other
   // layout's saved position is never read or touched here.
-  const onSaveCoverPosition = (layout: 'side' | 'above', position: number): void => {
+  const onSaveCoverPosition = (
+    layout: 'side' | 'above',
+    position: number
+  ): void => {
     if (!activePageId) {
       return;
     }
@@ -1214,12 +1311,18 @@ export function PageHost({
   const noteCoverActions: NoteCoverActions = {
     resolveUrl: (cover) => application.resolveCoverImageForDisplay(cover),
     onSet: (noteId, url) => {
-      void application.pageOperations.updateMetadata(noteId, newCoverPatch(url));
+      void application.pageOperations.updateMetadata(
+        noteId,
+        newCoverPatch(url)
+      );
     },
     onSetFromUpload: (noteId, sourcePath) => {
       void (async () => {
         const relativePath = await application.importCoverAsset(sourcePath);
-        await application.pageOperations.updateMetadata(noteId, newCoverPatch(relativePath));
+        await application.pageOperations.updateMetadata(
+          noteId,
+          newCoverPatch(relativePath)
+        );
       })();
     },
     onRemove: (noteId) => {
@@ -1237,7 +1340,10 @@ export function PageHost({
   // leading "New template" row opens a new draft inside Templates (created on first use, ADR-030).
   // The one way a note is made from a template page: its body, icon and cover into a new note in
   // `targetFolderId` (createNoteFromTemplate). Shared by From template and a folder's default template.
-  const createNoteFromTemplatePage = (targetFolderId: string | null, templatePageId: string): void => {
+  const createNoteFromTemplatePage = (
+    targetFolderId: string | null,
+    templatePageId: string
+  ): void => {
     // The body as the Templates list reads it (the effective page, unsaved edits included), the icon and cover from the vault.
     const template = application.effectivePageState.getPage(templatePageId);
 
@@ -1250,26 +1356,38 @@ export function PageHost({
       )
         // Counted only once the note exists; a failure is not a use (and is logged, as an unhandled rejection was).
         .then(() => application.templateUsageStore.recordUse(templatePageId))
-        .catch((error) => console.error('Creating a note from a template failed', error));
+        .catch((error) =>
+          console.error('Creating a note from a template failed', error)
+        );
     }
   };
 
   // The one order every template selection surface shows — the inline suggestions, their "+N more" picker and
   // the Add menu's From template: most recently used first, a never-used template by its creation date.
-  const rankTemplates = (templates: readonly CollectionEntryModel[]): CollectionEntryModel[] =>
-    sortTemplatesByRecentUse(templates, (templateId) => application.templateUsageStore.lastUsedAt(templateId));
+  const rankTemplates = (
+    templates: readonly CollectionEntryModel[]
+  ): CollectionEntryModel[] =>
+    sortTemplatesByRecentUse(templates, (templateId) =>
+      application.templateUsageStore.lastUsedAt(templateId)
+    );
 
   const buildFromTemplate = (
     targetFolderId: string | null
   ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
     getTemplates: () =>
       rankTemplates(
-        toTemplateEntries(vault, application.membershipSelector, (_markdown, templatePageId) =>
-          createNoteFromTemplatePage(targetFolderId, templatePageId)
+        toTemplateEntries(
+          vault,
+          application.membershipSelector,
+          (_markdown, templatePageId) =>
+            createNoteFromTemplatePage(targetFolderId, templatePageId)
         )
       ),
     onCreateTemplate: () => {
-      void createTemplate(application.folderOperations, application.pageOperations);
+      void createTemplate(
+        application.folderOperations,
+        application.pageOperations
+      );
     },
   });
 
@@ -1288,7 +1406,9 @@ export function PageHost({
         type: note.type,
         markdown: note.markdown,
         isArchived: note.isArchived,
-        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(note.folderId),
+        isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(
+          note.folderId
+        ),
       })
     ) {
       return undefined;
@@ -1324,8 +1444,9 @@ export function PageHost({
             if (editor) {
               editor.applyBodyWithMetadata(markdown, step);
             } else {
-              return application.pageOperations.mutateBody(note.id, (current) =>
-                current.trim() === '' ? markdown : current
+              return application.pageOperations.mutateBody(
+                note.id,
+                (current) => (current.trim() === '' ? markdown : current)
               );
             }
           },
@@ -1334,7 +1455,9 @@ export function PageHost({
         // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
         .then(() => application.templateUsageStore.recordUse(templatePageId))
         // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
-        .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' }));
+        .catch(() =>
+          onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' })
+        );
     };
 
     return (
@@ -1342,7 +1465,10 @@ export function PageHost({
         templates={templates}
         onApply={applyTemplate}
         onCreateTemplate={() => {
-          void createTemplate(application.folderOperations, application.pageOperations);
+          void createTemplate(
+            application.folderOperations,
+            application.pageOperations
+          );
         }}
       />
     );
@@ -1470,14 +1596,16 @@ export function PageHost({
       moveZone: application.membershipSelector.getMoveZoneOfFolder(folder.id),
     });
     const onRestoreFolder = (): void =>
-      void application.folderOperations.restore(folder.id).catch((error: unknown) => {
-        if (error instanceof RestoreNeedsDestinationError) {
-          onNeedsRestoreDestination?.({ kind: 'folder', id: folder.id });
-          return;
-        }
+      void application.folderOperations
+        .restore(folder.id)
+        .catch((error: unknown) => {
+          if (error instanceof RestoreNeedsDestinationError) {
+            onNeedsRestoreDestination?.({ kind: 'folder', id: folder.id });
+            return;
+          }
 
-        throw error;
-      });
+          throw error;
+        });
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       vaultRoot: vault.root,
@@ -1531,11 +1659,16 @@ export function PageHost({
     // no equivalent automatic gate, so it's checked here explicitly.
     // The shared effectively-archived policy (Phase 1): an archived folder, or one inside an archived
     // folder, is read-only — its title, icon and Add controls are not there at all.
-    const isFolderArchived = application.membershipSelector.isEntityEffectivelyArchived(folder);
-    const isRenameable = !application.membershipSelector.isSystemFolder(folder) && !isFolderArchived;
+    const isFolderArchived =
+      application.membershipSelector.isEntityEffectivelyArchived(folder);
+    const isRenameable =
+      !application.membershipSelector.isSystemFolder(folder) &&
+      !isFolderArchived;
     // A user-owned folder that can still be changed: not a reserved one, and not an archived one. An
     // archived folder keeps its title and any description as text, with no title-controls button.
-    const isFolderUserEditable = !getSystemLocationForFolder(folder, application.membershipSelector) && !isFolderArchived;
+    const isFolderUserEditable =
+      !getSystemLocationForFolder(folder, application.membershipSelector) &&
+      !isFolderArchived;
     // The Archive folder gets a resource-aware body (ArchiveCollectionBody)
     // instead of the plain folder/note-shaped CollectionBody — see that
     // component's own doc comment for why this isn't a CollectionPageModel
@@ -1569,7 +1702,9 @@ export function PageHost({
     // an invented handler).
     const foldersOrder = foldersOrderOf(collectionDefinition.behavior);
     const dailyNotesFolders = foldersOrder
-      ? [...model.folders].sort((a, b) => foldersOrder(a.values.name, b.values.name))
+      ? [...model.folders].sort((a, b) =>
+          foldersOrder(a.values.name, b.values.name)
+        )
       : model.folders;
     // What Create DOES here is the collection's: a note in a note folder; for a folder inside Assets/ —
     // an Assets page — the file picker, importing into this folder.
@@ -1578,22 +1713,31 @@ export function PageHost({
     // deleted, archived) the folder's blank note is made, never a different template.
     const defaultTemplateId =
       collectionDefinition.kind === 'folder' && isFolderUserEditable
-        ? resolveDefaultTemplateId(vault, application.membershipSelector, folder.metadata.defaultTemplateId)
+        ? resolveDefaultTemplateId(
+            vault,
+            application.membershipSelector,
+            folder.metadata.defaultTemplateId
+          )
         : null;
-    const onCreate = collectionDefinition.actions.create && !isFolderArchived
-      ? isAssetsFolderPage
-        ? () => uploadAssetsInto(folder.path)
-        : defaultTemplateId !== null
-          ? () => createNoteFromTemplatePage(folder.id, defaultTemplateId)
-          : () => void application.pageOperations.openDraft({ folderId: folder.id })
-      : undefined;
+    const onCreate =
+      collectionDefinition.actions.create && !isFolderArchived
+        ? isAssetsFolderPage
+          ? () => uploadAssetsInto(folder.path)
+          : defaultTemplateId !== null
+            ? () => createNoteFromTemplatePage(folder.id, defaultTemplateId)
+            : () =>
+                void application.pageOperations.openDraft({
+                  folderId: folder.id,
+                })
+        : undefined;
     // Folders grid's "Create folder" card handler (CollectionBody's onCreateFolder) — reusing
     // FolderOperations.create()/open() via createAndOpenFolder.ts, the same create-then-open
     // shape duplicateAndOpenPage.ts already established for Duplicate. Creates as a subfolder
     // of the folder currently being viewed.
-    const onCreateSubfolder = collectionDefinition.actions.createFolder && !isFolderArchived
-      ? startFolderCreation
-      : undefined;
+    const onCreateSubfolder =
+      collectionDefinition.actions.createFolder && !isFolderArchived
+        ? startFolderCreation
+        : undefined;
     const subfolderCreation = folderCreationFor(() => folder.id, folder.id);
 
     return (
@@ -1624,7 +1768,9 @@ export function PageHost({
           // all (its menu is never rendered), so this stays unreachable
           // for one regardless, but is gated explicitly for consistency.
           descriptionEditable={isFolderUserEditable}
-          showDescriptionEditor={isFolderUserEditable && descriptionEditorRequestedIds.has(folder.id)}
+          showDescriptionEditor={
+            isFolderUserEditable && descriptionEditorRequestedIds.has(folder.id)
+          }
           onDescriptionEdit={
             isFolderUserEditable
               ? (description) => onEditFolderDescription(folder.id, description)
@@ -1656,7 +1802,9 @@ export function PageHost({
               <ArchivedBanner
                 archivedAt={folder.metadata.archivedAt}
                 onRestore={
-                  application.membershipSelector.isRestorable(folder) ? onRestoreFolder : undefined
+                  application.membershipSelector.isRestorable(folder)
+                    ? onRestoreFolder
+                    : undefined
                 }
               />
             ) : undefined
@@ -1664,9 +1812,10 @@ export function PageHost({
           titleActions={renderCollectionHeaderActions({
             onAdd: onCreate,
             onAddFolder: onCreateSubfolder,
-            fromTemplate: collectionDefinition.actions.fromTemplate && !isFolderArchived
-              ? buildFromTemplate(folder.id)
-              : undefined,
+            fromTemplate:
+              collectionDefinition.actions.fromTemplate && !isFolderArchived
+                ? buildFromTemplate(folder.id)
+                : undefined,
             // Only an ordinary user folder has a default template: not a reserved, Assets or
             // Daily Notes folder (the collection kind), and not an archived one.
             defaultTemplate:
@@ -1675,14 +1824,22 @@ export function PageHost({
                     currentId: defaultTemplateId,
                     onEdit: (templateId) => openNoteFromCollection(templateId),
                     onChange: (templateId) =>
-                      void application.folderOperations.updateMetadata(folder.id, {
-                        defaultTemplateId: templateId,
-                      }),
+                      void application.folderOperations.updateMetadata(
+                        folder.id,
+                        {
+                          defaultTemplateId: templateId,
+                        }
+                      ),
                   }
                 : undefined,
-            ...(isAssetsFolderPage && { menuLabels: ASSET_MENU_LABELS, addLabel: 'Upload' }),
+            ...(isAssetsFolderPage && {
+              menuLabels: ASSET_MENU_LABELS,
+              addLabel: 'Upload',
+            }),
             // Templates are flat: one Add action, creating a template (a draft in Templates).
-            ...(collectionDefinition.kind === 'templates' && { addLabel: 'New template' }),
+            ...(collectionDefinition.kind === 'templates' && {
+              addLabel: 'New template',
+            }),
           })}
           emoji={
             folderSystemLocationId
@@ -1692,10 +1849,14 @@ export function PageHost({
           icon={folderSystemIcon}
           showMoreActions={isFolderUserEditable}
           onSelectEmoji={
-            folderSystemLocationId || isFolderArchived ? undefined : onSelectFolderEmoji
+            folderSystemLocationId || isFolderArchived
+              ? undefined
+              : onSelectFolderEmoji
           }
           onRemoveEmoji={
-            folderSystemLocationId || isFolderArchived ? undefined : onRemoveFolderEmoji
+            folderSystemLocationId || isFolderArchived
+              ? undefined
+              : onRemoveFolderEmoji
           }
           onSetCoverImage={
             folderSystemLocationId ? undefined : onSetFolderCoverImage
@@ -1738,12 +1899,18 @@ export function PageHost({
                 sort={collectionView.sort}
                 resources={archivedResources}
                 archivedAtByPath={archivedAtByPath}
-                resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+                resolveResourceUrl={(path) =>
+                  application.resolveResourceImageUrl(path)
+                }
                 onOpenResource={openArchivedResourceOverlay}
               />
             ) : (
               <CollectionBody
-                folders={showsFolders(collectionDefinition.behavior) ? dailyNotesFolders : []}
+                folders={
+                  showsFolders(collectionDefinition.behavior)
+                    ? dailyNotesFolders
+                    : []
+                }
                 foldersInGivenOrder={foldersOrder !== undefined}
                 showNotes={showsNotes(collectionDefinition.behavior)}
                 notes={model.notes}
@@ -1751,10 +1918,20 @@ export function PageHost({
                 visible={collectionView.visible}
                 sort={collectionView.sort}
                 onCreateFolder={onCreateSubfolder}
-                folderCreation={isFolderArchived ? undefined : subfolderCreation}
+                folderCreation={
+                  isFolderArchived ? undefined : subfolderCreation
+                }
                 onCreate={onCreate}
-                emptyCreateLabel={collectionDefinition.kind === 'templates' ? 'New template' : 'New note'}
-                emptyMessage={isFolderArchived ? ARCHIVED_FOLDER_EMPTY_MESSAGE : collectionDefinition.emptyMessage}
+                emptyCreateLabel={
+                  collectionDefinition.kind === 'templates'
+                    ? 'New template'
+                    : 'New note'
+                }
+                emptyMessage={
+                  isFolderArchived
+                    ? ARCHIVED_FOLDER_EMPTY_MESSAGE
+                    : collectionDefinition.emptyMessage
+                }
                 // A frozen folder's notes show their covers but offer no way to change one.
                 noteCover={isFolderArchived ? undefined : noteCoverActions}
                 previewResolvers={notePreviewResolvers}
@@ -1777,15 +1954,20 @@ export function PageHost({
   ) {
     // The collection's one Create handler, from its declared capability: for assets, the file picker
     // (into Assets/ — a folder inside it is its own page).
-    const onCreate = collectionDefinition.actions.create ? () => uploadAssetsInto() : undefined;
+    const onCreate = collectionDefinition.actions.create
+      ? () => uploadAssetsInto()
+      : undefined;
     // Create folder: inside Assets/. Declared by the definition like every other collection's.
-    const onCreateFolder = collectionDefinition.actions.createFolder ? startFolderCreation : undefined;
+    const onCreateFolder = collectionDefinition.actions.createFolder
+      ? startFolderCreation
+      : undefined;
     const folderCreation = folderCreationFor(
       assetsParentResolver(null),
       application.membershipSelector.getAssetsStorageFolder()?.id ?? null
     );
     // The folders in Assets/ — each opens as an Assets page of its own.
-    const assetsStorageFolder = application.membershipSelector.getAssetsStorageFolder();
+    const assetsStorageFolder =
+      application.membershipSelector.getAssetsStorageFolder();
     const assetFolders = assetsStorageFolder
       ? toCollectionPageModel(
           assetsStorageFolder,
@@ -1810,7 +1992,9 @@ export function PageHost({
         onNavigateForward={() => application.navigation.forward()}
         title={getSystemLocationPresentation('assets').label}
         titleEditable={false}
-        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs('assets')} />}
+        breadcrumbs={
+          <Breadcrumbs items={buildSystemLocationBreadcrumbs('assets')} />
+        }
         icon={getSystemLocationPresentation('assets', 'page-header').icon}
         showMoreActions={false}
         titleActions={renderCollectionHeaderActions({
@@ -1841,7 +2025,10 @@ export function PageHost({
     TASK_COLLECTION_VIEWS.has(workspace.activeView.view.kind)
   ) {
     // The page's own view (what the title, breadcrumbs and icon describe) — the tab below picks the dataset, not the page.
-    const view = workspace.activeView.view.kind as Extract<TasksCollectionView, 'tasks-all' | 'tasks-unscheduled'>;
+    const view = workspace.activeView.view.kind as Extract<
+      TasksCollectionView,
+      'tasks-all' | 'tasks-unscheduled'
+    >;
 
     return (
       <Page
@@ -1851,61 +2038,81 @@ export function PageHost({
         onNavigateForward={() => application.navigation.forward()}
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
-        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />}
+        breadcrumbs={
+          <Breadcrumbs items={buildSystemLocationBreadcrumbs(view)} />
+        }
         icon={getSystemLocationPresentation(view, 'page-header').icon}
         showMoreActions={false}
         // On All Tasks the tab strip sits below the title (presentation only), in the title section's tabs slot.
-        tabs={view === 'tasks-all' ? <TasksTabs value={tasksTab} onValueChange={onTasksTabChange} /> : undefined}
+        tabs={
+          view === 'tasks-all' ? (
+            <TasksTabs value={tasksTab} onValueChange={onTasksTabChange} />
+          ) : undefined
+        }
         titleActions={
           // Every task view is the one Task Collection: the same header actions as every collection
           // (Configure + Add), sharing one configuration; Add opens the New task dialog.
-          (
-            <>
-              {renderCollectionHeaderActions({
-                onAdd: () => setIsNewTaskOpen(true),
-                addLabel: 'New task',
-                // The Tasks view's own display preferences — the same shared setting the Tasks sidebar edits.
-                toggles: [
+          <>
+            {renderCollectionHeaderActions({
+              onAdd: () => setIsNewTaskOpen(true),
+              addLabel: 'New task',
+              // The Tasks view's own display preferences — the same shared setting the Tasks sidebar edits.
+              toggles: [
+                {
+                  id: 'show-completed',
+                  label: 'Show completed',
+                  checked: tasksViewConfig.showCompleted,
+                  onChange: (showCompleted) =>
+                    onTasksViewConfigChange({
+                      ...tasksViewConfig,
+                      showCompleted,
+                    }),
+                },
+                {
+                  id: 'auto-sort-completed',
+                  label: 'Auto-sort completed',
+                  checked: tasksViewConfig.autoSortCompleted,
+                  onChange: (autoSortCompleted) =>
+                    onTasksViewConfigChange({
+                      ...tasksViewConfig,
+                      autoSortCompleted,
+                    }),
+                },
+              ],
+            })}
+            <NewTaskDialog
+              open={isNewTaskOpen}
+              onClose={() => setIsNewTaskOpen(false)}
+              onCreateTask={(title, dueDate) =>
+                createTaskInDailyNote(
                   {
-                    id: 'show-completed',
-                    label: 'Show completed',
-                    checked: tasksViewConfig.showCompleted,
-                    onChange: (showCompleted) => onTasksViewConfigChange({ ...tasksViewConfig, showCompleted }),
+                    vault,
+                    pageOperations: application.pageOperations,
+                    taskOperations: application.taskOperations,
                   },
-                  {
-                    id: 'auto-sort-completed',
-                    label: 'Auto-sort completed',
-                    checked: tasksViewConfig.autoSortCompleted,
-                    onChange: (autoSortCompleted) => onTasksViewConfigChange({ ...tasksViewConfig, autoSortCompleted }),
-                  },
-                ],
-              })}
+                  title,
+                  dueDate
+                )
+              }
+            />
+            {editingTask && (
               <NewTaskDialog
-                open={isNewTaskOpen}
-                onClose={() => setIsNewTaskOpen(false)}
-                onCreateTask={(title, dueDate) =>
-                  createTaskInDailyNote(
-                    {
-                      vault,
-                      pageOperations: application.pageOperations,
-                      taskOperations: application.taskOperations,
-                    },
+                open
+                onClose={() => setEditingTask(undefined)}
+                editing={{
+                  title: formatTaskTitle(editingTask.text, editingTask.dueDate),
+                  dueDate: editingTask.dueDate,
+                }}
+                // The one existing update path: edits the task's own line in place (ADR-044 — a due date never moves it).
+                onSaveTask={(title, dueDate) =>
+                  application.taskOperations.update(editingTask, {
                     title,
-                    dueDate
-                  )
+                    dueDate,
+                  })
                 }
               />
-              {editingTask && (
-                <NewTaskDialog
-                  open
-                  onClose={() => setEditingTask(undefined)}
-                  editing={{ title: formatTaskTitle(editingTask.text, editingTask.dueDate), dueDate: editingTask.dueDate }}
-                  // The one existing update path: edits the task's own line in place (ADR-044 — a due date never moves it).
-                  onSaveTask={(title, dueDate) => application.taskOperations.update(editingTask, { title, dueDate })}
-                />
-              )}
-            </>
-          )
+            )}
+          </>
         }
         body={
           <TasksCollectionBody
@@ -1932,14 +2139,25 @@ export function PageHost({
                 return undefined;
               }
 
-              const effective = application.effectivePageState.getPage(sourcePage.id);
+              const effective = application.effectivePageState.getPage(
+                sourcePage.id
+              );
               const { icon, emoji } = resolvePageIdentityIcon(
                 sourcePage,
                 effective,
-                vault.isFolderWithinReservedFolder(sourcePage.parentId, 'templates')
+                vault.isFolderWithinReservedFolder(
+                  sourcePage.parentId,
+                  'templates'
+                )
               );
 
-              return { label: getPageDisplayLabel(effective ?? toPageDisplayLabelInput(sourcePage)).text, icon, emoji };
+              return {
+                label: getPageDisplayLabel(
+                  effective ?? toPageDisplayLabelInput(sourcePage)
+                ).text,
+                icon,
+                emoji,
+              };
             }}
             resolveWikiLink={resolveWikiLink}
             resolveTag={resolveTag}
@@ -2010,7 +2228,11 @@ export function PageHost({
     const onCreate = collectionDefinition.actions.create
       ? view.kind === 'tag'
         ? () =>
-            void createNoteForTag(application.pageOperations, application.tagExpansionStore, view.tagName)
+            void createNoteForTag(
+              application.pageOperations,
+              application.tagExpansionStore,
+              view.tagName
+            )
         : () => void application.pageOperations.openDraft({ folderId: null })
       : undefined;
     // Folders grid's "Create folder" card handler, reusing FolderOperations.create()/open() via
@@ -2031,10 +2253,14 @@ export function PageHost({
         description={model.description}
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
-        breadcrumbs={<Breadcrumbs items={buildSystemLocationBreadcrumbs(
+        breadcrumbs={
+          <Breadcrumbs
+            items={buildSystemLocationBreadcrumbs(
               filteredViewSystemLocationId,
               titleProps.title
-            )} />}
+            )}
+          />
+        }
         // A tag page's one top-bar action: Delete (TagOperations.deleteTag),
         // through the same menu + confirmation surface every resource's
         // More actions uses. Workspace/Favorites keep none.
@@ -2049,13 +2275,16 @@ export function PageHost({
                       tagOperations: application.tagOperations,
                       navigation: application.navigation,
                       workspace: application.workspace,
-                      collectionViewConfigStore: application.collectionViewConfigStore,
+                      collectionViewConfigStore:
+                        application.collectionViewConfigStore,
                       tagExpansionStore: application.tagExpansionStore,
                     },
                     view.tagName
                   )(),
               }}
-              deleteConfirmationTitle={getTagDeleteConfirmationTitle(view.tagName)}
+              deleteConfirmationTitle={getTagDeleteConfirmationTitle(
+                view.tagName
+              )}
               deleteConfirmationMessage={TAG_DELETE_CONFIRMATION_MESSAGE}
             />
           ) : undefined
@@ -2063,16 +2292,24 @@ export function PageHost({
         titleActions={renderCollectionHeaderActions({
           onAdd: onCreate,
           onAddFolder: onCreateFolder,
-          fromTemplate: collectionDefinition.actions.fromTemplate ? buildFromTemplate(null) : undefined,
+          fromTemplate: collectionDefinition.actions.fromTemplate
+            ? buildFromTemplate(null)
+            : undefined,
         })}
         // A tag's own emoji (Tag.icon, set from the New tag dialog or the
         // sidebar's Change icon) shows in the title the same way an
         // ordinary folder's metadata.icon does; the generic icon below is
         // what shows when it has none (and always for Workspace/Favorites).
-        emoji={view.kind === 'tag' ? (vault.getTagByName(view.tagName)?.icon ?? undefined) : undefined}
+        emoji={
+          view.kind === 'tag'
+            ? (vault.getTagByName(view.tagName)?.icon ?? undefined)
+            : undefined
+        }
         icon={
-          getSystemLocationPresentation(filteredViewSystemLocationId, 'page-header')
-            .icon
+          getSystemLocationPresentation(
+            filteredViewSystemLocationId,
+            'page-header'
+          ).icon
         }
         // Only a tag's page is editable here: picking or removing its emoji
         // goes through TagOperations.updateMetadata (the tag's definition in
@@ -2084,12 +2321,17 @@ export function PageHost({
         onSelectEmoji={
           view.kind === 'tag'
             ? (selected) =>
-                void application.tagOperations.updateMetadata(view.tagName, { icon: selected })
+                void application.tagOperations.updateMetadata(view.tagName, {
+                  icon: selected,
+                })
             : undefined
         }
         onRemoveEmoji={
           view.kind === 'tag'
-            ? () => void application.tagOperations.updateMetadata(view.tagName, { icon: undefined })
+            ? () =>
+                void application.tagOperations.updateMetadata(view.tagName, {
+                  icon: undefined,
+                })
             : undefined
         }
         body={
@@ -2120,43 +2362,77 @@ export function PageHost({
   // no frontmatter yet: empty metadata). Every write goes through PageOperations, which promotes a
   // draft on the first property actually written; opening the control or the picker, starting or
   // abandoning an unnamed property, never reaches it, so none of those creates the file.
-  const buildPropertiesSection = (target: { readonly id: string; readonly metadata: PageMetadata }) => {
+  const buildPropertiesSection = (target: {
+    readonly id: string;
+    readonly metadata: PageMetadata;
+  }) => {
     // The Properties list: the listed system properties, the custom
     // properties, and any property being added.
     // Read-only when the page is effectively archived (the shared policy): the properties stay visible,
     // but every write handler and the Add row are gone. A draft has no Vault page and is never archived.
     const vaultPage = vault.getPage(target.id);
-    const isArchived = vaultPage ? application.membershipSelector.isEntityEffectivelyArchived(vaultPage) : false;
+    const isArchived = vaultPage
+      ? application.membershipSelector.isEntityEffectivelyArchived(vaultPage)
+      : false;
     const propertyItems = buildPageProperties(target, {
       isEffectivelyArchived: isArchived,
       // The editor's own inline-#tag click path (createTagResolver's
       // activate → navigation.openTag), not a second navigation.
       onOpenTag: (name) =>
-        (isArchived ? createTagResolver(application.navigation, vault, { requireExisting: true }) : resolveTag)(name).activate(),
+        (isArchived
+          ? createTagResolver(application.navigation, vault, {
+              requireExisting: true,
+            })
+          : resolveTag)(name).activate(),
       aliases: {
         // The one write path for page metadata.
         onCommit: (aliases) =>
-          void application.pageOperations.updateMetadata(target.id, { aliases }),
+          void application.pageOperations.updateMetadata(target.id, {
+            aliases,
+          }),
         getSuggestions: createAliasSuggester(vault, target.id),
       },
       onRenameProperty: (key, name) =>
-        void application.pageOperations.renameCustomProperty(target.id, key, name),
-      onCommitTags: (tags) => void application.pageOperations.updateMetadata(target.id, { tags }),
+        void application.pageOperations.renameCustomProperty(
+          target.id,
+          key,
+          name
+        ),
+      onCommitTags: (tags) =>
+        void application.pageOperations.updateMetadata(target.id, { tags }),
       getTagSuggestions,
       onRemoveListItem: (key, index, value) =>
-        void application.pageOperations.removeCustomPropertyItem(target.id, key, index, value),
+        void application.pageOperations.removeCustomPropertyItem(
+          target.id,
+          key,
+          index,
+          value
+        ),
       onCommitListValue: (key, value) =>
-        void application.pageOperations.setCustomPropertyList(target.id, key, value),
+        void application.pageOperations.setCustomPropertyList(
+          target.id,
+          key,
+          value
+        ),
       onSetScalarValue: (key, type, value) =>
-        void application.pageOperations.setCustomPropertyValue(target.id, key, type, value),
-      onDeleteProperty: (key) => void application.pageOperations.deleteCustomProperty(target.id, key),
-      onRemoveSystemProperty: (key) => void application.pageOperations.removeSystemProperty(target.id, key),
+        void application.pageOperations.setCustomPropertyValue(
+          target.id,
+          key,
+          type,
+          value
+        ),
+      onDeleteProperty: (key) =>
+        void application.pageOperations.deleteCustomProperty(target.id, key),
+      onRemoveSystemProperty: (key) =>
+        void application.pageOperations.removeSystemProperty(target.id, key),
       drafts: {
         items: propertyDrafts.drafts,
         // Named: the property is written now (empty, typed), and the
         // draft row stands in for it until the page shows it.
         onName: (id, name) => {
-          const draft = propertyDrafts.drafts.find((candidate) => candidate.id === id);
+          const draft = propertyDrafts.drafts.find(
+            (candidate) => candidate.id === id
+          );
 
           if (!draft) {
             return;
@@ -2183,7 +2459,10 @@ export function PageHost({
     const hidePropertiesSection = (): void => {
       propertyDrafts.clear();
       setStartingPropertyPageId(null);
-      void application.pageOperations.setPropertiesSectionHidden(target.id, true);
+      void application.pageOperations.setPropertiesSectionHidden(
+        target.id,
+        true
+      );
     };
     const requestDeleteAllProperties = (): void =>
       propertiesConfirmation.request({
@@ -2197,30 +2476,33 @@ export function PageHost({
           void application.pageOperations.deleteAllProperties(target.id);
         },
       });
-    const addPropertyRow =
-      sectionState.showsAddRow ? (
-        <AddPropertyRow
-          systemProperties={getAddableSystemProperties(target)}
-          // The title's "Add a property" opens this button's menu; once it is
-          // used or dismissed the transient start is over (a choice has then
-          // either written the property or begun a draft, which keep the section).
-          autoOpen={startingPropertyPageId === target.id}
-          onDismiss={() => setStartingPropertyPageId(null)}
-          onAddSystemProperty={(key) =>
-            void application.pageOperations
-              .addSystemProperty(target.id, key)
-              .finally(() => setStartingPropertyPageId(null))
-          }
-          onAddCustomProperty={(type) => {
-            propertyDrafts.add(type);
-            setStartingPropertyPageId(null);
-          }}
-          // Only when there is something to hide or delete: not while the first
-          // property is only being started.
-          onHideProperties={sectionState.hasProperties ? hidePropertiesSection : undefined}
-          onDeleteAll={sectionState.hasProperties ? requestDeleteAllProperties : undefined}
-        />
-      ) : undefined;
+    const addPropertyRow = sectionState.showsAddRow ? (
+      <AddPropertyRow
+        systemProperties={getAddableSystemProperties(target)}
+        // The title's "Add a property" opens this button's menu; once it is
+        // used or dismissed the transient start is over (a choice has then
+        // either written the property or begun a draft, which keep the section).
+        autoOpen={startingPropertyPageId === target.id}
+        onDismiss={() => setStartingPropertyPageId(null)}
+        onAddSystemProperty={(key) =>
+          void application.pageOperations
+            .addSystemProperty(target.id, key)
+            .finally(() => setStartingPropertyPageId(null))
+        }
+        onAddCustomProperty={(type) => {
+          propertyDrafts.add(type);
+          setStartingPropertyPageId(null);
+        }}
+        // Only when there is something to hide or delete: not while the first
+        // property is only being started.
+        onHideProperties={
+          sectionState.hasProperties ? hidePropertiesSection : undefined
+        }
+        onDeleteAll={
+          sectionState.hasProperties ? requestDeleteAllProperties : undefined
+        }
+      />
+    ) : undefined;
     // The title's control (derivePropertiesSectionState): "Add a property" to
     // start the first one, "Show properties" for an explicitly hidden section,
     // nothing while it is displayed — Hide properties is in the section's menu.
@@ -2235,7 +2517,11 @@ export function PageHost({
         : sectionState.control === 'show'
           ? {
               mode: 'show',
-              onShow: () => void application.pageOperations.setPropertiesSectionHidden(target.id, false),
+              onShow: () =>
+                void application.pageOperations.setPropertiesSectionHidden(
+                  target.id,
+                  false
+                ),
             }
           : undefined;
 
@@ -2244,12 +2530,16 @@ export function PageHost({
       // The whole section. Displayed, it lists the properties and ends with "+ Add a property" once
       // there is one; nothing at all if there is neither.
       propertiesSection:
-        sectionState.isDisplayed && (propertyItems.length > 0 || addPropertyRow) ? (
-          <PropertyList key={target.id} items={propertyItems} footer={addPropertyRow} />
+        sectionState.isDisplayed &&
+        (propertyItems.length > 0 || addPropertyRow) ? (
+          <PropertyList
+            key={target.id}
+            items={propertyItems}
+            footer={addPropertyRow}
+          />
         ) : undefined,
     };
   };
-
 
   // Structural presentation (path, parent, breadcrumbs, metadata) must read
   // from the Vault — the live source of truth after moves and archive/restore.
@@ -2285,7 +2575,10 @@ export function PageHost({
     const draftTopBar = buildDraftTopBarActions(draft.type);
     // A draft has no frontmatter yet, so its Properties start empty; the first property written
     // promotes it (buildPropertiesSection).
-    const draftProperties = buildPropertiesSection({ id: activePageId, metadata: resolvePageMetadata({}) });
+    const draftProperties = buildPropertiesSection({
+      id: activePageId,
+      metadata: resolvePageMetadata({}),
+    });
     // A draft has no persisted metadata to read back from (ADR-017) — while
     // typing, the only place the in-progress text exists is
     // descriptionDraftValues (set by onDescriptionEdit below). Falling back
@@ -2344,7 +2637,8 @@ export function PageHost({
         breadcrumbs={
           <Breadcrumbs
             items={
-              draft.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
+              draft.type === 'daily-note' &&
+              !isDailyNotesCollectionPagesEnabled()
                 ? draftBreadcrumbs.slice(-1)
                 : draftBreadcrumbs
             }
@@ -2355,9 +2649,9 @@ export function PageHost({
         // don't apply until this draft is actually persisted.
         actions={
           <>
-            {application.membershipSelector.isInTemplatesFolder(draft.folderId) && (
-              <Pill size="small">Editing template</Pill>
-            )}
+            {application.membershipSelector.isInTemplatesFolder(
+              draft.folderId
+            ) && <Pill size="small">Editing template</Pill>}
             {draftTopBar.actions}
           </>
         }
@@ -2384,7 +2678,11 @@ export function PageHost({
         properties={draftProperties.propertiesSection}
         onTitleCommit={
           isPageTitleEditable(draft.type)
-            ? (title) => void application.pageOperations.updateDraftTitle(activePageId, title)
+            ? (title) =>
+                void application.pageOperations.updateDraftTitle(
+                  activePageId,
+                  title
+                )
             : undefined
         }
         bodyOverlay={buildTemplateSuggestions({
@@ -2397,63 +2695,65 @@ export function PageHost({
         })}
         body={
           <>
-          <MarkdownBody>
-            <MarkdownEditor
-              key={activePageId}
-              pageId={activePageId}
-              ref={editorRef}
-              markdown={model.markdown}
-              focusOnOpen={focusEditorOnOpen(model.title)}
-              pendingReveal={editorPendingReveal}
-              onRevealApplied={onRevealHandled}
-              foldStateStore={application.foldStateStore}
-              onEdit={(markdown) => model.updateMarkdown(markdown)}
-              onMetadataHistoryStep={onMetadataHistoryStep}
-              onFlush={() => model.requestSave()}
-              onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
-              resolveWikiLink={resolveWikiLink}
-              getWikiLinkSuggestions={getWikiLinkSuggestions}
-              getEmbedSuggestions={getEmbedSuggestions}
-              getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
-              resolveEmbedImage={resolveEmbedImage}
-              resolveEmbedPdf={resolveEmbedPdf}
-              onPdfEmbedClick={onPdfEmbedClick}
-              resolvePageEmbed={resolvePageEmbed}
-              onOpenPage={onOpenPage}
-              resolveImageSrc={resolveImageSrc}
-              resolveTag={resolveTag}
-              getTagSuggestions={getTagSuggestions}
-              resolveDate={resolveDate}
-              onOpenImageOverlay={onOpenImageOverlay}
-              onSetCoverImage={onSetCoverImage}
-              onDownloadImage={downloadImageFromEditor}
-              onSaveImageToVault={saveImageToVaultFromEditor}
-              onDownloadPdfResource={downloadResourceById}
-              resolveImageResource={resolveImageResource}
-              onArchiveResource={(id) =>
-                void application.resourceOperations.archiveResource(id)
-              }
-              onRevealResourceInFinder={revealResourceInFinder}
-              onCopyResourcePath={copyResourcePath}
-              resourceMoveDestinations={buildMoveDestinationItems(
-                application.membershipSelector,
-                undefined,
-                'assets'
-              )}
-              onMoveResource={(id, destinationFolderId) =>
-                void application.resourceOperations.moveResource(
-                  id,
-                  destinationFolderId
-                )
-              }
-              onCreateFolder={createFolderInZone(
-                application.folderOperations,
-                application.membershipSelector,
-                'assets'
-              )}
-            />
-          </MarkdownBody>
-          <References isExpanded={false} onExpandToggle={() => {}} />
+            <MarkdownBody>
+              <MarkdownEditor
+                key={activePageId}
+                pageId={activePageId}
+                ref={editorRef}
+                markdown={model.markdown}
+                focusOnOpen={focusEditorOnOpen(model.title)}
+                pendingReveal={editorPendingReveal}
+                onRevealApplied={onRevealHandled}
+                foldStateStore={application.foldStateStore}
+                onEdit={(markdown) => model.updateMarkdown(markdown)}
+                onMetadataHistoryStep={onMetadataHistoryStep}
+                onFlush={() => model.requestSave()}
+                onExitUp={(clientX) =>
+                  pageFocusRef.current?.focusAboveBody(clientX) ?? false
+                }
+                resolveWikiLink={resolveWikiLink}
+                getWikiLinkSuggestions={getWikiLinkSuggestions}
+                getEmbedSuggestions={getEmbedSuggestions}
+                getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
+                resolveEmbedImage={resolveEmbedImage}
+                resolveEmbedPdf={resolveEmbedPdf}
+                onPdfEmbedClick={onPdfEmbedClick}
+                resolvePageEmbed={resolvePageEmbed}
+                onOpenPage={onOpenPage}
+                resolveImageSrc={resolveImageSrc}
+                resolveTag={resolveTag}
+                getTagSuggestions={getTagSuggestions}
+                resolveDate={resolveDate}
+                onOpenImageOverlay={onOpenImageOverlay}
+                onSetCoverImage={onSetCoverImage}
+                onDownloadImage={downloadImageFromEditor}
+                onSaveImageToVault={saveImageToVaultFromEditor}
+                onDownloadPdfResource={downloadResourceById}
+                resolveImageResource={resolveImageResource}
+                onArchiveResource={(id) =>
+                  void application.resourceOperations.archiveResource(id)
+                }
+                onRevealResourceInFinder={revealResourceInFinder}
+                onCopyResourcePath={copyResourcePath}
+                resourceMoveDestinations={buildMoveDestinationItems(
+                  application.membershipSelector,
+                  undefined,
+                  'assets'
+                )}
+                onMoveResource={(id, destinationFolderId) =>
+                  void application.resourceOperations.moveResource(
+                    id,
+                    destinationFolderId
+                  )
+                }
+                onCreateFolder={createFolderInZone(
+                  application.folderOperations,
+                  application.membershipSelector,
+                  'assets'
+                )}
+              />
+            </MarkdownBody>
+            <References isExpanded={true} onExpandToggle={() => {}} />
           </>
         }
       />
@@ -2478,7 +2778,12 @@ export function PageHost({
     throw new Error(`Unsupported page type: ${page.type}`);
   }
 
-  const model = toResourcePageModel(page, session, onUpdateMarkdown, onRequestSave);
+  const model = toResourcePageModel(
+    page,
+    session,
+    onUpdateMarkdown,
+    onRequestSave
+  );
   // Move applies only to Notes and Folders (approved contract) — a Daily
   // Note's menu never includes a `move-to` item (the daily-note canonical actions),
   // so moveDestinations/onMove are only ever computed and passed for a
@@ -2486,7 +2791,8 @@ export function PageHost({
   // Templates are a flat collection (ADR-049): a Template is never moved, so its menu has no
   // `move-to` item (the canonical action is hidden for one) and no Move props either.
   const canMoveNote =
-    page.type === 'note' && !application.membershipSelector.isInTemplatesFolder(page.parentId);
+    page.type === 'note' &&
+    !application.membershipSelector.isInTemplatesFolder(page.parentId);
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     vaultRoot: vault.root,
@@ -2495,7 +2801,9 @@ export function PageHost({
     onDelete,
     onDuplicate,
     onUseAsTemplate: page.type === 'note' ? onUseAsTemplate : undefined,
-    onCreateTemplate: requestCreateTemplate ? () => requestCreateTemplate(page.id) : undefined,
+    onCreateTemplate: requestCreateTemplate
+      ? () => requestCreateTemplate(page.id)
+      : undefined,
     onToggleFavorite,
     // A note/daily-note delete is only ever reachable here for an
     // archived/Archive-descendant page (buildTopBarActions.tsx's
@@ -2519,7 +2827,8 @@ export function PageHost({
   // (isRenameable above). Notes have no such constraint.
   // The shared effectively-archived policy (Phase 1): an archived note, or one inside an archived
   // folder, is read-only — no title editing, no icon change, no day navigation.
-  const isPageArchived = application.membershipSelector.isEntityEffectivelyArchived(page);
+  const isPageArchived =
+    application.membershipSelector.isEntityEffectivelyArchived(page);
   const isRenameable = isPageTitleEditable(page.type) && !isPageArchived;
   // An archived note is read-only throughout: its links and dates still open what EXISTS, but cannot
   // create a missing page or Daily Note, and its editor offers no way to change the document, the
@@ -2534,15 +2843,23 @@ export function PageHost({
       )
     : resolveWikiLink;
   const editorResolveTag = isPageArchived
-    ? createTagResolver(application.navigation, vault, { requireExisting: true })
+    ? createTagResolver(application.navigation, vault, {
+        requireExisting: true,
+      })
     : resolveTag;
   const editorResolveDate = isPageArchived
-    ? createDateResolver(vault, application.pageOperations, { createMissing: false })
+    ? createDateResolver(vault, application.pageOperations, {
+        createMissing: false,
+      })
     : resolveDate;
   // The editor's image click opens the overlay; for an archived note it opens the image to view only:
   // no resource id (which enables the vault file's own menu), no "set as cover", and no URL menu either.
   const editorOpenImageOverlay: typeof onOpenImageOverlay = isPageArchived
-    ? (image) => onOpenImageOverlay({ ...image, resourceId: undefined }, { actionsEnabled: false })
+    ? (image) =>
+        onOpenImageOverlay(
+          { ...image, resourceId: undefined },
+          { actionsEnabled: false }
+        )
     : onOpenImageOverlay;
   // A PDF embed opens its viewer without the file's actions.
   const editorPdfEmbedClick = isPageArchived
@@ -2558,225 +2875,277 @@ export function PageHost({
 
   return (
     <>
-    <Page
-      titleKey={activePageId}
-      descriptionKey={activePageId}
-      canNavigateBack={workspace.canNavigateBack}
-      canNavigateForward={workspace.canNavigateForward}
-      onNavigateBack={() => application.navigation.back()}
-      onNavigateForward={() => application.navigation.forward()}
-      title={model.title}
-      description={model.description}
-      titleEditable={isRenameable}
-      onTitleEdit={
-        isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined
-      }
-      onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
-      onTitleCancel={
-        isRenameable ? () => onCancelPageTitle(page.id) : undefined
-      }
-      // A Note and a Daily Note both offer "Add a description"/"Description"
-      // (the header More menu offers it for both) — unlike title, description editability has no note-vs-daily-
-      // note distinction.
-      // An archived page shows an existing description as plain text and offers no way to add or edit
-      // one, and has no title-controls (More actions) button at all.
-      descriptionEditable={!isPageArchived}
-      showDescriptionEditor={!isPageArchived && descriptionEditorRequestedIds.has(page.id)}
-      onDescriptionEdit={
-        isPageArchived ? undefined : (description) => onEditPageDescription(page.id, description)
-      }
-      onDescriptionFlush={isPageArchived ? undefined : () => onFlushPageDescription(page.id)}
-      onDescriptionCancel={
-        isPageArchived
-          ? undefined
-          : () => onCancelPageDescription(page.id, Boolean(page.metadata.description))
-      }
-      onEditDescription={isPageArchived ? undefined : () => onOpenDescriptionEditor(page.id)}
-      showMoreActions={!isPageArchived}
-      // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
-      // off (core/featureFlags.ts) only the note's own crumb is shown.
-      breadcrumbs={
-        <Breadcrumbs
-          items={
-            page.type === 'daily-note' && !isDailyNotesCollectionPagesEnabled()
-              ? breadcrumbs.slice(-1)
-              : breadcrumbs
-          }
-        />
-      }
-      banner={
-        isPageArchived ? (
-          <ArchivedBanner
-            archivedAt={page.metadata.archivedAt}
-            onRestore={application.membershipSelector.isRestorable(page) ? onRestore : undefined}
+      <Page
+        titleKey={activePageId}
+        descriptionKey={activePageId}
+        canNavigateBack={workspace.canNavigateBack}
+        canNavigateForward={workspace.canNavigateForward}
+        onNavigateBack={() => application.navigation.back()}
+        onNavigateForward={() => application.navigation.forward()}
+        title={model.title}
+        description={model.description}
+        titleEditable={isRenameable}
+        onTitleEdit={
+          isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined
+        }
+        onTitleFlush={
+          isRenameable ? () => onFlushPageTitle(page.id) : undefined
+        }
+        onTitleCancel={
+          isRenameable ? () => onCancelPageTitle(page.id) : undefined
+        }
+        // A Note and a Daily Note both offer "Add a description"/"Description"
+        // (the header More menu offers it for both) — unlike title, description editability has no note-vs-daily-
+        // note distinction.
+        // An archived page shows an existing description as plain text and offers no way to add or edit
+        // one, and has no title-controls (More actions) button at all.
+        descriptionEditable={!isPageArchived}
+        showDescriptionEditor={
+          !isPageArchived && descriptionEditorRequestedIds.has(page.id)
+        }
+        onDescriptionEdit={
+          isPageArchived
+            ? undefined
+            : (description) => onEditPageDescription(page.id, description)
+        }
+        onDescriptionFlush={
+          isPageArchived ? undefined : () => onFlushPageDescription(page.id)
+        }
+        onDescriptionCancel={
+          isPageArchived
+            ? undefined
+            : () =>
+                onCancelPageDescription(
+                  page.id,
+                  Boolean(page.metadata.description)
+                )
+        }
+        onEditDescription={
+          isPageArchived ? undefined : () => onOpenDescriptionEditor(page.id)
+        }
+        showMoreActions={!isPageArchived}
+        // A Daily Note's ancestor crumbs only lead to the Daily Notes collection pages, so with those
+        // off (core/featureFlags.ts) only the note's own crumb is shown.
+        breadcrumbs={
+          <Breadcrumbs
+            items={
+              page.type === 'daily-note' &&
+              !isDailyNotesCollectionPagesEnabled()
+                ? breadcrumbs.slice(-1)
+                : breadcrumbs
+            }
           />
-        ) : undefined
-      }
-      actions={
-        <>
-          {application.membershipSelector.isInTemplatesFolder(page.parentId) && (
-            <Pill size="small">Editing template</Pill>
-          )}
-          {topBar.actions}
-        </>
-      }
-      // Page-header-controls configuration: a Note is user-owned (its
-      // metadata.icon, when set, always shows; More actions is
-      // hover-revealed). A Daily Note shows neither emoji nor icon — its
-      // title is already its calendar identity — but keeps More actions
-      // on hover, same as a Note (isRenameable above draws the same
-      // note-vs-daily-note line for the title's own editability).
-      emoji={
-        page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined
-      }
-      onSelectEmoji={page.type === 'note' && !isPageArchived ? onSelectEmoji : undefined}
-      onRemoveEmoji={page.type === 'note' && !isPageArchived ? onRemoveEmoji : undefined}
-      belowDescription={
-        page.type === 'daily-note' && !isPageArchived ? (
-          <DailyNoteNavControls
-            date={page.name}
-            onNavigateToDate={onNavigateToDailyNote}
-          />
-        ) : undefined
-      }
-      onSetCoverImage={onSetCoverImage}
-      onSetCoverImageFromUpload={onSetCoverImageFromUpload}
-      coverImage={
-        application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
-      }
-      onRemoveCoverImage={onRemoveCoverImage}
-      {...coverImageFileActions(model.coverImage)}
-      coverHidden={model.coverHidden}
-      onHideCoverImage={onHideCoverImage}
-      onShowCoverImage={onShowCoverImage}
-      coverLayout={model.coverLayout}
-      onSetCoverLayout={onSetCoverLayout}
-      coverPositionAbove={model.coverPositionAbove}
-      coverPositionSide={model.coverPositionSide}
-      onSaveCoverPosition={onSaveCoverPosition}
-      coverKey={activePageId}
-      coverEditable={!isPageArchived}
-      bodyFocusRef={isPageArchived ? undefined : editorRef}
+        }
+        banner={
+          isPageArchived ? (
+            <ArchivedBanner
+              archivedAt={page.metadata.archivedAt}
+              onRestore={
+                application.membershipSelector.isRestorable(page)
+                  ? onRestore
+                  : undefined
+              }
+            />
+          ) : undefined
+        }
+        actions={
+          <>
+            {application.membershipSelector.isInTemplatesFolder(
+              page.parentId
+            ) && <Pill size="small">Editing template</Pill>}
+            {topBar.actions}
+          </>
+        }
+        // Page-header-controls configuration: a Note is user-owned (its
+        // metadata.icon, when set, always shows; More actions is
+        // hover-revealed). A Daily Note shows neither emoji nor icon — its
+        // title is already its calendar identity — but keeps More actions
+        // on hover, same as a Note (isRenameable above draws the same
+        // note-vs-daily-note line for the title's own editability).
+        emoji={
+          page.type === 'note' ? (page.metadata.icon ?? undefined) : undefined
+        }
+        onSelectEmoji={
+          page.type === 'note' && !isPageArchived ? onSelectEmoji : undefined
+        }
+        onRemoveEmoji={
+          page.type === 'note' && !isPageArchived ? onRemoveEmoji : undefined
+        }
+        belowDescription={
+          page.type === 'daily-note' && !isPageArchived ? (
+            <DailyNoteNavControls
+              date={page.name}
+              onNavigateToDate={onNavigateToDailyNote}
+            />
+          ) : undefined
+        }
+        onSetCoverImage={onSetCoverImage}
+        onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+        coverImage={
+          application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+        }
+        onRemoveCoverImage={onRemoveCoverImage}
+        {...coverImageFileActions(model.coverImage)}
+        coverHidden={model.coverHidden}
+        onHideCoverImage={onHideCoverImage}
+        onShowCoverImage={onShowCoverImage}
+        coverLayout={model.coverLayout}
+        onSetCoverLayout={onSetCoverLayout}
+        coverPositionAbove={model.coverPositionAbove}
+        coverPositionSide={model.coverPositionSide}
+        onSaveCoverPosition={onSaveCoverPosition}
+        coverKey={activePageId}
+        coverEditable={!isPageArchived}
+        bodyFocusRef={isPageArchived ? undefined : editorRef}
         pageFocusRef={pageFocusRef}
-      // An archived page is view-only: nothing can be added to it.
-      propertiesControl={propertiesControl}
-      properties={propertiesSection}
-      bodyOverlay={buildTemplateSuggestions({
-        id: activePageId,
-        type: page.type,
-        markdown: model.markdown,
-        isArchived: isPageArchived,
-        folderId: page.parentId,
-        existing: page.metadata,
-      })}
-      body={
-        <>
-        <MarkdownBody>
-          <MarkdownEditor
-            // Keyed by the page only: archiving or restoring an open page re-configures this editor in
-            // place (its `readOnly` prop), it does not rebuild it.
-            key={activePageId}
-            readOnly={isPageArchived}
-            // `readOnly` follows the archive only after React has rendered it; this is the same rule asked live,
-            // so a keystroke in between is refused instead of reaching commitEdit (which throws for an archived page).
-            canEdit={() => {
-              const current = vault.getPage(activePageId);
+        // An archived page is view-only: nothing can be added to it.
+        propertiesControl={propertiesControl}
+        properties={propertiesSection}
+        bodyOverlay={buildTemplateSuggestions({
+          id: activePageId,
+          type: page.type,
+          markdown: model.markdown,
+          isArchived: isPageArchived,
+          folderId: page.parentId,
+          existing: page.metadata,
+        })}
+        body={
+          <>
+            <MarkdownBody>
+              <MarkdownEditor
+                // Keyed by the page only: archiving or restoring an open page re-configures this editor in
+                // place (its `readOnly` prop), it does not rebuild it.
+                key={activePageId}
+                readOnly={isPageArchived}
+                // `readOnly` follows the archive only after React has rendered it; this is the same rule asked live,
+                // so a keystroke in between is refused instead of reaching commitEdit (which throws for an archived page).
+                canEdit={() => {
+                  const current = vault.getPage(activePageId);
 
-              return !current || !application.membershipSelector.isEntityEffectivelyArchived(current);
-            }}
-            pageId={activePageId}
-            ref={editorRef}
-            markdown={model.markdown}
-            focusOnOpen={focusEditorOnOpen(model.title)}
-            pendingReveal={editorPendingReveal}
-            onRevealApplied={onRevealHandled}
-            foldStateStore={application.foldStateStore}
-            onEdit={(markdown) => model.updateMarkdown(markdown)}
-              onMetadataHistoryStep={onMetadataHistoryStep}
-            onFlush={() => model.requestSave()}
-              onExitUp={(clientX) => pageFocusRef.current?.focusAboveBody(clientX) ?? false}
-            resolveWikiLink={editorResolveWikiLink}
-            getWikiLinkSuggestions={getWikiLinkSuggestions}
-            getEmbedSuggestions={getEmbedSuggestions}
-            getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
-            resolveEmbedImage={resolveEmbedImage}
-            resolveEmbedPdf={resolveEmbedPdf}
-            onPdfEmbedClick={editorPdfEmbedClick}
-            resolvePageEmbed={resolvePageEmbed}
-            onOpenPage={onOpenPage}
-            resolveImageSrc={resolveImageSrc}
-            resolveTag={editorResolveTag}
-            getTagSuggestions={getTagSuggestions}
-            resolveDate={editorResolveDate}
-            onOpenImageOverlay={editorOpenImageOverlay}
-            onSetCoverImage={isPageArchived ? undefined : onSetCoverImage}
-            onDownloadImage={isPageArchived ? undefined : downloadImageFromEditor}
-              onSaveImageToVault={isPageArchived ? undefined : saveImageToVaultFromEditor}
-            onDownloadPdfResource={isPageArchived ? undefined : downloadResourceById}
-            resolveImageResource={resolveImageResource}
-            onArchiveResource={
-              isPageArchived
-                ? undefined
-                : (id) => void application.resourceOperations.archiveResource(id)
-            }
-            onRevealResourceInFinder={isPageArchived ? undefined : revealResourceInFinder}
-            onCopyResourcePath={isPageArchived ? undefined : copyResourcePath}
-            resourceMoveDestinations={
-              isPageArchived
-                ? undefined
-                : buildMoveDestinationItems(application.membershipSelector, undefined, 'assets')
-            }
-            onMoveResource={
-              isPageArchived
-                ? undefined
-                : (id, destinationFolderId) =>
-                    void application.resourceOperations.moveResource(id, destinationFolderId)
-            }
-            onCreateFolder={
-              isPageArchived
-                ? undefined
-                : createFolderInZone(application.folderOperations, application.membershipSelector, 'assets')
-            }
+                  return (
+                    !current ||
+                    !application.membershipSelector.isEntityEffectivelyArchived(
+                      current
+                    )
+                  );
+                }}
+                pageId={activePageId}
+                ref={editorRef}
+                markdown={model.markdown}
+                focusOnOpen={focusEditorOnOpen(model.title)}
+                pendingReveal={editorPendingReveal}
+                onRevealApplied={onRevealHandled}
+                foldStateStore={application.foldStateStore}
+                onEdit={(markdown) => model.updateMarkdown(markdown)}
+                onMetadataHistoryStep={onMetadataHistoryStep}
+                onFlush={() => model.requestSave()}
+                onExitUp={(clientX) =>
+                  pageFocusRef.current?.focusAboveBody(clientX) ?? false
+                }
+                resolveWikiLink={editorResolveWikiLink}
+                getWikiLinkSuggestions={getWikiLinkSuggestions}
+                getEmbedSuggestions={getEmbedSuggestions}
+                getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
+                resolveEmbedImage={resolveEmbedImage}
+                resolveEmbedPdf={resolveEmbedPdf}
+                onPdfEmbedClick={editorPdfEmbedClick}
+                resolvePageEmbed={resolvePageEmbed}
+                onOpenPage={onOpenPage}
+                resolveImageSrc={resolveImageSrc}
+                resolveTag={editorResolveTag}
+                getTagSuggestions={getTagSuggestions}
+                resolveDate={editorResolveDate}
+                onOpenImageOverlay={editorOpenImageOverlay}
+                onSetCoverImage={isPageArchived ? undefined : onSetCoverImage}
+                onDownloadImage={
+                  isPageArchived ? undefined : downloadImageFromEditor
+                }
+                onSaveImageToVault={
+                  isPageArchived ? undefined : saveImageToVaultFromEditor
+                }
+                onDownloadPdfResource={
+                  isPageArchived ? undefined : downloadResourceById
+                }
+                resolveImageResource={resolveImageResource}
+                onArchiveResource={
+                  isPageArchived
+                    ? undefined
+                    : (id) =>
+                        void application.resourceOperations.archiveResource(id)
+                }
+                onRevealResourceInFinder={
+                  isPageArchived ? undefined : revealResourceInFinder
+                }
+                onCopyResourcePath={
+                  isPageArchived ? undefined : copyResourcePath
+                }
+                resourceMoveDestinations={
+                  isPageArchived
+                    ? undefined
+                    : buildMoveDestinationItems(
+                        application.membershipSelector,
+                        undefined,
+                        'assets'
+                      )
+                }
+                onMoveResource={
+                  isPageArchived
+                    ? undefined
+                    : (id, destinationFolderId) =>
+                        void application.resourceOperations.moveResource(
+                          id,
+                          destinationFolderId
+                        )
+                }
+                onCreateFolder={
+                  isPageArchived
+                    ? undefined
+                    : createFolderInZone(
+                        application.folderOperations,
+                        application.membershipSelector,
+                        'assets'
+                      )
+                }
+              />
+            </MarkdownBody>
+            <References isExpanded={true} onExpandToggle={() => {}} />
+          </>
+        }
+      />
+      <Dialog
+        open={propertiesConfirmation.pending !== null}
+        onClose={propertiesConfirmation.cancel}
+        size="medium"
+      >
+        {propertiesConfirmation.pending && (
+          <Confirmation
+            title={propertiesConfirmation.pending.title}
+            description={propertiesConfirmation.pending.message}
+            confirmLabel={propertiesConfirmation.pending.confirmLabel}
+            onConfirm={propertiesConfirmation.confirm}
+            onCancel={propertiesConfirmation.cancel}
           />
-        </MarkdownBody>
-        <References isExpanded={false} onExpandToggle={() => {}} />
-        </>
-      }
-    />
-    <Dialog
-      open={propertiesConfirmation.pending !== null}
-      onClose={propertiesConfirmation.cancel}
-      size="medium"
-    >
-      {propertiesConfirmation.pending && (
-        <Confirmation
-          title={propertiesConfirmation.pending.title}
-          description={propertiesConfirmation.pending.message}
-          confirmLabel={propertiesConfirmation.pending.confirmLabel}
-          onConfirm={propertiesConfirmation.confirm}
-          onCancel={propertiesConfirmation.cancel}
-        />
-      )}
-    </Dialog>
-    <Dialog
-      open={restoreConflict !== null}
-      onClose={() => setRestoreConflict(null)}
-      size="medium"
-    >
-      {restoreConflict && (
-        <Confirmation
-          title="Restore Daily Note"
-          description={`A Daily Note for ${restoreConflict.dayLabel} already exists.\nWhat would you like to do?`}
-          confirmLabel="Move to Inbox"
-          confirmVariant="primary"
-          alternateLabel="Replace"
-          alternateVariant="danger"
-          onConfirm={() => onResolveRestoreConflict('inbox')}
-          onAlternate={() => onResolveRestoreConflict('replace')}
-          onCancel={() => setRestoreConflict(null)}
-        />
-      )}
-    </Dialog>
+        )}
+      </Dialog>
+      <Dialog
+        open={restoreConflict !== null}
+        onClose={() => setRestoreConflict(null)}
+        size="medium"
+      >
+        {restoreConflict && (
+          <Confirmation
+            title="Restore Daily Note"
+            description={`A Daily Note for ${restoreConflict.dayLabel} already exists.\nWhat would you like to do?`}
+            confirmLabel="Move to Inbox"
+            confirmVariant="primary"
+            alternateLabel="Replace"
+            alternateVariant="danger"
+            onConfirm={() => onResolveRestoreConflict('inbox')}
+            onAlternate={() => onResolveRestoreConflict('replace')}
+            onCancel={() => setRestoreConflict(null)}
+          />
+        )}
+      </Dialog>
     </>
   );
 }

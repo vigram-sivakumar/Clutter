@@ -1,0 +1,30 @@
+.references {
+  display: flex;
+  align-items: center;
+  width: 80%;
+  max-width: 720px;
+  gap: var(--space-8);
+}
+.reference-button {
+  width: fit-content;
+}
+.reference-button .button__content {
+  gap: 0;
+}
+.references__icons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+.references__summary {
+  display: inline-flex;
+  align-items: center;
+
+  font: var(--text-label-small);
+  color: var(--foreground-secondary);
+}
+
+.references__summary--disabled {
+  color: var(--foreground-tertiary);
+  opacity: var(--opacity-disabled);
+}
