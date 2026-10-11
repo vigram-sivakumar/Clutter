@@ -59,7 +59,7 @@
 }
 
 .emoji-tray__item:hover {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 
 .emoji-tray__skin-tones {

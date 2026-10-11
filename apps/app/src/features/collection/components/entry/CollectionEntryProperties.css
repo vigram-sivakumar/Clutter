@@ -51,7 +51,7 @@
 }
 .collection-entry-properties--action:hover::before,
 .collection-entry-properties--action[aria-expanded='true']::before {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 .collection-entry-properties--action:focus-visible {
   outline: none;

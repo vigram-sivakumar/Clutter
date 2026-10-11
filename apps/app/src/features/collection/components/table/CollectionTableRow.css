@@ -17,7 +17,7 @@
 }
 
 .collection-table-row:hover {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 .collection-table-row--selected,
 .collection-table-row--selected:hover {

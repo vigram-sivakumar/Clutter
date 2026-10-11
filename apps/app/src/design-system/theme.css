@@ -110,9 +110,7 @@ html.theme-transitioning [data-themeable] *::after {
   --state-hover-strength-strong: 7%;
   --state-selected-strength: 7%;
 
-  --state-hover-medium: rgb(
-    var(--state-base) / var(--state-hover-strength-medium)
-  );
+  --state-hover: rgb(var(--state-base) / var(--state-hover-strength-medium));
   --state-hover-strong: rgb(
     var(--state-base) / var(--state-hover-strength-strong)
   );
@@ -253,9 +251,7 @@ html.theme-transitioning [data-themeable] *::after {
   --state-hover-strength-strong: 7%;
   --state-selected-strength: 7%;
 
-  --state-hover-medium: rgb(
-    var(--state-base) / var(--state-hover-strength-medium)
-  );
+  --state-hover: rgb(var(--state-base) / var(--state-hover-strength-medium));
   --state-hover-strong: rgb(
     var(--state-base) / var(--state-hover-strength-strong)
   );

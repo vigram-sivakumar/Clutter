@@ -1,56 +1,68 @@
-.references {
+.reference {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  width: 100%;
+  width: var(--content-width);
   max-width: var(--editor-width-max);
   gap: var(--space-8);
 }
-.references .section-header {
+.reference .section-header {
   width: fit-content;
   font-weight: var(--fw-medium);
   padding-inline: 0;
 }
-.references .section-header:not(.entry-disabled):not(.entry-selected):hover {
+.reference .section-header:not(.entry-disabled):not(.entry-selected):hover {
   background: transparent;
   color: var(--foreground-secondary);
 }
 /* Reference content */
-.references__content {
+.reference__content {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
   white-space: normal;
 }
-.references__list {
+.reference__list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
   margin-left: -8px;
-}
-.reference__note-content {
-  display: flex;
-  flex-direction: column;
 }
 
 /* Reference Entry */
-.reference-entry {
-  height: fit-content;
-  padding-block: 4px;
-}
-.reference-entry .entry__content {
+.reference__entry {
+  display: flex;
   flex-direction: column;
-  align-items: start;
-  gap: 0;
+  padding: 6px;
+  border-radius: var(--radius-md);
+
+  transition: background 120ms ease;
 }
-.reference-entry__path {
-  /* A column item with `align-items: start` is sized to its full nowrap text, so `.truncate` only
-     engages once the item is capped at the row's width. */
-  max-width: 100%;
-  font-size: var(--text-label-small);
-  color: var(--foreground-tertiary);
+.reference__main {
+  display: flex;
+  align-items: flex-start;
 }
+.reference__main .app-icon,
+.reference__main .checkbox {
+  flex-shrink: 0;
+  height: var(--lh-body);
+  width: 20px;
+  margin-top: 0;
+}
+
 .reference-entry__body {
-  font-size: var(--text-body-small);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
   color: var(--foreground-primary);
+  padding-left: var(--space-4);
+}
+.reference__divider {
+  height: 1px;
+  width: 100%;
+  background-color: var(--border-default);
+}
+
+/* interactions */
+.reference__entry:hover {
+  background: var(--state-hover);
 }

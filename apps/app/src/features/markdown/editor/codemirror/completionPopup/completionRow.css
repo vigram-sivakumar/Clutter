@@ -127,7 +127,7 @@
   overflow: hidden;
   pointer-events: none;
   /* Visible only while a thumbnail is still loading (or has none). */
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 .completion-row__thumbnail--icon {
   display: inline-flex;

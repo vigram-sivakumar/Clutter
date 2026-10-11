@@ -30,7 +30,7 @@
   transition: background-color 120ms ease;
 }
 .collection-media--interactive:hover {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 .collection-media--interactive:focus-visible {
   outline: none;

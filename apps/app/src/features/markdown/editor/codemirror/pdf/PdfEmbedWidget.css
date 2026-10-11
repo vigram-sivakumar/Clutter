@@ -180,11 +180,11 @@
 }
 
 .cm-pdf-control:hover {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 
 .cm-pdf-control--active {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 
 .cm-pdf-control--disabled {

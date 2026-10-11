@@ -5,8 +5,8 @@
   cursor: pointer;
 }
 .wiki__title {
-  color: var(--foreground-primary);
-  font-size: var(--text-label-small);
+  color: var(--foreground-secondary);
+  font-size: var(--text-label);
   text-decoration: underline;
   text-underline-offset: var(--md-underline-offset);
   text-decoration-color: var(--md-wiki-underline);

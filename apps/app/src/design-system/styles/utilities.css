@@ -21,11 +21,11 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.line-clamp-2 {
+.line-clamp-3 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
   /* Resets the `nowrap` a parent may set and children inherit (Entry's `.entry__content` does): a clamp
      needs wrapped lines to count. */

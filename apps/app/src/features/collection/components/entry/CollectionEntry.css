@@ -136,7 +136,7 @@
 /* Hover belongs to the list layout; a cell sits inside a table row, which owns its hover. */
 .collection-entry--layout-list:hover,
 .collection-entry--folder-card-new:hover {
-  background: var(--state-hover-medium);
+  background: var(--state-hover);
 }
 .collection-entry--folder-card:hover {
   background: color-mix(
