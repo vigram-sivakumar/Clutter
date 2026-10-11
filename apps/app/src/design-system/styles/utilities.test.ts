@@ -18,3 +18,18 @@ describe('utilities.css — .truncate', () => {
     expect(rule).not.toMatch(/line-clamp|display|-webkit-box|white-space\s*:\s*normal/);
   });
 });
+
+describe('utilities.css — .line-clamp-2', () => {
+  const css = readFileSync(join(__dirname, 'utilities.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = css.match(/\.line-clamp-2\s*\{([^}]*)\}/)?.[1] ?? '';
+
+  it('clamps to two lines', () => {
+    expect(rule).toMatch(/-webkit-line-clamp\s*:\s*2\s*;/);
+    expect(rule).toMatch(/line-clamp\s*:\s*2\s*;/);
+    expect(rule).toMatch(/overflow\s*:\s*hidden\s*;/);
+  });
+
+  it('wraps: resets an inherited nowrap, since a clamp has nothing to count on a single line', () => {
+    expect(rule).toMatch(/white-space\s*:\s*normal\s*;/);
+  });
+});

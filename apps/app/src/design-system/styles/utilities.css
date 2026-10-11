@@ -27,5 +27,8 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
+  /* Resets the `nowrap` a parent may set and children inherit (Entry's `.entry__content` does): a clamp
+     needs wrapped lines to count. */
+  white-space: normal;
   overflow-wrap: anywhere;
 }
