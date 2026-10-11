@@ -125,15 +125,10 @@ describe('PageReferences', () => {
 
     expect(document.querySelectorAll('.reference__divider')).toHaveLength(1);
     expect(entries(0).map((row) => row.textContent)).toEqual([expect.stringContaining('Follow up')]);
-    // Notes first (A–Z when equally recent; Planner is here too, through its task line), then the daily
-    // note. Each entry is the source's title over the referencing line.
-    expect(entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)).toEqual([
-      'Alpha',
-      'Planner',
-      expect.any(String),
-    ]);
+    // Notes first, then the daily note. Planner is not listed again — its only reference is the task above.
+    expect(entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)).toEqual(['Alpha', expect.any(String)]);
     expect(entries(1)[0]!.textContent).toContain('see Target');
-    expect(entries(1)[2]!.textContent).toContain('Today:');
+    expect(entries(1)[1]!.textContent).toContain('Today:');
   });
 
   it("a task entry shows its source note's title above the task text", () => {

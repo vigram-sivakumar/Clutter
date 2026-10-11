@@ -87,7 +87,8 @@ describe('getPageReferences', () => {
     const references = getPageReferences(vault, 'target');
 
     expect(references.tasks.map(({ task }) => task.text)).toEqual(['Follow up [[Projects/Target]]']);
-    expect(ids(references.notes).sort()).toEqual(['note', 'task-note']);
+    // The task-only note is represented by its task entry, not listed a second time.
+    expect(ids(references.notes)).toEqual(['note']);
     expect(ids(references.dailyNotes)).toEqual(['d-2026-10-10']);
   });
 
@@ -112,12 +113,12 @@ describe('getPageReferences', () => {
     expect(getPageReferences(vault, 'target').tasks.map(({ page: source }) => source.id)).toEqual(['t']);
   });
 
-  it('gives a note the first referencing line as its excerpt, without the list marker', () => {
+  it('gives a note the first referencing line as its excerpt, without the list or heading marker', () => {
     const vault = makeVault([
       TARGET,
       page('a', 'A.md', 'Intro line\nWe decided on [[Projects/Target]] today.\nlater [[Projects/Target]]'),
-      page('b', 'B.md', '- [ ] Call about [[Projects/Target]]'),
       page('c', 'C.md', '## Heading with ![[Projects/Target]]'),
+      page('q', 'Q.md', '> Quoted [[Projects/Target]]'),
     ]);
     const excerpts = Object.fromEntries(
       getPageReferences(vault, 'target').notes.map(({ page: source, excerpt }) => [source.id, excerpt])
@@ -125,9 +126,46 @@ describe('getPageReferences', () => {
 
     expect(excerpts).toEqual({
       a: 'We decided on [[Projects/Target]] today.',
-      b: 'Call about [[Projects/Target]]',
       c: 'Heading with ![[Projects/Target]]',
+      q: 'Quoted [[Projects/Target]]',
     });
+  });
+
+  it('does not list a note again when every reference in it is on a task line', () => {
+    const vault = makeVault([
+      TARGET,
+      page('only-tasks', 'OnlyTasks.md', '- [ ] one [[Projects/Target]]\n- [x] two ![[Projects/Target]]'),
+      page('daily-only-tasks', 'Daily Notes/2026-10-10.md', '- [ ] today [[Projects/Target]]', { type: 'daily-note' }),
+    ]);
+    const references = getPageReferences(vault, 'target');
+
+    expect(references.tasks).toHaveLength(3);
+    expect(references.notes).toEqual([]);
+    expect(references.dailyNotes).toEqual([]);
+  });
+
+  it('lists a note that references the page both on a task line and elsewhere — from the non-task reference only', () => {
+    const markdown = '- [ ] task line [[Projects/Target]]\nPlain mention of [[Projects/Target]] here';
+    const vault = makeVault([TARGET, page('mixed', 'Mixed.md', markdown)]);
+    const references = getPageReferences(vault, 'target');
+    const [note] = references.notes;
+
+    expect(references.tasks).toHaveLength(1);
+    expect(ids(references.notes)).toEqual(['mixed']);
+    expect(note!.excerpt).toBe('Plain mention of [[Projects/Target]] here');
+    // Its reveal covers the plain mention only; the task line is revealed by the task entry.
+    expect(note!.ranges.map((range) => markdown.slice(range.from, range.to))).toEqual(['[[Projects/Target]]']);
+    expect(note!.ranges[0]!.from).toBeGreaterThan(markdown.indexOf('\n'));
+  });
+
+  it('does the same for a daily note: a plain mention is listed, a task-only mention is not', () => {
+    const vault = makeVault([
+      TARGET,
+      page('plain', 'Daily Notes/2026-10-11.md', 'Met about [[Projects/Target]]', { type: 'daily-note' }),
+      page('tasks', 'Daily Notes/2026-10-10.md', '- [ ] [[Projects/Target]]', { type: 'daily-note' }),
+    ]);
+
+    expect(ids(getPageReferences(vault, 'target').dailyNotes)).toEqual(['plain']);
   });
 
   const modified = (updatedAt: string | null): Partial<Page> => ({ metadata: { ...pageMeta, updatedAt } });

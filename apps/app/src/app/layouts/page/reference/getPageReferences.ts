@@ -30,9 +30,12 @@ export interface PageReferences {
    * the most recently modified source note.
    */
   readonly tasks: readonly TaskReference[];
-  /** Notes that reference the open page, most recently modified first, then A–Z by display title. */
+  /**
+   * Notes that reference the open page from outside a task line (a note whose only references are tasks is
+   * represented by those task entries, not listed again), most recently modified first, then A–Z by title.
+   */
   readonly notes: readonly PageReference[];
-  /** Daily notes that reference the open page, newest first. */
+  /** Daily notes that reference the open page from outside a task line, newest first. */
   readonly dailyNotes: readonly PageReference[];
 }
 
@@ -85,16 +88,27 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
       continue;
     }
 
-    const ranges = toRanges(sourceEdges);
-    const reference: PageReference = { page: source, ranges, excerpt: toExcerpt(source.source.markdown, ranges) };
-
-    (source.type === 'daily-note' ? dailyNotes : notes).push(reference);
-
     // A task references the page when a link or embed to it sits inside the task's own line.
-    for (const task of source.analysis.tasks) {
-      if (ranges.some((range) => isWithin(range, task))) {
-        tasks.push({ task, page: source });
-      }
+    const referencingTasks = source.analysis.tasks.filter((task) =>
+      sourceEdges.some((edge) => isEdgeWithin(edge, task))
+    );
+
+    for (const task of referencingTasks) {
+      tasks.push({ task, page: source });
+    }
+
+    // The source is also listed as a note only for references that are not on a task line — those are already
+    // the task entries, and nothing is listed twice. Its excerpt and its reveal come from those references.
+    const noteEdges = sourceEdges.filter((edge) => !referencingTasks.some((task) => isEdgeWithin(edge, task)));
+
+    if (noteEdges.length > 0) {
+      const ranges = toRanges(noteEdges);
+
+      (source.type === 'daily-note' ? dailyNotes : notes).push({
+        page: source,
+        ranges,
+        excerpt: toExcerpt(source.source.markdown, ranges),
+      });
     }
   }
 
@@ -138,12 +152,14 @@ function toRanges(edges: readonly GraphEdge[]): readonly SourceRange[] {
   return [...ranges.values()].sort((a, b) => a.from - b.from);
 }
 
-function isWithin(range: SourceRange, task: TaskOccurrence): boolean {
+function isEdgeWithin(edge: GraphEdge, task: TaskOccurrence): boolean {
   return (
+    edge.startOffset !== undefined &&
+    edge.endOffset !== undefined &&
     task.startOffset !== undefined &&
     task.endOffset !== undefined &&
-    range.from >= task.startOffset &&
-    range.to <= task.endOffset
+    edge.startOffset >= task.startOffset &&
+    edge.endOffset <= task.endOffset
   );
 }
 
