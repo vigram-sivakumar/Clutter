@@ -122,15 +122,13 @@ async function show(application: Application, open: () => Promise<unknown>): Pro
   await flush();
 }
 
-const section = () => document.querySelector<HTMLElement>('.references-section');
-const headings = () => [...document.querySelectorAll('.references-section__heading')].map((h) => h.textContent);
+const section = () => document.querySelector<HTMLElement>('.references');
 
 /** The checks that hold wherever the section renders. */
 function expectPlacedAfterTheEditor() {
   const references = section();
   expect(references).not.toBeNull();
-  expect(document.querySelectorAll('.references-section')).toHaveLength(1);
-  expect(headings()).toEqual(['Tasks', 'Notes and Daily Notes']);
+  expect(document.querySelectorAll('.references')).toHaveLength(1);
 
   // Inside the page body, in the editor's own column, and not inside CodeMirror.
   const body = document.querySelector('.page__body')!;
@@ -169,11 +167,12 @@ describe('PageHost: the References section', () => {
     expectPlacedAfterTheEditor();
   });
 
-  it('shows no reference items: the groups hold only their headings', async () => {
+  it('shows the existing collapsed, empty References summary', async () => {
     const application = makeApplication([note('Some text')]);
     await show(application, () => application.pageOperations.open('note-1'));
 
-    expect(section()!.textContent).toBe('TasksNotes and Daily Notes');
+    expect(section()!.textContent).toBe('References000');
+    expect(section()!.querySelector('button')!.hasAttribute('disabled')).toBe(true);
   });
 
   it('is not rendered by the collection pages', async () => {
