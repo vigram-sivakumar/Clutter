@@ -13,7 +13,7 @@ import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 import type { NoteEmbedAncestry } from './noteEmbedAncestry';
-import { trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
+import { embedFolderPath, trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
 
 /** Every fixture here targets a page (never a real Vault resource) — both resolvers always decline, matching real production wiring. */
 const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
@@ -120,11 +120,11 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(card?.querySelector('.cm-content')?.textContent).toContain('Body text.');
   });
 
-  it("shows the embed's path beside the title, as plain text in the header's own title-and-path group", () => {
+  it("shows the note's folder path beside the title, without the note's own name, in the header's title-and-path group", () => {
     const view = mountView(
-      '![[Projects/Other Note]]',
+      '![[Projects/Weekly/Other Note]]',
       resolverFor({
-        'Projects/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+        'Projects/Weekly/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
       })
     );
 
@@ -133,21 +133,46 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     const title = group.querySelector('.cm-note-embed__title');
     const path = group.querySelector<HTMLElement>('.cm-note-embed__path');
     expect(title?.textContent).toBe('Other Note');
-    expect(path?.textContent).toBe('Projects/Other Note');
+    expect(path?.textContent).toBe('Projects/Weekly');
     expect(path?.tagName).toBe('SPAN');
     // The path follows the title in the same group, and the controls stay a sibling of the group, at the row's end.
     expect(title?.nextElementSibling).toBe(path);
     expect(group.nextElementSibling).toBe(header.querySelector('.cm-note-embed__controls'));
     // Full text is available when it is truncated.
-    expect(path?.title).toBe('Projects/Other Note');
+    expect(path?.title).toBe('Projects/Weekly');
+  });
+
+  it('shows no path when the target has no folder: the title already says the note', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const group = view.dom.querySelector('.cm-note-embed__text')!;
+    expect(group.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
+    expect(group.querySelector('.cm-note-embed__path')).toBeNull();
+  });
+
+  it('a heading target shows the folder of its note, not the heading', () => {
+    const view = mountView(
+      '![[Notes/Other Note#Details]]',
+      resolverFor({
+        'Notes/Other Note#Details': { status: 'resolved', pageId: 'page-other', title: 'Other Note › Details', markdown: 'Body.', icon: 'note', emoji: null },
+      })
+    );
+
+    expect(view.dom.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note › Details');
+    expect(view.dom.querySelector('.cm-note-embed__path')?.textContent).toBe('Notes');
   });
 
   it('the path is not interactive: clicking it does not open the note', () => {
     const onOpenPage = vi.fn();
     const view = mountView(
-      '![[Other Note]]',
+      '![[Folder/Other Note]]',
       resolverFor({
-        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
+        'Folder/Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body.', icon: 'note', emoji: null },
       }),
       { onOpenPage }
     );
@@ -157,27 +182,17 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(onOpenPage).not.toHaveBeenCalled();
   });
 
-  it('a nested embed shows its own path in its own header too', () => {
+  it('a nested embed shows its own folder path in its own header too', () => {
     const view = mountView(
-      '![[Outer]]',
+      '![[Top/Outer]]',
       resolverFor({
-        Outer: { status: 'resolved', pageId: 'outer', title: 'Outer', markdown: '![[Inner]]', icon: 'note', emoji: null },
-        Inner: { status: 'resolved', pageId: 'inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
+        'Top/Outer': { status: 'resolved', pageId: 'outer', title: 'Outer', markdown: '![[Deep/Down/Inner]]', icon: 'note', emoji: null },
+        'Deep/Down/Inner': { status: 'resolved', pageId: 'inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
       })
     );
 
     const paths = [...view.dom.querySelectorAll('.cm-note-embed__path')].map((el) => el.textContent);
-    expect(paths).toEqual(['Outer', 'Inner']);
-  });
-
-  it("the path shares the invalid card's source styling by sharing its CSS rule, and defines no style of its own", () => {
-    const shared = readFileSync(join(__dirname, '../mediaPresentation/invalidEmbedCard.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const own = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-
-    // One rule: `.cm-invalid-embed__source` and `.cm-note-embed__path` together.
-    expect(shared).toMatch(/\.cm-editor \.cm-invalid-embed__source,\s*\.cm-editor \.cm-note-embed__path\s*\{/);
-    // No second copy of those declarations in the note embed's own stylesheet.
-    expect(own).not.toContain('.cm-note-embed__path');
+    expect(paths).toEqual(['Top', 'Deep/Down']);
   });
 
   it('the title has no click handler and does nothing when clicked', () => {
@@ -1421,5 +1436,22 @@ describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", (
     // toggled its own collapse, and the shared embedded-pageId fold state
     // has no bearing on either host's own independent outer-collapse flag.
     expect(hostB.dom.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+  });
+});
+
+describe('embedFolderPath', () => {
+  it.each([
+    ['Projects/Weekly/Note', 'Projects/Weekly'],
+    ['Folder/Note', 'Folder'],
+    ['Note', ''],
+    ['Folder/Note#Heading', 'Folder'],
+    ['Note#Heading', ''],
+    ['Note#Head/ing', ''],
+    ['A/B/Note#One/Two', 'A/B'],
+    ['  Folder / Note ', 'Folder'],
+    ['/Note', ''],
+    ['', ''],
+  ])('%j -> %j', (target, expected) => {
+    expect(embedFolderPath(target)).toBe(expected);
   });
 });

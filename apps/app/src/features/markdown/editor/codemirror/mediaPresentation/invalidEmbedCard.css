@@ -192,22 +192,24 @@
    `min-width: auto` would otherwise stop this wrapper (and therefore its
    children) from shrinking below their content's natural width inside
    the outer flex row. */
-.cm-editor .cm-invalid-embed__text {
+/* Shared with the resolved note embed's header (`NoteEmbedWidget.ts`): its title and path are laid out and
+   styled by these same rules, so the two states look identical by construction. */
+.cm-editor .cm-invalid-embed__text,
+.cm-editor .cm-note-embed__text {
   display: flex;
   align-items: baseline;
   min-width: 0;
   gap: var(--space-6);
 }
 
-.cm-editor .cm-invalid-embed__title {
+.cm-editor .cm-invalid-embed__title,
+.cm-editor .cm-note-embed__title {
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
   color: var(--foreground-primary);
   white-space: nowrap;
 }
 
-/* Shared with the resolved note embed's header (`NoteEmbedWidget.ts`): its path sits beside the title in this
-   same secondary-text style, so the two states read alike. */
 .cm-editor .cm-invalid-embed__source,
 .cm-editor .cm-note-embed__path {
   font-size: var(--text-label);

@@ -76,6 +76,18 @@ export function trimEmptyEdgeLines(markdown: string): string {
 }
 
 /**
+ * The folder part of an embed's target as written (`![[Folder/Sub/Note#Heading]]` -> `Folder/Sub`): the note's
+ * own name and any `#Heading` are dropped, because the header's title already says them. Empty when the target
+ * has no folder (`![[Note]]`, or an alias), in which case the header shows no path at all.
+ */
+export function embedFolderPath(target: string): string {
+  const withoutHeading = target.split('#')[0] ?? '';
+  const lastSlash = withoutHeading.lastIndexOf('/');
+
+  return lastSlash < 0 ? '' : withoutHeading.slice(0, lastSlash).trim();
+}
+
+/**
  * Invoked with the embed's own `Embed` node position when the "More
  * actions" control is activated — the app layer (`MarkdownEditor.tsx`)
  * opens `NoteEmbedMoreActions.tsx`, anchored to the given button. Same
@@ -436,17 +448,23 @@ export class NoteEmbedWidget extends WidgetType {
     titleSpan.textContent = resolution.title;
     titleSpan.title = resolution.title;
 
-    // The embed's target as written (`![[Folder/Note]]` -> `Folder/Note`), beside the title in the invalid
-    // card's own secondary-text styling (`.cm-invalid-embed__source`, shared in `invalidEmbedCard.css`).
-    const pathSpan = document.createElement('span');
-    pathSpan.classList.add('cm-note-embed__path');
-    pathSpan.textContent = this.path;
-    pathSpan.title = this.path;
+    // Where the note lives: the folder part of the embed's target as written, beside the title in the invalid
+    // card's own secondary-text styling (`.cm-invalid-embed__source`, shared in `invalidEmbedCard.css`). The
+    // note's own name is left out — the title already shows it — and a target with no folder shows no path.
+    const folderPath = embedFolderPath(this.path);
 
     // Title and path as one unit, like `.cm-invalid-embed__text`, so the controls stay at the row's end.
     const text = document.createElement('div');
     text.classList.add('cm-note-embed__text');
-    text.append(titleSpan, pathSpan);
+    text.append(titleSpan);
+
+    if (folderPath !== '') {
+      const pathSpan = document.createElement('span');
+      pathSpan.classList.add('cm-note-embed__path');
+      pathSpan.textContent = folderPath;
+      pathSpan.title = folderPath;
+      text.append(pathSpan);
+    }
 
     const controls = document.createElement('div');
     controls.classList.add('cm-note-embed__controls');
