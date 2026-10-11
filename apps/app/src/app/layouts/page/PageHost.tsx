@@ -2396,6 +2396,7 @@ export function PageHost({
           existing: { tags: draft.tags },
         })}
         body={
+          <>
           <MarkdownBody>
             <MarkdownEditor
               key={activePageId}
@@ -2451,8 +2452,9 @@ export function PageHost({
                 'assets'
               )}
             />
-            <References isExpanded={false} onExpandToggle={() => {}} />
           </MarkdownBody>
+          <References isExpanded={false} onExpandToggle={() => {}} />
+          </>
         }
       />
     );
@@ -2668,6 +2670,7 @@ export function PageHost({
         existing: page.metadata,
       })}
       body={
+        <>
         <MarkdownBody>
           <MarkdownEditor
             // Keyed by the page only: archiving or restoring an open page re-configures this editor in
@@ -2735,8 +2738,9 @@ export function PageHost({
                 : createFolderInZone(application.folderOperations, application.membershipSelector, 'assets')
             }
           />
-          <References isExpanded={false} onExpandToggle={() => {}} />
         </MarkdownBody>
+        <References isExpanded={false} onExpandToggle={() => {}} />
+        </>
       }
     />
     <Dialog

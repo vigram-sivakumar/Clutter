@@ -130,29 +130,29 @@ function expectPlacedAfterTheEditor() {
   expect(references).not.toBeNull();
   expect(document.querySelectorAll('.references')).toHaveLength(1);
 
-  // Inside the page body, in the editor's own column, and not inside CodeMirror.
+  // A direct child of .page__body, beside .page-content.markdown__editor: not inside the Markdown
+  // content, and not inside CodeMirror.
   const body = document.querySelector('.page__body')!;
-  const column = references!.parentElement!;
-  expect(body.contains(references)).toBe(true);
-  expect(column.classList.contains('page-content')).toBe(true);
-  expect(column.classList.contains('markdown__editor')).toBe(true);
+  const content = document.querySelector('.page-content.markdown__editor')!;
+  expect(references!.parentElement).toBe(body);
+  expect(content.parentElement).toBe(body);
+  expect(content.contains(references)).toBe(false);
   expect(references!.closest('.cm-editor')).toBeNull();
   expect(document.querySelector('.cm-editor')!.contains(references)).toBe(false);
 
-  // Right after the editor: its next sibling is the section, and the editor's root is the previous one.
-  const editorRoot = document.querySelector('.cm-editor')!.closest('.page-content > *')!;
-  expect(editorRoot.nextElementSibling).toBe(references);
+  // Rendered right after the Markdown content column.
+  expect(content.nextElementSibling).toBe(references);
 }
 
 describe('PageHost: the References section', () => {
-  it('renders for a regular note, after the editor', async () => {
+  it('renders for a regular note, beside the Markdown content', async () => {
     const application = makeApplication([note('Some text')]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     expectPlacedAfterTheEditor();
   });
 
-  it('renders for a daily note, after the editor', async () => {
+  it('renders for a daily note, beside the Markdown content', async () => {
     const page = dailyNote('2026-01-15', 'Daily text');
     const application = makeApplication([page]);
     await show(application, () => application.pageOperations.open(page.id));
@@ -160,7 +160,7 @@ describe('PageHost: the References section', () => {
     expectPlacedAfterTheEditor();
   });
 
-  it('renders for an unsaved draft note, after the editor', async () => {
+  it('renders for an unsaved draft note, beside the Markdown content', async () => {
     const application = makeApplication([]);
     await show(application, () => application.pageOperations.openDraft({ folderId: null }));
 
