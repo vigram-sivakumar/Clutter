@@ -5,7 +5,6 @@ import { findFirstHeadingOccurrence } from '@core/vault/ingest/extractors/headin
 
 export class PageIndex {
   private readonly pagesByPath = new Map<string, Page>();
-  private readonly pagesByFileName = new Map<string, Page[]>();
   private readonly pagesByAlias = new Map<string, Page[]>();
   private readonly pages: readonly Page[];
 
@@ -18,14 +17,6 @@ export class PageIndex {
 
     for (const page of this.pages) {
       this.pagesByPath.set(page.path, page);
-
-      const pagesWithName = this.pagesByFileName.get(page.name);
-
-      if (pagesWithName) {
-        pagesWithName.push(page);
-      } else {
-        this.pagesByFileName.set(page.name, [page]);
-      }
 
       for (const alias of page.analysis.aliases) {
         const pagesWithAlias = this.pagesByAlias.get(alias.value);
@@ -52,10 +43,6 @@ export class PageIndex {
     return this.root === undefined
       ? undefined
       : this.pagesByPath.get(`${this.root}/${target}.md`);
-  }
-
-  findByFileName(name: string): readonly Page[] {
-    return this.pagesByFileName.get(name) ?? [];
   }
 
   findByAlias(alias: string): readonly Page[] {

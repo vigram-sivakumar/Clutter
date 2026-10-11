@@ -123,7 +123,7 @@ import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
-import { References } from '@app/layouts/page/reference/Reference';
+import { PageReferences } from '@app/layouts/page/reference/PageReferences';
 import { ArchivedBanner } from './ArchivedBanner';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
@@ -2753,7 +2753,6 @@ export function PageHost({
                 )}
               />
             </MarkdownBody>
-            <References isExpanded={true} onExpandToggle={() => {}} />
           </>
         }
       />
@@ -3108,7 +3107,17 @@ export function PageHost({
                 }
               />
             </MarkdownBody>
-            <References isExpanded={true} onExpandToggle={() => {}} />
+            <PageReferences
+              key={page.id}
+              pageId={page.id}
+              vault={vault}
+              pageOperations={application.pageOperations}
+              taskOperations={application.taskOperations}
+              onRequestReveal={onRequestReveal}
+              resolveWikiLink={resolveWikiLink}
+              resolveTag={resolveTag}
+              resolveEmbed={resolvePageEmbed}
+            />
           </>
         }
       />

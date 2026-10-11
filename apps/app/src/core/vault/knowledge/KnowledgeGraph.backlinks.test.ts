@@ -65,17 +65,17 @@ describe('KnowledgeGraph backlinks', () => {
     expect(source.source.markdown.slice(edge!.startOffset, edge!.endOffset)).toBe('[[Projects/Alpha]]');
   });
 
-  it('still resolves a bare file name when exactly one page has it', () => {
+  it('does not resolve a bare file name for a page in a folder — the editor shows that link as unresolved too', () => {
     const graph = buildGraph([page('t', 'Projects/Alpha.md'), page('s', 'Source.md', '[[Alpha]]')]);
 
-    expect(graph.incomingEdges('t')).toHaveLength(1);
+    expect(graph.incomingEdges('t')).toEqual([]);
   });
 
-  it('does not resolve a bare file name shared by two pages', () => {
+  it('does not resolve an alias shared by two pages', () => {
     const graph = buildGraph([
-      page('a', 'One/Alpha.md'),
-      page('b', 'Two/Alpha.md'),
-      page('s', 'Source.md', '[[Alpha]]'),
+      page('a', 'One.md', '', ['Shared']),
+      page('b', 'Two.md', '', ['Shared']),
+      page('s', 'Source.md', '[[Shared]]'),
     ]);
 
     expect(graph.incomingEdges('a')).toEqual([]);
@@ -112,6 +112,7 @@ describe('KnowledgeGraph backlinks', () => {
   it('builds its index once: repeated lookups return the same array', () => {
     const graph = buildGraph([page('t', 'Alpha.md'), page('s', 'Source.md', '[[Alpha]]')]);
 
+    expect(graph.incomingEdges('t')).toHaveLength(1);
     expect(graph.incomingEdges('t')).toBe(graph.incomingEdges('t'));
   });
 });

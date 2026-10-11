@@ -23,6 +23,10 @@ export class LinkResolver {
   ): readonly ResolvedLink[] {
     // TODO(v2): Extend resolution to support relative paths and additional
     // Markdown link formats.
+    //
+    // Resolution deliberately mirrors the editor's (`createWikiLinkResolver`):
+    // vault-relative path, then alias. The graph must not report a relationship the
+    // editor shows as an unresolved link.
 
     return Array.from(links, (link) => {
       // The link's own provenance, repeated on every outcome below.
@@ -43,18 +47,11 @@ export class LinkResolver {
         return this.resolveResolvedPage(link, base, pageByPath.id, pageIndex);
       }
 
-      const pagesByFileName = pageIndex.findByFileName(link.target);
-      const resolvedPage = pagesByFileName[0];
-
-      if (resolvedPage && pagesByFileName.length === 1) {
-        return this.resolveResolvedPage(link, base, resolvedPage.id, pageIndex);
-      }
-
-      // Frontmatter aliases are the last resort, only when no page is named
-      // like the target — the same fallback the editor applies after a
-      // literal path match fails.
-      const candidates =
-        pagesByFileName.length === 0 ? pageIndex.findByAlias(link.target) : pagesByFileName;
+      // Frontmatter aliases are tried only after the path lookup fails — the same order
+      // `createWikiLinkResolver` applies when the editor resolves a link, so a link means the
+      // same page here as it does on click. A bare file name is not a path: `[[Alpha]]` for a
+      // page in a folder is unresolved in the editor, and so it is here.
+      const candidates = pageIndex.findByAlias(link.target);
       const aliased = candidates[0];
 
       if (aliased && candidates.length === 1) {
