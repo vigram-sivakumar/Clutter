@@ -66,3 +66,6 @@
 .reference__entry:hover {
   background: var(--state-hover);
 }
+.wiki__emoji {
+  font-size: var(--text-body);
+}

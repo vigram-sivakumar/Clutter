@@ -85,18 +85,39 @@ export function ReferenceEntry({
     }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
       event.preventDefault();
       onOpen();
     }
   };
 
   return (
-    <div className="reference__entry" role="button" tabIndex={0} onClick={onClick} onKeyDown={onKeyDown}>
-      <Wiki icon={icon} emoji={emoji} title={title} />
+    <div
+      className="reference__entry"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+    >
+      <Wiki
+        className="wiki__emoji"
+        icon={icon}
+        iconSize={13}
+        emoji={emoji}
+        title={title}
+      />
       <div className="reference__main">
-        {onCheckedChange && <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />}
-        <span className={`reference-entry__body line-clamp-3${isChecked ? ' is-completed' : ''}`}>{children}</span>
+        {onCheckedChange && (
+          <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
+        )}
+        <span
+          className={`reference-entry__body line-clamp-3${isChecked ? ' is-completed' : ''}`}
+        >
+          {children}
+        </span>
       </div>
     </div>
   );
