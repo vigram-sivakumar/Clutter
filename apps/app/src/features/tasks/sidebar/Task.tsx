@@ -128,7 +128,7 @@ export function Task({
           />
         }
       >
-        <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
+        <span className={`task-title truncate ${isChecked ? 'is-completed' : ''}`}>
           {renderCompactMarkdown(title ?? '', {
             resolveWikiLink,
             resolveTag,

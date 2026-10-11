@@ -350,3 +350,11 @@ describe('Task — Change due date action', () => {
     expect(screen.getByRole('button', { name: 'Clear date' })).toBeDisabled();
   });
 });
+
+describe('Task — title truncation', () => {
+  it('marks the title .truncate, explicitly rather than via Entry.css', () => {
+    render(<Task title="Plain title" isChecked={false} />);
+
+    expect(screen.getByText('Plain title').closest('.task-title')).toHaveClass('truncate');
+  });
+});

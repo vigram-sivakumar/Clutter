@@ -70,3 +70,11 @@ describe('DailyNote — compact Markdown title rendering', () => {
     expect(onClick).toHaveBeenCalled();
   });
 });
+
+describe('DailyNote — title truncation', () => {
+  it('marks the title .truncate, explicitly rather than via Entry.css', () => {
+    render(<DailyNote title="Plain title" />);
+
+    expect(screen.getByText('Plain title').closest('.daily-note__title')).toHaveClass('truncate');
+  });
+});

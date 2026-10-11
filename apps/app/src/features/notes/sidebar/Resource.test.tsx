@@ -310,3 +310,11 @@ describe('Resource — click behavior', () => {
     expect(container.querySelector('.entry-interactive')).toBeNull();
   });
 });
+
+describe('Resource — title truncation', () => {
+  it('marks the static title .truncate, explicitly rather than via Entry.css', () => {
+    render(<Resource resource={makeResource({ name: 'floorplan.png' })} />);
+
+    expect(screen.getByText('floorplan').closest('.resource__title')).toHaveClass('truncate');
+  });
+});

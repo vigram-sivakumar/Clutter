@@ -48,6 +48,7 @@ describe('PickerList', () => {
     const secondary = screen.getByText('Home');
 
     expect(title.className).toContain('picker-list__title');
+    expect(title.classList.contains('truncate')).toBe(true);
     expect(secondary.className).toContain('picker-list__secondary');
     expect(secondary.closest('.entry__trailing')).not.toBeNull();
     expect(secondary.closest('.entry__content')).toBeNull();
@@ -183,6 +184,7 @@ describe('PickerList', () => {
       const row = document.querySelector('[role="menuitem"]');
       expect(row?.querySelector('.picker-list__title')?.textContent).toBe('Bank Statement');
       expect(row?.querySelector('.picker-list__path')?.textContent).toBe('Project / Finance');
+      expect(row?.querySelector('.picker-list__path')?.classList.contains('truncate')).toBe(true);
     });
 
     it('the path is plain text — no icons inside it', () => {

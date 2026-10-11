@@ -127,6 +127,7 @@ describe('Tag — non-editing title truncation', () => {
 
     const title = screen.getByText('project');
     expect(title.tagName).toBe('SPAN');
+    expect(title).toHaveClass('truncate');
   });
 });
 

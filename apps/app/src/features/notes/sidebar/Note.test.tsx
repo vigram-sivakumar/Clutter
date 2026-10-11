@@ -217,3 +217,11 @@ describe('Note — compact Markdown title rendering', () => {
     expect(screen.getByRole('textbox')).toHaveTextContent('**Ship it**');
   });
 });
+
+describe('Note — title truncation', () => {
+  it('marks the title .truncate, explicitly rather than via Entry.css', () => {
+    render(<NoteHarness onMenuSelect={vi.fn()} />);
+
+    expect(screen.getByText('My Note').closest('.note__title')).toHaveClass('truncate');
+  });
+});

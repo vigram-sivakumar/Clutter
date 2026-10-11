@@ -135,7 +135,7 @@ export function Tag({
             onEditingEnd={onTitleEditingEnd}
           />
         ) : (
-          <span className="tag__title">{title}</span>
+          <span className="tag__title truncate">{title}</span>
         )}
       </Entry>
       {onChangeIcon !== undefined && (

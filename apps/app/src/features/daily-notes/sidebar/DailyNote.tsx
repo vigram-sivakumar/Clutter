@@ -71,8 +71,8 @@ export function DailyNote({
       <span
         className={
           titleStyle === 'placeholder'
-            ? 'daily-note__title daily-note__title--placeholder'
-            : 'daily-note__title'
+            ? 'daily-note__title daily-note__title--placeholder truncate'
+            : 'daily-note__title truncate'
         }
       >
         {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}

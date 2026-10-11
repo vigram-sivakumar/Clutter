@@ -49,7 +49,7 @@ export function TagContextEntry({
       {...entryProps}
       leading={<AppIcon className="tag-context-entry__icon" icon={TAG_CONTEXT_ICON} />}
     >
-      <span className="tag-context-entry__text">
+      <span className="tag-context-entry__text truncate">
         {renderCompactMarkdown(lineText, { resolveWikiLink, resolveTag, resolveEmbed })}
       </span>
     </Entry>

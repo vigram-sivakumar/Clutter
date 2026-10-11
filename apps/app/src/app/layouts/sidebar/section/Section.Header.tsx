@@ -45,7 +45,7 @@ export function Header({
       <div
         className={`section-header__content${isTitleToggle ? ' section-header__content-toggle' : ''}`}
       >
-        <span className="section-header__title">{title}</span>
+        <span className="section-header__title truncate">{title}</span>
 
         {isCollapsible && (
           <Caret

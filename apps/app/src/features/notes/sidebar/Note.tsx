@@ -163,8 +163,8 @@ export function Note({
           <span
             className={
               titleStyle === 'placeholder'
-                ? 'note__title note__title--placeholder'
-                : 'note__title'
+                ? 'note__title note__title--placeholder truncate'
+                : 'note__title truncate'
             }
           >
             {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag, resolveEmbed })}

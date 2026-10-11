@@ -126,7 +126,7 @@ export function AddPropertyRow({
             className="property-list__name"
             leading={<AppIcon className="property__icon" icon="info" />}
           >
-            <span className="property-list__placeholder">New property</span>
+            <span className="property-list__placeholder truncate">New property</span>
           </Entry>
           {/* The same value field an empty property's row has, inert and with no placeholder text. */}
           <Input

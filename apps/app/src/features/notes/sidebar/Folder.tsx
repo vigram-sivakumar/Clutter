@@ -181,8 +181,8 @@ export function Folder({
           <span
             className={
               titleStyle === 'placeholder'
-                ? 'folder__title folder__title--placeholder'
-                : 'folder__title'
+                ? 'folder__title folder__title--placeholder truncate'
+                : 'folder__title truncate'
             }
           >
             {title}

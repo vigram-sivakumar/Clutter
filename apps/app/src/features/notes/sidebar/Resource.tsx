@@ -149,7 +149,7 @@ export function Resource({
             onEditingEnd={onTitleEditingEnd}
           />
         ) : (
-          <span className="resource__title">{editingStem}</span>
+          <span className="resource__title truncate">{editingStem}</span>
         )}
       </Entry>
       {moveDestinations !== undefined && (

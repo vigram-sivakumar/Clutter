@@ -10,3 +10,14 @@
 .placeholder {
   color: var(--foreground-placeholder);
 }
+
+/* Single-line truncation: one line, overflow cut with an ellipsis. Put it on the text element itself, and
+   only where one line is the intent. It truncates only when the element is block-level (a flex/grid item or
+   display: block) and its container constrains its width, so it is not a substitute for a wrapper's own
+   `min-width: 0`. Multiline text (wrapping, a line clamp) deliberately does not use it. */
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

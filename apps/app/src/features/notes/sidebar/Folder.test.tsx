@@ -147,3 +147,11 @@ describe('Folder — sidebar Change icon wiring', () => {
     expect(onChangeIcon).toHaveBeenCalledWith(null);
   });
 });
+
+describe('Folder — title truncation', () => {
+  it('marks the title .truncate, explicitly rather than via Entry.css', () => {
+    render(<FolderHarness onMenuSelect={vi.fn()} />);
+
+    expect(document.querySelector('.folder__title')).toHaveClass('truncate');
+  });
+});

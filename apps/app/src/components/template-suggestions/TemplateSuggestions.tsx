@@ -133,7 +133,7 @@ export function TemplateSuggestions({
               onClick={() => onSelect(template)}
               leading={<AppIcon icon="template" emoji={template.emoji} />}
             >
-              <span>{template.values.name}</span>
+              <span className="truncate">{template.values.name}</span>
             </Entry>
           ))}
           {overflowCount > 0 && (

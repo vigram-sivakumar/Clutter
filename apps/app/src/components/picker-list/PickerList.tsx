@@ -359,10 +359,10 @@ export function PickerList({
             >
               <div className="picker-list__content">
                 <div className="picker-list__title-row">
-                  <span className="picker-list__title">{item.title}</span>
+                  <span className="picker-list__title truncate">{item.title}</span>
                 </div>
                 {!item.secondaryLabel && path && (
-                  <span className="picker-list__path">{path}</span>
+                  <span className="picker-list__path truncate">{path}</span>
                 )}
               </div>
             </Entry>
@@ -381,7 +381,7 @@ export function PickerList({
                   onMouseEnter={() => keyboard.setActiveId(`picker-list-toggle-${item.section}`)}
                   onClick={() => toggleSection(item.section!)}
                 >
-                  <span>{toggleAfter.get(item.id)!.expanded ? 'Show less' : 'Show more'}</span>
+                  <span className="truncate">{toggleAfter.get(item.id)!.expanded ? 'Show less' : 'Show more'}</span>
                 </Entry>
               )}
             </Fragment>
@@ -400,8 +400,8 @@ export function PickerList({
             onClick={() => onCreate(query.trim())}
           >
             <div className="picker-list__create">
-              <span className="picker-list__create-label">Create</span>
-              <span className="picker-list__title">{query.trim()}</span>
+              <span className="picker-list__create-label truncate">Create</span>
+              <span className="picker-list__title truncate">{query.trim()}</span>
             </div>
           </Entry>
         )}

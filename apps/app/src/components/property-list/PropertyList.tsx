@@ -78,7 +78,7 @@ function PropertyName({ item }: { item: PropertyListItem }) {
   const hasCommittedRef = useRef(false);
 
   if (!item.onRename) {
-    return <span>{item.name}</span>;
+    return <span className="truncate">{item.name}</span>;
   }
 
   const isNew = Boolean(item.onAbandon);
