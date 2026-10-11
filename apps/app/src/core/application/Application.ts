@@ -26,6 +26,7 @@ import { FoldStateStore } from './editor/FoldStateStore';
 import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
 import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
+import { TemplateUsageStore } from './templates/TemplateUsageStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
 import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
 import { TagMetadataStore } from '../vault/persistence/TagMetadataStore';
@@ -138,6 +139,12 @@ export class Application {
    * `foldStateStore` isn't (see `TagExpansionStore`'s own doc comment).
    */
   public readonly tagExpansionStore: TagExpansionStore;
+  /**
+   * When each template was last used (the inline "Start with template" suggestions rank by it), through the
+   * `templateUsage` top-level key of the same `.clutter/workspace.json` — loaded once in `bootstrap()` below.
+   * Not Gate-backed: application metadata, not document content (see `TemplateUsageStore`).
+   */
+  public readonly templateUsageStore: TemplateUsageStore;
   /**
    * Runtime owner of the Daily Notes sidebar's Earlier/Upcoming expansion
    * (ADR-035 §2) — in-memory, zero-dependency, deliberately not part of
@@ -271,6 +278,8 @@ export class Application {
     // TagExpansionStore.load() itself, never thrown.
     const tagExpansionStore = await TagExpansionStore.load(fileSystem, rootPath);
 
+    const templateUsageStore = await TemplateUsageStore.load(fileSystem, rootPath);
+
     // ADR-035: the last session's workspace state — same tolerant
     // "read a .clutter/workspace.json key once at boot" shape as the
     // stores above. Only loaded here; seeding happens once the Vault is
@@ -355,7 +364,8 @@ export class Application {
       tasksViewConfigStore,
       tagExpansionStore,
       workspaceSessionStore,
-      tagMetadataStore
+      tagMetadataStore,
+      templateUsageStore
     );
 
     application.rootPath = rootPath;
@@ -415,7 +425,9 @@ export class Application {
     workspaceSessionStore: WorkspaceSessionStore = WorkspaceSessionStore.empty(fileSystem, ''),
     // Same default reasoning, for tests that construct Application directly
     // without exercising tag-definition persistence.
-    tagMetadataStore: TagMetadataStore = new TagMetadataStore(fileSystem, '')
+    tagMetadataStore: TagMetadataStore = new TagMetadataStore(fileSystem, ''),
+    // Same default reasoning, for tests that construct Application directly without exercising template usage.
+    templateUsageStore: TemplateUsageStore = TemplateUsageStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -431,6 +443,7 @@ export class Application {
     this.tagExpansionStore = tagExpansionStore;
     this.workspaceSessionStore = workspaceSessionStore;
     this.tagMetadataStore = tagMetadataStore;
+    this.templateUsageStore = templateUsageStore;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();

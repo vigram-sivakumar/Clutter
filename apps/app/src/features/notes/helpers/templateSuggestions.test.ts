@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { shouldSuggestTemplates, sortTemplatesNewestFirst } from './templateSuggestions';
+import {
+  shouldSuggestTemplates,
+  sortTemplatesByRecentUse,
+  sortTemplatesNewestFirst,
+} from './templateSuggestions';
 
 const page = { type: 'note', markdown: '', isArchived: false, isInTemplatesFolder: false };
 
@@ -59,5 +63,83 @@ describe('sortTemplatesNewestFirst', () => {
     sortTemplatesNewestFirst(input);
 
     expect(input.map((template) => template.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('sortTemplatesByRecentUse', () => {
+  const none = () => undefined;
+  const ids = (templates: readonly CollectionEntryModel[]) => templates.map((template) => template.id);
+
+  it('with no usage at all, is exactly the creation-date order', () => {
+    const templates = [
+      entry('old', '2020-01-01T00:00:00.000Z'),
+      entry('new', '2024-01-01T00:00:00.000Z'),
+      entry('mid', '2022-01-01T00:00:00.000Z'),
+      entry('undated'),
+    ];
+
+    expect(ids(sortTemplatesByRecentUse(templates, none))).toEqual(ids(sortTemplatesNewestFirst(templates)));
+    expect(ids(sortTemplatesByRecentUse(templates, none))).toEqual(['new', 'mid', 'old', 'undated']);
+  });
+
+  it('puts the most recently used first, whatever the creation dates', () => {
+    const templates = [
+      entry('newest', '2024-01-01T00:00:00.000Z'),
+      entry('older', '2020-01-01T00:00:00.000Z'),
+      entry('oldest', '2019-01-01T00:00:00.000Z'),
+    ];
+    const used: Record<string, number> = {
+      oldest: Date.parse('2025-06-01T00:00:00.000Z'),
+      older: Date.parse('2025-03-01T00:00:00.000Z'),
+    };
+
+    expect(ids(sortTemplatesByRecentUse(templates, (id) => used[id]))).toEqual(['oldest', 'older', 'newest']);
+  });
+
+  it('ranks a never-used template by its creation date among the used ones, so a new template stays discoverable', () => {
+    const templates = [
+      entry('used-long-ago', '2020-01-01T00:00:00.000Z'),
+      entry('created-since', '2025-05-01T00:00:00.000Z'),
+      entry('used-recently', '2021-01-01T00:00:00.000Z'),
+    ];
+    const used: Record<string, number> = {
+      'used-long-ago': Date.parse('2025-01-01T00:00:00.000Z'),
+      'used-recently': Date.parse('2025-09-01T00:00:00.000Z'),
+    };
+
+    expect(ids(sortTemplatesByRecentUse(templates, (id) => used[id]))).toEqual([
+      'used-recently',
+      'created-since',
+      'used-long-ago',
+    ]);
+  });
+
+  it('a template used at all ranks by its use even if it has no creation date', () => {
+    const templates = [entry('undated-unused'), entry('undated-used')];
+
+    expect(ids(sortTemplatesByRecentUse(templates, (id) => (id === 'undated-used' ? 5 : undefined)))).toEqual([
+      'undated-used',
+      'undated-unused',
+    ]);
+  });
+
+  it('keeps the existing order for ties, and puts a template with no time at all last', () => {
+    const templates = [entry('a'), entry('b', '2022-01-01T00:00:00.000Z'), entry('c'), entry('d', '2022-01-01T00:00:00.000Z')];
+
+    expect(ids(sortTemplatesByRecentUse(templates, none))).toEqual(['b', 'd', 'a', 'c']);
+    expect(ids(sortTemplatesByRecentUse(templates, (id) => (id === 'a' || id === 'c' ? Date.parse('2023-01-01T00:00:00.000Z') : undefined)))).toEqual([
+      'a',
+      'c',
+      'b',
+      'd',
+    ]);
+  });
+
+  it('does not change its input', () => {
+    const templates = [entry('a', '2020-01-01T00:00:00.000Z'), entry('b', '2024-01-01T00:00:00.000Z')];
+
+    sortTemplatesByRecentUse(templates, none);
+
+    expect(ids(templates)).toEqual(['a', 'b']);
   });
 });

@@ -51,7 +51,7 @@ import {
 import type { MetadataHistoryChange } from '@features/markdown/editor/codemirror/metadataHistoryStep';
 import {
   shouldSuggestTemplates,
-  sortTemplatesNewestFirst,
+  sortTemplatesByRecentUse,
 } from '@features/notes/helpers/templateSuggestions';
 import type { PageType } from '@core/vault/models/Page';
 import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTemplateSuggestions';
@@ -1246,24 +1246,34 @@ export function PageHost({
         targetFolderId,
         template.markdown,
         vault.getPage(templatePageId)?.metadata
-      );
+      )
+        // Counted only once the note exists; a failure is not a use (and is logged, as an unhandled rejection was).
+        .then(() => application.templateUsageStore.recordUse(templatePageId))
+        .catch((error) => console.error('Creating a note from a template failed', error));
     }
   };
+
+  // The one order every template selection surface shows — the inline suggestions, their "+N more" picker and
+  // the Add menu's From template: most recently used first, a never-used template by its creation date.
+  const rankTemplates = (templates: readonly CollectionEntryModel[]): CollectionEntryModel[] =>
+    sortTemplatesByRecentUse(templates, (templateId) => application.templateUsageStore.lastUsedAt(templateId));
 
   const buildFromTemplate = (
     targetFolderId: string | null
   ): NonNullable<CollectionHeaderActionsProps['fromTemplate']> => ({
     getTemplates: () =>
-      toTemplateEntries(vault, application.membershipSelector, (_markdown, templatePageId) =>
-        createNoteFromTemplatePage(targetFolderId, templatePageId)
+      rankTemplates(
+        toTemplateEntries(vault, application.membershipSelector, (_markdown, templatePageId) =>
+          createNoteFromTemplatePage(targetFolderId, templatePageId)
+        )
       ),
     onCreateTemplate: () => {
       void createTemplate(application.folderOperations, application.pageOperations);
     },
   });
 
-  // "Start with template" for the open note, while its body is empty: the same templates as From
-  // template (newest first), applied to THIS note (applyTemplateToNote) instead of making a new one.
+  // "Start with template" for the open note, while its body is empty: the same templates, in the same
+  // order, as From template (rankTemplates), applied to THIS note (applyTemplateToNote) instead of making a new one.
   const buildTemplateSuggestions = (note: {
     readonly id: string;
     readonly type: PageType;
@@ -1283,7 +1293,7 @@ export function PageHost({
       return undefined;
     }
 
-    const templates = sortTemplatesNewestFirst(
+    const templates = rankTemplates(
       toTemplateEntries(vault, application.membershipSelector, () => undefined)
     );
 
@@ -1320,6 +1330,8 @@ export function PageHost({
           },
         }
       )
+        // Counted only now that the application succeeded; a failure goes to the toast below and is not a use.
+        .then(() => application.templateUsageStore.recordUse(templatePageId))
         // No focus call: the content is in the editor either way, and where the user types next is theirs to choose.
         .catch(() => onShowToast?.({ tone: 'error', text: 'Couldn’t apply the template' }));
     };

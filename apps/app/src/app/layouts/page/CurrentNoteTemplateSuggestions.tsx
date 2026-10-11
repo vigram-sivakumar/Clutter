@@ -4,7 +4,7 @@ import { TemplateSuggestions } from '@components/template-suggestions/TemplateSu
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 export interface CurrentNoteTemplateSuggestionsProps {
-  /** The templates, newest first. */
+  /** The templates, in the order to show them (most recently used first). */
   templates: readonly CollectionEntryModel[];
   /** Applies the template page `templateId` to the current note — never creates one. */
   onApply: (templateId: string) => void;
