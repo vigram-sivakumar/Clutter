@@ -834,6 +834,21 @@
   user-select: none;
 }
 
+/*
+ * While the opening fence itself is being edited (`.cm-code-block-line--editing-fence`, set by
+ * `fencedCodeBlockLineDecoration.ts` when the caret is on that line and the raw fence is showing) the header is
+ * Markdown, not a rendered header: the icon steps aside and the line goes back to the padding it had before the
+ * icon, so the raw fence sits where it always did. Writing code in the body, or a caret on the closing fence,
+ * never sets the class, so the icon stays; a collapsed block keeps it too unless its own fence is being edited.
+ */
+.cm-editor .cm-code-block-line--first.cm-code-block-line--editing-fence {
+  padding-inline-start: var(--space-12);
+}
+
+.cm-editor .cm-code-block-line--first.cm-code-block-line--editing-fence::before {
+  display: none;
+}
+
 .cm-editor
   .cm-code-block-line:not(.cm-code-block-line--first):not(
     .cm-code-block-line--last

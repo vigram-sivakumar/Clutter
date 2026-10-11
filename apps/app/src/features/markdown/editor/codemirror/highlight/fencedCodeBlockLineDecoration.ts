@@ -10,6 +10,8 @@ import {
 } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
+import { isTokenEngaged } from '../semanticToken/tokenEngagement';
+
 /**
  * The visual code-block *card* — background, inset border, outer
  * drop-shadow, radius, and gutter/counter scope, entirely via
@@ -75,6 +77,7 @@ function fencedCodeLineMark(
   isFirst: boolean,
   isLast: boolean,
   isActive: boolean,
+  isEditingFence: boolean,
   gutterDigits: number
 ): Decoration {
   const classes = ['cm-code-block-line'];
@@ -86,6 +89,9 @@ function fencedCodeLineMark(
   }
   if (isActive) {
     classes.push('cm-code-block-line--active');
+  }
+  if (isEditingFence) {
+    classes.push('cm-code-block-line--editing-fence');
   }
   return Decoration.line({
     attributes: { class: classes.join(' '), style: `--code-gutter-digits: ${gutterDigits};` },
@@ -214,10 +220,17 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
             caretOwner !== null &&
             owner.from === caretOwner.from &&
             owner.to === caretOwner.to;
+          // The caret is on the opening fence's own line, in a block whose raw fence is showing (the same
+          // engagement that swaps the language label for the raw fence): the header is being edited as Markdown,
+          // so its icon steps aside. Writing code in the body, or a caret on the closing fence, leaves it.
+          const isEditingFence =
+            isFirst &&
+            line.from === caretLine.from &&
+            isTokenEngaged(view.state, { from: owner.from, to: owner.to });
           builder.add(
             line.from,
             line.from,
-            fencedCodeLineMark(isFirst, isLast, isActive, gutterDigitsFor(view, owner, gutterDigitsCache))
+            fencedCodeLineMark(isFirst, isLast, isActive, isEditingFence, gutterDigitsFor(view, owner, gutterDigitsCache))
           );
         }
       }
