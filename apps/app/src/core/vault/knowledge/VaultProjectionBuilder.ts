@@ -58,14 +58,16 @@ export class VaultProjectionBuilder {
     return this.taskBuilder.build(Array.from(pages));
   }
 
-  buildLazy(pages: Iterable<Page>): LazyVaultProjections {
+  buildLazy(pages: Iterable<Page>, root?: string): LazyVaultProjections {
     const pageList = Array.from(pages);
 
     return {
       embeds: this.embedBuilder.build(pageList),
       knowledgeGraph: this.knowledgeGraphBuilder.build(
         pageList,
-        pageList.flatMap((page) => page.analysis.links)
+        pageList.flatMap((page) => page.analysis.links),
+        pageList.flatMap((page) => page.analysis.embeds),
+        root
       ),
     };
   }

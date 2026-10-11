@@ -9,7 +9,11 @@ export class PageIndex {
   private readonly pagesByAlias = new Map<string, Page[]>();
   private readonly pages: readonly Page[];
 
-  constructor(pages: Iterable<Page>) {
+  constructor(
+    pages: Iterable<Page>,
+    // The vault's root path: what a vault-relative link target is resolved against.
+    private readonly root?: string
+  ) {
     this.pages = Array.from(pages);
 
     for (const page of this.pages) {
@@ -37,6 +41,17 @@ export class PageIndex {
 
   findByPath(path: string): Page | undefined {
     return this.pagesByPath.get(path);
+  }
+
+  /**
+   * A link target as the editor writes it: vault-relative, no extension
+   * ("Projects/Alpha"). The same composition `createWikiLinkResolver` uses to
+   * look it up, so a link resolves to the same page here as it does on click.
+   */
+  findByVaultPath(target: string): Page | undefined {
+    return this.root === undefined
+      ? undefined
+      : this.pagesByPath.get(`${this.root}/${target}.md`);
   }
 
   findByFileName(name: string): readonly Page[] {

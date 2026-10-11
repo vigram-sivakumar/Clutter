@@ -67,6 +67,8 @@ export class VaultBuilder {
     const knowledgeGraph = this.knowledgeGraphBuilder.build(
       pages,
       pages.flatMap((page) => page.analysis.links),
+      pages.flatMap((page) => page.analysis.embeds),
+      scanResult.rootPath
     );
 
     // Construct the immutable in-memory Vault model.

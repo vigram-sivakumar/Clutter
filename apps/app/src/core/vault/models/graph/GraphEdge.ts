@@ -16,4 +16,10 @@ export interface GraphEdge {
 
   // Whether the edge originated from a normal link or an embed.
   readonly kind: 'link' | 'embed';
+
+  // The reference's exact character range in the source page's markdown
+  // (end exclusive), from the occurrence that produced the edge — what lets
+  // a backlink be revealed in its source note.
+  readonly startOffset?: number;
+  readonly endOffset?: number;
 }

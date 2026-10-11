@@ -3,14 +3,14 @@ import type { ResolvedLink } from './LinkResolver';
 import { PageIndex } from './PageIndex';
 import { KnowledgeGraph } from '../models';
 import type { Page } from '../models/';
-import type { LinkOccurrence } from '../models';
+import type { EmbedOccurrence, LinkOccurrence } from '../models';
 import type { GraphEdge } from '../models/';
 
 /**
  * Builds the derived KnowledgeGraph from resolved page relationships.
  *
  * Responsibilities:
- * - Resolve page links.
+ * - Resolve page links and embeds.
  * - Produce graph edges.
  * - Construct the immutable KnowledgeGraph.
  *
@@ -23,22 +23,27 @@ export class KnowledgeGraphBuilder {
   private readonly linkResolver = new LinkResolver();
   build(
     pages: Iterable<Page>,
-    links: Iterable<LinkOccurrence>
+    links: Iterable<LinkOccurrence>,
+    embeds: Iterable<EmbedOccurrence> = [],
+    // The vault's root path, so a vault-relative target ("Projects/Alpha") resolves to its page.
+    root?: string
   ): KnowledgeGraph {
     const pageList = Array.from(pages);
-    const pageIndex = new PageIndex(pageList);
-    const resolvedLinks = this.linkResolver.resolve(links, pageIndex);
+    const pageIndex = new PageIndex(pageList, root);
     // TODO(v1): Build outgoing relationships.
-    // TODO(v1): Derive backlinks from outgoing relationships.
     // TODO(v1): Track unresolved links.
-    // TODO(Arc 4): Build backlinks, unresolved links and additional
-    // relationship types from the resolved link set.
-    const edges = this.buildEdges(resolvedLinks);
+    // TODO(Arc 4): Build unresolved links and additional relationship types
+    // from the resolved link set.
+    const edges = [
+      ...this.buildEdges(this.linkResolver.resolve(links, pageIndex), 'link'),
+      ...this.buildEdges(this.linkResolver.resolve(embeds, pageIndex), 'embed'),
+    ];
     return new KnowledgeGraph(edges);
   }
 
   private buildEdges(
-    resolvedLinks: readonly ResolvedLink[]
+    resolvedLinks: readonly ResolvedLink[],
+    kind: GraphEdge['kind']
   ): readonly GraphEdge[] {
     return resolvedLinks
       .filter(
@@ -48,7 +53,9 @@ export class KnowledgeGraphBuilder {
       .map((link) => ({
         sourcePageId: link.sourcePageId,
         targetPageId: link.targetPageId,
-        kind: 'link',
+        kind,
+        startOffset: link.startOffset,
+        endOffset: link.endOffset,
       }));
   }
 }
