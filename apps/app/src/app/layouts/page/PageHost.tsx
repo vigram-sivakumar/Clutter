@@ -116,6 +116,7 @@ import { moveZoneFor } from '@core/presentation/resourceActions/moveZoneFor';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
+import { ReferencesSection } from '@app/layouts/page/reference/ReferencesSection';
 import { ArchivedBanner } from './ArchivedBanner';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
@@ -2450,6 +2451,7 @@ export function PageHost({
                 'assets'
               )}
             />
+            <ReferencesSection />
           </MarkdownBody>
         }
       />
@@ -2733,6 +2735,7 @@ export function PageHost({
                 : createFolderInZone(application.folderOperations, application.membershipSelector, 'assets')
             }
           />
+          <ReferencesSection />
         </MarkdownBody>
       }
     />

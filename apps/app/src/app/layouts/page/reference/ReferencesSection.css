@@ -1,0 +1,33 @@
+/* The References section below the editor. It lives in the editor's own column (`.page-content`), so it has
+   the editor's width and alignment without declaring them, and it is in normal flow: it follows the last line
+   of the document and scrolls with it. `padding` and `gap`, never `margin`, for its spacing. */
+.references-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-width: 0;
+  padding-block-start: var(--space-24);
+}
+
+/* One group: its heading, then its content. The groups are told apart by their headings and by the rule
+   between them. */
+.references-section__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.references-section__group + .references-section__group {
+  padding-block-start: var(--space-16);
+  border-block-start: 1px solid var(--border-default);
+}
+
+/* The same label type as "Start with template" above the suggestion row. */
+.references-section__heading {
+  margin: 0;
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  font-weight: var(--fw-medium);
+}
