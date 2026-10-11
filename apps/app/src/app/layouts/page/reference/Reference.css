@@ -44,6 +44,9 @@
   gap: 0;
 }
 .reference-entry__path {
+  /* A column item with `align-items: start` is sized to its full nowrap text, so `.truncate` only
+     engages once the item is capped at the row's width. */
+  max-width: 100%;
   font-size: var(--text-label-small);
   color: var(--foreground-tertiary);
 }
@@ -56,4 +59,6 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
   white-space: normal;
+  /* A long unbroken token (a URL) wraps instead of overflowing past the clamp. */
+  overflow-wrap: anywhere;
 }

@@ -1,9 +1,7 @@
 import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import './Reference.css';
-import { Button } from '@components/button/Button';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { Entry } from '@components/entry/Entry';
-import { AppIcon } from '@shared/icon';
 import { Wiki } from '@components/wiki/Wiki';
 
 interface ReferencesProps {
@@ -16,8 +14,6 @@ interface ReferencesProps {
 export function References({
   isExpanded = true,
   onExpandToggle,
-  tasks,
-  notes,
 }: ReferencesProps) {
   return (
     <section className="references">

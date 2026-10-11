@@ -3,6 +3,8 @@
 }
 /* actions */
 .section-header__caret {
+  /* The title gives way to the caret, never the other way round. */
+  flex-shrink: 0;
   opacity: 0;
   transition: opacity 300ms ease;
 }
@@ -15,6 +17,9 @@
 .section-header__content {
   display: flex;
   align-items: center;
+  /* A flex item of `.entry__content`: without this its automatic minimum is its content's full
+     (nowrap) width, so it can't shrink and the `.truncate` title inside it never gets a constrained box. */
+  min-width: 0;
 }
 .section-header__content-toggle {
   cursor: pointer;
