@@ -45,7 +45,7 @@ export function References({
           {/* Notes and Dailynotes will be shown in this list */}
           <div className="references__list">
             <Entry className="reference-entry" onClick={() => {}}>
-              <span className="reference-entry__path">Meeting notes</span>
+              <span className="reference-entry__path truncate">Meeting notes</span>
               <span className="reference-entry__body">
                 Empty the trash before evening this could be or might be more
                 than few lines but I think we should cap it at two lines or at
