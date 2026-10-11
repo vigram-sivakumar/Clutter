@@ -76,8 +76,8 @@ export class PageAnalysisMapper {
       blockReference: link.blockReference,
       alias: link.alias,
       rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
+      startOffset: link.startOffset,
+      endOffset: link.endOffset,
       sourceVersion: undefined,
     }));
   }
@@ -93,8 +93,8 @@ export class PageAnalysisMapper {
       blockReference: embed.blockReference,
       alias: embed.alias,
       rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
+      startOffset: embed.startOffset,
+      endOffset: embed.endOffset,
       sourceVersion: undefined,
     }));
   }

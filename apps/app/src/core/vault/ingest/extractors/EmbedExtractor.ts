@@ -3,6 +3,10 @@ export interface ScannedEmbed {
   readonly heading?: string;
   readonly blockReference?: string;
   readonly alias?: string;
+  // The `![[...]]` text's exact character range in the content passed to
+  // `extract()` (end exclusive). See ScannedLink.
+  readonly startOffset: number;
+  readonly endOffset: number;
 }
 
 export class EmbedExtractor {
@@ -22,7 +26,7 @@ export class EmbedExtractor {
     return embeds;
   }
 
-  private extractFromMatch(match: RegExpMatchArray): ScannedEmbed | null {
+  private extractFromMatch(match: RegExpExecArray): ScannedEmbed | null {
     const destination = match[1]?.trim();
     if (!destination) {
       return null;
@@ -59,6 +63,8 @@ export class EmbedExtractor {
       heading,
       blockReference,
       alias: match[2]?.trim(),
+      startOffset: match.index,
+      endOffset: match.index + match[0].length,
     };
   }
 }

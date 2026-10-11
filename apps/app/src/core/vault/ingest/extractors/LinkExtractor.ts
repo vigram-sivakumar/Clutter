@@ -3,13 +3,20 @@ export interface ScannedLink {
   readonly heading?: string;
   readonly blockReference?: string;
   readonly alias?: string;
+  // The `[[...]]` text's exact character range in the content passed to
+  // `extract()` (end exclusive) — the same positional-identity contract
+  // ScannedTask's offsets already fulfil, so a reference can be revealed in
+  // its source note.
+  readonly startOffset: number;
+  readonly endOffset: number;
 }
 
 export class LinkExtractor {
   extract(content: string): readonly ScannedLink[] {
     const links: ScannedLink[] = [];
 
-    const matches = content.matchAll(/\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g);
+    // `(?<!!)`: a `![[...]]` is an embed (EmbedExtractor's), not also a link.
+    const matches = content.matchAll(/(?<!!)\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g);
 
     for (const match of matches) {
       const link = this.extractFromMatch(match);
@@ -22,7 +29,7 @@ export class LinkExtractor {
     return links;
   }
 
-  private extractFromMatch(match: RegExpMatchArray): ScannedLink | null {
+  private extractFromMatch(match: RegExpExecArray): ScannedLink | null {
     const destination = match[1]?.trim();
 
     if (!destination) {
@@ -52,6 +59,8 @@ export class LinkExtractor {
       heading,
       blockReference,
       alias: match[2]?.trim(),
+      startOffset: match.index,
+      endOffset: match.index + match[0].length,
     };
   }
 }
