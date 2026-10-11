@@ -68,8 +68,7 @@
 }
 
 .page__header,
-.page__properties,
-.page__body {
+.page__properties {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -84,7 +83,8 @@
 
 .page__body {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
 }
