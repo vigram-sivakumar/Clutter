@@ -200,8 +200,8 @@ describe('PageReferences', () => {
     });
   });
 
-  it("reveals only the clicked entry's block when a note references the page from several blocks", () => {
-    const markdown = 'First [[Target]]\n\nSecond [[Target]] and ![[Target]]';
+  it("reveals only the clicked entry's own line, even between adjacent lines of one paragraph", () => {
+    const markdown = 'First [[Target]]\nSecond [[Target]] and ![[Target]]\nthird';
     const { onRequestReveal } = setup([
       TARGET,
       page('n', 'Alpha.md', markdown),
@@ -215,8 +215,8 @@ describe('PageReferences', () => {
     expect(onRequestReveal).toHaveBeenCalledWith({
       pageId: 'n',
       ranges: [
-        { from: 25, to: 35 },
-        { from: 40, to: 51 },
+        { from: 24, to: 34 },
+        { from: 39, to: 50 },
       ],
     });
 
@@ -330,35 +330,70 @@ describe('PageReferences: editor previews', () => {
     ),
   ];
 
-  it('shows the whole block around a reference in a read-only editor view, not one flattened line', () => {
+  it('shows only the referencing line in a read-only editor view, with its inline formatting', () => {
     setup([
       TARGET,
       page(
         'n',
         'Alpha.md',
-        'Intro\n\nFirst line with **bold**\nand a [[Target]] link.\n\nOutro'
+        'Another line above that\nA line with **bold** and a [[Target]] link\nAnother line below that'
       ),
     ]);
+
+    expect(previews()).toHaveLength(1);
 
     const [content] = previews();
     const view = EditorView.findFromDOM(content!)!;
 
     expect(view.state.doc.toString()).toBe(
-      'First line with **bold**\nand a [[Target]] link.'
+      'A line with **bold** and a [[Target]] link'
     );
     expect(content!.querySelector('.tok-strong')?.textContent).toBe('bold');
     expect(view.state.readOnly).toBe(true);
   });
 
-  it("keeps a list item's structure: the item and its sub-items, dedented", () => {
+  it('gives each referencing line of one paragraph its own preview', () => {
+    setup([TARGET, page('n', 'Alpha.md', 'a [[Target]]\nmiddle\nb [[Target]]')]);
+
+    expect(
+      previews().map((content) =>
+        EditorView.findFromDOM(content)!.state.doc.toString()
+      )
+    ).toEqual(['a [[Target]]', 'b [[Target]]']);
+  });
+
+  it("keeps a list item's marker but not its parent or sub-items, dedented", () => {
     setup([
       TARGET,
       page('n', 'Alpha.md', '- top\n  - nested [[Target]]\n    - child'),
     ]);
 
     expect(EditorView.findFromDOM(previews()[0]!)!.state.doc.toString()).toBe(
-      '- nested [[Target]]\n  - child'
+      '- nested [[Target]]'
     );
+  });
+
+  it('shows a line with an embed compactly, never rendering the embedded content', () => {
+    setup([
+      TARGET,
+      page('n', 'Alpha.md', 'above\nsee ![[Target]] here\nbelow'),
+    ]);
+
+    expect(previews()).toHaveLength(0);
+    expect(document.querySelector('.cm-note-embed')).toBeNull();
+    expect(
+      document.querySelector('.reference-entry__body.line-clamp-3')
+    ).not.toBeNull();
+  });
+
+  it('shows a task with an embed compactly too', () => {
+    setup([TARGET, page('t', 'Planner.md', '- [ ] open ![[Target]]')]);
+
+    expect(previews()).toHaveLength(0);
+    expect(document.querySelector('.cm-note-embed')).toBeNull();
+    expect(
+      document.querySelector('.reference-entry__body.line-clamp-3')
+    ).not.toBeNull();
   });
 
   it('previews a task through the same view, with completed styling when it is done', () => {
@@ -377,9 +412,8 @@ describe('PageReferences: editor previews', () => {
     expect(done!).toHaveClass('cm-task-completed');
   });
 
-  it('falls back to the compact one-line rendering when the block is too long to lift out', () => {
-    const long = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n');
-    setup([TARGET, page('big', 'Big.md', `${long} [[Target]]`)]);
+  it('falls back to the compact one-line rendering when the line is too long to preview', () => {
+    setup([TARGET, page('big', 'Big.md', `${'x'.repeat(1600)} [[Target]]`)]);
 
     expect(previews()).toHaveLength(0);
     expect(

@@ -17,6 +17,7 @@ import {
   toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
+import { containsEmbed } from './extractReferenceLine';
 import { getPageReferences, type PageReference } from './getPageReferences';
 import { References, ReferenceEntry } from './Reference';
 import {
@@ -112,21 +113,21 @@ export function PageReferences({
     };
   };
 
-  // The block around the reference, in a read-only editor view. When none could be extracted safely the entry
-  // shows the referencing line through the compact renderer instead.
+  // The referencing line, in a read-only editor view. When it should not be shown that way (it holds an embed, or
+  // is very long) the entry shows the line through the compact renderer instead.
   const pageEntry = ({
     page,
-    blockFrom,
+    lineFrom,
     ranges,
-    block,
+    line,
     excerpt,
   }: PageReference) => (
     <ReferenceEntry
-      key={`${page.id}:${blockFrom}`}
+      key={`${page.id}:${lineFrom}`}
       {...identity(page)}
       preview={
-        block === null ? undefined : (
-          <ReferencePreview markdown={block} extensions={previewExtensions} />
+        line === null ? undefined : (
+          <ReferencePreview markdown={line} extensions={previewExtensions} />
         )
       }
       onOpen={() => openSource(page.id, ranges)}
@@ -160,13 +161,16 @@ export function PageReferences({
                   onCheckedChange={() =>
                     void taskOperations.toggleComplete(task)
                   }
-                  // The task's text (the checkbox is the entry's own control), with completed styling when done.
+                  // The task's text (the checkbox is the entry's own control), with completed styling when done —
+                  // compact, like a note line, when it holds an embed (an embed's content is never rendered here).
                   preview={
-                    <ReferencePreview
-                      markdown={task.text}
-                      extensions={previewExtensions}
-                      isCompleted={task.completed}
-                    />
+                    containsEmbed(task.text) ? undefined : (
+                      <ReferencePreview
+                        markdown={task.text}
+                        extensions={previewExtensions}
+                        isCompleted={task.completed}
+                      />
+                    )
                   }
                   onOpen={() => openSource(task.sourcePageId, ranges)}
                 >

@@ -113,10 +113,10 @@ describe('getPageReferences', () => {
     expect(getPageReferences(vault, 'target').tasks.map(({ page: source }) => source.id)).toEqual(['t']);
   });
 
-  it('gives a note the first referencing line as its excerpt, without the list or heading marker', () => {
+  it('gives a note its referencing line as its excerpt, without the list or heading marker', () => {
     const vault = makeVault([
       TARGET,
-      page('a', 'A.md', 'Intro line\nWe decided on [[Projects/Target]] today.\nlater [[Projects/Target]]'),
+      page('a', 'A.md', 'Intro line\nWe decided on [[Projects/Target]] today.'),
       page('c', 'C.md', '## Heading with ![[Projects/Target]]'),
       page('q', 'Q.md', '> Quoted [[Projects/Target]]'),
     ]);
@@ -131,28 +131,27 @@ describe('getPageReferences', () => {
     });
   });
 
-  it('gives a note the whole block around its reference, for the editor preview', () => {
+  it('gives a note only the referencing line, for the editor preview', () => {
     const vault = makeVault([
       TARGET,
-      page('p', 'P.md', 'Intro\n\nA paragraph with **bold**\nand a [[Projects/Target]] link.\n\nOutro'),
+      page('p', 'P.md', 'Intro\n\nA paragraph with **bold**\nand a [[Projects/Target]] link.\nlast line\n\nOutro'),
       page('l', 'L.md', '- top\n  - nested [[Projects/Target]]\n    - child'),
     ]);
-    const blocks = Object.fromEntries(
-      getPageReferences(vault, 'target').notes.map(({ page: source, block }) => [source.id, block])
+    const lines = Object.fromEntries(
+      getPageReferences(vault, 'target').notes.map(({ page: source, line }) => [source.id, line])
     );
 
-    expect(blocks).toEqual({
-      p: 'A paragraph with **bold**\nand a [[Projects/Target]] link.',
-      l: '- nested [[Projects/Target]]\n  - child',
+    expect(lines).toEqual({
+      p: 'and a [[Projects/Target]] link.',
+      l: '- nested [[Projects/Target]]',
     });
   });
 
-  it('has no block when the surrounding block is too long, leaving the compact excerpt as the fallback', () => {
-    const long = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n');
-    const vault = makeVault([TARGET, page('big', 'Big.md', `${long} [[Projects/Target]]`)]);
+  it('has no line to preview when it is too long, leaving the compact excerpt as the fallback', () => {
+    const vault = makeVault([TARGET, page('big', 'Big.md', `${'x'.repeat(1600)} [[Projects/Target]]`)]);
     const [note] = getPageReferences(vault, 'target').notes;
 
-    expect(note!.block).toBeNull();
+    expect(note!.line).toBeNull();
     expect(note!.excerpt).toContain('[[Projects/Target]]');
   });
 
@@ -267,8 +266,8 @@ describe('getPageReferences', () => {
     ]);
   });
 
-  it('shows a source note once even when it links and embeds the page several times, with every range to reveal', () => {
-    const markdown = '[[Projects/Target]]\n![[Projects/Target]]\nagain [[Projects/Target]]';
+  it('shows a line once even when it links and embeds the page several times, with every range to reveal', () => {
+    const markdown = 'other\n[[Projects/Target]] ![[Projects/Target]] again [[Projects/Target]]\nmore';
     const vault = makeVault([TARGET, page('n', 'N.md', markdown)]);
     const [reference] = getPageReferences(vault, 'target').notes;
 
@@ -350,8 +349,16 @@ describe('getPageReferences', () => {
 
     expect(getPageReferences(vault, 'target').notes).toEqual([]);
   });
-  describe('one entry per referencing block, direct references only', () => {
+  describe('one entry per referencing line, direct references only', () => {
     const T = '[[Projects/Target]]';
+    const refs = (markdown: string, type: Page['type'] = 'note') =>
+      getPageReferences(
+        makeVault([
+          TARGET,
+          type === 'daily-note' ? daily('2026-10-10', markdown) : page('n', 'N.md', markdown),
+        ]),
+        'target'
+      );
 
     it('lists a page that links the target, not a page that only embeds that page (no transitive references)', () => {
       const noteB = page('b', 'B.md', 'B');
@@ -365,91 +372,88 @@ describe('getPageReferences', () => {
       expect(ids(getPageReferences(vault, 'a').notes)).toEqual(['c']);
     });
 
-    it('shows one entry for several references in one block', () => {
-      const markdown = `${T} and ![[Projects/Target]] and ${T}\n\nUnrelated paragraph`;
-      const { notes } = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', markdown)]),
-        'target'
-      );
+    it('shows only the referencing line between two adjacent non-empty lines, with no blank lines needed', () => {
+      const markdown = `Another line Above that\nThis is here as well ${T}\nAnother line below that`;
+      const { notes } = refs(markdown);
+
+      expect(notes.map((entry) => entry.line)).toEqual([`This is here as well ${T}`]);
+      expect(notes[0]!.excerpt).toBe(`This is here as well ${T}`);
+      expect(markdown.slice(notes[0]!.ranges[0]!.from, notes[0]!.ranges[0]!.to)).toBe(T);
+    });
+
+    it('shows only the referencing line of a daily note', () => {
+      const { dailyNotes } = refs(`This is here ${T}\n\nAnother line below that`, 'daily-note');
+
+      expect(dailyNotes.map((entry) => entry.line)).toEqual([`This is here ${T}`]);
+    });
+
+    it('shows one entry for several mentions on one line', () => {
+      const { notes } = refs(`${T} and ${T} and ${T}\nnext line`);
 
       expect(notes).toHaveLength(1);
       expect(notes[0]!.ranges).toHaveLength(3);
-      expect(notes[0]!.block).toBe(`${T} and ![[Projects/Target]] and ${T}`);
+      expect(notes[0]!.line).toBe(`${T} and ${T} and ${T}`);
     });
 
-    it('shows only the referencing block, never the rest of the page', () => {
-      const markdown = `This is here ${T}\n\nAnother line below that`;
-      const { dailyNotes } = getPageReferences(
-        makeVault([TARGET, daily('2026-10-10', markdown)]),
-        'target'
-      );
-
-      expect(dailyNotes.map((entry) => entry.block)).toEqual([
-        `This is here ${T}`,
-      ]);
-    });
-
-    it('gives separate blocks of one page separate entries, each with its own ranges, in document order', () => {
-      const markdown = `First ${T}\n\nmiddle\n\n- item ${T}\n\n> quote ${T}\n\n## Heading ${T}`;
-      const { notes } = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', markdown)]),
-        'target'
-      );
-
-      expect(notes.map((entry) => entry.block)).toEqual([
+    it('gives each referencing line its own entry, even inside one paragraph, list, quote or heading block', () => {
+      const markdown = [
         `First ${T}`,
+        `second line of the paragraph ${T}`,
+        'unrelated line',
+        '',
         `- item ${T}`,
+        '- other item',
+        `- another ${T}`,
+        '',
         `> quote ${T}`,
+        `> quote again ${T}`,
+        '',
+        `## Heading ${T}`,
+      ].join('\n');
+      const { notes } = refs(markdown);
+
+      expect(notes.map((entry) => entry.line)).toEqual([
+        `First ${T}`,
+        `second line of the paragraph ${T}`,
+        `- item ${T}`,
+        `- another ${T}`,
+        `> quote ${T}`,
+        `> quote again ${T}`,
         `## Heading ${T}`,
       ]);
       for (const entry of notes) {
         expect(entry.ranges).toHaveLength(1);
-        expect(markdown.slice(entry.ranges[0]!.from, entry.ranges[0]!.to)).toBe(
-          T
-        );
+        expect(markdown.slice(entry.ranges[0]!.from, entry.ranges[0]!.to)).toBe(T);
       }
-      expect(new Set(notes.map((entry) => entry.blockFrom)).size).toBe(4);
+      expect(new Set(notes.map((entry) => entry.lineFrom)).size).toBe(7);
     });
 
-    it('groups references of one block that is too large to preview, and still separates the next block', () => {
-      const big = `${T} ${'x'.repeat(1600)} ${T}`;
-      const { notes } = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', `${big}\n\nsmall ${T}`)]),
-        'target'
-      );
+    it('keeps inline formatting on the line and drops only its indentation', () => {
+      const { notes } = refs(`- top\n    - nested **bold** and ${T} ~~old~~`);
 
-      expect(
-        notes.map((entry) => [entry.ranges.length, entry.block === null])
-      ).toEqual([
-        [2, true],
-        [1, false],
-      ]);
+      expect(notes.map((entry) => entry.line)).toEqual([`- nested **bold** and ${T} ~~old~~`]);
+    });
+
+    it('does not preview a line that holds an embed in the editor, so the embedded content never renders', () => {
+      const { notes } = refs(`before\nsee ![[Projects/Target]] now\nafter`);
+
+      expect(notes).toHaveLength(1);
+      expect(notes[0]!.line).toBeNull();
+      expect(notes[0]!.excerpt).toBe('see ![[Projects/Target]] now');
     });
 
     it('keeps tasks separate from note entries of the same page', () => {
-      const markdown = `Prose ${T}\n\n- [ ] task ${T}`;
-      const references = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', markdown)]),
-        'target'
-      );
+      const references = refs(`Prose ${T}\n- [ ] task ${T}\nmore prose`);
 
-      expect(references.tasks.map(({ task }) => task.text)).toEqual([
-        `task ${T}`,
-      ]);
-      expect(references.notes.map((entry) => entry.block)).toEqual([
-        `Prose ${T}`,
-      ]);
+      expect(references.tasks.map(({ task }) => task.text)).toEqual([`task ${T}`]);
+      expect(references.notes.map((entry) => entry.line)).toEqual([`Prose ${T}`]);
     });
 
     it('lists both a parent list item and its child task when each references the page', () => {
-      const markdown = `- parent ${T}\n  - [ ] child ${T}`;
-      const references = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', markdown)]),
-        'target'
-      );
+      const references = refs(`- parent ${T}\n  - [ ] child ${T}`);
 
       expect(references.tasks).toHaveLength(1);
-      expect(references.notes).toHaveLength(1);
+      expect(references.notes.map((entry) => entry.line)).toEqual([`- parent ${T}`]);
     });
 
     it('ignores links and embeds written inside fenced or inline code', () => {
@@ -464,26 +468,13 @@ describe('getPageReferences', () => {
         `Inline \`${T}\` and \`![[Projects/Target]]\` only`,
       ].join('\n');
 
-      expect(
-        getPageReferences(
-          makeVault([TARGET, page('n', 'N.md', markdown)]),
-          'target'
-        )
-      ).toEqual({
-        tasks: [],
-        notes: [],
-        dailyNotes: [],
-      });
+      expect(refs(markdown)).toEqual({ tasks: [], notes: [], dailyNotes: [] });
     });
 
     it('still counts a reference next to code', () => {
-      const markdown = `\`code\` then ${T}\n\n\`\`\`\n${T}\n\`\`\``;
-      const { notes } = getPageReferences(
-        makeVault([TARGET, page('n', 'N.md', markdown)]),
-        'target'
-      );
+      const { notes } = refs(`\`code\` then ${T}\n\n\`\`\`\n${T}\n\`\`\``);
 
-      expect(notes.map((entry) => entry.block)).toEqual([`\`code\` then ${T}`]);
+      expect(notes.map((entry) => entry.line)).toEqual([`\`code\` then ${T}`]);
     });
   });
 });

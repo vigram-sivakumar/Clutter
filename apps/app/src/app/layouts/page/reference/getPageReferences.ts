@@ -3,26 +3,26 @@ import type { Page } from '@core/vault/models/Page';
 import type { GraphEdge } from '@core/vault/models/graph/GraphEdge';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
-import { extractReferenceBlocks } from './extractReferenceBlock';
+import { extractReferenceLine } from './extractReferenceLine';
 import {
   getPageDisplayLabel,
   toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
-/** One block of a source page that references the open page, once, however many times it does. */
+/** One line of a source page that references the open page, once, however many times it does. */
 export interface PageReference {
   readonly page: Page;
-  /** Offset where the block starts: with the page, the identity of this entry. */
-  readonly blockFrom: number;
-  /** Every place in this block that links to or embeds the open page, in document order. */
+  /** Offset where the line starts: with the page, the identity of this entry. */
+  readonly lineFrom: number;
+  /** Every place on this line that links to or embeds the open page, in document order. */
   readonly ranges: readonly SourceRange[];
   /**
-   * The smallest complete Markdown block holding the reference, as its own document — what the entry's
-   * read-only editor preview renders. `null` when no block can be lifted out safely (see `extractReferenceBlock`):
-   * the entry then shows `excerpt` through the compact renderer instead.
+   * The referencing line, and only that line, as its own document — what the entry's read-only editor preview
+   * renders. `null` when it should not be previewed in the editor (it holds an embed, or is very long; see
+   * `extractReferenceLine`): the entry then shows `excerpt` through the compact renderer instead.
    */
-  readonly block: string | null;
-  /** The first referencing line in the block, trimmed of its list/heading marker — the compact fallback for `block`. */
+  readonly line: string | null;
+  /** The referencing line, trimmed of its list/heading marker — the compact fallback for `line`. */
   readonly excerpt: string;
 }
 
@@ -41,7 +41,7 @@ export interface PageReferences {
   readonly tasks: readonly TaskReference[];
   /**
    * Notes that reference the open page from outside a task line (a note whose only references are tasks is
-   * represented by those task entries, not listed again), most recently modified first, then A–Z by title; a page's own blocks stay in document order.
+   * represented by those task entries, not listed again), most recently modified first, then A–Z by title; a page's own lines stay in document order.
    */
   readonly notes: readonly PageReference[];
   /** Daily notes that reference the open page from outside a task line, newest first. */
@@ -113,32 +113,28 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
     if (noteEdges.length > 0) {
       const markdown = source.source.markdown;
       const ranges = toRanges(noteEdges);
-      const blocks = extractReferenceBlocks(
-        markdown,
-        ranges.map((range) => range.from)
-      );
 
-      // One entry per block: every reference inside the same block is that entry's ranges.
-      const byBlock = new Map<number, { block: string | null; ranges: SourceRange[] }>();
+      // One entry per line: every reference on the same line is that entry's ranges.
+      const byLine = new Map<number, { line: string | null; ranges: SourceRange[] }>();
 
-      ranges.forEach((range, index) => {
-        const { from, text } = blocks[index]!;
-        const entry = byBlock.get(from);
+      for (const range of ranges) {
+        const { from, text } = extractReferenceLine(markdown, range.from);
+        const entry = byLine.get(from);
 
         if (entry) {
           entry.ranges.push(range);
         } else {
-          byBlock.set(from, { block: text, ranges: [range] });
+          byLine.set(from, { line: text, ranges: [range] });
         }
-      });
+      }
 
-      for (const [blockFrom, { block, ranges: blockRanges }] of byBlock) {
+      for (const [lineFrom, { line, ranges: lineRanges }] of byLine) {
         (source.type === 'daily-note' ? dailyNotes : notes).push({
           page: source,
-          blockFrom,
-          ranges: blockRanges,
-          block,
-          excerpt: toExcerpt(markdown, blockRanges),
+          lineFrom,
+          ranges: lineRanges,
+          line,
+          excerpt: toExcerpt(markdown, lineRanges),
         });
       }
     }
@@ -267,7 +263,7 @@ function byTaskOrder(a: TaskReference, b: TaskReference): number {
 }
 
 function byModifiedThenTitle(a: PageReference, b: PageReference): number {
-  return byModifiedDesc(a.page, b.page) || byTitle(a, b) || a.blockFrom - b.blockFrom;
+  return byModifiedDesc(a.page, b.page) || byTitle(a, b) || a.lineFrom - b.lineFrom;
 }
 
 function byTitle(a: PageReference, b: PageReference): number {
@@ -280,5 +276,5 @@ function byTitle(a: PageReference, b: PageReference): number {
 
 // A Daily Note's name is its ISO date.
 function byDateNewestFirst(a: PageReference, b: PageReference): number {
-  return b.page.name.localeCompare(a.page.name) || a.blockFrom - b.blockFrom;
+  return b.page.name.localeCompare(a.page.name) || a.lineFrom - b.lineFrom;
 }
