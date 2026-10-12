@@ -11,3 +11,10 @@
   text-underline-offset: var(--md-underline-offset);
   text-decoration-color: var(--md-wiki-underline);
 }
+.wiki__icon-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--md-marker-width);
+  aspect-ratio: 1;
+}

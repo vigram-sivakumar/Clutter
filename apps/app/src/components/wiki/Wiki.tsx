@@ -15,12 +15,14 @@ export interface WikiProps {
 export function Wiki({ title, icon, emoji, iconSize, className }: WikiProps) {
   return (
     <div className="wiki">
-      <AppIcon
-        className={className}
-        icon={icon}
-        emoji={emoji}
-        size={iconSize}
-      />
+      <div className="wiki__icon-slot">
+        <AppIcon
+          className={className}
+          icon={icon}
+          emoji={emoji}
+          size={iconSize}
+        />
+      </div>
       <span className="wiki__title">{title}</span>
     </div>
   );

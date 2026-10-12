@@ -41,12 +41,13 @@
 .reference__main {
   display: flex;
   align-items: flex-start;
+  gap: 4px;
 }
 .reference__main .app-icon,
 .reference__main .checkbox {
   flex-shrink: 0;
   height: var(--lh-body);
-  width: 20px;
+  width: var(--md-marker-width);
   margin-top: 0;
 }
 
@@ -54,7 +55,6 @@
   font-size: var(--text-body);
   line-height: var(--lh-body);
   color: var(--foreground-primary);
-  padding-left: var(--space-4);
 }
 .reference__divider {
   height: 1px;

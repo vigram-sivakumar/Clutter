@@ -90,7 +90,7 @@
      share of .page__content and let the editor and References overflow it. Not `0 0 auto`: collection
      bodies and their empty state fill this box with `height: 100%` / `flex: 1`. */
   flex: 1 0 auto;
-  gap: var(--space-32);
+  gap: var(--space-128);
 }
 
 /* Creates a gradient fade at the bottom */

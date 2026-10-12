@@ -46,11 +46,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  /* padding: var(--space-6);
+  padding: var(--space-6);
   background: var(--md-embed-surface);
   border-radius: var(--md-embed-radius);
   box-shadow: var(--md-card-inset-border), var(--shadow-md);
-  isolation: isolate; */
+  isolation: isolate;
 }
 /*
  * No hover highlight: the embedded content is never painted on its own. The only highlight an embed gets is
@@ -292,7 +292,7 @@
   /* pick whatever width you want */
   /* max-width: 200px;
   margin-inline: auto; */
-  /* display: none; */
+  display: none;
 }
 
 .cm-note-embed__divider-rule {
