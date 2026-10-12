@@ -74,6 +74,7 @@ import { tableRangeSelectionKeyboard } from './table/tableRangeSelectionKeyboard
 import { tableRangeClipboard } from './table/tableRangeClipboard';
 import { tableRangeSelectionTyping } from './table/tableRangeSelectionTyping';
 import { tablePaste } from './table/tablePaste';
+import { externalPasteNormalization } from './paste/externalPaste';
 import { tableRectangularNormalization } from './table/tableRectangularNormalization';
 import { tableRootSelectionSnap } from './table/tableRootSelectionSnap';
 import { tableSelectionField } from './table/tableSelection';
@@ -438,6 +439,8 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     // (both already unconditional here) for caret safety — see
     // `tableCreatePaste()`'s own doc comment.
     tableCreatePaste(),
+    // Text from outside Clutter is pasted compactly; text Clutter copied or cut is pasted as it was.
+    externalPasteNormalization(),
     // Listed before `tableWholeDeletionKeymap()` — both are `Prec.highest`;
     // this one must win the tie at the one position they can both match
     // (an empty first line immediately above a table). See

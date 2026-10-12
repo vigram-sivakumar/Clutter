@@ -1,6 +1,7 @@
 import { WidgetType } from '@codemirror/view';
 import type { Rect } from '@codemirror/view';
 
+import { recordInternalClipboardText } from '../paste/externalPaste';
 import { coordsAtFencedCodeControlWidget } from './fencedCodeControlWidgetCoords';
 
 const COPY_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor"/><path d="M11 5V3.5C11 2.67157 10.3284 2 9.5 2H3.5C2.67157 2 2 2.67157 2 3.5V9.5C2 10.3284 2.67157 11 3.5 11H5" stroke="currentColor"/></svg>`;
@@ -73,8 +74,11 @@ export class FencedCodeCopyButtonWidget extends WidgetType {
       // bug — the check/reset feedback simply never fires, leaving the
       // plain Copy icon in place, rather than surfacing as an unhandled
       // promise rejection.
-      navigator.clipboard.writeText(this.getCode()).then(
+      const code = this.getCode();
+      navigator.clipboard.writeText(code).then(
         () => {
+          // Clutter's own copy: pasting it back keeps its blank lines.
+          recordInternalClipboardText(code);
           button.innerHTML = CHECK_ICON;
           button.classList.add('cm-code-block-copy--copied');
           clearTimeout(resetTimer);
