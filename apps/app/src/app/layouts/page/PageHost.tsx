@@ -3117,6 +3117,10 @@ export function PageHost({
               resolveWikiLink={resolveWikiLink}
               resolveTag={resolveTag}
               resolveEmbed={resolvePageEmbed}
+              resolveDate={resolveDate}
+              resolveEmbedImage={resolveEmbedImage}
+              resolveEmbedPdf={resolveEmbedPdf}
+              resolveImageSrc={resolveImageSrc}
             />
           </>
         }

@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { ReferenceEntry, References } from './Reference';
 
@@ -17,13 +25,29 @@ beforeAll(() => vi.stubGlobal('ResizeObserver', ResizeObserverMock));
 afterAll(() => vi.unstubAllGlobals());
 afterEach(() => cleanup());
 
-function Harness({ tasks, notes }: { tasks?: React.ReactNode; notes?: React.ReactNode }) {
+function Harness({
+  tasks,
+  notes,
+}: {
+  tasks?: React.ReactNode;
+  notes?: React.ReactNode;
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  return <References isExpanded={isExpanded} onExpandToggle={() => setIsExpanded((value) => !value)} tasks={tasks} notes={notes} />;
+  return (
+    <References
+      isExpanded={isExpanded}
+      onExpandToggle={() => setIsExpanded((value) => !value)}
+      tasks={tasks}
+      notes={notes}
+    />
+  );
 }
 
-const lists = () => [...document.querySelectorAll('.reference__list')].map((list) => list.textContent);
+const lists = () =>
+  [...document.querySelectorAll('.reference__list')].map(
+    (list) => list.textContent
+  );
 const dividers = () => document.querySelectorAll('.reference__divider').length;
 
 describe('References', () => {
@@ -51,17 +75,21 @@ describe('References', () => {
 
     expect(lists()).toEqual(['task row', 'note row']);
     expect(dividers()).toBe(1);
-    expect([...document.querySelector('.reference__content')!.children].map((child) => child.className)).toEqual([
-      'reference__list',
-      'reference__divider',
-      'reference__list',
-    ]);
+    expect(
+      [...document.querySelector('.reference__content')!.children].map(
+        (child) => child.className
+      )
+    ).toEqual(['reference__list', 'reference__divider', 'reference__list']);
   });
 
   it('has no group headers and no counts — only the section title', () => {
     render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
 
-    expect([...document.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual(['References']);
+    expect(
+      [...document.querySelectorAll('.section-header__title')].map(
+        (node) => node.textContent
+      )
+    ).toEqual(['References']);
     expect(document.querySelector('.reference')?.textContent).not.toMatch(/\d/);
   });
 
@@ -82,22 +110,34 @@ describe('References', () => {
 });
 
 describe('ReferenceEntry', () => {
-  const entry = (props: Partial<React.ComponentProps<typeof ReferenceEntry>> = {}) => {
+  const entry = (
+    props: Partial<React.ComponentProps<typeof ReferenceEntry>> = {}
+  ) => {
     const onOpen = vi.fn();
     render(
-      <ReferenceEntry icon="note" title="Source note" onOpen={onOpen} {...props}>
+      <ReferenceEntry
+        icon="note"
+        title="Source note"
+        onOpen={onOpen}
+        {...props}
+      >
         some context
       </ReferenceEntry>
     );
 
-    return { onOpen, row: document.querySelector('.reference__entry') as HTMLElement };
+    return {
+      onOpen,
+      row: document.querySelector('.reference__entry') as HTMLElement,
+    };
   };
 
   it('shows the source title and the clamped body, without a checkbox for a note', () => {
     entry();
 
     expect(screen.getByText('Source note')).toBeInTheDocument();
-    expect(document.querySelector('.reference-entry__body')).toHaveClass('line-clamp-3');
+    expect(document.querySelector('.reference-entry__body')).toHaveClass(
+      'line-clamp-3'
+    );
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
@@ -124,6 +164,8 @@ describe('ReferenceEntry', () => {
   it('marks a completed task body as completed', () => {
     entry({ isChecked: true, onCheckedChange: vi.fn() });
 
-    expect(document.querySelector('.reference-entry__body')).toHaveClass('is-completed');
+    expect(document.querySelector('.reference-entry__body')).toHaveClass(
+      'is-completed'
+    );
   });
 });

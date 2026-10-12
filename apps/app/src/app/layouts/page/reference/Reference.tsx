@@ -60,8 +60,13 @@ interface ReferenceEntryProps {
   icon: SystemIcon;
   emoji?: string;
   title: string;
-  /** The clamped context: a task's text, or the line that references the open page. */
-  children: ReactNode;
+  /** The compact context: a task's text, or the line that references the open page. Shown when there is no `preview`. */
+  children?: ReactNode;
+  /**
+   * A read-only editor preview of the reference's Markdown block (`ReferencePreview`), shown instead of
+   * `children`. Absent when no block could be extracted — the compact `children` is the fallback.
+   */
+  preview?: ReactNode;
   /** Present only for a task: renders the checkbox. */
   isChecked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
@@ -74,6 +79,7 @@ export function ReferenceEntry({
   emoji,
   title,
   children,
+  preview,
   isChecked,
   onCheckedChange,
   onOpen,
@@ -113,11 +119,17 @@ export function ReferenceEntry({
         {onCheckedChange && (
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         )}
-        <span
-          className={`reference-entry__body line-clamp-3${isChecked ? ' is-completed' : ''}`}
-        >
-          {children}
-        </span>
+        {preview !== undefined ? (
+          <div className="reference-entry__body reference-entry__body--preview">
+            {preview}
+          </div>
+        ) : (
+          <span
+            className={`reference-entry__body line-clamp-3${isChecked ? ' is-completed' : ''}`}
+          >
+            {children}
+          </span>
+        )}
       </div>
     </div>
   );

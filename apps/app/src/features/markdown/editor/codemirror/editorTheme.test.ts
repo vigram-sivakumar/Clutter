@@ -26,3 +26,31 @@ describe('editorTheme — caret color', () => {
     expect(injectedCss).not.toMatch(/caret-color:\s*var\(--editor-caret-color\)/);
   });
 });
+
+describe('editorTheme — one style module for every view', () => {
+  const styleText = () =>
+    Array.from(document.querySelectorAll('style'))
+      .map((style) => style.textContent ?? '')
+      .join('\n');
+
+  it('returns the same extension on every call', () => {
+    expect(editorTheme()).toBe(editorTheme());
+  });
+
+  it('adds no further CSS to the document for the second and later views', () => {
+    const mount = () => {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      return new EditorView({ state: EditorState.create({ extensions: [editorTheme()] }), parent });
+    };
+
+    mount();
+    const afterFirst = styleText();
+
+    for (let i = 0; i < 5; i++) {
+      mount();
+    }
+
+    expect(styleText()).toBe(afterFirst);
+  });
+});

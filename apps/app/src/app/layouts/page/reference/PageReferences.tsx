@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
-import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type {
+  ResolveTag,
+  ResolveWikiLink,
+} from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
 import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
@@ -9,10 +12,18 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
-import { getPageDisplayLabel, toPageDisplayLabelInput } from '@core/presentation/getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  toPageDisplayLabelInput,
+} from '@core/presentation/getPageDisplayLabel';
 
 import { getPageReferences, type PageReference } from './getPageReferences';
 import { References, ReferenceEntry } from './Reference';
+import {
+  createReferencePreviewExtensions,
+  ReferencePreview,
+  type ReferencePreviewContext,
+} from './ReferencePreview';
 
 interface PageReferencesProps {
   /** The open page. Its inbound references are what this lists. */
@@ -25,6 +36,11 @@ interface PageReferencesProps {
   readonly resolveWikiLink?: ResolveWikiLink;
   readonly resolveTag?: ResolveTag;
   readonly resolveEmbed?: ResolvePageEmbed;
+  /** The rest of what the editor's own rendering resolves through, so a preview draws images, PDFs and dates like the note does. */
+  readonly resolveDate?: ReferencePreviewContext['resolveDate'];
+  readonly resolveEmbedImage?: ReferencePreviewContext['resolveEmbedImage'];
+  readonly resolveEmbedPdf?: ReferencePreviewContext['resolveEmbedPdf'];
+  readonly resolveImageSrc?: ReferencePreviewContext['resolveImageSrc'];
 }
 
 /**
@@ -41,17 +57,43 @@ export function PageReferences({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  resolveDate,
+  resolveEmbedImage,
+  resolveEmbedPdf,
+  resolveImageSrc,
 }: PageReferencesProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // The previews' resolvers are read at use time through this ref, so the one shared extension list below
+  // (built once for this section, never per entry) always sees the current ones without being rebuilt.
+  const previewContext = useRef<ReferencePreviewContext>({});
+  previewContext.current = {
+    resolveWikiLink,
+    resolveTag,
+    resolveDate,
+    resolveEmbedImage,
+    resolveEmbedPdf,
+    resolveImageSrc,
+    resolvePageEmbed: resolveEmbed,
+  };
+  const [previewExtensions] = useState(() =>
+    createReferencePreviewExtensions(() => previewContext.current)
+  );
 
   // The graph is replaced on every Vault mutation and is otherwise the same object, so this recomputes
   // exactly when something that could change the references did.
   const graph = vault.knowledgeGraph();
-  const references = useMemo(() => getPageReferences(vault, pageId), [vault, graph, pageId]);
+  const references = useMemo(
+    () => getPageReferences(vault, pageId),
+    [vault, graph, pageId]
+  );
 
   const resolvers = { resolveWikiLink, resolveTag, resolveEmbed };
 
-  const openSource = (sourcePageId: string, ranges: PageReference['ranges']): void => {
+  const openSource = (
+    sourcePageId: string,
+    ranges: PageReference['ranges']
+  ): void => {
     void pageOperations.open(sourcePageId);
 
     if (ranges.length > 0) {
@@ -70,8 +112,19 @@ export function PageReferences({
     };
   };
 
-  const pageEntry = ({ page, ranges, excerpt }: PageReference) => (
-    <ReferenceEntry key={page.id} {...identity(page)} onOpen={() => openSource(page.id, ranges)}>
+  // The block around the reference, in a read-only editor view. When none could be extracted safely the entry
+  // shows the referencing line through the compact renderer instead.
+  const pageEntry = ({ page, ranges, block, excerpt }: PageReference) => (
+    <ReferenceEntry
+      key={page.id}
+      {...identity(page)}
+      preview={
+        block === null ? undefined : (
+          <ReferencePreview markdown={block} extensions={previewExtensions} />
+        )
+      }
+      onOpen={() => openSource(page.id, ranges)}
+    >
       {renderCompactMarkdown(excerpt, resolvers)}
     </ReferenceEntry>
   );
@@ -98,7 +151,17 @@ export function PageReferences({
                   key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
                   {...identity(page)}
                   isChecked={task.completed}
-                  onCheckedChange={() => void taskOperations.toggleComplete(task)}
+                  onCheckedChange={() =>
+                    void taskOperations.toggleComplete(task)
+                  }
+                  // The task's text (the checkbox is the entry's own control), with completed styling when done.
+                  preview={
+                    <ReferencePreview
+                      markdown={task.text}
+                      extensions={previewExtensions}
+                      isCompleted={task.completed}
+                    />
+                  }
                   onOpen={() => openSource(task.sourcePageId, ranges)}
                 >
                   {renderCompactMarkdown(task.text, resolvers)}

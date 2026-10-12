@@ -2,7 +2,15 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { MarkdownAnalyzer } from '@core/vault/ingest/analysis/MarkdownAnalyzer';
 import { PageAnalysisMapper } from '@core/vault/ingest/PageAnalysisMapper';
@@ -14,6 +22,9 @@ import { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
+
+import * as buildEditorExtensionsModule from '@features/markdown/editor/codemirror/buildEditorExtensions';
+import { EditorView } from '@codemirror/view';
 
 import { PageReferences } from './PageReferences';
 
@@ -31,12 +42,28 @@ const ROOT = '/vault';
 const analyzer = new MarkdownAnalyzer();
 const mapper = new PageAnalysisMapper();
 const pageMeta = {
-  icon: null, cover: null, coverHidden: false, coverLayout: 'side' as const, coverPositionAbove: 50,
-  coverPositionSide: 50, description: '', favorite: false, status: 'active' as const, archivedAt: null,
-  originalParentId: null, originalPath: null, createdAt: null, updatedAt: null,
+  icon: null,
+  cover: null,
+  coverHidden: false,
+  coverLayout: 'side' as const,
+  coverPositionAbove: 50,
+  coverPositionSide: 50,
+  description: '',
+  favorite: false,
+  status: 'active' as const,
+  archivedAt: null,
+  originalParentId: null,
+  originalPath: null,
+  createdAt: null,
+  updatedAt: null,
 };
 
-function page(id: string, relativePath: string, markdown = '', type: Page['type'] = 'note'): Page {
+function page(
+  id: string,
+  relativePath: string,
+  markdown = '',
+  type: Page['type'] = 'note'
+): Page {
   const scanned = analyzer.analyze(markdown);
 
   return {
@@ -48,7 +75,9 @@ function page(id: string, relativePath: string, markdown = '', type: Page['type'
     metadata: pageMeta,
     source: { markdown },
     analysis: {
-      headings: [], aliases: [], blockReferences: [],
+      headings: [],
+      aliases: [],
+      blockReferences: [],
       tasks: mapper.buildTasks(id, scanned.tasks),
       tags: [],
       links: mapper.buildLinks(id, scanned.links),
@@ -65,7 +94,12 @@ function makeVault(pages: Page[]): Vault {
     new TagBuilder().build(pages, new Map()),
     new TaskBuilder().build(pages),
     [],
-    new KnowledgeGraphBuilder().build(pages, pages.flatMap((p) => p.analysis.links), pages.flatMap((p) => p.analysis.embeds), ROOT),
+    new KnowledgeGraphBuilder().build(
+      pages,
+      pages.flatMap((p) => p.analysis.links),
+      pages.flatMap((p) => p.analysis.embeds),
+      ROOT
+    ),
     new VaultProjectionBuilder(),
     new Map()
   );
@@ -100,7 +134,11 @@ const TARGET = page('target', 'Target.md');
 
 describe('PageReferences', () => {
   const entries = (list: number) =>
-    [...(document.querySelectorAll('.reference__list')[list]?.querySelectorAll('.reference__entry') ?? [])] as HTMLElement[];
+    [
+      ...(document
+        .querySelectorAll('.reference__list')
+        [list]?.querySelectorAll('.reference__entry') ?? []),
+    ] as HTMLElement[];
 
   it('renders nothing when the page has no references', () => {
     const { container } = setup([TARGET, page('x', 'X.md', 'unrelated')]);
@@ -124,9 +162,13 @@ describe('PageReferences', () => {
     ]);
 
     expect(document.querySelectorAll('.reference__divider')).toHaveLength(1);
-    expect(entries(0).map((row) => row.textContent)).toEqual([expect.stringContaining('Follow up')]);
+    expect(entries(0).map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Follow up'),
+    ]);
     // Notes first, then the daily note. Planner is not listed again — its only reference is the task above.
-    expect(entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)).toEqual(['Alpha', expect.any(String)]);
+    expect(
+      entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)
+    ).toEqual(['Alpha', expect.any(String)]);
     expect(entries(1)[0]!.textContent).toContain('see Target');
     expect(entries(1)[1]!.textContent).toContain('Today:');
   });
@@ -134,12 +176,17 @@ describe('PageReferences', () => {
   it("a task entry shows its source note's title above the task text", () => {
     setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
 
-    expect(entries(0)[0]!.querySelector('.wiki__title')?.textContent).toBe('Planner');
+    expect(entries(0)[0]!.querySelector('.wiki__title')?.textContent).toBe(
+      'Planner'
+    );
   });
 
   it('opens a note and reveals every reference range in it', () => {
     const markdown = '[[Target]] and ![[Target]]';
-    const { pageOperations, onRequestReveal } = setup([TARGET, page('n', 'Alpha.md', markdown)]);
+    const { pageOperations, onRequestReveal } = setup([
+      TARGET,
+      page('n', 'Alpha.md', markdown),
+    ]);
 
     fireEvent.click(entries(0)[0]!);
 
@@ -155,7 +202,10 @@ describe('PageReferences', () => {
 
   it("opens a task's source note and reveals the task's own line", () => {
     const markdown = '- [ ] unrelated\n- [ ] Follow up [[Target]]';
-    const { pageOperations, onRequestReveal } = setup([TARGET, page('t', 'Planner.md', markdown)]);
+    const { pageOperations, onRequestReveal } = setup([
+      TARGET,
+      page('t', 'Planner.md', markdown),
+    ]);
 
     fireEvent.click(entries(0)[0]!);
 
@@ -163,11 +213,17 @@ describe('PageReferences', () => {
     const from = markdown.indexOf(line);
 
     expect(pageOperations.open).toHaveBeenCalledWith('t');
-    expect(onRequestReveal).toHaveBeenCalledWith({ pageId: 't', ranges: [{ from, to: from + line.length }] });
+    expect(onRequestReveal).toHaveBeenCalledWith({
+      pageId: 't',
+      ranges: [{ from, to: from + line.length }],
+    });
   });
 
   it('toggles a task from its checkbox without opening the note', () => {
-    const { pageOperations, taskOperations } = setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
+    const { pageOperations, taskOperations } = setup([
+      TARGET,
+      page('t', 'Planner.md', '- [ ] Follow up [[Target]]'),
+    ]);
 
     fireEvent.click(screen.getByRole('checkbox'));
 
@@ -184,7 +240,10 @@ describe('PageReferences', () => {
     fireEvent.click(entries(0)[0]!);
 
     expect(pageOperations.open).toHaveBeenCalledWith('d');
-    expect(onRequestReveal).toHaveBeenCalledWith({ pageId: 'd', ranges: [{ from: 4, to: 14 }] });
+    expect(onRequestReveal).toHaveBeenCalledWith({
+      pageId: 'd',
+      ranges: [{ from: 4, to: 14 }],
+    });
   });
 
   it('collapses the whole section from its header', () => {
@@ -196,11 +255,15 @@ describe('PageReferences', () => {
   });
 
   it('updates when the underlying content changes', () => {
-    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } = setup([
-      TARGET,
-      page('n', 'Alpha.md', 'nothing yet'),
-    ]);
-    const props = { pageId: 'target', vault, pageOperations, taskOperations, onRequestReveal };
+    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+      setup([TARGET, page('n', 'Alpha.md', 'nothing yet')]);
+    const props = {
+      pageId: 'target',
+      vault,
+      pageOperations,
+      taskOperations,
+      onRequestReveal,
+    };
 
     expect(screen.queryByText('Alpha')).toBeNull();
 
@@ -214,16 +277,148 @@ describe('PageReferences', () => {
   });
 
   it('recomputes only when the vault changes, not on every render', () => {
-    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } = setup([
-      TARGET,
-      page('n', 'Alpha.md', '[[Target]]'),
-    ]);
+    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+      setup([TARGET, page('n', 'Alpha.md', '[[Target]]')]);
     const lookups = vi.spyOn(vault, 'getPage');
-    const props = { pageId: 'target', vault, pageOperations, taskOperations, onRequestReveal };
+    const props = {
+      pageId: 'target',
+      vault,
+      pageOperations,
+      taskOperations,
+      onRequestReveal,
+    };
 
     rerender(<PageReferences {...props} />);
     rerender(<PageReferences {...props} />);
 
     expect(lookups).not.toHaveBeenCalled();
+  });
+});
+
+describe('PageReferences: editor previews', () => {
+  const previews = () => [
+    ...document.querySelectorAll<HTMLElement>(
+      '.reference__entry .reference-preview .cm-content'
+    ),
+  ];
+
+  it('shows the whole block around a reference in a read-only editor view, not one flattened line', () => {
+    setup([
+      TARGET,
+      page(
+        'n',
+        'Alpha.md',
+        'Intro\n\nFirst line with **bold**\nand a [[Target]] link.\n\nOutro'
+      ),
+    ]);
+
+    const [content] = previews();
+    const view = EditorView.findFromDOM(content!)!;
+
+    expect(view.state.doc.toString()).toBe(
+      'First line with **bold**\nand a [[Target]] link.'
+    );
+    expect(content!.querySelector('.tok-strong')?.textContent).toBe('bold');
+    expect(view.state.readOnly).toBe(true);
+  });
+
+  it("keeps a list item's structure: the item and its sub-items, dedented", () => {
+    setup([
+      TARGET,
+      page('n', 'Alpha.md', '- top\n  - nested [[Target]]\n    - child'),
+    ]);
+
+    expect(EditorView.findFromDOM(previews()[0]!)!.state.doc.toString()).toBe(
+      '- nested [[Target]]\n  - child'
+    );
+  });
+
+  it('previews a task through the same view, with completed styling when it is done', () => {
+    setup([
+      TARGET,
+      page(
+        't',
+        'Planner.md',
+        '- [ ] open [[Target]]\n- [x] finished [[Target]]'
+      ),
+    ]);
+
+    const [open, done] = previews();
+
+    expect(open!).not.toHaveClass('cm-task-completed');
+    expect(done!).toHaveClass('cm-task-completed');
+  });
+
+  it('falls back to the compact one-line rendering when the block is too long to lift out', () => {
+    const long = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n');
+    setup([TARGET, page('big', 'Big.md', `${long} [[Target]]`)]);
+
+    expect(previews()).toHaveLength(0);
+    expect(
+      document.querySelector('.reference-entry__body.line-clamp-3')
+    ).not.toBeNull();
+  });
+
+  it('builds the extension list once for every entry in the section', () => {
+    const build = vi.spyOn(
+      buildEditorExtensionsModule,
+      'buildEditorExtensions'
+    );
+    setup([
+      TARGET,
+      page('a', 'A.md', 'one [[Target]]'),
+      page('b', 'B.md', 'two [[Target]]'),
+      page('c', 'C.md', '- [ ] three [[Target]]'),
+    ]);
+
+    expect(previews()).toHaveLength(3);
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
+  it('destroys every preview view when the section unmounts', () => {
+    const destroy = vi.spyOn(EditorView.prototype, 'destroy');
+    const { unmount } = setup([
+      TARGET,
+      page('a', 'A.md', 'one [[Target]]'),
+      page('b', 'B.md', 'two [[Target]]'),
+    ]);
+
+    expect(previews()).toHaveLength(2);
+    unmount();
+
+    expect(destroy).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('.cm-editor')).toBeNull();
+  });
+
+  it('updates a preview in place when its source note changes', () => {
+    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+      setup([TARGET, page('n', 'Alpha.md', 'before [[Target]]')]);
+    const view = EditorView.findFromDOM(previews()[0]!)!;
+
+    vault.replacePage(page('n', 'Alpha.md', 'after, with **more** [[Target]]'));
+    rerender(
+      <PageReferences
+        pageId="target"
+        vault={vault}
+        pageOperations={pageOperations}
+        taskOperations={taskOperations}
+        onRequestReveal={onRequestReveal}
+      />
+    );
+
+    expect(EditorView.findFromDOM(previews()[0]!)).toBe(view);
+    expect(view.state.doc.toString()).toBe('after, with **more** [[Target]]');
+  });
+
+  it('opens the source note when the entry is clicked from inside its preview', () => {
+    const { pageOperations } = setup([
+      TARGET,
+      page('n', 'Alpha.md', 'see [[Target]]'),
+    ]);
+
+    // A click on content inside the preview bubbles to the entry (pointer-events: none makes that the real target).
+    fireEvent.click(previews()[0]!);
+
+    expect(pageOperations.open).toHaveBeenCalledWith('n');
   });
 });

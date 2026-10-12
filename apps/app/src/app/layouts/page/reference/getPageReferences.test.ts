@@ -131,6 +131,31 @@ describe('getPageReferences', () => {
     });
   });
 
+  it('gives a note the whole block around its reference, for the editor preview', () => {
+    const vault = makeVault([
+      TARGET,
+      page('p', 'P.md', 'Intro\n\nA paragraph with **bold**\nand a [[Projects/Target]] link.\n\nOutro'),
+      page('l', 'L.md', '- top\n  - nested [[Projects/Target]]\n    - child'),
+    ]);
+    const blocks = Object.fromEntries(
+      getPageReferences(vault, 'target').notes.map(({ page: source, block }) => [source.id, block])
+    );
+
+    expect(blocks).toEqual({
+      p: 'A paragraph with **bold**\nand a [[Projects/Target]] link.',
+      l: '- nested [[Projects/Target]]\n  - child',
+    });
+  });
+
+  it('has no block when the surrounding block is too long, leaving the compact excerpt as the fallback', () => {
+    const long = Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n');
+    const vault = makeVault([TARGET, page('big', 'Big.md', `${long} [[Projects/Target]]`)]);
+    const [note] = getPageReferences(vault, 'target').notes;
+
+    expect(note!.block).toBeNull();
+    expect(note!.excerpt).toContain('[[Projects/Target]]');
+  });
+
   it('does not list a note again when every reference in it is on a task line', () => {
     const vault = makeVault([
       TARGET,

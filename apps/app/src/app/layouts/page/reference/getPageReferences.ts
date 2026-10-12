@@ -3,6 +3,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { GraphEdge } from '@core/vault/models/graph/GraphEdge';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { SourceRange } from '@core/presentation/getTagOccurrenceRanges';
+import { extractReferenceBlock } from './extractReferenceBlock';
 import {
   getPageDisplayLabel,
   toPageDisplayLabelInput,
@@ -13,7 +14,13 @@ export interface PageReference {
   readonly page: Page;
   /** Every place in `page` that links to or embeds the open page, in document order. */
   readonly ranges: readonly SourceRange[];
-  /** The first referencing line, trimmed of its list/heading marker — the context a reference entry shows. */
+  /**
+   * The smallest complete Markdown block holding the first reference, as its own document — what the entry's
+   * read-only editor preview renders. `null` when no block can be lifted out safely (see `extractReferenceBlock`):
+   * the entry then shows `excerpt` through the compact renderer instead.
+   */
+  readonly block: string | null;
+  /** The first referencing line, trimmed of its list/heading marker — the compact fallback for `block`. */
   readonly excerpt: string;
 }
 
@@ -104,10 +111,13 @@ export function getPageReferences(vault: Vault, pageId: string): PageReferences 
     if (noteEdges.length > 0) {
       const ranges = toRanges(noteEdges);
 
+      const markdown = source.source.markdown;
+
       (source.type === 'daily-note' ? dailyNotes : notes).push({
         page: source,
         ranges,
-        excerpt: toExcerpt(source.source.markdown, ranges),
+        block: ranges[0] ? extractReferenceBlock(markdown, ranges[0].from) : null,
+        excerpt: toExcerpt(markdown, ranges),
       });
     }
   }

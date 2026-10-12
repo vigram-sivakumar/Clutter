@@ -70,7 +70,7 @@ import { EditorView } from '@codemirror/view';
  * `&light`/`&dark` — it does no theme branching of its own.
  */
 export function editorTheme(): Extension {
-  return EditorView.theme({
+  return (theme ??= EditorView.theme({
     '.cm-activeLine': {
       backgroundColor: 'transparent',
     },
@@ -80,5 +80,15 @@ export function editorTheme(): Extension {
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
       background: 'var(--selection-surface)',
     },
-  });
+  }));
 }
+
+/**
+ * Built once. `EditorView.theme()` creates a new style module with its own generated class names every time it
+ * is called, and each view that carries one mounts its rules into the document and never removes them — so a
+ * theme built per call grew the document's stylesheet by one copy per `EditorView` ever created (the main
+ * editor, every note embed, every References preview), which a CPU profile of a 50-preview page showed as most
+ * of the time spent creating them. A theme is an immutable extension: one instance serves any number of views,
+ * and a document mounts its rules once.
+ */
+let theme: Extension | undefined;

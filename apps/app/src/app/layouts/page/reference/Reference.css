@@ -69,3 +69,29 @@
 .wiki__emoji {
   font-size: var(--text-label);
 }
+
+/*
+ * Reference preview — a read-only editor view (ReferencePreview.tsx) of the referencing block. Everything inside
+ * it is styled by the editor's own CSS, which is scoped under `.markdown__editor`; only the wrapper's layout and
+ * interaction are set here.
+ */
+.reference-entry__body--preview {
+  flex: 1;
+  min-width: 0;
+}
+.reference-preview.markdown__editor {
+  /* `.markdown__editor` is the page's editor column (its width, and 30vh of trailing space): undo both. */
+  width: 100%;
+  max-width: none;
+  padding-bottom: 0;
+  /* A compact entry, not the whole block: clip at a line boundary (six editor lines). */
+  max-height: calc(var(--cm-content) * var(--lh-cm-content) * 6);
+  overflow: hidden;
+  /*
+   * Inert. The entry around it is the one navigation target, so every pointer event must reach it — a wiki
+   * link, tag, date, link, image or embed control inside the preview must not act on its own. The editor's click
+   * handlers are registered unconditionally and `readOnly` does not remove them; this does.
+   */
+  pointer-events: none;
+  user-select: none;
+}
