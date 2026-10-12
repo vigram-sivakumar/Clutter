@@ -2,7 +2,6 @@
   width: var(--content-width);
   max-width: var(--editor-width-max);
   height: fit-content;
-  padding-bottom: 30vh;
 }
 
 .markdown__editor .cm-editor {

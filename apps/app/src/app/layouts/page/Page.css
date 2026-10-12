@@ -85,8 +85,12 @@
   display: flex;
   align-items: center;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  /* Grows to fill the viewport but never shrinks below its content, so the body's own box (and its
+     trailing spacer) always contains everything in it. `flex: 1` (basis 0, min-height 0) sized it to its
+     share of .page__content and let the editor and References overflow it. Not `0 0 auto`: collection
+     bodies and their empty state fill this box with `height: 100%` / `flex: 1`. */
+  flex: 1 0 auto;
+  gap: var(--space-32);
 }
 
 /* Creates a gradient fade at the bottom */

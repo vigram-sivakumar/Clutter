@@ -80,10 +80,9 @@
   min-width: 0;
 }
 .reference-preview.markdown__editor {
-  /* `.markdown__editor` is the page's editor column (its width, and 30vh of trailing space): undo both. */
+  /* `.markdown__editor` is the page's editor column (its width): undo it. */
   width: 100%;
   max-width: none;
-  padding-bottom: 0;
   /* A compact entry, not the whole block: clip at a line boundary (six editor lines). */
   max-height: calc(var(--cm-content) * var(--lh-cm-content) * 6);
   overflow: hidden;

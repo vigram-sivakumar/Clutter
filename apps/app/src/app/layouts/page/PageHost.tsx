@@ -2753,6 +2753,7 @@ export function PageHost({
                 )}
               />
             </MarkdownBody>
+            <div className="markdown__bottom-spacer" aria-hidden="true" />
           </>
         }
       />
@@ -3122,6 +3123,7 @@ export function PageHost({
               resolveEmbedPdf={resolveEmbedPdf}
               resolveImageSrc={resolveImageSrc}
             />
+            <div className="markdown__bottom-spacer" aria-hidden="true" />
           </>
         }
       />

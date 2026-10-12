@@ -16,3 +16,17 @@
      .page__content's own min-height: 0, just on the other axis. */
   min-width: 0;
 }
+
+/*
+ * Trailing scroll space after a Markdown page's content (editor, then References when present): lets the
+ * last line or reference scroll clear of the page's bottom fade (.page__document::before) and leaves room
+ * below the text to click. A real flow child of .page__body, which now contains its content; a mousedown on
+ * it is routed to the editor by Page.tsx's body handler like the rest of the body's empty space. `width`
+ * is needed: under `align-items: center` an empty child is 0 wide, and a zero-area box adds no scroll
+ * overflow. Per CLAUDE.md, no `margin`.
+ */
+.markdown__bottom-spacer {
+  width: 100%;
+  height: 30vh;
+  flex-shrink: 0;
+}

@@ -292,7 +292,6 @@ describe('Reference.css preview rules', () => {
   it('undoes the page-column layout .markdown__editor brings, and clips the height', () => {
     expect(rule).toMatch(/width\s*:\s*100%/);
     expect(rule).toMatch(/max-width\s*:\s*none/);
-    expect(rule).toMatch(/padding-bottom\s*:\s*0/);
     expect(rule).toMatch(/max-height\s*:/);
     expect(rule).toMatch(/overflow\s*:\s*hidden/);
   });
