@@ -43,6 +43,7 @@ export function References({
       />
       {isExpanded && (
         <div className="reference__content">
+          <span className="reference__divider" />
           {lists.map((list, index) => (
             <Fragment key={list.key}>
               {index > 0 && <span className="reference__divider" />}
