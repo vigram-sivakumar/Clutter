@@ -4,15 +4,16 @@
     stroke="currentColor"
     stroke-linecap="round"
   />
+
   <path
     d="M4 3.07143C4 2.47969 4.53299 2 5.19047 2H5.42857C6.84873 2 8 3.03614 8 4.31428V5H6.14286C4.95939 5 4 4.13655 4 3.07143Z"
     stroke="currentColor"
     stroke-linecap="round"
   />
+
   <path
     d="M12 3.07143C12 2.47969 11.467 2 10.8095 2H10.5714C9.15127 2 8 3.03614 8 4.31428V5H9.85713C11.0406 5 12 4.13655 12 3.07143Z"
     stroke="currentColor"
     stroke-linecap="round"
   />
 </svg>
-

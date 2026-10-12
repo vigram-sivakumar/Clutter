@@ -5,16 +5,19 @@
     stroke-linecap="round"
     opacity="0.5"
   />
+
   <path
     d="M5.5 4.5V11.5"
     stroke="currentColor"
     stroke-linecap="round"
   />
+
   <path
     d="M7.5 4.5V11.5"
     stroke="currentColor"
     stroke-linecap="round"
   />
+
   <path
     d="M9.5 4.5L11.3117 11.2615"
     stroke="currentColor"

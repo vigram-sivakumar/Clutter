@@ -1,7 +1,8 @@
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
-d="M3 4H11M3 8H11M3 12H7"
+    d="M4 4H12M4 8H12M4 12H8"
     stroke="currentColor"
+    stroke-width="1.2"
     stroke-linecap="round"
   />
 </svg>

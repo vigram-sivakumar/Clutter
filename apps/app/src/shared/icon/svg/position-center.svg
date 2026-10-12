@@ -6,10 +6,11 @@
     opacity="0.3"
     strokeWidth="1"
   />
+
   <path
     d="M8 5.5L8 10.5"
     stroke="currentColor"
-    strokeWidth="3"
     stroke-linecap="round"
+    strokeWidth="3"
   />
 </svg>
