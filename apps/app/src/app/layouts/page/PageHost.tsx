@@ -2468,7 +2468,7 @@ export function PageHost({
       propertiesConfirmation.request({
         title: 'Delete all properties?',
         message:
-          "This deletes every custom property and its value from this note's frontmatter and removes the Properties section. Tags, aliases and the other system values are kept.",
+          'All custom properties will be permanently deleted. This action cannot be undone',
         confirmLabel: 'Delete all',
         onConfirm: () => {
           propertyDrafts.clear();
