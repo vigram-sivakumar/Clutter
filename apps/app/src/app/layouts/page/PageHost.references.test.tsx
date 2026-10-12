@@ -189,14 +189,14 @@ describe('PageHost: the References section', () => {
     expectPlacedAfterTheEditor();
   });
 
-  it('lists the referencing note as an entry: its title over the line that references the page', async () => {
+  it('lists the referencing note as a group: its title over the line that references the page', async () => {
     const application = makeApplication([note('Some text'), source('See [[Note]] for details.')]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     const entries = section()!.querySelectorAll('.reference__entry');
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.querySelector('.wiki__title')!.textContent).toBe('Source');
+    expect(section()!.querySelector('.reference__heading .reference-note__title')!.textContent).toBe('Source');
     expect(entries[0]!.textContent).toContain('See');
     // Only the section title: no group headers, and no counts.
     expect([...section()!.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual(['References']);

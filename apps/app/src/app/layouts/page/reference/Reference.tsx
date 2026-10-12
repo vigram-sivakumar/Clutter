@@ -3,7 +3,6 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import { Checkbox } from '@components/checkbox/Checkbox';
-import type { SystemIcon } from '@shared/icon';
 import './Reference.css';
 
 interface ReferencesProps {
@@ -55,11 +54,45 @@ export function References({
   );
 }
 
-interface ReferenceEntryProps {
-  /** The source page's own identity — what the Wiki header shows. */
-  icon: SystemIcon;
-  emoji?: string;
+interface ReferenceGroupProps {
+  /** The source page's title. */
   title: string;
+  /** Opens the source page. */
+  onOpen: () => void;
+  /** The group's `ReferenceEntry` items: every reference from this page, one each. */
+  children: ReactNode;
+}
+
+/** One source page: its heading (its own click target) above its references (each their own). */
+export function ReferenceGroup({
+  title,
+  onOpen,
+  children,
+}: ReferenceGroupProps) {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpen();
+    }
+  };
+
+  return (
+    <div className="reference__group">
+      <div
+        className="reference__heading"
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={onKeyDown}
+      >
+        <span className="reference-note__title">{title}</span>
+      </div>
+      <div className="reference__occurrences">{children}</div>
+    </div>
+  );
+}
+
+interface ReferenceEntryProps {
   /** The compact context: a task's text, or the line that references the open page. Shown when there is no `preview`. */
   children?: ReactNode;
   /**
@@ -75,9 +108,6 @@ interface ReferenceEntryProps {
 }
 
 export function ReferenceEntry({
-  icon,
-  emoji,
-  title,
   children,
   preview,
   isChecked,
@@ -108,7 +138,6 @@ export function ReferenceEntry({
       onClick={onClick}
       onKeyDown={onKeyDown}
     >
-      <span className="reference-note__title">{title}</span>
       <div className="reference__main">
         {onCheckedChange && (
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />

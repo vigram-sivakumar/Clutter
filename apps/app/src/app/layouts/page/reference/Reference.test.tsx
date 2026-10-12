@@ -13,7 +13,10 @@ import {
   vi,
 } from 'vitest';
 
-import { ReferenceEntry, References } from './Reference';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { ReferenceEntry, ReferenceGroup, References } from './Reference';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -115,12 +118,7 @@ describe('ReferenceEntry', () => {
   ) => {
     const onOpen = vi.fn();
     render(
-      <ReferenceEntry
-        icon="note"
-        title="Source note"
-        onOpen={onOpen}
-        {...props}
-      >
+      <ReferenceEntry onOpen={onOpen} {...props}>
         some context
       </ReferenceEntry>
     );
@@ -131,10 +129,9 @@ describe('ReferenceEntry', () => {
     };
   };
 
-  it('shows the source title and the clamped body, without a checkbox for a note', () => {
+  it('shows the clamped body, without a checkbox for a note', () => {
     entry();
 
-    expect(screen.getByText('Source note')).toBeInTheDocument();
     expect(document.querySelector('.reference-entry__body')).toHaveClass(
       'line-clamp-3'
     );
@@ -167,5 +164,90 @@ describe('ReferenceEntry', () => {
     expect(document.querySelector('.reference-entry__body')).toHaveClass(
       'is-completed'
     );
+  });
+});
+
+describe('ReferenceGroup', () => {
+  const group = () => {
+    const onOpenPage = vi.fn();
+    const onOpenFirst = vi.fn();
+    const onOpenSecond = vi.fn();
+    render(
+      <ReferenceGroup title="Source note" onOpen={onOpenPage}>
+        <ReferenceEntry onOpen={onOpenFirst}>first</ReferenceEntry>
+        <ReferenceEntry onOpen={onOpenSecond}>second</ReferenceEntry>
+      </ReferenceGroup>
+    );
+
+    return { onOpenPage, onOpenFirst, onOpenSecond };
+  };
+
+  it('shows the source page once, as a heading above its references', () => {
+    group();
+
+    expect(screen.getAllByText('Source note')).toHaveLength(1);
+    const container = document.querySelector('.reference__group')!;
+    expect(container.children[0]).toHaveClass('reference__heading');
+    expect(container.children[1]).toHaveClass('reference__occurrences');
+    expect(
+      container.querySelectorAll('.reference__occurrences > .reference__entry')
+    ).toHaveLength(2);
+    // The heading is not an ancestor of the references: separate targets.
+    expect(
+      document.querySelector('.reference__heading .reference__entry')
+    ).toBeNull();
+  });
+
+  it('opens the page from its heading by click, Enter and Space, and never opens a reference', () => {
+    const { onOpenPage, onOpenFirst, onOpenSecond } = group();
+    const heading = document.querySelector(
+      '.reference__heading'
+    ) as HTMLElement;
+
+    expect(heading).toHaveAttribute('role', 'button');
+    expect(heading).toHaveAttribute('tabindex', '0');
+    fireEvent.click(heading);
+    fireEvent.keyDown(heading, { key: 'Enter' });
+    fireEvent.keyDown(heading, { key: ' ' });
+
+    expect(onOpenPage).toHaveBeenCalledTimes(3);
+    expect(onOpenFirst).not.toHaveBeenCalled();
+    expect(onOpenSecond).not.toHaveBeenCalled();
+  });
+
+  it('makes every reference its own target: opening one never opens a sibling or the page', () => {
+    const { onOpenPage, onOpenFirst, onOpenSecond } = group();
+    const [first, second] = [
+      ...document.querySelectorAll<HTMLElement>('.reference__entry'),
+    ];
+
+    fireEvent.click(second!);
+    expect(onOpenSecond).toHaveBeenCalledTimes(1);
+    expect(onOpenFirst).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(first!, { key: 'Enter' });
+    expect(onOpenFirst).toHaveBeenCalledTimes(1);
+    expect(onOpenSecond).toHaveBeenCalledTimes(1);
+    expect(onOpenPage).not.toHaveBeenCalled();
+    expect(first).toHaveAttribute('tabindex', '0');
+    expect(second).toHaveAttribute('role', 'button');
+  });
+});
+
+describe('Reference.css: hover and radius belong to each item', () => {
+  const css = readFileSync(join(__dirname, 'Reference.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    ''
+  );
+
+  it('uses the existing hover token and radius on each reference and on the heading, never on the group', () => {
+    expect(css).toMatch(
+      /\.reference__heading:hover,\s*\.reference__entry:hover\s*\{\s*background:\s*var\(--state-hover\);\s*\}/
+    );
+    expect(css).toMatch(
+      /\.reference__heading,\s*\.reference__entry\s*\{[^}]*border-radius:\s*var\(--radius-md\)/
+    );
+    expect(css).not.toMatch(/\.reference__group[^{]*:hover/);
+    expect(css).not.toMatch(/\.reference__occurrences[^{]*:hover/);
   });
 });

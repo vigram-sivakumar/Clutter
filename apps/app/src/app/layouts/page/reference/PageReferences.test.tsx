@@ -172,18 +172,117 @@ describe('PageReferences', () => {
     ]);
     // Notes first, then the daily note. Planner is not listed again — its only reference is the task above.
     expect(
-      entries(1).map((row) => row.querySelector('.wiki__title')?.textContent)
+      entries(1).map(
+        (row) => row.querySelector('.reference-note__title')?.textContent
+      )
     ).toEqual(['Alpha', expect.any(String)]);
     expect(entries(1)[0]!.textContent).toContain('see Target');
     expect(entries(1)[1]!.textContent).toContain('Today:');
   });
 
-  it("a task entry shows its source note's title above the task text", () => {
+  const headings = (list: number) =>
+    [
+      ...(document
+        .querySelectorAll('.reference__list')
+        [list]?.querySelectorAll('.reference__heading') ?? []),
+    ] as HTMLElement[];
+
+  it("a task's source note is its group heading, above the task", () => {
     setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
 
-    expect(entries(0)[0]!.querySelector('.wiki__title')?.textContent).toBe(
-      'Planner'
-    );
+    expect(headings(0)).toHaveLength(1);
+    expect(
+      headings(0)[0]!.querySelector('.reference-note__title')?.textContent
+    ).toBe('Planner');
+    expect(
+      headings(0)[0]!.nextElementSibling!.querySelectorAll('.reference__entry')
+    ).toHaveLength(1);
+  });
+
+  describe('grouped by source note', () => {
+    const md = 'one [[Target]]\nmiddle\ntwo [[Target]]\n![[Target]] three';
+
+    it('lists a note once, with every occurrence as its own item beneath its heading', () => {
+      setup([TARGET, page('n', 'Alpha.md', md)]);
+
+      expect(headings(0)).toHaveLength(1);
+      expect(
+        headings(0)[0]!.querySelector('.reference-note__title')?.textContent
+      ).toBe('Alpha');
+      expect(entries(0)).toHaveLength(3);
+      expect(
+        headings(0)[0]!.parentElement!.querySelectorAll(
+          '.reference__occurrences > .reference__entry'
+        )
+      ).toHaveLength(3);
+    });
+
+    it('keeps different notes as separate groups, in the existing order, grouped by page id not title', () => {
+      setup([
+        TARGET,
+        page('a1', 'Alpha.md', 'x [[Target]]\ny [[Target]]'),
+        // Same title as another page, different id: its own group.
+        page('a2', 'Other/Alpha.md', 'z [[Target]]'),
+        page('b', 'Beta.md', 'w [[Target]]'),
+      ]);
+
+      expect(headings(0)).toHaveLength(3);
+      expect(entries(0)).toHaveLength(4);
+      const sizes = [...document.querySelectorAll('.reference__group')].map(
+        (group) => group.querySelectorAll('.reference__entry').length
+      );
+      expect(sizes.sort()).toEqual([1, 1, 2]);
+    });
+
+    it('does not deduplicate occurrences at different locations in one note', () => {
+      setup([
+        TARGET,
+        page('n', 'Alpha.md', 'same [[Target]]\nsame [[Target]]'),
+      ]);
+
+      expect(entries(0)).toHaveLength(2);
+    });
+
+    it('opens the clicked occurrence at its own range, and only that one', () => {
+      const { pageOperations, onRequestReveal } = setup([
+        TARGET,
+        page('n', 'Alpha.md', md),
+      ]);
+
+      fireEvent.click(entries(0)[1]!);
+
+      expect(pageOperations.open).toHaveBeenCalledTimes(1);
+      expect(pageOperations.open).toHaveBeenCalledWith('n');
+      expect(onRequestReveal).toHaveBeenCalledTimes(1);
+      expect(onRequestReveal).toHaveBeenCalledWith({
+        pageId: 'n',
+        ranges: [{ from: 26, to: 36 }],
+      });
+    });
+
+    it('opens the page from its heading without revealing any occurrence', () => {
+      const { pageOperations, onRequestReveal } = setup([
+        TARGET,
+        page('n', 'Alpha.md', md),
+      ]);
+
+      fireEvent.click(headings(0)[0]!);
+
+      expect(pageOperations.open).toHaveBeenCalledWith('n');
+      expect(onRequestReveal).not.toHaveBeenCalled();
+    });
+
+    it('keeps tasks and notes of one page in their own lists, each under its own heading', () => {
+      setup([
+        TARGET,
+        page('n', 'Alpha.md', 'plain [[Target]]\n- [ ] task [[Target]]'),
+      ]);
+
+      expect(headings(0)).toHaveLength(1);
+      expect(headings(1)).toHaveLength(1);
+      expect(entries(0)).toHaveLength(1);
+      expect(entries(1)).toHaveLength(1);
+    });
   });
 
   it('opens a note and reveals every reference range in it', () => {
@@ -206,7 +305,8 @@ describe('PageReferences', () => {
   });
 
   it("reveals only the clicked entry's own line, even between adjacent lines of one paragraph", () => {
-    const markdown = 'First [[Target]]\nSecond [[Target]] and ![[Target]]\nthird';
+    const markdown =
+      'First [[Target]]\nSecond [[Target]] and ![[Target]]\nthird';
     const { onRequestReveal } = setup([
       TARGET,
       page('n', 'Alpha.md', markdown),
@@ -358,7 +458,10 @@ describe('PageReferences: editor previews', () => {
   });
 
   it('gives each referencing line of one paragraph its own preview', () => {
-    setup([TARGET, page('n', 'Alpha.md', 'a [[Target]]\nmiddle\nb [[Target]]')]);
+    setup([
+      TARGET,
+      page('n', 'Alpha.md', 'a [[Target]]\nmiddle\nb [[Target]]'),
+    ]);
 
     expect(
       previews().map((content) =>
@@ -401,10 +504,16 @@ describe('PageReferences: editor previews', () => {
     const body = document.querySelector('.reference-entry__body.line-clamp-3');
     expect(body).not.toBeNull();
     // The embed is drawn as a wiki link (the editor's wiki-link DOM), titled by what it embeds.
-    expect(body!.querySelector('.tok-wikilink .tok-wikilink__icon-wrap')).not.toBeNull();
-    expect(body!.querySelector('.tok-wikilink__title')).toHaveTextContent('Target');
+    expect(
+      body!.querySelector('.tok-wikilink .tok-wikilink__icon-wrap')
+    ).not.toBeNull();
+    expect(body!.querySelector('.tok-wikilink__title')).toHaveTextContent(
+      'Target'
+    );
     expect(body!.textContent).toContain('see');
-    expect(body!.textContent).not.toContain('Embedded body that must not appear');
+    expect(body!.textContent).not.toContain(
+      'Embedded body that must not appear'
+    );
     expect(body!.textContent).not.toContain('above');
     expect(body!.textContent).not.toContain('below');
   });

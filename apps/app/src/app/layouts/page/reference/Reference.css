@@ -29,14 +29,28 @@
   margin-left: -6px;
 }
 
-/* Reference Entry */
-.reference__entry {
+/* Source-note group: its heading, then its references */
+.reference__group {
   display: flex;
   flex-direction: column;
+}
+.reference__occurrences {
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--md-marker-width);
+}
+
+/* Reference Entry — one reference; the group heading is its own target with the same treatment */
+.reference__heading,
+.reference__entry {
   padding: 6px;
   border-radius: var(--radius-md);
 
   transition: background 120ms ease;
+}
+.reference__entry {
+  display: flex;
+  flex-direction: column;
 }
 .reference__main {
   display: flex;
@@ -70,6 +84,7 @@
 }
 
 /* interactions */
+.reference__heading:hover,
 .reference__entry:hover {
   background: var(--state-hover);
 }

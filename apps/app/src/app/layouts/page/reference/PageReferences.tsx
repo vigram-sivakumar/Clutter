@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
@@ -7,7 +8,6 @@ import type {
 } from '@features/markdown/editor/MarkdownEditor';
 import type { ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 import type { PendingEditorReveal } from '@app/layouts/page/PendingEditorReveal';
-import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Page } from '@core/vault/models/Page';
@@ -19,7 +19,7 @@ import {
 
 import { containsEmbed } from './extractReferenceLine';
 import { getPageReferences, type PageReference } from './getPageReferences';
-import { References, ReferenceEntry } from './Reference';
+import { References, ReferenceEntry, ReferenceGroup } from './Reference';
 import {
   createReferencePreviewExtensions,
   ReferencePreview,
@@ -49,6 +49,30 @@ interface PageReferencesProps {
  * and notes with daily notes after them. Opening an entry is `PageOperations.open()` plus a reveal request for
  * the exact range(s) that reference the open page — the same two calls the Tasks and Tags sidebars make.
  */
+/**
+ * Groups already-ordered references by their source page's id — one group per page, at the position of its first
+ * reference, each page's references staying in their existing order.
+ */
+function groupByPage<T>(
+  items: readonly T[],
+  pageOf: (item: T) => Page
+): { page: Page; items: T[] }[] {
+  const groups = new Map<string, { page: Page; items: T[] }>();
+
+  for (const item of items) {
+    const page = pageOf(item);
+    const existing = groups.get(page.id);
+
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      groups.set(page.id, { page, items: [item] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
 export function PageReferences({
   pageId,
   vault,
@@ -108,16 +132,16 @@ export function PageReferences({
     }
   };
 
-  // The source page's own icon, emoji and display title — what an entry's Wiki header shows.
-  const identity = (page: Page) => {
-    const { icon, emoji } = resolvePageIdentityIcon(page, undefined);
-
-    return {
-      icon,
-      emoji: emoji ?? undefined,
-      title: getPageDisplayLabel(toPageDisplayLabelInput(page)).text,
-    };
-  };
+  // A source page, once: its heading opens the page, and each of its references below opens its own place in it.
+  const group = (page: Page, entries: ReactNode[]) => (
+    <ReferenceGroup
+      key={page.id}
+      title={getPageDisplayLabel(toPageDisplayLabelInput(page)).text}
+      onOpen={() => openSource(page.id, [])}
+    >
+      {entries}
+    </ReferenceGroup>
+  );
 
   // The referencing line, in a read-only editor view. When it should not be shown that way (it holds an embed, or
   // is very long) the entry shows the line through the compact renderer instead.
@@ -130,7 +154,6 @@ export function PageReferences({
   }: PageReference) => (
     <ReferenceEntry
       key={`${page.id}:${lineFrom}`}
-      {...identity(page)}
       preview={
         line === null ? undefined : (
           <ReferencePreview markdown={line} extensions={previewExtensions} />
@@ -151,42 +174,54 @@ export function PageReferences({
       onExpandToggle={() => setIsExpanded((expanded) => !expanded)}
       tasks={
         references.tasks.length > 0
-          ? references.tasks.map(({ task, page }) => {
-              // A task is revealed at its own line, exactly as the Tasks sidebar does.
-              const ranges =
-                task.startOffset !== undefined && task.endOffset !== undefined
-                  ? [{ from: task.startOffset, to: task.endOffset }]
-                  : [];
+          ? groupByPage(references.tasks, ({ page }) => page).map(
+              ({ page, items }) =>
+                group(
+                  page,
+                  items.map(({ task }) => {
+                    // A task is revealed at its own line, exactly as the Tasks sidebar does.
+                    const ranges =
+                      task.startOffset !== undefined &&
+                      task.endOffset !== undefined
+                        ? [{ from: task.startOffset, to: task.endOffset }]
+                        : [];
 
-              return (
-                <ReferenceEntry
-                  // Positional, so two textually-identical task lines never share a key.
-                  key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
-                  {...identity(page)}
-                  isChecked={task.completed}
-                  onCheckedChange={() =>
-                    void taskOperations.toggleComplete(task)
-                  }
-                  // The task's text (the checkbox is the entry's own control), with completed styling when done —
-                  // compact, like a note line, when it holds an embed (an embed's content is never rendered here).
-                  preview={
-                    containsEmbed(task.text) ? undefined : (
-                      <ReferencePreview
-                        markdown={task.text}
-                        extensions={previewExtensions}
-                        isCompleted={task.completed}
-                      />
-                    )
-                  }
-                  onOpen={() => openSource(task.sourcePageId, ranges)}
-                >
-                  {renderCompactMarkdown(task.text, resolvers)}
-                </ReferenceEntry>
-              );
-            })
+                    return (
+                      <ReferenceEntry
+                        // Positional, so two textually-identical task lines never share a key.
+                        key={`${task.sourcePageId}:${task.startOffset ?? task.text}`}
+                        isChecked={task.completed}
+                        onCheckedChange={() =>
+                          void taskOperations.toggleComplete(task)
+                        }
+                        // The task's text (the checkbox is the entry's own control), with completed styling when done —
+                        // compact, like a note line, when it holds an embed (an embed's content is never rendered here).
+                        preview={
+                          containsEmbed(task.text) ? undefined : (
+                            <ReferencePreview
+                              markdown={task.text}
+                              extensions={previewExtensions}
+                              isCompleted={task.completed}
+                            />
+                          )
+                        }
+                        onOpen={() => openSource(task.sourcePageId, ranges)}
+                      >
+                        {renderCompactMarkdown(task.text, resolvers)}
+                      </ReferenceEntry>
+                    );
+                  })
+                )
+            )
           : null
       }
-      notes={noteEntries.length > 0 ? noteEntries.map(pageEntry) : null}
+      notes={
+        noteEntries.length > 0
+          ? groupByPage(noteEntries, ({ page }) => page).map(
+              ({ page, items }) => group(page, items.map(pageEntry))
+            )
+          : null
+      }
     />
   );
 }
