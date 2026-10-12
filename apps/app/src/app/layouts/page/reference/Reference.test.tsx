@@ -129,6 +129,14 @@ describe('ReferenceEntry', () => {
     };
   };
 
+  it('has no wrapper between the entry and its body or checkbox', () => {
+    const { row } = entry();
+
+    expect(row.querySelector('.reference__main')).toBeNull();
+    expect(row.children).toHaveLength(1);
+    expect(row.firstElementChild).toHaveClass('reference-entry__body');
+  });
+
   it('shows the clamped body, without a checkbox for a note', () => {
     entry();
 
@@ -240,14 +248,21 @@ describe('Reference.css: hover and radius belong to each item', () => {
     ''
   );
 
-  it('uses the existing hover token and radius on each reference and on the heading, never on the group', () => {
+  it('uses the existing hover token and radius on each reference, never on the group', () => {
     expect(css).toMatch(
-      /\.reference__heading:hover,\s*\.reference__entry:hover\s*\{\s*background:\s*var\(--state-hover\);\s*\}/
+      /\.reference__entry:hover\s*\{\s*background:\s*var\(--state-hover\);\s*\}/
     );
     expect(css).toMatch(
-      /\.reference__heading,\s*\.reference__entry\s*\{[^}]*border-radius:\s*var\(--radius-md\)/
+      /\.reference__entry\s*\{[^}]*border-radius:\s*var\(--radius-md\)/
     );
     expect(css).not.toMatch(/\.reference__group[^{]*:hover/);
     expect(css).not.toMatch(/\.reference__occurrences[^{]*:hover/);
+  });
+
+  it('makes the entry itself the layout row, with no wrapper between it and its checkbox and body', () => {
+    expect(css).toMatch(
+      /\.reference__entry\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*flex-start/
+    );
+    expect(css).not.toMatch(/reference__main|reference-entry__body--preview/);
   });
 });

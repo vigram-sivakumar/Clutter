@@ -49,24 +49,17 @@
   width: fit-content;
 }
 .reference__entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   padding-block: var(--space-4);
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);
 
   transition: background 120ms ease;
 }
-.reference__entry {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.reference__main {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
-.reference__main .app-icon,
-.reference__main .checkbox {
+.reference__entry .app-icon,
+.reference__entry .checkbox {
   flex-shrink: 0;
   height: var(--lh-body);
   width: var(--md-marker-width);
@@ -113,13 +106,11 @@
  * it is styled by the editor's own CSS, which is scoped under `.markdown__editor`; only the wrapper's layout and
  * interaction are set here.
  */
-.reference-entry__body--preview {
+.reference-preview.markdown__editor {
+  /* `.markdown__editor` is the page's editor column (its width): undo it, and fill the entry beside any checkbox. */
   flex: 1;
   min-width: 0;
-}
-.reference-preview.markdown__editor {
-  /* `.markdown__editor` is the page's editor column (its width): undo it. */
-  width: 100%;
+  width: auto;
   max-width: none;
   /* A compact entry, not the whole block: clip at a line boundary (six editor lines). */
   max-height: calc(var(--cm-content) * var(--lh-cm-content) * 6);

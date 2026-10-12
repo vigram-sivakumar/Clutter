@@ -156,5 +156,11 @@ export function ReferencePreview({
   }, [markdown]);
 
   // `.markdown__editor` is what scopes the editor's CSS; Reference.css undoes its page-column layout.
-  return <div ref={hostRef} className="reference-preview markdown__editor" />;
+  // `reference-entry__body` makes this the entry's body element, as the compact text is when there is no preview.
+  return (
+    <div
+      ref={hostRef}
+      className="reference-preview markdown__editor reference-entry__body"
+    />
+  );
 }

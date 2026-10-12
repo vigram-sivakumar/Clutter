@@ -51,6 +51,14 @@ describe('ReferencePreview', () => {
     ).not.toBeNull();
   });
 
+  it('is the entry body element itself, not a wrapper inside one', () => {
+    render(<ReferencePreview markdown="Hello" extensions={extensions} />);
+
+    expect(document.querySelector('.reference-preview')).toHaveClass(
+      'reference-entry__body'
+    );
+  });
+
   it("renders through the editor pipeline: inline styles come out as the editor's own tok-* classes", () => {
     render(
       <ReferencePreview
@@ -290,7 +298,8 @@ describe('Reference.css preview rules', () => {
   });
 
   it('undoes the page-column layout .markdown__editor brings, and clips the height', () => {
-    expect(rule).toMatch(/width\s*:\s*100%/);
+    expect(rule).toMatch(/flex\s*:\s*1/);
+    expect(rule).toMatch(/min-width\s*:\s*0/);
     expect(rule).toMatch(/max-width\s*:\s*none/);
     expect(rule).toMatch(/max-height\s*:/);
     expect(rule).toMatch(/overflow\s*:\s*hidden/);
