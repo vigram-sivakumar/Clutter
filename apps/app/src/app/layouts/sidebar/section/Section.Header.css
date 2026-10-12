@@ -6,7 +6,7 @@
   /* The title gives way to the caret, never the other way round. */
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 300ms ease;
+  /* transition: opacity 120ms ease; */
 }
 
 .entry:hover .section-header__caret,
@@ -23,5 +23,5 @@
 }
 .section-header__content-toggle {
   cursor: pointer;
-  transition: color 300ms ease;
+  /* transition: color 120ms ease; */
 }

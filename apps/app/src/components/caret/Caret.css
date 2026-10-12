@@ -31,9 +31,9 @@
 }
 
 .caret-icon--dropdown.caret-icon--collapsed {
-  transform: rotate(90deg);
+  transform: rotate(0deg);
 }
 
 .caret-icon--dropdown.caret-icon--expanded {
-  transform: rotate(-90deg);
+  transform: rotate(90deg);
 }

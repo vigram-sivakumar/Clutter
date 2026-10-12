@@ -8,8 +8,17 @@
 }
 .reference .section-header {
   width: fit-content;
-  font-weight: var(--fw-medium);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+  /* font-weight: var(--fw-medium); */
   padding-inline: 0;
+  color: var(--foreground-secondary);
+}
+.reference .section-header[aria-expanded='false'] {
+  color: var(--foreground-tertiary);
+}
+.reference .section-header .section-header__caret {
+  opacity: 1;
 }
 .reference .section-header:not(.entry-disabled):not(.entry-selected):hover {
   background: transparent;
