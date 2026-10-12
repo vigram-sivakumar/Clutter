@@ -89,7 +89,7 @@ html.theme-transitioning [data-themeable] *::after {
   --md-inline-code-inset: var(--shadow-inset-default);
 
   --md-img-resize-handle: rgba(244, 244, 244, 0.7);
-  --md-pdf-resize-handle: rgba(244, 244, 244, 0.5);
+  --md-pdf-resize-handle: rgba(244, 244, 244, 0.7);
 
   --md-hr-line: var(--border-strong);
 
@@ -237,7 +237,7 @@ html.theme-transitioning [data-themeable] *::after {
   --md-inline-code-inset: var(--shadow-inset-thin-strong);
 
   --md-img-resize-handle: rgba(244, 244, 244, 0.7);
-  --md-pdf-resize-handle: rgba(52, 52, 51, 0.5);
+  --md-pdf-resize-handle: rgba(52, 52, 51, 0.7);
 
   --md-hr-line: var(--border-strong);
 

@@ -87,7 +87,7 @@ export function ReferenceGroup({
         onClick={onOpen}
         onKeyDown={onKeyDown}
       >
-        <span className="reference-note__title">{title}</span>
+        {title}
       </div>
       <div className="reference__occurrences">{children}</div>
     </div>

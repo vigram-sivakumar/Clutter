@@ -4,7 +4,7 @@
   justify-content: flex-start;
   width: var(--content-width);
   max-width: var(--editor-width-max);
-  gap: var(--space-8);
+  gap: var(--space-6);
 }
 .reference .section-header {
   width: fit-content;
@@ -44,8 +44,10 @@
 
 /* Reference Entry — one reference; the group heading is its own target with the same treatment */
 .reference__heading {
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label);
+  color: var(--foreground-tertiary);
   padding-inline: 6px;
-
   width: fit-content;
 }
 .reference__entry {
@@ -64,13 +66,6 @@
   height: var(--lh-body);
   width: var(--md-marker-width);
   margin-top: 0;
-}
-.reference-note__title {
-  font-size: var(--text-label-small);
-  color: var(--foreground-tertiary);
-  /* text-decoration: underline;
-  text-underline-offset: var(--md-underline-offset);
-  text-decoration-color: var(--md-wiki-underline); */
 }
 
 .reference-entry__body {
