@@ -45,7 +45,9 @@ export function References({
           {lists.map((list, index) => (
             <Fragment key={list.key}>
               {index > 0 && <span className="reference__divider" />}
-              <div className="reference__list">{list.content}</div>
+              <div className={`reference__list reference__${list.key}`}>
+                {list.content}
+              </div>
             </Fragment>
           ))}
         </div>

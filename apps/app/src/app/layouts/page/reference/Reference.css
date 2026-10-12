@@ -26,24 +26,31 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-left: -6px;
+  margin-left: -12px;
 }
 
 /* Source-note group: its heading, then its references */
 .reference__group {
   display: flex;
   flex-direction: column;
+  border-radius: var(--radius-md);
+  transition: background 120ms ease;
+  padding: var(--space-6);
 }
 .reference__occurrences {
   display: flex;
   flex-direction: column;
-  padding-left: var(--md-marker-width);
 }
 
 /* Reference Entry — one reference; the group heading is its own target with the same treatment */
-.reference__heading,
+.reference__heading {
+  padding-inline: 6px;
+
+  width: fit-content;
+}
 .reference__entry {
-  padding: 6px;
+  padding-block: var(--space-4);
+  padding-inline: var(--space-6);
   border-radius: var(--radius-md);
 
   transition: background 120ms ease;
@@ -51,6 +58,7 @@
 .reference__entry {
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 .reference__main {
   display: flex;
@@ -65,7 +73,7 @@
   margin-top: 0;
 }
 .reference-note__title {
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   color: var(--foreground-tertiary);
   /* text-decoration: underline;
   text-underline-offset: var(--md-underline-offset);
@@ -83,8 +91,16 @@
   background-color: var(--border-default);
 }
 
+.reference__notes .reference__occurrences {
+  gap: var(--space-6);
+}
+
 /* interactions */
-.reference__heading:hover,
+.reference__heading:hover {
+  text-decoration: underline;
+  text-underline-offset: var(--md-underline-offset);
+  text-decoration-color: var(--md-wiki-underline);
+}
 .reference__entry:hover {
   background: var(--state-hover);
 }
