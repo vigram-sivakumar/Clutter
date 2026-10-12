@@ -12,12 +12,9 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
-import {
-  getPageDisplayLabel,
-  toPageDisplayLabelInput,
-} from '@core/presentation/getPageDisplayLabel';
 
 import { containsEmbed } from './extractReferenceLine';
+import { getSourceNoteHeadings } from './sourceNoteHeadings';
 import { getPageReferences, type PageReference } from './getPageReferences';
 import { References, ReferenceEntry, ReferenceGroup } from './Reference';
 import {
@@ -136,7 +133,7 @@ export function PageReferences({
   const group = (page: Page, entries: ReactNode[]) => (
     <ReferenceGroup
       key={page.id}
-      title={getPageDisplayLabel(toPageDisplayLabelInput(page)).text}
+      title={headings.get(page.id) ?? page.name}
       onOpen={() => openSource(page.id, [])}
     >
       {entries}
@@ -167,6 +164,16 @@ export function PageReferences({
 
   // Regular notes, then daily notes — each already in its own order, never interleaved.
   const noteEntries = [...references.notes, ...references.dailyNotes];
+
+  // The source notes in this section — one heading each. A title is shown alone unless another source note has
+  // the same one, in which case the folder tells them apart.
+  const headings = getSourceNoteHeadings(
+    [
+      ...references.tasks.map(({ page }) => page),
+      ...noteEntries.map(({ page }) => page),
+    ],
+    vault.root
+  );
 
   return (
     <References

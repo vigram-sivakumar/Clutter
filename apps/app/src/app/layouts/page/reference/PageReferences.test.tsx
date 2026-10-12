@@ -199,6 +199,102 @@ describe('PageReferences', () => {
     ).toHaveLength(1);
   });
 
+  describe('source-note heading text', () => {
+    const titles = () =>
+      [...document.querySelectorAll('.reference__heading')].map(
+        (heading) => heading.textContent
+      );
+
+    it('is the title alone for a unique title', () => {
+      setup([TARGET, page('a', 'Work/Ideas.md', 'x [[Target]]')]);
+
+      expect(titles()).toEqual(['Ideas']);
+    });
+
+    it('adds the parent folder only to notes that share a title, never the root', () => {
+      setup([
+        TARGET,
+        page('a', 'Ideas.md', 'x [[Target]]'),
+        page('b', 'Design/Ideas.md', 'y [[Target]]'),
+        page('c', 'Research/Ideas.md', 'z [[Target]]'),
+        page('d', 'Other.md', 'w [[Target]]'),
+      ]);
+
+      expect(titles().sort()).toEqual([
+        'Ideas',
+        'Ideas · Design',
+        'Ideas · Research',
+        'Other',
+      ]);
+    });
+
+    it('uses the full folder path when title and parent folder match', () => {
+      setup([
+        TARGET,
+        page('a', 'Work/Design/Ideas.md', 'x [[Target]]'),
+        page('b', 'Home/Design/Ideas.md', 'y [[Target]]'),
+      ]);
+
+      expect(titles().sort()).toEqual([
+        'Ideas · Home/Design',
+        'Ideas · Work/Design',
+      ]);
+    });
+
+    it('stays one heading when a note is referenced several times, and does not clash with itself', () => {
+      setup([TARGET, page('a', 'Work/Ideas.md', 'x [[Target]]\ny [[Target]]')]);
+
+      expect(titles()).toEqual(['Ideas']);
+      expect(entries(0)).toHaveLength(2);
+    });
+
+    it('compares the notes in the section across both lists', () => {
+      setup([
+        TARGET,
+        page('a', 'Design/Ideas.md', '- [ ] task [[Target]]'),
+        page('b', 'Research/Ideas.md', 'plain [[Target]]'),
+      ]);
+
+      expect(titles().sort()).toEqual(['Ideas · Design', 'Ideas · Research']);
+    });
+
+    it('follows a rename or a move, keeping the heading clickable for the same page', () => {
+      const {
+        vault,
+        rerender,
+        pageOperations,
+        taskOperations,
+        onRequestReveal,
+      } = setup([
+        TARGET,
+        page('a', 'Design/Ideas.md', 'x [[Target]]'),
+        page('b', 'Research/Ideas.md', 'y [[Target]]'),
+      ]);
+      const props = {
+        pageId: 'target',
+        vault,
+        pageOperations,
+        taskOperations,
+        onRequestReveal,
+      };
+      expect(titles().sort()).toEqual(['Ideas · Design', 'Ideas · Research']);
+
+      vault.replacePage(page('a', 'Design/Plans.md', 'x [[Target]]'));
+      rerender(<PageReferences {...props} />);
+      expect(titles().sort()).toEqual(['Ideas', 'Plans']);
+
+      vault.replacePage(page('a', 'Work/Research/Ideas.md', 'x [[Target]]'));
+      rerender(<PageReferences {...props} />);
+      expect(titles().sort()).toEqual([
+        'Ideas · Research',
+        'Ideas · Work/Research',
+      ]);
+
+      fireEvent.click(document.querySelector('.reference__heading')!);
+      expect(pageOperations.open).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('grouped by source note', () => {
     const md = 'one [[Target]]\nmiddle\ntwo [[Target]]\n![[Target]] three';
 
