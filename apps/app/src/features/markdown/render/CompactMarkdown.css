@@ -136,3 +136,14 @@ s {
   text-decoration-line: none;
   /* text-decoration-line: line-through; */
 }
+
+/*
+ * A note embed shown as a wiki link (`embedAsWikiLink`): the shared `.tok-wikilink__*` rules in
+ * `MarkdownEditor.css` size and style the icon, emoji and underlined title; the editor scopes the link's own
+ * colour and inset to `.cm-editor`, so those two are set here. No cursor of its own: the surrounding entry is
+ * the interactive element.
+ */
+.compact-markdown-embed-wikilink {
+  color: var(--md-wiki-foreground);
+  padding-inline: var(--space-3);
+}

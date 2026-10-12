@@ -4,6 +4,7 @@ import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
 import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 import { classifyEmbedTargetExtension } from '../editor/codemirror/embed/embedTargetKind';
+import { PAGE_IDENTITY_ICON_BY_KIND } from '../editor/codemirror/mediaPresentation/pageIdentityIcons';
 import type { ResolveEmbedImage } from '../editor/codemirror/embed/embedImageResolution';
 import type { ResolveImageSrc } from '../editor/codemirror/image/imageSrcResolution';
 import { fallbackTagResolution, type ResolveTag } from '../editor/codemirror/tag/tagResolution';
@@ -37,6 +38,13 @@ export interface CompactMarkdownResolvers {
    */
   readonly resolveEmbedImage?: ResolveEmbedImage;
   readonly resolveImageSrc?: ResolveImageSrc;
+  /**
+   * Opt-in: show a note embed (`![[Note]]`) the way the editor shows a wiki link — the editor's own wiki-link DOM
+   * and classes (`tok-wikilink`, its icon/emoji and underlined title; `MarkdownEditor.css`), with the target's own
+   * icon or emoji — instead of its title as plain text. Used by References, which shows the line holding the
+   * embed but never the embedded note.
+   */
+  readonly embedAsWikiLink?: boolean;
 }
 
 /**
@@ -370,10 +378,49 @@ function renderEmbedSpan(
       );
     }
   }
+  if (resolvers.embedAsWikiLink && resolvers.resolveEmbed) {
+    return renderEmbedWikiLink(path, resolvers.resolveEmbed, key);
+  }
   // A hook for surfaces that lay out a block embed (a note or PDF, shown here by its title) differently from running text; unstyled by default.
   return (
     <span key={key} className="compact-markdown-embed">
       {renderEmbed(path, resolvers.resolveEmbed)}
+    </span>
+  );
+}
+
+/**
+ * A note embed drawn as the editor draws a wiki link: the same element and class structure `WikiLinkWidget.ts`
+ * builds (an icon-wrap holding the page's emoji or its default icon, then the underlined title), so the shared
+ * `.tok-wikilink*` rules in `MarkdownEditor.css` give the font, emoji and icon sizing. An embed that does not
+ * resolve gets the generic note icon and the unresolved status, as an unresolved wiki link does.
+ */
+function renderEmbedWikiLink(path: string, resolveEmbed: ResolvePageEmbed, key: number): ReactNode {
+  const resolution = resolveEmbed(path);
+  const resolved = resolution.status === 'resolved';
+  const label = resolution.status === 'resolved' ? resolution.title : resolution.displayLabel;
+  const emoji = resolution.status === 'resolved' ? resolution.emoji : null;
+  const icon = resolution.status === 'resolved' ? resolution.icon : 'note';
+
+  return (
+    <span
+      key={key}
+      className="tok-wikilink compact-markdown-embed-wikilink"
+      data-wikilink-status={resolved ? 'resolved' : 'unresolved'}
+    >
+      {emoji ? (
+        <span className="tok-wikilink__icon-wrap">
+          <span className="tok-wikilink__emoji">{emoji}</span>
+        </span>
+      ) : (
+        <span
+          className="tok-wikilink__icon-wrap"
+          dangerouslySetInnerHTML={{
+            __html: PAGE_IDENTITY_ICON_BY_KIND[icon].replace('<svg ', '<svg class="tok-wikilink__icon" '),
+          }}
+        />
+      )}
+      <span className="tok-wikilink__title">{label}</span>
     </span>
   );
 }

@@ -105,7 +105,11 @@ function makeVault(pages: Page[]): Vault {
   );
 }
 
-function setup(pages: Page[], pageId = 'target') {
+function setup(
+  pages: Page[],
+  pageId = 'target',
+  extraProps: Partial<React.ComponentProps<typeof PageReferences>> = {}
+) {
   const vault = makeVault(pages);
   const pageOperations = { open: vi.fn() } as unknown as PageOperations;
   const taskOperations = {
@@ -124,6 +128,7 @@ function setup(pages: Page[], pageId = 'target') {
       pageOperations={pageOperations}
       taskOperations={taskOperations}
       onRequestReveal={onRequestReveal}
+      {...extraProps}
     />
   );
 
@@ -374,10 +379,20 @@ describe('PageReferences: editor previews', () => {
   });
 
   it('shows a line with an embed compactly, never rendering the embedded content', () => {
-    setup([
-      TARGET,
-      page('n', 'Alpha.md', 'above\nsee ![[Target]] here\nbelow'),
-    ]);
+    setup(
+      [TARGET, page('n', 'Alpha.md', 'above\nsee ![[Target]] here\nbelow')],
+      'target',
+      {
+        resolveEmbed: () => ({
+          status: 'resolved',
+          pageId: 'target',
+          title: 'Target',
+          markdown: 'Embedded body that must not appear',
+          icon: 'note',
+          emoji: null,
+        }),
+      }
+    );
 
     // No editor of any kind — so no nested editor for the embed either — and only the embed's own line.
     expect(previews()).toHaveLength(0);
@@ -385,7 +400,11 @@ describe('PageReferences: editor previews', () => {
     expect(document.querySelector('.cm-note-embed')).toBeNull();
     const body = document.querySelector('.reference-entry__body.line-clamp-3');
     expect(body).not.toBeNull();
+    // The embed is drawn as a wiki link (the editor's wiki-link DOM), titled by what it embeds.
+    expect(body!.querySelector('.tok-wikilink .tok-wikilink__icon-wrap')).not.toBeNull();
+    expect(body!.querySelector('.tok-wikilink__title')).toHaveTextContent('Target');
     expect(body!.textContent).toContain('see');
+    expect(body!.textContent).not.toContain('Embedded body that must not appear');
     expect(body!.textContent).not.toContain('above');
     expect(body!.textContent).not.toContain('below');
   });

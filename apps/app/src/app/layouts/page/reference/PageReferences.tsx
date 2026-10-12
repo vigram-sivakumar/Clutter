@@ -89,7 +89,13 @@ export function PageReferences({
     [vault, graph, pageId]
   );
 
-  const resolvers = { resolveWikiLink, resolveTag, resolveEmbed };
+  // A line holding a note embed is shown compactly, with the embed drawn as a wiki link (never its content).
+  const resolvers = {
+    resolveWikiLink,
+    resolveTag,
+    resolveEmbed,
+    embedAsWikiLink: true,
+  };
 
   const openSource = (
     sourcePageId: string,

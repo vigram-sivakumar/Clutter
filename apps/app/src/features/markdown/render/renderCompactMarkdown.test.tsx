@@ -268,6 +268,65 @@ describe('renderCompactMarkdown', () => {
       expect(container).toHaveTextContent('Alpha');
     });
 
+    describe('embedAsWikiLink (References)', () => {
+      const resolved = (overrides: Partial<Extract<PageEmbedResolution, { status: 'resolved' }>> = {}): ResolvePageEmbed =>
+        vi.fn().mockReturnValue({
+          status: 'resolved',
+          pageId: 'p',
+          title: 'Project Alpha',
+          markdown: 'Embedded body that must not appear',
+          icon: 'note',
+          emoji: null,
+          ...overrides,
+        });
+
+      it('draws the embed with the editor\'s own wiki-link DOM: icon-wrap with the page icon, then the title', () => {
+        const { container } = render(
+          <>{renderCompactMarkdown('see ![[Alpha]] here', { resolveEmbed: resolved(), embedAsWikiLink: true })}</>
+        );
+
+        const link = container.querySelector('.tok-wikilink');
+        expect(link).not.toBeNull();
+        expect(link!.getAttribute('data-wikilink-status')).toBe('resolved');
+        expect(link!.querySelector(':scope > .tok-wikilink__icon-wrap > svg.tok-wikilink__icon')).not.toBeNull();
+        expect(link!.querySelector(':scope > .tok-wikilink__title')).toHaveTextContent('Project Alpha');
+        expect(container).toHaveTextContent('see Project Alpha here');
+      });
+
+      it('shows the page\'s emoji in place of the icon when it has one', () => {
+        const { container } = render(
+          <>{renderCompactMarkdown('![[Alpha]]', { resolveEmbed: resolved({ emoji: '🚀' }), embedAsWikiLink: true })}</>
+        );
+
+        expect(container.querySelector('.tok-wikilink__icon-wrap > .tok-wikilink__emoji')).toHaveTextContent('🚀');
+        expect(container.querySelector('svg')).toBeNull();
+      });
+
+      it('marks an unresolved embed unresolved, with the generic note icon and its label', () => {
+        const resolveEmbed: ResolvePageEmbed = vi.fn().mockReturnValue({ status: 'unresolved', displayLabel: 'Missing' });
+        const { container } = render(<>{renderCompactMarkdown('![[x/Missing]]', { resolveEmbed, embedAsWikiLink: true })}</>);
+
+        expect(container.querySelector('.tok-wikilink')!.getAttribute('data-wikilink-status')).toBe('unresolved');
+        expect(container.querySelector('svg.tok-wikilink__icon')).not.toBeNull();
+        expect(container.querySelector('.tok-wikilink__title')).toHaveTextContent('Missing');
+      });
+
+      it('never renders the embedded note\'s content', () => {
+        const { container } = render(
+          <>{renderCompactMarkdown('![[Alpha]]', { resolveEmbed: resolved(), embedAsWikiLink: true })}</>
+        );
+
+        expect(container).not.toHaveTextContent('Embedded body that must not appear');
+      });
+
+      it('leaves every other caller alone: without the opt-in an embed is still its title as plain text', () => {
+        const { container } = render(<>{renderCompactMarkdown('![[Alpha]]', { resolveEmbed: resolved() })}</>);
+
+        expect(container.querySelector('.tok-wikilink')).toBeNull();
+        expect(container.querySelector('.compact-markdown-embed')).toHaveTextContent('Project Alpha');
+      });
+    });
+
     it('never exposes raw "![[...]]" syntax, regardless of resolution status or whether a resolver is injected', () => {
       const statuses: PageEmbedResolution[] = [
         { status: 'resolved', pageId: 'page-1', title: 'Project Alpha', markdown: '', icon: 'note', emoji: null },
