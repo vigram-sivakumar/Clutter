@@ -32,13 +32,13 @@ describe('getSourceNoteHeadings', () => {
         note('a', 'Work/Design/Ideas.md'),
         note('b', 'Work/Research/Ideas.md')
       )
-    ).toEqual({ a: 'Ideas · Design', b: 'Ideas · Research' });
+    ).toEqual({ a: 'Design / Ideas', b: 'Research / Ideas' });
   });
 
   it('never shows the root: a root note keeps its title, its namesake in a folder gets the folder', () => {
     expect(
       headings(note('a', 'Ideas.md'), note('b', 'Design/Ideas.md'))
-    ).toEqual({ a: 'Ideas', b: 'Ideas · Design' });
+    ).toEqual({ a: 'Ideas', b: 'Design / Ideas' });
   });
 
   it('uses the full folder path when title and immediate parent are both the same', () => {
@@ -47,7 +47,7 @@ describe('getSourceNoteHeadings', () => {
         note('a', 'Work/Design/Ideas.md'),
         note('b', 'Home/Design/Ideas.md')
       )
-    ).toEqual({ a: 'Ideas · Work/Design', b: 'Ideas · Home/Design' });
+    ).toEqual({ a: 'Work / Design / Ideas', b: 'Home / Design / Ideas' });
   });
 
   it('falls back to the full path only for the notes that still clash', () => {
@@ -58,9 +58,9 @@ describe('getSourceNoteHeadings', () => {
         note('c', 'Research/Ideas.md')
       )
     ).toEqual({
-      a: 'Ideas · Work/Design',
-      b: 'Ideas · Home/Design',
-      c: 'Ideas · Research',
+      a: 'Work / Design / Ideas',
+      b: 'Home / Design / Ideas',
+      c: 'Research / Ideas',
     });
   });
 
@@ -75,12 +75,12 @@ describe('getSourceNoteHeadings', () => {
 
     expect(headings(note('a', 'Ideas.md'), other)).toEqual({
       a: 'Ideas',
-      b: 'Ideas · Design',
+      b: 'Design / Ideas',
     });
     // `a` moves into a folder, then is renamed.
     expect(headings(note('a', 'Research/Ideas.md'), other)).toEqual({
-      a: 'Ideas · Research',
-      b: 'Ideas · Design',
+      a: 'Research / Ideas',
+      b: 'Design / Ideas',
     });
     expect(headings(note('a', 'Research/Roadmap.md'), other)).toEqual({
       a: 'Roadmap',

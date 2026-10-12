@@ -221,10 +221,10 @@ describe('PageReferences', () => {
       ]);
 
       expect(titles().sort()).toEqual([
+        'Design / Ideas',
         'Ideas',
-        'Ideas · Design',
-        'Ideas · Research',
         'Other',
+        'Research / Ideas',
       ]);
     });
 
@@ -236,8 +236,8 @@ describe('PageReferences', () => {
       ]);
 
       expect(titles().sort()).toEqual([
-        'Ideas · Home/Design',
-        'Ideas · Work/Design',
+        'Home / Design / Ideas',
+        'Work / Design / Ideas',
       ]);
     });
 
@@ -255,7 +255,7 @@ describe('PageReferences', () => {
         page('b', 'Research/Ideas.md', 'plain [[Target]]'),
       ]);
 
-      expect(titles().sort()).toEqual(['Ideas · Design', 'Ideas · Research']);
+      expect(titles().sort()).toEqual(['Design / Ideas', 'Research / Ideas']);
     });
 
     it('follows a rename or a move, keeping the heading clickable for the same page', () => {
@@ -277,7 +277,7 @@ describe('PageReferences', () => {
         taskOperations,
         onRequestReveal,
       };
-      expect(titles().sort()).toEqual(['Ideas · Design', 'Ideas · Research']);
+      expect(titles().sort()).toEqual(['Design / Ideas', 'Research / Ideas']);
 
       vault.replacePage(page('a', 'Design/Plans.md', 'x [[Target]]'));
       rerender(<PageReferences {...props} />);
@@ -286,8 +286,8 @@ describe('PageReferences', () => {
       vault.replacePage(page('a', 'Work/Research/Ideas.md', 'x [[Target]]'));
       rerender(<PageReferences {...props} />);
       expect(titles().sort()).toEqual([
-        'Ideas · Research',
-        'Ideas · Work/Research',
+        'Research / Ideas',
+        'Work / Research / Ideas',
       ]);
 
       fireEvent.click(document.querySelector('.reference__heading')!);

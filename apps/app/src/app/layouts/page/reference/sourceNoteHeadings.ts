@@ -5,13 +5,13 @@ import {
   toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
-/** Between a note's title and the folder that tells it apart from a note with the same title. */
-export const FOLDER_SEPARATOR = ' · ';
+/** Between the folders, and between the folder and the title, of a heading that needs folder context. */
+export const FOLDER_SEPARATOR = ' / ';
 
 /**
  * The heading text for each source note in a References section, by page id. A title that no other source note
  * shares is shown alone. Notes with the same title are told apart by their immediate parent folder
- * (`Title · Folder`); a note directly in the vault root keeps just its title, and the root's name is never shown.
+ * (`Folder / Title`); a note directly in the vault root keeps just its title, and the root's name is never shown.
  * Only when two notes share both title and immediate parent folder does the full folder path stand in for the
  * parent.
  *
@@ -51,13 +51,15 @@ export function getSourceNoteHeadings(
       const parentIsShared =
         note.parent !== '' &&
         notes.filter((other) => other.parent === note.parent).length > 1;
-      const context = parentIsShared ? note.folderPath : note.parent;
+      const context = parentIsShared
+        ? note.folderPath.split('/').join(FOLDER_SEPARATOR)
+        : note.parent;
 
       headings.set(
         note.id,
         notes.length === 1 || context === ''
           ? title
-          : `${title}${FOLDER_SEPARATOR}${context}`
+          : `${context}${FOLDER_SEPARATOR}${title}`
       );
     }
   }
