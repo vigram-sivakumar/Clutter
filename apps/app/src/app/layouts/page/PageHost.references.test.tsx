@@ -2,7 +2,15 @@
 
 import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { EditorView } from '@codemirror/view';
 
 import { AppLayout } from '../app-layout/AppLayout';
@@ -55,7 +63,14 @@ afterEach(() => {
 });
 
 const ROOT = '/vault';
-const analysis = { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] };
+const analysis = {
+  headings: [],
+  blockReferences: [],
+  tasks: [],
+  tags: [],
+  links: [],
+  embeds: [],
+};
 
 function note(markdown: string): Page {
   return new PageBuilder(ROOT).build({
@@ -73,7 +88,10 @@ function note(markdown: string): Page {
 
 function dailyNote(isoDate: string, markdown: string): Page {
   const [year, month, day] = isoDate.split('-').map(Number);
-  const path = DailyNotePath.absoluteFrom(ROOT, new Date(year!, month! - 1, day!));
+  const path = DailyNotePath.absoluteFrom(
+    ROOT,
+    new Date(year!, month! - 1, day!)
+  );
 
   return new PageBuilder(ROOT).build({
     parentId: null,
@@ -114,9 +132,15 @@ const graphOf = (pages: Page[]) =>
     ROOT
   );
 
-function makeApplication(pages: Page[], folderPaths: string[] = []): Application {
+function makeApplication(
+  pages: Page[],
+  folderPaths: string[] = []
+): Application {
   const folders = folderPaths.map((path) =>
-    new FolderBuilder().build({ parentId: null, directory: { path, parentPath: null, frontmatter: null } })
+    new FolderBuilder().build({
+      parentId: null,
+      directory: { path, parentPath: null, frontmatter: null },
+    })
   );
   const vault = new Vault(
     ROOT,
@@ -130,8 +154,16 @@ function makeApplication(pages: Page[], folderPaths: string[] = []): Application
     new Map(),
     []
   );
-  const application = new Application(vault, new InMemoryVaultFileSystem(), new SelfWriteRegistry());
-  application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
+  const application = new Application(
+    vault,
+    new InMemoryVaultFileSystem(),
+    new SelfWriteRegistry()
+  );
+  application.attachVault(
+    vault,
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    new DailyNoteService()
+  );
 
   return application;
 }
@@ -144,7 +176,10 @@ async function flush(): Promise<void> {
   }
 }
 
-async function show(application: Application, open: () => Promise<unknown>): Promise<void> {
+async function show(
+  application: Application,
+  open: () => Promise<unknown>
+): Promise<void> {
   await open();
   render(<AppLayout application={application} />);
   await flush();
@@ -166,7 +201,9 @@ function expectPlacedAfterTheEditor() {
   expect(content.parentElement).toBe(body);
   expect(content.contains(references)).toBe(false);
   expect(references!.closest('.cm-editor')).toBeNull();
-  expect(document.querySelector('.cm-editor')!.contains(references)).toBe(false);
+  expect(document.querySelector('.cm-editor')!.contains(references)).toBe(
+    false
+  );
 
   // Rendered right after the Markdown content column.
   expect(content.nextElementSibling).toBe(references);
@@ -174,7 +211,10 @@ function expectPlacedAfterTheEditor() {
 
 describe('PageHost: the References section', () => {
   it('renders for a regular note that another note references, beside the Markdown content', async () => {
-    const application = makeApplication([note('Some text'), source('See [[Note]] for details.')]);
+    const application = makeApplication([
+      note('Some text'),
+      source('See [[Note]] for details.'),
+    ]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     expectPlacedAfterTheEditor();
@@ -183,27 +223,42 @@ describe('PageHost: the References section', () => {
   it('renders for a daily note that a note references, beside the Markdown content', async () => {
     const page = dailyNote('2026-01-15', 'Daily text');
     const link = DailyNotePath.from(new Date(2026, 0, 15)).replace(/\.md$/, '');
-    const application = makeApplication([page, source(`Written on [[${link}]].`)]);
+    const application = makeApplication([
+      page,
+      source(`Written on [[${link}]].`),
+    ]);
     await show(application, () => application.pageOperations.open(page.id));
 
     expectPlacedAfterTheEditor();
   });
 
   it('lists the referencing note as a group: its title over the line that references the page', async () => {
-    const application = makeApplication([note('Some text'), source('See [[Note]] for details.')]);
+    const application = makeApplication([
+      note('Some text'),
+      source('See [[Note]] for details.'),
+    ]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     const entries = section()!.querySelectorAll('.reference__entry');
 
     expect(entries).toHaveLength(1);
-    expect(section()!.querySelector('.reference__heading .reference-note__title')!.textContent).toBe('Source');
+    expect(section()!.querySelector('.reference__heading')!.textContent).toBe(
+      'Source'
+    );
     expect(entries[0]!.textContent).toContain('See');
-    // Only the section title: no group headers, and no counts.
-    expect([...section()!.querySelectorAll('.section-header__title')].map((node) => node.textContent)).toEqual(['References']);
+    // Only the section title, with the count: no group headers.
+    expect(
+      [...section()!.querySelectorAll('.section-header__title')].map(
+        (node) => node.textContent
+      )
+    ).toEqual(['1 Reference']);
   });
 
   it('is not rendered for a page that nothing references', async () => {
-    const application = makeApplication([note('Some text'), source('Nothing about it.')]);
+    const application = makeApplication([
+      note('Some text'),
+      source('Nothing about it.'),
+    ]);
     await show(application, () => application.pageOperations.open('note-1'));
 
     expect(section()).toBeNull();
@@ -211,56 +266,88 @@ describe('PageHost: the References section', () => {
 
   it('is not rendered for an unsaved draft, which nothing can reference yet', async () => {
     const application = makeApplication([source('See [[Note]].')]);
-    await show(application, () => application.pageOperations.openDraft({ folderId: null }));
+    await show(application, () =>
+      application.pageOperations.openDraft({ folderId: null })
+    );
 
     expect(section()).toBeNull();
   });
 
   it('is not rendered by the collection pages', async () => {
-    const application = makeApplication([note('Some text'), source('See [[Note]].')], [`${ROOT}/Projects`]);
-    await show(application, () => application.folderOperations.open(`${ROOT}/Projects`));
+    const application = makeApplication(
+      [note('Some text'), source('See [[Note]].')],
+      [`${ROOT}/Projects`]
+    );
+    await show(application, () =>
+      application.folderOperations.open(`${ROOT}/Projects`)
+    );
 
     expect(section()).toBeNull();
   });
 });
 
 describe('PageHost: the editor and template suggestions are unchanged by it', () => {
-  const editorView = () => EditorView.findFromDOM(document.querySelector<HTMLElement>('.cm-content')!)!;
+  const editorView = () =>
+    EditorView.findFromDOM(
+      document.querySelector<HTMLElement>('.cm-content')!
+    )!;
 
   it('typing in the editor works and does not touch the section', async () => {
-    const application = makeApplication([note('Hello'), source('See [[Note]].')]);
+    const application = makeApplication([
+      note('Hello'),
+      source('See [[Note]].'),
+    ]);
     await show(application, () => application.pageOperations.open('note-1'));
     const before = section()!.outerHTML;
 
     const view = editorView();
     view.focus();
     await act(async () => {
-      view.dispatch({ changes: { from: 5, insert: ' world' }, userEvent: 'input.type' });
+      view.dispatch({
+        changes: { from: 5, insert: ' world' },
+        userEvent: 'input.type',
+      });
     });
     await flush();
 
     expect(view.state.doc.toString()).toBe('Hello world');
-    expect(application.pageOperations.getSession('note-1')!.currentRevision.markdown).toBe('Hello world');
+    expect(
+      application.pageOperations.getSession('note-1')!.currentRevision.markdown
+    ).toBe('Hello world');
     expect(section()!.outerHTML).toBe(before);
   });
 
   it('an empty note still offers its templates, outside the section and as before', async () => {
     const application = makeApplication([note(''), source('See [[Note]].')]);
-    await createTemplate(application.folderOperations, application.pageOperations);
+    await createTemplate(
+      application.folderOperations,
+      application.pageOperations
+    );
     const templateDraft = application.workspace.activePageId!;
-    await application.pageOperations.mutateBody(templateDraft, () => '# Agenda');
+    await application.pageOperations.mutateBody(
+      templateDraft,
+      () => '# Agenda'
+    );
     await application.pageOperations.requestSave(templateDraft);
     await show(application, () => application.pageOperations.open('note-1'));
 
-    expect(document.querySelector('.page__template-suggestions')).not.toBeNull();
-    expect(document.querySelector('.template-suggestions__item')).not.toBeNull();
-    expect(section()!.contains(document.querySelector('.page__template-suggestions'))).toBe(false);
+    expect(
+      document.querySelector('.page__template-suggestions')
+    ).not.toBeNull();
+    expect(
+      document.querySelector('.template-suggestions__item')
+    ).not.toBeNull();
+    expect(
+      section()!.contains(document.querySelector('.page__template-suggestions'))
+    ).toBe(false);
 
     fireEvent.click(document.querySelector('.template-suggestions__item')!);
     await flush();
     await flush();
 
-    expect(application.pageOperations.getSession('note-1')!.currentRevision.markdown).toBe('# Agenda');
+    expect(
+      application.pageOperations.getSession('note-1')!.currentRevision.markdown
+    ).toBe('# Agenda');
     expect(editorView().state.doc.toString()).toBe('# Agenda');
     expectPlacedAfterTheEditor();
   });

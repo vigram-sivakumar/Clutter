@@ -6,6 +6,8 @@ import { Checkbox } from '@components/checkbox/Checkbox';
 import './Reference.css';
 
 interface ReferencesProps {
+  /** How many references there are in all (every occurrence), for the header: "3 References". */
+  count: number;
   isExpanded: boolean;
   onExpandToggle: () => void;
   /** The task list. Null (or omitted) when there are no task references. */
@@ -15,6 +17,7 @@ interface ReferencesProps {
 }
 
 export function References({
+  count,
   isExpanded = true,
   onExpandToggle,
   tasks,
@@ -33,7 +36,7 @@ export function References({
     <section className="reference">
       <Header
         interaction="subtle"
-        title="References"
+        title={`${count} ${count === 1 ? 'Reference' : 'References'}`}
         isCollapsible
         isTitleToggle
         isExpanded={isExpanded}

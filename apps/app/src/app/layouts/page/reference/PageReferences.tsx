@@ -165,6 +165,9 @@ export function PageReferences({
   // Regular notes, then daily notes — each already in its own order, never interleaved.
   const noteEntries = [...references.notes, ...references.dailyNotes];
 
+  // Every reference occurrence, as listed: tasks plus note and daily-note lines.
+  const count = references.tasks.length + noteEntries.length;
+
   // The source notes in this section — one heading each. A title is shown alone unless another source note has
   // the same one, in which case the folder tells them apart.
   const headings = getSourceNoteHeadings(
@@ -177,6 +180,7 @@ export function PageReferences({
 
   return (
     <References
+      count={count}
       isExpanded={isExpanded}
       onExpandToggle={() => setIsExpanded((expanded) => !expanded)}
       tasks={

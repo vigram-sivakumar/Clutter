@@ -171,11 +171,10 @@ describe('PageReferences', () => {
       expect.stringContaining('Follow up'),
     ]);
     // Notes first, then the daily note. Planner is not listed again — its only reference is the task above.
-    expect(
-      entries(1).map(
-        (row) => row.querySelector('.reference-note__title')?.textContent
-      )
-    ).toEqual(['Alpha', expect.any(String)]);
+    expect(headings(1).map((heading) => heading.textContent)).toEqual([
+      'Alpha',
+      expect.any(String),
+    ]);
     expect(entries(1)[0]!.textContent).toContain('see Target');
     expect(entries(1)[1]!.textContent).toContain('Today:');
   });
@@ -191,9 +190,7 @@ describe('PageReferences', () => {
     setup([TARGET, page('t', 'Planner.md', '- [ ] Follow up [[Target]]')]);
 
     expect(headings(0)).toHaveLength(1);
-    expect(
-      headings(0)[0]!.querySelector('.reference-note__title')?.textContent
-    ).toBe('Planner');
+    expect(headings(0)[0]!.textContent).toBe('Planner');
     expect(
       headings(0)[0]!.nextElementSibling!.querySelectorAll('.reference__entry')
     ).toHaveLength(1);
@@ -302,9 +299,7 @@ describe('PageReferences', () => {
       setup([TARGET, page('n', 'Alpha.md', md)]);
 
       expect(headings(0)).toHaveLength(1);
-      expect(
-        headings(0)[0]!.querySelector('.reference-note__title')?.textContent
-      ).toBe('Alpha');
+      expect(headings(0)[0]!.textContent).toBe('Alpha');
       expect(entries(0)).toHaveLength(3);
       expect(
         headings(0)[0]!.parentElement!.querySelectorAll(
@@ -475,10 +470,57 @@ describe('PageReferences', () => {
     });
   });
 
+  describe('header count', () => {
+    const title = () =>
+      document.querySelector('.section-header__title')?.textContent;
+
+    it('counts every occurrence — tasks, notes and daily notes — not source notes', () => {
+      setup([
+        TARGET,
+        page('a', 'Alpha.md', 'one [[Target]]\ntwo [[Target]]'),
+        page('t', 'Planner.md', '- [ ] task [[Target]]'),
+        page('d', 'Daily Notes/2026-10-10.md', 'day [[Target]]', 'daily-note'),
+      ]);
+
+      expect(title()).toBe('4 References');
+    });
+
+    it('is singular for one reference', () => {
+      setup([TARGET, page('a', 'Alpha.md', 'one [[Target]]')]);
+
+      expect(title()).toBe('1 Reference');
+    });
+
+    it('follows edits to the references', () => {
+      const {
+        vault,
+        rerender,
+        pageOperations,
+        taskOperations,
+        onRequestReveal,
+      } = setup([TARGET, page('a', 'Alpha.md', 'one [[Target]]')]);
+
+      vault.replacePage(
+        page('a', 'Alpha.md', 'one [[Target]]\ntwo [[Target]]')
+      );
+      rerender(
+        <PageReferences
+          pageId="target"
+          vault={vault}
+          pageOperations={pageOperations}
+          taskOperations={taskOperations}
+          onRequestReveal={onRequestReveal}
+        />
+      );
+
+      expect(title()).toBe('2 References');
+    });
+  });
+
   it('collapses the whole section from its header', () => {
     setup([TARGET, page('n', 'Alpha.md', 'see [[Target]]')]);
 
-    fireEvent.click(screen.getByRole('button', { name: 'References' }));
+    fireEvent.click(screen.getByRole('button', { name: /References?$/ }));
 
     expect(document.querySelectorAll('.reference__entry')).toHaveLength(0);
   });

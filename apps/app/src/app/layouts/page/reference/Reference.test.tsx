@@ -31,14 +31,17 @@ afterEach(() => cleanup());
 function Harness({
   tasks,
   notes,
+  count = 3,
 }: {
   tasks?: React.ReactNode;
   notes?: React.ReactNode;
+  count?: number;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
     <References
+      count={count}
       isExpanded={isExpanded}
       onExpandToggle={() => setIsExpanded((value) => !value)}
       tasks={tasks}
@@ -85,21 +88,32 @@ describe('References', () => {
     ).toEqual(['reference__list', 'reference__divider', 'reference__list']);
   });
 
-  it('has no group headers and no counts — only the section title', () => {
+  const titles = () =>
+    [...document.querySelectorAll('.section-header__title')].map(
+      (node) => node.textContent
+    );
+
+  it('has no group headers — only the section title, with the total count', () => {
     render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
 
-    expect(
-      [...document.querySelectorAll('.section-header__title')].map(
-        (node) => node.textContent
-      )
-    ).toEqual(['References']);
-    expect(document.querySelector('.reference')?.textContent).not.toMatch(/\d/);
+    expect(titles()).toEqual(['3 References']);
+  });
+
+  it('reads "1 Reference" for a single reference and "9 References" for nine', () => {
+    const { unmount } = render(
+      <Harness notes={<div>note row</div>} count={1} />
+    );
+    expect(titles()).toEqual(['1 Reference']);
+    unmount();
+
+    render(<Harness notes={<div>note row</div>} count={9} />);
+    expect(titles()).toEqual(['9 References']);
   });
 
   it('collapses and expands the whole section, reflecting it in aria-expanded', () => {
     render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
 
-    const header = screen.getByRole('button', { name: 'References' });
+    const header = screen.getByRole('button', { name: '3 References' });
 
     expect(header).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(header);
