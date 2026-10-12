@@ -37,8 +37,9 @@
 }
 
 /* A wrapped, multi-line field needs its text top-aligned (not vertically
-   centered against the row the way a single line is) and breathing room
-   above/below it, since .input's own padding is inline-only. */
+   centered against the row the way a single line is). The block padding on
+   .input__field below supplies the breathing room, since .input's own
+   padding is inline-only. */
 .input--multiline {
   align-items: flex-start;
 }
@@ -52,6 +53,12 @@
      measurement reads. */
   overflow: hidden;
   min-height: var(--height-lg);
+  /* Centers the first line in a --height-lg row, as a single-line field is.
+     Lives on the textarea (not the wrapper) and is border-box because the
+     auto-grow effect sets height = scrollHeight, which includes padding.
+     1lh follows each field's own line-height. */
+  box-sizing: border-box;
+  padding-block: max(0px, calc((var(--height-lg) - 1lh) / 2));
 }
 
 .input__leading,
