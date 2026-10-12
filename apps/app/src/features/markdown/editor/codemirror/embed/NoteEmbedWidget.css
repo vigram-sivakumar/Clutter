@@ -53,20 +53,9 @@
   isolation: isolate; */
 }
 /*
- * Hover cue — the same `--md-reveal-highlight-surface` colour and 400ms
- * background fade the editor-reveal line flash uses (`MarkdownEditor.css`'s
- * `.cm-reveal-line`). Hovering anywhere on the embed paints only its
- * content area (`> .cm-note-embed__content`, direct child so a nested
- * embed's own content isn't also painted), not the header or dividers.
- * Pure CSS: no decoration state or timer is needed for a hover, and
- * `background-color`/`border-radius` never affect CM6 layout (no margin,
- * per this codebase's permanent CM6 rule).
+ * No hover highlight: the embedded content is never painted on its own. The only highlight an embed gets is
+ * the editor-reveal flash (below), on the outer wrapper as one component.
  */
-.cm-note-embed > .cm-note-embed__content {
-  border-radius: var(--radius-sm);
-  background-color: transparent;
-  transition: background-color 400ms ease;
-}
 
 /* Clicking the content opens the source note (NoteEmbedWidget.ts) — the
  * nested read-only view's own text cursor would say "editable", so show the
@@ -75,16 +64,28 @@
   cursor: pointer;
 }
 
-/* Only the outermost embed is painted. Hovering anywhere inside it —
- * including over an embed nested within its content — highlights the outer
- * content area; nested embeds never paint their own, so one highlight is
- * shown at a time, matching the one note a click opens. */
-.cm-note-embed:hover > .cm-note-embed__content {
-  background-color: var(--md-reveal-highlight-surface);
+/*
+ * Reveal flash (`editorRevealHighlight.ts` — `cm-reveal-line` / `cm-reveal-line--visible`, same colour and 400ms
+ * fade as every other reveal): when the target line is an embed, the flash is painted on the embed's own wrapper
+ * — header, content and divider as one component — instead of on the line behind it, so exactly one background
+ * is ever drawn (no stacked alphas) and its edges follow the embed's rounded shape. Only the wrapper that is the
+ * direct child of the revealed line paints: the nested view is a separate editor with no reveal state, and an
+ * embed inside embedded content is never a direct child of a revealed line. Pure paint: no layout effect (no
+ * margin, per this codebase's permanent CM6 rule).
+ */
+.cm-editor .cm-reveal-line:has(> .cm-note-embed),
+.cm-editor .cm-reveal-line--visible:has(> .cm-note-embed) {
+  background-color: transparent;
 }
 
-.cm-note-embed__content .cm-note-embed:hover > .cm-note-embed__content {
+.cm-editor .cm-reveal-line > .cm-note-embed {
+  border-radius: var(--radius-sm);
   background-color: transparent;
+  transition: background-color 400ms ease;
+}
+
+.cm-editor .cm-reveal-line--visible > .cm-note-embed {
+  background-color: var(--md-reveal-highlight-surface);
 }
 
 .cm-content[contenteditable='false'] .cm-note-embed {

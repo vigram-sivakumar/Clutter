@@ -164,6 +164,15 @@ export interface FoldStatePersistence {
 }
 
 /**
+ * The nested view each rendered embed owns, by the DOM it was rendered into — not a field on the widget.
+ * CodeMirror may call `toDOM` more than once on the same widget instance (an update that re-renders the line
+ * without rebuilding decorations, such as the reveal highlight) and then `destroy(dom)` for the DOM it dropped,
+ * possibly on an equal instance that never rendered it. A per-instance field would then point at the newest
+ * render's view, so `destroy` would close the editor still on screen and leak the one it dropped.
+ */
+const nestedViews = new WeakMap<HTMLElement, EditorView>();
+
+/**
  * A note embed (`![[Page]]`, `![[Page#Heading]]`) — renders the resolved
  * page's (or page section's) content through a real, nested, permanently
  * read-only CM6 `EditorView`, not a hand-built parallel DOM renderer.
@@ -276,7 +285,7 @@ export interface FoldStatePersistence {
  * mutates the already-rendered DOM directly (`content.hidden`, this
  * button's own icon/label) instead of relying on a `toDOM()` rebuild:
  * `eq()` below deliberately excludes `collapsed`, so a collapse/expand
- * click never destroys and recreates `this.nestedView` — see
+ * click never destroys and recreates the nested view — see
  * `ImageUiState.collapsed`'s own doc comment for the full reasoning. The
  * dispatched `setImageUiState` effect exists purely so the *next* genuine
  * rebuild (triggered by some other field actually changing) reads the
@@ -309,8 +318,6 @@ export interface FoldStatePersistence {
  * read-only-behavior audit).
  */
 export class NoteEmbedWidget extends WidgetType {
-  private nestedView: EditorView | null = null;
-
   constructor(
     /** `null` for a broken embed — the target never resolved to a real page (or resolved but was rejected for a cycle/depth reason), rendered via `renderBroken` below instead of the resolved-page working state. */
     readonly resolution: Extract<
@@ -363,7 +370,7 @@ export class NoteEmbedWidget extends WidgetType {
     // own "Collapse/expand" doc comment and `ImageUiState.collapsed`'s:
     // collapsing never needs a `toDOM()` rebuild (unlike `revealed`, which
     // switches between two structurally different decoration shapes), so
-    // including it here would destroy and recreate `this.nestedView` on
+    // including it here would destroy and recreate the nested view on
     // every collapse/expand click for no reason — the collapse button's
     // own click handler updates the already-rendered DOM directly instead.
     if (
@@ -630,7 +637,7 @@ export class NoteEmbedWidget extends WidgetType {
     // keyed here by the *embedded* page's own `pageId` — never the host
     // note's — so a stale/changed embedded document never restores
     // invalid fold ranges onto it.
-    this.nestedView = createEditorView({
+    const nestedView = createEditorView({
       doc: trimEmptyEdgeLines(resolution.markdown),
       parent: content,
       readOnly: true,
@@ -638,6 +645,7 @@ export class NoteEmbedWidget extends WidgetType {
       restoreFoldJSON: this.getFoldStateStore()?.get(resolution.pageId),
       extensions: this.extensions,
     });
+    nestedViews.set(container, nestedView);
 
     return container;
   }
@@ -712,22 +720,27 @@ export class NoteEmbedWidget extends WidgetType {
     return container;
   }
 
-  override destroy(): void {
+  override destroy(dom: HTMLElement): void {
     // ADR-033's amendment: captured before destroy() (which invalidates
     // the view), keyed by the embedded page's own `pageId` — mirrors
     // `MarkdownEditor.tsx`'s own unmount cleanup, but this is *this
     // widget's own* lifecycle hook, since a nested view can be destroyed
     // and recreated far more often than the host note switches (any
-    // change that fails `eq()` above, not just a host note close). No-op
-    // for a broken embed (`this.resolution === null`) — nothing to key by.
-    if (this.resolution && this.nestedView) {
+    // change that fails `eq()` above, not just a host note close). The
+    // view is the one rendered into `dom` — see `nestedViews`. No-op for
+    // a broken embed (`this.resolution === null`) — nothing to key by.
+    const view = nestedViews.get(dom);
+    if (!view) {
+      return;
+    }
+    if (this.resolution) {
       this.getFoldStateStore()?.set(
         this.resolution.pageId,
-        serializeFoldState(this.nestedView)
+        serializeFoldState(view)
       );
     }
-    this.nestedView?.destroy();
-    this.nestedView = null;
+    view.destroy();
+    nestedViews.delete(dom);
   }
 
   override ignoreEvent(): boolean {

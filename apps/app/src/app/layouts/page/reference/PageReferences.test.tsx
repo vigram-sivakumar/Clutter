@@ -379,11 +379,15 @@ describe('PageReferences: editor previews', () => {
       page('n', 'Alpha.md', 'above\nsee ![[Target]] here\nbelow'),
     ]);
 
+    // No editor of any kind — so no nested editor for the embed either — and only the embed's own line.
     expect(previews()).toHaveLength(0);
+    expect(document.querySelector('.cm-editor')).toBeNull();
     expect(document.querySelector('.cm-note-embed')).toBeNull();
-    expect(
-      document.querySelector('.reference-entry__body.line-clamp-3')
-    ).not.toBeNull();
+    const body = document.querySelector('.reference-entry__body.line-clamp-3');
+    expect(body).not.toBeNull();
+    expect(body!.textContent).toContain('see');
+    expect(body!.textContent).not.toContain('above');
+    expect(body!.textContent).not.toContain('below');
   });
 
   it('shows a task with an embed compactly too', () => {

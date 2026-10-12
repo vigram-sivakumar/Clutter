@@ -2,10 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EditorState } from '@codemirror/state';
+import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history } from '@codemirror/commands';
-import { foldEffect, foldState, forceParsing } from '@codemirror/language';
+import { foldable, foldEffect, foldState, forceParsing } from '@codemirror/language';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedLivePreview } from './embedLivePreview';
@@ -13,7 +13,8 @@ import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 import type { NoteEmbedAncestry } from './noteEmbedAncestry';
-import { embedFolderPath, trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
+import { embedFolderPath, NoteEmbedWidget, trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
+import { editorRevealHighlight, setRevealHighlight } from '../highlight/editorRevealHighlight';
 
 /** Every fixture here targets a page (never a real Vault resource) — both resolvers always decline, matching real production wiring. */
 const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
@@ -28,6 +29,7 @@ function mountView(
     ancestry?: NoteEmbedAncestry;
     getFoldStateStore?: () => FoldStatePersistence | undefined;
     hostPageId?: string;
+    extensions?: Extension[];
   } = {}
 ): EditorView {
   const parent = document.createElement('div');
@@ -37,6 +39,7 @@ function mountView(
     extensions: [
       history(),
       markdownLanguageExtension(),
+      ...(options.extensions ?? []),
       embedLivePreview({
         hostPageId: options.hostPageId ?? 'test-host-page',
         resolveEmbedImage: () => declineImage,
@@ -1453,5 +1456,196 @@ describe('embedFolderPath', () => {
     ['', ''],
   ])('%j -> %j', (target, expected) => {
     expect(embedFolderPath(target)).toBe(expected);
+  });
+});
+
+describe('note embed lifecycle: each nested view belongs to the DOM it was rendered into', () => {
+  beforeEach(() => {
+    class NoopResizeObserver {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('ResizeObserver', NoopResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const OTHER: Record<string, PageEmbedResolution> = {
+    'Other Note': {
+      status: 'resolved',
+      pageId: 'page-other',
+      title: 'Other Note',
+      markdown: '# Heading\n\nBody text.',
+      icon: 'note',
+      emoji: null,
+    },
+  };
+
+  const ui = { revealed: false, collapsed: false, broken: false } as unknown as ConstructorParameters<typeof NoteEmbedWidget>[3];
+
+  function widgetWith(store: FoldStatePersistence) {
+    return new NoteEmbedWidget(
+      OTHER['Other Note'] as Extract<PageEmbedResolution, { status: 'resolved' }>,
+      'Other Note',
+      [markdownLanguageExtension()],
+      ui,
+      0,
+      15,
+      () => undefined,
+      () => undefined,
+      () => store,
+      'host'
+    );
+  }
+
+  const nestedOf = (dom: HTMLElement) =>
+    EditorView.findFromDOM(dom.querySelector<HTMLElement>('.cm-note-embed__content > .cm-editor')!)!;
+
+  it('rendering the same widget instance twice, then dropping the first DOM, keeps the visible editor alive', () => {
+    const widget = widgetWith(createInMemoryFoldStatePersistence());
+    const outer = {} as EditorView;
+    const first = widget.toDOM(outer);
+    const second = widget.toDOM(outer);
+
+    widget.destroy(first);
+
+    expect(first.querySelector('.cm-editor')).toBeNull();
+    expect(second.querySelector('.cm-note-embed__content > .cm-editor')).not.toBeNull();
+    expect(second.textContent).toContain('Body text.');
+  });
+
+  it('an equal widget instance that never rendered a DOM still cleans up the editor in the DOM it is handed', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const dom = widgetWith(store).toDOM({} as EditorView);
+
+    widgetWith(store).destroy(dom);
+
+    expect(dom.querySelector('.cm-editor')).toBeNull();
+  });
+
+  it('destroying a DOM leaves no editor behind and a second destroy of it is a no-op', () => {
+    const widget = widgetWith(createInMemoryFoldStatePersistence());
+    const dom = widget.toDOM({} as EditorView);
+    const nested = nestedOf(dom);
+    const destroy = vi.spyOn(nested, 'destroy');
+
+    widget.destroy(dom);
+    widget.destroy(dom);
+
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures the fold state of the editor in the DOM being removed, not of the newest render", () => {
+    const store = createInMemoryFoldStatePersistence();
+    const widget = widgetWith(store);
+    const outer = {} as EditorView;
+    const first = widget.toDOM(outer);
+    const second = widget.toDOM(outer);
+    const secondView = nestedOf(second);
+    forceParsing(secondView);
+    const heading = secondView.state.doc.line(1);
+    const range = foldable(secondView.state, heading.from, heading.to)!;
+    secondView.dispatch({ effects: foldEffect.of(range) });
+
+    widget.destroy(first);
+    expect(store.get('page-other')?.fold).toEqual([]);
+
+    widget.destroy(second);
+    expect(store.get('page-other')?.fold.length).toBeGreaterThan(0);
+  });
+});
+
+describe('note embed in a host editor: reveal updates and navigation highlighting', () => {
+  beforeEach(() => {
+    class NoopResizeObserver {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('ResizeObserver', NoopResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const resolver = resolverFor({
+    'Other Note': {
+      status: 'resolved',
+      pageId: 'page-other',
+      title: 'Other Note',
+      markdown: '# Heading\n\nBody text.',
+      icon: 'note',
+      emoji: null,
+    },
+  });
+  const DOC = 'Before\n\n![[Other Note]]\n\nAfter';
+  const embedLine = DOC.indexOf('![[');
+
+  const nestedEditors = (view: EditorView) => view.dom.querySelectorAll('.cm-note-embed__content .cm-editor');
+
+  it('keeps the embedded content through every reveal update on the embed line, repeated', () => {
+    const view = mountView(DOC, resolver, { extensions: [editorRevealHighlight()] });
+
+    for (let i = 0; i < 3; i++) {
+      view.dispatch({ effects: setRevealHighlight.of([{ from: embedLine, to: embedLine + 15 }]) });
+
+      expect(nestedEditors(view)).toHaveLength(1);
+      expect(view.dom.querySelector('.cm-note-embed__content')?.textContent).toContain('Body text.');
+    }
+  });
+
+  it('leaves an expanded embed expanded through reveal updates', () => {
+    const view = mountView(DOC, resolver, { extensions: [editorRevealHighlight()] });
+
+    view.dispatch({ effects: setRevealHighlight.of([{ from: embedLine, to: embedLine + 15 }]) });
+    const card = view.dom.querySelector('.cm-note-embed')!;
+
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(false);
+    expect(card.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+    expect(card.querySelector('.cm-fold-toggle')?.getAttribute('aria-label')).toBe('Collapse note');
+  });
+
+  it("respects the user's own collapse through reveal updates", () => {
+    const view = mountView(DOC, resolver, { extensions: [editorRevealHighlight()] });
+    view.dom.querySelector<HTMLButtonElement>('[aria-label="Collapse note"]')!.click();
+
+    view.dispatch({ effects: setRevealHighlight.of([{ from: embedLine, to: embedLine + 15 }]) });
+    const card = view.dom.querySelector('.cm-note-embed')!;
+
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(true);
+    expect(card.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+  });
+
+  it("reveals the host's embed line only: the embed wrapper is the revealed line's child and the nested editor gets no reveal class", () => {
+    const view = mountView(DOC, resolver, { extensions: [editorRevealHighlight()] });
+
+    view.dispatch({ effects: setRevealHighlight.of([{ from: embedLine, to: embedLine + 15 }]) });
+
+    const revealed = view.dom.querySelectorAll('.cm-reveal-line--visible');
+    expect(revealed).toHaveLength(1);
+    expect(revealed[0]!.querySelector(':scope > .cm-note-embed')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-note-embed__content .cm-reveal-line')).toBeNull();
+  });
+});
+
+describe('embed highlight CSS: only the outer wrapper is ever highlighted', () => {
+  const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('paints nothing on the embedded content on hover', () => {
+    expect(css).not.toMatch(/:hover\s*>\s*\.cm-note-embed__content/);
+    expect(css).not.toMatch(/\.cm-note-embed__content\s*\{[^}]*--md-reveal-highlight-surface/);
+    expect(css).not.toMatch(/\.cm-note-embed__content[^{]*:hover[^{]*\{[^}]*background/);
+  });
+
+  it('moves the reveal flash from the revealed line onto the embed wrapper, with the reveal colour token', () => {
+    const lineRule = css.match(/\.cm-reveal-line--visible:has\(>\s*\.cm-note-embed\)\s*\{([^}]*)\}/)?.[1] ?? '';
+    const wrapperRule = css.match(/\.cm-reveal-line--visible\s*>\s*\.cm-note-embed\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(lineRule).toMatch(/background-color\s*:\s*transparent/);
+    expect(wrapperRule).toMatch(/background-color\s*:\s*var\(--md-reveal-highlight-surface\)/);
   });
 });

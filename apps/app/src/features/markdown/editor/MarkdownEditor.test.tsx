@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
-import { foldEffect, foldState } from '@codemirror/language';
+import { foldable, foldEffect, foldState, forceParsing } from '@codemirror/language';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
@@ -317,6 +317,72 @@ describe('MarkdownEditor imperative focus handle', () => {
       expect(lineFor(view, 21).className).toContain('cm-reveal-line');
       expect(lineFor(view, 0).className).not.toContain('cm-reveal-line');
       expect(onRevealApplied).toHaveBeenCalledTimes(1);
+    });
+
+    describe('into a folded section', () => {
+      const markdown = '# One\n\nalpha line\n\n# Two\n\nbeta line\n\n# Three\n\ngamma line';
+
+      function foldAllHeadings(view: EditorView): void {
+        forceParsing(view);
+        for (const heading of ['# One', '# Two', '# Three']) {
+          const line = view.state.doc.lineAt(markdown.indexOf(heading));
+          const range = foldable(view.state, line.from, line.to)!;
+          view.dispatch({ effects: foldEffect.of(range) });
+        }
+      }
+
+      const folded = (view: EditorView) => {
+        const out: Array<{ from: number; to: number }> = [];
+        view.state.field(foldState).between(0, view.state.doc.length, (from, to) => {
+          out.push({ from, to });
+        });
+        return out;
+      };
+
+      // The text of every highlighted line: hidden (folded) lines have no `.cm-line`, so lines are found by what they say.
+      const revealed = (view: EditorView) =>
+        Array.from(view.dom.querySelectorAll('.cm-reveal-line--visible')).map((line) => line.textContent);
+
+      const target = (text: string) => {
+        const from = markdown.indexOf(text);
+        return { ranges: [{ from, to: from + text.length }] };
+      };
+
+      it('unfolds the section holding the target, leaves the others folded, and highlights the target line', () => {
+        const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown={markdown} />);
+        const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+        foldAllHeadings(view);
+        expect(folded(view)).toHaveLength(3);
+
+        rerender(<MarkdownEditor pageId="test-page" markdown={markdown} pendingReveal={target('beta line')} />);
+
+        expect(folded(view)).toHaveLength(2);
+        expect(folded(view).some((range) => range.from <= markdown.indexOf('beta') && markdown.indexOf('beta') <= range.to)).toBe(false);
+        expect(revealed(view)).toEqual(['beta line']);
+      });
+
+      it('works repeatedly, one section at a time, never touching the rest', () => {
+        const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown={markdown} />);
+        const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+        foldAllHeadings(view);
+
+        rerender(<MarkdownEditor pageId="test-page" markdown={markdown} pendingReveal={target('alpha line')} />);
+        expect(folded(view)).toHaveLength(2);
+
+        rerender(<MarkdownEditor pageId="test-page" markdown={markdown} pendingReveal={target('gamma line')} />);
+        expect(folded(view)).toHaveLength(1);
+        expect(revealed(view)).toEqual(['gamma line']);
+      });
+
+      it('does not unfold anything for a target on a heading line, which stays visible when folded', () => {
+        const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown={markdown} />);
+        const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+        foldAllHeadings(view);
+
+        rerender(<MarkdownEditor pageId="test-page" markdown={markdown} pendingReveal={target('# Two')} />);
+
+        expect(folded(view)).toHaveLength(3);
+      });
     });
 
     it('never selects the target text when applied via the prop', () => {

@@ -24,6 +24,7 @@ import {
   type BuildEditorExtensionsOptions,
 } from './codemirror/buildEditorExtensions';
 import { editorExitUp } from './codemirror/editorExitUp';
+import { unfoldToReveal } from './codemirror/fold/unfoldToReveal';
 import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
 import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { tableCellPaste } from './codemirror/table/tablePaste';
@@ -1352,6 +1353,12 @@ export const MarkdownEditor = forwardRef<
       const safeTo = Math.min(Math.max(range.to, safeFrom), docLength);
       return { from: safeFrom, to: safeTo };
     });
+
+    // A target inside a folded section has no coordinates and no visible highlight until that section is open.
+    unfoldToReveal(
+      view,
+      clampedRanges.map((range) => range.from)
+    );
 
     const firstLine = view.state.doc.lineAt(clampedRanges[0]!.from);
 
