@@ -3,7 +3,6 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import { Checkbox } from '@components/checkbox/Checkbox';
-import { Wiki } from '@components/wiki/Wiki';
 import type { SystemIcon } from '@shared/icon';
 import './Reference.css';
 
@@ -109,13 +108,7 @@ export function ReferenceEntry({
       onClick={onClick}
       onKeyDown={onKeyDown}
     >
-      <Wiki
-        className="wiki__emoji"
-        icon={icon}
-        iconSize={13}
-        emoji={emoji}
-        title={title}
-      />
+      <span className="reference-note__title">{title}</span>
       <div className="reference__main">
         {onCheckedChange && (
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />

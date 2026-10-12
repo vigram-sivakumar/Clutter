@@ -26,7 +26,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-left: -8px;
+  margin-left: -6px;
 }
 
 /* Reference Entry */
@@ -41,7 +41,7 @@
 .reference__main {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 6px;
 }
 .reference__main .app-icon,
 .reference__main .checkbox {
@@ -49,6 +49,13 @@
   height: var(--lh-body);
   width: var(--md-marker-width);
   margin-top: 0;
+}
+.reference-note__title {
+  font-size: var(--text-label);
+  color: var(--foreground-tertiary);
+  /* text-decoration: underline;
+  text-underline-offset: var(--md-underline-offset);
+  text-decoration-color: var(--md-wiki-underline); */
 }
 
 .reference-entry__body {
