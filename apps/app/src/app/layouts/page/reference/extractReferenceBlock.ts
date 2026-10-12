@@ -98,55 +98,78 @@ function dedent(text: string, width: number): string {
     .join('\n');
 }
 
+/** A reference's block: where it starts (the identity of the block) and its text, if it can be lifted out. */
+export interface ReferenceBlock {
+  /** Offset of the start of the block's first line — equal for every reference inside the same block. */
+  readonly from: number;
+  /** The block as its own document, or `null` (see `extractReferenceBlock`). */
+  readonly text: string | null;
+}
+
+const lineStartOf = (markdown: string, offset: number): number =>
+  markdown.lastIndexOf('\n', offset - 1) + 1;
+
 /**
  * The smallest complete Markdown block containing `offset` (a reference's position in `markdown`), as its own
- * document — or `null` when there is no block that can be lifted out safely: a block type that doesn't stand on
- * its own, or one over the work limits above.
+ * document — or `text: null` when there is no block that can be lifted out safely: a block type that doesn't
+ * stand on its own, or one over the work limits above.
  *
  *   - a paragraph, heading, blockquote, fenced code block or table: the whole top-level block;
  *   - inside a list: the innermost list item with its sub-items, dedented to the left margin.
  *
- * The block is a verbatim slice of the source, so every construct inside it (inline styles, wiki links, tags,
+ * `from` is the block's identity either way, so references in one block can be grouped even when its text
+ * can't be shown; with no block at all it is the start of the reference's own line.
+ *
+ * The text is a verbatim slice of the source, so every construct inside it (inline styles, wiki links, tags,
  * dates, embeds, task markers) is parsed and decorated by the editor's own pipeline exactly as it is in the note.
- * Parsed with `sharedMarkdownParser` — the editor's grammar, with no editor state involved.
+ * Parsed with `sharedMarkdownParser` — the editor's grammar, with no editor state involved — once for all
+ * `offsets`.
  */
+export function extractReferenceBlocks(
+  markdown: string,
+  offsets: readonly number[]
+): ReferenceBlock[] {
+  const root = sharedMarkdownParser.parse(markdown).topNode;
+
+  return offsets.map((offset) => {
+    const top = childContaining(root, offset, () => true);
+
+    if (!top) {
+      return { from: lineStartOf(markdown, offset), text: null };
+    }
+
+    const block = LIST_NODES.has(top.name)
+      ? innermostListItem(top, offset)
+      : STANDALONE_BLOCKS.has(top.name)
+        ? top
+        : null;
+
+    if (!block) {
+      return { from: lineStartOf(markdown, top.from), text: null };
+    }
+
+    const lineStart = lineStartOf(markdown, block.from);
+    const text = dedent(
+      markdown.slice(lineStart, block.to),
+      block.from - lineStart
+    ).replace(/\s+$/, '');
+
+    if (
+      text.length === 0 ||
+      text.length > MAX_REFERENCE_BLOCK_CHARS ||
+      text.split('\n').length > MAX_REFERENCE_BLOCK_LINES
+    ) {
+      return { from: lineStart, text: null };
+    }
+
+    return { from: lineStart, text };
+  });
+}
+
+/** The block's text for a single reference — `extractReferenceBlocks` for one offset. */
 export function extractReferenceBlock(
   markdown: string,
   offset: number
 ): string | null {
-  const top = childContaining(
-    sharedMarkdownParser.parse(markdown).topNode,
-    offset,
-    () => true
-  );
-
-  if (!top) {
-    return null;
-  }
-
-  const block = LIST_NODES.has(top.name)
-    ? innermostListItem(top, offset)
-    : STANDALONE_BLOCKS.has(top.name)
-      ? top
-      : null;
-
-  if (!block) {
-    return null;
-  }
-
-  const lineStart = markdown.lastIndexOf('\n', block.from - 1) + 1;
-  const text = dedent(
-    markdown.slice(lineStart, block.to),
-    block.from - lineStart
-  ).replace(/\s+$/, '');
-
-  if (
-    text.length === 0 ||
-    text.length > MAX_REFERENCE_BLOCK_CHARS ||
-    text.split('\n').length > MAX_REFERENCE_BLOCK_LINES
-  ) {
-    return null;
-  }
-
-  return text;
+  return extractReferenceBlocks(markdown, [offset])[0]!.text;
 }

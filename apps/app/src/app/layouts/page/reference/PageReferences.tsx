@@ -114,9 +114,15 @@ export function PageReferences({
 
   // The block around the reference, in a read-only editor view. When none could be extracted safely the entry
   // shows the referencing line through the compact renderer instead.
-  const pageEntry = ({ page, ranges, block, excerpt }: PageReference) => (
+  const pageEntry = ({
+    page,
+    blockFrom,
+    ranges,
+    block,
+    excerpt,
+  }: PageReference) => (
     <ReferenceEntry
-      key={page.id}
+      key={`${page.id}:${blockFrom}`}
       {...identity(page)}
       preview={
         block === null ? undefined : (

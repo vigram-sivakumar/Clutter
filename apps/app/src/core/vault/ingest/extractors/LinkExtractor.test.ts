@@ -48,4 +48,40 @@ describe('EmbedExtractor', () => {
     expect(embed).toMatchObject({ target: 'Projects/Alpha' });
     expect(content.slice(embed!.startOffset, embed!.endOffset)).toBe('![[Projects/Alpha]]');
   });
+
+  describe('code', () => {
+    const links = new LinkExtractor();
+    const embeds = new EmbedExtractor();
+
+    it('ignores links and embeds inside fenced, tilde-fenced and indented code and inline spans', () => {
+      const content = [
+        '```',
+        '[[Fenced]] ![[FencedEmbed]]',
+        '```',
+        '',
+        '~~~',
+        '[[Tilde]]',
+        '~~~',
+        '',
+        '    [[Indented]]',
+        '',
+        'Inline `[[Span]]` and `![[SpanEmbed]]`.',
+      ].join('\n');
+
+      expect(links.extract(content)).toEqual([]);
+      expect(embeds.extract(content)).toEqual([]);
+    });
+
+    it('still extracts links and embeds outside code, with their exact ranges', () => {
+      const content = '`x` [[A]] ![[B]]\n\n```\n[[C]]\n```\n\n[[D]]';
+
+      expect(links.extract(content).map((link) => link.target)).toEqual([
+        'A',
+        'D',
+      ]);
+      expect(embeds.extract(content).map((embed) => embed.target)).toEqual([
+        'B',
+      ]);
+    });
+  });
 });

@@ -1,3 +1,5 @@
+import { allCodeRanges, isInsideAnyRange } from './markdownCodeRanges';
+
 export interface ScannedLink {
   readonly target: string;
   readonly heading?: string;
@@ -15,10 +17,16 @@ export class LinkExtractor {
   extract(content: string): readonly ScannedLink[] {
     const links: ScannedLink[] = [];
 
+    // A reference written inside code (a fenced or indented block, an inline span) is text about links, not a link.
+    const code = allCodeRanges(content);
     // `(?<!!)`: a `![[...]]` is an embed (EmbedExtractor's), not also a link.
     const matches = content.matchAll(/(?<!!)\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g);
 
     for (const match of matches) {
+      if (isInsideAnyRange(match.index, code)) {
+        continue;
+      }
+
       const link = this.extractFromMatch(match);
 
       if (link) {

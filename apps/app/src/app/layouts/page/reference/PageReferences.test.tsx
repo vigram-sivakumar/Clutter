@@ -200,6 +200,34 @@ describe('PageReferences', () => {
     });
   });
 
+  it("reveals only the clicked entry's block when a note references the page from several blocks", () => {
+    const markdown = 'First [[Target]]\n\nSecond [[Target]] and ![[Target]]';
+    const { onRequestReveal } = setup([
+      TARGET,
+      page('n', 'Alpha.md', markdown),
+    ]);
+
+    expect(entries(0)).toHaveLength(2);
+
+    fireEvent.click(entries(0)[1]!);
+
+    expect(onRequestReveal).toHaveBeenCalledTimes(1);
+    expect(onRequestReveal).toHaveBeenCalledWith({
+      pageId: 'n',
+      ranges: [
+        { from: 25, to: 35 },
+        { from: 40, to: 51 },
+      ],
+    });
+
+    fireEvent.click(entries(0)[0]!);
+
+    expect(onRequestReveal).toHaveBeenLastCalledWith({
+      pageId: 'n',
+      ranges: [{ from: 6, to: 16 }],
+    });
+  });
+
   it("opens a task's source note and reveals the task's own line", () => {
     const markdown = '- [ ] unrelated\n- [ ] Follow up [[Target]]';
     const { pageOperations, onRequestReveal } = setup([
