@@ -104,23 +104,6 @@ export interface OpenNoteEmbedMenuParams {
   readonly to: number;
 }
 
-/**
- * Whether a click at (`x`, `y`) on a `.cm-line` — a full-width block — landed on the line's rendered text
- * rather than the empty space after it. When the text cannot be measured (no layout, or no boxes at all) it
- * answers `true` (treat as content), so it never navigates by mistake.
- */
-function isOnText(line: Element, x: number, y: number): boolean {
-  const range = document.createRange();
-  range.selectNodeContents(line);
-  const rects = typeof range.getClientRects === 'function' ? Array.from(range.getClientRects()) : [];
-  if (rects.length === 0) {
-    return true;
-  }
-  return rects.some(
-    (rect) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-  );
-}
-
 export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
 
 /**
@@ -539,41 +522,21 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = this.ui.collapsed;
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
-    // Source navigation belongs to the embed wrapper (`container`): a click on its background or on empty
-    // space opens the source note. What is *not* background is the header (its own controls) and genuine
-    // document content. The nested `.cm-editor` fills the whole content area, so being inside it does not
-    // make a click content — only text, widgets and inline elements do. Editor chrome (`.cm-editor`,
-    // `.cm-scroller`, `.cm-content`) and the part of a `.cm-line` (a full-width block) that lies beyond its
-    // text are empty space. Every `.contains(...)` scopes the lookup to *this* embed: for a nested embed
-    // the outer embed's header/editor are ancestors of its wrapper, so the nested wrapper still navigates
-    // itself, while the outer one ignores any click that originates inside a nested wrapper. Same
-    // `openSource` the Expand button uses; the end of a text selection never navigates.
+    // The embed is a clickable card: a click anywhere on the wrapper opens the source note, through the same
+    // `openSource` the Expand button uses. Buttons (the header's caret, Edit source, More actions) and links
+    // or inputs inside the document keep their own behavior, as does anything that already handled the click
+    // (`defaultPrevented`); the end of a text selection never navigates, so text stays selectable. A nested
+    // embed is a card of its own: its listener runs first and stops the click, so only the innermost embed
+    // opens its source.
     container.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
         return;
       }
-      if (window.getSelection()?.toString()) {
+      if (target.closest('button, a, input') || window.getSelection()?.toString()) {
         return;
       }
-      const inside = (selector: string) => {
-        const match = target.closest(selector);
-        return match !== null && container.contains(match) && match !== container;
-      };
-      if (inside('.cm-note-embed__header')) {
-        return;
-      }
-      // A nested embed's wrapper is a descendant of this one: its own listener handles its clicks.
-      const wrapper = target.closest('.cm-note-embed');
-      if (wrapper !== null && wrapper !== container) {
-        return;
-      }
-      if (inside('.cm-editor')) {
-        const chrome = target.matches('.cm-editor, .cm-scroller, .cm-content');
-        if (!chrome && !(target.matches('.cm-line') && !isOnText(target, event.clientX, event.clientY))) {
-          return;
-        }
-      }
+      event.stopPropagation();
       this.openSource(resolution.pageId);
     });
 
