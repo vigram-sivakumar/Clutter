@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   afterAll,
   afterEach,
@@ -22,6 +22,8 @@ import { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
+import { ReferencesDisplayStore } from '@core/application/references/ReferencesDisplayStore';
+import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 
 import * as buildEditorExtensionsModule from '@features/markdown/editor/codemirror/buildEditorExtensions';
 import { EditorView } from '@codemirror/view';
@@ -120,19 +122,21 @@ function setup(
     delete: vi.fn(),
   } as unknown as TaskOperations;
   const onRequestReveal = vi.fn();
+  const displayStore = ReferencesDisplayStore.empty(new InMemoryVaultFileSystem(), ROOT);
 
   const view = render(
     <PageReferences
       pageId={pageId}
       vault={vault}
       pageOperations={pageOperations}
+          displayStore={displayStore}
       taskOperations={taskOperations}
       onRequestReveal={onRequestReveal}
       {...extraProps}
     />
   );
 
-  return { vault, pageOperations, taskOperations, onRequestReveal, ...view };
+  return { vault, pageOperations, displayStore, taskOperations, onRequestReveal, ...view };
 }
 
 const TARGET = page('target', 'Target.md');
@@ -260,6 +264,7 @@ describe('PageReferences', () => {
         vault,
         rerender,
         pageOperations,
+        displayStore,
         taskOperations,
         onRequestReveal,
       } = setup([
@@ -271,6 +276,7 @@ describe('PageReferences', () => {
         pageId: 'target',
         vault,
         pageOperations,
+        displayStore,
         taskOperations,
         onRequestReveal,
       };
@@ -496,6 +502,7 @@ describe('PageReferences', () => {
         vault,
         rerender,
         pageOperations,
+        displayStore,
         taskOperations,
         onRequestReveal,
       } = setup([TARGET, page('a', 'Alpha.md', 'one [[Target]]')]);
@@ -508,6 +515,7 @@ describe('PageReferences', () => {
           pageId="target"
           vault={vault}
           pageOperations={pageOperations}
+          displayStore={displayStore}
           taskOperations={taskOperations}
           onRequestReveal={onRequestReveal}
         />
@@ -526,12 +534,13 @@ describe('PageReferences', () => {
   });
 
   it('updates when the underlying content changes', () => {
-    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+    const { vault, rerender, pageOperations, displayStore, taskOperations, onRequestReveal } =
       setup([TARGET, page('n', 'Alpha.md', 'nothing yet')]);
     const props = {
       pageId: 'target',
       vault,
       pageOperations,
+      displayStore,
       taskOperations,
       onRequestReveal,
     };
@@ -548,13 +557,14 @@ describe('PageReferences', () => {
   });
 
   it('recomputes only when the vault changes, not on every render', () => {
-    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+    const { vault, rerender, pageOperations, displayStore, taskOperations, onRequestReveal } =
       setup([TARGET, page('n', 'Alpha.md', '[[Target]]')]);
     const lookups = vi.spyOn(vault, 'getPage');
     const props = {
       pageId: 'target',
       vault,
       pageOperations,
+      displayStore,
       taskOperations,
       onRequestReveal,
     };
@@ -723,7 +733,7 @@ describe('PageReferences: editor previews', () => {
   });
 
   it('updates a preview in place when its source note changes', () => {
-    const { vault, rerender, pageOperations, taskOperations, onRequestReveal } =
+    const { vault, rerender, pageOperations, displayStore, taskOperations, onRequestReveal } =
       setup([TARGET, page('n', 'Alpha.md', 'before [[Target]]')]);
     const view = EditorView.findFromDOM(previews()[0]!)!;
 
@@ -733,6 +743,7 @@ describe('PageReferences: editor previews', () => {
         pageId="target"
         vault={vault}
         pageOperations={pageOperations}
+          displayStore={displayStore}
         taskOperations={taskOperations}
         onRequestReveal={onRequestReveal}
       />
@@ -752,5 +763,87 @@ describe('PageReferences: editor previews', () => {
     fireEvent.click(previews()[0]!);
 
     expect(pageOperations.open).toHaveBeenCalledWith('n');
+  });
+});
+
+describe('PageReferences: saved display preferences (ADR-052)', () => {
+  const heading = () => screen.queryByText(/^\d+ References?$/);
+  const withReference = [TARGET, page('a', 'Alpha.md', 'one [[Target]]')];
+
+  it('with no saved choice: visible and expanded when there are references, nothing when there are none', () => {
+    setup(withReference);
+    expect(heading()).toHaveTextContent('1 Reference');
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(1);
+
+    cleanup();
+    setup([TARGET]);
+    expect(heading()).toBeNull();
+    expect(document.querySelector('.reference')).toBeNull();
+  });
+
+  it('an explicit Hide renders nothing, even with references', () => {
+    const { displayStore } = setup(withReference);
+
+    act(() => displayStore.setHidden('target', true));
+
+    expect(document.querySelector('.reference')).toBeNull();
+  });
+
+  it('an explicit Show keeps an empty section visible; automatic still hides it for another note', () => {
+    const { displayStore } = setup([TARGET]);
+
+    act(() => displayStore.setHidden('target', false));
+
+    expect(heading()).toHaveTextContent('0 References');
+    expect(displayStore.getHidden('other')).toBeUndefined();
+  });
+
+  it('toggling writes the collapse to the store, and a saved collapse is restored on mount', () => {
+    const { displayStore } = setup(withReference);
+
+    fireEvent.click(heading()!);
+
+    expect(displayStore.isCollapsed('target')).toBe(true);
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(0);
+
+    cleanup();
+    // A later mount of the same note (a note switch, or a restart that reloaded the store).
+    const vault = makeVault(withReference);
+    render(
+      <PageReferences
+        pageId="target"
+        vault={vault}
+        pageOperations={{ open: vi.fn() } as unknown as PageOperations}
+        displayStore={displayStore}
+        taskOperations={{} as unknown as TaskOperations}
+        onRequestReveal={vi.fn()}
+      />
+    );
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(0);
+    expect(heading()).toHaveTextContent('1 Reference');
+  });
+
+  it('hiding and showing again restores the previous collapsed state', () => {
+    const { displayStore } = setup(withReference);
+
+    fireEvent.click(heading()!);
+    act(() => displayStore.setHidden('target', true));
+    expect(document.querySelector('.reference')).toBeNull();
+
+    act(() => displayStore.setHidden('target', false));
+
+    expect(heading()).toHaveTextContent('1 Reference');
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(0);
+    expect(displayStore.isCollapsed('target')).toBe(true);
+  });
+
+  it('one note\'s choices do not affect another note', () => {
+    const { displayStore } = setup(withReference);
+
+    act(() => displayStore.setHidden('other', true));
+    act(() => displayStore.setCollapsed('other', true));
+
+    expect(heading()).toHaveTextContent('1 Reference');
+    expect(document.querySelectorAll('.reference__entry')).toHaveLength(1);
   });
 });

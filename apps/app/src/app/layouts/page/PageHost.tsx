@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -11,6 +11,7 @@ import {
 import { resolvePageIdentityIcon } from '@app/layouts/page/resolvePageIdentityIcon';
 
 import { useActivePage } from '@app/hooks/useActivePage';
+import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import {
@@ -124,6 +125,11 @@ import { buildResourceActionMenu } from '@core/presentation/resourceActions/buil
 import { ResourceTopBarActions } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { PageReferences } from '@app/layouts/page/reference/PageReferences';
+import { getPageReferences } from '@app/layouts/page/reference/getPageReferences';
+import {
+  countPageReferences,
+  isReferencesDisplayed,
+} from '@app/layouts/page/reference/referencesDisplay';
 import { ArchivedBanner } from './ArchivedBanner';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
@@ -674,6 +680,28 @@ export function PageHost({
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
+  // ADR-052: the open note's saved References choices. "Hidden" for the menu means not on screen — an
+  // explicit Hide, or automatic hiding of a section with nothing to list — so the label names what a click
+  // does. The reference list is only consulted when there is no explicit choice (automatic visibility).
+  const referencesDisplay = useReferencesDisplayStore(
+    application.referencesDisplayStore
+  );
+  const savedReferencesHidden = activePageId
+    ? referencesDisplay.getHidden(activePageId)
+    : undefined;
+  const knowledgeGraph = vault.knowledgeGraph();
+  const hasReferences = useMemo(
+    () =>
+      activePageId !== null &&
+      activePageId !== undefined &&
+      savedReferencesHidden === undefined &&
+      countPageReferences(getPageReferences(vault, activePageId)) > 0,
+    [vault, knowledgeGraph, activePageId, savedReferencesHidden]
+  );
+  const referencesHidden = !isReferencesDisplayed(
+    savedReferencesHidden,
+    hasReferences
+  );
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
   const propertiesConfirmation = useConfirmationSurface();
   // A restore whose original path is taken by another page (a Daily Note for a date that exists
@@ -1088,6 +1116,8 @@ export function PageHost({
     // ADR-033: same rationale as clearCachedEditorSession above, applied
     // to the durable fold-state store instead of the session cache.
     application.foldStateStore.clear(activePageId);
+    // ADR-052: same rationale, for the note's saved References display preferences.
+    application.referencesDisplayStore.clear(activePageId);
     void application.pageOperations.delete(activePageId);
   };
 
@@ -2805,6 +2835,11 @@ export function PageHost({
       ? () => requestCreateTemplate(page.id)
       : undefined,
     onToggleFavorite,
+    // ADR-052: flips the note's saved Hide/Show choice (a click on "Show" while the section is auto-hidden
+    // for having nothing to list is an explicit Show, which keeps it visible even when empty).
+    referencesHidden,
+    onToggleReferences: () =>
+      application.referencesDisplayStore.setHidden(page.id, !referencesHidden),
     // A note/daily-note delete is only ever reachable here for an
     // archived/Archive-descendant page (buildTopBarActions.tsx's
     // isDeletable) — every such delete now requires confirmation, so this
@@ -3113,6 +3148,7 @@ export function PageHost({
               pageId={page.id}
               vault={vault}
               pageOperations={application.pageOperations}
+              displayStore={application.referencesDisplayStore}
               taskOperations={application.taskOperations}
               onRequestReveal={onRequestReveal}
               resolveWikiLink={resolveWikiLink}

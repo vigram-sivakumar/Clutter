@@ -12,10 +12,13 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
+import type { ReferencesDisplayStore } from '@core/application/references/ReferencesDisplayStore';
+import { useReferencesDisplayStore } from '@app/hooks/useReferencesDisplayStore';
 
 import { containsEmbed } from './extractReferenceLine';
 import { getSourceNoteHeadings } from './sourceNoteHeadings';
 import { getPageReferences, type PageReference } from './getPageReferences';
+import { countPageReferences } from './referencesDisplay';
 import { References, ReferenceEntry, ReferenceGroup } from './Reference';
 import {
   createReferencePreviewExtensions,
@@ -28,6 +31,8 @@ interface PageReferencesProps {
   readonly pageId: string;
   readonly vault: Vault;
   readonly pageOperations: PageOperations;
+  /** The note's saved Hide/Show and expanded/collapsed choices (ADR-052). */
+  readonly displayStore: ReferencesDisplayStore;
   readonly taskOperations: TaskOperations;
   /** AppLayout's pending-reveal request — consumed by PageHost once the source note is open. */
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
@@ -74,6 +79,7 @@ export function PageReferences({
   pageId,
   vault,
   pageOperations,
+  displayStore,
   taskOperations,
   onRequestReveal,
   resolveWikiLink,
@@ -84,7 +90,9 @@ export function PageReferences({
   resolveEmbedPdf,
   resolveImageSrc,
 }: PageReferencesProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  useReferencesDisplayStore(displayStore);
+  const savedHidden = displayStore.getHidden(pageId);
+  const isExpanded = !displayStore.isCollapsed(pageId);
 
   // The previews' resolvers are read at use time through this ref, so the one shared extension list below
   // (built once for this section, never per entry) always sees the current ones without being rebuilt.
@@ -166,7 +174,7 @@ export function PageReferences({
   const noteEntries = [...references.notes, ...references.dailyNotes];
 
   // Every reference occurrence, as listed: tasks plus note and daily-note lines.
-  const count = references.tasks.length + noteEntries.length;
+  const count = countPageReferences(references);
 
   // The source notes in this section — one heading each. A title is shown alone unless another source note has
   // the same one, in which case the folder tells them apart.
@@ -178,11 +186,17 @@ export function PageReferences({
     vault.root
   );
 
+  // The user chose Hide references: nothing is rendered, but the saved expansion is untouched.
+  if (savedHidden === true) {
+    return null;
+  }
+
   return (
     <References
       count={count}
+      showWhenEmpty={savedHidden === false}
       isExpanded={isExpanded}
-      onExpandToggle={() => setIsExpanded((expanded) => !expanded)}
+      onExpandToggle={() => displayStore.setCollapsed(pageId, isExpanded)}
       tasks={
         references.tasks.length > 0
           ? groupByPage(references.tasks, ({ page }) => page).map(

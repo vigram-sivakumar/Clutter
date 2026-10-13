@@ -125,7 +125,7 @@ const TOGGLE_REFERENCES: ResourceActionDefinition = activeOnly({
   group: 'view',
   order: 10,
   label: (context) => (context.referencesHidden ? 'Show references' : 'Hide references'),
-  icon: 'hide',
+  icon: 'branch',
   availability: persistedOnly,
 });
 

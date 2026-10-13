@@ -15,6 +15,11 @@ interface ReferencesProps {
   tasks?: ReactNode;
   /** One list for notes and daily notes together. Null (or omitted) when there are none. */
   notes?: ReactNode;
+  /**
+   * Keeps the section on screen with nothing to list (a `0 References` header) — set when the user explicitly
+   * chose Show references (ADR-052). Without it an empty section renders nothing, the automatic hiding.
+   */
+  showWhenEmpty?: boolean;
 }
 
 export function References({
@@ -23,13 +28,14 @@ export function References({
   onExpandToggle,
   tasks,
   notes,
+  showWhenEmpty = false,
 }: ReferencesProps) {
   const lists = [
     { key: 'tasks', content: tasks },
     { key: 'notes', content: notes },
   ].filter((list) => list.content != null);
 
-  if (lists.length === 0) {
+  if (lists.length === 0 && !showWhenEmpty) {
     return null;
   }
 
@@ -43,7 +49,7 @@ export function References({
         isExpanded={isExpanded}
         onExpandToggle={onExpandToggle}
       />
-      {isExpanded && (
+      {isExpanded && lists.length > 0 && (
         <div className="reference__content">
           <span className="reference__divider" />
           {lists.map((list, index) => (

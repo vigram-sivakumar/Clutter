@@ -280,3 +280,33 @@ describe('Reference.css: hover and radius belong to each item', () => {
     expect(css).not.toMatch(/reference__main|reference-entry__body--preview/);
   });
 });
+
+describe('References: showWhenEmpty (ADR-052)', () => {
+  it('renders nothing for an empty section by default — the automatic hiding', () => {
+    const { container } = render(<References count={0} isExpanded onExpandToggle={() => {}} />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps an empty section on screen with a 0 References header when explicitly shown', () => {
+    const { container } = render(<References count={0} isExpanded onExpandToggle={() => {}} showWhenEmpty />);
+
+    expect(screen.getByText('0 References')).toBeInTheDocument();
+    expect(container.querySelector('.reference__content')).toBeNull();
+  });
+
+  it('showWhenEmpty changes nothing for a section that has results', () => {
+    render(
+      <References
+        count={1}
+        isExpanded
+        onExpandToggle={() => {}}
+        showWhenEmpty
+        notes={<span>entry</span>}
+      />
+    );
+
+    expect(screen.getByText('1 Reference')).toBeInTheDocument();
+    expect(screen.getByText('entry')).toBeInTheDocument();
+  });
+});

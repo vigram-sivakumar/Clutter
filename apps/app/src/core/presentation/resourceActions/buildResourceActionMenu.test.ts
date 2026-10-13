@@ -612,8 +612,8 @@ describe('Hide / Show references (ADR-052)', () => {
     expect(dividedIds(menu)).toEqual(expect.arrayContaining(['toggle-references', next]));
   });
 
-  it('the label names what the click does, and the icon is the existing hide icon', () => {
-    expect(refs('note', { status: 'active' })).toMatchObject({ label: 'Hide references', icon: 'hide' });
+  it('the label names what the click does, and the icon is the branch icon', () => {
+    expect(refs('note', { status: 'active' })).toMatchObject({ label: 'Hide references', icon: 'branch' });
     expect(refs('note', { status: 'active', referencesHidden: false })).toMatchObject({ label: 'Hide references' });
     expect(refs('note', { status: 'active', referencesHidden: true })).toMatchObject({ label: 'Show references' });
   });
