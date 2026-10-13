@@ -80,7 +80,7 @@ export function Confirmation({
             {alternateLabel}
           </Button>
         ) : (
-          <Button ref={cancelRef} variant={'outlined'} size={'large'} onClick={onCancel}>
+          <Button ref={cancelRef} variant={'outline'} size={'large'} onClick={onCancel}>
             {cancelLabel}
           </Button>
         )}
