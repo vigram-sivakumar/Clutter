@@ -148,7 +148,7 @@ const editableControlsInTitle = () =>
   titleRoot().querySelectorAll('[contenteditable], [role="textbox"], input, textarea');
 const changeEmoji = () => document.querySelector('button[aria-label="Change emoji"]');
 const star = () =>
-  document.querySelector('button[aria-label="Add to Favorites"], button[aria-label="Remove from Favorites"]');
+  document.querySelector('button[aria-label="Add to favorites"], button[aria-label="Remove from favorites"]');
 const staticEmoji = () => document.querySelector('.page-header-controls__emoji--static');
 
 async function openNote(frontmatter: Record<string, unknown>, folders: Folder[] = [], parentId: string | null = null) {
@@ -341,7 +341,7 @@ describe('an empty archived folder', () => {
   it('an empty active folder keeps its usual copy and call to action', async () => {
     await openFolder(buildFolder('f1', `${ROOT}/Projects`, 'active'));
 
-    expect(emptyState()?.textContent).toContain('Create notes or folders to organise your notes');
+    expect(emptyState()?.textContent).toContain('Create notes or folders to organize your notes');
     expect(emptyState()?.querySelector('button')).not.toBeNull();
   });
 });
@@ -637,7 +637,7 @@ describe('Phase 9 — an archived asset opened from the Archive', () => {
     await openMenu();
     const labels = menuLabels();
     expect(labels).toEqual(expect.arrayContaining(['Download', 'Restore', DELETE_ACTION_LABEL]));
-    for (const gone of ['Move to…', 'Archive', 'Copy path', 'Reveal in Finder', 'Rename', 'Add to Favorites', 'Set as cover image']) {
+    for (const gone of ['Move to…', 'Archive', 'Copy path', 'Reveal in Finder', 'Rename', 'Add to favorites', 'Set as cover image']) {
       expect(labels, gone).not.toContain(gone);
     }
   });
@@ -678,7 +678,7 @@ describe('Phase 9 — an archived asset opened from the Archive', () => {
     await clickItem(DELETE_ACTION_LABEL);
     expect(application.vault.getResource('img-1')).toBeDefined();
     expect(document.body.textContent).toContain('Delete permanently?');
-    expect(document.body.textContent).toContain('You can\u2019t undo this action.');
+    expect(document.body.textContent).toContain('You can\u2019t undo this action');
     // The confirmation's own button is the plain "Delete".
 
     const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Delete')!;

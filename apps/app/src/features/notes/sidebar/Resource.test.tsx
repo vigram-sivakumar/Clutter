@@ -135,8 +135,8 @@ describe('Resource — overflow menu', () => {
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.queryByText('Add to Favorites')).toBeNull();
-    expect(screen.queryByText('Remove from Favorites')).toBeNull();
+    expect(screen.queryByText('Add to favorites')).toBeNull();
+    expect(screen.queryByText('Remove from favorites')).toBeNull();
     expect(screen.queryByText('Restore')).toBeNull();
     expect(screen.queryByText('Delete permanently')).toBeNull();
   });

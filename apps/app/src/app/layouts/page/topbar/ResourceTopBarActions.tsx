@@ -191,7 +191,7 @@ export function ResourceTopBarActions({
           size="medium"
           isIconOnly
           onClick={onToggleFavorite}
-          aria-label={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
           <AppIcon icon={isFavorite ? 'favouriteFilled' : 'favouriteOutline'} />
         </Button>

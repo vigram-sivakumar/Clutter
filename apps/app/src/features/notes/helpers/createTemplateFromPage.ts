@@ -6,16 +6,16 @@ import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalenda
 import type { NewFolderContentLabels } from '../shortcuts/NewFolderContent';
 
 /** What a Daily Note's template is called when its own title is just its date. */
-export const DAILY_NOTE_TEMPLATE_NAME = 'Daily Note Template';
+export const DAILY_NOTE_TEMPLATE_NAME = 'Daily note template';
 
 /** The "Create template" dialog's wording — the New folder dialog, reworded. */
 export const CREATE_TEMPLATE_LABELS: NewFolderContentLabels = {
   title: 'Create template',
   nameLabel: 'Template name',
   namePlaceholder: 'Untitled',
-  duplicateMessage: (name) => `A template named “${name}” already exists.`,
+  duplicateMessage: (name) => `A template named “${name}” already exists`,
   submitLabel: 'Create template',
-  failureMessage: 'Failed to create template.',
+  failureMessage: 'Failed to create template',
 };
 
 /**

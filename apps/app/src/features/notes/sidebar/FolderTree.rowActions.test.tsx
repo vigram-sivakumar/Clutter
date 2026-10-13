@@ -357,7 +357,7 @@ describe('FolderTree row overflow menu: open/close', () => {
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to trash')).toBeInTheDocument();
     // No Delete item — the sidebar never exposes it (deletion-UX product
     // decision), see FolderTree row overflow menu: 'delete' below.
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
@@ -446,7 +446,7 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
     // querying each row's own overlay/menu presence via its DOM subtree —
     // simplest reliable signal here is that exactly one "Archive" menuitem
     // exists (folder-b's Overlay renders null while its open is false).
-    expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
+    expect(screen.getAllByText('Move to trash')).toHaveLength(1);
   });
 });
 
@@ -459,7 +459,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     const rowActions: SidebarRowActions = { ...actions, onArchiveNote: (id) => void pageOperations.archive(id) };
 
     renderTree(query, membershipSelector, workspace, rowActions);
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith(page.id);
   });
@@ -488,7 +488,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     expect(duplicateSpy).toHaveBeenCalledWith(page.id);
   });
 
-  it("shows 'Add to Favorites' for a non-favorited note and dispatches updateMetadata({ favorite: true }) on click", () => {
+  it("shows 'Add to favorites' for a non-favorited note and dispatches updateMetadata({ favorite: true }) on click", () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
     const { query, workspace, membershipSelector, pageOperations } = setup([page]);
     const updateMetadataSpy = vi
@@ -502,13 +502,13 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Add to Favorites'));
+    expect(screen.getByText('Add to favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add to favorites'));
 
     expect(updateMetadataSpy).toHaveBeenCalledWith(page.id, { favorite: true });
   });
 
-  it("shows 'Remove from Favorites' for an already-favorited note and dispatches updateMetadata({ favorite: false }) on click", () => {
+  it("shows 'Remove from favorites' for an already-favorited note and dispatches updateMetadata({ favorite: false }) on click", () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`, null, { favorite: true });
     const { query, workspace, membershipSelector, pageOperations } = setup([page]);
     const updateMetadataSpy = vi
@@ -522,8 +522,8 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Remove from Favorites'));
+    expect(screen.getByText('Remove from favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Remove from favorites'));
 
     expect(updateMetadataSpy).toHaveBeenCalledWith(page.id, { favorite: false });
   });
@@ -616,7 +616,7 @@ describe('FolderTree row overflow menu: a draft note has no menu at all', () => 
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
-    expect(screen.queryByText('Move to Trash')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to trash')).not.toBeInTheDocument();
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 
@@ -652,7 +652,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
-    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to trash')).toBeInTheDocument();
     // No Delete item — see the removed-test comment above.
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
@@ -681,7 +681,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.queryByText('Move to Trash')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to trash')).not.toBeInTheDocument();
   });
 
   it('Archive calls onArchiveFolder', () => {
@@ -690,25 +690,25 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
     renderTree(query, membershipSelector, workspace, actions);
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(spies.onArchiveFolder).toHaveBeenCalledWith('folder-1');
   });
 
-  it("shows 'Add to Favorites' for a non-favorited folder and calls onToggleFavoriteFolder(id, false)", () => {
+  it("shows 'Add to favorites' for a non-favorited folder and calls onToggleFavoriteFolder(id, false)", () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const { query, workspace, membershipSelector } = setup([], [folder]);
     const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Add to Favorites'));
+    expect(screen.getByText('Add to favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add to favorites'));
 
     expect(spies.onToggleFavoriteFolder).toHaveBeenCalledWith('folder-1', false);
   });
 
-  it("shows 'Remove from Favorites' for an already-favorited folder and calls onToggleFavoriteFolder(id, true)", () => {
+  it("shows 'Remove from favorites' for an already-favorited folder and calls onToggleFavoriteFolder(id, true)", () => {
     const folder: Folder = {
       ...makeFolder('folder-1', `${ROOT}/Projects`, null),
       metadata: {
@@ -732,8 +732,8 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Remove from Favorites'));
+    expect(screen.getByText('Remove from favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Remove from favorites'));
 
     expect(spies.onToggleFavoriteFolder).toHaveBeenCalledWith('folder-1', true);
   });
@@ -758,7 +758,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 });
 
 describe('FolderTree rename edit buffer seeding', () => {
-  it('opens rename with an empty buffer and New Note placeholder for an auto-generated note name', () => {
+  it('opens rename with an empty buffer and New note placeholder for an auto-generated note name', () => {
     const page = buildPersistedPage(`${ROOT}/Untitled.md`);
     const { query, workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ editingId: page.id });
@@ -782,7 +782,7 @@ describe('FolderTree rename edit buffer seeding', () => {
     expect(field).not.toHaveAttribute('data-placeholder');
   });
 
-  it('opens rename with an empty buffer and New Folder placeholder for an auto-generated folder name', () => {
+  it('opens rename with an empty buffer and New folder placeholder for an auto-generated folder name', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Untitled`, null);
     const { query, workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ editingId: 'folder-1' });

@@ -57,7 +57,7 @@ export function TagsShortcuts({
   const requestRestyle = (style: TagStyle, label: string) => {
     confirmation.request({
       title: `Restyle tags to ${label}?`,
-      message: 'This will update all existing tags to this style.',
+      message: 'This will update all existing tags to this style',
       confirmLabel: 'Restyle',
       confirmVariant: 'primary',
       onConfirm: () => {
@@ -78,7 +78,7 @@ export function TagsShortcuts({
       title: 'Tidy up unused tags',
       message: `This will permanently remove ${unusedTagCount} unused ${
         unusedTagCount === 1 ? 'tag' : 'tags'
-      }.`,
+      }`,
       confirmLabel: 'Remove',
       onConfirm: () => {
         void onTidyUp().catch((error: unknown) => {

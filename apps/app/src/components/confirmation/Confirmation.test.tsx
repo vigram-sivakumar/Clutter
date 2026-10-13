@@ -27,8 +27,8 @@ describe('Confirmation', () => {
       const handlers = { onConfirm: vi.fn(), onAlternate: vi.fn(), onCancel: vi.fn() };
       render(
         <Confirmation
-          title="Restore Daily Note"
-          description={'A Daily Note for October 6 already exists.\nWhat would you like to do?'}
+          title="Restore daily note"
+          description={'A daily note for October 6 already exists.\nWhat would you like to do?'}
           confirmLabel="Move to Inbox"
           confirmVariant="primary"
           alternateLabel="Replace"

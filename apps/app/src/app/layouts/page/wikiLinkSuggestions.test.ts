@@ -331,7 +331,7 @@ describe('createWikiLinkSuggester', () => {
     const vault = makeVault([]);
     const suggest = createWikiLinkSuggester(vault, persistingPageOperations(vault), persistingFolderOperations(vault));
 
-    const [suggestion] = suggest('Project/Projects/New Note');
+    const [suggestion] = suggest('Project/Projects/New note');
     expect(suggestion?.kind).toBe('create');
 
     if (suggestion?.kind === 'create') {
@@ -341,7 +341,7 @@ describe('createWikiLinkSuggester', () => {
 
     expect(vault.getFolderByPath('/vault/Project')).toBeDefined();
     expect(vault.getFolderByPath('/vault/Project/Projects')).toBeDefined();
-    expect(vault.getPageByPath('/vault/Project/Projects/New Note.md')).toBeDefined();
+    expect(vault.getPageByPath('/vault/Project/Projects/New note.md')).toBeDefined();
   });
 
   // Regression: accepting "+ Create" must only insert/create the WikiLink,
@@ -368,7 +368,7 @@ describe('createWikiLinkSuggester', () => {
     } as unknown as PageOperations;
     const suggest = createWikiLinkSuggester(vault, pageOperations, fakeFolderOperations());
 
-    const [suggestion] = suggest('New Note');
+    const [suggestion] = suggest('New note');
     expect(suggestion?.kind).toBe('create');
 
     if (suggestion?.kind === 'create') {
@@ -376,7 +376,7 @@ describe('createWikiLinkSuggester', () => {
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(vault.getPageByPath('/vault/New Note.md')).toBeDefined();
+    expect(vault.getPageByPath('/vault/New note.md')).toBeDefined();
     expect(open).not.toHaveBeenCalled();
   });
 });

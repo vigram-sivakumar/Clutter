@@ -32,7 +32,7 @@ function unsplashErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return 'Unable to load Unsplash images.';
+  return 'Unable to load Unsplash images';
 }
 
 export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
@@ -132,7 +132,7 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
       )}
 
       {!isLoading && !error && photos.length === 0 && (
-        <div className="image-picker-unsplash__state">No images found.</div>
+        <div className="image-picker-unsplash__state">No images found</div>
       )}
 
       {!isLoading && !error && photos.length > 0 && (

@@ -41,7 +41,7 @@ describe('getFolderDisplayLabel', () => {
   it('shows the placeholder when the folder name is still generated', () => {
     const label = getFolderDisplayLabel(makeFolder({ name: 'Untitled 2' }));
 
-    expect(label).toEqual({ text: 'New Folder', source: 'placeholder' });
+    expect(label).toEqual({ text: 'New folder', source: 'placeholder' });
     expect(getPageDisplayLabelStyle(label)).toBe('placeholder');
   });
 });

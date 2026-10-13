@@ -57,7 +57,7 @@ describe('acceptReferenceForDisplayName ("|" key command)', () => {
   it('commits the currently-selected completion as the reference and inserts a literal "|", for a fresh not-yet-closed link', async () => {
     const getSuggestions: GetWikiLinkSuggestions = () => [
       { kind: 'page' as const, path: 'News', title: 'News', breadcrumb: null },
-      { kind: 'page' as const, path: 'New Note', title: 'New Note', breadcrumb: null },
+      { kind: 'page' as const, path: 'New note', title: 'New note', breadcrumb: null },
     ];
     const view = mountView('x [[N', getSuggestions);
     type(view, 5, 'e'); // 'x [[N' -> 'x [[Ne'

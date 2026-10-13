@@ -72,7 +72,7 @@ export function NewTaskContent({ onClose, onSubmit, editing }: NewTaskContentPro
     } catch (submitError) {
       setIsSubmitting(false);
       setError(
-        submitError instanceof Error ? submitError.message : isEditing ? 'Failed to save task.' : 'Failed to create task.'
+        submitError instanceof Error ? submitError.message : isEditing ? 'Failed to save task' : 'Failed to create task'
       );
     }
   };

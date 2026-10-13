@@ -41,7 +41,7 @@ describe('buildEntryPresentation (folder)', () => {
   it('shows the placeholder with placeholder styling for a generated folder name', () => {
     const result = buildEntryPresentation(makeFolder({ name: 'Untitled 2' }));
 
-    expect(result.title).toBe('New Folder');
+    expect(result.title).toBe('New folder');
     expect(result.titleStyle).toBe('placeholder');
   });
 });
@@ -80,7 +80,7 @@ describe('buildEntryPresentation (page)', () => {
   it('a regular untitled note keeps its existing placeholder', () => {
     const result = buildEntryPresentation(page({ name: 'Untitled 2' }));
 
-    expect(result.title).toBe('New Note');
+    expect(result.title).toBe('New note');
     expect(result.titleStyle).toBe('placeholder');
   });
 });

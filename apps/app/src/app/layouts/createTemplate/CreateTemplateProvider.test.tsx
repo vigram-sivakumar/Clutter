@@ -72,7 +72,7 @@ describe('CreateTemplateProvider — the one Create template dialog', () => {
     const { application } = fakeApplication({ type: 'daily-note', name: '2026-10-07', description: null, markdown: 'x' });
     renderProvider(application);
 
-    expect((screen.getByRole('textbox', { name: 'Template name' }) as HTMLInputElement).value).toBe('Daily Note Template');
+    expect((screen.getByRole('textbox', { name: 'Template name' }) as HTMLInputElement).value).toBe('Daily note template');
     expect((screen.getByRole('textbox', { name: 'Description' }) as HTMLTextAreaElement).value).toBe('');
   });
 

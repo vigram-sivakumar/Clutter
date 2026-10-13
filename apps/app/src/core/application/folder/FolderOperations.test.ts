@@ -315,7 +315,7 @@ describe('FolderOperations.create()', () => {
   });
 });
 
-describe('FolderOperations.canCreate() (interactive "New Folder" row pre-check)', () => {
+describe('FolderOperations.canCreate() (interactive "New folder" row pre-check)', () => {
   it('returns false for a name that already exists at the vault root', () => {
     const existing = makeFolder('folder-existing', `${ROOT}/Projects`);
     const { folderOperations } = setup([existing]);

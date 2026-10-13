@@ -316,7 +316,7 @@ describe('DailyNotesList — empty month sections', () => {
     // no heading renders for it. Two rows: the persisted note and the
     // virtual Today entry (no real page/draft exists for today here).
     expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
   });
 });
 
@@ -348,7 +348,7 @@ describe('DailyNotesList — a Note nested inside a valid month folder is not re
     // — the stray Note is excluded here regardless of sharing the same
     // month folder as a real Daily Note. Two rows render: the real Daily
     // Note plus the virtual Today entry.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
     expect(screen.queryByText('Test file')).not.toBeInTheDocument();
   });
 });
@@ -398,7 +398,7 @@ describe('DailyNotesList — malformed month folders do not crash discovery', ()
 
     // The valid month's Daily Note still renders normally, alongside the
     // virtual Today entry.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
   });
 });
 
@@ -419,7 +419,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
     // A folder-less draft in the current month renders directly (no
     // heading), alongside the virtual Today entry (this draft isn't dated
     // today).
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
   });
 
   it('an unplaced draft folds into an existing month section covering the same date, rather than rendering a duplicate header', async () => {
@@ -448,7 +448,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
     // No heading, no duplicate rendering — the persisted note, the draft,
     // and the virtual Today entry all render as three plain rows.
     expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
-    expect(screen.getAllByText('Start typing...')).toHaveLength(3);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(3);
   });
 
   it('an unplaced (folder-less) past month renders under "Show earlier" with a plain, non-interactive heading', async () => {
@@ -507,7 +507,7 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
     // filename is never shown as its title (getPageDisplayLabel's own
     // rule), and it has no description/body yet, so both fall to the
     // shared placeholder.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
   });
 
   it('clicking a draft Daily Note invokes onOpenDraft, not onOpen', async () => {
@@ -565,7 +565,7 @@ describe('DailyNotesList — one global draft across Daily Note dates (PageOpera
     renderList({ vault, query, membershipSelector, workspace });
 
     // The one draft, plus the virtual Today entry — two rows.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(2);
   });
 });
 
@@ -697,7 +697,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    expect(screen.getByText('Start typing…')).toBeInTheDocument();
   });
 
   it('does not duplicate today when a real draft for today already exists', async () => {
@@ -710,7 +710,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
+    expect(screen.getAllByText('Start typing…')).toHaveLength(1);
   });
 
   it("clicking the virtual Today row calls onOpenDate with today's date, not onOpen/onOpenDraft", () => {
@@ -722,7 +722,7 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
 
     renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft, onOpenDate });
 
-    fireEvent.click(screen.getByText('Start typing...'));
+    fireEvent.click(screen.getByText('Start typing…'));
 
     expect(onOpenDate).toHaveBeenCalledWith(TODAY);
     expect(onOpen).not.toHaveBeenCalled();
@@ -900,13 +900,13 @@ describe("DailyNotesList — the side panel keeps its content preview", () => {
     return setup([note], [dailyNotesRoot, year, month]);
   }
 
-  it('an empty Daily Note reads "Start typing..." (not the date)', () => {
+  it('an empty Daily Note reads "Start typing…" (not the date)', () => {
     const { vault, query, membershipSelector, workspace } = setupWithNote({});
 
     renderList({ vault, query, membershipSelector, workspace });
 
     // The persisted empty note + the virtual Today row.
-    expect(screen.getAllByText('Start typing...').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Start typing…').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/\d{4}$/)).toBeNull();
   });
 

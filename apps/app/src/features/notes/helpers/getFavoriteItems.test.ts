@@ -211,7 +211,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items).toEqual([
       {
         id: 'page-1',
-        title: 'New Note',
+        title: 'New note',
         name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
@@ -229,7 +229,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items).toEqual([
       {
         id: 'page-1',
-        title: 'New Note',
+        title: 'New note',
         name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
@@ -250,7 +250,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items).toEqual([
       {
         id: 'page-1',
-        title: 'New Note',
+        title: 'New note',
         name: expect.any(String),
         titleStyle: 'placeholder',
         type: 'note',
@@ -288,7 +288,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     const [item] = getFavoriteItems(query, effectivePageState);
 
     expect(item?.name).toBe('Untitled 2');
-    expect(item?.title).toBe('New Note');
+    expect(item?.title).toBe('New note');
   });
 
   it('flags a favorited folder inside Assets with its Move hierarchy, and no other folder (Templates are flat)', () => {

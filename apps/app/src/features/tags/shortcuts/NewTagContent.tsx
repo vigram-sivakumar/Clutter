@@ -29,9 +29,9 @@ function messageFor(check: Exclude<NewTagNameCheck, { ok: true }>): string | und
     case 'empty':
       return undefined;
     case 'invalid':
-      return 'Use letters, numbers, hyphens or underscores, with at least one letter.';
+      return 'Use letters, numbers, hyphens or underscores, with at least one letter';
     case 'duplicate':
-      return `A tag named “${check.existingName ?? ''}” already exists.`;
+      return `A tag named “${check.existingName ?? ''}” already exists`;
   }
 }
 
@@ -68,7 +68,7 @@ export function NewTagContent({ onClose, validateName, onSubmit }: NewTagContent
       onClose();
     } catch (error) {
       setIsSubmitting(false);
-      setSubmitError(error instanceof Error ? error.message : 'Failed to create tag.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create tag');
     }
   };
 

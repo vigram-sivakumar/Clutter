@@ -51,7 +51,7 @@ describe('Delete confirmation copy', () => {
 
   it('the body is the same for every tag and has no # or count', () => {
     expect(TAG_DELETE_CONFIRMATION_MESSAGE).toBe(
-      'This will permanently delete the tag. You can\u2019t undo this action.'
+      'This will permanently delete the tag. You can\u2019t undo this action'
     );
     expect(TAG_DELETE_CONFIRMATION_MESSAGE).not.toMatch(/#|\d/);
   });

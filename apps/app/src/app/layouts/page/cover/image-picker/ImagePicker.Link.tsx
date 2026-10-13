@@ -43,7 +43,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
     const parsed = parseWebUrl(url);
     if (!parsed) {
       setStatus('error');
-      setErrorMessage('Enter a valid web address (starting with http:// or https://).');
+      setErrorMessage('Enter a valid web address (starting with http:// or https://)');
       return;
     }
 
@@ -67,7 +67,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
       }
       pendingProbeRef.current = null;
       setStatus('error');
-      setErrorMessage("Couldn't load this image. Check the URL and try again.");
+      setErrorMessage("Couldn’t load this image. Check the URL and try again");
     };
     probe.src = parsed.href;
   };
@@ -94,7 +94,7 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
           {errorMessage}
         </span>
       ) : (
-        <span className="input__hint">You can add any image from the web.</span>
+        <span className="input__hint">You can add any image from the web</span>
       )}
     </div>
   );

@@ -356,13 +356,13 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
+    expect(screen.getAllByText('Move to trash')).toHaveLength(1);
 
     fireEvent.click(overflowButtonFor('Beta'));
 
     // Still exactly one Archive item rendered — Alpha's menu closed when
     // Beta's opened, rather than both being open simultaneously.
-    expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
+    expect(screen.getAllByText('Move to trash')).toHaveLength(1);
   });
 
   it("clicking the same row's overflow button again closes its own menu", () => {
@@ -372,10 +372,10 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText('Move to Trash')).toBeInTheDocument();
+    expect(screen.queryByText('Move to trash')).toBeInTheDocument();
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText('Move to Trash')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to trash')).not.toBeInTheDocument();
   });
 });
 
@@ -397,7 +397,7 @@ describe("Sidebar Notes: a favorited page's Favorites row and Workspace row have
 
     // Only the Favorites row's menu opened — a single Archive item, not two
     // (two would mean the Workspace row for the same page ID opened too).
-    expect(screen.getAllByText('Move to Trash')).toHaveLength(1);
+    expect(screen.getAllByText('Move to trash')).toHaveLength(1);
 
     // The Workspace row's own overflow button opens its own menu on top of
     // the still-open Favorites one — proving the two are independently
@@ -406,7 +406,7 @@ describe("Sidebar Notes: a favorited page's Favorites row and Workspace row have
     // click would have no visible effect beyond what the first already
     // caused.)
     fireEvent.click(overflowButtonForEntry(workspaceRow));
-    expect(screen.getAllByText('Move to Trash')).toHaveLength(2);
+    expect(screen.getAllByText('Move to trash')).toHaveLength(2);
   });
 });
 
@@ -458,7 +458,7 @@ describe('Sidebar Notes: a favorited resource has the same actions as the resour
     expect(labels).toContain('Rename');
     expect(labels).not.toContain('Move to…');
     expect(labels).not.toContain('Save as template');
-    expect(labels).toContain('Remove from Favorites');
+    expect(labels).toContain('Remove from favorites');
   });
 
   it('Rename on a favorited Note renames the underlying page, in the Favorites row only', () => {
@@ -695,7 +695,7 @@ describe('Sidebar Notes: an empty Folders section explains itself', () => {
     expect(
       screen.queryByRole('button', { name: MESSAGE })
     ).not.toBeInTheDocument();
-    expect(screen.queryByText('New Folder')).not.toBeInTheDocument();
+    expect(screen.queryByText('New folder')).not.toBeInTheDocument();
   });
 
   it('is not shown once the section has anything in it', () => {
@@ -785,7 +785,7 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Note'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith('page-1');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -800,7 +800,7 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith('folder-1');
     expect(screen.queryByText(/Move this folder to Trash/)).toBeNull();
@@ -819,16 +819,16 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).not.toHaveBeenCalled();
-    expect(screen.getByText('Move this folder to Trash?')).toBeInTheDocument();
+    expect(screen.getByText('Move this folder to trash?')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(archiveSpy).not.toHaveBeenCalled();
     expect(
-      screen.queryByText('Move this folder to Trash?')
+      screen.queryByText('Move this folder to trash?')
     ).not.toBeInTheDocument();
   });
 
@@ -845,15 +845,15 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
     const confirmButtons = screen.getAllByRole('button', {
-      name: 'Move to Trash',
+      name: 'Move to trash',
     });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     expect(archiveSpy).toHaveBeenCalledWith('folder-1');
     expect(
-      screen.queryByText('Move this folder to Trash?')
+      screen.queryByText('Move this folder to trash?')
     ).not.toBeInTheDocument();
   });
 
@@ -868,9 +868,9 @@ describe('Sidebar Notes: archive confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
     fireEvent.click(
-      screen.getAllByRole('button', { name: 'Move to Trash' }).at(-1)!
+      screen.getAllByRole('button', { name: 'Move to trash' }).at(-1)!
     );
 
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
@@ -941,9 +941,9 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
-    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
-    expect(screen.queryByText('Add to Favorites')).toBeNull();
-    expect(screen.queryByText('Remove from Favorites')).toBeNull();
+    expect(screen.getByText('Move to trash')).toBeInTheDocument();
+    expect(screen.queryByText('Add to favorites')).toBeNull();
+    expect(screen.queryByText('Remove from favorites')).toBeNull();
     expect(screen.queryByText('Restore')).toBeNull();
     expect(screen.queryByText('Delete permanently')).toBeNull();
     expect(screen.queryByText('Duplicate')).toBeNull();
@@ -963,7 +963,7 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
-    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to trash')).toBeInTheDocument();
   });
 });
 
@@ -1081,7 +1081,7 @@ describe('Sidebar Notes: Resource archive', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('floorplan'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -1100,7 +1100,7 @@ describe('Sidebar Notes: Resource archive', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('contract'));
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
   });

@@ -15,7 +15,7 @@ export function getTagDeleteConfirmationTitle(tagName: string): string {
 }
 
 export const TAG_DELETE_CONFIRMATION_MESSAGE =
-  'This will permanently delete the tag. You can\u2019t undo this action.';
+  'This will permanently delete the tag. You can\u2019t undo this action';
 
 /**
  * Delete handler for a tag, shared by the tag page's Delete action and the

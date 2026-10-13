@@ -242,7 +242,7 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
     const { query, workspace, pageOperations, membershipSelector } = setup();
     const { rerender } = renderTree(query, membershipSelector, workspace);
 
-    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
+    expect(screen.queryByText('New note')).not.toBeInTheDocument();
 
     await pageOperations.openDraft({ folderId: null });
     rerender(
@@ -265,7 +265,7 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
     // No explicit title was given, so it falls back to the same shared
     // placeholder copy the rest of the app already uses for an untitled
     // page — not a new label, an existing one applied to a new case.
-    expect(screen.getByText('New Note')).toBeInTheDocument();
+    expect(screen.getByText('New note')).toBeInTheDocument();
   });
 
   it('a titled draft renders its title immediately', async () => {
@@ -349,7 +349,7 @@ describe('FolderTree: draft discard', () => {
 });
 
 describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId) surfaces correctly here', () => {
-  it('clicking "New Note" twice without saving shows exactly one placeholder row, not two', async () => {
+  it('clicking "New note" twice without saving shows exactly one placeholder row, not two', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
     await pageOperations.openDraft({ folderId: null });
@@ -357,7 +357,7 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
 
     const { getAllByText } = renderTree(query, membershipSelector, workspace);
 
-    expect(getAllByText('New Note')).toHaveLength(1);
+    expect(getAllByText('New note')).toHaveLength(1);
   });
 
   it('a draft with real content is persisted (not repurposed) by the next openDraft() — one saved note plus the single new draft, neither labelled by body text', async () => {
@@ -376,7 +376,7 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     expect(queryByText('Real content')).not.toBeInTheDocument();
     // The first draft became a real (untitled) page; the second is the one
     // remaining draft — two rows, never three.
-    expect(getAllByText('New Note')).toHaveLength(2);
+    expect(getAllByText('New note')).toHaveLength(2);
   });
 });
 
@@ -429,7 +429,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
     );
 
     expect(screen.queryByText('A durable description')).not.toBeInTheDocument();
-    expect(screen.getByText('New Note')).toBeInTheDocument();
+    expect(screen.getByText('New note')).toBeInTheDocument();
   });
 
   it('clicking a persisted page invokes onPageClick with its id (not a draft click)', () => {
@@ -479,7 +479,7 @@ describe('FolderTree: Daily Note membership (ADR-023) — the bug this phase fix
 
     renderTree(query, membershipSelector, workspace);
 
-    expect(screen.queryByText('Start typing...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start typing…')).not.toBeInTheDocument();
   });
 
   it('an ordinary Note draft with folderId: null still appears in Notes (the classification is type-based, not a blanket exclusion)', async () => {
@@ -828,7 +828,7 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     );
     const { rerender } = renderTree(query, membershipSelector, workspace);
 
-    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
+    expect(screen.queryByText('New note')).not.toBeInTheDocument();
 
     await pageOperations.openDraft({ folderId: 'folder-1' });
     rerender(
@@ -848,7 +848,7 @@ describe('FolderTree: create note from folder ("+" button)', () => {
       />
     );
 
-    expect(screen.getByText('New Note')).toBeInTheDocument();
+    expect(screen.getByText('New note')).toBeInTheDocument();
     expect(workspace.activePageId).toBeDefined();
   });
 
@@ -883,7 +883,7 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(container.querySelectorAll('.entry').length).toBeGreaterThan(2);
     // One persisted note under A and the single draft under B (a Note's
     // title never derives from body content).
-    expect(screen.getAllByText('New Note')).toHaveLength(2);
+    expect(screen.getAllByText('New note')).toHaveLength(2);
   });
 });
 

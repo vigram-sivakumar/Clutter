@@ -68,7 +68,7 @@ export function AppShell() {
         console.error('Failed to open vault:', error);
         if (!cancelled) {
           setError(
-            error instanceof Error ? error.message : 'Failed to open vault.'
+            error instanceof Error ? error.message : 'Failed to open vault'
           );
         }
       } finally {
@@ -88,7 +88,7 @@ export function AppShell() {
   }, [vaultPath]);
 
   if (isLoading) {
-    return <div>Loading vault...</div>;
+    return <div>Loading vault…</div>;
   }
 
   if (error) {
@@ -96,7 +96,7 @@ export function AppShell() {
   }
 
   if (!application) {
-    return <div>No vault loaded.</div>;
+    return <div>No vault loaded</div>;
   }
 
   return <AppLayout application={application} />;

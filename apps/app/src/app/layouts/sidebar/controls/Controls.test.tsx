@@ -97,24 +97,24 @@ describe('Controls creation launcher', () => {
     }
   });
 
-  it('lists the creation types in order under a Create New title, template after a divider', () => {
+  it('lists the creation types in order under a Create new title, template after a divider', () => {
     renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    expect(screen.getByText('Create New')).toBeInTheDocument();
+    expect(screen.getByText('Create new')).toBeInTheDocument();
 
     const items = screen
       .getAllByRole('menuitem')
       // The calendar-today icon draws the current day number as text — not part of the label.
       .map((item) => item.textContent?.replace(/^\d+/, ''));
     // Daily Note carries its muted trailing metadata ("Today") in the same row.
-    expect(items).toEqual(['Note', 'Daily NoteToday', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
+    expect(items).toEqual(['Note', 'Daily noteToday', 'Task', 'Folder', 'Tag', 'Template', 'Upload']);
     expect(screen.getByRole('separator')).toBeInTheDocument();
   });
 
   it.each([
     ['Note', 'onNewNote'],
-    ['Daily Note', 'onOpenDailyNote'],
+    ['Daily note', 'onOpenDailyNote'],
     ['Task', 'onNewTask'],
     ['Folder', 'onNewFolder'],
     ['Tag', 'onNewTag'],
@@ -134,7 +134,7 @@ describe('Controls creation launcher', () => {
     renderControls();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    const row = screen.getByRole('menuitem', { name: /^Daily Note/ });
+    const row = screen.getByRole('menuitem', { name: /^Daily note/ });
     expect(row.querySelector('.entry__meta')).toHaveTextContent('Today');
   });
 });

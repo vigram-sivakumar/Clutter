@@ -172,7 +172,7 @@ describe('Daily Notes collection pages (flag on)', () => {
     expect(hasCreateFolderCard()).toBe(false);
     expect(hasHeaderPlus()).toBe(false);
     expect(noteRows()).toBe(0);
-    expect(document.body.textContent).not.toContain('New Note');
+    expect(document.body.textContent).not.toContain('New note');
   });
 
   it('a year page lists its months January to December (not alphabetical), with no notes section, create-folder card or "+"', async () => {
@@ -182,16 +182,16 @@ describe('Daily Notes collection pages (flag on)', () => {
     expect(hasCreateFolderCard()).toBe(false);
     expect(hasHeaderPlus()).toBe(false);
     expect(noteRows()).toBe(0);
-    expect(document.body.textContent).not.toContain('New Note');
+    expect(document.body.textContent).not.toContain('New note');
   });
 
-  it('a month page still lists its days, but offers no create-folder card, no "+" and no New Note row', async () => {
+  it('a month page still lists its days, but offers no create-folder card, no "+" and no New note row', async () => {
     await renderFolder(`${ROOT}/Daily Notes/2026/October`);
 
     expect(folderCardNames()).toEqual([]);
     expect(hasCreateFolderCard()).toBe(false);
     expect(hasHeaderPlus()).toBe(false);
-    expect(document.body.textContent).not.toContain('New Note');
+    expect(document.body.textContent).not.toContain('New note');
     expect(noteRows()).toBe(2);
   });
 

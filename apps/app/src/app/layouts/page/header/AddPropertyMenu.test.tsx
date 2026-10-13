@@ -102,14 +102,14 @@ describe('AddPropertyMenu — actions', () => {
 
     expect(screen.queryByRole('separator')).toBeNull();
     expect(screen.getByText('Type')).toBeInTheDocument();
-    expect(itemLabels()).not.toContain('Hide Properties');
+    expect(itemLabels()).not.toContain('Hide properties');
     expect(itemLabels()).not.toContain('Delete all');
   });
 
-  it('puts the "Type" title and the list first, then a divider, then Hide Properties and Delete all', () => {
+  it('puts the "Type" title and the list first, then a divider, then Hide properties and Delete all', () => {
     renderMenu({ onHideProperties: vi.fn(), onDeleteAll: vi.fn() });
 
-    expect(itemLabels().slice(-3)).toEqual(['Multi-select', 'Hide Properties', 'Delete all']);
+    expect(itemLabels().slice(-3)).toEqual(['Multi-select', 'Hide properties', 'Delete all']);
     const menu = screen.getByRole('menu', { name: 'Add properties' });
     const order = [...menu.querySelectorAll('[role=menuitem], [role=separator], .menu__group-title')].map(
       (node) => node.getAttribute('role') ?? node.textContent
@@ -123,7 +123,7 @@ describe('AddPropertyMenu — actions', () => {
     const onDeleteAll = vi.fn();
     const { onAddCustomProperty, onAddSystemProperty } = renderMenu({ onHideProperties, onDeleteAll });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     expect(onHideProperties).toHaveBeenCalledOnce();
     expect(onDeleteAll).not.toHaveBeenCalled();
 

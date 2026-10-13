@@ -262,7 +262,7 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
   it('accepting a reactivated reference completion replaces only the reference zone, leaving the alias and closing brackets untouched', () => {
     const view = mountView('x [[News|My news]] y');
     const getSuggestions: GetWikiLinkSuggestions = () => [
-      { kind: 'page', path: 'New Note', title: 'New Note', breadcrumb: null },
+      { kind: 'page', path: 'New note', title: 'New note', breadcrumb: null },
     ];
     const source = wikiLinkCompletionSource(() => getSuggestions);
 
@@ -274,7 +274,7 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
       option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
     }
 
-    expect(view.state.doc.toString()).toBe('x [[New Note|My news]] y');
+    expect(view.state.doc.toString()).toBe('x [[New note|My news]] y');
   });
 
   it(
@@ -312,7 +312,7 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
       // "x [[News|My news]] y" — reference "News" occupies indices 4..7.
       const view = mountView('x [[News|My news]] y');
       const getSuggestions: GetWikiLinkSuggestions = () => [
-        { kind: 'page', path: 'New Note', title: 'New Note', breadcrumb: null },
+        { kind: 'page', path: 'New note', title: 'New note', breadcrumb: null },
       ];
       const source = wikiLinkCompletionSource(() => getSuggestions);
 
@@ -325,7 +325,7 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
       }
 
       const doc = view.state.doc.toString();
-      expect(doc).toBe('x [[New Note|My news]] y');
+      expect(doc).toBe('x [[New note|My news]] y');
       expect(view.state.selection.main.head).toBe(doc.indexOf(']] y') + ']]'.length + 1);
       expect(view.state.selection.main.anchor).toBe(doc.indexOf(']] y') + ']]'.length + 1);
     }

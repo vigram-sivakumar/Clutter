@@ -66,7 +66,7 @@ describe('getPageDisplayLabel — Notes', () => {
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'New Note',
+      text: 'New note',
       source: 'placeholder',
     });
   });
@@ -78,7 +78,7 @@ describe('getPageDisplayLabel — Notes', () => {
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'New Note',
+      text: 'New note',
       source: 'placeholder',
     });
   });
@@ -87,7 +87,7 @@ describe('getPageDisplayLabel — Notes', () => {
     const page = makePage({ name: 'Untitled', source: { markdown: '' } });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'New Note',
+      text: 'New note',
       source: 'placeholder',
     });
   });
@@ -101,7 +101,7 @@ describe('getPageDisplayLabel — Notes', () => {
         markdown: '',
       })
     ).toEqual({
-      text: 'New Note',
+      text: 'New note',
       source: 'placeholder',
     });
   });
@@ -114,7 +114,7 @@ describe('getPageDisplayLabel — Notes', () => {
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'New Note',
+      text: 'New note',
       source: 'placeholder',
     });
   });
@@ -157,17 +157,17 @@ describe('getPageDisplayLabel — Daily Notes (generic title surfaces)', () => {
       toPageDisplayLabelInput(makePage({ type: 'daily-note', name: '2026-08-02' }))
     );
 
-    expect(label.text).not.toBe('Start typing...');
+    expect(label.text).not.toBe('Start typing…');
     expect(getPageDisplayLabelStyle(label)).toBe('default');
   });
 });
 
 describe('getDailyNotePreviewLabel — the Daily Notes side panel', () => {
-  it('shows "Start typing..." for an empty note', () => {
+  it('shows "Start typing…" for an empty note', () => {
     const page = makePage({ type: 'daily-note', name: '2026-08-02' });
 
     expect(getDailyNotePreviewLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'Start typing...',
+      text: 'Start typing…',
       source: 'placeholder',
     });
   });
@@ -214,11 +214,11 @@ describe('getPageDisplayLabelStyle', () => {
   });
 
   it('is "placeholder" only for the literal placeholder fallback — nothing was available at all', () => {
-    expect(getPageDisplayLabelStyle({ text: 'New Note', source: 'placeholder' })).toBe(
+    expect(getPageDisplayLabelStyle({ text: 'New note', source: 'placeholder' })).toBe(
       'placeholder'
     );
     expect(
-      getPageDisplayLabelStyle({ text: 'Start typing...', source: 'placeholder' })
+      getPageDisplayLabelStyle({ text: 'Start typing…', source: 'placeholder' })
     ).toBe('placeholder');
   });
 });

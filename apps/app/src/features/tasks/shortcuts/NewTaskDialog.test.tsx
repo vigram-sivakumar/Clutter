@@ -123,12 +123,12 @@ describe('NewTaskDialog — Edit task', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  it('a failure with no message reads "Failed to save task."', async () => {
+  it('a failure with no message reads "Failed to save task"', async () => {
     const onSaveTask = vi.fn<Save>().mockRejectedValue('boom');
     render(<EditHost onSaveTask={onSaveTask} />);
 
     fireEvent.click(screen.getByText('Save changes').closest('button')!);
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to save task.'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to save task'));
   });
 });

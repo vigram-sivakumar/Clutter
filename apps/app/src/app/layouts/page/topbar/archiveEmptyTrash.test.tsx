@@ -66,9 +66,9 @@ describe('Trash page "More actions" — Empty trash', () => {
     fireEvent.click(screen.getByText('Empty trash'));
 
     expect(
-      screen.getByText('Are you sure you want to permanently delete the items in the Trash?')
+      screen.getByText('Are you sure you want to permanently delete the items in the trash?')
     ).toBeInTheDocument();
-    expect(screen.getByText('You can’t undo this action.')).toBeInTheDocument();
+    expect(screen.getByText('You can’t undo this action')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(onDeleteAll).not.toHaveBeenCalled();
   });
@@ -81,7 +81,7 @@ describe('Trash page "More actions" — Empty trash', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onDeleteAll).not.toHaveBeenCalled();
-    expect(screen.queryByText('You can’t undo this action.')).toBeNull();
+    expect(screen.queryByText('You can’t undo this action')).toBeNull();
   });
 
   it('confirming runs the delete once, with the default (danger) confirm button like every other destructive confirmation', () => {
@@ -106,7 +106,7 @@ describe('Trash page "More actions" — Empty trash', () => {
     openMenu();
     fireEvent.click(screen.getByText('Empty trash'));
 
-    expect(screen.queryByText('You can’t undo this action.')).toBeNull();
+    expect(screen.queryByText('You can’t undo this action')).toBeNull();
     expect(onDeleteAll).not.toHaveBeenCalled();
   });
 });

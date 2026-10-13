@@ -30,6 +30,19 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+
+  /*
+   * Caret headroom. In a shrink-to-fit parent this box is exactly as wide as its text, but the
+   * caret at the end needs a pixel or two past the last glyph. WebKit (Tauri's macOS webview)
+   * treats that overhang as overflow and scrolls the box sideways to reveal the caret, after the
+   * input handler has already run — so the text sits 1px left on one keystroke and snaps back on
+   * the next (the field's `scrollLeft` toggling 0 <-> 1 as you type). The padding gives the caret
+   * room so there is never anything to scroll; the equal negative margin cancels it so the field
+   * occupies the same layout space as before. Padding/margin here belong to this plain
+   * contentEditable field, not to any CodeMirror-managed element.
+   */
+  padding-right: var(--editable-text-caret-room, 4px);
+  margin-right: calc(-1 * var(--editable-text-caret-room, 4px));
 }
 .editable-text--nowrap::-webkit-scrollbar {
   display: none;

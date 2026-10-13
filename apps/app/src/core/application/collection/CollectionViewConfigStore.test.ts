@@ -507,7 +507,7 @@ describe('CollectionViewConfigStore — the Task Collection (one shared key, vie
     expect(restarted.get(key)?.layout).toBe('table');
   });
 
-  describe('migration from the key All Tasks briefly used on its own (view:tasks-all)', () => {
+  describe('migration from the key All tasks briefly used on its own (view:tasks-all)', () => {
     const legacyKey = 'view:tasks-all';
     const legacyEntry = { layout: 'table', sort: { property: 'dueDate', direction: 'up' }, propertyOverrides: { source: false } };
 

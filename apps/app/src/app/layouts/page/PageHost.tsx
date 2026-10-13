@@ -3178,8 +3178,8 @@ export function PageHost({
       >
         {restoreConflict && (
           <Confirmation
-            title="Restore Daily Note"
-            description={`A Daily Note for ${restoreConflict.dayLabel} already exists.\nWhat would you like to do?`}
+            title="Restore daily note"
+            description={`A daily note for ${restoreConflict.dayLabel} already exists.\nWhat would you like to do?`}
             confirmLabel="Move to Inbox"
             confirmVariant="primary"
             alternateLabel="Replace"

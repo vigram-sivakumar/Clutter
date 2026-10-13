@@ -222,7 +222,7 @@ export function FencedCodeActionsMenu({
                 setView('language');
               }}
             >
-              Change Language
+              Change language
             </MenuItem>
             {onFormat && (
               <MenuItem
@@ -325,7 +325,7 @@ function LanguagePickerContent({
           </Button>
         }
       >
-        Change Language
+        Change language
       </MenuGroupTitle>
 
       <Search

@@ -136,7 +136,7 @@ describe('PageOperations: only one unsaved draft can exist', () => {
     expect(draftCount()).toBe(0);
   });
 
-  it('New Note cannot create a second draft — a repeated call returns the same id and session', async () => {
+  it('New note cannot create a second draft — a repeated call returns the same id and session', async () => {
     const { pageOperations, documentRegistry, draftCount } = setup();
 
     const first = await pageOperations.openDraft({ folderId: null });

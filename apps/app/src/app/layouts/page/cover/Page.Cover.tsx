@@ -471,7 +471,7 @@ export function PageCover({
                 size="small"
                 onClick={handleSavePosition}
               >
-                Save Position
+                Save position
               </Button>
               {/* Replaces the "More actions" kebab for the duration of
                 repositioning — the kebab's own menu (Change cover image,

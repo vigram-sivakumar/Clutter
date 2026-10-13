@@ -28,9 +28,9 @@ export const NEW_FOLDER_LABELS: NewFolderContentLabels = {
   title: 'New folder',
   nameLabel: 'Folder name',
   namePlaceholder: getFolderTitlePlaceholder(),
-  duplicateMessage: (name) => `A folder named “${name}” already exists.`,
+  duplicateMessage: (name) => `A folder named “${name}” already exists`,
   submitLabel: 'Create',
-  failureMessage: 'Failed to create folder.',
+  failureMessage: 'Failed to create folder',
 };
 
 export interface NewFolderContentProps {

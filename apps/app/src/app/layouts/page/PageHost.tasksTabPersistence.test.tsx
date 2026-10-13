@@ -145,11 +145,11 @@ const tab = (label: string) =>
   [...document.querySelectorAll<HTMLElement>('.page-title-section .tab')].find((el) => el.textContent === label)!;
 
 describe('Tasks page tab selection persists across an app restart', () => {
-  it('a first launch opens on All Tasks, with every task listed', async () => {
+  it('a first launch opens on All tasks, with every task listed', async () => {
     render(<AppLayout application={await boot(new InMemoryVaultFileSystem())} />);
     await flush();
 
-    expect(activeTab()).toBe('All Tasks');
+    expect(activeTab()).toBe('All tasks');
     expect(listedTasks()).toHaveLength(3);
   });
 
@@ -176,25 +176,25 @@ describe('Tasks page tab selection persists across an app restart', () => {
     expect(listedTasks()).toEqual(expected);
   });
 
-  it('the latest selection wins, and returning to All Tasks is remembered too', async () => {
+  it('the latest selection wins, and returning to All tasks is remembered too', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
 
     const first = render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
     fireEvent.click(tab('Today'));
     await flush();
-    fireEvent.click(tab('All Tasks'));
+    fireEvent.click(tab('All tasks'));
     await flush();
     first.unmount();
 
     render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
 
-    expect(activeTab()).toBe('All Tasks');
+    expect(activeTab()).toBe('All tasks');
     expect(listedTasks()).toHaveLength(3);
   });
 
-  it('an unrecognised stored tab (an old or hand-edited file) opens All Tasks instead of failing', async () => {
+  it('an unrecognised stored tab (an old or hand-edited file) opens All tasks instead of failing', async () => {
     const fileSystem = new InMemoryVaultFileSystem({
       [`${ROOT}/.clutter/workspace.json`]: JSON.stringify({ tasksViewConfig: { selectedTab: 'overdue' } }),
     });
@@ -202,6 +202,6 @@ describe('Tasks page tab selection persists across an app restart', () => {
     render(<AppLayout application={await boot(fileSystem)} />);
     await flush();
 
-    expect(activeTab()).toBe('All Tasks');
+    expect(activeTab()).toBe('All tasks');
   });
 });

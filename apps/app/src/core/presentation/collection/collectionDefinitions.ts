@@ -110,7 +110,7 @@ const NOTE_COLLECTION = {
 export const FOLDER_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'folder',
-  emptyMessage: 'Create notes or folders to organise your notes',
+  emptyMessage: 'Create notes or folders to organize your notes',
   actions: { create: true, createFolder: true, fromTemplate: true },
 };
 
@@ -118,7 +118,7 @@ export const FOLDER_COLLECTION: CollectionDefinition = {
 export const INBOX_COLLECTION: CollectionDefinition = {
   ...NOTE_COLLECTION,
   kind: 'inbox',
-  emptyMessage: 'Notes that aren\'t in any folder will appear here',
+  emptyMessage: 'Notes that aren’t in any folder will appear here',
   actions: { create: true, fromTemplate: true },
   behavior: 'notes-only',
 };

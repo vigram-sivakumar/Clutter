@@ -115,7 +115,7 @@ describe('getCreateTemplateDefaults (dialog prefill)', () => {
     const defaults = getCreateTemplateDefaults({ type: 'daily-note', name: '2026-10-07', description: null });
 
     expect(defaults.name).toBe(DAILY_NOTE_TEMPLATE_NAME);
-    expect(defaults.name).toBe('Daily Note Template');
+    expect(defaults.name).toBe('Daily note template');
     expect(defaults.name).not.toMatch(/2026|October/);
   });
 
@@ -210,7 +210,7 @@ describe('createTemplateFromPage — a NEW Template from a copy of the content',
     });
 
     const created = vault.getPage(newId)!;
-    expect(created.path).toBe(`${ROOT}/Templates/Daily Note Template.md`);
+    expect(created.path).toBe(`${ROOT}/Templates/Daily note template.md`);
     expect(created.type).toBe('note');
     expect(created.source.markdown).toContain('## Plan');
     expect(created.id).not.toBe(daily.id);

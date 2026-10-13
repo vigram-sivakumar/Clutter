@@ -301,7 +301,7 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     );
 
     expect(model.notes).toEqual([
-      expect.objectContaining({ id: 'page-1', values: expect.objectContaining({ name: 'New Note' }) }),
+      expect.objectContaining({ id: 'page-1', values: expect.objectContaining({ name: 'New note' }) }),
     ]);
   });
 });

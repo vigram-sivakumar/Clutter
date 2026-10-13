@@ -249,7 +249,7 @@ describe('Tags sidebar — New tag', () => {
 
     for (const attempt of ['design', 'Design', 'DESIGN', ' design_ ']) {
       t.type(attempt);
-      expect(screen.getByRole('alert')).toHaveTextContent('A tag named “design” already exists.');
+      expect(screen.getByRole('alert')).toHaveTextContent('A tag named “design” already exists');
       expect(t.createButton()).toBeDisabled();
     }
 
@@ -410,7 +410,7 @@ describe('Tags sidebar — Tidy up', () => {
 
     expect(confirmation()).not.toBeNull();
     expect(screen.getByText('Tidy up unused tags')).toBeInTheDocument();
-    expect(screen.getByText('This will permanently remove 2 unused tags.')).toBeInTheDocument();
+    expect(screen.getByText('This will permanently remove 2 unused tags')).toBeInTheDocument();
     expect(within(confirmation()!).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(within(confirmation()!).getByRole('button', { name: 'Remove' })).toBeInTheDocument();
   });
@@ -420,7 +420,7 @@ describe('Tags sidebar — Tidy up', () => {
     fireEvent.click(screen.getByText('Tidy up'));
     fireEvent.click(screen.getByText('Remove unused'));
 
-    expect(screen.getByText('This will permanently remove 1 unused tag.')).toBeInTheDocument();
+    expect(screen.getByText('This will permanently remove 1 unused tag')).toBeInTheDocument();
   });
 
   it('Cancel changes nothing', async () => {
@@ -529,7 +529,7 @@ describe('Tags sidebar — Tidy up → Style (restyle existing tags)', () => {
     fireEvent.click(screen.getByText('Sentence case'));
 
     expect(screen.getByText('Restyle tags to Sentence case?')).toBeInTheDocument();
-    expect(screen.getByText('This will update all existing tags to this style.')).toBeInTheDocument();
+    expect(screen.getByText('This will update all existing tags to this style')).toBeInTheDocument();
     expect(within(confirmation()!).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(within(confirmation()!).getByRole('button', { name: 'Restyle' })).toBeInTheDocument();
     expect(screen.queryByText(/notes?\b.*tags?|tags? in/)).toBeNull();

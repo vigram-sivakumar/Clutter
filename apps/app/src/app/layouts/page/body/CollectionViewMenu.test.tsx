@@ -101,7 +101,7 @@ describe('CollectionViewMenu — root view', () => {
     expect(getAllByText('Description')).toHaveLength(1);
   });
 
-  it('the Properties row has a trailing chevron, matching the fenced-code "Change Language" trigger', () => {
+  it('the Properties row has a trailing chevron, matching the fenced-code "Change language" trigger', () => {
     const { getByText } = renderMenu();
 
     const propertiesRow = getByText('Properties').closest('.entry')!;
@@ -235,7 +235,7 @@ describe('CollectionViewMenu — Properties submenu', () => {
     const { getByText, getByRole, queryAllByText } = renderMenu();
     openPropertiesSubmenu(getByText);
 
-    fireEvent.click(getByRole('button', { name: 'Back to Configure' }));
+    fireEvent.click(getByRole('button', { name: 'Back to configure' }));
 
     expect(getByText('Layout')).toBeInTheDocument();
     expect(getByText('Sort by')).toBeInTheDocument();
@@ -548,7 +548,7 @@ describe('CollectionViewMenu — Last opened is gone', () => {
   });
 });
 
-describe('CollectionViewMenu — extra toggles (All Tasks: Show completed / Auto-sort completed)', () => {
+describe('CollectionViewMenu — extra toggles (All tasks: Show completed / Auto-sort completed)', () => {
   function renderWithToggles(checked: { show: boolean; auto: boolean }) {
     const onShow = vi.fn();
     const onAuto = vi.fn();

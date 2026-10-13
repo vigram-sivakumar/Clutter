@@ -504,7 +504,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         {assetPendingDelete && (
           <Confirmation
             title="Delete permanently?"
-            description={`"${getResourceDisplayName(assetPendingDelete)}" will be deleted permanently. You can’t undo this action.`}
+            description={`“${getResourceDisplayName(assetPendingDelete)}” will be deleted permanently. You can’t undo this action`}
             confirmLabel="Delete"
             onConfirm={confirmDeleteResource}
             onCancel={() => setAssetPendingDelete(null)}

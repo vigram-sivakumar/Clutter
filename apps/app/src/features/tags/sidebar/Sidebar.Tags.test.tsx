@@ -468,7 +468,7 @@ describe('Sidebar Tags — overflow → Delete', () => {
 
     expect(within(confirmation()).getByText('Delete Product design?')).toBeInTheDocument();
     expect(
-      within(confirmation()).getByText('This will permanently delete the tag. You can\u2019t undo this action.')
+      within(confirmation()).getByText('This will permanently delete the tag. You can\u2019t undo this action')
     ).toBeInTheDocument();
     expect(t.deleteTag).not.toHaveBeenCalled();
   });

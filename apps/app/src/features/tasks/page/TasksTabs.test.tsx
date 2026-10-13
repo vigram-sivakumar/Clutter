@@ -11,11 +11,11 @@ afterEach(() => {
 });
 
 describe('TasksTabs', () => {
-  it('shows All Tasks, Today, Upcoming and Unscheduled, with the given tab selected', () => {
+  it('shows All tasks, Today, Upcoming and Unscheduled, with the given tab selected', () => {
     const { container } = render(<TasksTabs value="today" onValueChange={vi.fn()} />);
 
     expect([...container.querySelectorAll('.tab')].map((tab) => tab.textContent)).toEqual([
-      'All Tasks',
+      'All tasks',
       'Today',
       'Upcoming',
       'Unscheduled',
@@ -32,7 +32,7 @@ describe('TasksTabs', () => {
 
     expect(onValueChange).toHaveBeenCalledWith('upcoming');
     // Controlled: it does not move its own highlight.
-    expect(container.querySelector('.tab--active')).toHaveTextContent('All Tasks');
+    expect(container.querySelector('.tab--active')).toHaveTextContent('All tasks');
   });
 
   it('maps each tab to the dataset it shows', () => {
@@ -50,7 +50,7 @@ describe('TasksTabs', () => {
     expect(container.firstElementChild).toHaveClass('tabs', 'tabs--ghost');
   });
 
-  it('resolveTasksTab keeps a known persisted tab and falls back to All Tasks for anything else', () => {
+  it('resolveTasksTab keeps a known persisted tab and falls back to All tasks for anything else', () => {
     expect(resolveTasksTab('today')).toBe('today');
     expect(resolveTasksTab('upcoming')).toBe('upcoming');
     expect(resolveTasksTab('unscheduled')).toBe('unscheduled');

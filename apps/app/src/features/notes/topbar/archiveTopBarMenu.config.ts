@@ -5,8 +5,8 @@ export const DELETE_ALL_ARCHIVED_ACTION_ID = 'delete-all';
 
 /** What the Trash's "Empty trash" confirmation says — permanent, and not undoable. */
 export const DELETE_ALL_ARCHIVED_CONFIRMATION = {
-  title: 'Are you sure you want to permanently delete the items in the Trash?',
-  message: 'You can’t undo this action.',
+  title: 'Are you sure you want to permanently delete the items in the trash?',
+  message: 'You can’t undo this action',
   confirmLabel: 'Empty trash',
 } as const;
 

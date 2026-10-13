@@ -161,7 +161,7 @@ describe('Tag collection page — Delete', () => {
 
     expect(within(confirmation()!).getByText('Delete design?')).toBeInTheDocument();
     expect(
-      within(confirmation()!).getByText('This will permanently delete the tag. You can\u2019t undo this action.')
+      within(confirmation()!).getByText('This will permanently delete the tag. You can\u2019t undo this action')
     ).toBeInTheDocument();
     expect(within(confirmation()!).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(deleteTag).not.toHaveBeenCalled();

@@ -232,7 +232,7 @@ describe('TasksCollectionBody', () => {
     ).toHaveLength(1);
   });
 
-  describe('the All Tasks collection follows the shared Configure state', () => {
+  describe('the All tasks collection follows the shared Configure state', () => {
     const noop = {
       onToggleComplete: vi.fn(),
       onOpenTask: vi.fn(),

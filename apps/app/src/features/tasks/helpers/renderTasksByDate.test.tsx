@@ -401,7 +401,7 @@ describe('renderTasksByDate', () => {
   });
 
   describe('the Tasks-view settings action', () => {
-    it('is not on any group header — Today, Overdue, and Upcoming carry no settings trigger (it lives on the All Tasks row)', () => {
+    it('is not on any group header — Today, Overdue, and Upcoming carry no settings trigger (it lives on the All tasks row)', () => {
       const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
       const overdue = task({ text: 'Fix navigation', dueDate: '2026-08-01' });
 
@@ -823,7 +823,7 @@ describe('renderTasksByDate: Today empty state', () => {
     );
   }
 
-  const MESSAGE = "You're all clear for today";
+  const MESSAGE = "You’re all clear for today";
 
   it('says one line when no task is due today, expanded rather than collapsed away', () => {
     const { getByText } = renderToday([task({ text: 'Later', dueDate: '2026-08-20' })]);

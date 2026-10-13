@@ -6,7 +6,7 @@ import { ARCHIVE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
  * confirmation surface and the topbar's ResourceTopBarActions (the message itself comes from
  * getFolderArchiveConfirmation below).
  */
-export const FOLDER_ARCHIVE_CONFIRMATION_TITLE = 'Move this folder to Trash?';
+export const FOLDER_ARCHIVE_CONFIRMATION_TITLE = 'Move this folder to trash?';
 export const FOLDER_ARCHIVE_CONFIRM_LABEL = ARCHIVE_ACTION_LABEL;
 
 export interface FolderActionConfirmation {
@@ -45,7 +45,7 @@ export function getFolderArchiveConfirmation(
     vault,
     folderId,
     (folderCount, pageCount) =>
-      `Move this folder and everything inside it to the Trash? This will also move ${folderCount} folder(s) and ${pageCount} page(s).`
+      `Move this folder and everything inside it to the trash? This will also move ${folderCount} folder(s) and ${pageCount} page(s)`
   );
 }
 
@@ -65,8 +65,8 @@ export function getFolderDeleteConfirmation(
 ): FolderActionConfirmation {
   return describeFolderAction(vault, folderId, (folderCount, pageCount) =>
     folderCount === 0 && pageCount === 0
-      ? 'You can’t undo this action.'
-      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). You can’t undo this action.`
+      ? 'You can’t undo this action'
+      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). You can’t undo this action`
   );
 }
 
@@ -78,4 +78,4 @@ export function getFolderDeleteConfirmation(
  * (buildTopBarActions.tsx's isDeletable), and every such delete now
  * requires confirmation.
  */
-export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'You can’t undo this action.';
+export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'You can’t undo this action';

@@ -139,13 +139,13 @@ describe('CollectionDataTable', () => {
     expect(container.querySelectorAll('.collection-table-row')).toHaveLength(1);
 
     const onClick = vi.fn();
-    rerender(<CollectionDataTable columns={columns} rows={[row()]} newItem={{ label: 'New Note', onClick }} />);
+    rerender(<CollectionDataTable columns={columns} rows={[row()]} newItem={{ label: 'New note', onClick }} />);
     const rows = container.querySelectorAll('.collection-table-row');
     const last = rows[rows.length - 1] as HTMLElement;
 
     expect(rows).toHaveLength(2);
     expect(last).toHaveClass('collection-table-row--new-item');
-    expect(last).toHaveTextContent('New Note');
+    expect(last).toHaveTextContent('New note');
     expect(last.querySelector('.collection-entry--new')).not.toBeNull();
     fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);

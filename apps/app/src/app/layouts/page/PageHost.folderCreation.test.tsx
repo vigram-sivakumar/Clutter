@@ -19,7 +19,7 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { Folder } from '@core/vault/models/Folder';
 
 /**
- * Creating a folder is inline: the page shows a card with an empty, focused name field ("New Folder"
+ * Creating a folder is inline: the page shows a card with an empty, focused name field ("New folder"
  * as its placeholder only), and nothing is created until the name is committed. Through the real
  * AppLayout composition.
  */
@@ -102,14 +102,14 @@ function type(field: HTMLElement, text: string) {
 }
 
 describe('creating a folder inline', () => {
-  it('shows a focused, empty name field with "New Folder" as its placeholder, and creates nothing yet', async () => {
+  it('shows a focused, empty name field with "New folder" as its placeholder, and creates nothing yet', async () => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 
     expect(field).not.toBeNull();
     expect(document.activeElement).toBe(field);
     expect(field.textContent).toBe('');
-    expect(field.getAttribute('data-placeholder')).toBe('New Folder');
+    expect(field.getAttribute('data-placeholder')).toBe('New folder');
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -125,7 +125,7 @@ describe('creating a folder inline', () => {
     expect(create).toHaveBeenCalledWith('Trips', `${ROOT}/Projects`);
   });
 
-  it('commits an empty field as "New Folder"', async () => {
+  it('commits an empty field as "New folder"', async () => {
     const { create } = await renderProjects();
     const field = await startCreatingFolder();
 
@@ -133,7 +133,7 @@ describe('creating a folder inline', () => {
     await flush();
 
     expect(create).toHaveBeenCalledTimes(1);
-    expect(create).toHaveBeenCalledWith('New Folder', `${ROOT}/Projects`);
+    expect(create).toHaveBeenCalledWith('New folder', `${ROOT}/Projects`);
   });
 
   it('cancelling (Escape) creates no folder and removes the field', async () => {

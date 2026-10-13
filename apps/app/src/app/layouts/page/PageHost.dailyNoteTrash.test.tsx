@@ -175,7 +175,7 @@ describe('A Daily Note shows its date on every generic title surface', () => {
       expect(titleRoot().textContent).toBe(pageTitle);
       expect(within(main()).getAllByText(dateOnly).length).toBeGreaterThanOrEqual(1);
       expect(dateOnly).not.toMatch(/^(Today|Yesterday|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
-      expect(within(main()).queryByText('Start typing...')).toBeNull();
+      expect(within(main()).queryByText('Start typing…')).toBeNull();
     }
   });
 
@@ -187,7 +187,7 @@ describe('A Daily Note shows its date on every generic title surface', () => {
     await flush();
 
     expect(within(main()).getByText(dateOnly)).toBeInTheDocument();
-    expect(within(main()).queryByText('Start typing...')).toBeNull();
+    expect(within(main()).queryByText('Start typing…')).toBeNull();
     expect(within(main()).queryByText('Trashed day.')).toBeNull();
   });
 });
@@ -206,7 +206,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
     return { ...context, newer };
   }
 
-  const dialog = () => screen.queryByText('Restore Daily Note');
+  const dialog = () => screen.queryByText('Restore daily note');
 
   it('asks instead of overwriting: Move to Inbox / Replace, a close button, no Cancel', async () => {
     const { application, dailyNote, newer } = await trashedWithNewerNote();
@@ -215,7 +215,7 @@ describe('Restoring a Daily Note whose day already has one', () => {
 
     expect(dialog()).toBeInTheDocument();
     expect(document.querySelector('.confirmation__body')!.textContent).toBe(
-      'A Daily Note for January 15 already exists.\nWhat would you like to do?'
+      'A daily note for January 15 already exists.\nWhat would you like to do?'
     );
     expect(screen.getByRole('button', { name: 'Move to Inbox' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Replace' })).toBeInTheDocument();
@@ -271,6 +271,6 @@ describe('Restoring a Daily Note whose day already has one', () => {
     const restored = application.vault.getPage(dailyNote.id)!;
     expect(restored.path).toBe(DAILY_PATH);
     expect(restored.type).toBe('daily-note');
-    expect(screen.queryByText('Restore Daily Note')).toBeNull();
+    expect(screen.queryByText('Restore daily note')).toBeNull();
   });
 });

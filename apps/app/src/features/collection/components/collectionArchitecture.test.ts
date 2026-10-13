@@ -174,7 +174,7 @@ describe('every collection reaches the generic components through mappers, not c
       const text = read(body);
 
       expect(text, body).toMatch(/\bonCreate\b/);
-      for (const forbidden of ['onCreateNote', 'onUpload', 'onCreateAsset', 'New Note', "'Upload'", '"Upload"', 'inbox']) {
+      for (const forbidden of ['onCreateNote', 'onUpload', 'onCreateAsset', 'New note', "'Upload'", '"Upload"', 'inbox']) {
         expect(text, `${body}: ${forbidden}`).not.toContain(forbidden);
       }
     }
@@ -184,7 +184,7 @@ describe('every collection reaches the generic components through mappers, not c
     expect(read('app/layouts/page/body/collectionCreate.tsx')).toContain("CREATE_LABEL = 'Create'");
 
     for (const file of GENERIC) {
-      expect(file.text, file.rel).not.toMatch(/onCreateNote|onUpload|inbox|New Note|Upload/i);
+      expect(file.text, file.rel).not.toMatch(/onCreateNote|onUpload|inbox|New note|Upload/i);
     }
   });
 
@@ -216,7 +216,7 @@ describe('every collection reaches the generic components through mappers, not c
     const pageHost = read('app/layouts/page/PageHost.tsx');
     const uses = pageHost.match(/renderCollectionHeaderActions\(/g) ?? [];
 
-    // folder + Workspace/Favorites/Tag + Assets + All Tasks (the definition is `renderCollectionHeaderActions = (`)
+    // folder + Workspace/Favorites/Tag + Assets + All tasks (the definition is `renderCollectionHeaderActions = (`)
     expect(uses).toHaveLength(4);
     expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: \(\) => setIsNewTaskOpen\(true\),\s*addLabel: 'New task'/);
     expect(pageHost).toMatch(/renderCollectionHeaderActions\(\{\s*onAdd: onCreate,\s*onAddFolder: onCreateFolder,\s*menuLabels: ASSET_MENU_LABELS,\s*addLabel: 'Upload'/);

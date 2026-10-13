@@ -358,7 +358,11 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
     function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
       event.preventDefault();
 
-      const text = event.clipboardData.getData('text/plain');
+      // Enter commits in every EditableText, so a field never holds a line break: inserting one
+      // would create <div> lines that `textContent` then silently drops. Collapse them to a space.
+      const text = event.clipboardData
+        .getData('text/plain')
+        .replace(/\s*[\r\n]+\s*/g, ' ');
 
       document.execCommand('insertText', false, text);
     }

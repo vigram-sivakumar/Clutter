@@ -498,7 +498,7 @@ describe('PageCover — Reposition drag', () => {
     expect(objectPosition(img)).toBe('50% 0%');
   });
 
-  it('releasing without clicking Save Position leaves the preview only — onSavePosition is never called', () => {
+  it('releasing without clicking Save position leaves the preview only — onSavePosition is never called', () => {
     const onSavePosition = vi.fn();
     renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
     const img = enterRepositioning();
@@ -524,7 +524,7 @@ describe('PageCover — Reposition drag', () => {
 
     expect(objectPosition(img)).toBe('50% 50%');
     expect(onSavePosition).not.toHaveBeenCalled();
-    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save position')).not.toBeInTheDocument();
   });
 
   it('replaces the "More actions" trigger with a Cancel repositioning button while repositioning is active', () => {
@@ -550,22 +550,22 @@ describe('PageCover — Reposition drag', () => {
 
     expect(objectPosition(img)).toBe('50% 50%');
     expect(onSavePosition).not.toHaveBeenCalled();
-    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save position')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel repositioning' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
   });
 
-  it('clicking Save Position persists the final dragged value for the active layout only', () => {
+  it('clicking Save position persists the final dragged value for the active layout only', () => {
     const onSavePosition = vi.fn();
     renderRepositionableCover({ onSetLayout: vi.fn(), layout: 'above', coverPositionAbove: 50, onSavePosition });
     const img = enterRepositioning();
 
     fireEvent.pointerDown(img, { clientX: 100, clientY: 50 });
     fireEvent.pointerMove(img, { clientX: 100, clientY: 20 });
-    fireEvent.click(screen.getByText('Save Position'));
+    fireEvent.click(screen.getByText('Save position'));
 
     expect(onSavePosition).toHaveBeenCalledWith('above', 63.5);
-    expect(screen.queryByText('Save Position')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save position')).not.toBeInTheDocument();
   });
 
   it('re-entering Reposition starts from the currently saved position, with no initial jump', () => {

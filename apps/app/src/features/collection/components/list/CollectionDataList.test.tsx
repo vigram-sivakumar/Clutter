@@ -126,13 +126,13 @@ describe('CollectionDataList', () => {
     expect(container.querySelectorAll('.collection-entry')).toHaveLength(1);
 
     const onClick = vi.fn();
-    rerender(<CollectionDataList items={[item()]} newItem={{ label: 'New Note', onClick }} />);
+    rerender(<CollectionDataList items={[item()]} newItem={{ label: 'New note', onClick }} />);
     const rows = container.querySelectorAll('.collection-entry');
     const last = rows[rows.length - 1] as HTMLElement;
 
     expect(rows).toHaveLength(2);
     expect(last).toHaveClass('collection-entry--new');
-    expect(last).toHaveTextContent('New Note');
+    expect(last).toHaveTextContent('New note');
     fireEvent.click(last);
     expect(onClick).toHaveBeenCalledTimes(1);
   });

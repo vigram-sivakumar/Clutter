@@ -189,7 +189,7 @@ describe('AddPropertyRow — dismissing without a choice', () => {
 
 describe('AddPropertyRow — the menu actions', () => {
   it.each([
-    ['Hide Properties', 'onHideProperties'],
+    ['Hide properties', 'onHideProperties'],
     ['Delete all', 'onDeleteAll'],
   ] as const)('%s closes the menu and reports it, adding nothing', (label, prop) => {
     const handler = vi.fn();
@@ -209,7 +209,7 @@ describe('AddPropertyRow — the menu actions', () => {
 
     start();
 
-    expect(screen.queryByRole('menuitem', { name: 'Hide Properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Delete all' })).toBeNull();
   });
 });

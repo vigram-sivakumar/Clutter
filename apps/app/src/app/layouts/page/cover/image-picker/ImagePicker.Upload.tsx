@@ -29,7 +29,7 @@ export function ImagePickerUpload({ onSubmit }: ImagePickerUploadProps) {
       <Button variant="primary" onClick={handleSelect}>
         Upload
       </Button>
-      <span className="input__hint">Select an image from your computer.</span>
+      <span className="input__hint">Select an image from your computer</span>
     </div>
   );
 }

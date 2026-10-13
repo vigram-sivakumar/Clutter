@@ -93,7 +93,7 @@ export function AddPropertyMenu({
             onHideProperties();
           }}
         >
-          Hide Properties
+          Hide properties
         </MenuItem>
       )}
       {onDeleteAll && (

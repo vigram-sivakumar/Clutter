@@ -316,7 +316,7 @@ describe('PageOperations.openDraft: flushes the outgoing page before opening a n
       buildPage('page-a', 'A'),
     ]);
     await pageOperations.open('page-a');
-    pageOperations.commitEdit('page-a', 'Edited A before New Note');
+    pageOperations.commitEdit('page-a', 'Edited A before New note');
 
     await pageOperations.openDraft({ folderId: null });
 
@@ -324,7 +324,7 @@ describe('PageOperations.openDraft: flushes the outgoing page before opening a n
       expect(documentRegistry.get('page-a')!.isDirty).toBe(false);
     });
     const persisted = await inner.readFile(`${ROOT}/A.md`);
-    expect(persisted).toContain('Edited A before New Note');
+    expect(persisted).toContain('Edited A before New note');
   });
 });
 

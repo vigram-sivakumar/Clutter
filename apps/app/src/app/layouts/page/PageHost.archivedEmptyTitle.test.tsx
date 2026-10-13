@@ -21,7 +21,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
-/** An untitled (auto-named) note's "New Note" title placeholder survives archiving and restoring. */
+/** An untitled (auto-named) note's "New note" title placeholder survives archiving and restoring. */
 
 // Application's constructor and the image URL resolver reach Tauri IPC with no runtime to answer under vitest.
 vi.mock('@tauri-apps/api/core', () => ({
@@ -119,17 +119,17 @@ async function open(page: Page) {
 }
 
 describe('an empty (untitled) note', () => {
-  it('active: the editable title carries the New Note placeholder', async () => {
+  it('active: the editable title carries the New note placeholder', async () => {
     await open(buildPage(`${ROOT}/Untitled.md`, 'note-1', {}));
 
-    expect(editableTitle()?.getAttribute('data-placeholder')).toBe('New Note');
+    expect(editableTitle()?.getAttribute('data-placeholder')).toBe('New note');
   });
 
-  it('archived: the read-only title still represents it as New Note', async () => {
+  it('archived: the read-only title still represents it as New note', async () => {
     await open(buildPage(`${ROOT}/Archive/Untitled.md`, 'note-1', { status: 'archived' }));
 
     expect(editableTitle()).toBeNull();
-    expect(pageTitle().textContent).toBe('New Note');
+    expect(pageTitle().textContent).toBe('New note');
   });
 
   it('restoring it brings back the editable placeholder title', async () => {
@@ -142,7 +142,7 @@ describe('an empty (untitled) note', () => {
     fireEvent.click(Array.from(document.querySelectorAll('.banner button')).find((b) => b.textContent === 'Restore')!);
     await flush();
 
-    expect(editableTitle()?.getAttribute('data-placeholder')).toBe('New Note');
+    expect(editableTitle()?.getAttribute('data-placeholder')).toBe('New note');
   });
 });
 

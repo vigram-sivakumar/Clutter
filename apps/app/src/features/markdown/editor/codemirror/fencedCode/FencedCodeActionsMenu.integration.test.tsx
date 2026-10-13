@@ -33,7 +33,7 @@ function openFencedCodeMenu() {
 /** Opens the Actions menu and enters the language-selector view (a content swap within the same Overlay, not a nested submenu — see `FencedCodeActionsMenu.tsx`'s own doc comment). */
 function openChangeLanguageSubmenu() {
   openFencedCodeMenu();
-  fireEvent.click(screen.getByText('Change Language'));
+  fireEvent.click(screen.getByText('Change language'));
 }
 
 function menuItemFor(label: string): HTMLElement {
@@ -42,7 +42,7 @@ function menuItemFor(label: string): HTMLElement {
   ).find((el) => el.textContent === label)!;
 }
 
-describe('Fenced code "More actions" — Change Language', () => {
+describe('Fenced code "More actions" — Change language', () => {
   it('lists every registered language, including JSX and TSX as their own selectable entries', () => {
     render(
       <MarkdownEditor
@@ -223,8 +223,8 @@ describe('Fenced code "More actions" — Change Language', () => {
   });
 });
 
-describe('Fenced code "More actions" — Change Language is a view swap, not a nested submenu/overlay', () => {
-  it('the initial Actions menu shows Change Language, Format code, Download code, and Remove, with no language list yet', () => {
+describe('Fenced code "More actions" — Change language is a view swap, not a nested submenu/overlay', () => {
+  it('the initial Actions menu shows Change language, Format code, Download code, and Remove, with no language list yet', () => {
     render(
       <MarkdownEditor
         pageId="test-page"
@@ -237,7 +237,7 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
       document.querySelectorAll<HTMLElement>('[role="menuitem"]')
     ).map((el) => el.textContent);
     expect(labels).toEqual([
-      'Change Language',
+      'Change language',
       'Format code',
       'Download code',
       'Remove',
@@ -256,7 +256,7 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
     const labels = Array.from(
       document.querySelectorAll<HTMLElement>('[role="menuitem"]')
     ).map((el) => el.textContent);
-    expect(labels).toEqual(['Change Language', 'Download code', 'Remove']);
+    expect(labels).toEqual(['Change language', 'Download code', 'Remove']);
   });
 
   it('entering the language view replaces the Actions menu content in place — exactly one open overlay surface, not two', () => {
@@ -421,11 +421,11 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
     openFencedCodeMenu();
     expect(screen.queryByLabelText('Back to actions')).toBeNull();
 
-    fireEvent.click(screen.getByText('Change Language'));
+    fireEvent.click(screen.getByText('Change language'));
     expect(screen.queryByLabelText('Back to actions')).not.toBeNull();
   });
 
-  it("the Actions view's Change Language row shows a trailing affordance chevron", () => {
+  it("the Actions view's Change language row shows a trailing affordance chevron", () => {
     render(
       <MarkdownEditor
         pageId="test-page"
@@ -434,7 +434,7 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
     );
     openFencedCodeMenu();
 
-    const row = menuItemFor('Change Language');
+    const row = menuItemFor('Change language');
     expect(row.querySelector('.entry__trailing')).not.toBeNull();
   });
 
@@ -469,7 +469,7 @@ describe('Fenced code "More actions" — Change Language is a view swap, not a n
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(screen.queryByText('Change Language')).toBeNull();
+    expect(screen.queryByText('Change language')).toBeNull();
     expect(screen.queryByPlaceholderText('Search languages')).toBeNull();
     expect(
       document

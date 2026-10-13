@@ -288,7 +288,7 @@ export function renderTasksByDate({
         {/* Nothing due today — never scheduled, or all done with completed tasks hidden — says one line
             either way. The section stays expanded so it can say it. */}
         {today.length === 0 ? (
-          <EmptyEntry>You're all clear for today</EmptyEntry>
+          <EmptyEntry>You’re all clear for today</EmptyEntry>
         ) : (
           <>
             {renderTodayContent({

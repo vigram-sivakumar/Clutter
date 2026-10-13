@@ -168,7 +168,7 @@ const tableHeaders = () =>
 const hasCreateFolderCard = () => document.querySelector('.collection-grid--fixed-rows > .collection-entry--folder-card-new') !== null;
 const newButton = () => document.querySelector<HTMLButtonElement>('button[aria-label="New"]');
 const hasTable = () => document.querySelector('.collection-table') !== null;
-// The notes in a List — not its trailing "New Note" action row.
+// The notes in a List — not its trailing "New note" action row.
 const noteRows = () => document.querySelectorAll('.collection-list .collection-entry:not(.collection-entry--new)').length;
 const bodyHasText = (text: string) => (document.body.textContent ?? '').includes(text);
 
@@ -221,12 +221,12 @@ describe('CURRENT BEHAVIOR — header actions and create affordances, by collect
     expect(hasTable()).toBe(true);
   });
 
-  it('Archive: NO header action, NO create-folder card, NO New Note row (nothing is created in the Archive); Table by default', async () => {
+  it('Archive: NO header action, NO create-folder card, NO New note row (nothing is created in the Archive); Table by default', async () => {
     await renderFolder(ARCHIVE);
 
     expect(newButton()).toBeNull();
     expect(hasCreateFolderCard()).toBe(false);
-    expect(bodyHasText('New Note')).toBe(false);
+    expect(bodyHasText('New note')).toBe(false);
     expect(hasTable()).toBe(true);
     expect(bodyHasText('Old note')).toBe(true);
   });

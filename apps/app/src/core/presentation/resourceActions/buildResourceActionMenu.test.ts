@@ -169,8 +169,8 @@ describe('availability', () => {
     const off = buildResourceActionMenu('note', { isFavorite: false }, 'sidebar').find(
       (item) => item.id === 'toggle-favorite'
     );
-    expect(on).toMatchObject({ label: 'Remove from Favorites', icon: 'favouriteFilled' });
-    expect(off).toMatchObject({ label: 'Add to Favorites', icon: 'favouriteOutline' });
+    expect(on).toMatchObject({ label: 'Remove from favorites', icon: 'favouriteFilled' });
+    expect(off).toMatchObject({ label: 'Add to favorites', icon: 'favouriteOutline' });
   });
 });
 

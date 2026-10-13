@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 const menu: TopBarMenuItemConfig[] = [
-  { id: 'archive', label: 'Move to Trash', icon: 'archive' },
+  { id: 'archive', label: 'Move to trash', icon: 'archive' },
   { id: 'add-a-description', label: 'Add a description', icon: 'description' },
 ];
 
@@ -79,7 +79,7 @@ describe('ResourceTopBarActions', () => {
     render(<ResourceTopBarActions menu={menu} />);
     openMenu();
 
-    expect(screen.getByText('Move to Trash')).toBeDefined();
+    expect(screen.getByText('Move to trash')).toBeDefined();
     expect(screen.getByText('Add a description')).toBeDefined();
   });
 
@@ -90,7 +90,7 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(onArchive).toHaveBeenCalledTimes(1);
   });
@@ -112,7 +112,7 @@ describe('ResourceTopBarActions', () => {
     openMenu();
 
     expect(() =>
-      fireEvent.click(screen.getByText('Move to Trash'))
+      fireEvent.click(screen.getByText('Move to trash'))
     ).not.toThrow();
   });
 
@@ -121,7 +121,7 @@ describe('ResourceTopBarActions', () => {
     const disabledMenu: TopBarMenuItemConfig[] = [
       {
         id: 'archive',
-        label: 'Move to Trash',
+        label: 'Move to trash',
         icon: 'archive',
         disabled: true,
       },
@@ -134,8 +134,8 @@ describe('ResourceTopBarActions', () => {
     );
     openMenu();
 
-    expect(screen.getByText('Move to Trash')).toBeDefined();
-    fireEvent.click(screen.getByText('Move to Trash'));
+    expect(screen.getByText('Move to trash')).toBeDefined();
+    fireEvent.click(screen.getByText('Move to trash'));
 
     expect(onArchive).not.toHaveBeenCalled();
   });
@@ -168,7 +168,7 @@ describe('ResourceTopBarActions', () => {
       );
       openMenu();
 
-      fireEvent.click(screen.getByText('Move to Trash'));
+      fireEvent.click(screen.getByText('Move to trash'));
 
       expect(onArchive).toHaveBeenCalledTimes(1);
     });
@@ -278,19 +278,19 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Move to Trash'));
+      fireEvent.click(screen.getByText('Move to trash'));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.getByText('Move this folder to Trash?')).toBeDefined();
+      expect(screen.getByText('Move this folder to trash?')).toBeDefined();
       expect(screen.getByText(ARCHIVE_MESSAGE)).toBeDefined();
 
       const confirmButtons = screen.getAllByRole('button', {
-        name: 'Move to Trash',
+        name: 'Move to trash',
       });
       fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
       expect(onArchive).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText('Move this folder to Trash?')).toBeNull();
+      expect(screen.queryByText('Move this folder to trash?')).toBeNull();
     });
 
     it('Cancel closes the confirmation dialog without invoking archive', () => {
@@ -303,12 +303,12 @@ describe('ResourceTopBarActions', () => {
         />
       );
       openMenu();
-      fireEvent.click(screen.getByText('Move to Trash'));
+      fireEvent.click(screen.getByText('Move to trash'));
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(onArchive).not.toHaveBeenCalled();
-      expect(screen.queryByText('Move this folder to Trash?')).toBeNull();
+      expect(screen.queryByText('Move this folder to trash?')).toBeNull();
     });
   });
 
@@ -331,14 +331,14 @@ describe('ResourceTopBarActions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     openMenu();
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
 
-    expect(screen.getByText('Move this folder to Trash?')).toBeDefined();
+    expect(screen.getByText('Move this folder to trash?')).toBeDefined();
     expect(screen.queryByText('Delete permanently?')).toBeNull();
   });
 
   describe('favorite toggle', () => {
-    it('renders "Add to Favorites" and calls onToggleFavorite when isFavorite is false', () => {
+    it('renders "Add to favorites" and calls onToggleFavorite when isFavorite is false', () => {
       const onToggleFavorite = vi.fn();
       render(
         <ResourceTopBarActions
@@ -348,12 +348,12 @@ describe('ResourceTopBarActions', () => {
         />
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Add to Favorites' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add to favorites' }));
 
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     });
 
-    it('renders "Remove from Favorites" and calls onToggleFavorite when isFavorite is true', () => {
+    it('renders "Remove from favorites" and calls onToggleFavorite when isFavorite is true', () => {
       const onToggleFavorite = vi.fn();
       render(
         <ResourceTopBarActions
@@ -364,7 +364,7 @@ describe('ResourceTopBarActions', () => {
       );
 
       fireEvent.click(
-        screen.getByRole('button', { name: 'Remove from Favorites' })
+        screen.getByRole('button', { name: 'Remove from favorites' })
       );
 
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
@@ -374,10 +374,10 @@ describe('ResourceTopBarActions', () => {
       render(<ResourceTopBarActions menu={menu} />);
 
       expect(
-        screen.queryByRole('button', { name: 'Add to Favorites' })
+        screen.queryByRole('button', { name: 'Add to favorites' })
       ).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Remove from Favorites' })
+        screen.queryByRole('button', { name: 'Remove from favorites' })
       ).toBeNull();
     });
 
@@ -387,7 +387,7 @@ describe('ResourceTopBarActions', () => {
         ...menu,
         {
           id: 'toggle-favorite',
-          label: 'Add to Favorites',
+          label: 'Add to favorites',
           icon: 'favouriteOutline',
         },
       ];
@@ -399,7 +399,7 @@ describe('ResourceTopBarActions', () => {
       );
       openMenu();
 
-      fireEvent.click(screen.getByText('Add to Favorites'));
+      fireEvent.click(screen.getByText('Add to favorites'));
 
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     });

@@ -220,7 +220,7 @@ describe('buildBreadcrumbsForDraft — root entries', () => {
     const crumbs = buildBreadcrumbsForDraft(
       'draft-1',
       null,
-      'New Note',
+      'New note',
       'note',
       makeVault(),
       makeMembershipSelector(makeVault()),
@@ -228,7 +228,7 @@ describe('buildBreadcrumbsForDraft — root entries', () => {
     );
 
     expect(crumbs.map((c) => c.id)).toEqual(['draft-1']);
-    expect(crumbs[0]!.title).toBe('New Note');
+    expect(crumbs[0]!.title).toBe('New note');
   });
 });
 
@@ -296,7 +296,7 @@ describe('buildBreadcrumbsForDraft — nested drafts render the full chain', () 
     const crumbs = buildBreadcrumbsForDraft(
       'draft-1',
       'ancestor-folder',
-      'New Note',
+      'New note',
       'note',
       makeVault([parent]),
       makeMembershipSelector(makeVault([parent])),
@@ -305,7 +305,7 @@ describe('buildBreadcrumbsForDraft — nested drafts render the full chain', () 
 
     expect(crumbs.map((crumb) => crumb.title)).toEqual([
       'Ancestor',
-      'New Note',
+      'New note',
     ]);
   });
 });
@@ -353,7 +353,7 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
       vi.fn()
     );
 
-    expect(crumbs.at(-1)!.title).toBe('New Note');
+    expect(crumbs.at(-1)!.title).toBe('New note');
   });
 
   it('always shows the formatted date for a daily note, never a placeholder', () => {
@@ -467,7 +467,7 @@ describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)'
     const crumbs = buildBreadcrumbsForDraft(
       'draft-1',
       'ancestor-folder',
-      'New Note',
+      'New note',
       'note',
       makeVault([parent]),
       makeMembershipSelector(makeVault([parent])),

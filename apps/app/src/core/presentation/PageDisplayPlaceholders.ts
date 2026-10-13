@@ -9,7 +9,7 @@ import type { PageType } from '../vault/models/Page';
  * literals would.
  */
 export function getPageTitlePlaceholder(type: PageType): string {
-  return type === 'daily-note' ? 'Start typing...' : 'New Note';
+  return type === 'daily-note' ? 'Start typing…' : 'New note';
 }
 
 /**
@@ -20,5 +20,5 @@ export function getPageTitlePlaceholder(type: PageType): string {
  * both placeholder strings live in one file rather than two.
  */
 export function getFolderTitlePlaceholder(): string {
-  return 'New Folder';
+  return 'New folder';
 }

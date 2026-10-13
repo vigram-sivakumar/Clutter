@@ -100,7 +100,7 @@ describe('resolveFencedCodeText', () => {
   });
 });
 
-describe('resolveFencedCodeOpeningLine — regression: Actions/Copy buttons reachable across a Change Language edit', () => {
+describe('resolveFencedCodeOpeningLine — regression: Actions/Copy buttons reachable across a Change language edit', () => {
   it('re-resolves the live opening-fence line by position after the info string changes length, even though the previously-observed Actions button element is torn down', () => {
     const view = mountView(jsFence);
     const from = fencedCodeFrom(view);
@@ -110,7 +110,7 @@ describe('resolveFencedCodeOpeningLine — regression: Actions/Copy buttons reac
     expect(beforeActionsButton).not.toBeNull();
     expect(beforeActionsButton!.isConnected).toBe(true);
 
-    // Exactly what "Change Language" does: rewrite only the CodeInfo text,
+    // Exactly what "Change language" does: rewrite only the CodeInfo text,
     // to a different length ('js' -> 'typescript'). This moves CodeInfo.to
     // and, with it, the enclosing FencedCode node's own `.to` — and
     // `FencedCodeActionsButtonWidget.eq()` compares `fencedCodeTo`, so this

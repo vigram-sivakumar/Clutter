@@ -46,7 +46,7 @@ describe('NewFolderContent', () => {
     const create = screen.getByRole('button', { name: 'Create' });
     expect(create).toBeDisabled();
 
-    fireEvent.change(screen.getByPlaceholderText('New Folder'), { target: { value: 'Work' } });
+    fireEvent.change(screen.getByPlaceholderText('New folder'), { target: { value: 'Work' } });
 
     expect(create).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent('already exists');
@@ -55,7 +55,7 @@ describe('NewFolderContent', () => {
   it('submits the name with no icon or description by default', async () => {
     const { onSubmit, onClose } = setup();
 
-    fireEvent.change(screen.getByPlaceholderText('New Folder'), { target: { value: 'Work' } });
+    fireEvent.change(screen.getByPlaceholderText('New folder'), { target: { value: 'Work' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('Work', undefined, undefined));
@@ -65,7 +65,7 @@ describe('NewFolderContent', () => {
   it('submits a trimmed description', async () => {
     const { onSubmit } = setup();
 
-    fireEvent.change(screen.getByPlaceholderText('New Folder'), { target: { value: 'Work' } });
+    fireEvent.change(screen.getByPlaceholderText('New folder'), { target: { value: 'Work' } });
     fireEvent.change(screen.getByPlaceholderText('Description'), { target: { value: '  Client notes ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
@@ -135,7 +135,7 @@ describe('NewFolderContent — configured as Create template', () => {
 
     setupTemplate({ canCreate: () => false });
     expect(screen.getByRole('button', { name: 'Create template' })).toBeDisabled();
-    expect(screen.getByRole('alert')).toHaveTextContent('A template named “Weekly review” already exists.');
+    expect(screen.getByRole('alert')).toHaveTextContent('A template named “Weekly review” already exists');
   });
 
   it('Cancel closes without submitting', () => {

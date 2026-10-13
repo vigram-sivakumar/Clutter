@@ -88,7 +88,7 @@ export function Controls({
         suppressReturnFocusRef={suppressReturnFocusRef}
       >
         <Menu size="medium">
-          <MenuGroupTitle>Create New</MenuGroupTitle>
+          <MenuGroupTitle>Create new</MenuGroupTitle>
           <MenuItem leading={<AppIcon icon="note" />} onClick={choose(onNewNote)}>
             Note
           </MenuItem>
@@ -97,7 +97,7 @@ export function Controls({
             trailing="Today"
             onClick={choose(onOpenDailyNote)}
           >
-            Daily Note
+            Daily note
           </MenuItem>
           <MenuItem leading={<AppIcon icon="circleTick" />} onClick={choose(onNewTask)}>
             Task

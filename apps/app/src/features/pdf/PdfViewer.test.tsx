@@ -280,10 +280,10 @@ describe('PdfViewer — ready state', () => {
     expect(screen.getByText('Move to…')).toBeInTheDocument();
     expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
-    expect(screen.getByText('Move to Trash')).toBeInTheDocument();
+    expect(screen.getByText('Move to trash')).toBeInTheDocument();
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Move to Trash'));
+    fireEvent.click(screen.getByText('Move to trash'));
     expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
   });
 

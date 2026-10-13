@@ -10,7 +10,7 @@ export function ImagePickerAsset({ onSelect }: ImagePickerAssetProps) {
 
   if (assets.length === 0) {
     return (
-      <div className="image-picker-asset__state">No images in your assets.</div>
+      <div className="image-picker-asset__state">No images in your assets</div>
     );
   }
 

@@ -2,7 +2,7 @@ import { Tab, Tabs } from '@components/tabs/Tabs';
 import type { TaskViewKind } from '../helpers/tasksForView';
 
 const TASK_TABS = [
-  { value: 'all', label: 'All Tasks' },
+  { value: 'all', label: 'All tasks' },
   { value: 'today', label: 'Today' },
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'unscheduled', label: 'Unscheduled' },

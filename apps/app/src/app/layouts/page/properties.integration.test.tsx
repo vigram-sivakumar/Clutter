@@ -114,7 +114,7 @@ describe('Properties — the zero-property default', () => {
     // The picker offers every system property (none listed yet) and the six types.
     expect(menuItems()).toEqual(['Tags', 'Aliases', 'Created', 'Last edited', 'Text', 'Date', 'URL', 'Number', 'Boolean', 'Multi-select']);
     // A fresh section has nothing to hide or delete yet.
-    expect(screen.queryByRole('menuitem', { name: 'Hide Properties' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Hide properties' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Delete all' })).toBeNull();
 
     fireEvent.keyDown(screen.getByRole('menu', { name: 'Add properties' }), { key: 'Escape' });
@@ -380,7 +380,7 @@ describe('Properties — hiding and showing the section', () => {
 
     expect(titleItems()).toEqual([]);
     fireEvent.click(screen.getByText('Add a property'));
-    expect(menuItems()).toContain('Hide Properties');
+    expect(menuItems()).toContain('Hide properties');
     expect(menuItems()).toContain('Delete all');
   });
 
@@ -388,7 +388,7 @@ describe('Properties — hiding and showing the section', () => {
     const { latest } = setup('priority: high\nproperties:\n  visible:\n    - tags\n    - created');
 
     fireEvent.click(screen.getByText('Add a property'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
 
     expect(hasSection()).toBe(false);
     expect(hasAddRow()).toBe(false);
@@ -415,7 +415,7 @@ describe('Properties — hiding and showing the section', () => {
     const { latest } = setup(yaml);
 
     fireEvent.click(screen.getByText('Add a property'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     clickTitle('Show properties');
 
     expect(latest()).toEqual(parse(yaml));
@@ -428,7 +428,7 @@ describe('Properties — hiding and showing the section', () => {
     expect(rows()).toEqual(['Tags', '(draft)', 'Add a property']);
     // (Opening a menu moves focus out of the unnamed draft, which abandons it, as in the app.)
     fireEvent.click(screen.getByText('Add a property'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide Properties' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide properties' }));
     clickTitle('Show properties');
 
     expect(rows()).toEqual(['Tags', 'Add a property']);

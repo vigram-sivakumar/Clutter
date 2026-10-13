@@ -237,7 +237,7 @@ export function CollectionViewMenu({ view, onLayoutChange, onPropertyChange, onS
               <MenuGroupTitle
                 trailing={
                   <Button
-                    aria-label="Back to Configure"
+                    aria-label="Back to configure"
                     onClick={() => setPanel('root')}
                     isIconOnly
                     variant="ghost"

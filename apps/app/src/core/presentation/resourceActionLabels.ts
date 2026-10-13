@@ -7,7 +7,7 @@
  * archive/delete confirmation dialogs (ResourceTopBarActions.tsx,
  * Sidebar.Notes.tsx) — those are separate surfaces with their own wording.
  */
-export const ARCHIVE_ACTION_LABEL = 'Move to Trash';
+export const ARCHIVE_ACTION_LABEL = 'Move to trash';
 export const DELETE_ACTION_LABEL = 'Delete permanently';
-export const FAVORITE_ACTION_LABEL = 'Add to Favorites';
-export const UNFAVORITE_ACTION_LABEL = 'Remove from Favorites';
+export const FAVORITE_ACTION_LABEL = 'Add to favorites';
+export const UNFAVORITE_ACTION_LABEL = 'Remove from favorites';
