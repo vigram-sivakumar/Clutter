@@ -74,3 +74,7 @@ Its guarantee is the same best-effort posture ADR-033 accepted for fold state:
 | Composition Root | Constructed exactly once in `Application.bootstrap()`; no conditional logic added. |
 | Testing | Store unit tests (defaults, tolerant load, independence, sibling-key preservation, `clear`); menu-builder tests (placement/separators, label, draft, archived, sidebar omission, handler guard); component and integration tests for the validation scenarios. The "must be YES" Gate and Vault-mutation items do not apply (no Gate or Vault change). |
 | Migration | No old/new pattern coexisting; nothing marked temporary; the specification is amended here, with an ADR, not silently. |
+
+## Amendment (ADR-053, product decision, Vigram, 2026-10-13): hidden by default
+
+The automatic mode is removed. A note with no saved entry now has its References section **hidden**, even when it has references; only an explicit "Show references" (`hidden: false`) displays it (with a `0 References` header when empty). `hidden: true` is still read and means hidden, so existing vaults need no migration; `hidden` is no longer a meaningful tri-state. The storage shape, expansion preference, menu action and label rule are unchanged. The menu's trailing count badge still shows the reference count, so references stay discoverable while hidden.

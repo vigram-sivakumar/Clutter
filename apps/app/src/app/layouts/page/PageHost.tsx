@@ -679,9 +679,8 @@ export function PageHost({
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
   const page = useActivePage(vault, activePageId);
-  // ADR-052: the open note's saved References choices. "Hidden" for the menu means not on screen — an
-  // explicit Hide, or automatic hiding of a section with nothing to list — so the label names what a click
-  // does. The count also trails the menu item.
+  // ADR-052: the open note's saved References choices. References are hidden unless the user chose
+  // Show, so the menu label names what a click does. The count also trails the menu item.
   const referencesDisplay = useReferencesDisplayStore(
     application.referencesDisplayStore
   );
@@ -696,10 +695,7 @@ export function PageHost({
         : 0,
     [vault, knowledgeGraph, activePageId]
   );
-  const referencesHidden = !isReferencesDisplayed(
-    savedReferencesHidden,
-    referencesCount > 0
-  );
+  const referencesHidden = !isReferencesDisplayed(savedReferencesHidden);
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
   const propertiesConfirmation = useConfirmationSurface();
   // A restore whose original path is taken by another page (a Daily Note for a date that exists
@@ -2820,8 +2816,7 @@ export function PageHost({
       ? () => requestCreateTemplate(page.id)
       : undefined,
     onToggleFavorite,
-    // ADR-052: flips the note's saved Hide/Show choice (a click on "Show" while the section is auto-hidden
-    // for having nothing to list is an explicit Show, which keeps it visible even when empty).
+    // ADR-052: flips the note's saved Hide/Show choice (Show keeps the section visible even when empty).
     referencesHidden,
     referencesCount,
     onToggleReferences: () =>

@@ -186,15 +186,15 @@ export function PageReferences({
     vault.root
   );
 
-  // The user chose Hide references: nothing is rendered, but the saved expansion is untouched.
-  if (savedHidden === true) {
+  // Hidden unless the user chose Show references; the saved expansion is untouched either way.
+  if (savedHidden !== false) {
     return null;
   }
 
   return (
     <References
       count={count}
-      showWhenEmpty={savedHidden === false}
+      showWhenEmpty
       isExpanded={isExpanded}
       onExpandToggle={() => displayStore.setCollapsed(pageId, isExpanded)}
       tasks={

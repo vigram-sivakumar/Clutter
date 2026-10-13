@@ -123,6 +123,8 @@ function setup(
   } as unknown as TaskOperations;
   const onRequestReveal = vi.fn();
   const displayStore = ReferencesDisplayStore.empty(new InMemoryVaultFileSystem(), ROOT);
+  // References are hidden until the user chooses Show (ADR-053); most tests exercise the shown section.
+  displayStore.setHidden(pageId, false);
 
   const view = render(
     <PageReferences
@@ -149,8 +151,10 @@ describe('PageReferences', () => {
         [list]?.querySelectorAll('.reference__entry') ?? []),
     ] as HTMLElement[];
 
-  it('renders nothing when the page has no references', () => {
-    const { container } = setup([TARGET, page('x', 'X.md', 'unrelated')]);
+  it('renders nothing for a page with no references and no saved Show', () => {
+    const { container, displayStore } = setup([TARGET, page('x', 'X.md', 'unrelated')]);
+
+    act(() => displayStore.clear('target'));
 
     expect(container).toBeEmptyDOMElement();
   });
@@ -770,13 +774,11 @@ describe('PageReferences: saved display preferences (ADR-052)', () => {
   const heading = () => screen.queryByText(/^\d+ References?$/);
   const withReference = [TARGET, page('a', 'Alpha.md', 'one [[Target]]')];
 
-  it('with no saved choice: visible and expanded when there are references, nothing when there are none', () => {
-    setup(withReference);
-    expect(heading()).toHaveTextContent('1 Reference');
-    expect(document.querySelectorAll('.reference__entry')).toHaveLength(1);
+  it('with no saved choice: nothing is rendered, even with references', () => {
+    const { displayStore } = setup(withReference);
 
-    cleanup();
-    setup([TARGET]);
+    act(() => displayStore.clear('target'));
+
     expect(heading()).toBeNull();
     expect(document.querySelector('.reference')).toBeNull();
   });
@@ -789,10 +791,8 @@ describe('PageReferences: saved display preferences (ADR-052)', () => {
     expect(document.querySelector('.reference')).toBeNull();
   });
 
-  it('an explicit Show keeps an empty section visible; automatic still hides it for another note', () => {
+  it('an explicit Show keeps an empty section visible', () => {
     const { displayStore } = setup([TARGET]);
-
-    act(() => displayStore.setHidden('target', false));
 
     expect(heading()).toHaveTextContent('0 References');
     expect(displayStore.getHidden('other')).toBeUndefined();

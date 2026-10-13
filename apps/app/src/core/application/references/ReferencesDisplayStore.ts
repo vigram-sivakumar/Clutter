@@ -9,10 +9,9 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
  * One note's saved References display preferences. Both fields are absent at
  * their default, and an entry with neither is not kept (ADR-052).
  *
- * - `hidden` is a tri-state: absent = automatic (shown when the note has
- *   references, hidden when it has none); `true` = the user chose Hide
- *   references; `false` = the user chose Show references, which keeps the
- *   section visible even when empty.
+ * - `hidden`: absent or `true` = hidden (the default, ADR-053; `true` is a
+ *   legacy explicit Hide); `false` = the user chose Show references, which
+ *   keeps the section visible even when empty.
  * - `collapsed` is only ever stored as `true` (absent = expanded).
  */
 export interface ReferencesDisplayEntry {

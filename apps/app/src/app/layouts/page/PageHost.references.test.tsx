@@ -178,9 +178,13 @@ async function flush(): Promise<void> {
 
 async function show(
   application: Application,
-  open: () => Promise<unknown>
+  open: () => Promise<unknown>,
+  { shown = true }: { shown?: boolean } = {}
 ): Promise<void> {
   await open();
+  // References are hidden until the user chooses Show (ADR-053).
+  const id = application.workspace.activePageId;
+  if (shown && id) application.referencesDisplayStore.setHidden(id, false);
   render(<AppLayout application={application} />);
   await flush();
 }
@@ -254,12 +258,26 @@ describe('PageHost: the References section', () => {
     ).toEqual(['1 Reference']);
   });
 
+  it('is hidden by default, even for a page that something references', async () => {
+    const application = makeApplication([
+      note('Some text'),
+      source('See [[Note]] for details.'),
+    ]);
+    await show(application, () => application.pageOperations.open('note-1'), {
+      shown: false,
+    });
+
+    expect(section()).toBeNull();
+  });
+
   it('is not rendered for a page that nothing references', async () => {
     const application = makeApplication([
       note('Some text'),
       source('Nothing about it.'),
     ]);
-    await show(application, () => application.pageOperations.open('note-1'));
+    await show(application, () => application.pageOperations.open('note-1'), {
+      shown: false,
+    });
 
     expect(section()).toBeNull();
   });

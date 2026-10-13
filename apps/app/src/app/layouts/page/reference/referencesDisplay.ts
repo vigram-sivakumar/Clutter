@@ -6,10 +6,9 @@ export function countPageReferences(references: PageReferences): number {
 }
 
 /**
- * Whether a note's References section is on screen (ADR-052). `savedHidden` is the user's explicit choice —
- * `true` Hide, `false` Show (which keeps an empty section visible) — and absent means automatic: shown only
- * when there is something to list.
+ * Whether a note's References section is on screen (ADR-052, amended by ADR-053). Hidden by default: only the
+ * user's explicit Show (`savedHidden === false`) displays it, even when there is nothing to list.
  */
-export function isReferencesDisplayed(savedHidden: boolean | undefined, hasReferences: boolean): boolean {
-  return savedHidden === undefined ? hasReferences : !savedHidden;
+export function isReferencesDisplayed(savedHidden: boolean | undefined): boolean {
+  return savedHidden === false;
 }
