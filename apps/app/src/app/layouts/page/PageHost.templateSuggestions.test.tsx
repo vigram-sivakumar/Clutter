@@ -95,19 +95,16 @@ async function flush(): Promise<void> {
   }
 }
 
-/**
- * A real Application with one template and a note open: a new, unpersisted draft by default, or — when
- * `frontmatter` is given — an empty persisted note carrying it.
- */
+/** A real Application with one empty note (optionally with a cover) and one template, the note open. */
 async function setup(
-  frontmatter?: Record<string, unknown>,
+  frontmatter: Record<string, unknown>,
   templateCount = 1,
   templateCover?: string
 ) {
-  const note = frontmatter ? buildNote(frontmatter) : undefined;
+  const note = buildNote(frontmatter);
   const vault = new Vault(
     ROOT,
-    note ? [note] : [],
+    [note],
     [],
     [],
     [],
@@ -145,30 +142,18 @@ async function setup(
     }
     await application.pageOperations.requestSave(templateDraft);
   }
-  const noteId = note
-    ? note.id
-    : await application.pageOperations.openDraft({ folderId: null });
-
-  if (note) {
-    await application.pageOperations.open(noteId);
-  }
+  await application.pageOperations.open(note.id);
 
   render(<AppLayout application={application} />);
   await flush();
 
-  return { application, noteId };
+  return { application, noteId: note.id };
 }
 
 const suggestionsShown = () =>
   screen.queryByText('Start with template') !== null;
 
-describe('TemplateSuggestions are offered to a new draft with an empty body', () => {
-  it('a new note draft shows the suggestions', async () => {
-    await setup();
-
-    expect(suggestionsShown()).toBe(true);
-  });
-
+describe('TemplateSuggestions visibility follows the body, not the metadata', () => {
   it.each([
     ['no metadata', {}],
     ['a cover image', { cover: 'https://example.com/c.jpg' }],
@@ -177,95 +162,48 @@ describe('TemplateSuggestions are offered to a new draft with an empty body', ()
       { icon: '📌', description: 'Mine', tags: ['x'] },
     ],
   ])(
-    'an empty note that is already saved, with %s, does not',
+    'an empty note with %s shows the suggestions',
     async (_label, frontmatter) => {
       await setup(frontmatter);
 
-      expect(suggestionsShown()).toBe(false);
+      expect(suggestionsShown()).toBe(true);
     }
   );
 
-  it('a new daily-note draft shows them', async () => {
-    const draft = await setup();
-    cleanup();
-    await act(async () => {
-      await draft.application.pageOperations.openAtPath(
-        `${ROOT}/Daily/2026-10-13.md`,
-        { type: 'daily-note' }
+  it.each([
+    ['no metadata', {}],
+    ['a cover image', { cover: 'https://example.com/c.jpg' }],
+  ])(
+    'applying a template to a note with %s hides them, and clearing the body brings them back at once',
+    async (_label, frontmatter) => {
+      const { application, noteId } = await setup(frontmatter);
+
+      fireEvent.click(
+        screen
+          .getAllByRole('button')
+          .find(
+            (el) =>
+              el.textContent === 'Untitled' ||
+              el.closest('.template-suggestions__list')
+          )!
       );
+      await flush();
+      expect(
+        application.pageOperations.getSession(noteId)!.currentRevision.markdown
+      ).toBe('# Agenda');
+      expect(suggestionsShown()).toBe(false);
+
+      act(() => application.pageOperations.commitEdit(noteId, ''));
+      await flush();
+
+      expect(suggestionsShown()).toBe(true);
+    }
+  );
+
+  it('adding content hides them and removing it shows them again', async () => {
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/c.jpg',
     });
-    render(<AppLayout application={draft.application} />);
-    await flush();
-    expect(suggestionsShown()).toBe(true);
-  });
-
-  it('a template being authored (a draft inside Templates) does not', async () => {
-    const { application } = await setup();
-    cleanup();
-    await createTemplate(
-      application.folderOperations,
-      application.pageOperations
-    );
-    render(<AppLayout application={application} />);
-    await flush();
-
-    expect(suggestionsShown()).toBe(false);
-  });
-
-  it('a change that saves the draft (a property, icon or cover) removes them for good', async () => {
-    const { application, noteId } = await setup();
-
-    await act(async () => {
-      await application.pageOperations.updateMetadata(noteId, { icon: '📌' });
-    });
-    await flush();
-    expect(application.vault.getPage(noteId)).toBeDefined();
-    expect(suggestionsShown()).toBe(false);
-
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await flush();
-    expect(suggestionsShown()).toBe(false);
-  });
-
-  it('applying a template that carries a cover saves the note, so clearing the body does not bring them back', async () => {
-    const { application, noteId } = await setup(
-      undefined,
-      1,
-      'https://example.com/tpl.jpg'
-    );
-
-    fireEvent.click(document.querySelector('.template-suggestions__item')!);
-    await flush();
-    expect(suggestionsShown()).toBe(false);
-
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await flush();
-
-    expect(suggestionsShown()).toBe(false);
-  });
-
-  it('applying a body-only template hides them, and clearing the body (still a draft) shows them again', async () => {
-    const { application, noteId } = await setup();
-
-    fireEvent.click(document.querySelector('.template-suggestions__item')!);
-    await flush();
-    expect(
-      application.pageOperations.getSession(noteId)!.currentRevision.markdown
-    ).toBe('# Agenda');
-    expect(suggestionsShown()).toBe(false);
-
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await flush();
-
-    expect(suggestionsShown()).toBe(true);
-  });
-
-  it('whitespace-only text still counts as empty; real content hides them', async () => {
-    const { application, noteId } = await setup();
-
-    act(() => application.pageOperations.commitEdit(noteId, '  \n'));
-    await flush();
-    expect(suggestionsShown()).toBe(true);
 
     act(() => application.pageOperations.commitEdit(noteId, 'hello'));
     await flush();
@@ -274,54 +212,6 @@ describe('TemplateSuggestions are offered to a new draft with an empty body', ()
     act(() => application.pageOperations.commitEdit(noteId, ''));
     await flush();
     expect(suggestionsShown()).toBe(true);
-  });
-});
-
-describe('what saves a draft, as far as the suggestions are concerned (current behavior, documented)', () => {
-  it('a body-only template leaves the draft unsaved until its body is saved; once saved, emptying the body does not bring the row back', async () => {
-    const { application, noteId } = await setup();
-
-    fireEvent.click(document.querySelector('.template-suggestions__item')!);
-    await flush();
-    expect(application.vault.getPage(noteId)).toBeUndefined();
-
-    // The editor's blur/autosave: the body is committed, which saves the draft as a note.
-    await act(async () => {
-      await application.pageOperations.requestSave(noteId);
-    });
-    await flush();
-    expect(application.vault.getPage(noteId)).toBeDefined();
-
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await flush();
-
-    expect(suggestionsShown()).toBe(false);
-  });
-
-  it('text typed and then cleared before any save keeps the draft unsaved, so the row returns', async () => {
-    const { application, noteId } = await setup();
-
-    act(() => application.pageOperations.commitEdit(noteId, 'hello'));
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await flush();
-
-    expect(application.vault.getPage(noteId)).toBeUndefined();
-    expect(suggestionsShown()).toBe(true);
-  });
-
-  it('saving an emptied draft (typed, cleared, then blurred) writes it as a note, so the row does not come back', async () => {
-    const { application, noteId } = await setup();
-
-    act(() => application.pageOperations.commitEdit(noteId, 'hello'));
-    act(() => application.pageOperations.commitEdit(noteId, ''));
-    await act(async () => {
-      await application.pageOperations.requestSave(noteId);
-    });
-    await flush();
-
-    // The blur save writes even an emptied draft as a note, and a saved note never offers templates.
-    expect(application.vault.getPage(noteId)).toBeDefined();
-    expect(suggestionsShown()).toBe(false);
   });
 });
 
@@ -357,13 +247,25 @@ describe('applying a template through the picker (+N more)', () => {
   });
 
   it.each([
-    ['no cover', undefined, true],
-    // A template cover is metadata: applying it saves the note, which then never asks again.
-    ['a cover on the template', 'https://example.com/tpl.jpg', false],
+    ['no cover', {}, undefined],
+    [
+      'a cover on the note',
+      { cover: 'https://example.com/note.jpg' },
+      undefined,
+    ],
+    [
+      'a cover on both',
+      { cover: 'https://example.com/note.jpg' },
+      'https://example.com/tpl.jpg',
+    ],
   ])(
-    'with %s: suggestions go while the body has content; clearing it brings them back only if the note is still a draft',
-    async (_label, templateCover, backWhenCleared) => {
-      const { application, noteId } = await setup(undefined, 4, templateCover);
+    'with %s: suggestions go while the body has content and come back as soon as it is empty',
+    async (_label, frontmatter, templateCover) => {
+      const { application, noteId } = await setup(
+        frontmatter,
+        4,
+        templateCover
+      );
 
       fireEvent.click(screen.getByText(/more$/));
       await flush();
@@ -381,7 +283,7 @@ describe('applying a template through the picker (+N more)', () => {
       act(() => application.pageOperations.commitEdit(noteId, ''));
       await flush();
 
-      expect(suggestionsShown()).toBe(backWhenCleared);
+      expect(suggestionsShown()).toBe(true);
     }
   );
 
@@ -394,9 +296,9 @@ describe('applying a template through the picker (+N more)', () => {
     await flush();
   };
 
-  it('a template chosen in the picker puts its Markdown into the draft (same id; the draft becomes the only new page) and shows it in the editor', async () => {
+  it('a template chosen in the picker puts its Markdown into the existing note (same id, nothing created) and shows it in the editor', async () => {
     const { application, noteId } = await setup(
-      undefined,
+      { cover: 'https://example.com/note.jpg' },
       4,
       'https://example.com/tpl.jpg'
     );
@@ -410,10 +312,9 @@ describe('applying a template through the picker (+N more)', () => {
       application.pageOperations.getSession(noteId)!.currentRevision.markdown
     ).toBe('# Agenda');
     expect(editorText()).toBe('# Agenda');
-    // The template's cover saved the draft under its own id; no other page was created.
     expect(
       [...application.vault.pages()].map((page) => page.id).sort()
-    ).toEqual([...pagesBefore, noteId].sort());
+    ).toEqual(pagesBefore);
     expect(application.vault.getPage(noteId)!.metadata.cover).toBe(
       'https://example.com/tpl.jpg'
     );
@@ -421,7 +322,9 @@ describe('applying a template through the picker (+N more)', () => {
   });
 
   it('the editor shows an applied template even when it had focus while it was applied', async () => {
-    const { application, noteId } = await setup();
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/note.jpg',
+    });
     const content = document.querySelector<HTMLElement>('.cm-content')!;
     content.focus();
     expect(content.contains(document.activeElement)).toBe(true);
@@ -441,7 +344,9 @@ describe('applying a template through the picker (+N more)', () => {
   });
 
   it('a pointer click: the browser moves focus onto the suggestion on mousedown, and applying does not hand it back to the editor', async () => {
-    const { application, noteId } = await setup();
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/note.jpg',
+    });
     const content = document.querySelector<HTMLElement>('.cm-content')!;
     content.focus();
     expect(content.contains(document.activeElement)).toBe(true);
@@ -465,7 +370,9 @@ describe('applying a template through the picker (+N more)', () => {
   });
 
   it('applying a template does not force focus into the editor', async () => {
-    const { application, noteId } = await setup();
+    const { application, noteId } = await setup({
+      cover: 'https://example.com/note.jpg',
+    });
     const content = document.querySelector<HTMLElement>('.cm-content')!;
     // Focus is somewhere else (here: nowhere), exactly as before the user chooses where to type.
     (document.activeElement as HTMLElement | null)?.blur();

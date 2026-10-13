@@ -317,42 +317,7 @@ describe('PageHost: the editor and template suggestions are unchanged by it', ()
     expect(section()!.outerHTML).toBe(before);
   });
 
-  it('a new draft still offers its templates, and has no References section (nothing can reference it yet)', async () => {
-    const application = makeApplication([note(''), source('See [[Note]].')]);
-    await createTemplate(
-      application.folderOperations,
-      application.pageOperations
-    );
-    const templateDraft = application.workspace.activePageId!;
-    await application.pageOperations.mutateBody(
-      templateDraft,
-      () => '# Agenda'
-    );
-    await application.pageOperations.requestSave(templateDraft);
-    let draftId = '';
-    await show(application, async () => {
-      draftId = await application.pageOperations.openDraft({ folderId: null });
-    });
-
-    expect(section()).toBeNull();
-    expect(
-      document.querySelector('.page__template-suggestions')
-    ).not.toBeNull();
-    expect(
-      document.querySelector('.template-suggestions__item')
-    ).not.toBeNull();
-
-    fireEvent.click(document.querySelector('.template-suggestions__item')!);
-    await flush();
-    await flush();
-
-    expect(
-      application.pageOperations.getSession(draftId)!.currentRevision.markdown
-    ).toBe('# Agenda');
-    expect(editorView().state.doc.toString()).toBe('# Agenda');
-  });
-
-  it('an empty saved note does not offer templates, and still shows its References', async () => {
+  it('an empty note still offers its templates, outside the section and as before', async () => {
     const application = makeApplication([note(''), source('See [[Note]].')]);
     await createTemplate(
       application.folderOperations,
@@ -366,9 +331,24 @@ describe('PageHost: the editor and template suggestions are unchanged by it', ()
     await application.pageOperations.requestSave(templateDraft);
     await show(application, () => application.pageOperations.open('note-1'));
 
-    expect(section()).not.toBeNull();
+    expect(
+      document.querySelector('.page__template-suggestions')
+    ).not.toBeNull();
     expect(
       document.querySelector('.template-suggestions__item')
-    ).toBeNull();
+    ).not.toBeNull();
+    expect(
+      section()!.contains(document.querySelector('.page__template-suggestions'))
+    ).toBe(false);
+
+    fireEvent.click(document.querySelector('.template-suggestions__item')!);
+    await flush();
+    await flush();
+
+    expect(
+      application.pageOperations.getSession('note-1')!.currentRevision.markdown
+    ).toBe('# Agenda');
+    expect(editorView().state.doc.toString()).toBe('# Agenda');
+    expectPlacedAfterTheEditor();
   });
 });
