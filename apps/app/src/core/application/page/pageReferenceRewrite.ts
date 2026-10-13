@@ -12,7 +12,9 @@ export type ReferenceRewriteSkipReason =
   /** The new name has no spelling the wiki-link grammar and its index can both read. */
   | 'unsupported-title'
   /** Another note now sits at the old path, so the old text may mean that note instead. */
-  | 'old-path-reoccupied';
+  | 'old-path-reoccupied'
+  /** The renamed heading has no spelling a `#fragment` can carry (empty, `^…`, or one of `\\ | ] #`). */
+  | 'unsupported-heading';
 
 /** What rewriting the references to one renamed note did. */
 export interface ReferenceRewriteSummary {
@@ -91,4 +93,102 @@ export function rewriteReferenceTargets(markdown: string, from: string, to: stri
   }
 
   return next;
+}
+
+/** The one heading whose text changed between two saves: its index in the ATX-heading list, and its old and new text. */
+export interface HeadingRename {
+  readonly index: number;
+  readonly from: string;
+  readonly to: string;
+}
+
+/**
+ * Infers a heading rename from the heading texts of a baseline and of the newly saved note — or `null`
+ * when it cannot be inferred unambiguously. A heading has no identity but its text and its place in the
+ * list, so a rename is exactly: the same number of headings, and ONE heading whose text differs. An
+ * insertion, a deletion, a reorder, several simultaneous changes, or a level-only change (same text)
+ * is not a rename, and a deleted heading's references are never redirected.
+ *
+ * References resolve to the FIRST heading with their text, so the renamed heading must have been the
+ * first with its old text (renaming a later duplicate cannot have moved a reference), and the new text
+ * must not already belong to an earlier heading (the rewritten references would resolve there instead).
+ */
+export function detectHeadingRename(baseline: readonly string[], current: readonly string[]): HeadingRename | null {
+  if (baseline.length !== current.length) {
+    return null;
+  }
+
+  let index = -1;
+
+  for (let i = 0; i < baseline.length; i++) {
+    if (baseline[i] !== current[i]) {
+      if (index !== -1) {
+        return null;
+      }
+
+      index = i;
+    }
+  }
+
+  if (index === -1) {
+    return null;
+  }
+
+  const from = baseline[index]!;
+  const to = current[index]!;
+
+  if (from.startsWith('^') || baseline.indexOf(from) !== index || current.indexOf(to) < index) {
+    return null;
+  }
+
+  return { index, from, to };
+}
+
+/** Whether `heading` can be the text after `#` in `[[Note#heading]]` and be read back as that heading (not a block reference). */
+export function isRepresentableHeadingFragment(heading: string): boolean {
+  return isRepresentableLinkTarget(heading) && !heading.startsWith('^');
+}
+
+/**
+ * Points every link and embed that names the heading `from` — in a note `targetsPage` says is the edited one —
+ * at `to`. Only the heading text is replaced: the note part, a `|alias`, the whitespace around the fragment and
+ * everything outside the reference are kept byte for byte. A `#^block` reference is never a heading, and code
+ * is skipped (both by the shared extractors). Returns `markdown` itself when nothing matched.
+ */
+export function rewriteHeadingReferences(
+  markdown: string,
+  from: string,
+  to: string,
+  targetsPage: (target: string) => boolean
+): string {
+  const spans = findReferenceSpans(markdown).sort((a, b) => b.start - a.start);
+  let next = markdown;
+
+  for (const span of spans) {
+    const text = next.slice(span.start, span.end);
+    const hash = text.indexOf('#', span.openerLength);
+    const pipe = text.indexOf('|', span.openerLength);
+    const fragmentEnd = pipe === -1 ? text.length - 2 : pipe;
+
+    // A `#` inside the alias is the alias's, not a heading's.
+    if (hash === -1 || hash >= fragmentEnd || !targetsPage(span.target)) {
+      continue;
+    }
+
+    const raw = text.slice(hash + 1, fragmentEnd);
+
+    if (raw.trim() !== from) {
+      continue;
+    }
+
+    const start = span.start + hash + 1 + (raw.length - raw.trimStart().length);
+    next = next.slice(0, start) + to + next.slice(start + from.length);
+  }
+
+  return next;
+}
+
+/** Whether `markdown` has a link or embed whose `#fragment` is the heading `from`, in a note `targetsPage` accepts. */
+export function referencesHeading(markdown: string, from: string, targetsPage: (target: string) => boolean): boolean {
+  return rewriteHeadingReferences(markdown, from, '\u0000', targetsPage) !== markdown;
 }

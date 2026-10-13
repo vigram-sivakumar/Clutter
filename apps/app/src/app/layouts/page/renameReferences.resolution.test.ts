@@ -6,7 +6,7 @@ import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import { scanEmbed } from '@core/vault/ingest/grammar/embedScanner';
 import { scanWikiLink } from '@core/vault/ingest/grammar/wikiLinkScanner';
-import { rewriteReferenceTargets } from '@core/application/page/pageReferenceRewrite';
+import { rewriteHeadingReferences, rewriteReferenceTargets } from '@core/application/page/pageReferenceRewrite';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { PageOperations } from '@core/application/page/PageOperations';
@@ -84,5 +84,47 @@ describe('references rewritten by a note rename resolve in the editor’s resolv
       ['resolved', 't'],
       ['resolved', 't'],
     ]);
+  });
+});
+
+describe('references rewritten by a heading rename resolve in the editor’s resolvers', () => {
+  const renamedBody = '# Key Decisions\n\nWe decided.\n^decision-1\n';
+
+  function resolveAll(vault: Vault, texts: readonly string[]) {
+    const wiki = createWikiLinkResolver(vault, {} as PageOperations, {} as FolderOperations);
+    const embed = createPageEmbedResolver(vault, { getPage: () => undefined } as unknown as EffectivePageState);
+
+    return texts.map((text) => {
+      if (text.startsWith('!')) {
+        const match = scanEmbed(text, 0)!;
+        return embed(match.path).status;
+      }
+
+      const match = scanWikiLink(text, 0)!;
+      return wiki(match.path, match.alias).status;
+    });
+  }
+
+  it('the old heading no longer resolves, the rewritten reference does, for links and embeds alike (alias kept)', () => {
+    const vault = new Vault(ROOT, [page('t', 'Meeting Notes.md', renamedBody)], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+    const originals = ['[[Meeting Notes#Decisions]]', '![[Meeting Notes#Decisions]]', '[[Meeting Notes#Decisions|View]]', '![[Meeting Notes#Decisions|View]]'];
+    const rewritten = originals.map((text) => rewriteHeadingReferences(text, 'Decisions', 'Key Decisions', () => true));
+
+    expect(rewritten).toEqual([
+      '[[Meeting Notes#Key Decisions]]',
+      '![[Meeting Notes#Key Decisions]]',
+      '[[Meeting Notes#Key Decisions|View]]',
+      '![[Meeting Notes#Key Decisions|View]]',
+    ]);
+    expect(resolveAll(vault, originals)).toEqual(['unresolved', 'unresolved-heading', 'unresolved', 'unresolved-heading']);
+    expect(resolveAll(vault, rewritten)).toEqual(['resolved', 'resolved', 'resolved', 'resolved']);
+  });
+
+  it('a block reference is untouched and still resolves', () => {
+    const vault = new Vault(ROOT, [page('t', 'Meeting Notes.md', renamedBody)], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
+    const block = '[[Meeting Notes#^decision-1]]';
+
+    expect(rewriteHeadingReferences(block, 'Decisions', 'Key Decisions', () => true)).toBe(block);
+    expect(resolveAll(vault, [block])).toEqual(['resolved']);
   });
 });

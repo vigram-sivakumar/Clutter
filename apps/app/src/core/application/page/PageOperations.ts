@@ -18,12 +18,19 @@ import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
+import { LinkResolver } from '../../vault/knowledge/LinkResolver';
+import { PageIndex } from '../../vault/knowledge/PageIndex';
 import {
   NO_REFERENCE_REWRITE,
+  detectHeadingRename,
+  isRepresentableHeadingFragment,
   isRepresentableLinkTarget,
   pageLinkTarget,
+  referencesHeading,
   referencesTarget,
+  rewriteHeadingReferences,
   rewriteReferenceTargets,
+  type HeadingRename,
   type ReferenceRewriteSkipReason,
   type ReferenceRewriteSummary,
 } from './pageReferenceRewrite';
@@ -244,6 +251,15 @@ export class PageOperations {
    * before the draft is promoted).
    */
   private readonly titleStates = new Map<string, FieldEditState<string>>();
+
+  /**
+   * Heading renames not yet carried into the notes that reference them. An entry exists ONLY while one is
+   * outstanding: the page's heading texts as its references last agreed with them, the renamed heading's
+   * slot still holding its old text. Initialised lazily (from the headings just before the save that first
+   * changed one), deleted once everything is reconciled, never persisted — a restart forgets a pending one.
+   * See reconcileHeadingRename().
+   */
+  private readonly pendingHeadingBaselines = new Map<string, readonly string[]>();
 
   /**
    * Per-persisted-page description edit/save state — the description
@@ -1218,8 +1234,12 @@ export class PageOperations {
         return;
       }
 
+      // The page's headings as last made durable — what a heading rename is detected against.
+      const headingsBefore = this.durableHeadings(pageId);
+
       try {
         await this.save(pageId, session.currentRevision.markdown);
+        await this.reconcileHeadingRename(pageId, headingsBefore);
       } catch {
         // Two distinct failure shapes reach here (§1.3a's T11a vs T11b),
         // and only one of them still needs handling at this point:
@@ -2626,6 +2646,163 @@ export class PageOperations {
     return { rewrittenPageIds, skipped, failed, complete };
   }
 
+  /** The page's ATX-heading texts as last made durable, or `undefined` for a page that is not in the Vault (a draft). */
+  private durableHeadings(pageId: string): readonly string[] | undefined {
+    return this.vault.getPage(pageId)?.analysis.headings.map((heading) => heading.text);
+  }
+
+  /**
+   * After a successful editor save: if exactly one heading was renamed, points every link and embed that
+   * names the old heading at the new one. Never throws and never awaits another page's save.
+   *
+   * The baseline is `pendingHeadingBaselines.get(pageId)` — the headings the references last agreed with —
+   * else the headings just before this save. Outcomes:
+   *   - nothing differs from the baseline, or the rewrite was complete -> no entry kept;
+   *   - one rename, not fully carried (a source skipped or failed, an unsafe heading) -> the entry keeps the
+   *     renamed slot's OLD text, so the next save re-detects the same transition (or, if the heading is
+   *     edited again, the original old text -> the newest) and retries; sources already rewritten no longer
+   *     contain the old text, so a retry only touches what is left;
+   *   - something that is not one rename (insert, delete, reorder, several edits) while a rename was pending
+   *     -> it can no longer be inferred: dropped, with a warning rather than silently.
+   */
+  private async reconcileHeadingRename(pageId: string, headingsBefore: readonly string[] | undefined): Promise<void> {
+    try {
+      const after = this.durableHeadings(pageId);
+
+      if (!headingsBefore || !after) {
+        return;
+      }
+
+      const pending = this.pendingHeadingBaselines.get(pageId);
+      const baseline = pending ?? headingsBefore;
+
+      if (baseline.length === after.length && baseline.every((text, i) => text === after[i])) {
+        this.pendingHeadingBaselines.delete(pageId);
+        return;
+      }
+
+      const rename = detectHeadingRename(baseline, after);
+
+      if (!rename) {
+        if (pending) {
+          console.warn(
+            `PageOperations: a heading rename in ${this.vault.getPage(pageId)?.path ?? pageId} could not be carried into ` +
+              'its references before the headings changed again; they were left as they are.'
+          );
+        }
+
+        this.pendingHeadingBaselines.delete(pageId);
+        return;
+      }
+
+      const summary = await this.rewriteHeadingReferencesAfterRename(pageId, rename);
+
+      if (summary.complete) {
+        this.pendingHeadingBaselines.delete(pageId);
+      } else {
+        this.pendingHeadingBaselines.set(pageId, after.map((text, i) => (i === rename.index ? rename.from : text)));
+      }
+    } catch (error) {
+      console.warn(`PageOperations: heading reference reconciliation failed for ${pageId}:`, error);
+    }
+  }
+
+  /**
+   * Rewrites the `#heading` of every link/embed that resolves to page `pageId` and names `rename.from`, in
+   * every note (archived, Templates and the page itself included), one at a time through mutateBody — the
+   * same guards as the note-rename rewrite (current session text so unsaved edits survive, disk-change
+   * guard, one failure never stops the rest, a summary instead of a throw). What differs: a reference
+   * belongs to this page by resolving to it (path, else a unique alias — the graph's own LinkResolver), not
+   * by its text; and other pages' saves are never awaited (a session page is left to its own autosave), so
+   * two pages rewriting each other's references cannot wait on one another.
+   */
+  private async rewriteHeadingReferencesAfterRename(pageId: string, rename: HeadingRename): Promise<ReferenceRewriteSummary> {
+    const { from, to } = rename;
+    const resolver = new LinkResolver();
+    const index = new PageIndex(this.vault.pages(), this.vault.root);
+    const memo = new Map<string, boolean>();
+    const targetsPage = (target: string): boolean => {
+      let result = memo.get(target);
+
+      if (result === undefined) {
+        result = resolver.resolve([{ sourcePageId: '', target }], index)[0]?.targetPageId === pageId;
+        memo.set(target, result);
+      }
+
+      return result;
+    };
+
+    const sources = Array.from(this.vault.pages())
+      .filter((candidate) => {
+        const saved =
+          candidate.analysis.links.some((link) => link.heading?.trim() === from) ||
+          candidate.analysis.embeds.some((embed) => embed.heading?.trim() === from);
+
+        if (saved) {
+          return true;
+        }
+
+        const unsaved = this.documentRegistry.get(candidate.id)?.currentRevision.markdown;
+
+        return unsaved !== undefined && unsaved !== candidate.source.markdown && unsaved.includes(from);
+      })
+      .sort((a, b) => a.path.localeCompare(b.path));
+
+    const rewrittenPageIds: string[] = [];
+    const skipped: { pageId: string; path: string; reason: ReferenceRewriteSkipReason }[] = [];
+    const failed: { pageId: string; path: string; message: string }[] = [];
+    const transform = (markdown: string): string => rewriteHeadingReferences(markdown, from, to, targetsPage);
+
+    for (const candidate of sources) {
+      const source = this.vault.getPage(candidate.id);
+
+      if (!source) {
+        continue;
+      }
+
+      try {
+        const session = this.documentRegistry.get(source.id);
+        const current = session?.currentRevision.markdown ?? source.source.markdown;
+
+        // Nothing here actually names this heading of this page (another note's heading, an alias to another page).
+        if (!referencesHeading(current, from, targetsPage)) {
+          continue;
+        }
+
+        if (!isRepresentableHeadingFragment(to)) {
+          skipped.push({ pageId: source.id, path: source.path, reason: 'unsupported-heading' });
+          continue;
+        }
+
+        if (!(await this.matchesDisk(source))) {
+          skipped.push({ pageId: source.id, path: source.path, reason: 'changed-on-disk' });
+          continue;
+        }
+
+        await this.mutateBody(source.id, transform, { allowArchived: true });
+        rewrittenPageIds.push(source.id);
+      } catch (error) {
+        failed.push({
+          pageId: source.id,
+          path: source.path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const complete = failed.length === 0 && skipped.length === 0;
+
+    if (!complete) {
+      console.warn(
+        `PageOperations: references to heading "${from}" were not all updated to "${to}" — ` +
+          `${failed.length} failed, ${skipped.length} skipped (${[...new Set(skipped.map((s) => s.reason))].join(', ') || 'none'}). ` +
+          'The rename is kept pending and retried on the next save.'
+      );
+    }
+
+    return { rewrittenPageIds, skipped, failed, complete };
+  }
+
   /** Whether the file on disk still holds the body the Vault last read for this note. */
   private async matchesDisk(page: Page): Promise<boolean> {
     if (!this.readFile) {
@@ -2670,6 +2847,7 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(pageId);
     this.clearDraft(pageId);
     this.disposeTitleState(pageId);
+    this.pendingHeadingBaselines.delete(pageId);
     this.disposeDescriptionState(pageId);
 
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
