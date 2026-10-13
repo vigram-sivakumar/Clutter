@@ -57,15 +57,16 @@
  * the editor-reveal flash (below), on the outer wrapper as one component.
  */
 
-/* The wrapper owns source navigation (NoteEmbedWidget.ts), so only its own background shows the pointer.
- * The header keeps its own cursors, and the embedded document (the nested editor) is passive: it must not
- * look like a navigation button. */
+/* The wrapper owns source navigation (NoteEmbedWidget.ts), and so do the empty parts of the nested editor
+ * (its chrome, and the space after a line's text), which therefore show the pointer. Document content
+ * does not: a line, and everything inside it, keeps the default cursor (links, tags and the like set their
+ * own). The header keeps its own cursors. */
 .cm-note-embed {
   cursor: pointer;
 }
 
 .cm-note-embed__header,
-.cm-note-embed__content .cm-editor {
+.cm-note-embed__content .cm-line {
   cursor: default;
 }
 

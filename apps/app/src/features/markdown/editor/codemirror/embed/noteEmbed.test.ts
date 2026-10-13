@@ -250,7 +250,7 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     });
   });
 
-  it('clicking the wrapper\'s own background opens the source note, once per click', () => {
+  it('clicking the wrapper background or the nested editor\'s empty chrome opens the source note, once per click', () => {
     const onOpenPage = vi.fn();
     const view = mountView(
       '![[Other Note]]',
@@ -261,8 +261,13 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     );
 
     const container = view.dom.querySelector<HTMLElement>('.cm-note-embed')!;
-    // The wrapper itself and the content element's padding around the nested view.
-    for (const target of [container, container.querySelector<HTMLElement>('.cm-note-embed__content')!]) {
+    const content = container.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    const targets = [
+      container,
+      content,
+      ...['.cm-editor', '.cm-scroller', '.cm-content'].map((selector) => content.querySelector<HTMLElement>(selector)!),
+    ];
+    for (const target of targets) {
       onOpenPage.mockClear();
       target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(onOpenPage).toHaveBeenCalledTimes(1);
@@ -270,31 +275,48 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     }
   });
 
-  it('nothing that originates inside the embedded document navigates: its editor, content, lines', () => {
-    const onOpenPage = vi.fn();
-    const view = mountView(
-      '![[Other Note]]',
-      resolverFor({
-        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body #tag', icon: 'note', emoji: null },
-      }),
-      { onOpenPage }
-    );
+  describe('a text line is a full-width block: only the space after its text is background', () => {
+    const open = (clientX: number, clientY: number) => {
+      const onOpenPage = vi.fn();
+      const view = mountView(
+        '![[Other Note]]',
+        resolverFor({
+          'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Short', icon: 'note', emoji: null },
+        }),
+        { onOpenPage }
+      );
+      const line = view.dom.querySelector<HTMLElement>('.cm-note-embed__content .cm-line')!;
+      line.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX, clientY }));
+      return onOpenPage;
+    };
 
-    const content = view.dom.querySelector<HTMLElement>('.cm-note-embed__content')!;
-    for (const selector of ['.cm-editor', '.cm-scroller', '.cm-content', '.cm-line']) {
-      content.querySelector<HTMLElement>(selector)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    }
+    // jsdom has no layout: give the line's text one 50x20 box.
+    const withTextBox = () =>
+      vi.spyOn(Range.prototype, 'getClientRects').mockReturnValue([
+        { left: 0, right: 50, top: 0, bottom: 20 },
+      ] as unknown as DOMRectList);
 
-    expect(onOpenPage).not.toHaveBeenCalled();
+    it('a click on the text does not navigate; a click to the right of it does', () => {
+      const rects = withTextBox();
+
+      expect(open(10, 10)).not.toHaveBeenCalled();
+      expect(open(200, 10)).toHaveBeenCalledWith('page-other');
+
+      rects.mockRestore();
+    });
+
+    it('where the text cannot be measured, a click on a line never navigates', () => {
+      expect(open(200, 10)).not.toHaveBeenCalled();
+    });
   });
 
-  it('the pointer cursor belongs to the wrapper; the header and the embedded document keep the default cursor', () => {
+  it('the pointer cursor is on the wrapper; the header and text lines keep the default cursor', () => {
     const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const rules = [...css.matchAll(/([^{}]+)\{([^}]*cursor\s*:\s*(\w+)[^}]*)\}/g)].map((m) => [m[1]!.trim(), m[3]!]);
 
     expect(rules).toEqual([
       ['.cm-note-embed', 'pointer'],
-      ['.cm-note-embed__header,\n.cm-note-embed__content .cm-editor', 'default'],
+      ['.cm-note-embed__header,\n.cm-note-embed__content .cm-line', 'default'],
     ]);
   });
 
