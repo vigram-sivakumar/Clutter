@@ -21,7 +21,10 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  flex-shrink: 0;
+  /* Never wider than the line it sits on: a pill longer than that shrinks, and its label truncates
+     (`.pill__label`). Short pills are untouched — nothing shrinks until the line runs out of room. */
+  flex-shrink: 1;
+  max-width: 100%;
   overflow: visible;
   box-sizing: border-box;
   height: var(--pill-height);
@@ -42,9 +45,23 @@
   --pill-height: 20px;
   font-size: var(--text-label-small);
 }
+/* The pill's text. Block-level, so `text-overflow` applies (a bare text node in the pill's flex box never
+   gets an ellipsis); `min-width: 0` lets it shrink below its text. Same selector pair as the pill, because the
+   value cell's clamped-box rule (`.property-list__value .entry__content span`) would otherwise win. */
+.pill__label,
+.property-list__value .entry__content .pill__label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 .pill__prefix,
 .property-list__value .entry__content .pill__prefix {
   display: inline;
+  /* One run with the label's text: no break between the `#` and the tag name. */
+  white-space: nowrap;
   opacity: var(--opacity-medium);
   padding-right: 2px;
 }
@@ -110,10 +127,13 @@
   color: inherit;
 }
 
-/* A read-only list: the pills, wrapping. */
+/* A read-only list: the pills, wrapping. `max-width` because the value cell's wrapper is a `-webkit-box`
+   (the clamped-box rule), which sizes its child to the child's content rather than to itself — without
+   it a long pill made the list, and the wrapping, as wide as the pill. */
 .property-list__value .entry__content .pill-list {
   display: flex;
   flex-wrap: wrap;
+  max-width: 100%;
   align-items: center;
   gap: var(--space-4);
   overflow: visible;

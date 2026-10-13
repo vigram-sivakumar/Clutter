@@ -32,8 +32,9 @@ function getInput(): HTMLInputElement {
 }
 
 function pillLabels(container: HTMLElement = document.body): string[] {
-  return [...container.querySelectorAll('.pill')].map(
-    (pill) => pill.firstChild!.textContent! + pill.childNodes[1]!.textContent!
+  // A pill's text (the `#` prefix, then the name) lives in its `.pill__label`.
+  return [...container.querySelectorAll('.pill .pill__label')].map(
+    (label) => label.firstChild!.textContent! + label.childNodes[1]!.textContent!
   );
 }
 

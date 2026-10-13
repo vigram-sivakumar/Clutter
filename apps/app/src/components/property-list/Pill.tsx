@@ -85,7 +85,8 @@ export function Pill({
       onClick={onActivate ? handleActivate : undefined}
       onKeyDown={onActivate ? handleActivateKeyDown : undefined}
     >
-      {children}
+      {/* The pill's text: the one part that truncates (Pill.css). */}
+      <span className="pill__label">{children}</span>
       {onRemove && (
         <Button
           className="pill__remove"
