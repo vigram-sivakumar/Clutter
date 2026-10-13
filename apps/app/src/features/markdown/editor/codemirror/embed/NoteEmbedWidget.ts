@@ -246,8 +246,7 @@ const nestedViews = new WeakMap<HTMLElement, EditorView>();
  * persists fold state, see `toDOM()`) — collapsing hides the whole rendered
  * embed, and this caret is the only collapse control: the embedded note's
  * own heading/list/fenced-code fold toggles are not shown (`NoteEmbedWidget.css`)
- * — the top/bottom dividers and the header itself (icon, title, every
- * button including this one) are never affected.
+ * — the header itself (icon, title, every button including this one) is never affected.
  *
  * **Positioned like the standalone fold toggle (`FoldToggleWidget.ts`),
  * not in the `controls` row with Expand/Edit source/More actions** — the
@@ -612,21 +611,7 @@ export class NoteEmbedWidget extends WidgetType {
     // `#`/marker/opening fence), here meaning before the identity icon.
     header.append(collapseButton, iconWrap, text, controls);
 
-    // The excerpt's own closing boundary — a passage-from-another-document
-    // feel, not a card: the wavy "End of note" divider after the nested
-    // view marks where the excerpt ends. Reuses `buildDivider`'s own
-    // wavy-rule construction, itself the same mask-image technique
-    // `hr/horizontalRuleDecoration.ts`'s own `.cm-hr-labeled--wavy` renders
-    // for a real `~---~` Markdown divider — see `NoteEmbedWidget.css`'s own
-    // doc comment for why this is a deliberate reuse of that existing
-    // visual system, not a new one. No matching divider above the header
-    // — a bare boundary with no label there read as visual noise with
-    // nothing to mark; CSS hides this one too whenever the card is
-    // collapsed (`.cm-note-embed--collapsed`, below), since there is no
-    // content between the header and it to mark the end of.
-    const endDivider = this.buildDivider('End of note');
-
-    container.append(header, content, endDivider);
+    container.append(header, content);
 
     // `enableFolding: true` alongside `readOnly: true` still installs the fold extensions the shared fenced-code
     // hover handlers (Copy / More actions reveal) ride on, but the embedded document shows no fold toggles
@@ -642,34 +627,6 @@ export class NoteEmbedWidget extends WidgetType {
     nestedViews.set(container, nestedView);
 
     return container;
-  }
-
-  /**
-   * A wavy boundary rule split in two around a centered `label`.
-   * Deliberately not `DividerLabelWidget` itself (`hr/DividerLabelWidget.ts`)
-   * — that widget replaces a real `~---~` line inside a *document's own*
-   * flow (`inline-flex`, `contain: inline-size`, `vertical-align: top` all
-   * exist solely to cooperate with CM6's `cm-widgetBuffer` siblings and a
-   * real line box, per that file's own doc comment) — this is a plain
-   * block child inside this widget's own already-isolated DOM subtree,
-   * with none of that to cooperate with, so a simpler block-level flex row
-   * is all it needs. The wavy rule *segments* still reuse the exact same
-   * mask-image technique/geometry that widget's own `--wavy` modifier
-   * applies — see this file's own CSS doc comment.
-   */
-  private buildDivider(label: string): HTMLElement {
-    const divider = document.createElement('div');
-    divider.classList.add('cm-note-embed__divider');
-
-    const left = document.createElement('span');
-    left.classList.add('cm-note-embed__divider-rule');
-    const text = document.createElement('span');
-    text.classList.add('cm-note-embed__divider-text');
-    text.textContent = label;
-    const right = document.createElement('span');
-    right.classList.add('cm-note-embed__divider-rule');
-    divider.append(left, text, right);
-    return divider;
   }
 
   /**

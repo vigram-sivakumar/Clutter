@@ -1015,7 +1015,7 @@ describe('note embed collapse/expand (Phase 2)', () => {
     return card.querySelector('[aria-label="Collapse note"], [aria-label="Expand note"]') as HTMLButtonElement;
   }
 
-  it('renders expanded by default: content visible, one closing divider and header present, button reads "Collapse note"', () => {
+  it('renders expanded by default: content visible and header present, button reads "Collapse note"', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -1027,18 +1027,12 @@ describe('note embed collapse/expand (Phase 2)', () => {
     const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
     expect(content.hidden).toBe(false);
     expect(content.textContent).toContain('Body text.');
-    // Exactly one divider — the closing "End of note" boundary. No bare
-    // wavy rule above the header (removed; see NoteEmbedWidget.ts's own
-    // doc comment for why a label-less divider there was visual noise).
-    const dividers = card.querySelectorAll('.cm-note-embed__divider');
-    expect(dividers).toHaveLength(1);
-    expect(dividers[0]!.textContent).toContain('End of note');
     expect(card.classList.contains('cm-note-embed--collapsed')).toBe(false);
     expect(card.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
     expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Collapse note');
   });
 
-  it('clicking Collapse hides the body and the "End of note" divider (nothing left for it to mark the end of); header/title stay visible', () => {
+  it('clicking Collapse hides the body; header/title stay visible', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -1051,10 +1045,6 @@ describe('note embed collapse/expand (Phase 2)', () => {
 
     const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
     expect(content.hidden).toBe(true);
-    // `.cm-note-embed--collapsed` is what NoteEmbedWidget.css keys its own
-    // `.cm-note-embed--collapsed .cm-note-embed__divider { display: none }`
-    // rule off — jsdom doesn't apply that external stylesheet, so this
-    // class is the DOM-observable proxy for "the divider is now hidden."
     expect(card.classList.contains('cm-note-embed--collapsed')).toBe(true);
     // Header/title/icon are separate DOM elements from
     // `.cm-note-embed__content` — hiding it must not remove or hide them.

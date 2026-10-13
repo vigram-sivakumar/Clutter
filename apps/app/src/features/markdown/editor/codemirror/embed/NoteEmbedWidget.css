@@ -1,46 +1,14 @@
 /*
- * The inline Markdown Note embed (`NoteEmbedWidget.ts`) — its own
- * header/title/controls/divider CSS. Extracted out of `MarkdownEditor.css`
- * (2026-09) to match the colocation convention `PdfEmbedWidget.css`
- * already established — content and behavior unchanged, only the file it
- * lives in. The shared read-only mutating-control-hide rule this widget
- * also depends on (`.cm-note-embed-control--mutating`) lives in
- * `mediaPresentation/embedLayout.css` instead — see that file's own doc
- * comment.
+ * Inline Markdown note embed (`![[Page]]`, `NoteEmbedWidget.ts`): a header (collapse caret, icon, title and
+ * path, Edit source / More actions) above a nested read-only editor. The header buttons reuse the shared
+ * `.cm-media-control` chrome; this file only adds the row they sit in. The read-only mutating-control hide
+ * (`.cm-note-embed-control--mutating`) lives in `mediaPresentation/embedLayout.css`.
+ *
+ * Never put `margin` on a CM6-managed line or block element here (CLAUDE.md): use `padding`.
+ * A nested embed is any embed inside `.cm-content[contenteditable='false']`.
  */
 
-/*
- * Note embeds (`![[Page]]`, `NoteEmbedWidget.ts`) — the header (plain-text
- * title + Expand/Edit source/More actions) and the nested read-only
- * `EditorView` mount, bracketed top and bottom by the wavy `__divider*`
- * boundaries below rather than a card. Header layout modeled directly on
- * `PdfEmbedWidget.css`'s own top-row layout (title left, controls right,
- * reveal on hover/focus of the whole embed) — see that file's own doc
- * comment for the layout rationale this mirrors.
- *
- * The header's own action buttons reuse the shared `.cm-media-control`
- * button chrome (`MediaFloatingControls.css`) — this file adds only the
- * note-embed-specific *row* (`.cm-note-embed__controls`): its own
- * position/reveal behavior, deliberately NOT the shared
- * `.cm-media-controls` class, because that class is unconditionally
- * hidden by `mediaPresentation/embedLayout.css`'s
- * `.cm-content[contenteditable='false']` rule — Expand must stay visible/interactive inside a nested read-only
- * note embed (requirement: "Expand remains available"), so the row
- * itself can't be the thing that rule hides. Only the two mutating
- * buttons (Edit source, More actions) carry `.cm-note-embed-control
- * --mutating`, which that same rule does hide — see `NoteEmbedWidget.ts`'s
- * own class doc comment for the full account.
- */
-/*
- * Presentation (2026-09, "reading a passage from another document"): a
- * working note embed is deliberately NOT a card — no background, no
- * border, no box-shadow. The two wavy dividers below (`__divider*`) are
- * what signal "embedded content," the same way a book sets off a quoted
- * passage with rules rather than a box. `margin-block` alone (no visual
- * container) keeps it separated from surrounding paragraphs; `gap`
- * between the flex children (header/divider/content/divider) is the only
- * internal spacing.
- */
+/* Not a card: a surface with an inset hairline and shadow. */
 .cm-media-block.cm-note-embed {
   position: relative;
   display: flex;
@@ -52,35 +20,23 @@
   box-shadow: var(--md-card-inset-border), var(--shadow-md);
   isolation: isolate;
 }
-/*
- * No hover highlight: the embedded content is never painted on its own. The only highlight an embed gets is
- * the editor-reveal flash (below), on the outer wrapper as one component.
- */
 
-/* The embed is a clickable card (NoteEmbedWidget.ts): the pointer covers all of it, including the text and
- * the nested editor, whose own cursors would otherwise show through. Buttons and links keep theirs. */
+/* The whole card opens the source note (NoteEmbedWidget.ts), so it shows the pointer, including over the
+ * nested editor's text, whose own cursors would otherwise show through. Buttons and links keep theirs. */
 .cm-note-embed,
 .cm-note-embed .cm-editor,
 .cm-note-embed .cm-line {
   cursor: pointer;
 }
 
-/* The embedded document shows no fold toggles (heading, list, fenced code): the header caret is the only
- * collapse control. Scoped to a toggle that is a direct child of a document line, which is where the fold
- * decorations sit; a nested embed's own header caret is deeper (line > card > header) and stays. */
+/* The embedded document shows no fold toggles; the header caret is the only collapse control. Scoped to a
+ * toggle that is a direct child of a document line: a nested embed's own caret is deeper and stays. */
 .cm-note-embed__content .cm-line > .cm-fold-toggle {
   display: none;
 }
 
-/*
- * Reveal flash (`editorRevealHighlight.ts` — `cm-reveal-line` / `cm-reveal-line--visible`, same colour and 400ms
- * fade as every other reveal): when the target line is an embed, the flash is painted on the embed's own wrapper
- * — header, content and divider as one component — instead of on the line behind it, so exactly one background
- * is ever drawn (no stacked alphas) and its edges follow the embed's rounded shape. Only the wrapper that is the
- * direct child of the revealed line paints: the nested view is a separate editor with no reveal state, and an
- * embed inside embedded content is never a direct child of a revealed line. Pure paint: no layout effect (no
- * margin, per this codebase's permanent CM6 rule).
- */
+/* Reveal flash (`editorRevealHighlight.ts`): when the revealed line is an embed, the highlight is painted on
+ * the embed wrapper as one component (not on the line behind it), so only one background is drawn. */
 .cm-editor .cm-reveal-line:has(> .cm-note-embed),
 .cm-editor .cm-reveal-line--visible:has(> .cm-note-embed) {
   background-color: transparent;
@@ -96,16 +52,14 @@
   background-color: var(--md-reveal-highlight-surface);
 }
 
+/* Nested embeds are flat. */
 .cm-content[contenteditable='false'] .cm-note-embed {
   padding: 0;
   border-radius: var(--radius-sm);
   box-shadow: none;
 }
 
-/* `padding` lives on the header in *both* states (not on the collapsed
- * card), so the title row has the same height and inset expanded or
- * collapsed — collapsing never makes it jump. Top-level only; a nested
- * embed's header stays flush (reset below). */
+/* Header padding is the same expanded and collapsed, so collapsing never makes the row jump. */
 .cm-note-embed__header {
   display: flex;
   align-items: center;
@@ -118,17 +72,7 @@
   padding: 0;
 }
 
-/* The resolved page's own identity icon — emoji if assigned, else the
- * page type's own default icon (`NoteEmbedWidget.ts`'s own
- * `DEFAULT_ICON_BY_KIND`), never both. `flex: none` keeps it a fixed size
- * regardless of how much the title/controls squeeze it. `--icon-md` (not
- * `--icon-sm`, which is `--space-6`/6px — too small to read as an icon
- * here) is the same size every other icon in this file set already uses
- * (`.cm-invalid-embed__icon`); the wrap is sized a couple of pixels
- * larger, the same small-margin relationship
- * `.cm-invalid-embed__icon-wrap`'s own 24×16 wrap/icon pairing already
- * establishes for the same "small identity glyph beside text" shape.
- */
+/* The page's identity icon: its emoji if it has one, else the type's default icon. */
 .cm-note-embed__icon-wrap {
   display: flex;
   align-items: center;
@@ -150,10 +94,8 @@
   color: var(--foreground-tertiary);
 }
 
-/* The title and path group, the title and the path are laid out and styled by the invalid card's own rules
- * (`mediaPresentation/invalidEmbedCard.css`: `.cm-invalid-embed__text` / `__title` / `__source`), so the two
- * states cannot drift. Only what is specific to this header is here: the group takes the row's free space so
- * the controls stay at its end, and the title truncates and keeps its font-size transition. */
+/* Title and path layout comes from the invalid card's rules (`mediaPresentation/invalidEmbedCard.css`) so the
+ * two states cannot drift. Here: the group takes the free space, and the title truncates. */
 .cm-note-embed__text {
   flex: 1 1 auto;
 }
@@ -173,15 +115,7 @@
   line-height: var(--lh-body);
 } */
 
-/* Hidden at rest, revealed on hover/focus of the whole card — same
- * reveal contract as Image's `.cm-media-controls`/PDF's
- * `.cm-pdf-controls`, applied to this row instead of either (see this
- * block's own doc comment for why neither shared class name is reused
- * directly here). Plain CSS `:hover`/`:focus-within` is enough — unlike
- * `PdfEmbedWidget.ts`, nothing here mutates the DOM under the pointer
- * mid-hover, so there's no "sticky hover" quirk to work around with a
- * JS-tracked hover class.
- */
+/* Controls and the caret are hidden at rest and revealed on hover or focus of the whole card. */
 .cm-note-embed__controls {
   display: flex;
   align-items: center;
@@ -195,40 +129,17 @@
   opacity: 1;
 }
 
-/*
- * The collapse toggle's own hover-reveal — same contract as
- * `.cm-note-embed__controls` above, but scoped separately since the
- * toggle (`NoteEmbedWidget.ts`'s own "Positioned like the standalone
- * fold toggle" doc comment) is `header`'s own first child, not a member
- * of `.cm-note-embed__controls`. `.cm-fold-toggle`'s own base rule
- * (`MarkdownEditor.css`) already handles at-rest opacity and the
- * "stay visible while folded" `[data-folded='true']` case globally, for
- * every fold toggle in the app; this is only the `.cm-line:hover`
- * equivalent for a construct that has no `.cm-line` ancestor to key off.
- */
 .cm-note-embed:hover .cm-fold-toggle,
 .cm-note-embed:focus-within .cm-fold-toggle {
   opacity: 1;
 }
 
-/* "The entire controls area remains visible" while this note embed's own
- * More actions menu is open — same requirement, same mechanism Image's own
- * size menu already establishes (`ImageWidget.css`'s own
- * `[data-menu-open='true']` rule, `MarkdownEditor.tsx`'s
- * `setImageMenuButtonOpen`/`setNoteEmbedMenuButtonOpen`). Needed as its own
- * rule, not covered by the `:hover`/`:focus-within` reveal above —
- * `NoteEmbedMoreActions`'s `Overlay` is a React portal mounted outside this
- * card's own DOM subtree, so once focus moves into the open menu neither
- * pseudo-class still matches here. `[data-menu-open="true"]` is set/cleared
- * by direct DOM mutation on this element (`NoteEmbedWidget.ts`'s `toDOM`
- * initializes it to `"false"`) rather than a CM6-diffed field, for the same
- * anchor-staleness reason `imageUiState.ts`'s own doc comment records for
- * Image's identical mechanism. */
+/* While More actions is open its menu is a portal outside the card, so neither :hover nor :focus-within
+ * matches; `data-menu-open` (set by direct DOM mutation) keeps the controls visible. */
 .cm-note-embed[data-menu-open='true'] .cm-note-embed__controls {
   opacity: 1;
 }
 
-/* Base rule — applies to EVERY .cm-note-embed__content, top-level included */
 .cm-note-embed__content {
   padding: var(--space-12);
   padding-top: 0;
@@ -239,155 +150,17 @@
   padding-block-start: var(--space-12); */
 }
 
-/* Extra indent — nested note embeds only (a note embed rendered *inside*
- * another note embed's own nested read-only view), never a top-level
- * embed's own content (one embedded directly in the main, editable
- * document). `.cm-content[contenteditable='false']` is the same signal
- * `mediaPresentation/embedLayout.css`'s own read-only mutating-control
- * rule already keys off — a nested `NoteEmbedWidget` is, by construction,
- * always rendered inside the nested `EditorView`'s own `.cm-content`
- * (`createEditorView.ts`'s `readOnly: true` sets `contenteditable="false"`
- * there), so this is exactly "nested," at any depth, with no separate
- * per-widget depth-tracking needed — same reasoning this file's own
- * `__divider` nested-hiding rule already establishes for the same
- * ancestor check.
- */
+/* Nested embeds get no extra inset. */
 .cm-content[contenteditable='false'] .cm-note-embed__content {
   padding: 0;
-  /* Resets the base rule's own `margin-bottom` for the nested case —
-     overriding via higher specificity only affects properties actually
-     re-declared here; anything not repeated (like margin-bottom would be
-     without this line) still falls through from the base rule above,
-     top-level or not. */
   margin-bottom: 0;
 }
+
 .cm-note-embed__content .cm-editor {
   outline: none;
 }
 
-/*
- * The excerpt's own closing boundary (`NoteEmbedWidget.ts`'s own
- * `buildDivider`) — a wavy rule after the nested view, with "End of note"
- * set into its center, marks where the excerpt ends. Deliberately reuses the
- * *exact* wavy-rule mask-image technique `hr/horizontalRuleDecoration.ts`
- * + `hr/DividerLabelWidget.ts` already render for a real `~---~` Markdown
- * divider at rest (`.cm-hr-line-wavy::after` / `.cm-hr-labeled--wavy
- * .cm-hr-labeled__rule`, `MarkdownEditor.css`) — same 16×6 tile, same
- * `M0 3 C4 3, 4 1, 8 1 S12 3, 16 3` path, same `mask-repeat`/`mask-size`/
- * `mask-position` — rather than a second, independently-invented wave
- * (a different SVG, a repeated-character rule, or any other decorative
- * technique). Copied here rather than sharing the actual CSS rule
- * cross-file: this widget's own colocated-CSS convention (every embed
- * type owns its own file, `NoteEmbedWidget.css`'s own doc comment) means
- * `hr/`'s markup-construct CSS and this widget's plain-DOM CSS were never
- * going to share a single rule regardless — copying the same, already-
- * proven mask parameters is what keeps the *result* visually and
- * technically identical without coupling the two features' own files
- * together for it.
- *
- * `.cm-note-embed__divider` itself is a plain block-level flex row, not
- * `DividerLabelWidget`'s own `inline-flex`/`contain: inline-size`/
- * `vertical-align: top` combination — that combination exists solely to
- * cooperate with a real CM6 document line and its `cm-widgetBuffer`
- * siblings (see that widget's own doc comment); this divider is a plain
- * child inside this widget's own already-isolated DOM subtree, with none
- * of that to cooperate with.
- */
-.cm-note-embed__divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-12);
-  margin-block: var(--space-12);
-  /* pick whatever width you want */
-  /* max-width: 200px;
-  margin-inline: auto; */
-  display: none;
-}
-
-.cm-note-embed__divider-rule {
-  flex: 1 1 auto;
-  height: 6px;
-  background-color: var(--border-strong);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  -webkit-mask-repeat: repeat-x;
-  mask-repeat: repeat-x;
-  -webkit-mask-size: 16px 6px;
-  mask-size: 16px 6px;
-  -webkit-mask-position: left center;
-  mask-position: left center;
-}
-
-/* "End of note" — set into the center of the closing boundary, styled to
-   read as the close of an excerpt (muted, italic) rather than a UI status
-   line. Sizing/truncation match `.cm-hr-labeled__text`'s own established
-   values for the identical "label between two rule segments" shape. */
-.cm-note-embed__divider-text {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--foreground-tertiary);
-  font-size: var(--text-label-small);
-  line-height: var(--lh-label-small);
-  letter-spacing: var(--ls-label-small);
-}
-
-/*
- * Nested note embeds (a note embed rendered inside another note embed's
- * own nested view) never show this boundary — only the top-level embed's
- * own excerpt is closed off by it. A nested rendering already reads as
- * "inside a passage" by virtue of being physically inside the outer one's
- * own content; repeating another "end of note" boundary one level down
- * would visually nest excerpts inside excerpts rather than reading as one
- * continuous passage, and clutters depth the header/controls' own
- * `--mutating` hiding (below) already declutters for every other
- * affordance. Same `.cm-content[contenteditable='false']` signal
- * `mediaPresentation/embedLayout.css`'s own read-only rule keys off — a
- * nested `NoteEmbedWidget` is, by construction, always rendered inside the
- * nested `EditorView`'s own `.cm-content` (`createEditorView.ts`'s
- * `readOnly: true` sets `contenteditable="false"` there), so this is
- * exactly "not the top level," at any nesting depth, with no separate
- * per-widget depth-tracking needed.
- */
-.cm-content[contenteditable='false'] .cm-note-embed__divider {
-  display: none;
-}
-
-/*
- * Collapsed at the top level: with `.cm-note-embed__content` hidden,
- * there is nothing between the header and this boundary for "End of note"
- * to mark the end *of* — showing it directly under a collapsed header
- * reads as a stray label, not a genuine passage boundary, so it hides
- * along with the content. `.cm-note-embed--collapsed` is the same class
- * `NoteEmbedWidget.ts`'s collapse toggle already maintains on the
- * container (`content.hidden`'s own sibling state), not a second,
- * independent collapsed signal introduced for this rule.
- */
-.cm-note-embed--collapsed .cm-note-embed__divider {
-  display: none;
-}
-
-/*
- * Collapsed card — top-level only. Reuses `--md-embed-surface`, the exact
- * token `mediaPresentation/invalidEmbedCard.css`'s own
- * `.cm-invalid-embed__row` uses, rather than a second background token
- * invented for this one state. Nested embeds (inside another
- * embed's own read-only view) reset back to no background, same
- * `.cm-content[contenteditable='false']` nested signal every other
- * top-level-only rule in this file already keys off.
- */
-/*
- * Surface matches the broken-embed card (`--md-embed-surface`, radius
- * `--md-embed-radius`) and the inset hairline + soft
- * shadow a folded fenced-code card gets (`fencedCodeBackgroundLayer`'s
- * `--folded` modifier: `--shadow-inset-thin`, `--shadow-sm`). `padding`,
- * never `margin`, per the codebase's permanent CM6 rule. The header's own
- * `--space-6` padding (above) provides the card's inner spacing.
- */
+/* Collapsed card: the same surface as the broken-embed card (`--md-embed-surface`). */
 .cm-note-embed--collapsed {
   border-radius: var(--md-embed-radius);
   background: var(--md-embed-surface);
