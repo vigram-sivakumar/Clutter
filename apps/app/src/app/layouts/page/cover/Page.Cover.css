@@ -1,6 +1,6 @@
 .page__cover {
   flex: 1 5 240px;
-  min-width: 164px;
+  min-width: 128px;
   max-width: var(--app-sidebar-width);
 
   position: relative;
