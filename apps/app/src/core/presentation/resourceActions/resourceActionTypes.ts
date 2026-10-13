@@ -53,6 +53,8 @@ export interface ResourceActionContext {
    * (ADR-052).
    */
   readonly referencesHidden?: boolean;
+  /** Notes and Daily Notes: how many references the note has, shown at the right of `toggle-references`. */
+  readonly referencesCount?: number;
   /** Permanent Delete applies only to an archived resource or an Archive descendant. */
   readonly isDeletable?: boolean;
   /** A folder's current sidebar sort; absent where the surface has no Sort by (see `sort-by`). */

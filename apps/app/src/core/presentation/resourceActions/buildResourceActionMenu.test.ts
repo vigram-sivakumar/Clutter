@@ -623,6 +623,12 @@ describe('Hide / Show references (ADR-052)', () => {
     expect(refs('note', { status: 'active', referencesHidden: false })?.disabled).toBeUndefined();
   });
 
+  it('shows the reference count at the right of the item, and nothing when there are none', () => {
+    expect(refs('note', { status: 'active', referencesCount: 3 })?.trailing).toBe('3');
+    expect(refs('note', { status: 'active', referencesCount: 0 })?.trailing).toBeUndefined();
+    expect(refs('note', { status: 'active' })?.trailing).toBeUndefined();
+  });
+
   it('a draft sees it disabled on the topbar (persistedOnly)', () => {
     expect(refs('note', { isDraft: true })?.disabled).toBe(true);
   });

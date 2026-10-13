@@ -53,7 +53,8 @@ function buildMenuForType(
   isDeletable: boolean,
   isTemplate: boolean = false,
   isEffectivelyArchived: boolean = false,
-  referencesHidden: boolean = false
+  referencesHidden: boolean = false,
+  referencesCount: number = 0
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
@@ -67,6 +68,7 @@ function buildMenuForType(
           isTemplate,
           isEffectivelyArchived,
           referencesHidden,
+          referencesCount,
         },
         'topbar'
       );
@@ -81,6 +83,7 @@ function buildMenuForType(
           isDeletable,
           isEffectivelyArchived,
           referencesHidden,
+          referencesCount,
         },
         'topbar'
       );
@@ -147,6 +150,8 @@ export interface BuildTopBarActionsOptions {
    * the `toggle-references` item. Pages only; ignored for a folder.
    */
   referencesHidden?: boolean;
+  /** The note's reference count, shown beside the `toggle-references` item. Pages only. */
+  referencesCount?: number;
   /** The `toggle-references` item's handler — flips the note's saved Hide/Show choice. Pages only. */
   onToggleReferences?: () => void;
 }
@@ -194,7 +199,8 @@ export function buildTopBarActions(
         isDeletable,
         options.membershipSelector.isInTemplatesFolder(resource.parentId),
         isEffectivelyArchived,
-        options.referencesHidden
+        options.referencesHidden,
+        options.referencesCount
       )
     : buildResourceActionMenu(
         'folder',

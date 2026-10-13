@@ -682,7 +682,7 @@ export function PageHost({
   const page = useActivePage(vault, activePageId);
   // ADR-052: the open note's saved References choices. "Hidden" for the menu means not on screen — an
   // explicit Hide, or automatic hiding of a section with nothing to list — so the label names what a click
-  // does. The reference list is only consulted when there is no explicit choice (automatic visibility).
+  // does. The count also trails the menu item.
   const referencesDisplay = useReferencesDisplayStore(
     application.referencesDisplayStore
   );
@@ -690,17 +690,16 @@ export function PageHost({
     ? referencesDisplay.getHidden(activePageId)
     : undefined;
   const knowledgeGraph = vault.knowledgeGraph();
-  const hasReferences = useMemo(
+  const referencesCount = useMemo(
     () =>
-      activePageId !== null &&
-      activePageId !== undefined &&
-      savedReferencesHidden === undefined &&
-      countPageReferences(getPageReferences(vault, activePageId)) > 0,
-    [vault, knowledgeGraph, activePageId, savedReferencesHidden]
+      activePageId
+        ? countPageReferences(getPageReferences(vault, activePageId))
+        : 0,
+    [vault, knowledgeGraph, activePageId]
   );
   const referencesHidden = !isReferencesDisplayed(
     savedReferencesHidden,
-    hasReferences
+    referencesCount > 0
   );
   const propertyDrafts = useCustomPropertyDrafts(activePageId);
   const propertiesConfirmation = useConfirmationSurface();
@@ -2838,6 +2837,7 @@ export function PageHost({
     // ADR-052: flips the note's saved Hide/Show choice (a click on "Show" while the section is auto-hidden
     // for having nothing to list is an explicit Show, which keeps it visible even when empty).
     referencesHidden,
+    referencesCount,
     onToggleReferences: () =>
       application.referencesDisplayStore.setHidden(page.id, !referencesHidden),
     // A note/daily-note delete is only ever reachable here for an
