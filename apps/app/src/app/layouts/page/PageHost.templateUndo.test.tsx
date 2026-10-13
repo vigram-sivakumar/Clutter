@@ -33,6 +33,10 @@ import { PageCreator } from '@core/application/page/PageCreator';
 import { PageFactory } from '@core/application/page/PageFactory';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
+import { PageBuilder } from '@core/vault/ingest/PageBuilder';
+import type { Page } from '@core/vault/models/Page';
+import { applyTemplateToNote } from '@features/notes/helpers/applyTemplateToNote';
+import { applyBodyWithMetadataStep } from '@features/markdown/editor/codemirror/metadataHistoryStep';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { __clearAllCachedEditorHistoryForTests } from '@features/markdown/editor/codemirror/editorHistoryCache';
 
@@ -72,6 +76,27 @@ afterEach(() => {
 const ROOT = '/vault';
 const TEMPLATE_BODY = '# Agenda';
 
+function buildNote(frontmatter: Record<string, unknown>): Page {
+  return new PageBuilder(ROOT).build({
+    parentId: null,
+    page: {
+      path: `${ROOT}/Note.md`,
+      directoryPath: ROOT,
+      frontmatter: { id: 'note', ...frontmatter },
+      frontmatterAnalysis: { aliases: [] },
+      content: '',
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    },
+  });
+}
+
 async function flush(): Promise<void> {
   for (let i = 0; i < 6; i++) {
     await act(async () => {
@@ -88,11 +113,20 @@ async function flush(): Promise<void> {
 async function setup(
   noteTags: string[],
   template: { body?: string; metadata?: Partial<EditablePageMetadata> },
-  options: { extraTemplates?: number } = {}
+  options: {
+    extraTemplates?: number;
+    /**
+     * An empty note that is already saved, with this frontmatter. The suggestions never offer a template to
+     * one, so it is applied with `applyToNote` (the same call and editor step the suggestions make) to cover
+     * merging into and undoing back to metadata the note already had.
+     */
+    persisted?: Record<string, unknown>;
+  } = {}
 ) {
+  const savedNote = options.persisted ? buildNote(options.persisted) : undefined;
   const vault = new Vault(
     ROOT,
-    [],
+    savedNote ? [savedNote] : [],
     [],
     [],
     [],
@@ -135,10 +169,16 @@ async function setup(
   }
   await operations.requestSave(templateDraft);
   // The note under test: what "New note" gives — an unpersisted draft.
-  const noteId = await operations.openDraft({
-    folderId: null,
-    ...(noteTags.length > 0 && { tags: noteTags }),
-  });
+  const noteId = savedNote
+    ? savedNote.id
+    : await operations.openDraft({
+        folderId: null,
+        ...(noteTags.length > 0 && { tags: noteTags }),
+      });
+
+  if (savedNote) {
+    await operations.open(noteId);
+  }
 
   render(<AppLayout application={application} />);
   await flush();
@@ -153,6 +193,28 @@ async function setup(
   const session = () => operations.getSession(noteId)!;
   const apply = async () => {
     fireEvent.click(document.querySelector('.template-suggestions__item')!);
+    await flush();
+  };
+  /** Applies the "Meeting Notes" template to the open note exactly as the suggestions do (see `persisted`). */
+  const applyToNote = async () => {
+    const template = [...application.vault.pages()].find(
+      (candidate) => candidate.name === 'Meeting Notes'
+    )!;
+
+    await act(async () => {
+      await applyTemplateToNote(
+        operations,
+        noteId,
+        'note',
+        page().metadata,
+        template.source.markdown,
+        template.metadata,
+        {
+          applyBody: (markdown, step) =>
+            applyBodyWithMetadataStep(view(), markdown, step),
+        }
+      );
+    });
     await flush();
   };
   /** Through the picker the "+N more" entry opens: choose a template there by its title. */
@@ -218,6 +280,7 @@ async function setup(
     metadata,
     session,
     apply,
+    applyToNote,
     pickInPicker,
     pressUndo,
     pressRedo,
@@ -682,6 +745,204 @@ describe('a metadata save that fails while undoing or redoing', () => {
     await env.pressUndo();
     expect(env.doc()).toBe('');
     expect(env.metadata().icon).toBeNull();
+    expect(env.metadata().tags).toEqual(['mine']);
+  });
+});
+
+describe('applying a template to a saved note that already has metadata', () => {
+  // Not reachable from the suggestions (a saved note is never offered a template), but applyTemplateToNote and
+  // the editor's undo step still merge into, and restore, whatever a note already holds.
+  it("undo gives back the note's own icon, cover and cover settings that the template replaced", async () => {
+    const env = await setup(
+      [],
+      { metadata: FULL_TEMPLATE },
+      {
+        persisted: {
+          icon: '📌',
+          cover: 'https://example.com/mine.jpg',
+          coverLayout: 'side',
+          coverPositionAbove: 70,
+        },
+      }
+    );
+
+    await env.applyToNote();
+    expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
+    expect(env.metadata().icon).toBe('🧾');
+
+    await env.pressUndo();
+
+    expect(env.metadata().icon).toBe('📌');
+    expect(env.metadata().cover).toBe('https://example.com/mine.jpg');
+    expect(env.metadata().coverLayout).toBe('side');
+    expect(env.metadata().coverPositionAbove).toBe(70);
+  });
+
+  it('the example: 📝 + existing cover + #work, then "Meeting Notes" — undo restores exactly that, redo restores the application', async () => {
+    const MEETING_BODY = '# Meeting Notes\n\n## Agenda\n\n## Action Items';
+    const env = await setup(
+      [],
+      {
+        body: MEETING_BODY,
+        metadata: {
+          icon: '📅',
+          cover: 'https://example.com/meeting-cover.jpg',
+          tags: ['meetings', 'work'],
+        },
+      },
+      {
+        persisted: {
+          icon: '📝',
+          cover: 'https://example.com/existing-cover.jpg',
+          tags: ['work'],
+        },
+      }
+    );
+    const id = env.noteId;
+    expect(env.doc()).toBe('');
+
+    await env.applyToNote();
+    expect(env.doc()).toBe(MEETING_BODY);
+    expect(env.metadata().icon).toBe('📅');
+    expect(env.metadata().cover).toBe('https://example.com/meeting-cover.jpg');
+    // Merged without duplicates: the note's #work first, then the template's new one.
+    expect(env.metadata().tags).toEqual(['work', 'meetings']);
+    expect(env.page().id).toBe(id);
+
+    await env.pressUndo();
+    expect(env.doc()).toBe('');
+    expect(env.session().currentRevision.markdown).toBe('');
+    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().cover).toBe('https://example.com/existing-cover.jpg');
+    expect(env.metadata().tags).toEqual(['work']);
+    expect(env.page().id).toBe(id);
+
+    await env.pressRedo();
+    expect(env.doc()).toBe(MEETING_BODY);
+    expect(env.session().currentRevision.markdown).toBe(MEETING_BODY);
+    expect(env.metadata().icon).toBe('📅');
+    expect(env.metadata().cover).toBe('https://example.com/meeting-cover.jpg');
+    expect(env.metadata().tags).toEqual(['work', 'meetings']);
+    expect(env.page().id).toBe(id);
+  });
+
+  it('typing after the template is undone first, then the template, and redone in that order', async () => {
+    const env = await setup(
+      [],
+      { metadata: FULL_TEMPLATE },
+      { persisted: { icon: '📝', tags: ['work'] } }
+    );
+
+    await env.applyToNote();
+    await env.type('\n\nnotes I added');
+    const typedBody = `${TEMPLATE_BODY}\n\nnotes I added`;
+    expect(env.doc()).toBe(typedBody);
+
+    await env.pressUndo(); // the typing only
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🧾');
+    expect(env.metadata().tags).toEqual(['work', 'tpl', 'meeting']);
+
+    await env.pressUndo(); // the template application
+    expect(env.doc()).toBe('');
+    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().tags).toEqual(['work']);
+
+    await env.pressRedo(); // the template application
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🧾');
+    expect(env.metadata().tags).toEqual(['work', 'tpl', 'meeting']);
+
+    await env.pressRedo(); // the typing
+    expect(env.doc()).toBe(typedBody);
+    expect(env.metadata().icon).toBe('🧾');
+  });
+
+  it('survives a save in between: after undo the file holds the empty body and the old metadata, after redo the template', async () => {
+    const env = await setup(
+      [],
+      { metadata: FULL_TEMPLATE },
+      { persisted: { icon: '📝', tags: ['work'] } }
+    );
+    const onDisk = () => env.fileSystem.readFile(env.page().path);
+    await env.applyToNote();
+    await env.application.pageOperations.requestSave(env.noteId);
+    expect(await onDisk()).toContain('# Agenda');
+
+    await env.pressUndo();
+    await env.application.pageOperations.requestSave(env.noteId);
+    const afterUndo = await onDisk();
+    expect(env.doc()).toBe('');
+    expect(afterUndo).not.toContain('# Agenda');
+    expect(afterUndo).toContain('📝');
+    expect(afterUndo).not.toContain('🧾');
+
+    await env.pressRedo();
+    await env.application.pageOperations.requestSave(env.noteId);
+    const afterRedo = await onDisk();
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(afterRedo).toContain('# Agenda');
+    expect(afterRedo).toContain('🧾');
+  });
+
+  it('a property the user changed after the template is kept by undo; the others are still restored', async () => {
+    const env = await setup(
+      [],
+      { metadata: FULL_TEMPLATE },
+      { persisted: { tags: ['mine'], icon: '📝' } }
+    );
+    await env.applyToNote();
+
+    // The user picks their own icon afterwards.
+    await act(async () => {
+      await env.application.pageOperations.updateMetadata(env.noteId, { icon: '🎯' });
+    });
+    await flush();
+
+    await env.pressUndo();
+    expect(env.doc()).toBe('');
+    // Kept: the user's later icon. Restored: everything they did not touch.
+    expect(env.metadata().icon).toBe('🎯');
+    expect(env.metadata().cover).toBeNull();
+    expect(env.metadata().description).toBeNull();
+    expect(env.metadata().tags).toEqual(['mine']);
+
+    // Redo must not take the user's icon back either.
+    await env.pressRedo();
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🎯');
+    expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
+    expect(env.metadata().tags).toEqual(['mine', 'tpl', 'meeting']);
+  });
+
+  it('a metadata save that fails while undoing is reported, the properties are left as they were, and redo then undo work once saving works', async () => {
+    const env = await setup(
+      [],
+      { metadata: FULL_TEMPLATE },
+      { persisted: { tags: ['mine'], icon: '📝' } }
+    );
+    await env.applyToNote();
+    const operations = env.application.pageOperations;
+    const real = operations.updateMetadata.bind(operations);
+    let failing = true;
+    vi.spyOn(operations, 'updateMetadata').mockImplementation((...args) =>
+      failing ? Promise.reject(new Error('disk full')) : real(...args)
+    );
+
+    await env.pressUndo();
+
+    expect(env.doc()).toBe('');
+    expect(env.metadata().icon).toBe('🧾');
+    expect(document.body.textContent).toContain('Couldn’t update the note’s properties');
+
+    failing = false;
+    await env.pressRedo();
+    expect(env.doc()).toBe(TEMPLATE_BODY);
+    expect(env.metadata().icon).toBe('🧾');
+
+    await env.pressUndo();
+    expect(env.doc()).toBe('');
+    expect(env.metadata().icon).toBe('📝');
     expect(env.metadata().tags).toEqual(['mine']);
   });
 });

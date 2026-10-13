@@ -277,6 +277,54 @@ describe('TemplateSuggestions are offered to a new draft with an empty body', ()
   });
 });
 
+describe('what saves a draft, as far as the suggestions are concerned (current behavior, documented)', () => {
+  it('a body-only template leaves the draft unsaved until its body is saved; once saved, emptying the body does not bring the row back', async () => {
+    const { application, noteId } = await setup();
+
+    fireEvent.click(document.querySelector('.template-suggestions__item')!);
+    await flush();
+    expect(application.vault.getPage(noteId)).toBeUndefined();
+
+    // The editor's blur/autosave: the body is committed, which saves the draft as a note.
+    await act(async () => {
+      await application.pageOperations.requestSave(noteId);
+    });
+    await flush();
+    expect(application.vault.getPage(noteId)).toBeDefined();
+
+    act(() => application.pageOperations.commitEdit(noteId, ''));
+    await flush();
+
+    expect(suggestionsShown()).toBe(false);
+  });
+
+  it('text typed and then cleared before any save keeps the draft unsaved, so the row returns', async () => {
+    const { application, noteId } = await setup();
+
+    act(() => application.pageOperations.commitEdit(noteId, 'hello'));
+    act(() => application.pageOperations.commitEdit(noteId, ''));
+    await flush();
+
+    expect(application.vault.getPage(noteId)).toBeUndefined();
+    expect(suggestionsShown()).toBe(true);
+  });
+
+  it('saving an emptied draft (typed, cleared, then blurred) writes it as a note, so the row does not come back', async () => {
+    const { application, noteId } = await setup();
+
+    act(() => application.pageOperations.commitEdit(noteId, 'hello'));
+    act(() => application.pageOperations.commitEdit(noteId, ''));
+    await act(async () => {
+      await application.pageOperations.requestSave(noteId);
+    });
+    await flush();
+
+    // The blur save writes even an emptied draft as a note, and a saved note never offers templates.
+    expect(application.vault.getPage(noteId)).toBeDefined();
+    expect(suggestionsShown()).toBe(false);
+  });
+});
+
 describe('applying a template through the picker (+N more)', () => {
   beforeEach(() => {
     // No layout in jsdom: every measured element is 100px wide and the row 150px, so one template and "+N more" show.

@@ -25,7 +25,12 @@ import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSy
 import type { PageFrontmatter } from '@core/vault/ingest/frontmatter/PageFrontmatter';
 
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
-import { applyTemplateToNote, metadataPatchStillApplicable } from './applyTemplateToNote';
+import {
+  applyTemplateToNote,
+  inverseMetadataPatch,
+  metadataPatchStillApplicable,
+  pickTemplateMetadataToMerge,
+} from './applyTemplateToNote';
 
 const ROOT = '/vault';
 
@@ -339,6 +344,69 @@ describe('applyTemplateToNote — applying the body through the editor fails', (
     expect(after.tags).toEqual(['mine']);
     expect(after.cover).toBeNull();
     expect(after.description).toBeNull();
+  });
+});
+
+describe('merging into, and undoing, a note that already has metadata', () => {
+  const template = {
+    icon: '🧾',
+    cover: 'https://example.com/tpl.jpg',
+    coverLayout: 'above',
+    coverPositionAbove: 30,
+    tags: ['tpl', 'work'],
+  } as never;
+  const existing = {
+    icon: '📌',
+    cover: 'https://example.com/mine.jpg',
+    coverLayout: 'side',
+    coverPositionAbove: 70,
+    tags: ['work'],
+  } as never;
+
+  it("the template's icon and cover replace the note's, and tags are the union with the note's first", () => {
+    const patch = pickTemplateMetadataToMerge(existing, template, 'note');
+
+    expect(patch).toMatchObject({
+      icon: '🧾',
+      cover: 'https://example.com/tpl.jpg',
+      coverLayout: 'above',
+      coverPositionAbove: 30,
+      tags: ['work', 'tpl'],
+    });
+  });
+
+  it('a daily note never takes the template icon', () => {
+    expect(pickTemplateMetadataToMerge(existing, template, 'daily-note')).not.toHaveProperty('icon');
+  });
+
+  it("the inverse puts back the note's own value for every key the patch set", () => {
+    const patch = pickTemplateMetadataToMerge(existing, template, 'note');
+
+    expect(inverseMetadataPatch(existing, patch)).toMatchObject({
+      icon: '📌',
+      cover: 'https://example.com/mine.jpg',
+      coverLayout: 'side',
+      coverPositionAbove: 70,
+      tags: ['work'],
+    });
+  });
+
+  it('for a key the note had no value for, the inverse is the blank-page default, and only touched keys are included', () => {
+    const patch = pickTemplateMetadataToMerge({} as never, template, 'note');
+    const inverse = inverseMetadataPatch({} as never, patch);
+
+    expect(inverse).toMatchObject({ icon: null, cover: null, tags: [] });
+    expect(Object.keys(inverse).sort()).toEqual(Object.keys(patch).sort());
+    expect(inverse).not.toHaveProperty('description');
+  });
+
+  it('applying the inverse after the patch is a no-op round trip for patch-then-undo', () => {
+    const patch = pickTemplateMetadataToMerge(existing, template, 'note');
+    const inverse = inverseMetadataPatch(existing, patch);
+
+    // Reapplying the same template to the restored note gives the same patch again.
+    const restored = { ...(existing as object), ...inverse } as never;
+    expect(pickTemplateMetadataToMerge(restored, template, 'note')).toEqual(patch);
   });
 });
 
