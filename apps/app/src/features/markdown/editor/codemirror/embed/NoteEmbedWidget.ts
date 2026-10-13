@@ -1,5 +1,5 @@
 import { EditorSelection } from '@codemirror/state';
-import { WidgetType, type EditorView } from '@codemirror/view';
+import { EditorView, WidgetType } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
@@ -517,8 +517,13 @@ export class NoteEmbedWidget extends WidgetType {
 
     const content = document.createElement('div');
     content.classList.add('cm-note-embed__content');
-    content.hidden = this.ui.collapsed;
-    container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
+    // A nested embed (rendered inside another embed's read-only view — the same `editable: false` signal the
+    // nested CSS keys off) has no collapse caret and is always expanded; its saved collapse state is left
+    // untouched in the store, just not applied here.
+    const nested = !view.state.facet(EditorView.editable);
+    const collapsed = !nested && this.ui.collapsed;
+    content.hidden = collapsed;
+    container.classList.toggle('cm-note-embed--collapsed', collapsed);
 
     // The embed is a clickable card: a click anywhere on the wrapper opens the source note, through the same
     // `openSource` the Expand button uses. What has its own click behavior keeps it and does not navigate:
@@ -609,7 +614,7 @@ export class NoteEmbedWidget extends WidgetType {
     // "belongs at the very start of the construct it owns" position
     // every other fold toggle in this codebase already uses (before the
     // `#`/marker/opening fence), here meaning before the identity icon.
-    header.append(collapseButton, iconWrap, text, controls);
+    header.append(...(nested ? [] : [collapseButton]), iconWrap, text, controls);
 
     container.append(header, content);
 

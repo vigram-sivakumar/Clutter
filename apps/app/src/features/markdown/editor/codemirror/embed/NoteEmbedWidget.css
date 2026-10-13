@@ -29,8 +29,8 @@
   cursor: pointer;
 }
 
-/* The embedded document shows no fold toggles; the header caret is the only collapse control. Scoped to a
- * toggle that is a direct child of a document line: a nested embed's own caret is deeper and stays. */
+/* The embedded document shows no fold toggles; the top-level header caret is the only collapse control
+ * (nested embeds render none). Scoped to a toggle that is a direct child of a document line. */
 .cm-note-embed__content .cm-line > .cm-fold-toggle {
   display: none;
 }
