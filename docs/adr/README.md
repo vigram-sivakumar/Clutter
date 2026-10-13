@@ -49,3 +49,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [049](./049-move-zones.md) | Move zones — Templates and Assets are sealed hierarchies; a Template stays in Templates, an Asset in Assets | Accepted |
 | [050](./050-remove-unreachable-task-views.md) | Remove the unreachable Today / Overdue / Upcoming / Completed task views (amends ADR-046 and ADR-027); the sidebar sections stay | Accepted |
 | [051](./051-tasks-page-tabs-select-the-dataset.md) | The Tasks page tabs select the dataset — Today / Upcoming return as tab datasets (page-local state), not as navigation views | Accepted |
+| [052](./052-references-display-preferences.md) | Per-note References display preferences (visibility tri-state + expansion) persist in `.clutter/workspace.json` via `ReferencesDisplayStore` — not frontmatter, not the Gate | Accepted |
