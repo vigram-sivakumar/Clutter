@@ -103,20 +103,6 @@ export interface OpenNoteEmbedMenuParams {
   readonly to: number;
 }
 
-/** Elements inside an embed's nested content that own their own click behavior — a click on (or inside) any of them must not also open the source note. */
-const NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR = [
-  'a',
-  'button',
-  'input',
-  '.tok-link',
-  '.tok-wikilink',
-  '.tok-tag',
-  '.tok-date',
-  '.cm-task-checkbox',
-  '.cm-media-block:not(.cm-note-embed)',
-  '.cm-fold-toggle',
-].join(',');
-
 export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
 
 /**
@@ -519,29 +505,14 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = this.ui.collapsed;
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
-    // Clicking the embedded content opens the source note — the same
-    // `getOnOpenPage` navigation the Expand button uses. Never fires for a
-    // drag/selection gesture (a text selection exists), or when the click
-    // lands on something the content already makes interactive (links,
-    // tags, dates, checkboxes, non-embed media, fold toggles, buttons) —
-    // only a plain click on the passage itself navigates. Only the
-    // outermost embed handles it: a nested embed's click bubbles up here.
+    // Source navigation belongs to the embed's outer content boundary — the padding ring around the
+    // nested view — not to the rendered content. A click inside the nested view always has the nested
+    // view's own element as its target, so `target === content` means the click landed on the boundary
+    // itself and nothing inside (text, links, checkboxes, media, a nested embed) can trigger it. A nested
+    // embed's content has no padding, so it has no boundary of its own: only the outermost embed opens.
+    // Uses the same `getOnOpenPage` navigation the Expand button uses.
     content.addEventListener('click', (event) => {
-      const target = event.target;
-      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
-        return;
-      }
-      if (window.getSelection()?.toString()) {
-        return;
-      }
-      // Nested inside another embed's content: leave the click to bubble to
-      // the outermost embed, which is the one that opens (and the only one
-      // that highlights). This embed's own Expand button still opens it.
-      if (container.parentElement?.closest('.cm-note-embed__content')) {
-        return;
-      }
-      const interactive = target.closest(NOTE_EMBED_CONTENT_INTERACTIVE_SELECTOR);
-      if (interactive && interactive !== content && content.contains(interactive)) {
+      if (event.target !== content || event.button !== 0 || event.defaultPrevented) {
         return;
       }
       this.getOnOpenPage()?.(resolution.pageId);

@@ -57,11 +57,14 @@
  * the editor-reveal flash (below), on the outer wrapper as one component.
  */
 
-/* Clicking the content opens the source note (NoteEmbedWidget.ts) — the
- * nested read-only view's own text cursor would say "editable", so show the
- * pointer instead. Links/tags/etc. inside keep their own cursors. */
-.cm-note-embed > .cm-note-embed__content .cm-content {
+/* Clicking the content boundary (the padding ring around the nested view) opens the source note
+ * (NoteEmbedWidget.ts). The nested view keeps its own cursors so text does not look clickable. */
+.cm-note-embed > .cm-note-embed__content {
   cursor: pointer;
+}
+
+.cm-note-embed > .cm-note-embed__content .cm-editor {
+  cursor: default;
 }
 
 /*
