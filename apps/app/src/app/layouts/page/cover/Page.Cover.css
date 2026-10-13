@@ -1,7 +1,6 @@
 .page__cover {
   flex: 1 5 240px;
   min-width: 128px;
-  max-width: var(--app-sidebar-width);
 
   position: relative;
   z-index: 1;
@@ -13,29 +12,17 @@
   user-select: none;
   -webkit-user-select: none;
 
-  /* Hide/Show collapse transition only — see Page.Cover.tsx's own `hidden`
-     doc comment for why adding/changing/removing a cover never touches
-     this. .page__document (flex: 1; min-width: 0, Page.css) needs no
-     transition of its own to "move into"/"out of" the freed space: the
-     browser recomputes the whole flex row's layout every frame while
-     these animate, so the document widens/narrows in natural lockstep
-     for free, not as a second, separately-timed motion.
+  /* Hide/Show slide. The shown and collapsed states differ in all four
+     properties below, so each must transition or it snaps on the first
+     frame: flex-grow would hand the cover its share of the row's free space
+     at once, min-width would jump it to its 128px floor, and margin-left
+     would shift the document by the corner radius. The document has no
+     transition of its own; it fills whatever the cover leaves.
 
-     flex-grow is transitioned alongside flex-basis, not left to snap
-     instantly: at flex-basis: 0 the row still has positive free space
-     (.page__document's own basis is narrower than the row), so an
-     untransitioned flex-grow: 0 -> 1 the instant the collapsed state is
-     left would let the flex algorithm hand this item its grown share of
-     that leftover space in the very first frame — reproducing the same
-     "never actually starts at 0" bug flex-grow: 0 below was added to
-     fix, just on entry instead of at rest. Animating both in lockstep
-     keeps the rendered width itself at genuinely 0 until the transition
-     is actually under way. */
-  /* The sidebar's directional pair at the cover's own duration
-     (--layout-transition-duration): the spring curve here (Show claims
-     space), the calmer standard curve in the [data-hidden] rule below (Hide
-     gives it up). A transition takes its timing from the state it is heading
-     to, so each state carries its own. */
+     Same tokens as the sidebar (AppLayout.css): this rule is the shown
+     state, so Show uses the expand curve; `[data-hidden]` below carries the
+     collapse curve for Hide. A transition takes its timing from the state it
+     is heading to. */
   transition:
     flex-basis var(--layout-transition-duration)
       var(--layout-transition-expand-easing),
@@ -47,32 +34,18 @@
       var(--layout-transition-expand-easing);
 }
 .page__cover[data-hidden] {
-  /* data-hidden reflects the durable `coverHidden` metadata
-     (Page.Cover.tsx's `hidden` prop) — this rule only ever animates when
-     it changes on an already-mounted PageCover (a real Hide/Show click on
-     the open note), never on navigation to a note whose cover starts
-     hidden; see Page.Cover.tsx's own `hidden` doc comment for how that's
-     kept true (keying PageCover by the active resource).
-
-     flex-grow: 1 alone (the base rule's `flex: 1 5 240px`) still pulls a
-     share of the row's leftover free space even at flex-basis: 0 — .page
-     has .page__document (flex: 1 1 840px) as the only other item, so
-     whenever the row is wider than 840px the two siblings split the
-     remainder evenly via their equal flex-grow, leaving this "collapsed"
-     state resting at a real, nonzero width instead of 0. Zeroing
-     flex-grow here (only for this collapsed state — the expanded, stable
-     .page__cover below is untouched) stops it from claiming any of that
-     leftover space, so flex-basis: 0 is what actually renders. */
+  /* Collapsed state, from the `hidden` prop (Page.Cover.tsx). It only
+     animates when `hidden` changes on a mounted cover; navigating to a note
+     whose cover starts hidden mounts it collapsed (PageCover is keyed by the
+     active resource), so nothing plays. The cover reserves no space here:
+     flex-grow is 0 because the document's basis leaves free space the cover
+     would otherwise share, even at flex-basis: 0. */
   flex-grow: 0;
   flex-basis: 0;
   min-width: 0;
-  /* The base rule's negative `margin-left` (the cover tucking under
-     .page__document's rounded right edge) must go too: a flex item's outer
-     size is basis + margins, so a collapsed cover would otherwise still
-     contribute -radius, making .page__document `radius` px wider than the
-     row — its right edge (and its inset-shadow border) then lands outside
-     `.page`, which clips it (`overflow: hidden`). Transitioned alongside the
-     flex properties above so the collapse stays in lockstep. */
+  /* The base rule's negative margin-left (the cover tucking under the
+     document's rounded edge) must go too: it would otherwise leave the
+     document a corner radius wider than the row, clipped by `.page`. */
   margin-left: 0;
   transition-timing-function: var(--layout-transition-collapse-easing);
 }
@@ -91,10 +64,9 @@
    `.page__content` is a `flex-direction: column` container with
    `align-items` left at its default `stretch`, so this alone gives the
    cover the same width as the title/body content area without any width
-   math of our own — `max-width` only needs to cancel the base rule's
-   Side-specific `var(--app-sidebar-width)` cap (padding-inline, not
-   margin, insets the image itself — margin here would push the box wider
-   than its 100% width, per the content-box model). 240px reuses the Side
+   math of our own (padding-inline, not margin, insets the image itself —
+   margin here would push the box wider than its 100% width, per the
+   content-box model). 240px reuses the Side
    layout's own `min-width` value above (not a new, screenshot-derived
    number) purely as a reasonable default cover height.
 
@@ -232,16 +204,14 @@
   width: 320px;
 }
 
-/* Side layout: the cover collapses the way the sidebar does. `.page__cover`
-   is the clipping slot (its `overflow: hidden` + animated width, above); the
-   image inside is not sized by the slot but keeps the width the cover had
-   while settled (`--page-cover-natural-width`, measured in Page.Cover.tsx),
-   anchored to the right edge — so as the slot narrows, .page__document
-   slides over the image and clips it from the left instead of the image
-   rescaling with the shrinking box. The fallback (a cover that has never
-   been measured, e.g. one that mounts already hidden) is the slot's own
-   max width. Not applied to the Above layout, where the cover is a
-   full-width block that never collapses gradually. */
+/* Side layout: `.page__cover` is the clipping slot (`overflow: hidden`,
+   animated width). The image is not sized by the slot: it keeps the width
+   the cover had while settled (`--page-cover-natural-width`, measured in
+   Page.Cover.tsx) and stays anchored to the right edge, so as the slot
+   narrows the document slides over it and clips it from the left instead of
+   the image rescaling. The fallback applies to a cover never measured (e.g.
+   one that mounts already hidden). Not applied to the Above layout, which
+   never collapses gradually. */
 .page > .page__cover > .page-cover__image {
   position: absolute;
   top: 0;

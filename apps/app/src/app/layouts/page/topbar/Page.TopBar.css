@@ -11,16 +11,12 @@
   user-select: none;
   -webkit-user-select: none;
 
-  /* The topbar's own padding-left only moves ~40-100px, versus the
-     page's full sidebar-width slide (AppLayout.css, ~340ms) — using that
-     same 340ms here would read as the topbar lagging behind its own,
-     much shorter distance, not "keeping in step" with it. 190ms (within
-     the page transition's own overall envelope, just shorter) keeps this
-     reacting to the page's movement without becoming a separately-paced
-     animation layered on top. Direction-specific easing below: collapse
-     and expand deliberately feel different, matching how the page's own
-     [data-sidebar-collapsed='true']/['false'] rules already differ. */
-  transition: padding-left 190ms ease-in-out;
+  /* The topbar content sits at the page's left edge plus this padding, so
+     the padding must move on the same clock as the page slide (AppLayout.css):
+     same duration and, per state below, the same curves. A different curve,
+     duration or delay would make the content briefly move against the page. */
+  transition: padding-left var(--layout-transition-duration)
+    var(--layout-transition-expand-easing);
 }
 
 .topbar--leading,
@@ -71,27 +67,11 @@
    instead, same as it did pre-collapse-rewrite. Scoped to .topbar
    only — not .page, the editor, sidebar, or general layout — and not
    permanent: removed the moment the sidebar re-expands. */
-/* Collapsed sidebar — browser. Padding is growing (page has just started
-   covering the sidebar), so this reuses --layout-transition-collapse-easing — the
-   same standard-decel/no-overshoot curve the page's own collapse motion
-   already uses (AppLayout.css) — quick off the mark, settling smoothly
-   into its larger value rather than snapping straight there.
-
-   transition-delay: 100ms (~30% of the page's own 340ms slide,
-   AppLayout.css) holds the padding at its starting value while the page
-   is still far from the toggle — without it, the padding visibly starts
-   growing the instant the page begins moving, while there's still an
-   obvious gap between the topbar's leading edge and the stationary
-   toggle. Delaying it lets the padding only start once the page has
-   covered a real fraction of its own distance — closer to arriving —
-   and 190ms is still short enough that delay + duration (~290ms)
-   finishes within the page's 340ms, not after it. Expand has no such
-   delay: padding starts shrinking immediately as the page pulls away,
-   which reads correctly with no gap to wait out in that direction. */
+/* Collapsed sidebar — browser. Padding grows as the page covers the sidebar,
+   with the page's collapse curve. */
 .app-layout[data-sidebar-collapsed='true'] .topbar {
   padding-left: 40px;
-  transition-timing-function: ease;
-  transition-delay: 70ms;
+  transition-timing-function: var(--layout-transition-collapse-easing);
 }
 
 /* Tauri/macOS + collapsed sidebar */
@@ -99,11 +79,8 @@
   padding-left: calc(var(--space-8) + 100px);
 }
 
-/* Expanded — padding is shrinking back down as the page slides away.
-   ease-in-out (slow start) deliberately differs from the collapse
-   curve's quick start: an immediate fast pull-in here would read as the
-   topbar snapping back on its own before the page has actually cleared
-   it, rather than settling as the page arrives. */
+/* Expanded — padding shrinks back down as the page slides away, with the
+   page's expand curve. */
 .app-layout[data-sidebar-collapsed='false'] .topbar {
-  transition-timing-function: ease;
+  transition-timing-function: var(--layout-transition-expand-easing);
 }
