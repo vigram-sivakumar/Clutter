@@ -35,7 +35,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Text & icons */
   --foreground-primary: #f7f7f7;
-  --foreground-secondary: #bfbfbf;
+  --foreground-secondary: #a6a6a6;
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
