@@ -261,3 +261,10 @@
   min-width: 100%;
   color: inherit;
 }
+
+/* At rest a name wider than its cell truncates with an ellipsis. `.editable-text--nowrap` scrolls
+   (`overflow-x: auto`) but sets no `text-overflow`, so the name was only clipped. While focused the
+   field scrolls to keep the caret visible and must not draw an ellipsis over it. */
+.property-list__name .property-list__name-input:not(:focus) {
+  text-overflow: ellipsis;
+}
