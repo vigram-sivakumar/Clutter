@@ -5,6 +5,7 @@ import type { SystemIcon } from '@shared/icon';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
+import { useCoverSuppressed } from './CoverSuppressedContext';
 import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
 import { PageTitle } from './header/Page.Title';
@@ -293,6 +294,9 @@ export function Page({
   titleKey,
   descriptionKey,
 }: PageProps) {
+  // Responsive hide (AppLayout decides). Display-only — OR-ed into PageCover's `hidden` below and never
+  // written to `coverHidden`, so the note's saved cover state is untouched.
+  const isCoverSuppressed = useCoverSuppressed();
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
   // caller already resolved (empty means missing, per the same
@@ -321,7 +325,7 @@ export function Page({
       editable={coverEditable}
       src={coverImage}
       onRemove={onRemoveCoverImage}
-      hidden={coverHidden}
+      hidden={coverHidden || isCoverSuppressed}
       onHide={onHideCoverImage}
       onSaveToVault={onSaveCoverImageToVault}
       onDownload={onDownloadCoverImage}

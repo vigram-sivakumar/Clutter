@@ -3,6 +3,7 @@ import './AppLayout.css';
 import { CreateTemplateProvider } from '@app/layouts/createTemplate/CreateTemplateProvider';
 import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
+import { CoverSuppressedContext } from '../page/CoverSuppressedContext';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
 import { useSidebarTransition } from './useSidebarTransition';
@@ -10,6 +11,7 @@ import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSide
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import { useVault } from '@app/hooks/useVault';
+import { useMaxWidth, SIDEBAR_COLLAPSE_BREAKPOINT, COVER_HIDE_BREAKPOINT } from '@app/hooks/useMaxWidth';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
@@ -95,7 +97,30 @@ export function AppLayout({ application }: AppLayoutProps) {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   // The collapse/expand slide, from the slot's own CSS transition: the resize handle is hidden for its duration.
   const sidebarSlotRef = useRef<HTMLDivElement>(null);
-  const sidebarTransition = useSidebarTransition(workspace.isSidebarVisible, sidebarSlotRef);
+  // Responsive collapse. `workspace.isSidebarVisible` stays the persisted manual preference and is never
+  // written by a resize. Narrow, the sidebar is collapsed regardless of it; a manual toggle while narrow is a
+  // temporary override (local, not persisted) that lasts until the breakpoint is next crossed.
+  const isNarrow = useMaxWidth(SIDEBAR_COLLAPSE_BREAKPOINT);
+  const [narrowOverride, setNarrowOverride] = useState<boolean | null>(null);
+  const [wasNarrow, setWasNarrow] = useState(isNarrow);
+  if (isNarrow !== wasNarrow) {
+    setWasNarrow(isNarrow);
+    setNarrowOverride(null);
+  }
+  const isSidebarVisible = isNarrow
+    ? (narrowOverride ?? false)
+    : workspace.isSidebarVisible;
+  function toggleSidebar(): void {
+    if (isNarrow) {
+      setNarrowOverride(!isSidebarVisible);
+    } else {
+      workspace.toggleSidebarVisible();
+    }
+  }
+  // The cover yields to the editor: always at the cover breakpoint and below, and between the breakpoints
+  // whenever the sidebar is (manually) open. Collapsing the sidebar lets it return.
+  const isCoverSuppressed = useMaxWidth(COVER_HIDE_BREAKPOINT) || (isNarrow && isSidebarVisible);
+  const sidebarTransition = useSidebarTransition(isSidebarVisible, sidebarSlotRef);
 
   // The single "which resource overlay is open" state for the whole app —
   // AppLayout is the confirmed common ancestor of every overlay entry point
@@ -389,7 +414,7 @@ export function AppLayout({ application }: AppLayoutProps) {
     <CreateTemplateProvider application={application}>
     <div
       className="app-layout"
-      data-sidebar-collapsed={!workspace.isSidebarVisible}
+      data-sidebar-collapsed={!isSidebarVisible}
       data-resizing={isResizingSidebar || undefined}
       data-sidebar-transitioning={sidebarTransition.transitioning || undefined}
       style={{ '--app-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
@@ -419,11 +444,12 @@ export function AppLayout({ application }: AppLayoutProps) {
         onResize={setSidebarWidth}
         onResizeEnd={commitSidebarWidth}
         onResizingChange={setIsResizingSidebar}
-        onToggleCollapse={() => workspace.toggleSidebarVisible()}
-        isCollapsed={!workspace.isSidebarVisible}
+        onToggleCollapse={toggleSidebar}
+        isCollapsed={!isSidebarVisible}
       />
       <main className="app-layout__page">
         <TauriDragStrip />
+        <CoverSuppressedContext.Provider value={isCoverSuppressed}>
         <CoverAssetsProvider value={listCoverPickerAssets}>
         <ImageFileActionsProvider value={coverImageActions}>
         <PageHost
@@ -443,10 +469,11 @@ export function AppLayout({ application }: AppLayoutProps) {
         />
         </ImageFileActionsProvider>
         </CoverAssetsProvider>
+        </CoverSuppressedContext.Provider>
       </main>
       <SidebarToggle
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+        isSidebarVisible={isSidebarVisible}
+        onToggleSidebarVisible={toggleSidebar}
       />
       <ImageOverlay
         image={resourceOverlay?.kind === 'image' ? resourceOverlay.image : null}
