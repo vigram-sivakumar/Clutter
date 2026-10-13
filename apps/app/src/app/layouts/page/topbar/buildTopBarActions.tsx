@@ -114,9 +114,7 @@ export interface BuildTopBarActionsOptions {
   onDeleteAll?: () => void;
   archiveIsEmpty?: boolean;
   onDuplicate?: () => void;
-  /** The note menu's 'Use as template' — moves the note into the Templates folder. */
-  onUseAsTemplate?: () => void;
-  /** The menu's 'Create template' — opens the dialog that copies this page into a new Template. */
+  /** The menu's 'Save as template' — opens the dialog that copies this page into a new Template. */
   onCreateTemplate?: () => void;
   /**
    * ADR-026: set only when archiving `resource` (a folder) needs
@@ -235,7 +233,6 @@ export function buildTopBarActions(
         ? DELETE_ALL_ARCHIVED_CONFIRMATION
         : undefined,
       onDuplicate: options.onDuplicate,
-      onUseAsTemplate: options.onUseAsTemplate,
       onCreateTemplate: options.onCreateTemplate,
       archiveConfirmationMessage: options.archiveConfirmationMessage,
       deleteConfirmationMessage: options.deleteConfirmationMessage,
@@ -270,7 +267,7 @@ export function buildDraftTopBarActions(type: PageType): TopBarParts {
     actions: renderTopBarActions(type, {
       // A draft has no persisted PageMetadata (ADR-017) — favorite is
       // always false pre-promotion, same as EffectivePage's draft case.
-      // No menu: every item a draft's menu could hold needs a saved page (Move, Use as template,
+      // No menu: every item a draft's menu could hold needs a saved page (Move,
       // Reveal, Copy path, Archive) or has no handler on a draft (Duplicate, Favorite), so it would
       // be a button of dead entries. It appears once the first save makes the draft a page.
       menu: [],

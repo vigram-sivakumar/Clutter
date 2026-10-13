@@ -447,7 +447,7 @@ describe('Sidebar Notes: a favorited resource has the same actions as the resour
     expect(menuLabels(favoritesMenu)).toEqual(menuLabels(treeMenu));
   });
 
-  it('a favorited Template offers Rename — and, like every Template, no Move or Create template', () => {
+  it('a favorited Template offers Rename — and, like every Template, no Move or Save as template', () => {
     const templates = makeFolder('templates', `${ROOT}/Templates`);
     const template = { ...makePage('tpl-1', `${ROOT}/Templates/Standup.md`, { favorite: true }), parentId: 'templates' };
     renderNotes(setup([templates], [template]));
@@ -457,7 +457,7 @@ describe('Sidebar Notes: a favorited resource has the same actions as the resour
 
     expect(labels).toContain('Rename');
     expect(labels).not.toContain('Move to…');
-    expect(labels).not.toContain('Create template');
+    expect(labels).not.toContain('Save as template');
     expect(labels).toContain('Remove from Favorites');
   });
 

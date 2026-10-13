@@ -866,22 +866,22 @@ describe('renderTags', () => {
       expect(screen.queryByText('Meetings')).not.toBeInTheDocument();
     });
 
-    it('Create template is offered for an ordinary note under a tag, and hidden for a Template', () => {
+    it('Save as template is offered for an ordinary note under a tag, and hidden for a Template', () => {
       const onCreateTemplate = vi.fn();
       renderTaggedNote(fakeNote({ isTemplate: false }), { onCreateTemplate });
-      fireEvent.click(screen.getByText('Create template'));
+      fireEvent.click(screen.getByText('Save as template'));
       expect(onCreateTemplate).toHaveBeenCalledWith('p1');
       cleanup();
 
       renderTaggedNote(fakeNote({ isTemplate: true }));
-      expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+      expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
     });
 
-    it('a Template listed under a tag has no Move to… (and no Create template), wherever it is shown', () => {
+    it('a Template listed under a tag has no Move to… (and no Save as template), wherever it is shown', () => {
       renderTaggedNote(fakeNote({ isTemplate: true }));
 
       expect(screen.queryByText('Move to…')).not.toBeInTheDocument();
-      expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+      expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
       // Its other actions are the ordinary note's.
       expect(screen.getByText('Rename')).toBeInTheDocument();
       expect(screen.getByText('Move to Trash')).toBeInTheDocument();

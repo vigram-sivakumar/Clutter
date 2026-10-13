@@ -51,7 +51,6 @@ describe('group ordering and automatic dividers', () => {
       'toggle-favorite',
       'duplicate',
       'move-to',
-      'use-as-template',
       'create-template',
       'toggle-references',
       'reveal-in-finder',
@@ -123,11 +122,10 @@ describe('surface filtering', () => {
     }
   });
 
-  it('the sidebar never offers Restore, Delete or Use as template', () => {
+  it('the sidebar never offers Restore or Delete for an archived note', () => {
     const menu = ids(buildResourceActionMenu('note', { status: 'archived', isDeletable: true }, 'sidebar'));
     expect(menu).not.toContain('restore');
     expect(menu).not.toContain('delete');
-    expect(menu).not.toContain('use-as-template');
   });
 });
 
@@ -177,7 +175,7 @@ describe('availability', () => {
 });
 
 describe('daily note', () => {
-  it('offers only Create template, location and lifecycle actions on the sidebar', () => {
+  it('offers only Save as template, location and lifecycle actions on the sidebar', () => {
     expect(ids(buildResourceActionMenu('daily-note', { status: 'active' }, 'sidebar'))).toEqual([
       'create-template',
       'reveal-in-finder',
@@ -190,7 +188,7 @@ describe('daily note', () => {
     for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
       for (const context of [{ status: 'active' }, { status: 'archived', isDeletable: true }] as const) {
         const menu = ids(buildResourceActionMenu('daily-note', context, surface));
-        for (const absent of ['rename', 'change-icon', 'toggle-favorite', 'duplicate', 'move-to', 'use-as-template']) {
+        for (const absent of ['rename', 'change-icon', 'toggle-favorite', 'duplicate', 'move-to']) {
           expect(menu).not.toContain(absent);
         }
       }
@@ -414,7 +412,7 @@ describe('task menu', () => {
   });
 });
 
-describe('Create template (ADR-048 organize group)', () => {
+describe('Save as template (ADR-048 organize group)', () => {
   const has = (kind: Parameters<typeof buildResourceActionMenu>[0], context: Parameters<typeof buildResourceActionMenu>[1], surface: Parameters<typeof buildResourceActionMenu>[2] = 'topbar') =>
     ids(buildResourceActionMenu(kind, context, surface)).includes('create-template');
 
@@ -449,15 +447,25 @@ describe('Create template (ADR-048 organize group)', () => {
     expect(has('note', { isDraft: true }, 'sidebar')).toBe(false);
   });
 
-  it('sits in the organize group, after Use as template and before the location group, with no hand-written divider', () => {
+  it('"Use as template" no longer exists on any surface or kind', () => {
+    for (const kind of ['note', 'daily-note', 'folder'] as const) {
+      for (const surface of ['sidebar', 'favorites', 'topbar'] as const) {
+        for (const context of [{ status: 'active' }, { status: 'active', isTemplate: true }, { isDraft: true }] as const) {
+          expect(ids(buildResourceActionMenu(kind, context, surface))).not.toContain('use-as-template');
+        }
+      }
+    }
+  });
+
+  it('sits in the organize group, after Move to… and before the location group, with no hand-written divider', () => {
     const menu = buildResourceActionMenu('note', { status: 'active' }, 'topbar');
     const order = ids(menu);
 
-    expect(order.indexOf('create-template')).toBeGreaterThan(order.indexOf('use-as-template'));
+    expect(order.indexOf('create-template')).toBeGreaterThan(order.indexOf('move-to'));
     expect(order.indexOf('create-template')).toBeLessThan(order.indexOf('reveal-in-finder'));
     // Same group as the previous organize item, so no divider before it.
     expect(menu.find((item) => item.id === 'create-template')?.separatorBefore).toBeUndefined();
-    expect(menu.find((item) => item.id === 'create-template')).toMatchObject({ label: 'Create template', icon: 'template' });
+    expect(menu.find((item) => item.id === 'create-template')).toMatchObject({ label: 'Save as template', icon: 'template' });
   });
 });
 
@@ -473,7 +481,6 @@ describe('archived resources: inapplicable actions are hidden, never disabled (P
     'toggle-favorite',
     'duplicate',
     'move-to',
-    'use-as-template',
     'create-template',
     'reveal-in-finder',
     'copy-path',
@@ -509,7 +516,7 @@ describe('archived resources: inapplicable actions are hidden, never disabled (P
     expect(ids(buildResourceActionMenu('daily-note', ARCHIVED, 'topbar'))).toEqual(['restore', 'delete']);
   });
 
-  it('an archived Daily Note: Copy path, Reveal, Create template and Archive are hidden everywhere', () => {
+  it('an archived Daily Note: Copy path, Reveal, Save as template and Archive are hidden everywhere', () => {
     for (const surface of SURFACES) {
       const menu = ids(buildResourceActionMenu('daily-note', ARCHIVED, surface));
       for (const id of ['copy-path', 'reveal-in-finder', 'create-template', 'archive']) {
@@ -601,7 +608,7 @@ describe('Hide / Show references (ADR-052)', () => {
   const refs = (kind: 'note' | 'daily-note', context: Parameters<typeof buildResourceActionMenu>[1], surface: 'topbar' | 'sidebar' | 'favorites' = 'topbar') =>
     buildResourceActionMenu(kind, context, surface).find((item) => item.id === 'toggle-references');
 
-  it.each(['note', 'daily-note'] as const)('%s: sits in the view group, between Create template and Reveal in Finder, divided on both sides', (kind) => {
+  it.each(['note', 'daily-note'] as const)('%s: sits in the view group, between Save as template and Reveal in Finder, divided on both sides', (kind) => {
     const menu = buildResourceActionMenu(kind, { status: 'active' }, 'topbar');
     const order = ids(menu);
 

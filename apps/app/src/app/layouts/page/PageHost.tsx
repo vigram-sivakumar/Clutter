@@ -38,7 +38,6 @@ import {
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
 import { createFolderInZone } from '@features/notes/helpers/createFolderInZone';
-import { moveToTemplatesFolder } from '@features/notes/helpers/moveToTemplatesFolder';
 import { createNoteForTag } from '@features/tags/helpers/createNoteForTag';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
 import { ASSETS_DIRECTORY_NAME } from '@core/vault/initialize/ensureAssetsDirectory';
@@ -1126,18 +1125,6 @@ export function PageHost({
     }
 
     void duplicateAndOpenPage(application.pageOperations, activePageId);
-  };
-
-  const onUseAsTemplate = (): void => {
-    if (!activePageId) {
-      return;
-    }
-
-    void moveToTemplatesFolder(
-      application.folderOperations,
-      application.pageOperations,
-      activePageId
-    );
   };
 
   const onToggleFavorite = (): void => {
@@ -2826,7 +2813,6 @@ export function PageHost({
     onRestore,
     onDelete,
     onDuplicate,
-    onUseAsTemplate: page.type === 'note' ? onUseAsTemplate : undefined,
     onCreateTemplate: requestCreateTemplate
       ? () => requestCreateTemplate(page.id)
       : undefined,

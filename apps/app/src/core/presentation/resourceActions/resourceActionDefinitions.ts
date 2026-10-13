@@ -91,25 +91,16 @@ const MOVE_TO: ResourceActionDefinition = activeOnly({
   availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
 });
 
-const USE_AS_TEMPLATE: ResourceActionDefinition = activeOnly({
-  id: 'use-as-template',
-  group: 'organize',
-  order: 40,
-  label: 'Use as template',
-  icon: 'template',
-  availability: (context) => (context.isTemplate ? 'hidden' : activePersistedOnly(context)),
-});
-
 /**
- * "Create template": an independent copy of this page's content as a new Template — the source is
- * neither moved nor converted (that is Use as template). For a Note or a Daily Note; not for one
- * already in the Trash or already a Template.
+ * "Save as template": an independent copy of this page's content as a new Template — the source is
+ * never moved or converted. For a Note or a Daily Note; not for one already in the Trash or already
+ * a Template.
  */
 const CREATE_TEMPLATE: ResourceActionDefinition = activeOnly({
   id: 'create-template',
   group: 'organize',
   order: 50,
-  label: 'Create template',
+  label: 'Save as template',
   icon: 'template',
   availability: (context) =>
     context.isTemplate ? 'hidden' : persistedOnly(context),
@@ -273,7 +264,6 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     TOGGLE_FAVORITE,
     DUPLICATE,
     MOVE_TO,
-    USE_AS_TEMPLATE,
     CREATE_TEMPLATE,
     TOGGLE_REFERENCES,
     revealInFinder(),

@@ -547,8 +547,8 @@ describe('buildTopBarActions: Description is not a topbar action', () => {
   });
 });
 
-describe('buildTopBarActions: Create template', () => {
-  it('a saved active Note shows Create template, and selecting it calls onCreateTemplate', () => {
+describe('buildTopBarActions: Save as template', () => {
+  it('a saved active Note shows Save as template, and selecting it calls onCreateTemplate', () => {
     const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
     const { membershipSelector } = setup([], [page]);
     const onCreateTemplate = vi.fn();
@@ -556,7 +556,7 @@ describe('buildTopBarActions: Create template', () => {
     const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT, onCreateTemplate });
     render(<>{actions}</>);
     openOverflowMenu();
-    fireEvent.click(screen.getByText('Create template'));
+    fireEvent.click(screen.getByText('Save as template'));
 
     expect(onCreateTemplate).toHaveBeenCalledTimes(1);
   });
@@ -572,7 +572,7 @@ describe('buildTopBarActions: Create template', () => {
     render(<>{actions}</>);
     openOverflowMenu();
 
-    expect(screen.getByText('Create template')).toBeInTheDocument();
+    expect(screen.getByText('Save as template')).toBeInTheDocument();
   });
 
   it.each([
@@ -585,7 +585,7 @@ describe('buildTopBarActions: Create template', () => {
     render(<>{actions}</>);
     openOverflowMenu();
 
-    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
   });
 
   it('a Template has none', () => {
@@ -597,7 +597,7 @@ describe('buildTopBarActions: Create template', () => {
     render(<>{actions}</>);
     openOverflowMenu();
 
-    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
   });
 
   it('a Folder has none', () => {
@@ -608,12 +608,12 @@ describe('buildTopBarActions: Create template', () => {
     render(<>{actions}</>);
     openOverflowMenu();
 
-    expect(screen.queryByText('Create template')).not.toBeInTheDocument();
+    expect(screen.queryByText('Save as template')).not.toBeInTheDocument();
   });
 });
 
 describe('buildTopBarActions: archived resources hide inapplicable actions (Phase 2)', () => {
-  const NOT_OFFERED = ['Duplicate', 'Move to…', 'Use as template', 'Copy path', 'Create template', 'Reveal in Finder', 'Rename'];
+  const NOT_OFFERED = ['Duplicate', 'Move to…', 'Copy path', 'Save as template', 'Reveal in Finder', 'Rename'];
   const expectOnlyRestoreAndDelete = () => {
     openOverflowMenu();
     expect(screen.getByText('Restore')).toBeInTheDocument();

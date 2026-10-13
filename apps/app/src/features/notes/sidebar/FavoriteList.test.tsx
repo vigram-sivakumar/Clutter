@@ -208,22 +208,22 @@ describe('FavoriteList — location actions dispatch (previously listed but iner
     expect(rowActions.onCopyFolderPath).toHaveBeenCalledWith('folder-1', 'at-vault');
   });
 
-  it('Create template on a favorited note asks to create a template from that note', () => {
+  it('Save as template on a favorited note asks to create a template from that note', () => {
     const rowActions = renderWithRowActions([
       { id: 'note-1', title: 'N', titleStyle: 'default', type: 'note', emoji: null },
     ]);
 
-    fireEvent.click(screen.getByText('Create template'));
+    fireEvent.click(screen.getByText('Save as template'));
 
     expect(rowActions.onCreateTemplate).toHaveBeenCalledWith('note-1');
   });
 
-  it('a favorited Template offers no Create template', () => {
+  it('a favorited Template offers no Save as template', () => {
     renderWithRowActions([
       { id: 'note-1', title: 'N', titleStyle: 'default', type: 'note', emoji: null, isTemplate: true },
     ]);
 
-    expect(screen.queryByText('Create template')).toBeNull();
+    expect(screen.queryByText('Save as template')).toBeNull();
   });
 });
 
