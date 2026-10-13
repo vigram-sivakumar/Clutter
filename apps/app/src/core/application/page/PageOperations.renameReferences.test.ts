@@ -315,4 +315,85 @@ describe('PageOperations.rename — reference rewriting', () => {
     const linkEdge = edges.find((edge) => edge.sourcePageId === 'l')!;
     expect(bodyOf(vault, 'l').slice(linkEdge.startOffset, linkEdge.endOffset)).toBe('[[Team Meeting]]');
   });
+
+  describe('heading, block and alias forms', () => {
+    const RICH_TARGET: Doc = {
+      id: 'target',
+      rel: 'Meeting Notes.md',
+      body: '# Decisions\n\nWe decided.\n^decision-1\n\n## Action Items\n\nDo things.\n',
+    };
+    const FORMS: readonly (readonly [string, string])[] = [
+      ['[[Meeting Notes]]', '[[Team Meeting]]'],
+      ['[[Meeting Notes#Decisions]]', '[[Team Meeting#Decisions]]'],
+      ['[[Meeting Notes#Action Items|View actions]]', '[[Team Meeting#Action Items|View actions]]'],
+      ['[[Meeting Notes#^decision-1]]', '[[Team Meeting#^decision-1]]'],
+      ['![[Meeting Notes]]', '![[Team Meeting]]'],
+      ['![[Meeting Notes#Decisions]]', '![[Team Meeting#Decisions]]'],
+      ['![[Meeting Notes#^decision-1]]', '![[Team Meeting#^decision-1]]'],
+      ['![[Meeting Notes|Discussion]]', '![[Team Meeting|Discussion]]'],
+    ];
+
+    it('rewrites only the target, keeping heading, block id, alias and spacing, and every reference still resolves', async () => {
+      const body = FORMS.map(([before]) => `- ${before} tail`).join('\n');
+      const { vault, pageOperations } = setup([RICH_TARGET, { id: 'src', rel: 'Source.md', body }]);
+
+      await pageOperations.rename('target', 'Team Meeting');
+
+      expect(bodyOf(vault, 'src')).toBe(FORMS.map(([, after]) => `- ${after} tail`).join('\n'));
+      const edges = vault.knowledgeGraph().incomingEdges('target');
+      expect(edges).toHaveLength(FORMS.length);
+      expect(edges.filter((edge) => edge.kind === 'embed')).toHaveLength(4);
+    });
+
+    it('rewrites self-references that carry a heading or block reference', async () => {
+      const body = '# Decisions\n\nWe decided.\n^decision-1\n\nsee [[Meeting Notes#Decisions]] and ![[Meeting Notes#^decision-1]]\n';
+      const { vault, pageOperations } = setup([{ ...RICH_TARGET, body }]);
+
+      await pageOperations.rename('target', 'Team Meeting');
+
+      expect(bodyOf(vault, 'target')).toBe(
+        body.replace('[[Meeting Notes#Decisions]]', '[[Team Meeting#Decisions]]').replace('![[Meeting Notes#^decision-1]]', '![[Team Meeting#^decision-1]]')
+      );
+      expect(vault.knowledgeGraph().incomingEdges('target')).toHaveLength(2);
+    });
+
+    it('does not treat a heading named like the note, or a heading on another note, as the note', async () => {
+      const body = '[[Other/Meeting Notes#Decisions]] [[Other#Meeting Notes]]';
+      const { vault, pageOperations } = setup([
+        RICH_TARGET,
+        { id: 'other', rel: 'Other/Meeting Notes.md', body: '# Decisions\n' },
+        { id: 'src', rel: 'Source.md', body },
+      ]);
+
+      await pageOperations.rename('target', 'Team Meeting');
+
+      expect(bodyOf(vault, 'src')).toBe(body);
+    });
+  });
+
+  it('after a skipped (changed-on-disk) source, memory still matches the Vault’s last read and the stale link is honestly unresolved', async () => {
+    const a: Doc = { id: 'a', rel: 'A.md', body: '[[Meeting Notes]]' };
+    const { vault, fileSystem, pageOperations } = setup([TARGET, a]);
+    await fileSystem.writeFile(`${ROOT}/A.md`, document({ ...a, body: '[[Meeting Notes]] external' }));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const summary = await pageOperations.rename(TARGET.id, 'Team Meeting');
+
+    // Nothing was written for A, so the Vault still holds what it last read (Sync reconciles the external edit),
+    // and the index shows the link as unresolved rather than pointing at the renamed note.
+    expect(bodyOf(vault, 'a')).toBe('[[Meeting Notes]]');
+    expect(vault.knowledgeGraph().incomingEdges(TARGET.id)).toHaveLength(0);
+    expect(summary.skipped).toHaveLength(1);
+  });
+
+  it('does not skip an open note whose editor text is unsaved but whose file is unchanged', async () => {
+    const { vault, pageOperations } = setup([TARGET, { id: 'src', rel: 'Source.md', body: '[[Meeting Notes#H|x]]' }]);
+    await pageOperations.open('src');
+    pageOperations.commitEdit('src', '[[Meeting Notes#H|x]] draft');
+
+    const summary = await pageOperations.rename(TARGET.id, 'Team Meeting');
+
+    expect(summary.skipped).toEqual([]);
+    expect(bodyOf(vault, 'src')).toBe('[[Team Meeting#H|x]] draft');
+  });
 });
