@@ -561,7 +561,8 @@ export class Application {
         void this.openFallbackPage();
       },
       duplicator,
-      normalizeMarkdownForSave
+      normalizeMarkdownForSave,
+      (path) => this.fileSystem.readFile(path)
     );
     this.navigation = new NavigationRouter(
       this.folderOperations,

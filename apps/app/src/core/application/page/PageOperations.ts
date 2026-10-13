@@ -17,6 +17,16 @@ import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPa
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
+import {
+  NO_REFERENCE_REWRITE,
+  isRepresentableLinkTarget,
+  pageLinkTarget,
+  referencesTarget,
+  rewriteReferenceTargets,
+  type ReferenceRewriteSkipReason,
+  type ReferenceRewriteSummary,
+} from './pageReferenceRewrite';
 import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
 import { isPageSystemPropertyKey, type PageSystemPropertyKey } from '../../properties/systemProperties';
 import {
@@ -299,7 +309,13 @@ export class PageOperations {
      * update just to keep constructing this class — real boot always
      * supplies one (`Application.bootstrap()` → `AppShell.tsx`).
      */
-    private readonly normalizeMarkdownForSave?: (markdown: string) => string
+    private readonly normalizeMarkdownForSave?: (markdown: string) => string,
+    /**
+     * Reads a file's current contents from disk. Used only by rename()'s reference rewrite, to refuse
+     * to overwrite a note that changed on disk after the Vault last read it (TagOperations does the
+     * same with its own filesystem). Optional like `duplicator`: without it that check is skipped.
+     */
+    private readonly readFile?: (path: string) => Promise<string>
   ) {}
 
   /**
@@ -2461,7 +2477,7 @@ export class PageOperations {
    * user's typed value is preserved either way (FieldEditState's
    * currentValue is independent of what actually got persisted).
    */
-  public async rename(pageId: string, title: string): Promise<void> {
+  public async rename(pageId: string, title: string): Promise<ReferenceRewriteSummary> {
     this.assertEditable(pageId);
     const page = this.vault.getPage(pageId);
 
@@ -2475,6 +2491,11 @@ export class PageOperations {
       }
     }
 
+    // Found before the rename: afterwards the old text no longer resolves to anything, and the
+    // old path is the one thing that identifies which links were meant for this note.
+    const oldPath = page?.path;
+    const referencingPageIds = page ? this.findReferencingPageIds(page) : [];
+
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'rename',
       title,
@@ -2483,6 +2504,137 @@ export class PageOperations {
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
     }
+
+    if (!oldPath || referencingPageIds.length === 0 || result.status !== 'saved') {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    // The path the Gate actually chose — it may have auto-suffixed the requested title.
+    return this.rewriteReferencesAfterRename(oldPath, result.page.path, referencingPageIds);
+  }
+
+  /**
+   * Ids of the notes (archived and Templates included — this is maintenance, like a tag rename) whose
+   * current text links to or embeds `page` by its path. A link means this note exactly when its target
+   * is the note's canonical path: resolution tries the literal path first, so that string is the note's
+   * identity, and an alias-resolved or same-titled-elsewhere link has a different target. Cheap checks
+   * first; a note's text is only parsed when its saved analysis names the target, or when an open
+   * editor holds text the saved analysis cannot answer for.
+   */
+  private findReferencingPageIds(page: Page): string[] {
+    const target = pageLinkTarget(page.path, this.vault.root);
+
+    return Array.from(this.vault.pages())
+      .filter((candidate) => {
+        const saved = candidate.analysis.links.some((link) => link.target === target)
+          || candidate.analysis.embeds.some((embed) => embed.target === target);
+
+        if (saved) {
+          return true;
+        }
+
+        const unsaved = this.documentRegistry.get(candidate.id)?.currentRevision.markdown;
+
+        return unsaved !== undefined && unsaved !== candidate.source.markdown && referencesTarget(unsaved, target);
+      })
+      .sort((a, b) => a.path.localeCompare(b.path))
+      .map((candidate) => candidate.id);
+  }
+
+  /**
+   * The second half of rename(): rewrites each referencing note's links and embeds from the old path to
+   * the new one, one note at a time, through mutateBody — so an open editor's unsaved text is the text
+   * that is rewritten, and every write goes through the Gate. The rename itself has already succeeded
+   * and stays so: nothing here throws, one note's failure never stops the rest, and everything left
+   * undone is reported (and logged) rather than hidden.
+   */
+  private async rewriteReferencesAfterRename(
+    oldPath: string,
+    newPath: string,
+    referencingPageIds: readonly string[]
+  ): Promise<ReferenceRewriteSummary> {
+    const root = this.vault.root;
+    const from = pageLinkTarget(oldPath, root);
+    const to = pageLinkTarget(newPath, root);
+
+    if (from === to) {
+      return NO_REFERENCE_REWRITE;
+    }
+
+    const rewrittenPageIds: string[] = [];
+    const skipped: { pageId: string; path: string; reason: ReferenceRewriteSkipReason }[] = [];
+    const failed: { pageId: string; path: string; message: string }[] = [];
+    const transform = (markdown: string): string => rewriteReferenceTargets(markdown, from, to);
+
+    for (const sourceId of referencingPageIds) {
+      const source = this.vault.getPage(sourceId);
+
+      if (!source) {
+        continue;
+      }
+
+      try {
+        // Someone created a note at the old path since: the old text may now mean that note.
+        if (this.vault.getPageByPath(oldPath)) {
+          skipped.push({ pageId: sourceId, path: source.path, reason: 'old-path-reoccupied' });
+          continue;
+        }
+
+        if (!isRepresentableLinkTarget(to)) {
+          skipped.push({ pageId: sourceId, path: source.path, reason: 'unsupported-title' });
+          continue;
+        }
+
+        if (!(await this.matchesDisk(source))) {
+          skipped.push({ pageId: sourceId, path: source.path, reason: 'changed-on-disk' });
+          continue;
+        }
+
+        const session = this.documentRegistry.get(sourceId);
+        const current = session?.currentRevision.markdown ?? source.source.markdown;
+
+        // Nothing to write when the text has no reference left to point (no pointless save).
+        if (transform(current) === current) {
+          continue;
+        }
+
+        await this.mutateBody(sourceId, transform, { allowArchived: true });
+
+        if (session && !this.vault.isPageEffectivelyArchived(source)) {
+          await this.requestSave(sourceId);
+        }
+
+        rewrittenPageIds.push(sourceId);
+      } catch (error) {
+        failed.push({
+          pageId: sourceId,
+          path: source.path,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const complete = failed.length === 0 && skipped.length === 0;
+
+    if (!complete) {
+      console.warn(
+        `PageOperations: references to "${from}" were not all updated to "${to}" — ` +
+          `${failed.length} failed, ${skipped.length} skipped (${[...new Set(skipped.map((s) => s.reason))].join(', ') || 'none'}).`
+      );
+    }
+
+    return { rewrittenPageIds, skipped, failed, complete };
+  }
+
+  /** Whether the file on disk still holds the body the Vault last read for this note. */
+  private async matchesDisk(page: Page): Promise<boolean> {
+    if (!this.readFile) {
+      return true;
+    }
+
+    const onDisk = await this.readFile(page.path);
+
+    return new FrontmatterParser().parse(onDisk).body === page.source.markdown;
   }
 
   /**
