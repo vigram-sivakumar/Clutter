@@ -1,19 +1,16 @@
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 
 /**
- * Whether the page offers "Start with template": an empty body (the live text — a new note, or one the
- * user has cleared) on an ordinary note or a daily note that isn't archived and isn't itself a template.
- * The type, archive and template-folder facts are the callers' existing checks; this only combines them.
+ * Whether a draft offers "Start with template": it has an empty body (the live text) and is not itself
+ * a template being authored. The caller offers this only for an unpersisted draft (a new note, or a daily
+ * note not yet written), so a saved note — empty or not — never asks. The draft and Templates-folder
+ * facts are the caller's existing checks; this only combines them with the body.
  */
-export function shouldSuggestTemplates(page: {
-  readonly type: string;
+export function shouldSuggestTemplates(draft: {
   readonly markdown: string;
-  readonly isArchived: boolean;
   readonly isInTemplatesFolder: boolean;
 }): boolean {
-  const isSuggestibleType = page.type === 'note' || page.type === 'daily-note';
-
-  return isSuggestibleType && !page.isArchived && !page.isInTemplatesFolder && page.markdown.trim() === '';
+  return !draft.isInTemplatesFolder && draft.markdown.trim() === '';
 }
 
 function createdTime(entry: CollectionEntryModel): number | null {

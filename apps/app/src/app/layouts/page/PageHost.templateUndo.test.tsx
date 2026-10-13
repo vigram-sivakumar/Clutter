@@ -31,10 +31,8 @@ import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSy
 import { SelfWriteRegistry } from '@core/vault/providers/SelfWriteRegistry';
 import { PageCreator } from '@core/application/page/PageCreator';
 import { PageFactory } from '@core/application/page/PageFactory';
-import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
-import type { Page } from '@core/vault/models/Page';
 import { createTemplate } from '@features/notes/helpers/createTemplate';
 import { __clearAllCachedEditorHistoryForTests } from '@features/markdown/editor/codemirror/editorHistoryCache';
 
@@ -74,27 +72,6 @@ afterEach(() => {
 const ROOT = '/vault';
 const TEMPLATE_BODY = '# Agenda';
 
-function buildNote(frontmatter: Record<string, unknown>): Page {
-  return new PageBuilder(ROOT).build({
-    parentId: null,
-    page: {
-      path: `${ROOT}/Note.md`,
-      directoryPath: ROOT,
-      frontmatter: { id: 'note', ...frontmatter },
-      frontmatterAnalysis: { aliases: [] },
-      content: '',
-      analysis: {
-        headings: [],
-        blockReferences: [],
-        tasks: [],
-        tags: [],
-        links: [],
-        embeds: [],
-      },
-    },
-  });
-}
-
 async function flush(): Promise<void> {
   for (let i = 0; i < 6; i++) {
     await act(async () => {
@@ -103,15 +80,19 @@ async function flush(): Promise<void> {
   }
 }
 
+/**
+ * A template can only be applied to a draft — a new note, which holds at most tags until a change promotes it —
+ * so `noteTags` are the draft's own tags and the page is persisted by the first template application that
+ * carries metadata.
+ */
 async function setup(
-  noteFrontmatter: Record<string, unknown>,
+  noteTags: string[],
   template: { body?: string; metadata?: Partial<EditablePageMetadata> },
-  options: { draft?: boolean; extraTemplates?: number } = {}
+  options: { extraTemplates?: number } = {}
 ) {
-  const note = buildNote(noteFrontmatter);
   const vault = new Vault(
     ROOT,
-    [note],
+    [],
     [],
     [],
     [],
@@ -153,13 +134,11 @@ async function setup(
     await operations.updateMetadata(templateDraft, template.metadata);
   }
   await operations.requestSave(templateDraft);
-  // The note under test: a persisted note, or — what "New note" gives — an unpersisted draft.
-  const noteId = options.draft
-    ? await operations.openDraft({ folderId: null })
-    : note.id;
-  if (!options.draft) {
-    await operations.open(noteId);
-  }
+  // The note under test: what "New note" gives — an unpersisted draft.
+  const noteId = await operations.openDraft({
+    folderId: null,
+    ...(noteTags.length > 0 && { tags: noteTags }),
+  });
 
   render(<AppLayout application={application} />);
   await flush();
@@ -260,7 +239,7 @@ const FULL_TEMPLATE: Partial<EditablePageMetadata> = {
 
 describe('applying a template is one undoable step', () => {
   it('undo restores the previous body and every metadata change; redo reapplies them; the note keeps its identity', async () => {
-    const env = await setup({ tags: ['mine'] }, { metadata: FULL_TEMPLATE });
+    const env = await setup(['mine'], { metadata: FULL_TEMPLATE });
     const pagesBefore = [...env.application.vault.pages()]
       .map((page) => page.id)
       .sort();
@@ -299,38 +278,15 @@ describe('applying a template is one undoable step', () => {
       'reviewed: true',
     ]);
 
-    // Same note throughout: no page was created or replaced.
+    // Same note throughout: the draft became the one new page, under its own id, and nothing else was created.
     expect(env.metadata()).toBeDefined();
     expect(
       [...env.application.vault.pages()].map((page) => page.id).sort()
-    ).toEqual(pagesBefore);
-  });
-
-  it("undo gives back the note's own icon, cover and cover settings that the template replaced", async () => {
-    const env = await setup(
-      {
-        icon: '📌',
-        cover: 'https://example.com/mine.jpg',
-        coverLayout: 'side',
-        coverPositionAbove: 70,
-      },
-      { metadata: FULL_TEMPLATE }
-    );
-
-    await env.apply();
-    expect(env.metadata().cover).toBe('https://example.com/tpl.jpg');
-    expect(env.metadata().icon).toBe('🧾');
-
-    await env.pressUndo();
-
-    expect(env.metadata().icon).toBe('📌');
-    expect(env.metadata().cover).toBe('https://example.com/mine.jpg');
-    expect(env.metadata().coverLayout).toBe('side');
-    expect(env.metadata().coverPositionAbove).toBe(70);
+    ).toEqual([...pagesBefore, env.noteId].sort());
   });
 
   it('keeps the earlier typing history: undoing the template steps back to what was typed before it', async () => {
-    const env = await setup({}, { metadata: FULL_TEMPLATE });
+    const env = await setup([], { metadata: FULL_TEMPLATE });
     await env.type('a');
     // Clear it again, so the note is blank (a template is only offered for an empty body).
     await act(async () => {
@@ -363,7 +319,7 @@ describe('applying a template is one undoable step', () => {
   });
 
   it('is exactly one history step, and neither the sync nor the metadata save adds another', async () => {
-    const env = await setup({}, { metadata: FULL_TEMPLATE });
+    const env = await setup([], { metadata: FULL_TEMPLATE });
     const depthBefore = undoDepth(env.view().state);
     const revisionBefore = env.session().currentRevision.number;
 
@@ -385,7 +341,7 @@ describe('applying a template is one undoable step', () => {
 
   it('a template with no body still undoes and redoes its metadata', async () => {
     const env = await setup(
-      {},
+      [],
       { body: '', metadata: { tags: ['only-meta'], icon: '🧾' } }
     );
 
@@ -403,27 +359,24 @@ describe('applying a template is one undoable step', () => {
   });
 
   it('a template with no metadata undoes just the body', async () => {
-    const env = await setup({ tags: ['mine'] }, {});
+    const env = await setup(['mine'], {});
 
     await env.apply();
     expect(env.doc()).toBe(TEMPLATE_BODY);
 
     await env.pressUndo();
     expect(env.doc()).toBe('');
-    expect(env.metadata().tags).toEqual(['mine']);
+    // A body-only template carries nothing that promotes the draft: it keeps its own tags and stays a draft.
+    expect(env.application.pageOperations.getDraft(env.noteId)?.tags).toEqual(['mine']);
 
     await env.pressRedo();
     expect(env.doc()).toBe(TEMPLATE_BODY);
   });
 
-  it('the example: 📝 + existing cover + #work, then "Meeting Notes" — undo restores exactly that, redo restores the application', async () => {
+  it('the example: #work, then "Meeting Notes" — undo restores exactly that, redo restores the application', async () => {
     const MEETING_BODY = '# Meeting Notes\n\n## Agenda\n\n## Action Items';
     const env = await setup(
-      {
-        icon: '📝',
-        cover: 'https://example.com/existing-cover.jpg',
-        tags: ['work'],
-      },
+      ['work'],
       {
         body: MEETING_BODY,
         metadata: {
@@ -447,8 +400,8 @@ describe('applying a template is one undoable step', () => {
     await env.pressUndo();
     expect(env.doc()).toBe('');
     expect(env.session().currentRevision.markdown).toBe('');
-    expect(env.metadata().icon).toBe('📝');
-    expect(env.metadata().cover).toBe('https://example.com/existing-cover.jpg');
+    expect(env.metadata().icon).toBeNull();
+    expect(env.metadata().cover).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
     expect(env.page().id).toBe(id);
 
@@ -463,7 +416,7 @@ describe('applying a template is one undoable step', () => {
 
   it('typing after the template is undone first, then the template, and redone in that order', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      ['work'],
       { metadata: FULL_TEMPLATE }
     );
 
@@ -479,7 +432,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndo(); // the template application
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
 
     await env.pressRedo(); // the template application
@@ -493,7 +446,7 @@ describe('applying a template is one undoable step', () => {
   });
 
   it('works on a brand-new note (an unpersisted draft), whose first metadata change promotes it', async () => {
-    const env = await setup({}, { metadata: FULL_TEMPLATE }, { draft: true });
+    const env = await setup([], { metadata: FULL_TEMPLATE });
     const id = env.noteId;
 
     await env.apply();
@@ -516,7 +469,7 @@ describe('applying a template is one undoable step', () => {
 
   it('the real Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z shortcuts undo and redo the whole application', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      ['work'],
       { metadata: FULL_TEMPLATE }
     );
     await env.apply();
@@ -525,7 +478,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndoShortcut();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
 
     await env.pressRedoShortcut();
@@ -536,7 +489,7 @@ describe('applying a template is one undoable step', () => {
 
   it('survives a save in between: after undo the file holds the empty body and the old metadata, after redo the template', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      ['work'],
       { metadata: FULL_TEMPLATE }
     );
     const onDisk = () => env.fileSystem.readFile(env.page().path);
@@ -549,8 +502,7 @@ describe('applying a template is one undoable step', () => {
     const afterUndo = await onDisk();
     expect(env.doc()).toBe('');
     expect(afterUndo).not.toContain('# Agenda');
-    expect(afterUndo).toContain('📝');
-    expect(afterUndo).not.toContain('🧾');
+        expect(afterUndo).not.toContain('🧾');
 
     await env.pressRedo();
     await env.application.pageOperations.requestSave(env.noteId);
@@ -598,7 +550,7 @@ describe('applying a template is one undoable step', () => {
     ])(
       '%s: applying does not force focus, and the shortcuts undo and redo the template',
       async (_label, template) => {
-        const env = await setup({ icon: '📝', tags: ['work'] }, template, {
+        const env = await setup(['work'], template, {
           extraTemplates: 3,
         });
 
@@ -610,8 +562,11 @@ describe('applying a template is one undoable step', () => {
 
         await env.pressUndoShortcut();
         expect(env.doc()).toBe('');
-        expect(env.metadata().icon).toBe('📝');
-        expect(env.metadata().tags).toEqual(['work']);
+        expect(env.page()?.metadata.icon ?? null).toBeNull();
+        expect(
+          env.page()?.metadata.tags ??
+            env.application.pageOperations.getDraft(env.noteId)?.tags
+        ).toEqual(['work']);
 
         await env.pressRedoShortcut();
         expect(env.doc()).toBe(TEMPLATE_BODY);
@@ -621,7 +576,7 @@ describe('applying a template is one undoable step', () => {
 
   it('still undoes the metadata after switching to another note and back (the restored history carries the step)', async () => {
     const env = await setup(
-      { icon: '📝', tags: ['work'] },
+      ['work'],
       { metadata: FULL_TEMPLATE }
     );
     await env.apply();
@@ -641,7 +596,7 @@ describe('applying a template is one undoable step', () => {
 
     await env.pressUndo();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['work']);
     expect(env.metadata().cover).toBeNull();
 
@@ -655,7 +610,7 @@ describe('applying a template is one undoable step', () => {
 
 describe('undoing and redoing a template application respects what the user changed since', () => {
   it('a property the user changed after the template is kept by undo; the others are still restored', async () => {
-    const env = await setup({ tags: ['mine'], icon: '📝' }, { metadata: FULL_TEMPLATE });
+    const env = await setup(['mine'], { metadata: FULL_TEMPLATE });
     await env.apply();
 
     // The user picks their own icon afterwards.
@@ -681,7 +636,7 @@ describe('undoing and redoing a template application respects what the user chan
   });
 
   it('tags added after the template are kept, and so are the rest of the tags (they move together)', async () => {
-    const env = await setup({ tags: ['mine'] }, { metadata: FULL_TEMPLATE });
+    const env = await setup(['mine'], { metadata: FULL_TEMPLATE });
     await env.apply();
     await act(async () => {
       await env.application.pageOperations.updateMetadata(env.noteId, {
@@ -702,7 +657,7 @@ describe('undoing and redoing a template application respects what the user chan
 
 describe('a metadata save that fails while undoing or redoing', () => {
   it('is reported (not silent), the properties are left as they were, and redo then undo work once saving works', async () => {
-    const env = await setup({ tags: ['mine'], icon: '📝' }, { metadata: FULL_TEMPLATE });
+    const env = await setup(['mine'], { metadata: FULL_TEMPLATE });
     await env.apply();
     const operations = env.application.pageOperations;
     const real = operations.updateMetadata.bind(operations);
@@ -726,7 +681,7 @@ describe('a metadata save that fails while undoing or redoing', () => {
 
     await env.pressUndo();
     expect(env.doc()).toBe('');
-    expect(env.metadata().icon).toBe('📝');
+    expect(env.metadata().icon).toBeNull();
     expect(env.metadata().tags).toEqual(['mine']);
   });
 });

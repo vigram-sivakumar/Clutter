@@ -1420,21 +1420,19 @@ export function PageHost({
     },
   });
 
-  // "Start with template" for the open note, while its body is empty: the same templates, in the same
-  // order, as From template (rankTemplates), applied to THIS note (applyTemplateToNote) instead of making a new one.
+  // "Start with template" for the open draft (a new note or daily note not yet persisted), while its body is
+  // empty: the same templates, in the same order, as From template (rankTemplates), applied to THIS note
+  // (applyTemplateToNote) instead of making a new one. Only drafts ask — a persisted note never does.
   const buildTemplateSuggestions = (note: {
     readonly id: string;
     readonly type: PageType;
     readonly markdown: string;
-    readonly isArchived: boolean;
     readonly folderId: string | null;
     readonly existing: ExistingNoteMetadata;
   }): ReactNode => {
     if (
       !shouldSuggestTemplates({
-        type: note.type,
         markdown: note.markdown,
-        isArchived: note.isArchived,
         isInTemplatesFolder: application.membershipSelector.isInTemplatesFolder(
           note.folderId
         ),
@@ -2718,7 +2716,6 @@ export function PageHost({
           id: activePageId,
           type: draft.type,
           markdown: model.markdown,
-          isArchived: false,
           folderId: draft.folderId,
           existing: { tags: draft.tags },
         })}
@@ -3036,14 +3033,6 @@ export function PageHost({
         // An archived page is view-only: nothing can be added to it.
         propertiesControl={propertiesControl}
         properties={propertiesSection}
-        bodyOverlay={buildTemplateSuggestions({
-          id: activePageId,
-          type: page.type,
-          markdown: model.markdown,
-          isArchived: isPageArchived,
-          folderId: page.parentId,
-          existing: page.metadata,
-        })}
         body={
           <>
             <MarkdownBody>

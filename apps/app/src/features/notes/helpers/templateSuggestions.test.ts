@@ -6,29 +6,23 @@ import {
   sortTemplatesNewestFirst,
 } from './templateSuggestions';
 
-const page = { type: 'note', markdown: '', isArchived: false, isInTemplatesFolder: false };
+const draft = { markdown: '', isInTemplatesFolder: false };
 
 describe('shouldSuggestTemplates', () => {
-  it('suggests for an empty note and an empty daily note', () => {
-    expect(shouldSuggestTemplates(page)).toBe(true);
-    expect(shouldSuggestTemplates({ ...page, type: 'daily-note' })).toBe(true);
+  it('suggests for a draft with an empty body', () => {
+    expect(shouldSuggestTemplates(draft)).toBe(true);
   });
 
   it('treats whitespace-only text as empty', () => {
-    expect(shouldSuggestTemplates({ ...page, markdown: ' \n\t' })).toBe(true);
+    expect(shouldSuggestTemplates({ ...draft, markdown: ' \n\t' })).toBe(true);
   });
 
   it('does not suggest once the body has content', () => {
-    expect(shouldSuggestTemplates({ ...page, markdown: 'x' })).toBe(false);
+    expect(shouldSuggestTemplates({ ...draft, markdown: 'x' })).toBe(false);
   });
 
-  it('does not suggest for an archived note or a template', () => {
-    expect(shouldSuggestTemplates({ ...page, isArchived: true })).toBe(false);
-    expect(shouldSuggestTemplates({ ...page, isInTemplatesFolder: true })).toBe(false);
-  });
-
-  it('does not suggest for other page types', () => {
-    expect(shouldSuggestTemplates({ ...page, type: 'task-list' })).toBe(false);
+  it('does not suggest for a template being authored', () => {
+    expect(shouldSuggestTemplates({ ...draft, isInTemplatesFolder: true })).toBe(false);
   });
 });
 

@@ -85,7 +85,6 @@ const TEMPLATE_SPECS = [
 
 async function setup(options: { defaultTemplateId?: string } = {}) {
   const pages = [
-    pageIn(PROJECTS, 'note-1', 'Blank', ''),
     ...TEMPLATE_SPECS.map((spec) =>
       pageIn(TEMPLATES, spec.id, spec.name, `# ${spec.name} body`, {
         created: spec.created,
@@ -140,12 +139,14 @@ async function flush(): Promise<void> {
   }
 }
 
-/** Shows the empty note, where the inline "Start with template" row is. */
-async function showNote(application: Application): Promise<void> {
+/** Shows a new, empty note (an unpersisted draft), where the inline "Start with template" row is. Returns its id. */
+async function showNote(application: Application): Promise<string> {
   cleanup();
-  await application.pageOperations.open('note-1');
+  const noteId = await application.pageOperations.openDraft({ folderId: PROJECTS });
   render(<AppLayout application={application} />);
   await flush();
+
+  return noteId;
 }
 
 /** Shows the Projects folder, whose Add menu has From template and the default-template New button. */
@@ -196,7 +197,7 @@ describe('recording a successful use', () => {
   it('applying from the inline row records the template once, and the time survives a restart', async () => {
     const { application, fileSystem, store } = await setup();
     const record = vi.spyOn(store, 'recordUse');
-    await showNote(application);
+    const noteId = await showNote(application);
 
     clickRow('Bravo');
     await flush();
@@ -204,7 +205,7 @@ describe('recording a successful use', () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith('tpl-bravo');
-    expect(application.pageOperations.getSession('note-1')!.currentRevision.markdown).toBe('# Bravo body');
+    expect(application.pageOperations.getSession(noteId)!.currentRevision.markdown).toBe('# Bravo body');
     // An app restart: a fresh store reads it back from .clutter/workspace.json.
     const restarted = await TemplateUsageStore.load(fileSystem, ROOT);
     expect(restarted.lastUsedAt('tpl-bravo')).toBe(store.lastUsedAt('tpl-bravo'));
@@ -217,7 +218,7 @@ describe('recording a successful use', () => {
     try {
       const { application, store } = await setup();
       const record = vi.spyOn(store, 'recordUse');
-      await showNote(application);
+      const noteId = await showNote(application);
 
       openOverflowPicker();
       clickPickerRow('Alpha');
@@ -226,7 +227,7 @@ describe('recording a successful use', () => {
 
       expect(record).toHaveBeenCalledTimes(1);
       expect(record).toHaveBeenCalledWith('tpl-alpha');
-      expect(application.pageOperations.getSession('note-1')!.currentRevision.markdown).toBe('# Alpha body');
+      expect(application.pageOperations.getSession(noteId)!.currentRevision.markdown).toBe('# Alpha body');
     } finally {
       restore();
     }
@@ -380,9 +381,8 @@ describe('one order on every template selection surface', () => {
     await flush();
     await flush();
 
-    // The note is no longer empty; clear it, and the row is back, ranked by use.
-    act(() => application.pageOperations.commitEdit('note-1', ''));
-    await flush();
+    // The note was saved by the application and never asks again; the next new note's row is ranked by use.
+    await showNote(application);
 
     expect(rowNames()).toEqual(['Alpha', 'Charlie', 'Bravo']);
   });
