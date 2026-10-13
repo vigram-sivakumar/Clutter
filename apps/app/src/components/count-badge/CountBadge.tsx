@@ -2,6 +2,7 @@ import './CountBadge.css';
 
 export interface CountBadgeProps {
   count?: number | null;
+  size?: 'medium' | 'small';
   /** Display cap before showing `{max}+`. Default 99. */
   max?: number;
   className?: string;
@@ -28,7 +29,12 @@ export function formatCount(
   return String(value);
 }
 
-export function CountBadge({ count, max = 99, className }: CountBadgeProps) {
+export function CountBadge({
+  count,
+  size = 'medium',
+  max = 99,
+  className,
+}: CountBadgeProps) {
   const value = normalizeCount(count);
 
   if (value <= 0) {
@@ -39,7 +45,9 @@ export function CountBadge({ count, max = 99, className }: CountBadgeProps) {
 
   return (
     <span
-      className={['clutter-count-badge', className].filter(Boolean).join(' ')}
+      className={['count-badge', `count-badge--${size}`, className]
+        .filter(Boolean)
+        .join(' ')}
       aria-label={`${value} items`}
     >
       {label}

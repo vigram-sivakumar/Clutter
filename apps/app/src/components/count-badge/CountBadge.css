@@ -1,9 +1,7 @@
-.clutter-count-badge {
+.count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--height-sm);
-  aspect-ratio: 1;
   flex-shrink: 0;
 
   font-variant-numeric: tabular-nums;
@@ -11,4 +9,13 @@
   font-size: var(--text-caption);
   line-height: var(--line-height-caption);
   color: var(--foreground-tertiary);
+}
+
+.count-badge--medium {
+  width: var(--height-sm);
+  aspect-ratio: 1;
+}
+.count-badge--small {
+  width: var(--height-xs);
+  aspect-ratio: 1;
 }

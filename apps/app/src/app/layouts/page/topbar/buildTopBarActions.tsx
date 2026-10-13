@@ -209,7 +209,7 @@ export function buildTopBarActions(
   // attached here in the app layer rather than in the presentation-layer definition).
   const menu = baseMenu.map((item) =>
     item.id === 'toggle-references' && options.referencesCount
-      ? { ...item, trailing: <CountBadge count={options.referencesCount} /> }
+      ? { ...item, trailing: <CountBadge size="small" count={options.referencesCount} /> }
       : item
   );
 

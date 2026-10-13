@@ -14,6 +14,7 @@ import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import ArrowUp from './svg/arrow-up.svg?react';
 import ArrowUpRight from './svg/arrow-up-right.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
+import Branch from './svg/branch.svg?react';
 import BrokenImage from './svg/broken-image.svg?react';
 import Brush from './svg/brush.svg?react';
 import Butterfly from './svg/butterfly.svg?react';
@@ -130,6 +131,7 @@ export const iconRegistry = {
   arrowUp: ArrowUp,
   arrowUpRight: ArrowUpRight,
   bookshelfBox: BookshelfBox,
+  branch: Branch,
   brokenImage: BrokenImage,
   brush: Brush,
   butterfly: Butterfly,

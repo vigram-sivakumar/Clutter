@@ -681,13 +681,14 @@ describe('buildTopBarActions: reference count on Hide/Show references (ADR-052)'
     open(3);
 
     expect(screen.getByText('Hide references').closest('[role="menuitem"], button, div')).toBeTruthy();
-    expect(document.querySelector('.clutter-count-badge')).toHaveTextContent('3');
+    expect(document.querySelector('.count-badge')).toHaveTextContent('3');
+    expect(document.querySelector('.count-badge')).toHaveClass('count-badge--small');
   });
 
   it('shows no badge when there are no references', () => {
     open(0);
 
     expect(screen.getByText('Hide references')).toBeInTheDocument();
-    expect(document.querySelector('.clutter-count-badge')).toBeNull();
+    expect(document.querySelector('.count-badge')).toBeNull();
   });
 });
