@@ -17,6 +17,11 @@
 }
 .property-list__name {
   max-width: 200px;
+  /* A flex item's automatic minimum is its content's min-content, here the whole label (an editable
+     name's text, even though it clips), so a long label stopped the cell shrinking: the row overflowed
+     and its centering shifted the icon, and the value was squeezed out. 0 lets the name cell shrink so
+     the label truncates (see `.property-list__name-input`) and every row keeps the same columns. */
+  min-width: 0;
   color: var(--foreground-secondary);
 }
 /* The name's icon is the property's type. For a Property with a menu,
