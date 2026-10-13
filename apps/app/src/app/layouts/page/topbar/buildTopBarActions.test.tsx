@@ -662,3 +662,32 @@ describe('buildTopBarActions: archived resources hide inapplicable actions (Phas
     expect(screen.getByText('Move to…')).toBeInTheDocument();
   });
 });
+
+describe('buildTopBarActions: reference count on Hide/Show references (ADR-052)', () => {
+  const open = (referencesCount?: number) => {
+    const page = makePage('page-1', `${ROOT}/Note.md`);
+    const { membershipSelector } = setup([], [page]);
+    const { actions } = buildTopBarActions(page, {
+      membershipSelector,
+      vaultRoot: ROOT,
+      onToggleReferences: vi.fn(),
+      referencesCount,
+    });
+    render(<>{actions}</>);
+    openOverflowMenu();
+  };
+
+  it('trails the item with a CountBadge', () => {
+    open(3);
+
+    expect(screen.getByText('Hide references').closest('[role="menuitem"], button, div')).toBeTruthy();
+    expect(document.querySelector('.clutter-count-badge')).toHaveTextContent('3');
+  });
+
+  it('shows no badge when there are no references', () => {
+    open(0);
+
+    expect(screen.getByText('Hide references')).toBeInTheDocument();
+    expect(document.querySelector('.clutter-count-badge')).toBeNull();
+  });
+});

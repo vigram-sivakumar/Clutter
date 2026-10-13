@@ -126,7 +126,6 @@ const TOGGLE_REFERENCES: ResourceActionDefinition = activeOnly({
   order: 10,
   label: (context) => (context.referencesHidden ? 'Show references' : 'Hide references'),
   icon: 'branch',
-  trailing: (context) => (context.referencesCount ? String(context.referencesCount) : undefined),
   availability: persistedOnly,
 });
 

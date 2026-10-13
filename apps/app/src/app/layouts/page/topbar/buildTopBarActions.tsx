@@ -3,6 +3,7 @@ import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import { CountBadge } from '@components/count-badge/CountBadge';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import {
   buildArchiveTopBarMenu,
@@ -53,8 +54,7 @@ function buildMenuForType(
   isDeletable: boolean,
   isTemplate: boolean = false,
   isEffectivelyArchived: boolean = false,
-  referencesHidden: boolean = false,
-  referencesCount: number = 0
+  referencesHidden: boolean = false
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
@@ -68,7 +68,6 @@ function buildMenuForType(
           isTemplate,
           isEffectivelyArchived,
           referencesHidden,
-          referencesCount,
         },
         'topbar'
       );
@@ -83,7 +82,6 @@ function buildMenuForType(
           isDeletable,
           isEffectivelyArchived,
           referencesHidden,
-          referencesCount,
         },
         'topbar'
       );
@@ -187,7 +185,7 @@ export function buildTopBarActions(
   const restorableState: 'active' | 'archived' = options.membershipSelector.isRestorable(resource)
     ? 'archived'
     : 'active';
-  const menu = !isPage(resource) && resourceType === 'reserved-folder'
+  const baseMenu = !isPage(resource) && resourceType === 'reserved-folder'
     ? options.onDeleteAll
       ? buildArchiveTopBarMenu(options.archiveIsEmpty ?? false)
       : []
@@ -199,14 +197,21 @@ export function buildTopBarActions(
         isDeletable,
         options.membershipSelector.isInTemplatesFolder(resource.parentId),
         isEffectivelyArchived,
-        options.referencesHidden,
-        options.referencesCount
+        options.referencesHidden
       )
     : buildResourceActionMenu(
         'folder',
         { status: restorableState, isFavorite, isDeletable, isEffectivelyArchived },
         'topbar'
       );
+
+  // The reference count trails the Hide/Show references item, as a CountBadge (a UI component, so it is
+  // attached here in the app layer rather than in the presentation-layer definition).
+  const menu = baseMenu.map((item) =>
+    item.id === 'toggle-references' && options.referencesCount
+      ? { ...item, trailing: <CountBadge count={options.referencesCount} /> }
+      : item
+  );
 
   // Location-actions pipeline — pure reads of `resource.path`/`options.
   // vaultRoot`, so built directly here rather than requiring every caller
