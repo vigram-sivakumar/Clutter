@@ -65,6 +65,13 @@
   cursor: pointer;
 }
 
+/* The embedded document shows no fold toggles (heading, list, fenced code): the header caret is the only
+ * collapse control. Scoped to a toggle that is a direct child of a document line, which is where the fold
+ * decorations sit; a nested embed's own header caret is deeper (line > card > header) and stays. */
+.cm-note-embed__content .cm-line > .cm-fold-toggle {
+  display: none;
+}
+
 /*
  * Reveal flash (`editorRevealHighlight.ts` — `cm-reveal-line` / `cm-reveal-line--visible`, same colour and 400ms
  * fade as every other reveal): when the target line is an embed, the flash is painted on the embed's own wrapper

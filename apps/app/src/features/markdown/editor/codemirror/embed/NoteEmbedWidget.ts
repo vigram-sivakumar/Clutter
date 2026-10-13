@@ -4,7 +4,7 @@ import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
 import { splitTargetFragment } from '../../../../../core/vault/ingest/grammar/targetFragment';
-import { createEditorView, serializeFoldState } from '../createEditorView';
+import { createEditorView } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
@@ -241,12 +241,11 @@ const nestedViews = new WeakMap<HTMLElement, EditorView>();
  * The chevron toggles whether `content` (the nested `EditorView`'s own
  * container) is visible — a different, pre-existing mechanism from the
  * *nested view's own* CM6 fold state (ADR-033's amendment: `toDOM()`'s
- * `createEditorView({ enableFolding: true, restoreFoldJSON, ... })` call
- * and `destroy()`'s capture, below) — collapsing hides the whole rendered
- * embed; folding (now possible inside it) hides one heading/list/fenced-
- * code section of the embedded note's own content, exactly as it would if
- * that note were open directly, keyed and persisted by its own `pageId`,
- * independent of this widget's own collapse state
+ * `createEditorView({ enableFolding: true, ... })` call — since superseded:
+ * the embedded document now shows no fold toggles and neither restores nor
+ * persists fold state, see `toDOM()`) — collapsing hides the whole rendered
+ * embed, and this caret is the only collapse control: the embedded note's
+ * own heading/list/fenced-code fold toggles are not shown (`NoteEmbedWidget.css`)
  * — the top/bottom dividers and the header itself (icon, title, every
  * button including this one) are never affected.
  *
@@ -337,9 +336,9 @@ export class NoteEmbedWidget extends WidgetType {
      * threaded one level deeper at each recursion, the same way
      * `ancestry` already is). Used only for the collapse-toggle's own
      * `getFoldStateStore().setEmbedCollapse(hostPageId, resolution.pageId,
-     * ...)` call below — the embedded page's own CM6 fold state
-     * (`getFoldStateStore().get`/`set` above) is keyed by
-     * `resolution.pageId` alone and never needs this.
+     * ...)` call below — the embedded page's own saved CM6 fold
+     * state (`getFoldStateStore().get`/`set` above) belongs to that page opened as a page and is no longer
+     * touched by this widget.
      */
     readonly hostPageId: string
   ) {
@@ -523,17 +522,20 @@ export class NoteEmbedWidget extends WidgetType {
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
     // The embed is a clickable card: a click anywhere on the wrapper opens the source note, through the same
-    // `openSource` the Expand button uses. Buttons (the header's caret, Edit source, More actions) and links
-    // or inputs inside the document keep their own behavior, as does anything that already handled the click
-    // (`defaultPrevented`); the end of a text selection never navigates, so text stays selectable. A nested
-    // embed is a card of its own: its listener runs first and stops the click, so only the innermost embed
-    // opens its source.
+    // `openSource` the Expand button uses. What has its own click behavior keeps it and does not navigate:
+    // buttons (the header's controls, the task and list markers, Copy), links and inputs, the semantic
+    // tokens (link, WikiLink, tag, date — they act on `mousedown`, so the click that follows is not itself
+    // marked handled) and media blocks (an image, a PDF, a nested embed — which is a card of its own: its
+    // listener runs first and stops the click, so only the innermost embed opens its source). Anything
+    // already handled (`defaultPrevented`) and the end of a text selection never navigate, so text stays
+    // selectable. `owner !== container` because the wrapper is itself a media block.
     container.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
         return;
       }
-      if (target.closest('button, a, input') || window.getSelection()?.toString()) {
+      const owner = target.closest('button, a, input, .tok-link, .tok-wikilink, .tok-tag, .tok-date, .cm-media-block');
+      if ((owner !== null && owner !== container) || window.getSelection()?.toString()) {
         return;
       }
       event.stopPropagation();
@@ -626,20 +628,15 @@ export class NoteEmbedWidget extends WidgetType {
 
     container.append(header, content, endDivider);
 
-    // ADR-033's amendment: `enableFolding: true` alongside `readOnly: true`
-    // — folding is non-mutating, so this embed's own headings/lists/
-    // fenced-code become independently foldable without becoming editable.
-    // `restoreFoldJSON` is gated (inside `createEditorView`) by the same
-    // `docTextMatches` staleness check the top-level editor already uses,
-    // keyed here by the *embedded* page's own `pageId` — never the host
-    // note's — so a stale/changed embedded document never restores
-    // invalid fold ranges onto it.
+    // `enableFolding: true` alongside `readOnly: true` still installs the fold extensions the shared fenced-code
+    // hover handlers (Copy / More actions reveal) ride on, but the embedded document shows no fold toggles
+    // (`NoteEmbedWidget.css`): the header caret is the only collapse control, and the source note's saved
+    // folds are neither restored here nor overwritten by `destroy()` — they belong to the note opened as a page.
     const nestedView = createEditorView({
       doc: trimEmptyEdgeLines(resolution.markdown),
       parent: content,
       readOnly: true,
       enableFolding: true,
-      restoreFoldJSON: this.getFoldStateStore()?.get(resolution.pageId),
       extensions: this.extensions,
     });
     nestedViews.set(container, nestedView);
@@ -718,23 +715,11 @@ export class NoteEmbedWidget extends WidgetType {
   }
 
   override destroy(dom: HTMLElement): void {
-    // ADR-033's amendment: captured before destroy() (which invalidates
-    // the view), keyed by the embedded page's own `pageId` — mirrors
-    // `MarkdownEditor.tsx`'s own unmount cleanup, but this is *this
-    // widget's own* lifecycle hook, since a nested view can be destroyed
-    // and recreated far more often than the host note switches (any
-    // change that fails `eq()` above, not just a host note close). The
-    // view is the one rendered into `dom` — see `nestedViews`. No-op for
-    // a broken embed (`this.resolution === null`) — nothing to key by.
+    // The view rendered into `dom` — see `nestedViews`. No-op for a broken embed (nothing was rendered). The
+    // embedded document's fold state is deliberately not captured: see `toDOM()`.
     const view = nestedViews.get(dom);
     if (!view) {
       return;
-    }
-    if (this.resolution) {
-      this.getFoldStateStore()?.set(
-        this.resolution.pageId,
-        serializeFoldState(view)
-      );
     }
     view.destroy();
     nestedViews.delete(dom);
