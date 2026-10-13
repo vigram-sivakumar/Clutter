@@ -26,7 +26,7 @@
   justify-content: center;
 }
 .topbar--leading {
-  gap: var(--space-12);
+  gap: var(--space-6);
 }
 
 .topbar--trailing {
@@ -37,7 +37,7 @@
 /* A pill leading the actions (the "Editing template" pill) keeps a gap from
    the first button; the group itself stays gap-free for the buttons. */
 .topbar--trailing > .pill {
-  margin-right: var(--space-8);
+  margin-right: var(--space-6);
 }
 
 .button-group {
