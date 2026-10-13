@@ -38,24 +38,21 @@ describe('pills', () => {
     expect(pill).toMatch(/max-width:\s*100%/);
   });
 
-  it.each(['.pill__label', '.property-list__value .entry__content .pill__label'])(
-    'truncate their text with an ellipsis (%s)',
-    (selector) => {
-      const label = declarations(pillCss, selector);
+  it('truncate their text with an ellipsis', () => {
+    const label = declarations(pillCss, '.pill__label');
 
-      expect(label).toMatch(/display:\s*block/);
-      expect(label).toMatch(/min-width:\s*0/);
-      expect(label).toMatch(/overflow:\s*hidden/);
-      expect(label).toMatch(/text-overflow:\s*ellipsis/);
-      expect(label).toMatch(/white-space:\s*nowrap/);
-    }
-  );
+    expect(label).toMatch(/display:\s*block/);
+    expect(label).toMatch(/min-width:\s*0/);
+    expect(label).toMatch(/overflow:\s*hidden/);
+    expect(label).toMatch(/text-overflow:\s*ellipsis/);
+    expect(label).toMatch(/white-space:\s*nowrap/);
+  });
 
   it('keep the # and the name on one line', () => {
     expect(declarations(pillCss, '.pill__prefix')).toMatch(/white-space:\s*nowrap/);
   });
 
   it('a read-only list is capped at its cell, so a long pill wraps instead of widening it', () => {
-    expect(declarations(pillCss, '.property-list__value .entry__content .pill-list')).toMatch(/max-width:\s*100%/);
+    expect(declarations(pillCss, '.pill-list')).toMatch(/max-width:\s*100%/);
   });
 });

@@ -8,11 +8,8 @@
 /* One pill: neutral surface and text, badge radius; a tag's `#` prefix
    is dimmed (`.pill__prefix`).
    `--pill-height` is the one size knob: the pill is exactly that tall
-   (text vertically centered, so only inline padding). The
-   selector specificity beats `.property-list__value .entry__content span`
-   (the value cell's clamped-box rule) inside a read-only cell. */
-.pill,
-.property-list__value .entry__content .pill {
+   (text vertically centered, so only inline padding). */
+.pill {
   --pill-height: 24px;
   /* The pill's background, shared by the dismiss button and its fade so
      all three always match — including on hover, below. */
@@ -25,7 +22,6 @@
      (`.pill__label`). Short pills are untouched — nothing shrinks until the line runs out of room. */
   flex-shrink: 1;
   max-width: 100%;
-  overflow: visible;
   box-sizing: border-box;
   height: var(--pill-height);
 
@@ -39,17 +35,14 @@
   overflow: hidden;
 }
 /* Compact variant (Pill's size="small"): beside page chrome rather than in a
-   property value. Same selector pair as the base rule so it wins in both. */
-.pill.pill--small,
-.property-list__value .entry__content .pill.pill--small {
+   property value. */
+.pill.pill--small {
   --pill-height: 20px;
   font-size: var(--text-label-small);
 }
 /* The pill's text. Block-level, so `text-overflow` applies (a bare text node in the pill's flex box never
-   gets an ellipsis); `min-width: 0` lets it shrink below its text. Same selector pair as the pill, because the
-   value cell's clamped-box rule (`.property-list__value .entry__content span`) would otherwise win. */
-.pill__label,
-.property-list__value .entry__content .pill__label {
+   gets an ellipsis); `min-width: 0` lets it shrink below its text. */
+.pill__label {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -57,8 +50,7 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
-.pill__prefix,
-.property-list__value .entry__content .pill__prefix {
+.pill__prefix {
   display: inline;
   /* One run with the label's text: no break between the `#` and the tag name. */
   white-space: nowrap;
@@ -88,10 +80,8 @@
 
 /* Hovered pill: a slightly lifted surface — only for a clickable one (Pill
    sets role="button" only then); a static pill (the Template pill) has
-   nothing to hover. Both selectors, because the read-only one above
-   declares --pill-surface at higher specificity. */
-.pill[role='button']:hover,
-.property-list__value .entry__content .pill[role='button']:hover {
+   nothing to hover. */
+.pill[role='button']:hover {
   --pill-surface: color-mix(
     in srgb,
     var(--surface-tertiary) 97%,
@@ -130,7 +120,7 @@
 /* A read-only list: the pills, wrapping. `max-width` because the value cell's wrapper is a `-webkit-box`
    (the clamped-box rule), which sizes its child to the child's content rather than to itself — without
    it a long pill made the list, and the wrapping, as wide as the pill. */
-.property-list__value .entry__content .pill-list {
+.pill-list {
   display: flex;
   flex-wrap: wrap;
   max-width: 100%;

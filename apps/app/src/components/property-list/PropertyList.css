@@ -59,7 +59,9 @@
   white-space: normal;
   text-overflow: clip;
 }
-.property-list__value .entry__content span {
+/* Only the cell's own wrapper span (PropertyValueCell) is the clamped box — `>`, not a descendant
+   selector, so spans nested in it (pills, the link title) are untouched and need no override. */
+.property-list__value .entry__content > span {
   display: -webkit-box;
   /* -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -137,10 +139,8 @@
   text-decoration: none;
   cursor: pointer;
 }
-/* Selector specificity beats `.property-list__value .entry__content span`
-   (which makes value spans a clamped box) so the title stays an inline run
-   the underline can follow. */
-.property-list__value .entry__content .property-list__link-title {
+/* The title stays an inline run the underline can follow. */
+.property-list__link-title {
   display: inline;
   overflow-wrap: anywhere;
   text-decoration: underline;
