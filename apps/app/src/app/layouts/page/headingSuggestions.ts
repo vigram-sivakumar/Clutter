@@ -2,16 +2,13 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { extractHeadingOccurrences } from '@core/vault/ingest/extractors/headingSemantics';
-import type {
-  EmbedHeadingSuggestion,
-  GetEmbedHeadingSuggestions,
-} from '@features/markdown/editor/codemirror/embed/embedSuggestion';
+import type { HeadingSuggestion, GetHeadingSuggestions } from '@features/markdown/editor/MarkdownEditor';
 
 import { findPagesByAlias } from './resolveWikiLink';
 
 /**
  * Composes `Vault` + `EffectivePageState` into the editor's injected
- * `GetEmbedHeadingSuggestions` boundary — the same pair `resolvePageEmbed.ts`
+ * `GetHeadingSuggestions` boundary — the same pair `resolvePageEmbed.ts`
  * composes, and the same page-lookup logic (literal path, then the sole
  * alias match; an ambiguous or unresolved page yields no suggestions,
  * never a vault-wide fallback). Heading candidates come from
@@ -27,10 +24,10 @@ import { findPagesByAlias } from './resolveWikiLink';
  * resolution, the same split already established between "autocomplete
  * suggests broadly" and "resolution matches exactly."
  */
-export function createEmbedHeadingSuggester(
+export function createHeadingSuggester(
   vault: Vault,
   effectivePageState: EffectivePageState
-): GetEmbedHeadingSuggestions {
+): GetHeadingSuggestions {
   return (pagePath, query) => {
     const page = resolvePage(vault, pagePath);
     if (!page) {
@@ -47,7 +44,7 @@ export function createEmbedHeadingSuggester(
       : occurrences;
 
     return matches.map(
-      (occurrence): EmbedHeadingSuggestion => ({ kind: 'heading', heading: occurrence.text, level: occurrence.level })
+      (occurrence): HeadingSuggestion => ({ kind: 'heading', heading: occurrence.text, level: occurrence.level })
     );
   };
 }

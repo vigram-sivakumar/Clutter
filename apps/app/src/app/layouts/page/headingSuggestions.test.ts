@@ -7,7 +7,7 @@ import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import type { Page } from '@core/vault/models/Page';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 
-import { createEmbedHeadingSuggester } from './headingSuggestions';
+import { createHeadingSuggester } from './headingSuggestions';
 
 function makeVault(pages: Page[]): Vault {
   return new Vault(
@@ -54,13 +54,13 @@ function makeEffectivePageState(getPage: (id: string) => { name: string; markdow
   return { getPage } as unknown as EffectivePageState;
 }
 
-describe('createEmbedHeadingSuggester', () => {
+describe('createHeadingSuggester', () => {
   const markdown = ['# Root causes', 'text', '', '## Setup', 'more text', '', '# Appendix', 'end'].join('\n');
 
   it('returns every heading in document order for an empty query', () => {
     const page = makePage({ id: 'p1', path: '/vault/Note B.md', name: 'Note B', source: { markdown } });
     const vault = makeVault([page]);
-    const suggest = createEmbedHeadingSuggester(vault, makeEffectivePageState(() => undefined));
+    const suggest = createHeadingSuggester(vault, makeEffectivePageState(() => undefined));
 
     expect(suggest('Note B', '')).toEqual([
       { kind: 'heading', heading: 'Root causes', level: 1 },
@@ -72,7 +72,7 @@ describe('createEmbedHeadingSuggester', () => {
   it('filters by case-insensitive substring, unlike resolution-time exact matching', () => {
     const page = makePage({ id: 'p1', path: '/vault/Note B.md', name: 'Note B', source: { markdown } });
     const vault = makeVault([page]);
-    const suggest = createEmbedHeadingSuggester(vault, makeEffectivePageState(() => undefined));
+    const suggest = createHeadingSuggester(vault, makeEffectivePageState(() => undefined));
 
     expect(suggest('Note B', 'roo')).toEqual([{ kind: 'heading', heading: 'Root causes', level: 1 }]);
   });
@@ -81,7 +81,7 @@ describe('createEmbedHeadingSuggester', () => {
     const pageA = makePage({ id: 'a', path: '/vault/A.md', name: 'A', source: { markdown: '# Only in A' } });
     const pageB = makePage({ id: 'b', path: '/vault/B.md', name: 'B', source: { markdown: '# Only in B' } });
     const vault = makeVault([pageA, pageB]);
-    const suggest = createEmbedHeadingSuggester(vault, makeEffectivePageState(() => undefined));
+    const suggest = createHeadingSuggester(vault, makeEffectivePageState(() => undefined));
 
     expect(suggest('A', '')).toEqual([{ kind: 'heading', heading: 'Only in A', level: 1 }]);
   });
@@ -89,7 +89,7 @@ describe('createEmbedHeadingSuggester', () => {
   it('returns headings from the effective (live) markdown, not the durable copy', () => {
     const page = makePage({ id: 'p1', path: '/vault/Note B.md', name: 'Note B', source: { markdown: '# Old Heading' } });
     const vault = makeVault([page]);
-    const suggest = createEmbedHeadingSuggester(
+    const suggest = createHeadingSuggester(
       vault,
       makeEffectivePageState((id) => (id === 'p1' ? { name: 'Note B', markdown: '# New Heading' } : undefined))
     );
@@ -99,7 +99,7 @@ describe('createEmbedHeadingSuggester', () => {
 
   it('returns no suggestions when the page portion does not resolve', () => {
     const vault = makeVault([]);
-    const suggest = createEmbedHeadingSuggester(vault, makeEffectivePageState(() => undefined));
+    const suggest = createHeadingSuggester(vault, makeEffectivePageState(() => undefined));
 
     expect(suggest('Nonexistent', '')).toEqual([]);
   });
@@ -109,7 +109,7 @@ describe('createEmbedHeadingSuggester', () => {
     const p1 = makePage({ id: 'p1', path: '/vault/A.md', name: 'A', analysis: { headings: [], aliases: alias, blockReferences: [], tasks: [], tags: [], links: [], embeds: [] } });
     const p2 = makePage({ id: 'p2', path: '/vault/B.md', name: 'B', analysis: { headings: [], aliases: alias, blockReferences: [], tasks: [], tags: [], links: [], embeds: [] } });
     const vault = makeVault([p1, p2]);
-    const suggest = createEmbedHeadingSuggester(vault, makeEffectivePageState(() => undefined));
+    const suggest = createHeadingSuggester(vault, makeEffectivePageState(() => undefined));
 
     expect(suggest('Shared', '')).toEqual([]);
   });

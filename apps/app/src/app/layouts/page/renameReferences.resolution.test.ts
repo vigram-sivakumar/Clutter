@@ -57,11 +57,8 @@ describe('references rewritten by a note rename resolve in the editor’s resolv
     });
   }
 
-  // Parity, not absolute resolution: today the editor's WikiLink resolver is handed the whole `path` including any
-  // `#heading` / `#^block` tail (see renderWikiLink), so `[[Note#Heading]]` is "unresolved" in the editor before
-  // AND after a rename, while the index resolves it. That predates the rename rewrite and is deliberately not
-  // changed here; this test pins that the rewrite neither fixes nor worsens any form.
-  it.each([...links, ...embeds])('%s keeps the resolution status it had, now at the new name', (original) => {
+  // Every link form must resolve before the rename and, rewritten, resolve to the same page after it.
+  it.each([...links, ...embeds])('%s resolves to the renamed note, as it did before', (original) => {
     const vault = new Vault(ROOT, [page('t', 'Meeting Notes.md', body)], [], [], [], [], new KnowledgeGraph([]), new VaultProjectionBuilder());
     const [before] = resolveAll(vault, [original]);
 
@@ -71,6 +68,7 @@ describe('references rewritten by a note rename resolve in the editor’s resolv
     const [after] = resolveAll(vault, [rewritten]);
 
     expect(rewritten).toBe(original.replace('Meeting Notes', 'Team Meeting'));
+    expect(before!.status).toBe(original.startsWith('!') && original.includes('#^') ? 'unresolved-heading' : 'resolved');
     expect(after!.status).toBe(before!.status);
     expect(after!.pageId).toBe(before!.pageId);
   });

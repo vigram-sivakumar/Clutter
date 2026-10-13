@@ -668,3 +668,95 @@ describe('wiki-links in a read-only host (createMissing: false) — an archived 
     expect(create).toHaveBeenCalled();
   });
 });
+
+describe('wiki-links with a heading or block reference (Note#Heading, Note#^block-id)', () => {
+  const markdown = '# Decisions\n\nWe decided.\n^decision-1\n\n## Action Items\n\nDo things.\n';
+  const alpha = () =>
+    makePage({
+      id: 'p1',
+      path: '/vault/Projects/Alpha.md',
+      name: 'Alpha',
+      source: { markdown },
+      analysis: { headings: [], aliases: [{ value: 'Al' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+    });
+
+  function setup(effective?: (id: string) => { markdown: string } | undefined) {
+    const vault = makeVault([alpha()]);
+    const open = vi.fn();
+    const create = vi.fn();
+    const resolve = createWikiLinkResolver(
+      vault,
+      fakePageOperations(vault, { open, create }),
+      fakeFolderOperations(vault),
+      effective ? ({ getPage: effective } as never) : undefined
+    );
+    return { vault, resolve, open, create };
+  }
+
+  it('Note (no fragment) is unchanged: resolved to the page, labelled by its primary alias as before', () => {
+    const { resolve } = setup();
+
+    expect(resolve('Projects/Alpha', null)).toMatchObject({ status: 'resolved', pageId: 'p1', displayLabel: 'Al' });
+  });
+
+  it.each([
+    // The label follows the existing precedence — local alias > the page's primary frontmatter alias ("Al")
+    // > filename — with the heading / block appended unless the link carries its own display text.
+    ['Projects/Alpha#Decisions', null, 'Al › Decisions'],
+    ['Projects/Alpha#Action Items', 'View actions', 'View actions'],
+    ['Projects/Alpha#^decision-1', null, 'Al › ^decision-1'],
+    ['Projects/Alpha#  Decisions ', null, 'Al › Decisions'],
+  ])('%s resolves to the page by its note part, with the right label', (path, alias, label) => {
+    const { resolve } = setup();
+
+    expect(resolve(path, alias)).toMatchObject({ status: 'resolved', pageId: 'p1', displayLabel: label });
+  });
+
+  it('resolves through a frontmatter alias, then checks the heading in that page', () => {
+    const { resolve } = setup();
+
+    expect(resolve('Al#Decisions', null)).toMatchObject({ status: 'resolved', pageId: 'p1' });
+    expect(resolve('Al#Nope', null)).toMatchObject({ status: 'unresolved' });
+  });
+
+  it.each(['Projects/Alpha#Nope', 'Projects/Alpha#^nope', 'Projects/Alpha#decisions'])(
+    '%s: the note exists but the heading/block does not -> unresolved, and activating opens the note, never creates one',
+    (path) => {
+      const { resolve, open, create } = setup();
+
+      const resolution = resolve(path, null);
+      resolution.activate();
+
+      expect(resolution.status).toBe('unresolved');
+      expect(open).toHaveBeenCalledWith('p1');
+      expect(create).not.toHaveBeenCalled();
+    }
+  );
+
+  it('a heading is matched against the effective (unsaved) markdown, not the saved copy', () => {
+    const { resolve } = setup(() => ({ markdown: '# Brand New\n' }));
+
+    expect(resolve('Projects/Alpha#Brand New', null).status).toBe('resolved');
+    expect(resolve('Projects/Alpha#Decisions', null).status).toBe('unresolved');
+  });
+
+  it('activating a resolved heading link opens the note', () => {
+    const { resolve, open } = setup();
+
+    resolve('Projects/Alpha#Decisions', null).activate();
+
+    expect(open).toHaveBeenCalledWith('p1');
+  });
+
+  it('a missing note with a heading creates the NOTE (Missing), never a page named after the whole Missing#Heading text', async () => {
+    const { vault, resolve, create } = setup();
+
+    const resolution = resolve('Missing#Heading', null);
+    resolution.activate();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(resolution).toMatchObject({ status: 'unresolved', displayLabel: 'Missing' });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ title: 'Missing' }));
+    expect(vault.getPageByPath('/vault/Missing#Heading.md')).toBeUndefined();
+  });
+});

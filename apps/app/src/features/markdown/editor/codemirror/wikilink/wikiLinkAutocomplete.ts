@@ -9,6 +9,7 @@ import { EditorView, keymap } from '@codemirror/view';
 
 import { completionReactivation } from '../completionLifecycle';
 import { findWikiLinkAt } from './wikiLinkEngagement';
+import type { HeadingCompletion } from '../completionPopup/headingCompletion';
 import type { WikiLinkCompletion } from './wikiLinkCompletionRow';
 import {
   WIKILINK_TRIGGER_PATTERN,
@@ -50,10 +51,13 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
     return false;
   }
 
-  const completion = selectedCompletion(
-    view.state
-  ) as Partial<WikiLinkCompletion> | null;
-  if (!completion?.suggestion) {
+  // A heading option (`[[Page#Head`) commits its whole `page#heading` target as the reference, like a
+  // note commits its path; only a note option can be a "create" suggestion.
+  const selected = selectedCompletion(view.state);
+  const headingTarget = (selected as Partial<HeadingCompletion> | null)?.target;
+  const suggestion = headingTarget === undefined ? (selected as Partial<WikiLinkCompletion> | null)?.suggestion : undefined;
+  const reference = headingTarget ?? suggestion?.path;
+  if (reference === undefined) {
     return false;
   }
 
@@ -64,9 +68,8 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
     return false;
   }
 
-  const { suggestion } = completion;
-  const insertText = `${suggestion.path}|]]`;
-  const cursorPos = match.from + 2 + suggestion.path.length + 1;
+  const insertText = `${reference}|]]`;
+  const cursorPos = match.from + 2 + reference.length + 1;
 
   view.dispatch({
     changes: { from: match.from + 2, to: pos, insert: insertText },
@@ -74,7 +77,7 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
   });
   closeCompletion(view);
 
-  if (suggestion.kind === 'create') {
+  if (suggestion?.kind === 'create') {
     suggestion.create();
   }
 

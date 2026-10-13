@@ -5,6 +5,7 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   extractHeadingOccurrences,
   findFirstHeadingOccurrence,
+  splitTargetFragment,
   type HeadingOccurrence,
 } from '@core/vault/ingest/extractors/headingSemantics';
 import type { PageEmbedResolution, ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
@@ -87,7 +88,11 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
   }
 
   return (path) => {
-    const { pagePath, headingQuery } = splitEmbedTarget(path);
+    // `![[Page#Heading]]` scans with `#` as an ordinary path character; the shared split (also the wiki-link
+    // resolver's) separates the page from its fragment. A `^`-prefixed fragment (block reference) is
+    // deliberately out of scope for embeds — it falls through to a heading lookup that matches no real
+    // heading, the same 'unresolved-heading' a wrong heading name gets.
+    const { pagePart: pagePath, fragment: headingQuery } = splitTargetFragment(path);
 
     const literal = vault.getPageByPath(`${vault.root}/${pagePath}.md`);
     if (literal) {
@@ -105,24 +110,6 @@ export function createPageEmbedResolver(vault: Vault, effectivePageState: Effect
 
     return { status: 'unresolved', displayLabel: VaultPath.pageName(pagePath) };
   };
-}
-
-/**
- * `![[Page#Heading]]` scans today (`scanEmbed`/`scanWikiLink`) with `#` as
- * an ordinary path character — `path` here is `"Page#Heading"` in full.
- * Splits on the first `#`, mirroring `LinkExtractor.ts`/`EmbedExtractor.ts`'s
- * own identical split (see this file's own doc comment for why that isn't
- * imported directly). A `^`-prefixed fragment (block reference syntax) is
- * deliberately out of scope — it falls through to an ordinary heading
- * lookup, which will simply not match any real heading text, the same
- * `'unresolved-heading'` outcome a genuinely wrong heading name gets.
- */
-function splitEmbedTarget(path: string): { pagePath: string; headingQuery: string | null } {
-  const hashIndex = path.indexOf('#');
-  if (hashIndex === -1) {
-    return { pagePath: path, headingQuery: null };
-  }
-  return { pagePath: path.slice(0, hashIndex), headingQuery: path.slice(hashIndex + 1) };
 }
 
 /**

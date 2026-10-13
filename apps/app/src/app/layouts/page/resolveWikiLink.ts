@@ -5,6 +5,12 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import {
+  extractHeadingOccurrences,
+  findFirstHeadingOccurrence,
+  splitTargetFragment,
+} from '@core/vault/ingest/extractors/headingSemantics';
+import { BlockReferenceExtractor } from '@core/vault/ingest/extractors/BlockReferenceExtractor';
 import type { ResolveWikiLink, WikiLinkResolution } from '@features/markdown/editor/MarkdownEditor';
 
 import { resolvePageIdentityIcon } from './resolvePageIdentityIcon';
@@ -50,13 +56,16 @@ export function createWikiLinkResolver(
    */
   { createMissing = true }: { readonly createMissing?: boolean } = {}
 ): ResolveWikiLink {
-  function resolvedTo(page: Page, localAlias: string | null): WikiLinkResolution {
+  function resolvedTo(page: Page, localAlias: string | null, fragment: string | null): WikiLinkResolution {
     // Display-label precedence: local alias > target's primary frontmatter
     // alias (the first declared alias) > filename
     // (docs/editor-architecture-decisions.md, "WikiLink resolution,
-    // aliases, and display").
+    // aliases, and display"). A heading / block reference then reads as
+    // `Note › Heading` — the same shape a heading embed's header uses — unless
+    // the link carries its own display text.
     const primaryAlias = page.analysis.aliases[0]?.value;
-    const displayLabel = localAlias ?? primaryAlias ?? VaultPath.pageName(page.path);
+    const noteLabel = primaryAlias ?? VaultPath.pageName(page.path);
+    const displayLabel = localAlias ?? (fragment === null ? noteLabel : `${noteLabel} › ${fragment.trim()}`);
     // The single shared source of truth for a resolved page's own
     // identity icon/emoji — the exact same computation
     // `resolvePageEmbed.ts`'s own resolved note-embed uses, so the two
@@ -70,6 +79,13 @@ export function createWikiLinkResolver(
       vault.isFolderWithinReservedFolder(page.parentId, 'templates')
     );
 
+    // The note resolved, but the heading / block it names is not in it: the same "missing" the index
+    // reports for it (`LinkResolver`). Shown as unresolved, yet activating still opens the note that DOES
+    // exist — never creates a page named after the whole `Note#Heading` text.
+    if (fragment !== null && !fragmentExists(page, fragment)) {
+      return { status: 'unresolved', displayLabel, activate: () => void pageOperations.open(page.id) };
+    }
+
     return {
       status: 'resolved',
       pageId: page.id,
@@ -80,7 +96,29 @@ export function createWikiLinkResolver(
     };
   }
 
+  /**
+   * Whether `fragment` (the text after `#`) names something in `page`: `^id` a block reference, anything
+   * else a heading — the shared matching rules (`BlockReferenceExtractor`, `findFirstHeadingOccurrence`,
+   * exact text after trimming, first match), against the page's *effective* markdown so unsaved edits
+   * count, as a heading embed's resolution does.
+   */
+  function fragmentExists(page: Page, fragment: string): boolean {
+    const markdown = effectivePageState?.getPage(page.id)?.markdown ?? page.source.markdown;
+    const text = fragment.trim();
+
+    if (text.startsWith('^')) {
+      const id = text.slice(1).trim();
+      return new BlockReferenceExtractor().extract(markdown).some((block) => block.id === id);
+    }
+
+    return findFirstHeadingOccurrence(extractHeadingOccurrences(markdown), text) !== undefined;
+  }
+
   return (path, localAlias) => {
+    // `Note#Heading` / `Note#^block-id`: the note is looked up by its note part alone — the fragment is
+    // never part of a file path (the same split a heading embed makes).
+    const { pagePart, fragment } = splitTargetFragment(path);
+
     // WikiLink targets are canonically vault-relative, no extension
     // (docs/editor-architecture-decisions.md, "Path normalization");
     // Vault.getPageByPath keys on the root-prefixed filesystem path
@@ -89,17 +127,17 @@ export function createWikiLinkResolver(
     // Application.openFallbackPage's own DailyNotePath.absoluteFrom(root, ...)
     // lookup), so the root and extension are added back here, at the
     // resolution boundary, never stored that way.
-    const literal = vault.getPageByPath(`${vault.root}/${path}.md`);
+    const literal = vault.getPageByPath(`${vault.root}/${pagePart}.md`);
     if (literal) {
-      return resolvedTo(literal, localAlias);
+      return resolvedTo(literal, localAlias, fragment);
     }
 
     // Alias-based resolution is tried only after a literal path match
     // fails, per the locked fallback ordering — never auto-rewritten to
     // the canonical path.
-    const aliasMatches = findPagesByAlias(vault, path);
+    const aliasMatches = findPagesByAlias(vault, pagePart);
     if (aliasMatches.length === 1) {
-      return resolvedTo(aliasMatches[0] as Page, localAlias);
+      return resolvedTo(aliasMatches[0] as Page, localAlias, fragment);
     }
 
     if (aliasMatches.length > 1) {
@@ -107,7 +145,7 @@ export function createWikiLinkResolver(
       // never a silent pick. Display label follows the same alias-or-
       // filename rule as every other status (never the raw vault-relative
       // path — VaultPath.pageName strips both directory and extension).
-      return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(path), activate: () => {} };
+      return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(pagePart), activate: () => {} };
     }
 
     return {
@@ -117,7 +155,7 @@ export function createWikiLinkResolver(
       // back to the raw `path` here, which leaked the full
       // "Folder/Subfolder/Name" string into the rendered widget for any
       // unresolved reference.
-      displayLabel: localAlias ?? VaultPath.pageName(path),
+      displayLabel: localAlias ?? VaultPath.pageName(pagePart),
       // Clicking an unresolved reference creates the referenced page —
       // full path preserved, including any missing intermediate folders
       // — then opens it, through the existing PageOperations.create()/
@@ -126,7 +164,7 @@ export function createWikiLinkResolver(
       // than inventing a second creation or navigation path.
       activate: createMissing
         ? () => {
-            void createReferencedPage(vault, folderOperations, pageOperations, path);
+            void createReferencedPage(vault, folderOperations, pageOperations, pagePart);
           }
         : () => {},
     };

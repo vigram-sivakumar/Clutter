@@ -3,16 +3,12 @@ import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
 import { findEmbedAt } from './embedEngagement';
-import { embedHeadingRow, embedPageRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
+import { embedPageRow, embedResourceRow, type EmbedCompletion } from './embedCompletionRow';
 import { serializeEmbed } from './embedSerialize';
 import { lastUnescapedSlashOffset, splitAtFirstUnescapedPipe } from '../../../../../core/vault/ingest/grammar/wikiLinkScanner';
+import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { DEFAULT_IMAGE_UI_STATE, setImageUiState } from '../image/imageUiState';
-import type {
-  EmbedSuggestion,
-  EmbedTargetSuggestion,
-  GetEmbedHeadingSuggestions,
-  GetEmbedSuggestions,
-} from './embedSuggestion';
+import type { EmbedTargetSuggestion, GetEmbedSuggestions } from './embedSuggestion';
 
 /**
  * Matches from the most recent unclosed `![[` up to the cursor — a fresh,
@@ -116,29 +112,6 @@ function toCompletion(
   return completion;
 }
 
-/**
- * A heading suggestion inserts the full `${pagePart}#${heading}` target
- * text — the same "replace the whole reference" rule every other Embed
- * completion already follows (see `embedCompletionSource`'s own doc
- * comment on the reference-zone branch), not just the portion after `#`.
- */
-function toHeadingCompletion(
-  suggestion: Extract<EmbedSuggestion, { kind: 'heading' }>,
-  pagePart: string,
-  insertText: (target: string) => string
-): EmbedCompletion {
-  const completion: EmbedCompletion = {
-    label: suggestion.heading,
-    suggestion,
-    ...embedHeadingRow(suggestion),
-    apply(view, _completion, from, to) {
-      applyEmbedInsert(insertText(`${pagePart}#${suggestion.heading}`), view, from, to);
-    },
-  };
-
-  return completion;
-}
-
 export interface EmbedReferenceZone {
   /** Start of the reference text, right after the opening `![[`. */
   readonly from: number;
@@ -213,38 +186,18 @@ function buildResult(
  *   keep editing the display name" flow for this milestone.
  * - No `create` suggestion kind: see embedSuggestion.ts's own doc comment.
  *
- * ADR-032: once the typed target contains `#`, the query is split into
- * a page portion (everything before `#`) and a heading query
- * (everything after), and suggestions switch from resource targets to
- * headings within that one already-typed page — never a second
- * `CompletionSource`/trigger/`autocompletion()` registration, just a
- * content-based branch inside this same source, at the same point the
- * query string is already being computed for the resource case.
+/**
+ * ADR-032: once the typed target contains `#`, suggestions switch from
+ * resource targets to headings within that one already-typed page — never a
+ * second `CompletionSource`/trigger/`autocompletion()` registration, just a
+ * content-based branch inside this same source. That branch is the one
+ * shared `headingCompletionResult` (completionPopup/headingCompletion.ts),
+ * the same one `[[Page#` uses; only how the finished target is inserted
+ * (`applyEmbedInsert`) is Embed's own.
  */
-function buildHeadingResult(
-  from: number,
-  to: number,
-  pagePart: string,
-  headingQuery: string,
-  getHeadingSuggestions: GetEmbedHeadingSuggestions,
-  insertText: (target: string) => string
-): CompletionResult | null {
-  const items = getHeadingSuggestions(pagePart, headingQuery);
-  if (items.length === 0) {
-    return null;
-  }
-
-  return {
-    from,
-    to,
-    options: items.map((suggestion) => toHeadingCompletion(suggestion, pagePart, insertText)),
-    filter: false,
-  };
-}
-
 export function embedCompletionSource(
   getSuggestions: () => GetEmbedSuggestions | undefined,
-  getHeadingSuggestions: () => GetEmbedHeadingSuggestions | undefined = () => undefined
+  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined
 ): CompletionSource {
   return (context) => {
     const suggestions = getSuggestions();
@@ -260,17 +213,16 @@ export function embedCompletionSource(
       // "visible segment" narrowing below, which only ever applies once
       // it's confirmed there's no `#` to handle instead.
       const zoneReference = splitAtFirstUnescapedPipe(context.state.sliceDoc(zone.from, zone.to)).reference;
-      const zoneHashIndex = zoneReference.indexOf('#');
-      if (zoneHashIndex !== -1) {
-        const headingSuggestions = getHeadingSuggestions();
-        if (!headingSuggestions) {
-          return null;
-        }
-        const pagePart = zoneReference.slice(0, zoneHashIndex);
-        const headingQuery = zoneReference.slice(zoneHashIndex + 1);
-        return buildHeadingResult(zone.from, zone.to, pagePart, headingQuery, headingSuggestions, (target) => target);
+      const headingResult = headingCompletionResult(
+        zoneReference,
+        zone.from,
+        zone.to,
+        getHeadingSuggestions(),
+        (view, target, from, to) => applyEmbedInsert(target, view, from, to)
+      );
+      if (headingResult !== undefined) {
+        return headingResult;
       }
-
       // Same reasoning as wikiLinkCompletionSource.ts: the FULL current
       // reference text, not just the prefix up to the cursor, and scoped
       // to the visible segment only (past the last folder slash) — one
@@ -301,17 +253,15 @@ export function embedCompletionSource(
     }
 
     const query = match.text.slice(3);
-    const hashIndex = query.indexOf('#');
-    if (hashIndex !== -1) {
-      const headingSuggestions = getHeadingSuggestions();
-      if (!headingSuggestions) {
-        return null;
-      }
-      const pagePart = query.slice(0, hashIndex);
-      const headingQuery = query.slice(hashIndex + 1);
-      return buildHeadingResult(match.from, context.pos, pagePart, headingQuery, headingSuggestions, (target) =>
-        serializeEmbed(target)
-      );
+    const headingResult = headingCompletionResult(
+      query,
+      match.from,
+      context.pos,
+      getHeadingSuggestions(),
+      (view, target, from, to) => applyEmbedInsert(serializeEmbed(target), view, from, to)
+    );
+    if (headingResult !== undefined) {
+      return headingResult;
     }
 
     return buildResult(match.from, context.pos, query, suggestions, (path) => serializeEmbed(path));

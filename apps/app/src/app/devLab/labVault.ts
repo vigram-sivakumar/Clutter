@@ -17,7 +17,7 @@ import { buildCoverFolderItems } from '@features/notes/helpers/buildCoverFolderI
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { createWikiLinkSuggester } from '../layouts/page/wikiLinkSuggestions';
 import { createEmbedSuggester } from '../layouts/page/embedSuggestions';
-import { createEmbedHeadingSuggester } from '../layouts/page/headingSuggestions';
+import { createHeadingSuggester } from '../layouts/page/headingSuggestions';
 import { createTagSuggester } from '../layouts/page/tagSuggestions';
 
 const ROOT = '/lab-vault';
@@ -155,7 +155,7 @@ function labResourceUrl(path: string): string {
 }
 
 export const labEmbedSuggestions = createEmbedSuggester(vault, membershipSelector, labResourceUrl);
-export const labHeadingSuggestions = createEmbedHeadingSuggester(vault, effectivePageState);
+export const labHeadingSuggestions = createHeadingSuggester(vault, effectivePageState);
 export const labTagSuggestions = createTagSuggester(vault);
 
 export const labFolderItems: PickerListItem[] = buildMoveDestinationItems(membershipSelector);

@@ -112,6 +112,7 @@ export type {
   EmbedPageSuggestion,
   EmbedTargetSuggestion,
 } from './codemirror/embed/embedSuggestion';
+export type { GetHeadingSuggestions, HeadingSuggestion } from './codemirror/completionPopup/headingCompletion';
 export type {
   ResolveEmbedImage,
   EmbedImageResolution,
@@ -252,7 +253,7 @@ export const MarkdownEditor = forwardRef<
     resolveWikiLink,
     getWikiLinkSuggestions,
     getEmbedSuggestions,
-    getEmbedHeadingSuggestions,
+    getHeadingSuggestions,
     resolveEmbedImage,
     resolveEmbedPdf,
     onPdfEmbedClick,
@@ -364,8 +365,8 @@ export const MarkdownEditor = forwardRef<
   getEmbedSuggestionsRef.current = getEmbedSuggestions;
 
   // Same freshness pattern, for Embed's heading-suggestion accessor below.
-  const getEmbedHeadingSuggestionsRef = useRef(getEmbedHeadingSuggestions);
-  getEmbedHeadingSuggestionsRef.current = getEmbedHeadingSuggestions;
+  const getHeadingSuggestionsRef = useRef(getHeadingSuggestions);
+  getHeadingSuggestionsRef.current = getHeadingSuggestions;
 
   // Same freshness pattern, for Embed's live-preview rendering accessor below.
   const resolveEmbedImageRef = useRef(resolveEmbedImage);
@@ -1520,7 +1521,7 @@ export const MarkdownEditor = forwardRef<
       resolveWikiLink: () => resolveWikiLinkRef.current,
       getWikiLinkSuggestions: () => getWikiLinkSuggestionsRef.current,
       getEmbedSuggestions: () => getEmbedSuggestionsRef.current,
-      getEmbedHeadingSuggestions: () => getEmbedHeadingSuggestionsRef.current,
+      getHeadingSuggestions: () => getHeadingSuggestionsRef.current,
       resolveEmbedImage: () => resolveEmbedImageRef.current,
       resolveEmbedPdf: () => resolveEmbedPdfRef.current,
       resolvePageEmbed: () => resolvePageEmbedRef.current,

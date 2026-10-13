@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { embedHeadingRow, embedPageRow, embedResourceRow } from './embedCompletionRow';
+import { embedPageRow, embedResourceRow } from './embedCompletionRow';
 import type { EmbedResourceSuggestion } from './embedSuggestion';
 
 const resource = (overrides: Partial<EmbedResourceSuggestion> = {}): EmbedResourceSuggestion => ({
@@ -32,15 +32,6 @@ describe('embedResourceRow', () => {
 
     expect(row.thumbnail).toBeUndefined();
     expect(row.iconSvg).toBeTruthy();
-  });
-});
-
-describe('embedHeadingRow', () => {
-  it('shows the heading\'s text with its level on the right, and no section', () => {
-    const result = embedHeadingRow({ kind: 'heading', heading: 'Billing', level: 2 });
-
-    expect(result.row).toMatchObject({ title: 'Billing', trailing: 'H2' });
-    expect(result).not.toHaveProperty('section');
   });
 });
 

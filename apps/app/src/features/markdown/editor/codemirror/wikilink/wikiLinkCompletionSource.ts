@@ -1,6 +1,8 @@
 import type { CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 
+import { headingCompletionResult, type GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import { trailingSpaceChange } from '../completionPopup/trailingSpace';
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import { wikiLinkRow, type WikiLinkCompletion } from './wikiLinkCompletionRow';
@@ -29,6 +31,37 @@ export const WIKILINK_TRIGGER_PATTERN = /\[\[[^\]|\n]*$/;
 /** Turns an accepted suggestion's target path (and matched alias, if any) into the text to insert. */
 type InsertText = (path: string, alias: string | null) => string;
 
+/**
+ * Writes `insert` over `[from, to)` and puts the cursor after the whole construct — the one insert both a
+ * note suggestion and a heading suggestion (`[[Page#Heading]]`, completionPopup/headingCompletion.ts) use.
+ */
+function applyWikiLinkInsert(view: EditorView, insert: string, from: number, to: number): void {
+  // Reactivating completion inside an ALREADY-CLOSED reference (see
+  // `referenceZoneAt`) replaces only the bare reference text —
+  // whatever already follows it (a bare closing `]]`, or `|alias]]`)
+  // is pre-existing, untouched document content, not part of
+  // `insert`. The product contract is that accepting ANY autocomplete
+  // suggestion — WikiLink, with or without an alias, Embed, Date —
+  // places the cursor after the complete construct, never mid-syntax;
+  // `|` is alias syntax, not a resting point. `existing` (looked up
+  // in the PRE-change state, since `from`/`to` and any node found via
+  // them are only meaningful against the document as it stood before
+  // this transaction) is that already-closed node's own end; the
+  // fresh (`[[query`, no existing brackets yet) case has no such node
+  // and falls back to `from + insert.length`, which is already
+  // correct there since `serializeWikiLink` appended its own `]]`
+  // into `insert`.
+  const existing = findWikiLinkAt(view.state, from);
+  const anchor = existing ? existing.to + (insert.length - (to - from)) : from + insert.length;
+
+  // After the whole link, in the same transaction (one undo), unless a space already follows.
+  const space = trailingSpaceChange(view.state, existing ? existing.to : to);
+  view.dispatch({
+    changes: [{ from, to, insert }, ...(space ? [space] : [])],
+    selection: { anchor: anchor + 1 },
+  });
+}
+
 function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): WikiLinkCompletion {
   const alias = suggestion.kind === 'page' ? (suggestion.alias ?? null) : null;
   const completion: WikiLinkCompletion = {
@@ -41,32 +74,7 @@ function toCompletion(suggestion: WikiLinkSuggestion, insertText: InsertText): W
     suggestion,
     ...wikiLinkRow(suggestion),
     apply(view, _completion, from, to) {
-      const insert = insertText(suggestion.path, alias);
-
-      // Reactivating completion inside an ALREADY-CLOSED reference (see
-      // `referenceZoneAt`) replaces only the bare reference text —
-      // whatever already follows it (a bare closing `]]`, or `|alias]]`)
-      // is pre-existing, untouched document content, not part of
-      // `insert`. The product contract is that accepting ANY autocomplete
-      // suggestion — WikiLink, with or without an alias, Embed, Date —
-      // places the cursor after the complete construct, never mid-syntax;
-      // `|` is alias syntax, not a resting point. `existing` (looked up
-      // in the PRE-change state, since `from`/`to` and any node found via
-      // them are only meaningful against the document as it stood before
-      // this transaction) is that already-closed node's own end; the
-      // fresh (`[[query`, no existing brackets yet) case has no such node
-      // and falls back to `from + insert.length`, which is already
-      // correct there since `serializeWikiLink` appended its own `]]`
-      // into `insert`.
-      const existing = findWikiLinkAt(view.state, from);
-      const anchor = existing ? existing.to + (insert.length - (to - from)) : from + insert.length;
-
-      // After the whole link, in the same transaction (one undo), unless a space already follows.
-      const space = trailingSpaceChange(view.state, existing ? existing.to : to);
-      view.dispatch({
-        changes: [{ from, to, insert }, ...(space ? [space] : [])],
-        selection: { anchor: anchor + 1 },
-      });
+      applyWikiLinkInsert(view, insertText(suggestion.path, alias), from, to);
 
       if (suggestion.kind === 'create') {
         suggestion.create();
@@ -169,7 +177,8 @@ function buildResult(
  * — ordinary text editing, no WikiLink-specific completion.
  */
 export function wikiLinkCompletionSource(
-  getSuggestions: () => GetWikiLinkSuggestions | undefined
+  getSuggestions: () => GetWikiLinkSuggestions | undefined,
+  getHeadingSuggestions: () => GetHeadingSuggestions | undefined = () => undefined
 ): CompletionSource {
   return (context) => {
     const suggestions = getSuggestions();
@@ -179,6 +188,22 @@ export function wikiLinkCompletionSource(
 
     const zone = referenceZoneAt(context.state, context.pos);
     if (zone) {
+      // A `#` in the reference makes it a heading reference (`[[Page#Heading]]`): the SAME heading
+      // completion `![[Page#` uses, against the FULL reference (a folder prefix stays part of the page
+      // portion — unlike the filename-only narrowing below, which applies only once there is no `#`).
+      // Accepting replaces the whole reference zone and leaves any existing `|alias` untouched.
+      const zoneReference = splitAtFirstUnescapedPipe(context.state.sliceDoc(zone.from, zone.to)).reference;
+      const zoneHeadingResult = headingCompletionResult(
+        zoneReference,
+        zone.from,
+        zone.to,
+        getHeadingSuggestions(),
+        (view, target, from, to) => applyWikiLinkInsert(view, target, from, to)
+      );
+      if (zoneHeadingResult !== undefined) {
+        return zoneHeadingResult;
+      }
+
       // The FULL current reference text, not just the prefix up to the
       // cursor: unlike the fresh-link case below (composed strictly
       // left-to-right, where "up to the cursor" is the entire query by
@@ -246,6 +271,16 @@ export function wikiLinkCompletionSource(
     }
 
     const query = match.text.slice(2);
+    const headingResult = headingCompletionResult(
+      query,
+      match.from,
+      context.pos,
+      getHeadingSuggestions(),
+      (view, target, from, to) => applyWikiLinkInsert(view, serializeWikiLink(target, null), from, to)
+    );
+    if (headingResult !== undefined) {
+      return headingResult;
+    }
 
     return buildResult(match.from, context.pos, query, suggestions, (path, alias) =>
       serializeWikiLink(path, alias)

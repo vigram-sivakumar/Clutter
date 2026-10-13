@@ -87,7 +87,7 @@ import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
-import { createEmbedHeadingSuggester } from '@app/layouts/page/headingSuggestions';
+import { createHeadingSuggester } from '@app/layouts/page/headingSuggestions';
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
 import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
 import { createPageEmbedResolver } from '@app/layouts/page/resolvePageEmbed';
@@ -565,7 +565,7 @@ export function PageHost({
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // ADR-032's heading-suggestion counterpart, scoped to whichever page the
   // in-progress ![[Page# target already names.
-  const getEmbedHeadingSuggestions = createEmbedHeadingSuggester(
+  const getHeadingSuggestions = createHeadingSuggester(
     vault,
     application.effectivePageState
   );
@@ -2726,7 +2726,7 @@ export function PageHost({
                 resolveWikiLink={resolveWikiLink}
                 getWikiLinkSuggestions={getWikiLinkSuggestions}
                 getEmbedSuggestions={getEmbedSuggestions}
-                getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
+                getHeadingSuggestions={getHeadingSuggestions}
                 resolveEmbedImage={resolveEmbedImage}
                 resolveEmbedPdf={resolveEmbedPdf}
                 onPdfEmbedClick={onPdfEmbedClick}
@@ -3061,7 +3061,7 @@ export function PageHost({
                 resolveWikiLink={editorResolveWikiLink}
                 getWikiLinkSuggestions={getWikiLinkSuggestions}
                 getEmbedSuggestions={getEmbedSuggestions}
-                getEmbedHeadingSuggestions={getEmbedHeadingSuggestions}
+                getHeadingSuggestions={getHeadingSuggestions}
                 resolveEmbedImage={resolveEmbedImage}
                 resolveEmbedPdf={resolveEmbedPdf}
                 onPdfEmbedClick={editorPdfEmbedClick}

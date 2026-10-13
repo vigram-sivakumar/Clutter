@@ -60,7 +60,8 @@ import { wikiLinkMouseHandlers } from './wikilink/wikiLinkMouseHandlers';
 import type { ResolveEmbedImage } from './embed/embedImageResolution';
 import type { ResolveEmbedPdf } from './pdf/embedPdfResolution';
 import type { ResolvePageEmbed } from '../../render/blocks/pageEmbedResolution';
-import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embed/embedSuggestion';
+import type { GetEmbedSuggestions } from './embed/embedSuggestion';
+import type { GetHeadingSuggestions } from './completionPopup/headingCompletion';
 import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry';
 import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
@@ -106,7 +107,7 @@ export interface BuildEditorExtensionsOptions {
   readonly resolveWikiLink: () => ResolveWikiLink | undefined;
   readonly getWikiLinkSuggestions?: () => GetWikiLinkSuggestions | undefined;
   readonly getEmbedSuggestions?: () => GetEmbedSuggestions | undefined;
-  readonly getEmbedHeadingSuggestions?: () => GetEmbedHeadingSuggestions | undefined;
+  readonly getHeadingSuggestions?: () => GetHeadingSuggestions | undefined;
   readonly resolveEmbedImage: () => ResolveEmbedImage | undefined;
   readonly resolveEmbedPdf: () => ResolveEmbedPdf | undefined;
   /**
@@ -244,7 +245,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
     resolveWikiLink,
     getWikiLinkSuggestions,
     getEmbedSuggestions,
-    getEmbedHeadingSuggestions,
+    getHeadingSuggestions,
     resolveEmbedImage,
     resolveEmbedPdf,
     resolvePageEmbed,
@@ -517,7 +518,7 @@ export function buildEditorExtensionParts(options: BuildEditorExtensionsOptions)
       getWikiLinkSuggestions ?? (() => undefined),
       getTagSuggestions ?? (() => undefined),
       getEmbedSuggestions ?? (() => undefined),
-      getEmbedHeadingSuggestions ?? (() => undefined)
+      getHeadingSuggestions ?? (() => undefined)
     ),
   ];
 

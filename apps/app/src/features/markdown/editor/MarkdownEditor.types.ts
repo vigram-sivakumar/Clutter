@@ -4,7 +4,8 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
 import type { ImageOverlayImage } from './codemirror/image/ImageOverlay';
 
 import type { ResolveDate } from './codemirror/date/dateResolution';
-import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './codemirror/embed/embedSuggestion';
+import type { GetEmbedSuggestions } from './codemirror/embed/embedSuggestion';
+import type { GetHeadingSuggestions } from './codemirror/completionPopup/headingCompletion';
 import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
 import type { ResolveEmbedPdf } from './codemirror/pdf/embedPdfResolution';
 import type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
@@ -175,7 +176,7 @@ export interface MarkdownEditorProps {
    * independent datasource `embedCompletionSource.ts` switches to by
    * content, not a second completion framework.
    */
-  readonly getEmbedHeadingSuggestions?: GetEmbedHeadingSuggestions;
+  readonly getHeadingSuggestions?: GetHeadingSuggestions;
   /**
    * Resolves a completed `![[path]]` Embed's target into an image URL (or
    * an unresolved/non-image outcome) for `embedLivePreview.ts` to render —

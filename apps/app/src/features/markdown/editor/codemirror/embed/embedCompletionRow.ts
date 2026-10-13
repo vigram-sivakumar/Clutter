@@ -5,7 +5,6 @@ import type { RowCompletion } from '../completionPopup/completionRow';
 import { COMPLETION_SECTIONS } from '../completionPopup/completionSections';
 import { wikiLinkRow } from '../wikilink/wikiLinkCompletionRow';
 import type {
-  EmbedHeadingSuggestion,
   EmbedPageSuggestion,
   EmbedResourceSuggestion,
   EmbedSuggestion,
@@ -44,9 +43,4 @@ export function embedResourceRow(suggestion: EmbedResourceSuggestion): Pick<Embe
     },
     section: isPdf ? COMPLETION_SECTIONS.pdfs : COMPLETION_SECTIONS.images,
   };
-}
-
-/** A heading suggestion (`![[Page#`): the heading's text, its level (`H2`) on the right. */
-export function embedHeadingRow(suggestion: EmbedHeadingSuggestion): Pick<EmbedCompletion, 'row'> {
-  return { row: { iconSvg: COMPLETION_ICONS.hash, title: suggestion.heading, trailing: `H${suggestion.level}` } };
 }

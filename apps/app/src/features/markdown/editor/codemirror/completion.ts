@@ -7,10 +7,8 @@ import { renderCompletionRow } from './completionPopup/completionRow';
 import { completionPopupTheme } from './completionPopup/completionPopupTheme';
 import { dateCompletionSource } from './date/dateCompletionSource';
 import { embedCompletionSource } from './embed/embedCompletionSource';
-import type {
-  GetEmbedHeadingSuggestions,
-  GetEmbedSuggestions,
-} from './embed/embedSuggestion';
+import type { GetEmbedSuggestions } from './embed/embedSuggestion';
+import type { GetHeadingSuggestions } from './completionPopup/headingCompletion';
 import { tagCompletionSource } from './tag/tagCompletionSource';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
 import { wikiLinkCompletionSource } from './wikilink/wikiLinkCompletionSource';
@@ -44,8 +42,8 @@ export function semanticCompletion(
   getWikiLinkSuggestions: () => GetWikiLinkSuggestions | undefined,
   getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined,
   getEmbedSuggestions: () => GetEmbedSuggestions | undefined = () => undefined,
-  getEmbedHeadingSuggestions: () =>
-    GetEmbedHeadingSuggestions | undefined = () => undefined
+  getHeadingSuggestions: () =>
+    GetHeadingSuggestions | undefined = () => undefined
 ): Extension {
   return [
     autocompletion({
@@ -57,10 +55,12 @@ export function semanticCompletion(
         // for `![[` — wikiLinkCompletionSource.ts's own explicit
         // preceding-`!` guard is what does that (see its doc comment).
         // This ordering is cosmetic only.
+        // Both pass the SAME `getHeadingSuggestions`: `[[Page#` and `![[Page#` offer one set of headings
+        // through one shared completion (completionPopup/headingCompletion.ts).
         // The lists that can grow long (`[[` notes, `![[` assets, `#` tags) are capped with "Show N
         // more"; headings and dates have no sections and are short.
-        limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getEmbedHeadingSuggestions)),
-        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions)),
+        limitCompletionSections(embedCompletionSource(getEmbedSuggestions, getHeadingSuggestions)),
+        limitCompletionSections(wikiLinkCompletionSource(getWikiLinkSuggestions, getHeadingSuggestions)),
         dateCompletionSource(),
         limitCompletionSections(tagCompletionSource(getTagSuggestions)),
       ],

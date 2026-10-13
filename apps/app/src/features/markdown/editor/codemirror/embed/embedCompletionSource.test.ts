@@ -8,7 +8,8 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedCompletionSource } from './embedCompletionSource';
 import { wikiLinkCompletionSource } from '../wikilink/wikiLinkCompletionSource';
-import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embedSuggestion';
+import type { GetEmbedSuggestions } from './embedSuggestion';
+import type { GetHeadingSuggestions } from '../completionPopup/headingCompletion';
 import type { GetWikiLinkSuggestions } from '../wikilink/wikiLinkSuggestion';
 
 function mountView(doc: string): EditorView {
@@ -313,7 +314,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
   it('switches to heading suggestions once the query contains #, scoped to the page portion', () => {
     const view = mountView('x ![[Note B#');
     const getSuggestions = vi.fn();
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = vi.fn(() => [
+    const getHeadingSuggestions: GetHeadingSuggestions = vi.fn(() => [
       { kind: 'heading' as const, heading: 'Setup', level: 2 },
       { kind: 'heading' as const, heading: 'Appendix', level: 1 },
     ]);
@@ -329,7 +330,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
 
   it('filters heading suggestions as more of the heading query is typed', () => {
     const view = mountView('x ![[Note B#Roo');
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = vi.fn(() => [{ kind: 'heading' as const, heading: 'Root causes', level: 1 }]);
+    const getHeadingSuggestions: GetHeadingSuggestions = vi.fn(() => [{ kind: 'heading' as const, heading: 'Root causes', level: 1 }]);
     const source = embedCompletionSource(
       () => vi.fn(),
       () => getHeadingSuggestions
@@ -343,7 +344,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
 
   it('preserves a folder-qualified page portion when splitting on #', () => {
     const view = mountView('x ![[Notes/Note B#Set');
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = vi.fn(() => []);
+    const getHeadingSuggestions: GetHeadingSuggestions = vi.fn(() => []);
     const source = embedCompletionSource(
       () => vi.fn(),
       () => getHeadingSuggestions
@@ -367,7 +368,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
 
   it("a heading option's apply() inserts the full page#heading target", () => {
     const view = mountView('x ![[Note B#Set y');
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = () => [{ kind: 'heading', heading: 'Setup', level: 2 }];
+    const getHeadingSuggestions: GetHeadingSuggestions = () => [{ kind: 'heading', heading: 'Setup', level: 2 }];
     const source = embedCompletionSource(
       () => vi.fn(),
       () => getHeadingSuggestions
@@ -386,7 +387,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
 
   it('reactivating inside an already-closed ![[Page#Heading]] offers heading suggestions again, scoped to the page portion', () => {
     const view = mountView('x ![[Note B#Setup]] y');
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = vi.fn(() => [{ kind: 'heading' as const, heading: 'Setup', level: 2 }]);
+    const getHeadingSuggestions: GetHeadingSuggestions = vi.fn(() => [{ kind: 'heading' as const, heading: 'Setup', level: 2 }]);
     const source = embedCompletionSource(
       () => vi.fn(),
       () => getHeadingSuggestions
@@ -401,7 +402,7 @@ describe('embedCompletionSource — heading suggestions (![[Page#, ADR-032)', ()
 
   it('a reactivated heading completion replaces the entire reference zone with the full page#heading text', () => {
     const view = mountView('x ![[Note B#Set]] y');
-    const getHeadingSuggestions: GetEmbedHeadingSuggestions = () => [{ kind: 'heading', heading: 'Setup', level: 2 }];
+    const getHeadingSuggestions: GetHeadingSuggestions = () => [{ kind: 'heading', heading: 'Setup', level: 2 }];
     const source = embedCompletionSource(
       () => vi.fn(),
       () => getHeadingSuggestions

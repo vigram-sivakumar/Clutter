@@ -6,7 +6,8 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
 import { semanticCompletion } from '../completion';
-import type { EmbedHeadingSuggestion, EmbedResourceSuggestion, EmbedTargetSuggestion } from '../embed/embedSuggestion';
+import type { EmbedResourceSuggestion, EmbedTargetSuggestion } from '../embed/embedSuggestion';
+import type { HeadingSuggestion } from './headingCompletion';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import type { WikiLinkPageSuggestion } from '../wikilink/wikiLinkSuggestion';
 import { COMPLETION_SECTION_LIMIT } from './completionSectionLimit';
@@ -36,7 +37,7 @@ interface Suggestions {
   wiki?: WikiLinkPageSuggestion[];
   embed?: EmbedTargetSuggestion[];
   tags?: string[];
-  headings?: EmbedHeadingSuggestion[];
+  headings?: HeadingSuggestion[];
 }
 
 const views: EditorView[] = [];
@@ -239,7 +240,7 @@ describe('the short popups have no toggle', () => {
   });
 
   it('does not cap ![[Page# headings', async () => {
-    const headings: EmbedHeadingSuggestion[] = Array.from({ length: 14 }, (_, i) => ({ kind: 'heading', heading: `H ${i}`, level: 2 }));
+    const headings: HeadingSuggestion[] = Array.from({ length: 14 }, (_, i) => ({ kind: 'heading', heading: `H ${i}`, level: 2 }));
     const view = await open('![[Page#', { headings });
 
     expect(rows(view)).toHaveLength(14);

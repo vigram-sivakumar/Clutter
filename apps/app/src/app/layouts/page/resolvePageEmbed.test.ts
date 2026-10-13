@@ -203,6 +203,16 @@ describe('createPageEmbedResolver', () => {
       expect(result).toEqual({ status: 'unresolved-heading', pageId: 'p1', displayLabel: 'Alpha › Nonexistent Heading' });
     });
 
+    it('a block reference (![[Page#^id]]) is not an embeddable fragment: the page resolves, the fragment stays unresolved-heading', () => {
+      const page = makePage({ id: 'p1', path: '/vault/Alpha.md', name: 'Alpha', source: { markdown: `${markdown}\n^blk\n` } });
+      const vault = makeVault([page]);
+      const effectivePageState = makeEffectivePageState(() => undefined);
+
+      const result = createPageEmbedResolver(vault, effectivePageState)('Alpha#^blk');
+
+      expect(result).toMatchObject({ status: 'unresolved-heading', pageId: 'p1' });
+    });
+
     it('matches the first heading in document order when duplicate heading text exists', () => {
       const duplicateMarkdown = ['# Root causes', 'first', '', '## Root causes', 'second'].join('\n');
       const page = makePage({ id: 'p1', path: '/vault/Alpha.md', name: 'Alpha', source: { markdown: duplicateMarkdown } });
