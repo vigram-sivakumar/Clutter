@@ -231,7 +231,7 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(onOpenPage).toHaveBeenCalledWith('page-other');
   });
 
-  it('clicking the embed\'s outer content boundary opens the source note', () => {
+  it('clicking the embed\'s background or empty space opens the source note, once per click', () => {
     const onOpenPage = vi.fn();
     const view = mountView(
       '![[Other Note]]',
@@ -241,11 +241,16 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
       { onOpenPage }
     );
 
-    const content = view.dom.querySelector<HTMLElement>('.cm-note-embed__content')!;
-    content.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(onOpenPage).toHaveBeenCalledTimes(1);
-    expect(onOpenPage).toHaveBeenCalledWith('page-other');
+    const container = view.dom.querySelector<HTMLElement>('.cm-note-embed')!;
+    const content = container.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    // The container itself, the content's padding around the nested view, and the nested editor's own
+    // non-text chrome: all empty space.
+    for (const target of [container, content, content.querySelector<HTMLElement>('.cm-editor')!, content.querySelector<HTMLElement>('.cm-content')!]) {
+      onOpenPage.mockClear();
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(onOpenPage).toHaveBeenCalledTimes(1);
+      expect(onOpenPage).toHaveBeenCalledWith('page-other');
+    }
   });
 
   it('clicking ordinary embedded text, a link or a checkbox does not open the source note', () => {
@@ -273,7 +278,7 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(onOpenPage).not.toHaveBeenCalled();
   });
 
-  it('a text selection inside the embedded content does not open the note', () => {
+  it('a click that ends a text selection never opens the note, even on the background', () => {
     const onOpenPage = vi.fn();
     const view = mountView(
       '![[Other Note]]',
@@ -283,9 +288,9 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
       { onOpenPage }
     );
 
-    const line = view.dom.querySelector<HTMLElement>('.cm-note-embed__content .cm-line')!;
+    const container = view.dom.querySelector<HTMLElement>('.cm-note-embed')!;
     const selection = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => 'Bod' } as Selection);
-    line.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    container.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     selection.mockRestore();
 
     expect(onOpenPage).not.toHaveBeenCalled();
@@ -382,6 +387,12 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expect(innerContent).toBeDefined();
     innerContent.querySelector<HTMLElement>('.cm-line')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(onOpenPage).not.toHaveBeenCalled();
+
+    // The nested embed's own background opens the nested note only — the click must not also open the parent.
+    innerContent.closest<HTMLElement>('.cm-note-embed')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPage).toHaveBeenCalledTimes(1);
+    expect(onOpenPage).toHaveBeenLastCalledWith('page-inner');
+    onOpenPage.mockClear();
 
     const innerExpand = view.dom
       .querySelectorAll<HTMLButtonElement>('.cm-note-embed__content .cm-note-embed [aria-label="Expand"]')[0]!;

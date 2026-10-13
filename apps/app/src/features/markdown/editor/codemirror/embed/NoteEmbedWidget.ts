@@ -505,14 +505,21 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = this.ui.collapsed;
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
-    // Source navigation belongs to the embed's outer content boundary — the padding ring around the
-    // nested view — not to the rendered content. A click inside the nested view always has the nested
-    // view's own element as its target, so `target === content` means the click landed on the boundary
-    // itself and nothing inside (text, links, checkboxes, media, a nested embed) can trigger it. A nested
-    // embed's content has no padding, so it has no boundary of its own: only the outermost embed opens.
-    // Uses the same `getOnOpenPage` navigation the Expand button uses.
-    content.addEventListener('click', (event) => {
-      if (event.target !== content || event.button !== 0 || event.defaultPrevented) {
+    // Source navigation belongs to the embed container, not its rendered content: a click on the embed's
+    // background or empty space opens the source note (the same `getOnOpenPage` the Expand button uses). A
+    // click that lands on a text line, a link/button/input, a media block (which includes a nested embed,
+    // handled by that embed's own listener) or the header (title, caret, controls) is the content's or
+    // header's own and never navigates; neither does the end of a text selection.
+    container.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
+        return;
+      }
+      if (window.getSelection()?.toString()) {
+        return;
+      }
+      const owner = target.closest('a, button, input, .cm-line, .cm-media-block, .cm-note-embed__header');
+      if (owner !== null && owner !== container) {
         return;
       }
       this.getOnOpenPage()?.(resolution.pageId);
