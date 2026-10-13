@@ -110,8 +110,8 @@ function missingPropertyLines(
  * note lacks, so applying the same template twice yields an empty patch the second time:
  *
  *  - tags: the union (the note's own first);
- *  - icon and cover (with its presentation settings): the template's replace the note's — but only when
- *    they differ, so reapplying changes nothing; a daily note never takes the icon;
+ *  - icon and cover (with its presentation settings): only when the note has none — an existing icon or
+ *    cover is never replaced; a daily note never takes the icon;
  *  - description: only when the note has none;
  *  - custom properties: the template's keys the note doesn't already have, appended after its own.
  *
@@ -129,13 +129,13 @@ export function pickTemplateMetadataToMerge(
 
   if (
     inherited.icon &&
-    inherited.icon !== existing.icon &&
+    !existing.icon &&
     noteType !== 'daily-note'
   ) {
     patch.icon = inherited.icon;
   }
 
-  if (inherited.cover && inherited.cover !== existing.cover) {
+  if (inherited.cover && !existing.cover) {
     patch.cover = inherited.cover;
     patch.coverHidden = inherited.coverHidden;
     patch.coverLayout = inherited.coverLayout;

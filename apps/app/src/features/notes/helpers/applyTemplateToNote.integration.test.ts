@@ -155,7 +155,7 @@ describe('applyTemplateToNote — a persisted note', () => {
     expect(reparsed.unownedLines).toEqual(['Priority: High', 'Attendees:', '  - Ann', '  - Bo', 'reviewed: true']);
   });
 
-  it('merges: the template\'s icon and cover replace the note\'s; keeps its own description and property values; unions tags; adds missing properties', async () => {
+  it('merges: keeps its own icon, cover, description and property values; unions tags; adds missing properties', async () => {
     const env = setup(TEMPLATE, {
       icon: '📌',
       cover: 'Assets/mine.png',
@@ -170,10 +170,10 @@ describe('applyTemplateToNote — a persisted note', () => {
     await apply(env, 'note-1', 'note');
 
     const { metadata } = env.vault.getPage('note-1')!;
-    expect(metadata.icon).toBe('🧾');
-    expect(metadata.cover).toBe('Assets/cover.png');
-    expect(metadata.coverLayout).toBe('above');
-    expect(metadata.coverPositionAbove).toBe(30);
+    expect(metadata.icon).toBe('📌');
+    expect(metadata.cover).toBe('Assets/mine.png');
+    expect(metadata.coverLayout).not.toBe('above');
+    expect(metadata.coverPositionAbove).not.toBe(30);
     expect(metadata.description).toBe('Mine');
     expect(metadata.tags).toEqual(['mine', 'tpl', 'meeting']);
     expect(metadata.aliases).toEqual(['My alias']);
