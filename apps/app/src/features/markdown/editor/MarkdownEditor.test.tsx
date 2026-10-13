@@ -253,6 +253,22 @@ describe('MarkdownEditor imperative focus handle', () => {
       expect(call.behavior).toBe('auto');
     });
 
+    it('still scrolls to a target line CM6 has not rendered (coordsAtPos has no answer), using its height map', () => {
+      stubMatchMedia(false);
+      const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');
+      vi.spyOn(view, 'coordsAtPos').mockReturnValue(null);
+      vi.spyOn(view, 'lineBlockAt').mockReturnValue({ top: 3000, bottom: 3020 } as ReturnType<EditorView['lineBlockAt']>);
+      vi.spyOn(view, 'documentTop', 'get').mockReturnValue(-2500);
+
+      ref.current?.revealRange(0, 10);
+
+      // The line sits at viewport y 500..520 — just below the ancestor's visible rect (0..500) — so it scrolls.
+      expect(ancestor.scrollTo).toHaveBeenCalledTimes(1);
+      const call = (ancestor.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+      expect(call.behavior).toBe('smooth');
+      expect(call.top).toBeCloseTo((500 + 520) / 2 - 250, 0);
+    });
+
     it('does not scroll at all when the task line is already within the visible ancestor rect', () => {
       stubMatchMedia(false);
       const { ref, view, ancestor } = renderWithScrollAncestor('- [ ] Task');

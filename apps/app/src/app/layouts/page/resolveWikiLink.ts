@@ -8,8 +8,8 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   extractHeadingOccurrences,
   findFirstHeadingOccurrence,
-  splitTargetFragment,
 } from '@core/vault/ingest/extractors/headingSemantics';
+import { splitTargetFragment } from '@core/vault/ingest/grammar/targetFragment';
 import { BlockReferenceExtractor } from '@core/vault/ingest/extractors/BlockReferenceExtractor';
 import type { ResolveWikiLink, WikiLinkResolution } from '@features/markdown/editor/MarkdownEditor';
 
@@ -54,7 +54,17 @@ export function createWikiLinkResolver(
    * `createMissing: false` for a read-only host (an archived note): a link to an EXISTING page still
    * opens it, but activating one that does not exist creates nothing. Default: creates, as always.
    */
-  { createMissing = true }: { readonly createMissing?: boolean } = {}
+  {
+    createMissing = true,
+    openPage,
+  }: {
+    readonly createMissing?: boolean;
+    /**
+     * Opens a resolved link's note, at its `#heading` when it has one (scroll + highlight). Default: just
+     * `pageOperations.open`. Never called with a heading that is not in the note.
+     */
+    readonly openPage?: (pageId: string, heading?: string | null) => void;
+  } = {}
 ): ResolveWikiLink {
   function resolvedTo(page: Page, localAlias: string | null, fragment: string | null): WikiLinkResolution {
     // Display-label precedence: local alias > target's primary frontmatter
@@ -86,11 +96,14 @@ export function createWikiLinkResolver(
       return { status: 'unresolved', displayLabel, activate: () => void pageOperations.open(page.id) };
     }
 
+    // A heading reference lands on its heading; a block reference (`^id`) and a plain link just open the note.
+    const heading = fragment === null || fragment.trim().startsWith('^') ? null : fragment.trim();
+
     return {
       status: 'resolved',
       pageId: page.id,
       displayLabel,
-      activate: () => void pageOperations.open(page.id),
+      activate: () => (openPage ? openPage(page.id, heading) : void pageOperations.open(page.id)),
       icon,
       emoji,
     };

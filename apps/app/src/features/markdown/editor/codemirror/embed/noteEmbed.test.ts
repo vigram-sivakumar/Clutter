@@ -24,7 +24,7 @@ function mountView(
   doc: string,
   resolvePageEmbed: ResolvePageEmbed,
   options: {
-    onOpenPage?: (pageId: string) => void;
+    onOpenPage?: (pageId: string, heading?: string) => void;
     onOpenNoteEmbedMenu?: OnOpenNoteEmbedMenu;
     ancestry?: NoteEmbedAncestry;
     getFoldStateStore?: () => FoldStatePersistence | undefined;
@@ -229,6 +229,25 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     expandButton?.click();
 
     expect(onOpenPage).toHaveBeenCalledWith('page-other');
+  });
+
+  describe('opening the source of an embed that names a heading', () => {
+    const resolved = (title: string) => ({ status: 'resolved' as const, pageId: 'page-other', title, markdown: 'Body.', icon: 'note' as const, emoji: null });
+
+    it.each([
+      ['![[Other Note#Decisions]]', 'Other Note#Decisions', ['page-other', 'Decisions']],
+      ['![[Other Note# Decisions |x]]', 'Other Note# Decisions ', ['page-other', 'Decisions']],
+      ['![[Other Note]]', 'Other Note', ['page-other']],
+      ['![[Other Note#^decision-1]]', 'Other Note#^decision-1', ['page-other']],
+    ])('%s: Expand and the content boundary both open the source with %j', (doc, target, expected) => {
+      const onOpenPage = vi.fn();
+      const view = mountView(doc, resolverFor({ [target]: resolved('Other Note') }), { onOpenPage });
+
+      view.dom.querySelector<HTMLButtonElement>('.cm-note-embed [aria-label="Expand"]')!.click();
+      view.dom.querySelector<HTMLElement>('.cm-note-embed__content')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+
+      expect(onOpenPage.mock.calls).toEqual([expected, expected]);
+    });
   });
 
   it('clicking the embed\'s background or empty space opens the source note, once per click', () => {

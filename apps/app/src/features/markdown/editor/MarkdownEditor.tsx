@@ -1366,7 +1366,12 @@ export const MarkdownEditor = forwardRef<
     const scrollAncestor = scrollAncestorRef.current;
     if (scrollAncestor) {
       const ancestorRect = scrollAncestor.getBoundingClientRect();
-      const lineCoords = view.coordsAtPos(firstLine.from);
+      // `coordsAtPos` has no answer for a line CM6 has not rendered — a target far from where an already-open
+      // note is scrolled — and skipping the scroll then left the reveal highlighting a line nobody could see.
+      // CM6's height map knows every line's position, rendered or not (an estimate until it is measured).
+      const lineBlock = view.lineBlockAt(firstLine.from);
+      const lineCoords =
+        view.coordsAtPos(firstLine.from) ?? { top: view.documentTop + lineBlock.top, bottom: view.documentTop + lineBlock.bottom };
       const alreadyVisible =
         !!lineCoords && lineCoords.top >= ancestorRect.top && lineCoords.bottom <= ancestorRect.bottom;
       if (lineCoords && !alreadyVisible) {

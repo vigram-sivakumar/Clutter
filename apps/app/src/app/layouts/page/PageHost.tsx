@@ -85,6 +85,7 @@ import { DailyNoteNavControls } from '@features/daily-notes/controls/DailyNoteNa
 import type { NotePreviewResolvers } from '@features/collection/components/note/notePreviewResolvers';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { openPageAtHeading } from '@app/layouts/page/headingReveal';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
 import { createHeadingSuggester } from '@app/layouts/page/headingSuggestions';
@@ -539,13 +540,29 @@ export function PageHost({
     />
   );
 
+  // The one "open a note, at its #heading when a reference names one" action — a wiki link's activation and a
+  // note embed's source navigation both call it. Opens through PageOperations and, for a heading, asks the
+  // existing reveal pipeline (AppLayout's pendingReveal -> this host's editor) to scroll to and highlight it.
+  const onOpenPage = (pageId: string, heading?: string | null): void => {
+    openPageAtHeading(
+      {
+        open: (id) => void application.pageOperations.open(id),
+        getMarkdown: (id) => application.effectivePageState.getPage(id)?.markdown ?? vault.getPage(id)?.source.markdown ?? '',
+        requestReveal: onRequestReveal,
+      },
+      pageId,
+      heading
+    );
+  };
+
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
   const resolveWikiLink = createWikiLinkResolver(
     vault,
     application.pageOperations,
     application.folderOperations,
-    application.effectivePageState
+    application.effectivePageState,
+    { openPage: onOpenPage }
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const getWikiLinkSuggestions = createWikiLinkSuggester(
@@ -600,12 +617,7 @@ export function PageHost({
     vault,
     application.effectivePageState
   );
-  // A note embed's own "open source note" action — the exact same
-  // one-line pageOperations.open(id) pattern resolveWikiLink.ts's own
-  // activate() already establishes, never a second implementation.
-  const onOpenPage = (pageId: string): void => {
-    void application.pageOperations.open(pageId);
-  };
+  // A note embed's own open-source-note action is `onOpenPage` above, the same one a wiki link uses.
   // Same per-render, stateless-glue composition as resolveEmbedImage above —
   // the standard-Markdown-image counterpart: `![alt](Assets/image.jpg)`'s
   // own local-path resolution, sharing the exact same resolveResourceEmbed()
@@ -2855,7 +2867,7 @@ export function PageHost({
         application.pageOperations,
         application.folderOperations,
         application.effectivePageState,
-        { createMissing: false }
+        { createMissing: false, openPage: onOpenPage }
       )
     : resolveWikiLink;
   const editorResolveTag = isPageArchived

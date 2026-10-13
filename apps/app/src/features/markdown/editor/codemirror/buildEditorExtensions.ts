@@ -131,7 +131,7 @@ export interface BuildEditorExtensionsOptions {
    * per this milestone's own permanent product rule. Unused when
    * `resolvePageEmbed` is omitted.
    */
-  readonly onOpenPage?: () => ((pageId: string) => void) | undefined;
+  readonly onOpenPage?: () => ((pageId: string, heading?: string) => void) | undefined;
   /** A note embed's own "More actions" trigger (Turn into WikiLink/Remove) — see `NoteEmbedMoreActions.tsx`'s doc comment. Unused when `resolvePageEmbed` is omitted. */
   readonly onOpenNoteEmbedMenu?: () => OnOpenNoteEmbedMenu | undefined;
   /** A fenced code block's own "More actions" trigger (Format code, Change Language, Download, Remove) — see `FencedCodeActionsMenu.tsx`'s doc comment. Omitted (never wired) for a read-only nested view — every one of those actions mutates the document, none has meaning once editing is blocked. */

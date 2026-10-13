@@ -188,7 +188,7 @@ export interface EmbedLivePreviewOptions {
    */
   readonly resolvePageEmbed?: () => ResolvePageEmbed | undefined;
   /** A resolved note embed's own Expand action (opens the real source note) — see `NoteEmbedWidget.ts`'s doc comment. */
-  readonly onOpenPage?: () => ((pageId: string) => void) | undefined;
+  readonly onOpenPage?: () => ((pageId: string, heading?: string) => void) | undefined;
   /** A resolved note embed's own "More actions" trigger — see `NoteEmbedWidget.ts`'s/`NoteEmbedMoreActions.tsx`'s doc comments. Stubbed to `() => undefined` for a nested note embed's own recursive extension build, same as `onOpenImageMenu`/`onOpenPdfMenu` are — More actions is hidden entirely for a nested read-only embed (requirement 6), so there is nothing for it to open there anyway. */
   readonly onOpenNoteEmbedMenu?: () => OnOpenNoteEmbedMenu | undefined;
   /**

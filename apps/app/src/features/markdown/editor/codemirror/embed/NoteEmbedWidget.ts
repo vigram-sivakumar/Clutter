@@ -3,6 +3,7 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
+import { splitTargetFragment } from '../../../../../core/vault/ingest/grammar/targetFragment';
 import { createEditorView, serializeFoldState } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
@@ -316,7 +317,7 @@ export class NoteEmbedWidget extends WidgetType {
     readonly ui: ImageUiState,
     readonly pos: number,
     readonly to: number,
-    readonly getOnOpenPage: () => ((pageId: string) => void) | undefined,
+    readonly getOnOpenPage: () => ((pageId: string, heading?: string) => void) | undefined,
     readonly getOnOpenNoteEmbedMenu: () => OnOpenNoteEmbedMenu | undefined,
     /**
      * ADR-033's amendment — restores/persists CM6 fold state for this
@@ -343,6 +344,22 @@ export class NoteEmbedWidget extends WidgetType {
     readonly hostPageId: string
   ) {
     super();
+  }
+
+  /**
+   * Opens the embedded note's source through `getOnOpenPage` — at the embed's heading (`![[Note#Heading]]`),
+   * so it scrolls to and highlights it. A whole-note embed or a block reference (`#^id`) makes the same
+   * one-argument call as always.
+   */
+  private openSource(pageId: string): void {
+    const open = this.getOnOpenPage();
+    const heading = splitTargetFragment(this.path).fragment?.trim();
+
+    if (heading && !heading.startsWith('^')) {
+      open?.(pageId, heading);
+    } else {
+      open?.(pageId);
+    }
   }
 
   override eq(other: NoteEmbedWidget): boolean {
@@ -464,7 +481,7 @@ export class NoteEmbedWidget extends WidgetType {
     controls.contentEditable = 'false';
 
     const expandButton = this.makeButton(EXPAND_ICON, 'Expand', () => {
-      this.getOnOpenPage()?.(resolution.pageId);
+      this.openSource(resolution.pageId);
     });
     // Temporarily hidden (product decision): still built and appended so it can be shown again by
     // removing these two lines. `display: none` also takes it out of the tab order and a11y tree.
@@ -522,7 +539,7 @@ export class NoteEmbedWidget extends WidgetType {
       if (owner !== null && owner !== container) {
         return;
       }
-      this.getOnOpenPage()?.(resolution.pageId);
+      this.openSource(resolution.pageId);
     });
 
     // See this class's own "Collapse/expand" doc comment — direct DOM

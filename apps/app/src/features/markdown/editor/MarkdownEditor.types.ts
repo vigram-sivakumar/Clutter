@@ -224,9 +224,10 @@ export interface MarkdownEditorProps {
    * permanent product rule (there is no edit-in-place, ever). Supplied
    * entirely by the feature/app layer, the same one-line
    * `pageOperations.open(pageId)` pattern `resolveWikiLink.ts`'s own
-   * `activate()` already establishes.
+   * `activate()` already establishes. `heading` is set when the embed names one
+   * (`![[Note#Heading]]`): the source note then opens scrolled to and highlighting it.
    */
-  readonly onOpenPage?: (pageId: string) => void;
+  readonly onOpenPage?: (pageId: string, heading?: string) => void;
   /**
    * Opens the shared resource overlay (owned by `AppLayout`, per
    * `resourceOverlay.ts`) for an image that doesn't necessarily have a

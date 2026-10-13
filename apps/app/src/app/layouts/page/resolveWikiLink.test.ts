@@ -760,3 +760,70 @@ describe('wiki-links with a heading or block reference (Note#Heading, Note#^bloc
     expect(vault.getPageByPath('/vault/Missing#Heading.md')).toBeUndefined();
   });
 });
+
+describe('activating a wiki link with a heading (openPage)', () => {
+  const markdown = '# Decisions\n\n^decision-1\n\n## Action Items\n';
+
+  function setup() {
+    const page = makePage({ id: 'p1', path: '/vault/Projects/Alpha.md', name: 'Alpha', source: { markdown } });
+    const vault = makeVault([page]);
+    const open = vi.fn();
+    const openPage = vi.fn();
+    const resolve = createWikiLinkResolver(
+      vault,
+      fakePageOperations(vault, { open }),
+      fakeFolderOperations(vault),
+      undefined,
+      { openPage }
+    );
+    return { resolve, open, openPage };
+  }
+
+  it('a plain link keeps its behavior: the note opens with no heading', () => {
+    const { resolve, openPage } = setup();
+
+    resolve('Projects/Alpha', null).activate();
+
+    expect(openPage).toHaveBeenCalledWith('p1', null);
+  });
+
+  it.each([
+    ['Projects/Alpha#Decisions', null, 'Decisions'],
+    ['Projects/Alpha#Action Items', 'View actions', 'Action Items'],
+    ['Projects/Alpha# Decisions ', null, 'Decisions'],
+  ])('%s opens the right note at its heading (alias %j does not affect the target)', (path, alias, heading) => {
+    const { resolve, openPage } = setup();
+
+    resolve(path, alias).activate();
+
+    expect(openPage).toHaveBeenCalledWith('p1', heading);
+  });
+
+  it('a block reference opens the note, no heading', () => {
+    const { resolve, openPage } = setup();
+
+    resolve('Projects/Alpha#^decision-1', null).activate();
+
+    expect(openPage).toHaveBeenCalledWith('p1', null);
+  });
+
+  it('a missing heading opens the note through plain open — no reveal path, no error', () => {
+    const { resolve, open, openPage } = setup();
+
+    resolve('Projects/Alpha#Nope', null).activate();
+
+    expect(open).toHaveBeenCalledWith('p1');
+    expect(openPage).not.toHaveBeenCalled();
+  });
+
+  it('without an openPage callback a heading link falls back to a plain open', () => {
+    const page = makePage({ id: 'p1', path: '/vault/Alpha.md', name: 'Alpha', source: { markdown } });
+    const vault = makeVault([page]);
+    const open = vi.fn();
+    const resolve = createWikiLinkResolver(vault, fakePageOperations(vault, { open }), fakeFolderOperations(vault));
+
+    resolve('Alpha#Decisions', null).activate();
+
+    expect(open).toHaveBeenCalledWith('p1');
+  });
+});

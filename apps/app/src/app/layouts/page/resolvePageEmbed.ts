@@ -5,9 +5,9 @@ import { VaultPath } from '@core/vault/ingest/VaultPath';
 import {
   extractHeadingOccurrences,
   findFirstHeadingOccurrence,
-  splitTargetFragment,
   type HeadingOccurrence,
 } from '@core/vault/ingest/extractors/headingSemantics';
+import { splitTargetFragment } from '@core/vault/ingest/grammar/targetFragment';
 import type { PageEmbedResolution, ResolvePageEmbed } from '@features/markdown/render/blocks/pageEmbedResolution';
 
 import { findPagesByAlias } from './resolveWikiLink';

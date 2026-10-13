@@ -1,7 +1,7 @@
 import type { CompletionResult } from '@codemirror/autocomplete';
 import type { EditorView } from '@codemirror/view';
 
-import { splitTargetFragment } from '../../../../../core/vault/ingest/extractors/headingSemantics';
+import { splitTargetFragment } from '../../../../../core/vault/ingest/grammar/targetFragment';
 import { COMPLETION_ICONS } from './completionIcons';
 import type { RowCompletion } from './completionRow';
 
