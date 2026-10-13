@@ -52,7 +52,7 @@ export interface MoveDestinationPickerProps {
  * already accept for "move to vault root".
  */
 /**
- * The destination list as a flat, searchable list — no tree. The Templates / Assets root stays first (the vault root is never offered);
+ * The destination list as a flat, searchable list — no tree. The root row (the vault's "Home", or the Templates / Assets root) stays first;
  * every folder after it is one alphabetical row with its parent path shown under the name (the
  * `ancestors` the builder already attaches). They are one "Folders" section — only so the card
  * can cap it with Show more / Show less; its title is not drawn (`showSectionTitles={false}`).
@@ -65,12 +65,7 @@ function flattenDestinations(items: PickerListItem[]): PickerListItem[] {
     section: 'Folders',
   });
   const isRoot = (item: PickerListItem) => item.isRoot || item.id === ROOT_DESTINATION_ID;
-  // Product rule: nothing is moved to the vault root, so it is never offered. Dropping it here
-  // (before PickerCard) removes it from the list, search results and keyboard navigation alike.
-  // The Assets root (a real folder, not the vault root) is still pinned first.
-  const root = items
-    .filter((item) => isRoot(item) && item.id !== ROOT_DESTINATION_ID)
-    .map(flat);
+  const root = items.filter(isRoot).map(flat);
   const folders = items
     .filter((item) => !isRoot(item))
     .map(flat)

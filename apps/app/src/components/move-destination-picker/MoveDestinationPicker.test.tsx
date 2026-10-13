@@ -110,43 +110,49 @@ describe('MoveDestinationPicker', () => {
     expect(titles()).toHaveLength(5);
   });
 
-  it('never offers the vault root, but keeps root-level and nested folders selectable', () => {
+  it('keeps the vault root first and reports it as null', () => {
+    const onSelect = vi.fn();
+    const withRoot: PickerListItem[] = [
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', level: 0, parentId: null },
+      ...items,
+    ];
+    render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
+
+    expect(document.querySelector('.picker-list__item')?.textContent).toContain('Clutter');
+    fireEvent.click(screen.getByText('Clutter'));
+
+    expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it('a root item the caller supplies (a folder move) is searchable, keyboard-reachable, and reports null', () => {
     const onSelect = vi.fn();
     const withRoot: PickerListItem[] = [
       { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
       ...items,
-      {
-        id: 'folder-1a',
-        title: 'Design',
-        level: 1,
-        parentId: 'folder-1',
-        ancestors: [{ id: 'folder-1', title: 'Project' }],
-      },
     ];
     render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
 
-    expect(screen.queryByText('Clutter')).toBeNull();
-    expect(screen.queryByText('Home')).toBeNull();
-    expect(document.querySelectorAll('.picker-list__item')).toHaveLength(3);
+    const search = screen.getByPlaceholderText('Search folders');
+    fireEvent.change(search, { target: { value: 'Clutter' } });
+    expect(screen.getByText('Clutter')).toBeDefined();
+    fireEvent.change(search, { target: { value: '' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
 
-    fireEvent.click(screen.getByText('Finance'));
-    expect(onSelect).toHaveBeenLastCalledWith('folder-2');
-    fireEvent.click(screen.getByText('Design'));
-    expect(onSelect).toHaveBeenLastCalledWith('folder-1a');
+    expect(onSelect).toHaveBeenCalledWith(null);
   });
 
-  it('does not expose the vault root through search, including by its "Home" label', () => {
-    const withRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
-      ...items,
-    ];
-    render(<MoveDestinationPickerHarness items={withRoot} onSelect={vi.fn()} />);
+  it('without a root item (a note move), no root is searchable or reachable by keyboard', () => {
+    const onSelect = vi.fn();
+    render(<MoveDestinationPickerHarness items={items} onSelect={onSelect} />);
 
-    for (const query of ['Clutter', 'Home']) {
-      fireEvent.change(screen.getByPlaceholderText('Search folders'), { target: { value: query } });
-      expect(screen.queryByText('Clutter')).toBeNull();
-      expect(document.querySelectorAll('.picker-list__item[role="option"]').length).toBeLessThanOrEqual(0);
-    }
+    const search = screen.getByPlaceholderText('Search folders');
+    fireEvent.change(search, { target: { value: 'Clutter' } });
+    expect(screen.queryByText('Clutter')).toBeNull();
+    fireEvent.change(search, { target: { value: '' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    expect(onSelect).not.toHaveBeenCalledWith(null);
+    expect(onSelect).toHaveBeenCalledWith('folder-2');
   });
 
   it('the dismiss button closes the picker', () => {
@@ -302,5 +308,18 @@ describe('MoveDestinationPicker — roots', () => {
     fireEvent.click(screen.getAllByText('Templates')[0]!);
 
     expect(onSelect).toHaveBeenCalledWith('templates-root');
+  });
+
+  it('selecting the vault root still maps to null', () => {
+    const onSelect = vi.fn();
+    const withVaultRoot: PickerListItem[] = [
+      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      { id: 'folder-1', title: 'Project', level: 0, parentId: null },
+    ];
+    render(<MoveDestinationPickerHarness items={withVaultRoot} onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByText('vault'));
+
+    expect(onSelect).toHaveBeenCalledWith(null);
   });
 });

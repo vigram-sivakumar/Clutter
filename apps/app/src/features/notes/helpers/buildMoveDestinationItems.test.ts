@@ -105,11 +105,11 @@ function makeMembershipSelector(folders: Folder[], root: string = ROOT): Members
 }
 
 describe('buildMoveDestinationItems', () => {
-  it('always includes a root row, first, titled with the vault\'s own physical folder name and labeled "Home"', () => {
+  it('moving a folder: includes a root row, first, titled with the vault\'s own physical folder name and labeled "Home"', () => {
     const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
     const membershipSelector = makeMembershipSelector([parent]);
 
-    const items = buildMoveDestinationItems(membershipSelector);
+    const items = buildMoveDestinationItems(membershipSelector, 'folder-moving');
 
     expect(items[0]).toEqual({
       id: '__vault-root__',
@@ -124,16 +124,16 @@ describe('buildMoveDestinationItems', () => {
   it('falls back to "Vault" only when the root folder name is genuinely empty', () => {
     const membershipSelector = makeMembershipSelector([], '/');
 
-    expect(buildMoveDestinationItems(membershipSelector)[0]).toMatchObject({
+    expect(buildMoveDestinationItems(membershipSelector, 'folder-moving')[0]).toMatchObject({
       title: 'Vault',
       secondaryLabel: 'Home',
     });
   });
 
-  it('returns only the root row for a vault with no workspace folders', () => {
+  it('moving a folder: returns only the root row for a vault with no other workspace folders', () => {
     const membershipSelector = makeMembershipSelector([]);
 
-    expect(buildMoveDestinationItems(membershipSelector)).toEqual([
+    expect(buildMoveDestinationItems(membershipSelector, 'folder-moving')).toEqual([
       {
         id: '__vault-root__',
         title: 'vault',
@@ -153,7 +153,7 @@ describe('buildMoveDestinationItems', () => {
     const items = buildMoveDestinationItems(membershipSelector);
     const ids = items.map((item) => item.id);
 
-    expect(ids).toEqual(['__vault-root__', 'folder-parent', 'folder-child']);
+    expect(ids).toEqual(['folder-parent', 'folder-child']);
     expect(items.find((i) => i.id === 'folder-parent')).toMatchObject({ level: 0, parentId: null });
     expect(items.find((i) => i.id === 'folder-child')).toMatchObject({
       level: 1,
@@ -179,7 +179,7 @@ describe('buildMoveDestinationItems', () => {
 
     const items = buildMoveDestinationItems(membershipSelector);
 
-    expect(items.map((i) => i.id)).toEqual(['__vault-root__', 'folder-live']);
+    expect(items.map((i) => i.id)).toEqual(['folder-live']);
     // The cover picker's flat Folders list is built from the same rule.
     expect(buildCoverFolderItems(membershipSelector).map((i) => i.id)).toEqual(['folder-live']);
   });
@@ -189,18 +189,17 @@ describe('buildMoveDestinationItems', () => {
     const nested = makeFolder('folder-nested', `${ROOT}/Daily Notes/2026`, 'folder-daily-notes');
     const membershipSelector = makeMembershipSelector([dailyNotes, nested]);
 
-    const items = buildMoveDestinationItems(membershipSelector);
+    expect(buildMoveDestinationItems(membershipSelector)).toEqual([]);
+  });
 
-    expect(items).toEqual([
-      {
-        id: '__vault-root__',
-        title: 'vault',
-        secondaryLabel: 'Home',
-        isRoot: true,
-        level: 0,
-        parentId: null,
-      },
-    ]);
+  it('moving a note (no excluded folder): never offers the vault root, but keeps every folder', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const child = makeFolder('folder-child', `${ROOT}/Parent/Child`, 'folder-parent');
+    const items = buildMoveDestinationItems(makeMembershipSelector([parent, child]));
+
+    expect(items.map((i) => i.id)).not.toContain('__vault-root__');
+    expect(items.some((i) => i.isRoot)).toBe(false);
+    expect(items.map((i) => i.id)).toEqual(['folder-parent', 'folder-child']);
   });
 
   it('excludes an excluded folder id and every one of its descendants, but keeps the root row', () => {
@@ -234,10 +233,10 @@ describe('buildMoveDestinationItems — zones (workspace and Assets roots; Templ
   ];
   const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
-  it('the workspace (default) offers the vault root and ordinary folders — never Templates or Assets', () => {
+  it('the workspace (default, a note move) offers ordinary folders and no vault root — never Templates or Assets', () => {
     const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()));
 
-    expect(items[0]).toMatchObject({ id: '__vault-root__', isRoot: true });
+    expect(ids(items)).not.toContain('__vault-root__');
     expect(ids(items)).toEqual(expect.arrayContaining(['projects']));
     // Templates are flat and a note never moves into one; Assets is its own hierarchy.
     for (const forbidden of ['templates', 'templates-meetings', 'assets', 'assets-images']) {

@@ -26,7 +26,8 @@ import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
  *   to descend into an effectively-archived folder, so nothing nested
  *   inside one can appear either.
  *
- * The vault root is included as the first item, with id ROOT_DESTINATION_ID.
+ * The vault root is included as the first item, with id ROOT_DESTINATION_ID, only when a folder is
+ * being moved (`excludeFolderId` given): a folder may move to the root, a note may not.
  * Its `title` is the vault's own physical folder name — getVaultDisplayName
  * (membershipSelector.vaultRoot), the exact same function the sidebar's
  * root-folders section title reads (Sidebar.Notes.tsx), so there is one
@@ -60,14 +61,18 @@ export function buildMoveDestinationItems(
   let startAncestors: PickerListAncestor[] = [];
 
   if (zone === 'workspace') {
-    items.push({
-      id: ROOT_DESTINATION_ID,
-      title: getVaultDisplayName(membershipSelector.vaultRoot),
-      secondaryLabel: 'Home',
-      isRoot: true,
-      level: 0,
-      parentId: null,
-    });
+    // A folder may be moved to the vault root; a note may not. `excludeFolderId` is only ever
+    // given for a folder being moved, so its absence means a note (or other non-folder) move.
+    if (excludeFolderId !== undefined) {
+      items.push({
+        id: ROOT_DESTINATION_ID,
+        title: getVaultDisplayName(membershipSelector.vaultRoot),
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      });
+    }
     startFolders = membershipSelector.getWorkspaceFolders();
   } else {
     // The Assets hierarchy (ADR-049): its own root takes the vault root's place, and nothing outside
