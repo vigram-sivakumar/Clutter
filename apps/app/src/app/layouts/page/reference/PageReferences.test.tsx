@@ -159,14 +159,14 @@ describe('PageReferences', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows only the list that has results, with no divider', () => {
+  it('shows only the list that has results, under one divider', () => {
     setup([TARGET, page('n', 'Alpha.md', 'see [[Target]]')]);
 
     expect(document.querySelectorAll('.reference__list')).toHaveLength(1);
-    expect(document.querySelectorAll('.reference__divider')).toHaveLength(0);
+    expect(document.querySelectorAll('.reference__divider')).toHaveLength(1);
   });
 
-  it('puts tasks in one list and notes, then daily notes, in the other, split by one divider', () => {
+  it('puts tasks in one list and notes, then daily notes, in the other, each under a divider', () => {
     setup([
       TARGET,
       page('t', 'Planner.md', '- [ ] Follow up [[Target]]'),
@@ -174,7 +174,7 @@ describe('PageReferences', () => {
       page('d', 'Daily Notes/2026-10-10.md', 'Today: [[Target]]', 'daily-note'),
     ]);
 
-    expect(document.querySelectorAll('.reference__divider')).toHaveLength(1);
+    expect(document.querySelectorAll('.reference__divider')).toHaveLength(2);
     expect(entries(0).map((row) => row.textContent)).toEqual([
       expect.stringContaining('Follow up'),
     ]);

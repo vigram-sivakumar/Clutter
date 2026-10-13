@@ -25,7 +25,7 @@ describe('page body layout', () => {
   });
 
   it('separates the editor and References with the body gap', () => {
-    expect(body).toMatch(/gap\s*:\s*var\(--space-32\)/);
+    expect(body).toMatch(/gap\s*:\s*var\(--space-128\)/);
   });
 
   it('keeps the page-level scroll container unchanged', () => {

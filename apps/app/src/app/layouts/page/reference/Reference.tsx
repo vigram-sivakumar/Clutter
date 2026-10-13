@@ -4,7 +4,6 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { Header } from '@app/layouts/sidebar/section/Section.Header';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import './Reference.css';
-import { Entry } from '@components/entry/Entry';
 
 interface ReferencesProps {
   /** How many references there are in all (every occurrence), for the header: "3 References". */

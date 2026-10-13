@@ -147,9 +147,10 @@ const dateFor = (title: string) =>
   rowOf(title).querySelector<HTMLButtonElement>(
     'button[aria-label="Set due date"], button[aria-label="Change due date"]'
   )!;
+// Scoped to the picker: the sidebar's own calendar has day buttons too.
 const pickDay = (day: string) =>
   fireEvent.click(
-    [...document.querySelectorAll('button')].find(
+    [...document.querySelectorAll('.task-date-picker button')].find(
       (button) => button.textContent === day
     )!
   );

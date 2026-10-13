@@ -63,29 +63,34 @@ describe('References', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows one list and no divider when only one kind has results', () => {
+  it('shows one list under a single divider when only one kind has results', () => {
     render(<Harness tasks={<div>task row</div>} />);
 
     expect(lists()).toEqual(['task row']);
-    expect(dividers()).toBe(0);
+    expect(dividers()).toBe(1);
 
     cleanup();
     render(<Harness notes={<div>note row</div>} />);
 
     expect(lists()).toEqual(['note row']);
-    expect(dividers()).toBe(0);
+    expect(dividers()).toBe(1);
   });
 
-  it('shows tasks, then a single divider, then the notes list', () => {
+  it('shows a divider above each list: tasks, then the notes list', () => {
     render(<Harness tasks={<div>task row</div>} notes={<div>note row</div>} />);
 
     expect(lists()).toEqual(['task row', 'note row']);
-    expect(dividers()).toBe(1);
+    expect(dividers()).toBe(2);
     expect(
       [...document.querySelector('.reference__content')!.children].map(
         (child) => child.className
       )
-    ).toEqual(['reference__list', 'reference__divider', 'reference__list']);
+    ).toEqual([
+      'reference__divider',
+      'reference__list reference__tasks',
+      'reference__divider',
+      'reference__list reference__notes',
+    ]);
   });
 
   const titles = () =>
