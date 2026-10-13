@@ -46,15 +46,6 @@
   transition: none;
 }
 
-/* A responsive breakpoint flip (useResponsiveSnap) is the window being resized or zoomed, which already animates
-   natively; the layout follows it instantly instead of starting its own slides. Present for one commit only, so
-   deliberate sidebar and cover toggles keep their transitions. Separate from data-resizing, which the resize
-   handle owns. */
-.app-layout[data-responsive-snap]
-  :is(.app-layout__sidebar-slot, .app-layout__page, .topbar, .page__cover) {
-  transition: none;
-}
-
 .app-layout__sidepanel {
   width: var(--app-sidebar-width);
   height: 100%;

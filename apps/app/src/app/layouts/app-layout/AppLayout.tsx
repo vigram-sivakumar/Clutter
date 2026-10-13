@@ -6,7 +6,6 @@ import { PageHost } from '../page/PageHost';
 import { CoverSuppressedContext } from '../page/CoverSuppressedContext';
 import { SidebarToggle } from './sidebar-toggle/SidebarToggle';
 import { SidebarResizeHandle } from './sidebar-resize-handle/SidebarResizeHandle';
-import { useResponsiveSnap } from './useResponsiveSnap';
 import { useSidebarTransition } from './useSidebarTransition';
 import { useSidebarWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH } from './useSidebarWidth';
 import type { Application } from '@core/application/Application';
@@ -120,10 +119,7 @@ export function AppLayout({ application }: AppLayoutProps) {
   }
   // The cover yields to the editor: always at the cover breakpoint and below, and between the breakpoints
   // whenever the sidebar is (manually) open. Collapsing the sidebar lets it return.
-  const isCoverNarrow = useMaxWidth(COVER_HIDE_BREAKPOINT);
-  const isCoverSuppressed = isCoverNarrow || (isNarrow && isSidebarVisible);
-  // A breakpoint flip is the window moving (zoom, restore, resize), so its layout change must not also animate.
-  const responsiveSnap = useResponsiveSnap(isNarrow, isCoverNarrow, sidebarSlotRef);
+  const isCoverSuppressed = useMaxWidth(COVER_HIDE_BREAKPOINT) || (isNarrow && isSidebarVisible);
   const sidebarTransition = useSidebarTransition(isSidebarVisible, sidebarSlotRef);
 
   // The single "which resource overlay is open" state for the whole app —
@@ -420,7 +416,6 @@ export function AppLayout({ application }: AppLayoutProps) {
       className="app-layout"
       data-sidebar-collapsed={!isSidebarVisible}
       data-resizing={isResizingSidebar || undefined}
-      data-responsive-snap={responsiveSnap || undefined}
       data-sidebar-transitioning={sidebarTransition.transitioning || undefined}
       style={{ '--app-sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
