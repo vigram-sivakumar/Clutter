@@ -480,6 +480,10 @@ export class NoteEmbedWidget extends WidgetType {
     const expandButton = this.makeButton(EXPAND_ICON, 'Expand', () => {
       this.getOnOpenPage()?.(resolution.pageId);
     });
+    // Temporarily hidden (product decision): still built and appended so it can be shown again by
+    // removing these two lines. `display: none` also takes it out of the tab order and a11y tree.
+    expandButton.hidden = true;
+    expandButton.style.display = 'none';
     const editButton = this.makeButton(
       EDIT_ICON,
       this.ui.revealed ? 'Hide source' : 'Edit source',
