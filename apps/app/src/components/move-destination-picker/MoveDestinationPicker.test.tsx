@@ -110,18 +110,43 @@ describe('MoveDestinationPicker', () => {
     expect(titles()).toHaveLength(5);
   });
 
-  it('keeps the vault root first and reports it as null', () => {
+  it('never offers the vault root, but keeps root-level and nested folders selectable', () => {
     const onSelect = vi.fn();
     const withRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', level: 0, parentId: null },
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
       ...items,
+      {
+        id: 'folder-1a',
+        title: 'Design',
+        level: 1,
+        parentId: 'folder-1',
+        ancestors: [{ id: 'folder-1', title: 'Project' }],
+      },
     ];
     render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
 
-    expect(document.querySelector('.picker-list__item')?.textContent).toContain('Clutter');
-    fireEvent.click(screen.getByText('Clutter'));
+    expect(screen.queryByText('Clutter')).toBeNull();
+    expect(screen.queryByText('Home')).toBeNull();
+    expect(document.querySelectorAll('.picker-list__item')).toHaveLength(3);
 
-    expect(onSelect).toHaveBeenCalledWith(null);
+    fireEvent.click(screen.getByText('Finance'));
+    expect(onSelect).toHaveBeenLastCalledWith('folder-2');
+    fireEvent.click(screen.getByText('Design'));
+    expect(onSelect).toHaveBeenLastCalledWith('folder-1a');
+  });
+
+  it('does not expose the vault root through search, including by its "Home" label', () => {
+    const withRoot: PickerListItem[] = [
+      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      ...items,
+    ];
+    render(<MoveDestinationPickerHarness items={withRoot} onSelect={vi.fn()} />);
+
+    for (const query of ['Clutter', 'Home']) {
+      fireEvent.change(screen.getByPlaceholderText('Search folders'), { target: { value: query } });
+      expect(screen.queryByText('Clutter')).toBeNull();
+      expect(document.querySelectorAll('.picker-list__item[role="option"]').length).toBeLessThanOrEqual(0);
+    }
   });
 
   it('the dismiss button closes the picker', () => {
@@ -277,18 +302,5 @@ describe('MoveDestinationPicker — roots', () => {
     fireEvent.click(screen.getAllByText('Templates')[0]!);
 
     expect(onSelect).toHaveBeenCalledWith('templates-root');
-  });
-
-  it('selecting the vault root still maps to null', () => {
-    const onSelect = vi.fn();
-    const withVaultRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
-      { id: 'folder-1', title: 'Project', level: 0, parentId: null },
-    ];
-    render(<MoveDestinationPickerHarness items={withVaultRoot} onSelect={onSelect} />);
-
-    fireEvent.click(screen.getByText('vault'));
-
-    expect(onSelect).toHaveBeenCalledWith(null);
   });
 });
