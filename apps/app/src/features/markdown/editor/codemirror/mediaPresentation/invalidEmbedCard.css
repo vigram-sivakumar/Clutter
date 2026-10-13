@@ -177,7 +177,7 @@
   width: var(--icon-md);
   height: var(--icon-md);
   stroke-width: var(--icon-stroke);
-  color: var(--foreground-secondary);
+  color: var(--foreground-tertiary);
 }
 
 /* Groups the title ("Unable to load") and the path/source hint together,
