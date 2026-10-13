@@ -26,6 +26,7 @@ import { FoldStateStore } from './editor/FoldStateStore';
 import { CollectionViewConfigStore } from './collection/CollectionViewConfigStore';
 import { TasksViewConfigStore } from './task/TasksViewConfigStore';
 import { TagExpansionStore } from './tags/TagExpansionStore';
+import { ReferencesDisplayStore } from './references/ReferencesDisplayStore';
 import { TemplateUsageStore } from './templates/TemplateUsageStore';
 import { DailyNotesSidebarState } from './daily-notes/DailyNotesSidebarState';
 import { WorkspaceSessionStore } from './workspace/WorkspaceSessionStore';
@@ -145,6 +146,12 @@ export class Application {
    * Not Gate-backed: application metadata, not document content (see `TemplateUsageStore`).
    */
   public readonly templateUsageStore: TemplateUsageStore;
+  /**
+   * Per-note References visibility/expansion (ADR-052), through the `referencesDisplay` top-level key of the
+   * same `.clutter/workspace.json` — loaded once in `bootstrap()` below. Not Gate-backed and not owned by
+   * `Workspace`, for the same reasons `foldStateStore` isn't (see `ReferencesDisplayStore`'s doc comment).
+   */
+  public readonly referencesDisplayStore: ReferencesDisplayStore;
   /**
    * Runtime owner of the Daily Notes sidebar's Earlier/Upcoming expansion
    * (ADR-035 §2) — in-memory, zero-dependency, deliberately not part of
@@ -280,6 +287,9 @@ export class Application {
 
     const templateUsageStore = await TemplateUsageStore.load(fileSystem, rootPath);
 
+    // ADR-052: same tolerant read-once shape — malformed content is discarded inside load(), never thrown.
+    const referencesDisplayStore = await ReferencesDisplayStore.load(fileSystem, rootPath);
+
     // ADR-035: the last session's workspace state — same tolerant
     // "read a .clutter/workspace.json key once at boot" shape as the
     // stores above. Only loaded here; seeding happens once the Vault is
@@ -365,7 +375,8 @@ export class Application {
       tagExpansionStore,
       workspaceSessionStore,
       tagMetadataStore,
-      templateUsageStore
+      templateUsageStore,
+      referencesDisplayStore
     );
 
     application.rootPath = rootPath;
@@ -427,7 +438,9 @@ export class Application {
     // without exercising tag-definition persistence.
     tagMetadataStore: TagMetadataStore = new TagMetadataStore(fileSystem, ''),
     // Same default reasoning, for tests that construct Application directly without exercising template usage.
-    templateUsageStore: TemplateUsageStore = TemplateUsageStore.empty(fileSystem, '')
+    templateUsageStore: TemplateUsageStore = TemplateUsageStore.empty(fileSystem, ''),
+    // Same default reasoning, for tests that construct Application directly without exercising References display.
+    referencesDisplayStore: ReferencesDisplayStore = ReferencesDisplayStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -444,6 +457,7 @@ export class Application {
     this.workspaceSessionStore = workspaceSessionStore;
     this.tagMetadataStore = tagMetadataStore;
     this.templateUsageStore = templateUsageStore;
+    this.referencesDisplayStore = referencesDisplayStore;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
