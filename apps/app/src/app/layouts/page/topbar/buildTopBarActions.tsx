@@ -52,7 +52,8 @@ function buildMenuForType(
   isFavorite: boolean,
   isDeletable: boolean,
   isTemplate: boolean = false,
-  isEffectivelyArchived: boolean = false
+  isEffectivelyArchived: boolean = false,
+  referencesHidden: boolean = false
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
@@ -65,6 +66,7 @@ function buildMenuForType(
           isDeletable,
           isTemplate,
           isEffectivelyArchived,
+          referencesHidden,
         },
         'topbar'
       );
@@ -78,6 +80,7 @@ function buildMenuForType(
           status: state === 'archived' ? 'archived' : 'active',
           isDeletable,
           isEffectivelyArchived,
+          referencesHidden,
         },
         'topbar'
       );
@@ -139,6 +142,13 @@ export interface BuildTopBarActionsOptions {
    * `isFavoritable` check; Daily Notes do not support favoriting.
    */
   onToggleFavorite?: () => void;
+  /**
+   * ADR-052: the References section is not currently on screen (explicitly or automatically hidden) — names
+   * the `toggle-references` item. Pages only; ignored for a folder.
+   */
+  referencesHidden?: boolean;
+  /** The `toggle-references` item's handler — flips the note's saved Hide/Show choice. Pages only. */
+  onToggleReferences?: () => void;
 }
 
 /**
@@ -183,7 +193,8 @@ export function buildTopBarActions(
         isFavorite,
         isDeletable,
         options.membershipSelector.isInTemplatesFolder(resource.parentId),
-        isEffectivelyArchived
+        isEffectivelyArchived,
+        options.referencesHidden
       )
     : buildResourceActionMenu(
         'folder',
@@ -226,6 +237,7 @@ export function buildTopBarActions(
       onToggleFavorite: isFavoritable && !isEffectivelyArchived ? options.onToggleFavorite : undefined,
       onRevealInFinder,
       onCopyPath,
+      onToggleReferences: options.onToggleReferences,
     }),
   };
 }

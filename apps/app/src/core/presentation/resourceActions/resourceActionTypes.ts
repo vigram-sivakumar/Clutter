@@ -47,6 +47,12 @@ export interface ResourceActionContext {
   /** Tags only: whether the tag is pinned (stored as its `favorite` metadata). */
   readonly isPinned?: boolean;
   readonly isTemplate?: boolean;
+  /**
+   * Notes and Daily Notes: the References section is not currently on screen — explicitly hidden, or
+   * automatically hidden because the note has no references. Names what `toggle-references` will do
+   * (ADR-052).
+   */
+  readonly referencesHidden?: boolean;
   /** Permanent Delete applies only to an archived resource or an Archive descendant. */
   readonly isDeletable?: boolean;
   /** A folder's current sidebar sort; absent where the surface has no Sort by (see `sort-by`). */

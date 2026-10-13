@@ -115,6 +115,20 @@ const CREATE_TEMPLATE: ResourceActionDefinition = activeOnly({
     context.isTemplate ? 'hidden' : persistedOnly(context),
 });
 
+/**
+ * Hides or shows this note's References section (ADR-052) — a per-note display preference, never a change to
+ * the references themselves. Always offered on an eligible note (not tied to whether it has any references);
+ * the label reads whether the section is on screen. Hidden for an archived note, like Properties.
+ */
+const TOGGLE_REFERENCES: ResourceActionDefinition = activeOnly({
+  id: 'toggle-references',
+  group: 'view',
+  order: 10,
+  label: (context) => (context.referencesHidden ? 'Show references' : 'Hide references'),
+  icon: 'hide',
+  availability: persistedOnly,
+});
+
 function revealInFinder(): ResourceActionDefinition {
   return activeOnly({
     id: 'reveal-in-finder',
@@ -261,6 +275,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     MOVE_TO,
     USE_AS_TEMPLATE,
     CREATE_TEMPLATE,
+    TOGGLE_REFERENCES,
     revealInFinder(),
     copyPath('page'),
     ARCHIVE,
@@ -268,7 +283,7 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     DELETE,
   ],
   // A Daily Note's title is its date: no rename, icon, favorite, duplicate or move.
-  'daily-note': [CREATE_TEMPLATE, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
+  'daily-note': [CREATE_TEMPLATE, TOGGLE_REFERENCES, revealInFinder(), copyPath('page'), ARCHIVE, RESTORE, DELETE],
   // Folders are never duplicable or templates. Sort by is a sidebar view preference (the topbar
   // surface profile omits it).
   folder: [

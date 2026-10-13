@@ -24,8 +24,9 @@ const archivedOnlyActionsExceptTag = (kind: ResourceKind): readonly string[] =>
   kind === 'tag' || kind === 'task' ? [] : ['restore', 'delete'];
 
 const SIDEBAR_PROFILE: ResourceActionSurfaceProfile = {
-  // Use as template is a topbar action today; the sidebar row is deliberately narrower.
-  omit: ['use-as-template'],
+  // Use as template is a topbar action today; the sidebar row is deliberately narrower. Hide/Show references
+  // is a display preference of the open note's page, so it belongs to the page's own topbar only.
+  omit: ['use-as-template', 'toggle-references'],
   omitWhen: archivedOnlyActionsExceptTag,
   unavailable: 'hide',
 };

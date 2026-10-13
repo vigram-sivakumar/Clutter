@@ -50,6 +50,8 @@ export interface TopBarActionsOptions {
   onRevealInFinder?: () => void;
   /** Same pipeline as onRevealInFinder — a single callback, fanned out to the three `copy-path-*` handler ids below. */
   onCopyPath?: (format: LocationPathFormat) => void;
+  /** A page's Hide/Show references (ADR-052). */
+  onToggleReferences?: () => void;
 }
 
 type TopBarActionsRenderer = (options?: TopBarActionsOptions) => ReactNode;
@@ -75,6 +77,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       'use-as-template': options?.onUseAsTemplate,
       'create-template': options?.onCreateTemplate,
       'toggle-favorite': options?.onToggleFavorite,
+      'toggle-references': options?.onToggleReferences,
       'reveal-in-finder': options?.onRevealInFinder,
       'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),
       'copy-path-full-path': () => options?.onCopyPath?.('full-path'),

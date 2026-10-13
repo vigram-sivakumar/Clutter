@@ -53,11 +53,12 @@ describe('group ordering and automatic dividers', () => {
       'move-to',
       'use-as-template',
       'create-template',
+      'toggle-references',
       'reveal-in-finder',
       'copy-path',
       'archive',
     ]);
-    expect(dividedIds(menu)).toEqual(['reveal-in-finder', 'archive']);
+    expect(dividedIds(menu)).toEqual(['toggle-references', 'reveal-in-finder', 'archive']);
   });
 
   it('places the destructive action last, behind its own divider', () => {
@@ -81,7 +82,9 @@ describe('group ordering and automatic dividers', () => {
       label: 'Brand new',
       icon: 'clock',
     };
-    const definitions = [...RESOURCE_ACTIONS.note, newAction];
+    // Without toggle-references: it already occupies the `view` group on the topbar, so there a new `view`
+    // action joins it instead of opening its own divided group (covered by the References tests below).
+    const definitions = [...RESOURCE_ACTIONS.note.filter((definition) => definition.id !== 'toggle-references'), newAction];
 
     for (const surface of Object.keys(RESOURCE_ACTION_SURFACES) as (keyof typeof RESOURCE_ACTION_SURFACES)[]) {
       const menu = buildMenuFromDefinitions(definitions, { status: 'active' }, surface);
@@ -197,7 +200,7 @@ describe('daily note', () => {
   it('a draft has no sidebar menu; on the topbar its actions are disabled, not omitted', () => {
     expect(buildResourceActionMenu('daily-note', { isDraft: true }, 'sidebar')).toEqual([]);
     const topbar = buildResourceActionMenu('daily-note', { isDraft: true, isDeletable: true }, 'topbar');
-    expect(ids(topbar)).toEqual(['create-template', 'copy-path', 'archive', 'delete']);
+    expect(ids(topbar)).toEqual(['create-template', 'toggle-references', 'copy-path', 'archive', 'delete']);
     expect(topbar.every((item) => item.disabled)).toBe(true);
   });
 
@@ -591,5 +594,52 @@ describe('archived resources: inapplicable actions are hidden, never disabled (P
   it('an active resource is unaffected', () => {
     const menu = ids(buildResourceActionMenu('note', { status: 'active', isEffectivelyArchived: false }, 'topbar'));
     expect(menu).toEqual(expect.arrayContaining(['toggle-favorite', 'duplicate', 'move-to', 'copy-path']));
+  });
+});
+
+describe('Hide / Show references (ADR-052)', () => {
+  const refs = (kind: 'note' | 'daily-note', context: Parameters<typeof buildResourceActionMenu>[1], surface: 'topbar' | 'sidebar' | 'favorites' = 'topbar') =>
+    buildResourceActionMenu(kind, context, surface).find((item) => item.id === 'toggle-references');
+
+  it.each(['note', 'daily-note'] as const)('%s: sits in the view group, between Create template and Reveal in Finder, divided on both sides', (kind) => {
+    const menu = buildResourceActionMenu(kind, { status: 'active' }, 'topbar');
+    const order = ids(menu);
+
+    expect(order.indexOf('toggle-references')).toBe(order.indexOf('create-template') + 1);
+    // A Daily Note's topbar omits Reveal in Finder, so its location group opens with Copy path.
+    const next = kind === 'note' ? 'reveal-in-finder' : 'copy-path';
+    expect(order.indexOf('toggle-references')).toBe(order.indexOf(next) - 1);
+    expect(dividedIds(menu)).toEqual(expect.arrayContaining(['toggle-references', next]));
+  });
+
+  it('the label names what the click does, and the icon is the existing hide icon', () => {
+    expect(refs('note', { status: 'active' })).toMatchObject({ label: 'Hide references', icon: 'hide' });
+    expect(refs('note', { status: 'active', referencesHidden: false })).toMatchObject({ label: 'Hide references' });
+    expect(refs('note', { status: 'active', referencesHidden: true })).toMatchObject({ label: 'Show references' });
+  });
+
+  it('is offered regardless of anything about the note\'s references (availability is not coupled to detection)', () => {
+    expect(refs('note', { status: 'active', referencesHidden: true })?.disabled).toBeUndefined();
+    expect(refs('note', { status: 'active', referencesHidden: false })?.disabled).toBeUndefined();
+  });
+
+  it('a draft sees it disabled on the topbar (persistedOnly)', () => {
+    expect(refs('note', { isDraft: true })?.disabled).toBe(true);
+  });
+
+  it.each([{ status: 'archived' as const, isDeletable: true }, { status: 'active' as const, isEffectivelyArchived: true }])(
+    'is hidden for an archived note (%o)',
+    (context) => {
+      expect(refs('note', context)).toBeUndefined();
+      expect(refs('daily-note', context)).toBeUndefined();
+    }
+  );
+
+  it('is a topbar-only action: the sidebar and Favorites never list it, and no other kind has it', () => {
+    expect(refs('note', { status: 'active' }, 'sidebar')).toBeUndefined();
+    expect(refs('note', { status: 'active' }, 'favorites')).toBeUndefined();
+    for (const kind of ['folder', 'asset', 'tag', 'task'] as const) {
+      expect(ids(buildResourceActionMenu(kind, { status: 'active' }, 'topbar'))).not.toContain('toggle-references');
+    }
   });
 });

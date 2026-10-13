@@ -15,6 +15,7 @@ describe('topbar handler registration for canonical resource actions', () => {
     { status: 'active', isFavorite: true },
     { status: 'active', isTemplate: true },
     { status: 'archived', isDeletable: true },
+    { status: 'active', referencesHidden: true },
     { isDraft: true },
   ];
 
@@ -31,6 +32,7 @@ describe('topbar handler registration for canonical resource actions', () => {
         onUseAsTemplate: fn,
         onCreateTemplate: fn,
         onToggleFavorite: fn,
+        onToggleReferences: fn,
         onRevealInFinder: fn,
         onCopyPath: fn,
       }) as ReactElement<{ handlers: Record<string, unknown> }>;
