@@ -42,11 +42,49 @@ const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2
 
 /**
  * Display string for a `number` Property value — locale grouping and
- * decimal separator (`1,234.5`). Display only; the stored value stays
- * the number itself.
+ * decimal separator (`1,234.5`; `12,34,567` on an Indian locale). Display
+ * only; the stored value stays the number itself. The system locale unless
+ * `locales` is given (tests pin one; the UI never does).
  */
-export function formatNumberPropertyValue(value: number): string {
-  return numberFormat.format(value);
+export function formatNumberPropertyValue(value: number, locales?: Intl.LocalesArgument): string {
+  const format =
+    locales === undefined ? numberFormat : new Intl.NumberFormat(locales, { maximumFractionDigits: 20 });
+
+  return format.format(value);
+}
+
+/**
+ * The text the editor opens with: the value as a plain decimal — no grouping
+ * (parseNumberPropertyInput accepts none) and no exponent, which `String`
+ * switches to from 1e21 (and below 1e-6). It is `String(value)`'s own
+ * shortest round-trip digits with the exponent written out as zeros or a
+ * decimal point, so `Number(text) === value` always holds: opening the
+ * editor and committing without a change reads back the identical number.
+ * Locale-independent on purpose (the parser needs a `.` decimal). It is a
+ * representation of the number, not extra precision — a JS number can't hold
+ * every integer above Number.MAX_SAFE_INTEGER, and digits it already lost
+ * stay lost.
+ */
+export function numberPropertyEditText(value: number): string {
+  const text = String(value);
+  const match = /^(-?)(\d+)(?:\.(\d+))?e([+-]\d+)$/.exec(text);
+
+  if (!match) {
+    return text;
+  }
+
+  const [, sign = '', whole = '', fraction = '', exponentText = '0'] = match;
+  const digits = whole + fraction;
+  // Where the decimal point falls in `digits` once the exponent is applied.
+  const point = whole.length + Number(exponentText);
+
+  if (point <= 0) {
+    return `${sign}0.${'0'.repeat(-point)}${digits}`;
+  }
+
+  return point >= digits.length
+    ? `${sign}${digits}${'0'.repeat(point - digits.length)}`
+    : `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
 }
 
 /**
@@ -81,9 +119,9 @@ interface NumberPropertyEditorProps {
  * with an invalid draft discards it and restores the last valid value.
  * Emptying the text clears the value.
  *
- * At rest the field shows the formatted number; focusing swaps in the raw
- * number (`String(value)`), so editing never round-trips through a
- * locale-formatted string. A text field with `inputMode="decimal"` rather
+ * At rest the field shows the formatted number; focusing swaps in the plain
+ * decimal (numberPropertyEditText), so editing never round-trips through a
+ * locale-formatted string or an exponent. A text field with `inputMode="decimal"` rather
  * than `type="number"`, whose native field silently reports `''` for
  * invalid text and changes the value on scroll.
  */
@@ -151,7 +189,7 @@ function NumberPropertyEditor({ name, value, onCommit }: NumberPropertyEditorPro
       inputMode="decimal"
       placeholder="Empty"
       value={draft ?? restingText}
-      onFocus={() => setDraft(value === null ? '' : String(value))}
+      onFocus={() => setDraft(value === null ? '' : numberPropertyEditText(value))}
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}

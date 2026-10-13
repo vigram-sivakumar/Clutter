@@ -9,6 +9,7 @@ import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
 import {
   NumberPropertyValue,
   formatNumberPropertyValue,
+  numberPropertyEditText,
   parseNumberPropertyInput,
 } from './NumberPropertyValue';
 import { PropertyList } from './PropertyList';
@@ -204,5 +205,118 @@ describe('PropertyList number value', () => {
 
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.getByText(formatNumberPropertyValue(9876543))).toBeTruthy();
+  });
+});
+
+const LARGE = 7.573837658392029e23; // String(LARGE) is "7.573837658392029e+23"
+
+describe('numberPropertyEditText', () => {
+  it.each([
+    [42, '42'],
+    [-7, '-7'],
+    [0, '0'],
+    [1234567, '1234567'],
+    [1234.5, '1234.5'],
+    [-0.025, '-0.025'],
+    [Number.MAX_SAFE_INTEGER, '9007199254740991'],
+  ])('leaves an ordinary number as String does: %s', (value, expected) => {
+    expect(numberPropertyEditText(value)).toBe(expected);
+  });
+
+  it.each([
+    [LARGE, '757383765839202900000000'],
+    [1e21, '1000000000000000000000'],
+    [-1.5e22, '-15000000000000000000000'],
+    [1e-7, '0.0000001'],
+    [1.5e-7, '0.00000015'],
+    [-2.5e-9, '-0.0000000025'],
+  ])('writes the exponent of String(%s) out as plain digits', (value, expected) => {
+    expect(String(value)).toContain('e');
+    expect(numberPropertyEditText(value)).toBe(expected);
+  });
+
+  it.each([42, 1234.5, -0.025, Number.MAX_SAFE_INTEGER, LARGE, 1e21, 1.7976931348623157e308, -1.5e22, 1e-7, 5e-324, Math.PI * 1e30])(
+    'reads back as the identical number (no extra precision loss): %s',
+    (value) => {
+      const text = numberPropertyEditText(value);
+
+      expect(text).not.toMatch(/e/i);
+      expect(parseNumberPropertyInput(text)).toBe(value);
+    }
+  );
+});
+
+describe('formatNumberPropertyValue — locale-aware display', () => {
+  it('follows the locale it is given: Indian and US grouping', () => {
+    expect(formatNumberPropertyValue(1234567, 'en-IN')).toBe('12,34,567');
+    expect(formatNumberPropertyValue(1234567, 'en-US')).toBe('1,234,567');
+    expect(formatNumberPropertyValue(1234.5, 'en-US')).toBe('1,234.5');
+  });
+
+  it('shows a large number as grouped digits, never an exponent', () => {
+    expect(formatNumberPropertyValue(LARGE, 'en-IN')).toBe('7,57,38,37,65,83,92,02,90,00,00,000');
+    expect(formatNumberPropertyValue(LARGE, 'en-US')).toBe('757,383,765,839,202,900,000,000');
+  });
+
+  it('defaults to the system locale', () => {
+    expect(formatNumberPropertyValue(1234567)).toBe(new Intl.NumberFormat(undefined, { maximumFractionDigits: 20 }).format(1234567));
+  });
+});
+
+describe('NumberPropertyValue — large numbers', () => {
+  it('shows the grouped value at rest and a plain decimal, not an exponent, on focus', () => {
+    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={() => {}} />);
+
+    expect(getField().value).toBe(formatNumberPropertyValue(LARGE));
+    expect(getField().value).not.toMatch(/e/i);
+
+    fireEvent.focus(getField());
+    expect(getField().value).toBe('757383765839202900000000');
+  });
+
+  it('display and editing text are separate representations', () => {
+    render(<NumberPropertyValue name="Count" value={1234567} editable onCommit={() => {}} />);
+
+    const resting = getField().value;
+    fireEvent.focus(getField());
+
+    expect(resting).toBe(formatNumberPropertyValue(1234567));
+    expect(getField().value).toBe('1234567');
+  });
+
+  it('focusing and committing without a change does not commit (or alter) the value', () => {
+    const onCommit = vi.fn();
+    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+
+    fireEvent.focus(getField());
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    fireEvent.focus(getField());
+    fireEvent.blur(getField());
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('re-committing the focused text yields the identical number', () => {
+    const onCommit = vi.fn();
+    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+
+    fireEvent.focus(getField());
+    // The user touches the field and types the same digits back.
+    type(getField().value);
+    fireEvent.keyDown(getField(), { key: 'Enter' });
+
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('still rejects text the parser rejects, such as the grouped display text', () => {
+    const onCommit = vi.fn();
+    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+
+    fireEvent.focus(getField());
+    type(formatNumberPropertyValue(LARGE, 'en-IN'));
+    fireEvent.blur(getField());
+
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

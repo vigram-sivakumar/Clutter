@@ -562,3 +562,18 @@ describe('removeCustomProperty', () => {
     );
   });
 });
+
+describe('number custom properties: save and reopen', () => {
+  it.each([1234567, 1234.5, Number.MAX_SAFE_INTEGER, 7.573837658392029e23, 1e21, -1.5e22, 1e-7])(
+    'writing %s and reading it back returns the identical number',
+    (value) => {
+      const lines = setCustomScalarValue(['estimate: # number'], 'estimate', 'number', value);
+
+      expect(readCustomProperties(lines)).toEqual([{ key: 'estimate', type: 'number', value }]);
+    }
+  );
+
+  it('a large number is written as String(value) — serialization is unchanged', () => {
+    expect(formatCustomScalar('number', 7.573837658392029e23)).toBe('7.573837658392029e+23');
+  });
+});
