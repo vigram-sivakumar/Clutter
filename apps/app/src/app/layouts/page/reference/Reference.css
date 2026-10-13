@@ -78,8 +78,8 @@
 }
 
 .reference-entry__body {
-  font-size: var(--text-body);
-  line-height: var(--lh-body);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
   color: var(--foreground-primary);
 }
 .reference__divider {
