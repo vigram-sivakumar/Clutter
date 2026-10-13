@@ -522,11 +522,13 @@ export class NoteEmbedWidget extends WidgetType {
     content.hidden = this.ui.collapsed;
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
-    // Source navigation belongs to the embed container, not its rendered content: a click on the embed's
-    // background or empty space opens the source note (the same `getOnOpenPage` the Expand button uses). A
-    // click that lands on a text line, a link/button/input, a media block (which includes a nested embed,
-    // handled by that embed's own listener) or the header (title, caret, controls) is the content's or
-    // header's own and never navigates; neither does the end of a text selection.
+    // Source navigation belongs to the embed wrapper (`container`), not to its content: the header and the
+    // embedded document (the nested `.cm-editor`, which holds every text line, link, checkbox, media block
+    // and nested embed) are passive from the wrapper's point of view, so a click that originates inside
+    // either never navigates. Only the wrapper's own background opens the source note. The `contains`
+    // check scopes this to *this* embed's descendants: for a nested embed, the outer embed's `.cm-editor`
+    // is an ancestor of its wrapper, not something inside it, so the nested wrapper still navigates itself.
+    // Same `getOnOpenPage` navigation the Expand button uses; the end of a text selection never navigates.
     container.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof Element) || event.button !== 0 || event.defaultPrevented) {
@@ -535,8 +537,8 @@ export class NoteEmbedWidget extends WidgetType {
       if (window.getSelection()?.toString()) {
         return;
       }
-      const owner = target.closest('a, button, input, .cm-line, .cm-media-block, .cm-note-embed__header');
-      if (owner !== null && owner !== container) {
+      const passive = target.closest('.cm-note-embed__header, .cm-editor');
+      if (passive !== null && container.contains(passive)) {
         return;
       }
       this.openSource(resolution.pageId);

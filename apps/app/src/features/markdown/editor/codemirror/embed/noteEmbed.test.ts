@@ -250,7 +250,7 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     });
   });
 
-  it('clicking the embed\'s background or empty space opens the source note, once per click', () => {
+  it('clicking the wrapper\'s own background opens the source note, once per click', () => {
     const onOpenPage = vi.fn();
     const view = mountView(
       '![[Other Note]]',
@@ -261,15 +261,41 @@ describe('note embeds (embedLivePreview + NoteEmbedWidget)', () => {
     );
 
     const container = view.dom.querySelector<HTMLElement>('.cm-note-embed')!;
-    const content = container.querySelector<HTMLElement>('.cm-note-embed__content')!;
-    // The container itself, the content's padding around the nested view, and the nested editor's own
-    // non-text chrome: all empty space.
-    for (const target of [container, content, content.querySelector<HTMLElement>('.cm-editor')!, content.querySelector<HTMLElement>('.cm-content')!]) {
+    // The wrapper itself and the content element's padding around the nested view.
+    for (const target of [container, container.querySelector<HTMLElement>('.cm-note-embed__content')!]) {
       onOpenPage.mockClear();
       target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(onOpenPage).toHaveBeenCalledTimes(1);
       expect(onOpenPage).toHaveBeenCalledWith('page-other');
     }
+  });
+
+  it('nothing that originates inside the embedded document navigates: its editor, content, lines', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body #tag', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    const content = view.dom.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    for (const selector of ['.cm-editor', '.cm-scroller', '.cm-content', '.cm-line']) {
+      content.querySelector<HTMLElement>(selector)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+
+    expect(onOpenPage).not.toHaveBeenCalled();
+  });
+
+  it('the pointer cursor belongs to the wrapper; the header and the embedded document keep the default cursor', () => {
+    const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...css.matchAll(/([^{}]+)\{([^}]*cursor\s*:\s*(\w+)[^}]*)\}/g)].map((m) => [m[1]!.trim(), m[3]!]);
+
+    expect(rules).toEqual([
+      ['.cm-note-embed', 'pointer'],
+      ['.cm-note-embed__header,\n.cm-note-embed__content .cm-editor', 'default'],
+    ]);
   });
 
   it('clicking ordinary embedded text, a link or a checkbox does not open the source note', () => {
