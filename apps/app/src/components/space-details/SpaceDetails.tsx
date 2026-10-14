@@ -1,4 +1,6 @@
+import { Button } from '@components/button/Button';
 import { Input } from '../input/Input';
+import { useRejectShake } from '../property-list/useRejectShake';
 import './SpaceDetails.css';
 
 export const DEFAULT_SPACE_NAME = 'Clutter';
@@ -44,7 +46,15 @@ interface SpaceDetailsProps {
 }
 
 export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
-  const nameError = validateSpaceName(draft.name);
+  const { shakeClassName, shake } = useRejectShake();
+  // A missing name is signalled by the shake, not a message.
+  const isNameEmpty = draft.name.trim() === '';
+  const nameError = isNameEmpty ? null : validateSpaceName(draft.name);
+
+  function handleNameChange(name: string) {
+    if (name.trim() === '') shake();
+    onNameChange(name);
+  }
 
   return (
     <div className="space-details">
@@ -54,12 +64,14 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
         </label>
         <Input
           id="space-details-name"
-          className="space-details__input"
+          className={['space-details__input', shakeClassName]
+            .filter(Boolean)
+            .join(' ')}
           hasBackground={false}
           hasBorder={false}
           value={draft.name}
-          aria-invalid={nameError !== null}
-          onChange={(event) => onNameChange(event.target.value)}
+          aria-invalid={isNameEmpty || nameError !== null}
+          onChange={(event) => handleNameChange(event.target.value)}
         />
         {nameError && (
           <span className="space-details__error" role="alert">
@@ -73,6 +85,9 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           {draft.parentName}/
         </span>
       </div>
+      <Button className="space-details__button" variant="primary">
+        Create
+      </Button>
     </div>
   );
 }
