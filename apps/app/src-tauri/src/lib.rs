@@ -1,5 +1,21 @@
+use tauri::Manager;
+
 mod vault_asset_scope;
 mod vault_watcher;
+
+/// Native (pre-webview-paint) background for the main window, matching the
+/// `--surface-root` token in design-system/theme.css (dark: neutral-800,
+/// light: neutral-50). Without it WKWebView paints its own white until the
+/// first frame of the page — `backgroundColor` in tauri.conf.json can't be used
+/// because it's static and can't follow light/dark. This relies on tauri's
+/// `macos-private-api` feature (wry's `transparent` path), which is what
+/// turns off WKWebView's default white fill; see tauri.conf.json.
+fn native_background(theme: tauri::Theme) -> tauri::window::Color {
+    match theme {
+        tauri::Theme::Dark => tauri::window::Color(0x1f, 0x1f, 0x1f, 0xff),
+        _ => tauri::window::Color(0xf9, 0xf8, 0xf7, 0xff),
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,6 +50,14 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+            }
+
+            // Runs before the event loop, i.e. before the window's first frame.
+            // The page's own inline script refines this if the user's chosen
+            // theme differs from the OS theme (index.html).
+            if let Some(window) = app.get_webview_window("main") {
+                let theme = window.theme().unwrap_or(tauri::Theme::Light);
+                window.set_background_color(Some(native_background(theme)))?;
             }
             Ok(())
         })

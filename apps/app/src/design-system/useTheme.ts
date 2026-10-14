@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
@@ -17,6 +19,12 @@ function applyTheme(theme: ResolvedTheme) {
   const root = document.documentElement;
   root.classList.add('theme-transitioning');
   root.setAttribute('data-theme', theme);
+  // Keep the native window behind the webview in step (matches index.html).
+  if (isTauri()) {
+    void getCurrentWindow()
+      .setBackgroundColor(theme === 'dark' ? [31, 31, 31, 255] : [249, 248, 247, 255])
+      .catch(() => {});
+  }
   setTimeout(() => root.classList.remove('theme-transitioning'), 200);
 }
 
