@@ -35,10 +35,13 @@ export function WelcomeScreen({ onSpaceReady }: WelcomeScreenProps) {
     }
   }
 
+  // Success closes this window and opens the workspace, so there's no
+  // space to hand back — only a cancel or failure leaves us here.
   async function selectFolder() {
     const picked = await open({ directory: true, multiple: false });
     if (typeof picked !== 'string') return null;
-    return invoke<SelectedSpace>('validate_space_folder', { path: picked });
+    await invoke('open_space', { path: picked });
+    return null;
   }
 
   function createSpace() {

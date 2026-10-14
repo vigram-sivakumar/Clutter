@@ -9,8 +9,8 @@ pub fn run() {
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
             space::create_default_space,
-            space::validate_space_folder,
             startup::get_configured_space,
+            startup::open_space,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,

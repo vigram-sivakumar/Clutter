@@ -1,10 +1,11 @@
 //! Folder-level space selection for the welcome screen.
 //!
-//! These commands only *validate or create a plain directory* and report it
-//! back — nothing is written inside it and nothing is persisted. Per ADR-030
-//! no reserved resource (`.clutter`, `Daily Notes`, …) is materialized up
-//! front; they appear lazily when a feature first needs them. Persisting the
-//! choice (space.json) is the later SpaceDetails → workspace step.
+//! `create_default_space` only *creates a plain directory* and reports it
+//! back; `validate_folder` is read-only (used by `startup::open_space`).
+//! Nothing is written inside a space and nothing is persisted here (that's
+//! `startup::open_space`). Per ADR-030 no reserved resource (`.clutter`,
+//! `Daily Notes`, …) is materialized up front; they appear lazily when a
+//! feature first needs them.
 //!
 //! Done in Rust rather than via the JS fs plugin because the folder picker can
 //! return paths outside the plugin's `$HOME` scope.
@@ -36,7 +37,7 @@ fn describe(path: &Path) -> SpaceFolder {
 }
 
 /// Read-only checks: the path is an existing, listable, writable directory.
-fn validate_folder(path: &Path) -> Result<SpaceFolder, String> {
+pub fn validate_folder(path: &Path) -> Result<SpaceFolder, String> {
     let canonical = path
         .canonicalize()
         .map_err(|error| format!("Couldn't open that folder: {error}"))?;
@@ -83,11 +84,6 @@ fn create_default_space_in(documents: &Path) -> Result<SpaceFolder, String> {
     }
 
     validate_folder(&target)
-}
-
-#[tauri::command]
-pub async fn validate_space_folder(path: String) -> Result<SpaceFolder, String> {
-    validate_folder(Path::new(&path))
 }
 
 #[tauri::command]

@@ -40,10 +40,17 @@ pub enum SpaceStatus {
     Ready(PathBuf),
 }
 
+fn space_config_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join(SPACE_CONFIG_FILE))
+        .map_err(|error| error.to_string())
+}
+
 pub fn resolve_space(app: &AppHandle) -> SpaceStatus {
-    let config_path = match app.path().app_config_dir() {
-        Ok(dir) => dir.join(SPACE_CONFIG_FILE),
-        Err(error) => return SpaceStatus::Unavailable(error.to_string()),
+    let config_path = match space_config_path(app) {
+        Ok(path) => path,
+        Err(error) => return SpaceStatus::Unavailable(error),
     };
 
     let raw = match std::fs::read_to_string(&config_path) {
@@ -77,17 +84,7 @@ pub fn resolve_space(app: &AppHandle) -> SpaceStatus {
 /// Opens the main window for a valid space, otherwise the initial window.
 pub fn open_startup_window(app: &AppHandle) -> tauri::Result<()> {
     match resolve_space(app) {
-        SpaceStatus::Ready(_) => {
-            let config = app
-                .config()
-                .app
-                .windows
-                .iter()
-                .find(|window| window.label == MAIN_WINDOW_LABEL)
-                .expect("main window config missing from tauri.conf.json");
-            let window = WebviewWindowBuilder::from_config(app, config)?.build()?;
-            show_after_timeout(window);
-        }
+        SpaceStatus::Ready(_) => open_main_window(app)?,
         SpaceStatus::NotConfigured => {
             open_initial_window(app)?;
         }
@@ -96,6 +93,19 @@ pub fn open_startup_window(app: &AppHandle) -> tauri::Result<()> {
             open_initial_window(app)?;
         }
     }
+    Ok(())
+}
+
+fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == MAIN_WINDOW_LABEL)
+        .expect("main window config missing from tauri.conf.json");
+    let window = WebviewWindowBuilder::from_config(app, config)?.build()?;
+    show_after_timeout(window);
     Ok(())
 }
 
@@ -127,6 +137,44 @@ fn show_after_timeout(window: tauri::WebviewWindow) {
         std::thread::sleep(std::time::Duration::from_secs(5));
         let _ = window.show();
     });
+}
+
+/// Welcome screen's "Select a folder": validate the folder, persist it as the
+/// configured space, open the main window on it and close the initial window.
+/// On any failure nothing changes — the previous config (if any) is restored
+/// and the initial window stays open.
+#[tauri::command]
+pub async fn open_space(app: AppHandle, path: String) -> Result<(), String> {
+    let space = crate::space::validate_folder(std::path::Path::new(&path))?;
+
+    let config_path = space_config_path(&app)?;
+    let previous = std::fs::read_to_string(&config_path).ok();
+    if let Some(dir) = config_path.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|error| format!("Couldn't save your space: {error}"))?;
+    }
+    std::fs::write(
+        &config_path,
+        serde_json::json!({ "path": space.path }).to_string(),
+    )
+    .map_err(|error| format!("Couldn't save your space: {error}"))?;
+
+    if let Err(error) = open_main_window(&app) {
+        match previous {
+            Some(raw) => {
+                let _ = std::fs::write(&config_path, raw);
+            }
+            None => {
+                let _ = std::fs::remove_file(&config_path);
+            }
+        }
+        return Err(format!("Couldn't open that space: {error}"));
+    }
+
+    if let Some(initial) = app.get_webview_window(INITIAL_WINDOW_LABEL) {
+        let _ = initial.destroy();
+    }
+    Ok(())
 }
 
 /// The configured space path for the main window's frontend, or `None` if

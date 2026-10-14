@@ -36,9 +36,10 @@ export function AppShell() {
   return <ConfiguredWorkspaceShell />;
 }
 
-// Onboarding: WelcomeScreen → SpaceDetails → (later) the main workspace.
-// The chosen space lives only in this state for now — nothing is persisted
-// and the workspace isn't opened until SpaceDetails is built out.
+// Onboarding. "Select a folder" persists the space and opens the workspace
+// directly (Rust: open_space). "Create a new space" lands on SpaceDetails;
+// that space lives only in this state for now — the SpaceDetails →
+// workspace step (persisting it, opening the workspace) comes later.
 function InitialWindow() {
   const [space, setSpace] = useState<SelectedSpace | null>(null);
 
@@ -46,7 +47,10 @@ function InitialWindow() {
     <>
       <TauriDragStrip />
       {space ? (
-        <SpaceDetails space={space} />
+        <SpaceDetails
+          space={space}
+          onNameChange={(name) => setSpace({ ...space, name })}
+        />
       ) : (
         <WelcomeScreen onSpaceReady={setSpace} />
       )}

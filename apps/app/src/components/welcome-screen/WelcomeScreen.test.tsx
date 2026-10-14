@@ -42,17 +42,31 @@ afterEach(() => {
 });
 
 describe('WelcomeScreen', () => {
-  it('validates the picked folder and reports it', async () => {
+  it('opens the picked folder as the space without rendering SpaceDetails', async () => {
     openMock.mockResolvedValue('/Users/me/Notes');
-    invokeMock.mockResolvedValue(SPACE);
+    invokeMock.mockResolvedValue(undefined);
     const { onSpaceReady } = setup();
 
     await act(async () => fireEvent.click(selectButton()));
 
-    expect(invokeMock).toHaveBeenCalledWith('validate_space_folder', {
+    expect(invokeMock).toHaveBeenCalledWith('open_space', {
       path: '/Users/me/Notes',
     });
-    expect(onSpaceReady).toHaveBeenCalledWith(SPACE);
+    expect(onSpaceReady).not.toHaveBeenCalled();
+  });
+
+  it('shows the error and stays when opening the picked folder fails', async () => {
+    openMock.mockResolvedValue('/Users/me/Locked');
+    invokeMock.mockRejectedValue(
+      "That folder is read-only, so it can't be used as a space."
+    );
+    const { onSpaceReady } = setup();
+
+    await act(async () => fireEvent.click(selectButton()));
+
+    expect(onSpaceReady).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('read-only');
+    expect(selectButton()).toBeEnabled();
   });
 
   it('does nothing when the picker is cancelled', async () => {
