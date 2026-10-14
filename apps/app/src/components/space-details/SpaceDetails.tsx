@@ -72,11 +72,20 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           onChange={(event) => handleNameChange(event.target.value)}
         />
       </div>
-      <div className="space-details__card">
-        <span className="space-details__label">Location</span>
-        <span className="space-details__path" title={draft.parentPath}>
-          {draft.parentName}/
-        </span>
+      <div className="space-details__card space-details__card--with-action">
+        <div className="space-details__card-content">
+          <span className="space-details__label">Location</span>
+          <span className="space-details__path" title={draft.parentPath}>
+            {draft.parentName}/
+          </span>
+        </div>
+        <Button
+          className="space-details__change-button"
+          variant="filled"
+          size="small"
+        >
+          Change
+        </Button>
       </div>
       <Button
         className="space-details__button"

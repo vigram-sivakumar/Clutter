@@ -20,6 +20,22 @@
   width: 65%;
   box-shadow: var(--shadow-inset-thin);
 }
+/* Card with a trailing action (Location → Change): content left, button right. */
+.space-details__card--with-action {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-12);
+}
+.space-details__card-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.space-details__change-button {
+  flex: 0 0 auto;
+}
 .space-details__label {
   color: var(--foreground-placeholder);
   font-size: var(--text-label-small);

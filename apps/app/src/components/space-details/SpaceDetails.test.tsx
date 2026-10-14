@@ -28,6 +28,7 @@ describe('SpaceDetails', () => {
     expect(location).toHaveAttribute('title', '/Users/me/Documents');
     expect(location.tagName).not.toBe('INPUT');
     expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
   });
 
   it('shakes — with no message — when the name is cleared', () => {
