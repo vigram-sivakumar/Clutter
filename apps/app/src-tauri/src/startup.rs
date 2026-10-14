@@ -5,6 +5,10 @@
 //! tauri.conf.json so Tauri doesn't build it automatically. That way a launch
 //! with no usable space never loads (or flashes) the main workspace UI.
 //!
+//! Both windows are created hidden and shown by the frontend after its first
+//! paint (App.tsx), so the user never sees the webview's blank white
+//! background. `show_after_timeout` is the safety net if that never happens.
+//!
 //! The configured space path lives in `<app config dir>/space.json`
 //! (`{ "path": "/abs/path" }`) rather than the webview's localStorage because
 //! Rust has to read it before any webview is created. Nothing writes this file
@@ -18,7 +22,8 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 const SPACE_CONFIG_FILE: &str = "space.json";
 const MAIN_WINDOW_LABEL: &str = "main";
 const INITIAL_WINDOW_LABEL: &str = "initial";
-const INITIAL_WINDOW_SIZE: f64 = 720.0;
+const INITIAL_WINDOW_WIDTH: f64 = 620.0;
+const INITIAL_WINDOW_HEIGHT: f64 = 620.0;
 
 #[derive(Deserialize)]
 struct SpaceConfig {
@@ -80,7 +85,8 @@ pub fn open_startup_window(app: &AppHandle) -> tauri::Result<()> {
                 .iter()
                 .find(|window| window.label == MAIN_WINDOW_LABEL)
                 .expect("main window config missing from tauri.conf.json");
-            WebviewWindowBuilder::from_config(app, config)?.build()?;
+            let window = WebviewWindowBuilder::from_config(app, config)?.build()?;
+            show_after_timeout(window);
         }
         SpaceStatus::NotConfigured => {
             open_initial_window(app)?;
@@ -96,10 +102,11 @@ pub fn open_startup_window(app: &AppHandle) -> tauri::Result<()> {
 fn open_initial_window(app: &AppHandle) -> tauri::Result<()> {
     let builder = WebviewWindowBuilder::new(app, INITIAL_WINDOW_LABEL, WebviewUrl::default())
         .title("Clutter")
-        .inner_size(INITIAL_WINDOW_SIZE, INITIAL_WINDOW_SIZE)
+        .inner_size(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
         .resizable(false)
         .maximizable(false)
         .fullscreen(false)
+        .visible(false)
         .center();
 
     // Same overlay title bar as the main window (see tauri.conf.json).
@@ -109,8 +116,17 @@ fn open_initial_window(app: &AppHandle) -> tauri::Result<()> {
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .traffic_light_position(tauri::LogicalPosition::new(16.0, 32.0));
 
-    builder.build()?;
+    show_after_timeout(builder.build()?);
     Ok(())
+}
+
+/// Safety net: if the frontend fails before it can show its window, don't
+/// leave the app running with no visible window.
+fn show_after_timeout(window: tauri::WebviewWindow) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let _ = window.show();
+    });
 }
 
 /// The configured space path for the main window's frontend, or `None` if
