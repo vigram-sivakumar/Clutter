@@ -8,7 +8,7 @@ import {
   render,
   screen,
 } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const invokeMock = vi.fn();
 const openMock = vi.fn();
@@ -40,6 +40,8 @@ afterEach(() => {
 });
 
 describe('WelcomeScreen', () => {
+  beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}));
+
   it('opens the picked folder as the space without rendering SpaceDetails', async () => {
     openMock.mockResolvedValue('/Users/me/Notes');
     invokeMock.mockResolvedValue(undefined);
@@ -53,7 +55,7 @@ describe('WelcomeScreen', () => {
     expect(onCreateSpace).not.toHaveBeenCalled();
   });
 
-  it('shows the error and stays when opening the picked folder fails', async () => {
+  it('shakes the button and stays when opening the picked folder fails', async () => {
     openMock.mockResolvedValue('/Users/me/Locked');
     invokeMock.mockRejectedValue(
       "That folder is read-only, so it can't be used as a space."
@@ -63,7 +65,8 @@ describe('WelcomeScreen', () => {
     await act(async () => fireEvent.click(selectButton()));
 
     expect(onCreateSpace).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('read-only');
+    expect(selectButton()).toHaveClass('editable-text--shake');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(selectButton()).toBeEnabled();
   });
 
@@ -97,14 +100,15 @@ describe('WelcomeScreen', () => {
     });
   });
 
-  it('shows the error, stays put and re-enables controls when it fails', async () => {
+  it('shakes, stays put and re-enables controls when it fails', async () => {
     invokeMock.mockRejectedValue("Couldn't locate your Documents folder.");
     const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(createButton()));
 
     expect(onCreateSpace).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('Documents');
+    expect(createButton()).toHaveClass('editable-text--shake');
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(createButton()).toBeEnabled();
     expect(selectButton()).toBeEnabled();
   });

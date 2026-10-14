@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { AppIcon } from '@shared/icon';
+import { useRejectShake } from '../property-list/useRejectShake';
 import {
   DEFAULT_SPACE_NAME,
   type NewSpaceDraft,
@@ -13,26 +14,26 @@ interface WelcomeScreenProps {
   onCreateSpace: (draft: NewSpaceDraft) => void;
 }
 
-function toMessage(error: unknown): string {
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  return 'Something went wrong. Please try again.';
-}
-
 export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
   const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const selectShake = useRejectShake();
+  const createShake = useRejectShake();
 
-  // One action at a time; a cancelled picker (null) changes nothing.
-  async function run(action: () => Promise<NewSpaceDraft | null>) {
+  // One action at a time; a cancelled picker (null) changes nothing. A
+  // failure shakes the button that was clicked — no message; the reason is
+  // logged.
+  async function run(
+    action: () => Promise<NewSpaceDraft | null>,
+    shake: () => void
+  ) {
     if (isPending) return;
     setIsPending(true);
-    setError(null);
     try {
       const draft = await action();
       if (draft) onCreateSpace(draft);
     } catch (error) {
-      setError(toMessage(error));
+      console.error('Welcome screen action failed:', error);
+      shake();
     } finally {
       setIsPending(false);
     }
@@ -71,9 +72,11 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
       </div>
       <div className="space-picker">
         <button
-          className="space-picker__button"
+          className={['space-picker__button', selectShake.shakeClassName]
+            .filter(Boolean)
+            .join(' ')}
           disabled={isPending}
-          onClick={() => void run(selectFolder)}
+          onClick={() => void run(selectFolder, selectShake.shake)}
         >
           <div className="space-picker__button--content">
             <span className="space-picker__title">Select a folder</span>
@@ -91,9 +94,11 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
           <span className="space-picker__divider-rule" />
         </div>
         <button
-          className="space-picker__button"
+          className={['space-picker__button', createShake.shakeClassName]
+            .filter(Boolean)
+            .join(' ')}
           disabled={isPending}
-          onClick={() => void run(startNewSpace)}
+          onClick={() => void run(startNewSpace, createShake.shake)}
         >
           <div className="space-picker__button--content">
             <span className="space-picker__title">Create a new space</span>
@@ -106,11 +111,6 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
           </span>
         </button>
       </div>
-      {error && (
-        <p className="welcome__error" role="alert">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

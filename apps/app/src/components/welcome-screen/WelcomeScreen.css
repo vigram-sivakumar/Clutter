@@ -128,11 +128,3 @@
   opacity: 0.6;
   pointer-events: none;
 }
-.welcome__error {
-  width: 65%;
-  color: var(--danger-foreground);
-  font-size: var(--text-label-small);
-  line-height: var(--lh-label-small);
-  letter-spacing: var(--ls-label-small);
-  text-align: center;
-}

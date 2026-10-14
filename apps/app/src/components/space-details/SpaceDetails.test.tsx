@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SpaceDetails, validateSpaceName } from './SpaceDetails';
+import { SpaceDetails, isValidSpaceName } from './SpaceDetails';
 
 afterEach(cleanup);
 
@@ -30,7 +30,7 @@ describe('SpaceDetails', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shakes instead of showing a message when the name is cleared', () => {
+  it('shakes — with no message — when the name is cleared', () => {
     render(<SpaceDetails draft={draft} onNameChange={vi.fn()} />);
     const input = screen.getByLabelText('Space Name');
 
@@ -40,26 +40,33 @@ describe('SpaceDetails', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows a message for an invalid (non-empty) name', () => {
-    render(
-      <SpaceDetails draft={{ ...draft, name: 'a/b' }} onNameChange={vi.fn()} />
-    );
-    expect(screen.getByRole('alert')).toHaveTextContent('can’t contain');
+  it('shakes when an invalid character is typed, and passes the text through unchanged', () => {
+    const onNameChange = vi.fn();
+    render(<SpaceDetails draft={draft} onNameChange={onNameChange} />);
+    const input = screen.getByLabelText('Space Name');
+
+    fireEvent.change(input, { target: { value: 'a/b' } });
+
+    expect(input.closest('.input')).toHaveClass('editable-text--shake');
+    expect(onNameChange).toHaveBeenCalledWith('a/b');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shows no message for a missing name', () => {
-    render(
-      <SpaceDetails draft={{ ...draft, name: '   ' }} onNameChange={vi.fn()} />
-    );
-    expect(screen.queryByRole('alert')).toBeNull();
+  it('does not shake for a valid name', () => {
+    render(<SpaceDetails draft={draft} onNameChange={vi.fn()} />);
+    const input = screen.getByLabelText('Space Name');
+
+    fireEvent.change(input, { target: { value: 'Personal' } });
+
+    expect(input.closest('.input')).not.toHaveClass('editable-text--shake');
   });
 });
 
-describe('validateSpaceName', () => {
+describe('isValidSpaceName', () => {
   it.each(['Clutter', 'Personal', '  Work  ', 'My Space 2', 'Café ✨'])(
     'accepts %j',
     (name) => {
-      expect(validateSpaceName(name)).toBeNull();
+      expect(isValidSpaceName(name)).toBe(true);
     }
   );
 
@@ -74,6 +81,6 @@ describe('validateSpaceName', () => {
     'a\u0000b',
     'x'.repeat(256),
   ])('rejects %j', (name) => {
-    expect(validateSpaceName(name)).not.toBeNull();
+    expect(isValidSpaceName(name)).toBe(false);
   });
 });

@@ -21,23 +21,15 @@ export interface NewSpaceDraft {
 
 const MAX_FOLDER_NAME_BYTES = 255;
 
-/** A message if `name` can't be used as a folder name, otherwise null. */
-export function validateSpaceName(name: string): string | null {
+/** Whether `name` can be used as a folder name. */
+export function isValidSpaceName(name: string): boolean {
   const trimmed = name.trim();
-  if (trimmed === '') return 'Enter a name for your space.';
-  if (trimmed === '.' || trimmed === '..') {
-    return 'That name isn’t allowed.';
-  }
-  // `/` and `:` are path separators on macOS, `\` on Windows; control
+  if (trimmed === '' || trimmed === '.' || trimmed === '..') return false;
+  // `/` and `:` are path separators on macOS, `\\` on Windows; control
   // characters are never valid in a file name.
   // eslint-disable-next-line no-control-regex
-  if (/[/\\:\u0000-\u001f]/.test(trimmed)) {
-    return 'A name can’t contain / \\ : or control characters.';
-  }
-  if (new TextEncoder().encode(trimmed).length > MAX_FOLDER_NAME_BYTES) {
-    return 'That name is too long.';
-  }
-  return null;
+  if (/[/\\:\u0000-\u001f]/.test(trimmed)) return false;
+  return new TextEncoder().encode(trimmed).length <= MAX_FOLDER_NAME_BYTES;
 }
 
 interface SpaceDetailsProps {
@@ -47,12 +39,11 @@ interface SpaceDetailsProps {
 
 export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
-  // A missing name is signalled by the shake, not a message.
-  const isNameEmpty = draft.name.trim() === '';
-  const nameError = isNameEmpty ? null : validateSpaceName(draft.name);
 
+  // An unusable name is signalled by the shake, never a message; the input
+  // is left exactly as typed.
   function handleNameChange(name: string) {
-    if (name.trim() === '') shake();
+    if (!isValidSpaceName(name)) shake();
     onNameChange(name);
   }
 
@@ -70,14 +61,9 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           hasBackground={false}
           hasBorder={false}
           value={draft.name}
-          aria-invalid={isNameEmpty || nameError !== null}
+          aria-invalid={!isValidSpaceName(draft.name)}
           onChange={(event) => handleNameChange(event.target.value)}
         />
-        {nameError && (
-          <span className="space-details__error" role="alert">
-            {nameError}
-          </span>
-        )}
       </div>
       <div className="space-details__card">
         <span className="space-details__label">Location</span>
