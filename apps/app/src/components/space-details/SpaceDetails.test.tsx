@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { act } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const invokeMock = vi.fn();
@@ -15,7 +20,11 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: (...a: unknown[]) => openMock(...a),
 }));
 
-import { SpaceDetails, isValidSpaceName } from './SpaceDetails';
+import {
+  SpaceDetails,
+  isValidSpaceName,
+  type NewSpaceDraft,
+} from './SpaceDetails';
 
 beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}));
 afterEach(() => {
@@ -24,162 +33,84 @@ afterEach(() => {
   openMock.mockReset();
 });
 
-const draft = {
+const emptyDraft: NewSpaceDraft = {
   parentPath: '/Users/me/Documents',
   parentName: 'Documents',
-  name: 'Clutter',
+  name: '',
 };
 
-describe('SpaceDetails', () => {
-  it('shows the editable name and the read-only parent location', () => {
-    const onNameChange = vi.fn();
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={onNameChange}
-        onParentChange={vi.fn()}
-      />
-    );
+function setup(draft: NewSpaceDraft = emptyDraft) {
+  const onNameChange = vi.fn();
+  const onParentChange = vi.fn();
+  render(
+    <SpaceDetails
+      draft={draft}
+      onNameChange={onNameChange}
+      onParentChange={onParentChange}
+    />
+  );
+  return { onNameChange, onParentChange };
+}
 
-    const input = screen.getByLabelText('Space Name');
-    expect(input).toHaveValue('Clutter');
-    fireEvent.change(input, { target: { value: 'Personal' } });
+const nameInput = () => screen.getByLabelText('Space Name');
+const nameCard = () => nameInput().closest('.space-details__card');
+const createButton = () => screen.getByRole('button', { name: 'Create' });
+const changeButton = () => screen.getByRole('button', { name: 'Change' });
+
+describe('SpaceDetails name', () => {
+  it('starts empty with a placeholder — no default name', () => {
+    setup();
+    expect(nameInput()).toHaveValue('');
+    expect(nameInput()).toHaveAttribute('placeholder', 'Enter a space name');
+    expect(screen.queryByDisplayValue('Clutter')).toBeNull();
+  });
+
+  it('reports edits', () => {
+    const { onNameChange } = setup();
+    fireEvent.change(nameInput(), { target: { value: 'Personal' } });
     expect(onNameChange).toHaveBeenCalledWith('Personal');
-
-    const location = screen.getByText('Documents/Clutter');
-    expect(location).toHaveAttribute('title', '/Users/me/Documents/Clutter');
-    expect(location.tagName).not.toBe('INPUT');
-    expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
   });
 
-  it('shakes — with no message — when the name is cleared', () => {
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-    const input = screen.getByLabelText('Space Name');
+  it('shakes the card (no message) when the name is cleared or invalid, and passes text through', () => {
+    const { onNameChange } = setup({ ...emptyDraft, name: 'Work' });
+    fireEvent.change(nameInput(), { target: { value: 'a/b' } });
 
-    fireEvent.change(input, { target: { value: '' } });
-
-    expect(input.closest('.space-details__card')).toHaveClass(
-      'editable-text--shake'
-    );
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  it('shakes when an invalid character is typed, and passes the text through unchanged', () => {
-    const onNameChange = vi.fn();
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={onNameChange}
-        onParentChange={vi.fn()}
-      />
-    );
-    const input = screen.getByLabelText('Space Name');
-
-    fireEvent.change(input, { target: { value: 'a/b' } });
-
-    expect(input.closest('.space-details__card')).toHaveClass(
-      'editable-text--shake'
-    );
+    expect(nameCard()).toHaveClass('editable-text--shake');
     expect(onNameChange).toHaveBeenCalledWith('a/b');
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('shakes when Create is clicked with an empty name', () => {
-    render(
-      <SpaceDetails
-        draft={{ ...draft, name: '' }}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-
-    expect(
-      screen.getByLabelText('Space Name').closest('.space-details__card')
-    ).toHaveClass('editable-text--shake');
-  });
-
-  it('does not act on Enter — only the Create button does', () => {
-    render(
-      <SpaceDetails
-        draft={{ ...draft, name: '' }}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-    const input = screen.getByLabelText('Space Name');
-
-    fireEvent.keyDown(input, { key: 'Enter' });
-    fireEvent.keyPress(input, { key: 'Enter', charCode: 13 });
-    fireEvent.keyUp(input, { key: 'Enter' });
-
-    expect(input.closest('.space-details__card')).not.toHaveClass(
-      'editable-text--shake'
-    );
-    expect(input.closest('form')).toBeNull();
-  });
-
-  it('does not shake when Create is clicked with a valid name', () => {
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-
-    expect(
-      screen.getByLabelText('Space Name').closest('.space-details__card')
-    ).not.toHaveClass('editable-text--shake');
-  });
-
   it('does not shake for a valid name', () => {
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-    const input = screen.getByLabelText('Space Name');
+    setup();
+    fireEvent.change(nameInput(), { target: { value: 'Personal' } });
+    expect(nameCard()).not.toHaveClass('editable-text--shake');
+  });
 
-    fireEvent.change(input, { target: { value: 'Personal' } });
+  it('ignores Enter — only the Create button creates', () => {
+    setup({ ...emptyDraft, name: 'Personal' });
+    fireEvent.keyDown(nameInput(), { key: 'Enter' });
+    fireEvent.keyPress(nameInput(), { key: 'Enter', charCode: 13 });
 
-    expect(input.closest('.space-details__card')).not.toHaveClass(
-      'editable-text--shake'
-    );
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(nameInput().closest('form')).toBeNull();
   });
 });
 
-describe('SpaceDetails Change location', () => {
-  const change = () => screen.getByRole('button', { name: 'Change' });
+describe('SpaceDetails location', () => {
+  it('shows only the parent, never the space name', () => {
+    setup({ ...emptyDraft, name: 'Personal' });
+    const location = screen.getByText('Documents/');
+    expect(location).toHaveAttribute('title', '/Users/me/Documents');
+    expect(screen.queryByText('Documents/Personal')).toBeNull();
+  });
 
-  it('picks a folder, validates it and updates the parent', async () => {
+  it('Change picks a parent folder via the validator and reports it', async () => {
     openMock.mockResolvedValue('/Users/me/Work');
     invokeMock.mockResolvedValue({ path: '/Users/me/Work', name: 'Work' });
-    const onParentChange = vi.fn();
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={onParentChange}
-      />
-    );
+    const { onParentChange } = setup();
 
-    await act(async () => fireEvent.click(change()));
+    await act(async () => fireEvent.click(changeButton()));
 
-    expect(openMock).toHaveBeenCalledWith({ directory: true, multiple: false });
-    expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock).toHaveBeenCalledWith('validate_space_folder', {
       path: '/Users/me/Work',
     });
@@ -189,70 +120,89 @@ describe('SpaceDetails Change location', () => {
     });
   });
 
-  it('does nothing when the picker is cancelled', async () => {
+  it('Change does nothing when cancelled', async () => {
     openMock.mockResolvedValue(null);
-    const onParentChange = vi.fn();
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={onParentChange}
-      />
-    );
+    const { onParentChange } = setup();
 
-    await act(async () => fireEvent.click(change()));
+    await act(async () => fireEvent.click(changeButton()));
 
     expect(invokeMock).not.toHaveBeenCalled();
     expect(onParentChange).not.toHaveBeenCalled();
-    expect(change()).toBeEnabled();
   });
 
-  it('shakes the Location card and keeps the parent when the folder is unusable', async () => {
+  it('Change shakes the Location card and keeps the parent when the folder is unusable', async () => {
     openMock.mockResolvedValue('/Users/me/Locked');
     invokeMock.mockRejectedValue('read-only');
-    const onParentChange = vi.fn();
-    render(
-      <SpaceDetails
-        draft={draft}
-        onNameChange={vi.fn()}
-        onParentChange={onParentChange}
-      />
-    );
+    const { onParentChange } = setup();
 
-    await act(async () => fireEvent.click(change()));
+    await act(async () => fireEvent.click(changeButton()));
 
     expect(onParentChange).not.toHaveBeenCalled();
-    expect(change().closest('.space-details__card')).toHaveClass(
+    expect(changeButton().closest('.space-details__card')).toHaveClass(
       'editable-text--shake'
     );
-    expect(change()).toBeEnabled();
   });
 });
 
-describe('SpaceDetails location', () => {
-  it('shows the parent plus the trimmed name, following the draft', () => {
-    const { rerender } = render(
-      <SpaceDetails
-        draft={{ ...draft, name: '  Personal  ' }}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-    expect(screen.getByText('Documents/Personal')).toBeInTheDocument();
+describe('SpaceDetails Create', () => {
+  it('is disabled while the name is empty or invalid', () => {
+    for (const name of ['', '   ', 'a/b', '..']) {
+      cleanup();
+      setup({ ...emptyDraft, name });
+      expect(createButton()).toBeDisabled();
+    }
+  });
 
-    rerender(
-      <SpaceDetails
-        draft={{ ...draft, name: '' }}
-        onNameChange={vi.fn()}
-        onParentChange={vi.fn()}
-      />
-    );
-    expect(screen.getByText('Documents/')).toBeInTheDocument();
+  it('creates nothing on render or while typing', () => {
+    setup({ ...emptyDraft, name: 'Personal' });
+    fireEvent.change(nameInput(), { target: { value: 'Personal 2' } });
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('creates <parent>/<trimmed name> only when clicked, then disables itself', async () => {
+    invokeMock.mockResolvedValue({
+      path: '/Users/me/Documents/Personal',
+      name: 'Personal',
+    });
+    setup({ ...emptyDraft, name: '  Personal  ' });
+    expect(createButton()).toBeEnabled();
+
+    await act(async () => fireEvent.click(createButton()));
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith('create_space_folder', {
+      parentPath: '/Users/me/Documents',
+      name: 'Personal',
+    });
+    expect(createButton()).toBeDisabled();
+  });
+
+  it('shakes the name card and stays enabled when the folder already exists', async () => {
+    invokeMock.mockRejectedValue('"Personal" already exists in Documents.');
+    setup({ ...emptyDraft, name: 'Personal' });
+
+    await act(async () => fireEvent.click(createButton()));
+
+    expect(nameCard()).toHaveClass('editable-text--shake');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(createButton()).toBeEnabled();
+  });
+
+  it('ignores a second click while creating', async () => {
+    let resolve!: (v: unknown) => void;
+    invokeMock.mockReturnValue(new Promise((r) => (resolve = r)));
+    setup({ ...emptyDraft, name: 'Personal' });
+
+    await act(async () => fireEvent.click(createButton()));
+    await act(async () => fireEvent.click(createButton()));
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => resolve({ path: '/p', name: 'Personal' }));
   });
 });
 
 describe('isValidSpaceName', () => {
-  it.each(['Clutter', 'Personal', '  Work  ', 'My Space 2', 'Café ✨'])(
+  it.each(['Personal', '  Work  ', 'My Space 2', 'Café ✨'])(
     'accepts %j',
     (name) => {
       expect(isValidSpaceName(name)).toBe(true);

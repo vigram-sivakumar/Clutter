@@ -7,8 +7,6 @@ import { useRejectShake } from '../property-list/useRejectShake';
 import { pickSpaceFolder } from './pickSpaceFolder';
 import './SpaceDetails.css';
 
-export const DEFAULT_SPACE_NAME = 'Clutter';
-
 /**
  * A space the user is setting up. Nothing exists on disk yet: the folder
  * will be `<parentPath>/<name.trim()>`, created only when the (later)
@@ -19,7 +17,7 @@ export interface NewSpaceDraft {
   parentPath: string;
   /** That folder's display name, e.g. "Documents". */
   parentName: string;
-  /** Space name — also the new folder's name. */
+  /** Space name — also the new folder's name. Starts empty. */
   name: string;
 }
 
@@ -50,6 +48,8 @@ export function SpaceDetails({
   const { shakeClassName, shake } = useRejectShake();
   const locationShake = useRejectShake();
   const [isChangingLocation, setIsChangingLocation] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isCreated, setIsCreated] = useState(false);
 
   // An unusable name shakes the whole Space Name card, never a message; the input
   // is left exactly as typed.
@@ -57,10 +57,6 @@ export function SpaceDetails({
     if (!isValidSpaceName(name)) shake();
     onNameChange(name);
   }
-
-  // Where the folder will be created: the parent plus the trimmed name,
-  // updated live as the user types.
-  const folderName = draft.name.trim();
 
   // Change: the same native picker as "Select a folder", but it only picks the
   // parent folder for the new space — nothing is opened or written. A cancelled
@@ -84,9 +80,24 @@ export function SpaceDetails({
     }
   }
 
-  // Creating the folder comes later; for now Create only rejects a bad name.
-  function handleCreate() {
-    if (!isValidSpaceName(draft.name)) shake();
+  // Create is the only place the folder is made: `<parent>/<trimmed name>`.
+  // Rust refuses an existing folder (never overwritten, never renamed or
+  // suffixed); that, like any failure, shakes the Space Name card.
+  async function handleCreate() {
+    if (isCreating || !isValidSpaceName(draft.name)) return;
+    setIsCreating(true);
+    try {
+      await invoke('create_space_folder', {
+        parentPath: draft.parentPath,
+        name: draft.name.trim(),
+      });
+      setIsCreated(true);
+    } catch (error) {
+      console.error('Creating the space folder failed:', error);
+      shake();
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   return (
@@ -104,6 +115,7 @@ export function SpaceDetails({
           className="space-details__input"
           hasBackground={false}
           hasBorder={false}
+          placeholder="Enter a space name"
           value={draft.name}
           aria-invalid={!isValidSpaceName(draft.name)}
           onChange={(event) => handleNameChange(event.target.value)}
@@ -120,11 +132,8 @@ export function SpaceDetails({
       >
         <div className="space-details__card-content">
           <span className="space-details__label">Location</span>
-          <span
-            className="space-details__path"
-            title={`${draft.parentPath}/${folderName}`}
-          >
-            {draft.parentName}/{folderName}
+          <span className="space-details__path" title={draft.parentPath}>
+            {draft.parentName}/
           </span>
         </div>
         <Button
@@ -140,7 +149,8 @@ export function SpaceDetails({
       <Button
         className="space-details__button"
         variant="primary"
-        onClick={handleCreate}
+        disabled={!isValidSpaceName(draft.name) || isCreating || isCreated}
+        onClick={() => void handleCreate()}
       >
         Create
       </Button>

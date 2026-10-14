@@ -82,7 +82,7 @@ describe('WelcomeScreen', () => {
     expect(selectButton()).toBeEnabled();
   });
 
-  it('starts a draft in Documents named Clutter without creating anything', async () => {
+  it('starts a draft in Documents with an empty name and creates nothing', async () => {
     invokeMock.mockResolvedValue({
       path: '/Users/me/Documents',
       name: 'Documents',
@@ -96,7 +96,7 @@ describe('WelcomeScreen', () => {
     expect(onCreateSpace).toHaveBeenCalledWith({
       parentPath: '/Users/me/Documents',
       parentName: 'Documents',
-      name: 'Clutter',
+      name: '',
     });
   });
 

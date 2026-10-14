@@ -3,10 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import { AppIcon } from '@shared/icon';
 import { useRejectShake } from '../property-list/useRejectShake';
-import {
-  DEFAULT_SPACE_NAME,
-  type NewSpaceDraft,
-} from '../space-details/SpaceDetails';
+import type { NewSpaceDraft } from '../space-details/SpaceDetails';
 import { pickSpaceFolder } from '../space-details/pickSpaceFolder';
 import './WelcomeScreen.css';
 
@@ -56,7 +53,7 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
     return {
       parentPath: parent.path,
       parentName: parent.name,
-      name: DEFAULT_SPACE_NAME,
+      name: '',
     };
   }
 
