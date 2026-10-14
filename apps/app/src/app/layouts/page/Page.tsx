@@ -6,6 +6,7 @@ import type { CoverLayout } from '@core/vault/models/PageMetadata';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { useCoverSuppressed } from './CoverSuppressedContext';
+import { ArchivedBanner } from './ArchivedBanner';
 import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
 import { PageTitle } from './header/Page.Title';
@@ -60,8 +61,8 @@ type PageProps = {
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
-  /** Forwarded to PageTopBar's centered notice slot (the archived banner). */
-  banner?: ReactNode;
+  /** Present for an effectively archived resource: renders the archived banner at the top of `.page__content`. */
+  archived?: { archivedAt: string | null | undefined; onRestore?: () => void };
   /**
    * Trailing slot beside the page title itself (PageTitleSection's own
    * `actions` prop) — distinct from `actions` above, which reaches
@@ -249,7 +250,7 @@ export function Page({
   breadcrumbs,
   menu,
   actions,
-  banner,
+  archived,
   titleActions,
   belowDescription,
   tabs,
@@ -411,13 +412,19 @@ export function Page({
           breadcrumbs={breadcrumbs}
           menu={menu}
           actions={actions}
-          banner={banner}
           canNavigateBack={canNavigateBack}
           canNavigateForward={canNavigateForward}
           onNavigateBack={onNavigateBack}
           onNavigateForward={onNavigateForward}
         />
         <div className="page__content">
+          {archived && (
+            <ArchivedBanner
+              archivedAt={archived.archivedAt}
+              onRestore={archived.onRestore}
+              variant={coverImage && !coverHidden && coverLayout === 'above' ? 'inset' : 'full-width'}
+            />
+          )}
           {coverLayout === 'above' && cover}
           <header className="page__header">
             <PageTitleSection

@@ -130,7 +130,6 @@ import {
   countPageReferences,
   isReferencesDisplayed,
 } from '@app/layouts/page/reference/referencesDisplay';
-import { ArchivedBanner } from './ArchivedBanner';
 import { useArchivedResourceDates } from './useArchivedResourceDates';
 import {
   CollectionBody,
@@ -1821,17 +1820,15 @@ export function PageHost({
           }
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
-          banner={
-            isFolderArchived ? (
-              <ArchivedBanner
-                archivedAt={folder.metadata.archivedAt}
-                onRestore={
-                  application.membershipSelector.isRestorable(folder)
+          archived={
+            isFolderArchived
+              ? {
+                  archivedAt: folder.metadata.archivedAt,
+                  onRestore: application.membershipSelector.isRestorable(folder)
                     ? onRestoreFolder
-                    : undefined
+                    : undefined,
                 }
-              />
-            ) : undefined
+              : undefined
           }
           titleActions={renderCollectionHeaderActions({
             onAdd: onCreate,
@@ -2964,17 +2961,15 @@ export function PageHost({
             }
           />
         }
-        banner={
-          isPageArchived ? (
-            <ArchivedBanner
-              archivedAt={page.metadata.archivedAt}
-              onRestore={
-                application.membershipSelector.isRestorable(page)
+        archived={
+          isPageArchived
+            ? {
+                archivedAt: page.metadata.archivedAt,
+                onRestore: application.membershipSelector.isRestorable(page)
                   ? onRestore
-                  : undefined
+                  : undefined,
               }
-            />
-          ) : undefined
+            : undefined
         }
         actions={
           <>

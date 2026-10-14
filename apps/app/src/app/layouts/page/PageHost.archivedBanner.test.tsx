@@ -22,7 +22,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
-/** The archived banner in the top bar of an effectively archived Note, Daily Note and Folder. */
+/** The archived banner at the top of the page content of an effectively archived Note, Daily Note and Folder. */
 
 // Application's constructor and the image URL resolver reach Tauri IPC with no runtime to answer under vitest.
 vi.mock('@tauri-apps/api/core', () => ({
@@ -136,7 +136,7 @@ function buildFolder(id: string, path: string, status: 'active' | 'archived', fa
 
 const ARCHIVED_AT = new Date(2026, 9, 8, 14, 30).toISOString();
 const BANNER_TEXT = 'This has been archived on 08 October 2026';
-const banner = () => document.querySelector<HTMLElement>('.topbar .banner');
+const banner = () => document.querySelector<HTMLElement>('.page__content .archived-banner');
 const restoreButton = () =>
   Array.from(banner()?.querySelectorAll('button') ?? []).find((button) => button.textContent === 'Restore');
 

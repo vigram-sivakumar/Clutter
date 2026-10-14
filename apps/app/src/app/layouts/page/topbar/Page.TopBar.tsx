@@ -7,8 +7,6 @@ interface PageTopBarProps {
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
-  /** A notice centered in the bar (the archived banner). */
-  banner?: ReactNode;
   canNavigateBack: boolean;
   canNavigateForward: boolean;
   onNavigateBack(): void;
@@ -19,7 +17,6 @@ export function PageTopBar({
   breadcrumbs,
   menu,
   actions,
-  banner,
   canNavigateBack,
   canNavigateForward,
   onNavigateBack,
@@ -50,7 +47,6 @@ export function PageTopBar({
         </div>
         {breadcrumbs}
       </div>
-      {banner}
       {menu && <div className="topbar--menu">{menu}</div>}
       <div className="topbar--trailing">{actions}</div>
     </div>

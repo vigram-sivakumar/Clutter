@@ -664,3 +664,51 @@ describe('Page — responsive cover suppression', () => {
     expect(renderSuppressed({ coverLayout: 'above', coverHidden: true }).dataset.hidden).toBe('true');
   });
 });
+
+describe('Page — archived banner', () => {
+  const archived = { archivedAt: '2026-10-08T00:00:00', onRestore: vi.fn() };
+  const banner = () => document.querySelector('.page__content > .archived-banner');
+
+  it('renders inside .page__content as its first child, not in the top bar', () => {
+    render(<Page title="Note" body={<div />} archived={archived} />);
+
+    expect(banner()).not.toBeNull();
+    expect(document.querySelector('.page__content')!.firstElementChild).toBe(banner());
+    expect(document.querySelector('.topbar .archived-banner')).toBeNull();
+  });
+
+  it('renders nothing when the resource is not archived', () => {
+    render(<Page title="Note" body={<div />} />);
+
+    expect(banner()).toBeNull();
+  });
+
+  it('is full-width with no cover', () => {
+    render(<Page title="Note" body={<div />} archived={archived} />);
+
+    expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
+  });
+
+  it('is full-width with a Side cover', () => {
+    render(<Page title="Note" body={<div />} archived={archived} coverImage="c.png" coverLayout="side" />);
+
+    expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
+  });
+
+  it('is inset with an Above cover', () => {
+    render(<Page title="Note" body={<div />} archived={archived} coverImage="c.png" coverLayout="above" />);
+
+    expect(banner()!.classList.contains('archived-banner--inset')).toBe(true);
+  });
+
+  it('is full-width when the Above cover is hidden, or the layout is Above with no image', () => {
+    const { unmount } = render(
+      <Page title="Note" body={<div />} archived={archived} coverImage="c.png" coverLayout="above" coverHidden />
+    );
+    expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
+    unmount();
+
+    render(<Page title="Note" body={<div />} archived={archived} coverLayout="above" />);
+    expect(banner()!.classList.contains('archived-banner--full-width')).toBe(true);
+  });
+});

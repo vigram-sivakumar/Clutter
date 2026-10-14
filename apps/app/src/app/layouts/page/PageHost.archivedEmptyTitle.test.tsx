@@ -139,7 +139,7 @@ describe('an empty (untitled) note', () => {
     });
     await open(page);
 
-    fireEvent.click(Array.from(document.querySelectorAll('.banner button')).find((b) => b.textContent === 'Restore')!);
+    fireEvent.click(Array.from(document.querySelectorAll('.archived-banner button')).find((b) => b.textContent === 'Restore')!);
     await flush();
 
     expect(editableTitle()?.getAttribute('data-placeholder')).toBe('New note');
