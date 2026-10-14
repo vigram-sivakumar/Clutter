@@ -123,8 +123,3 @@
   line-height: var(--lh-label-small);
   letter-spacing: var(--ls-label-small);
 }
-
-.space-picker__button:disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}

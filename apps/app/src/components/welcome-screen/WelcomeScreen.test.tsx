@@ -119,8 +119,8 @@ describe('WelcomeScreen', () => {
     const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(createButton()));
-    expect(createButton()).toBeDisabled();
-    expect(selectButton()).toBeDisabled();
+    expect(createButton()).toBeEnabled();
+    expect(selectButton()).toBeEnabled();
     await act(async () => fireEvent.click(createButton()));
     expect(invokeMock).toHaveBeenCalledTimes(1);
 

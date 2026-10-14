@@ -145,12 +145,23 @@ describe('SpaceDetails location', () => {
 });
 
 describe('SpaceDetails Create', () => {
-  it('is disabled while the name is empty or invalid', () => {
+  it('is never disabled, and shakes the name card without creating for an empty or invalid name', async () => {
     for (const name of ['', '   ', 'a/b', '..']) {
       cleanup();
+      invokeMock.mockReset();
       setup({ ...emptyDraft, name });
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeEnabled();
+
+      await act(async () => fireEvent.click(createButton()));
+
+      expect(nameCard()).toHaveClass('editable-text--shake');
+      expect(invokeMock).not.toHaveBeenCalled();
     }
+  });
+
+  it('never disables Change either', () => {
+    setup();
+    expect(changeButton()).toBeEnabled();
   });
 
   it('creates nothing on render or while typing', () => {
@@ -159,7 +170,7 @@ describe('SpaceDetails Create', () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it('creates <parent>/<trimmed name> only when clicked, then disables itself', async () => {
+  it('creates <parent>/<trimmed name> only when clicked, then ignores further clicks', async () => {
     invokeMock.mockResolvedValue({
       path: '/Users/me/Documents/Personal',
       name: 'Personal',
@@ -174,7 +185,10 @@ describe('SpaceDetails Create', () => {
       parentPath: '/Users/me/Documents',
       name: 'Personal',
     });
-    expect(createButton()).toBeDisabled();
+    expect(createButton()).toBeEnabled();
+
+    await act(async () => fireEvent.click(createButton()));
+    expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
   it('shakes the name card and stays enabled when the folder already exists', async () => {

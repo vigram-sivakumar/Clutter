@@ -72,7 +72,6 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
           className={['space-picker__button', selectShake.shakeClassName]
             .filter(Boolean)
             .join(' ')}
-          disabled={isPending}
           onClick={() => void run(selectFolder, selectShake.shake)}
         >
           <div className="space-picker__button--content">
@@ -94,7 +93,6 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
           className={['space-picker__button', createShake.shakeClassName]
             .filter(Boolean)
             .join(' ')}
-          disabled={isPending}
           onClick={() => void run(startNewSpace, createShake.shake)}
         >
           <div className="space-picker__button--content">

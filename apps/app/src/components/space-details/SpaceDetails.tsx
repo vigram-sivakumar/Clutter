@@ -81,10 +81,16 @@ export function SpaceDetails({
   }
 
   // Create is the only place the folder is made: `<parent>/<trimmed name>`.
-  // Rust refuses an existing folder (never overwritten, never renamed or
-  // suffixed); that, like any failure, shakes the Space Name card.
+  // Buttons are never disabled — an empty/invalid name shakes the Space Name
+  // card and creates nothing. Rust refuses an existing folder (never
+  // overwritten, never renamed or suffixed); that, like any failure, shakes
+  // the card too. Clicks while creating, or after it succeeded, are ignored.
   async function handleCreate() {
-    if (isCreating || !isValidSpaceName(draft.name)) return;
+    if (isCreating || isCreated) return;
+    if (!isValidSpaceName(draft.name)) {
+      shake();
+      return;
+    }
     setIsCreating(true);
     try {
       await invoke('create_space_folder', {
@@ -140,7 +146,6 @@ export function SpaceDetails({
           className="space-details__change-button"
           variant="filled"
           // size="small"
-          disabled={isChangingLocation}
           onClick={() => void handleChangeLocation()}
         >
           Change
@@ -149,7 +154,6 @@ export function SpaceDetails({
       <Button
         className="space-details__button"
         variant="primary"
-        disabled={!isValidSpaceName(draft.name) || isCreating || isCreated}
         onClick={() => void handleCreate()}
       >
         Create
