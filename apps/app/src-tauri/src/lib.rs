@@ -1,3 +1,4 @@
+mod space;
 mod startup;
 mod vault_asset_scope;
 mod vault_watcher;
@@ -7,6 +8,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
+            space::create_default_space,
+            space::validate_space_folder,
             startup::get_configured_space,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,

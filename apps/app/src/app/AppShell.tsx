@@ -6,6 +6,11 @@ import { Application } from '../core/application/Application';
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
 import { TauriDragStrip } from '../components/tauri-drag-strip/TauriDragStrip';
+import {
+  SpaceDetails,
+  type SelectedSpace,
+} from '../components/space-details/SpaceDetails';
+import { WelcomeScreen } from '../components/welcome-screen/WelcomeScreen';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
 
@@ -31,12 +36,20 @@ export function AppShell() {
   return <ConfiguredWorkspaceShell />;
 }
 
-// Placeholder — the onboarding UI replaces this.
+// Onboarding: WelcomeScreen → SpaceDetails → (later) the main workspace.
+// The chosen space lives only in this state for now — nothing is persisted
+// and the workspace isn't opened until SpaceDetails is built out.
 function InitialWindow() {
+  const [space, setSpace] = useState<SelectedSpace | null>(null);
+
   return (
     <>
       <TauriDragStrip />
-      <div />
+      {space ? (
+        <SpaceDetails space={space} />
+      ) : (
+        <WelcomeScreen onSpaceReady={setSpace} />
+      )}
     </>
   );
 }
