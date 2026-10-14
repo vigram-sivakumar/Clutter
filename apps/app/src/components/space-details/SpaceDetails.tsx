@@ -40,7 +40,7 @@ interface SpaceDetailsProps {
 export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
 
-  // An unusable name is signalled by the shake, never a message; the input
+  // An unusable name shakes the whole Space Name card, never a message; the input
   // is left exactly as typed.
   function handleNameChange(name: string) {
     if (!isValidSpaceName(name)) shake();
@@ -54,15 +54,17 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
 
   return (
     <div className="space-details">
-      <div className="space-details__card">
+      <div
+        className={['space-details__card', shakeClassName]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <label className="space-details__label" htmlFor="space-details-name">
           Space Name
         </label>
         <Input
           id="space-details-name"
-          className={['space-details__input', shakeClassName]
-            .filter(Boolean)
-            .join(' ')}
+          className="space-details__input"
           hasBackground={false}
           hasBorder={false}
           value={draft.name}

@@ -36,7 +36,9 @@ describe('SpaceDetails', () => {
 
     fireEvent.change(input, { target: { value: '' } });
 
-    expect(input.closest('.input')).toHaveClass('editable-text--shake');
+    expect(input.closest('.space-details__card')).toHaveClass(
+      'editable-text--shake'
+    );
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -47,7 +49,9 @@ describe('SpaceDetails', () => {
 
     fireEvent.change(input, { target: { value: 'a/b' } });
 
-    expect(input.closest('.input')).toHaveClass('editable-text--shake');
+    expect(input.closest('.space-details__card')).toHaveClass(
+      'editable-text--shake'
+    );
     expect(onNameChange).toHaveBeenCalledWith('a/b');
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -59,9 +63,9 @@ describe('SpaceDetails', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
-    expect(screen.getByLabelText('Space Name').closest('.input')).toHaveClass(
-      'editable-text--shake'
-    );
+    expect(
+      screen.getByLabelText('Space Name').closest('.space-details__card')
+    ).toHaveClass('editable-text--shake');
   });
 
   it('does not act on Enter — only the Create button does', () => {
@@ -74,7 +78,9 @@ describe('SpaceDetails', () => {
     fireEvent.keyPress(input, { key: 'Enter', charCode: 13 });
     fireEvent.keyUp(input, { key: 'Enter' });
 
-    expect(input.closest('.input')).not.toHaveClass('editable-text--shake');
+    expect(input.closest('.space-details__card')).not.toHaveClass(
+      'editable-text--shake'
+    );
     expect(input.closest('form')).toBeNull();
   });
 
@@ -84,7 +90,7 @@ describe('SpaceDetails', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(
-      screen.getByLabelText('Space Name').closest('.input')
+      screen.getByLabelText('Space Name').closest('.space-details__card')
     ).not.toHaveClass('editable-text--shake');
   });
 
@@ -94,7 +100,9 @@ describe('SpaceDetails', () => {
 
     fireEvent.change(input, { target: { value: 'Personal' } });
 
-    expect(input.closest('.input')).not.toHaveClass('editable-text--shake');
+    expect(input.closest('.space-details__card')).not.toHaveClass(
+      'editable-text--shake'
+    );
   });
 });
 
