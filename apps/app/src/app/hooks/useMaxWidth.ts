@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 /** The app window width at or below which the sidebar collapses automatically. */
-export const SIDEBAR_COLLAPSE_BREAKPOINT = 1160;
+export const SIDEBAR_COLLAPSE_BREAKPOINT = 920;
 /** The app window width at or below which the cover image hides automatically. */
 export const COVER_HIDE_BREAKPOINT = 720;
 
@@ -19,7 +19,10 @@ function subscribeTo(maxWidth: number, onChange: () => void): () => void {
 }
 
 function readSnapshot(maxWidth: number): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia(queryFor(maxWidth)).matches;
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(queryFor(maxWidth)).matches
+  );
 }
 
 /**

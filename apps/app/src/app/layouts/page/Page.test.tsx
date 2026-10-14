@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createRef } from 'react';
 import { Page, type PageFocusHandle } from './Page';
+import { CoverSuppressedContext } from './CoverSuppressedContext';
 
 afterEach(() => {
   cleanup();
@@ -634,5 +635,32 @@ describe('Page vertical navigation: title → description → body', () => {
 
     expect(press(title, 'ArrowUp')).toBe(true);
     expect(press(title, 'ArrowDown')).toBe(true);
+  });
+});
+
+describe('Page — responsive cover suppression', () => {
+  function renderSuppressed(props: { coverLayout?: 'above' | 'side'; coverHidden?: boolean }) {
+    render(
+      <CoverSuppressedContext.Provider value>
+        <Page title="Note" body={<div />} coverImage="cover.png" {...props} />
+      </CoverSuppressedContext.Provider>
+    );
+    return document.querySelector('.page__cover') as HTMLElement;
+  }
+
+  it('hides a Side cover when the layout suppresses it', () => {
+    expect(renderSuppressed({ coverLayout: 'side' }).dataset.hidden).toBe('true');
+  });
+
+  it('defaults to Side, so it is suppressed too', () => {
+    expect(renderSuppressed({}).dataset.hidden).toBe('true');
+  });
+
+  it('never hides an Above cover for the layout suppression', () => {
+    expect(renderSuppressed({ coverLayout: 'above' }).dataset.hidden).toBeUndefined();
+  });
+
+  it('still hides an Above cover the note itself has hidden', () => {
+    expect(renderSuppressed({ coverLayout: 'above', coverHidden: true }).dataset.hidden).toBe('true');
   });
 });

@@ -325,7 +325,8 @@ export function Page({
       editable={coverEditable}
       src={coverImage}
       onRemove={onRemoveCoverImage}
-      hidden={coverHidden || isCoverSuppressed}
+      // The above-title cover is never hidden by the window's width, only by the note's own `coverHidden`.
+      hidden={coverHidden || (coverLayout !== 'above' && isCoverSuppressed)}
       onHide={onHideCoverImage}
       onSaveToVault={onSaveCoverImageToVault}
       onDownload={onDownloadCoverImage}
