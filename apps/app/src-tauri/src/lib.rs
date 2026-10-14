@@ -1,3 +1,4 @@
+mod startup;
 mod vault_asset_scope;
 mod vault_watcher;
 
@@ -6,6 +7,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
+            startup::get_configured_space,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,
@@ -35,6 +37,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            startup::open_startup_window(app.handle())?;
             Ok(())
         })
         .run(tauri::generate_context!())

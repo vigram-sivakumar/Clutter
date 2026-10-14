@@ -1,21 +1,70 @@
 import { useEffect, useState } from 'react';
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { Application } from '../core/application/Application';
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
+import { TauriDragStrip } from '../components/tauri-drag-strip/TauriDragStrip';
+
 import { AppLayout } from './layouts/app-layout/AppLayout';
 
-export function AppShell() {
-  // TODO: Replace with the folder picker.
-  // Outside Tauri (npm run dev:web), this is just a namespace string for an
-  // in-memory vault (Application.bootstrap() picks InMemoryVaultFileSystem
-  // when !isTauri()) — never the real desktop vault path.
-  const vaultPath = isTauri()
-    ? '/Users/sivakuv3/Documents/Personal/Vault'
-    : '/web-dev-vault';
+// Outside Tauri (npm run dev:web), this is just a namespace string for an
+// in-memory vault (Application.bootstrap() picks InMemoryVaultFileSystem
+// when !isTauri()) — never a real desktop path.
+const WEB_DEV_VAULT_PATH = '/web-dev-vault';
 
+/**
+ * Window selection happens in Rust before any webview exists
+ * (src-tauri/src/startup.rs): the `initial` window opens when no usable
+ * space is configured, the `main` window only when one is. So by the time
+ * this runs, the window label already says which of the two we are — the
+ * workspace is never started in the `initial` window.
+ */
+export function AppShell() {
+  if (!isTauri()) {
+    return <WorkspaceShell vaultPath={WEB_DEV_VAULT_PATH} />;
+  }
+  if (getCurrentWindow().label === 'initial') {
+    return <InitialWindow />;
+  }
+  return <ConfiguredWorkspaceShell />;
+}
+
+// Placeholder — the onboarding UI replaces this.
+function InitialWindow() {
+  return (
+    <>
+      <TauriDragStrip />
+      <div />
+    </>
+  );
+}
+
+function ConfiguredWorkspaceShell() {
+  const [vaultPath, setVaultPath] = useState<string | null | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    invoke<string | null>('get_configured_space')
+      .then(setVaultPath)
+      .catch((error) => {
+        console.error('Failed to read configured space:', error);
+        setVaultPath(null);
+      });
+  }, []);
+
+  if (vaultPath === undefined) {
+    return <div>Loading vault…</div>;
+  }
+  if (vaultPath === null) {
+    return <div>No space configured</div>;
+  }
+  return <WorkspaceShell vaultPath={vaultPath} />;
+}
+
+function WorkspaceShell({ vaultPath }: { vaultPath: string }) {
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +81,10 @@ export function AppShell() {
         // see `PageOperations`'s own constructor doc comment for why this
         // is injected here, the one place UI and the Composition Root
         // already meet, rather than imported inside `core/application/`.
-        const application = await Application.bootstrap(vaultPath, normalizeAllTablesInMarkdown);
+        const application = await Application.bootstrap(
+          vaultPath,
+          normalizeAllTablesInMarkdown
+        );
         await application.open();
 
         if (cancelled) {

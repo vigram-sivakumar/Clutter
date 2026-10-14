@@ -1,0 +1,124 @@
+//! Startup window selection.
+//!
+//! Which window opens is decided here, in `setup`, *before* any webview
+//! exists — the `main` window is declared with `"create": false` in
+//! tauri.conf.json so Tauri doesn't build it automatically. That way a launch
+//! with no usable space never loads (or flashes) the main workspace UI.
+//!
+//! The configured space path lives in `<app config dir>/space.json`
+//! (`{ "path": "/abs/path" }`) rather than the webview's localStorage because
+//! Rust has to read it before any webview is created. Nothing writes this file
+//! yet — the onboarding flow will.
+
+use std::path::PathBuf;
+
+use serde::Deserialize;
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+
+const SPACE_CONFIG_FILE: &str = "space.json";
+const MAIN_WINDOW_LABEL: &str = "main";
+const INITIAL_WINDOW_LABEL: &str = "initial";
+const INITIAL_WINDOW_SIZE: f64 = 720.0;
+
+#[derive(Deserialize)]
+struct SpaceConfig {
+    path: String,
+}
+
+pub enum SpaceStatus {
+    /// No space has ever been configured (first launch).
+    NotConfigured,
+    /// A space is recorded but can't be used: unreadable config, or the
+    /// directory is missing / inaccessible / not a directory.
+    Unavailable(String),
+    /// A configured space whose directory exists.
+    Ready(PathBuf),
+}
+
+pub fn resolve_space(app: &AppHandle) -> SpaceStatus {
+    let config_path = match app.path().app_config_dir() {
+        Ok(dir) => dir.join(SPACE_CONFIG_FILE),
+        Err(error) => return SpaceStatus::Unavailable(error.to_string()),
+    };
+
+    let raw = match std::fs::read_to_string(&config_path) {
+        Ok(raw) => raw,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return SpaceStatus::NotConfigured
+        }
+        Err(error) => {
+            return SpaceStatus::Unavailable(format!("{}: {error}", config_path.display()))
+        }
+    };
+
+    let config: SpaceConfig = match serde_json::from_str(&raw) {
+        Ok(config) => config,
+        Err(error) => {
+            return SpaceStatus::Unavailable(format!("{}: {error}", config_path.display()))
+        }
+    };
+
+    let path = PathBuf::from(config.path);
+    if path.as_os_str().is_empty() || !path.is_dir() {
+        return SpaceStatus::Unavailable(format!(
+            "configured space is missing or inaccessible: {}",
+            path.display()
+        ));
+    }
+
+    SpaceStatus::Ready(path)
+}
+
+/// Opens the main window for a valid space, otherwise the initial window.
+pub fn open_startup_window(app: &AppHandle) -> tauri::Result<()> {
+    match resolve_space(app) {
+        SpaceStatus::Ready(_) => {
+            let config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == MAIN_WINDOW_LABEL)
+                .expect("main window config missing from tauri.conf.json");
+            WebviewWindowBuilder::from_config(app, config)?.build()?;
+        }
+        SpaceStatus::NotConfigured => {
+            open_initial_window(app)?;
+        }
+        SpaceStatus::Unavailable(reason) => {
+            log::warn!("Not opening workspace: {reason}");
+            open_initial_window(app)?;
+        }
+    }
+    Ok(())
+}
+
+fn open_initial_window(app: &AppHandle) -> tauri::Result<()> {
+    let builder = WebviewWindowBuilder::new(app, INITIAL_WINDOW_LABEL, WebviewUrl::default())
+        .title("Clutter")
+        .inner_size(INITIAL_WINDOW_SIZE, INITIAL_WINDOW_SIZE)
+        .resizable(false)
+        .maximizable(false)
+        .fullscreen(false)
+        .center();
+
+    // Same overlay title bar as the main window (see tauri.conf.json).
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .traffic_light_position(tauri::LogicalPosition::new(16.0, 32.0));
+
+    builder.build()?;
+    Ok(())
+}
+
+/// The configured space path for the main window's frontend, or `None` if
+/// there isn't a usable one. The main window only exists when this is `Some`.
+#[tauri::command]
+pub fn get_configured_space(app: AppHandle) -> Option<String> {
+    match resolve_space(&app) {
+        SpaceStatus::Ready(path) => Some(path.to_string_lossy().into_owned()),
+        _ => None,
+    }
+}
