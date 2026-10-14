@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
 
 import { AppIcon } from '@shared/icon';
 import { useRejectShake } from '../property-list/useRejectShake';
@@ -8,6 +7,7 @@ import {
   DEFAULT_SPACE_NAME,
   type NewSpaceDraft,
 } from '../space-details/SpaceDetails';
+import { pickSpaceFolder } from '../space-details/pickSpaceFolder';
 import './WelcomeScreen.css';
 
 interface WelcomeScreenProps {
@@ -42,8 +42,8 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
   // Success closes this window and opens the workspace, so there's no
   // draft to hand back — only a cancel or failure leaves us here.
   async function selectFolder() {
-    const picked = await open({ directory: true, multiple: false });
-    if (typeof picked !== 'string') return null;
+    const picked = await pickSpaceFolder();
+    if (picked === null) return null;
     await invoke('open_space', { path: picked });
     return null;
   }

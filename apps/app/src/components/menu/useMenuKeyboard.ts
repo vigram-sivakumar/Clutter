@@ -126,7 +126,9 @@ export function useMenuKeyboard(
     // and appending the preferred value can't collide across different
     // item-id/preferred-value splits.
     const resolutionKey =
-      navigableItems.map((item) => item.id).join(' ') + '|' + String(preferredActiveId);
+      navigableItems.map((item) => item.id).join(' ') +
+      '|' +
+      String(preferredActiveId);
     if (resolutionKey === resolutionKeyRef.current) {
       return;
     }
@@ -139,8 +141,11 @@ export function useMenuKeyboard(
     }
 
     const preferredIsNavigable =
-      preferredActiveId !== null && navigableItems.some((item) => item.id === preferredActiveId);
-    setActiveId(preferredIsNavigable ? preferredActiveId! : firstNavigableItem.id);
+      preferredActiveId !== null &&
+      navigableItems.some((item) => item.id === preferredActiveId);
+    setActiveId(
+      preferredIsNavigable ? preferredActiveId! : firstNavigableItem.id
+    );
   });
 
   const handleKeyDown = useCallback(

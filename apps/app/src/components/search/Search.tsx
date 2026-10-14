@@ -11,31 +11,32 @@ import { Button } from '@components/button/Button';
 // (e.g. PickerList autofocusing search when it opens) — the same
 // ref-forwarding Input itself already does; Search previously stopped
 // that forwarding chain by being a plain function component.
-export const Search = forwardRef<HTMLInputElement, SearchProps>(
-  function Search({ onClear, ...inputProps }, ref) {
-    const hasValue = Boolean(inputProps.value);
+export const Search = forwardRef<HTMLInputElement, SearchProps>(function Search(
+  { onClear, ...inputProps },
+  ref
+) {
+  const hasValue = Boolean(inputProps.value);
 
-    return (
-      <Input
-        {...inputProps}
-        ref={ref}
-        type="search"
-        leading={<AppIcon icon="magnifyingGlass" />}
-        trailing={
-          hasValue && onClear ? (
-            <Button
-              aria-label="Clear search"
-              onClick={onClear}
-              isIconOnly
-              variant="ghost"
-              interaction="subtle"
-              size="small"
-            >
-              <AppIcon icon="dismiss" />
-            </Button>
-          ) : undefined
-        }
-      />
-    );
-  }
-);
+  return (
+    <Input
+      {...inputProps}
+      ref={ref}
+      type="search"
+      leading={<AppIcon icon="magnifyingGlass" />}
+      trailing={
+        hasValue && onClear ? (
+          <Button
+            aria-label="Clear search"
+            onClick={onClear}
+            isIconOnly
+            variant="ghost"
+            interaction="subtle"
+            size="small"
+          >
+            <AppIcon icon="dismiss" />
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+});

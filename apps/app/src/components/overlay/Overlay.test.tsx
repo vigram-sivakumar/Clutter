@@ -20,7 +20,11 @@ import {
 } from 'vitest';
 
 import { Overlay } from './Overlay';
-import type { OverlayAlignment, OverlayScrim, OverlaySide } from './Overlay.types';
+import type {
+  OverlayAlignment,
+  OverlayScrim,
+  OverlaySide,
+} from './Overlay.types';
 
 type RectInput = {
   top: number;
@@ -109,7 +113,10 @@ type CenteredHarnessProps = {
   onClose?: () => void;
 };
 
-function CenteredHarness({ initialOpen = true, onClose }: CenteredHarnessProps) {
+function CenteredHarness({
+  initialOpen = true,
+  onClose,
+}: CenteredHarnessProps) {
   const [open, setOpen] = useState(initialOpen);
   const returnFocusRef = useRef<HTMLButtonElement>(null);
 
@@ -257,8 +264,12 @@ describe('Overlay', () => {
   it('centers a side overlay vertically on the anchor (left, center)', async () => {
     render(<Harness side="left" alignment="center" />);
 
-    const surface = document.body.querySelector('.overlay__surface') as HTMLDivElement;
-    const content = document.body.querySelector('.overlay__content') as HTMLDivElement;
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
 
     // anchor: top 100, height 40 → middle at 120; surface height 120 → top 60.
     // left of the anchor: 200 − 160 (surface width) − 6 (offset) = 34.
@@ -274,8 +285,12 @@ describe('Overlay', () => {
   it('centers a bottom overlay horizontally on the anchor', async () => {
     render(<Harness side="bottom" alignment="center" />);
 
-    const surface = document.body.querySelector('.overlay__surface') as HTMLDivElement;
-    const content = document.body.querySelector('.overlay__content') as HTMLDivElement;
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
 
     // anchor: left 200, width 100 → middle at 250; surface width 160 → left 170.
     await waitFor(() => {
@@ -340,12 +355,10 @@ describe('Overlay', () => {
       '.overlay__backdrop'
     ) as HTMLDivElement;
 
-    expect(backdrop.classList.contains('overlay__backdrop--tinted')).toBe(
-      true
+    expect(backdrop.classList.contains('overlay__backdrop--tinted')).toBe(true);
+    expect(backdrop.classList.contains('overlay__backdrop--scrim-strong')).toBe(
+      false
     );
-    expect(
-      backdrop.classList.contains('overlay__backdrop--scrim-strong')
-    ).toBe(false);
   });
 
   it('applies the strong scrim class when scrim="strong"', () => {
@@ -355,9 +368,9 @@ describe('Overlay', () => {
       '.overlay__backdrop'
     ) as HTMLDivElement;
 
-    expect(
-      backdrop.classList.contains('overlay__backdrop--scrim-strong')
-    ).toBe(true);
+    expect(backdrop.classList.contains('overlay__backdrop--scrim-strong')).toBe(
+      true
+    );
   });
 
   it('does not render a backdrop when backdrop is disabled', () => {
@@ -447,7 +460,9 @@ describe('Overlay', () => {
           >
             Suppress next
           </button>
-          <SuppressibleHarness suppressReturnFocusRef={suppressReturnFocusRef} />
+          <SuppressibleHarness
+            suppressReturnFocusRef={suppressReturnFocusRef}
+          />
         </>
       );
     }

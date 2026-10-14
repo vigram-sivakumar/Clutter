@@ -2,8 +2,22 @@
 
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { MultiSelectPropertyValue } from './MultiSelectPropertyValue';
 import { TagPropertyValue } from './TagPropertyValue';
@@ -29,7 +43,13 @@ function Tags({ initial }: { initial: string[] }) {
   const [value, setValue] = useState(initial);
   return (
     <>
-      <TagPropertyValue name="Tags" value={value} editable onCommit={setValue} onOpenTag={onOpenTag} />
+      <TagPropertyValue
+        name="Tags"
+        value={value}
+        editable
+        onCommit={setValue}
+        onOpenTag={onOpenTag}
+      />
       <output data-testid="value">{JSON.stringify(value)}</output>
     </>
   );
@@ -39,23 +59,48 @@ function Aliases({ initial }: { initial: string[] }) {
   const [value, setValue] = useState(initial);
   return (
     <>
-      <MultiSelectPropertyValue name="Aliases" value={value} editable onCommit={setValue} />
+      <MultiSelectPropertyValue
+        name="Aliases"
+        value={value}
+        editable
+        onCommit={setValue}
+      />
       <output data-testid="value">{JSON.stringify(value)}</output>
     </>
   );
 }
 
-const stored = () => JSON.parse(screen.getByTestId('value').textContent!) as string[];
+const stored = () =>
+  JSON.parse(screen.getByTestId('value').textContent!) as string[];
 
 const EDITORS = [
-  { label: 'Tags', Component: Tags, initial: ['design', 'research'], first: 'design', edited: 'ux', editedValue: ['ux', 'research'] },
-  { label: 'Aliases', Component: Aliases, initial: ['Design', 'Research'], first: 'Design', edited: 'UX', editedValue: ['UX', 'Research'] },
+  {
+    label: 'Tags',
+    Component: Tags,
+    initial: ['design', 'research'],
+    first: 'design',
+    edited: 'ux',
+    editedValue: ['ux', 'research'],
+  },
+  {
+    label: 'Aliases',
+    Component: Aliases,
+    initial: ['Design', 'Research'],
+    first: 'Design',
+    edited: 'UX',
+    editedValue: ['UX', 'Research'],
+  },
 ] as const;
 
 describe.each(EDITORS)('$label: clicking an existing item', (editor) => {
-  const pill = (name: string) => screen.getAllByRole('button', { name: new RegExp(`(Edit|Open)( tag)? ${name}$`) })[0]!;
-  const field = () => screen.getByRole('textbox', { name: editor.label }) as HTMLInputElement;
-  const editorOf = (name: string) => screen.getByRole('textbox', { name: `Edit ${name}` }) as HTMLInputElement;
+  const pill = (name: string) =>
+    screen.getAllByRole('button', {
+      name: new RegExp(`(Edit|Open)( tag)? ${name}$`),
+    })[0]!;
+  const field = () =>
+    screen.getByRole('textbox', { name: editor.label }) as HTMLInputElement;
+  const editorOf = (name: string) =>
+    screen.getByRole('textbox', { name: `Edit ${name}` }) as HTMLInputElement;
 
   /** A real click: the press first (which is when the field's editing state is read), then the click. */
   const click = (element: HTMLElement) => {
@@ -84,11 +129,15 @@ describe.each(EDITORS)('$label: clicking an existing item', (editor) => {
     startEditingField();
     click(pill(editor.first));
 
-    fireEvent.change(editorOf(editor.first), { target: { value: editor.edited } });
+    fireEvent.change(editorOf(editor.first), {
+      target: { value: editor.edited },
+    });
     fireEvent.keyDown(editorOf(editor.first), { key: 'Enter' });
 
     expect(stored()).toEqual(editor.editedValue);
-    expect(screen.queryByRole('textbox', { name: `Edit ${editor.first}` })).toBeNull();
+    expect(
+      screen.queryByRole('textbox', { name: `Edit ${editor.first}` })
+    ).toBeNull();
   });
 
   it('Escape cancels the edit and restores the original', () => {
@@ -96,11 +145,15 @@ describe.each(EDITORS)('$label: clicking an existing item', (editor) => {
     startEditingField();
     click(pill(editor.first));
 
-    fireEvent.change(editorOf(editor.first), { target: { value: editor.edited } });
+    fireEvent.change(editorOf(editor.first), {
+      target: { value: editor.edited },
+    });
     fireEvent.keyDown(editorOf(editor.first), { key: 'Escape' });
 
     expect(stored()).toEqual(editor.initial);
-    expect(screen.queryByRole('textbox', { name: `Edit ${editor.first}` })).toBeNull();
+    expect(
+      screen.queryByRole('textbox', { name: `Edit ${editor.first}` })
+    ).toBeNull();
   });
 
   it('an edit that repeats another item is rejected, keeping the edit open', () => {
@@ -108,7 +161,9 @@ describe.each(EDITORS)('$label: clicking an existing item', (editor) => {
     startEditingField();
     click(pill(editor.first));
 
-    fireEvent.change(editorOf(editor.first), { target: { value: editor.initial[1] } });
+    fireEvent.change(editorOf(editor.first), {
+      target: { value: editor.initial[1] },
+    });
     fireEvent.keyDown(editorOf(editor.first), { key: 'Enter' });
 
     expect(stored()).toEqual(editor.initial);
@@ -141,7 +196,11 @@ describe('Tags: clicking a tag when the field is not being edited', () => {
 
   it('an invalid tag typed into the in-place editor is rejected (the tag grammar)', () => {
     render(<Tags initial={['design']} />);
-    act(() => (screen.getByRole('textbox', { name: 'Tags' }) as HTMLInputElement).focus());
+    act(() =>
+      (
+        screen.getByRole('textbox', { name: 'Tags' }) as HTMLInputElement
+      ).focus()
+    );
     const pill = screen.getByRole('button', { name: 'Edit tag design' });
     fireEvent.mouseDown(pill);
     fireEvent.click(pill);
@@ -150,8 +209,12 @@ describe('Tags: clicking a tag when the field is not being edited', () => {
     fireEvent.change(editor, { target: { value: 'a.b' } });
     fireEvent.keyDown(editor, { key: 'Enter' });
 
-    expect(JSON.parse(screen.getByTestId('value').textContent!)).toEqual(['design']);
-    expect(screen.getByRole('textbox', { name: 'Edit design' })).toBeInTheDocument();
+    expect(JSON.parse(screen.getByTestId('value').textContent!)).toEqual([
+      'design',
+    ]);
+    expect(
+      screen.getByRole('textbox', { name: 'Edit design' })
+    ).toBeInTheDocument();
   });
 });
 
@@ -163,6 +226,8 @@ describe('Aliases: clicking an alias when the field is not being edited', () => 
     fireEvent.mouseDown(pill);
     fireEvent.click(pill);
 
-    expect(screen.getByRole('textbox', { name: 'Edit Design' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Edit Design' })
+    ).toBeInTheDocument();
   });
 });

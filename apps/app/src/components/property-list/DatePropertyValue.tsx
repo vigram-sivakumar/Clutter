@@ -31,7 +31,11 @@ type DatePropertyValueProps = {
  */
 export function DatePropertyValue(props: DatePropertyValueProps) {
   if (!props.editable) {
-    return <PropertyValueCell>{props.value ? props.format(props.value) : ''}</PropertyValueCell>;
+    return (
+      <PropertyValueCell>
+        {props.value ? props.format(props.value) : ''}
+      </PropertyValueCell>
+    );
   }
 
   return (
@@ -51,7 +55,6 @@ interface DatePropertyEditorProps {
   /** Fired with a local `YYYY-MM-DD` — from a typed valid date or a Calendar pick — or null when cleared. */
   onCommit(value: string | null): void;
 }
-
 
 /**
  * Editable state. Two entry paths, one canonical value (`value`, owned by
@@ -73,16 +76,24 @@ interface DatePropertyEditorProps {
  * text and focus and plays EditableText's reject shake. Only valid dates
  * (or null, via Clear) ever reach `onCommit`.
  */
-function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEditorProps) {
+function DatePropertyEditor({
+  name,
+  value,
+  display,
+  onCommit,
+}: DatePropertyEditorProps) {
   // The native field — where focus returns when the calendar closes.
   const fieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   // Input's wrapper — the element that draws the border — so the calendar
   // aligns to the field's outer edge, not to the text inside its padding.
   const anchorRef = useRef<HTMLElement | null>(null);
-  const setFieldRef = useCallback((node: HTMLInputElement | HTMLTextAreaElement | null) => {
-    fieldRef.current = node;
-    anchorRef.current = node?.parentElement ?? null;
-  }, []);
+  const setFieldRef = useCallback(
+    (node: HTMLInputElement | HTMLTextAreaElement | null) => {
+      fieldRef.current = node;
+      anchorRef.current = node?.parentElement ?? null;
+    },
+    []
+  );
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<CalendarMode>('month');
   const [draft, setDraft] = useState<string | null>(null);
@@ -100,7 +111,9 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
   // Rejected-Enter feedback only — EditableText's same shake.
   const { shakeClassName, shake } = useRejectShake();
 
-  const committedDate = value ? parseDatePropertyValue(value)?.isoDate : undefined;
+  const committedDate = value
+    ? parseDatePropertyValue(value)?.isoDate
+    : undefined;
   const calendarDate = previewDate ?? committedDate;
 
   function resetDraft() {
@@ -239,7 +252,10 @@ function DatePropertyEditor({ name, value, display, onCommit }: DatePropertyEdit
         backdrop={false}
         suppressReturnFocusRef={suppressReturnFocusRef}
       >
-        <div className="property-date-picker" onMouseDown={(event) => event.preventDefault()}>
+        <div
+          className="property-date-picker"
+          onMouseDown={(event) => event.preventDefault()}
+        >
           <Calendar
             mode={mode}
             selectedDate={calendarDate}

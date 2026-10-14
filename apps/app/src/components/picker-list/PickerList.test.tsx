@@ -11,8 +11,20 @@ afterEach(() => {
 });
 
 const items: PickerListItem[] = [
-  { id: 'folder-project', title: 'Project', level: 0, parentId: null, emoji: '📁' },
-  { id: 'folder-finance', title: 'Finance', level: 0, parentId: null, emoji: '💰' },
+  {
+    id: 'folder-project',
+    title: 'Project',
+    level: 0,
+    parentId: null,
+    emoji: '📁',
+  },
+  {
+    id: 'folder-finance',
+    title: 'Finance',
+    level: 0,
+    parentId: null,
+    emoji: '💰',
+  },
   {
     id: 'folder-design',
     title: 'Design',
@@ -39,7 +51,13 @@ describe('PickerList', () => {
 
   it("renders an item's secondaryLabel in the row's trailing slot, not in its content", () => {
     const withSecondary: PickerListItem[] = [
-      { id: 'root', title: 'MyClutter', secondaryLabel: 'Home', level: 0, parentId: null },
+      {
+        id: 'root',
+        title: 'MyClutter',
+        secondaryLabel: 'Home',
+        level: 0,
+        parentId: null,
+      },
       ...items,
     ];
     render(<PickerList items={withSecondary} onSelect={vi.fn()} />);
@@ -101,7 +119,9 @@ describe('PickerList', () => {
     render(<PickerList items={items} onSelect={vi.fn()} />);
 
     const projectRow = screen.getByText('Project').closest('.entry');
-    expect(projectRow?.querySelector('.folder__icon .emoji-icon')?.textContent).toBe('📁');
+    expect(
+      projectRow?.querySelector('.folder__icon .emoji-icon')?.textContent
+    ).toBe('📁');
   });
 
   it('clicking a row calls onSelect with that item, not its expand toggle', () => {
@@ -140,7 +160,13 @@ describe('PickerList', () => {
 
   describe('nested search results (plain-text path, no breadcrumb icons)', () => {
     const nestedItems: PickerListItem[] = [
-      { id: 'folder-project', title: 'Project', level: 0, parentId: null, emoji: '📁' },
+      {
+        id: 'folder-project',
+        title: 'Project',
+        level: 0,
+        parentId: null,
+        emoji: '📁',
+      },
       {
         id: 'folder-finance',
         title: 'Finance',
@@ -171,7 +197,9 @@ describe('PickerList', () => {
 
       const row = document.querySelector('[role="menuitem"]');
       expect(row?.querySelectorAll('.emoji-icon')).toHaveLength(1);
-      expect(row?.querySelector('.folder__icon .emoji-icon')?.textContent).toBe('🏦');
+      expect(row?.querySelector('.folder__icon .emoji-icon')?.textContent).toBe(
+        '🏦'
+      );
     });
 
     it('shows "Project / Finance" as picker-list__path below the title', () => {
@@ -182,9 +210,15 @@ describe('PickerList', () => {
       });
 
       const row = document.querySelector('[role="menuitem"]');
-      expect(row?.querySelector('.picker-list__title')?.textContent).toBe('Bank Statement');
-      expect(row?.querySelector('.picker-list__path')?.textContent).toBe('Project / Finance');
-      expect(row?.querySelector('.picker-list__path')?.classList.contains('truncate')).toBe(true);
+      expect(row?.querySelector('.picker-list__title')?.textContent).toBe(
+        'Bank Statement'
+      );
+      expect(row?.querySelector('.picker-list__path')?.textContent).toBe(
+        'Project / Finance'
+      );
+      expect(
+        row?.querySelector('.picker-list__path')?.classList.contains('truncate')
+      ).toBe(true);
     });
 
     it('the path is plain text — no icons inside it', () => {
@@ -207,7 +241,9 @@ describe('PickerList', () => {
       });
 
       const row = document.querySelector('[role="menuitem"]');
-      expect(row?.querySelector('.picker-list__title')?.textContent).toBe('Project');
+      expect(row?.querySelector('.picker-list__title')?.textContent).toBe(
+        'Project'
+      );
       expect(row?.querySelector('.picker-list__path')).toBeNull();
     });
   });
@@ -215,10 +251,12 @@ describe('PickerList', () => {
   it('focuses the search input as soon as it mounts', () => {
     render(<PickerList items={items} onSelect={vi.fn()} />);
 
-    expect(document.activeElement).toBe(screen.getByPlaceholderText('Search folders'));
+    expect(document.activeElement).toBe(
+      screen.getByPlaceholderText('Search folders')
+    );
   });
 
-  describe('keyboard navigation (reuses useMenuKeyboard, the same hook OverflowMenu\'s <Menu> uses)', () => {
+  describe("keyboard navigation (reuses useMenuKeyboard, the same hook OverflowMenu's <Menu> uses)", () => {
     it('highlights the first visible folder as soon as the picker renders', () => {
       render(<PickerList items={items} onSelect={vi.fn()} />);
 
@@ -299,19 +337,27 @@ describe('PickerList', () => {
     }
 
     it('a search term with no matching folder shows "Create <name>"', () => {
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Finance Q1' },
       });
 
       const createRow = getCreateRow();
-      expect(createRow.querySelector('.picker-list__create-label')?.textContent).toBe('Create');
-      expect(createRow.querySelector('.picker-list__title')?.textContent).toBe('Finance Q1');
+      expect(
+        createRow.querySelector('.picker-list__create-label')?.textContent
+      ).toBe('Create');
+      expect(createRow.querySelector('.picker-list__title')?.textContent).toBe(
+        'Finance Q1'
+      );
     });
 
     it('a search term matching an existing folder does not show Create', () => {
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Finance' },
@@ -322,7 +368,9 @@ describe('PickerList', () => {
     });
 
     it('styles the Create row with its own muted color treatment', () => {
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Finance Q1' },
@@ -335,7 +383,9 @@ describe('PickerList', () => {
 
     it('clicking Create invokes onCreate with the trimmed search term', () => {
       const onCreate = vi.fn();
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={onCreate} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={onCreate} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: '  Finance Q1  ' },
@@ -347,7 +397,9 @@ describe('PickerList', () => {
 
     it('Create becomes the highlighted item and participates in keyboard navigation (Enter activates it)', () => {
       const onCreate = vi.fn();
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={onCreate} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={onCreate} />
+      );
       const search = screen.getByPlaceholderText('Search folders');
 
       fireEvent.change(search, { target: { value: 'Finance Q1' } });
@@ -360,7 +412,9 @@ describe('PickerList', () => {
     });
 
     it('never renders any root UI alongside the Create row', () => {
-      render(<PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />);
+      render(
+        <PickerList items={items} onSelect={vi.fn()} onCreate={vi.fn()} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Finance Q1' },
@@ -387,22 +441,35 @@ describe('PickerList sections', () => {
   const items = [
     { id: 'n1', title: 'Alpha', level: 0, parentId: null, section: 'Notes' },
     { id: 'n2', title: 'Beta', level: 0, parentId: null, section: 'Notes' },
-    { id: 'd1', title: 'Today', level: 0, parentId: null, section: 'Daily notes' },
+    {
+      id: 'd1',
+      title: 'Today',
+      level: 0,
+      parentId: null,
+      section: 'Daily notes',
+    },
   ];
 
   it('draws a title per section and a divider only between sections', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList items={items} leadingIcon="note" onSelect={() => {}} />
+    );
 
-    expect(Array.from(container.querySelectorAll('.menu__group-title')).map((el) => el.textContent)).toEqual([
-      'Notes',
-      'Daily notes',
-    ]);
+    expect(
+      Array.from(container.querySelectorAll('.menu__group-title')).map(
+        (el) => el.textContent
+      )
+    ).toEqual(['Notes', 'Daily notes']);
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(1);
   });
 
   it('draws no sections for items without one', () => {
     const { container } = render(
-      <PickerList items={items.map(({ section: _s, ...rest }) => rest)} leadingIcon="note" onSelect={() => {}} />
+      <PickerList
+        items={items.map(({ section: _s, ...rest }) => rest)}
+        leadingIcon="note"
+        onSelect={() => {}}
+      />
     );
 
     expect(container.querySelectorAll('.menu__group-title')).toHaveLength(0);
@@ -411,11 +478,22 @@ describe('PickerList sections', () => {
 
   it('drops a section that has no matching items while searching', () => {
     const { container, getByPlaceholderText } = render(
-      <PickerList items={items} placeholder="Search" leadingIcon="note" onSelect={() => {}} />
+      <PickerList
+        items={items}
+        placeholder="Search"
+        leadingIcon="note"
+        onSelect={() => {}}
+      />
     );
-    fireEvent.change(getByPlaceholderText('Search'), { target: { value: 'tod' } });
+    fireEvent.change(getByPlaceholderText('Search'), {
+      target: { value: 'tod' },
+    });
 
-    expect(Array.from(container.querySelectorAll('.menu__group-title')).map((el) => el.textContent)).toEqual(['Daily notes']);
+    expect(
+      Array.from(container.querySelectorAll('.menu__group-title')).map(
+        (el) => el.textContent
+      )
+    ).toEqual(['Daily notes']);
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
   });
 });
@@ -431,20 +509,37 @@ describe('PickerList sectionLimit', () => {
     }));
   const items = [...many('Notes', 12), ...many('Daily notes', 3)];
   const rowCount = (container: HTMLElement) =>
-    Array.from(container.querySelectorAll('.picker-list__item')).filter((el) => !el.id.startsWith('picker-list-toggle'))
-      .length;
+    Array.from(container.querySelectorAll('.picker-list__item')).filter(
+      (el) => !el.id.startsWith('picker-list-toggle')
+    ).length;
 
   it('shows the first N of an over-limit section with a Show more row, and leaves a short section alone', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList
+        items={items}
+        leadingIcon="note"
+        sectionLimit={10}
+        onSelect={() => {}}
+      />
+    );
 
     expect(rowCount(container)).toBe(13);
-    expect(container.querySelectorAll('[id^="picker-list-toggle"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('[id^="picker-list-toggle"]')
+    ).toHaveLength(1);
     expect(screen.getByText('Show more')).toBeTruthy();
     expect(screen.queryByText('Notes 10')).toBeNull();
   });
 
   it('Show more expands only that section and the row becomes Show less; clicking again collapses it', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList
+        items={items}
+        leadingIcon="note"
+        sectionLimit={10}
+        onSelect={() => {}}
+      />
+    );
 
     fireEvent.click(screen.getByText('Show more'));
     expect(rowCount(container)).toBe(15);
@@ -457,32 +552,70 @@ describe('PickerList sectionLimit', () => {
   });
 
   it('does not cap anything without a sectionLimit, and never caps items without a section', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList items={items} leadingIcon="note" onSelect={() => {}} />
+    );
     expect(rowCount(container)).toBe(15);
-    expect(container.querySelectorAll('[id^="picker-list-toggle"]')).toHaveLength(0);
+    expect(
+      container.querySelectorAll('[id^="picker-list-toggle"]')
+    ).toHaveLength(0);
 
     cleanup();
     const unsectioned = many('x', 12).map(({ section: _s, ...rest }) => rest);
-    const second = render(<PickerList items={unsectioned} leadingIcon="note" sectionLimit={3} onSelect={() => {}} />);
+    const second = render(
+      <PickerList
+        items={unsectioned}
+        leadingIcon="note"
+        sectionLimit={3}
+        onSelect={() => {}}
+      />
+    );
     expect(rowCount(second.container)).toBe(12);
   });
 
   it('the Show more row is a menu item the shared keyboard can reach', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" sectionLimit={10} onSelect={() => {}} />);
-    expect(container.querySelector('[id^="picker-list-toggle"]')?.getAttribute('role')).toBe('menuitem');
+    const { container } = render(
+      <PickerList
+        items={items}
+        leadingIcon="note"
+        sectionLimit={10}
+        onSelect={() => {}}
+      />
+    );
+    expect(
+      container
+        .querySelector('[id^="picker-list-toggle"]')
+        ?.getAttribute('role')
+    ).toBe('menuitem');
   });
 });
 
 describe('PickerList data-can-scroll-down', () => {
-  const items = Array.from({ length: 3 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null }));
+  const items = Array.from({ length: 3 }, (_, i) => ({
+    id: `n${i}`,
+    title: `Note ${i}`,
+    level: 0,
+    parentId: null,
+  }));
 
-  function mockListGeometry(list: HTMLElement, geometry: { clientHeight: number; scrollHeight: number }) {
-    Object.defineProperty(list, 'clientHeight', { configurable: true, value: geometry.clientHeight });
-    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: geometry.scrollHeight });
+  function mockListGeometry(
+    list: HTMLElement,
+    geometry: { clientHeight: number; scrollHeight: number }
+  ) {
+    Object.defineProperty(list, 'clientHeight', {
+      configurable: true,
+      value: geometry.clientHeight,
+    });
+    Object.defineProperty(list, 'scrollHeight', {
+      configurable: true,
+      value: geometry.scrollHeight,
+    });
   }
 
   it('is absent when everything fits', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList items={items} leadingIcon="note" onSelect={() => {}} />
+    );
     const list = container.querySelector<HTMLElement>('.picker-list__list')!;
     mockListGeometry(list, { clientHeight: 300, scrollHeight: 300 });
     fireEvent.scroll(list);
@@ -491,7 +624,9 @@ describe('PickerList data-can-scroll-down', () => {
   });
 
   it('is present while there is more below, and goes away once scrolled to the end', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList items={items} leadingIcon="note" onSelect={() => {}} />
+    );
     const list = container.querySelector<HTMLElement>('.picker-list__list')!;
     mockListGeometry(list, { clientHeight: 100, scrollHeight: 300 });
 
@@ -507,10 +642,27 @@ describe('PickerList data-can-scroll-down', () => {
 
 describe('PickerList --picker-list-first-section-bottom', () => {
   const many = (section: string, count: number): PickerListItem[] =>
-    Array.from({ length: count }, (_, i) => ({ id: `${section}-${i}`, title: `${section} ${i}`, level: 0, parentId: null, section }));
+    Array.from({ length: count }, (_, i) => ({
+      id: `${section}-${i}`,
+      title: `${section} ${i}`,
+      level: 0,
+      parentId: null,
+      section,
+    }));
 
   it('is set to where the first Show more row ends, and removed when no section is capped', () => {
-    const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const rect = (top: number, bottom: number) =>
+      ({
+        top,
+        bottom,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: bottom - top,
+        x: 0,
+        y: top,
+        toJSON() {},
+      }) as DOMRect;
     const original = HTMLElement.prototype.getBoundingClientRect;
     HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
       if (this.classList.contains('picker-list__list')) return rect(100, 400);
@@ -519,13 +671,29 @@ describe('PickerList --picker-list-first-section-bottom', () => {
     };
     try {
       const { container, rerender } = render(
-        <PickerList items={many('Notes', 12)} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />
+        <PickerList
+          items={many('Notes', 12)}
+          leadingIcon="note"
+          sectionLimit={5}
+          onSelect={() => {}}
+        />
       );
       const list = container.querySelector<HTMLElement>('.picker-list__list')!;
-      expect(list.style.getPropertyValue('--picker-list-first-section-bottom')).toBe('262px');
+      expect(
+        list.style.getPropertyValue('--picker-list-first-section-bottom')
+      ).toBe('262px');
 
-      rerender(<PickerList items={many('Notes', 3)} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />);
-      expect(list.style.getPropertyValue('--picker-list-first-section-bottom')).toBe('');
+      rerender(
+        <PickerList
+          items={many('Notes', 3)}
+          leadingIcon="note"
+          sectionLimit={5}
+          onSelect={() => {}}
+        />
+      );
+      expect(
+        list.style.getPropertyValue('--picker-list-first-section-bottom')
+      ).toBe('');
     } finally {
       HTMLElement.prototype.getBoundingClientRect = original;
     }
@@ -533,11 +701,23 @@ describe('PickerList --picker-list-first-section-bottom', () => {
 });
 
 describe('PickerList showSectionTitles', () => {
-  const items = Array.from({ length: 8 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null, section: 'Notes' }));
+  const items = Array.from({ length: 8 }, (_, i) => ({
+    id: `n${i}`,
+    title: `Note ${i}`,
+    level: 0,
+    parentId: null,
+    section: 'Notes',
+  }));
 
   it('can cap a single section with Show more while drawing no title for it', () => {
     const { container } = render(
-      <PickerList items={items} leadingIcon="note" sectionLimit={5} showSectionTitles={false} onSelect={() => {}} />
+      <PickerList
+        items={items}
+        leadingIcon="note"
+        sectionLimit={5}
+        showSectionTitles={false}
+        onSelect={() => {}}
+      />
     );
 
     expect(container.querySelectorAll('.menu__group-title')).toHaveLength(0);
@@ -546,17 +726,43 @@ describe('PickerList showSectionTitles', () => {
   });
 
   it('draws the title by default', () => {
-    const { container } = render(<PickerList items={items} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />);
+    const { container } = render(
+      <PickerList
+        items={items}
+        leadingIcon="note"
+        sectionLimit={5}
+        onSelect={() => {}}
+      />
+    );
 
-    expect(container.querySelector('.menu__group-title')?.textContent).toBe('Notes');
+    expect(container.querySelector('.menu__group-title')?.textContent).toBe(
+      'Notes'
+    );
   });
 });
 
 describe('PickerList fade next to the first Show more row', () => {
-  const items = Array.from({ length: 8 }, (_, i) => ({ id: `n${i}`, title: `Note ${i}`, level: 0, parentId: null, section: 'Notes' }));
+  const items = Array.from({ length: 8 }, (_, i) => ({
+    id: `n${i}`,
+    title: `Note ${i}`,
+    level: 0,
+    parentId: null,
+    section: 'Notes',
+  }));
 
   function withGeometry(run: () => void) {
-    const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON() {} }) as DOMRect;
+    const rect = (top: number, bottom: number) =>
+      ({
+        top,
+        bottom,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: bottom - top,
+        x: 0,
+        y: top,
+        toJSON() {},
+      }) as DOMRect;
     const original = HTMLElement.prototype.getBoundingClientRect;
     HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
       if (this.classList.contains('picker-list__list')) return rect(100, 400);
@@ -573,12 +779,23 @@ describe('PickerList fade next to the first Show more row', () => {
   it('does not fade a list that ends at the first Show more row, until it is scrolled', () => {
     withGeometry(() => {
       const { container } = render(
-        <PickerList items={items} leadingIcon="note" sectionLimit={5} onSelect={() => {}} />
+        <PickerList
+          items={items}
+          leadingIcon="note"
+          sectionLimit={5}
+          onSelect={() => {}}
+        />
       );
       const list = container.querySelector<HTMLElement>('.picker-list__list')!;
       // The first Show more row ends 262px into the content; the list is cut just after it (266px).
-      Object.defineProperty(list, 'clientHeight', { configurable: true, value: 266 });
-      Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 600 });
+      Object.defineProperty(list, 'clientHeight', {
+        configurable: true,
+        value: 266,
+      });
+      Object.defineProperty(list, 'scrollHeight', {
+        configurable: true,
+        value: 600,
+      });
 
       list.scrollTop = 0;
       fireEvent.scroll(list);
@@ -589,11 +806,17 @@ describe('PickerList fade next to the first Show more row', () => {
       expect(list.hasAttribute('data-can-scroll-down')).toBe(true);
     });
   });
-  it('shows an asset item\'s thumbnail in place of its icon, and marks the row as an asset row', () => {
+  it("shows an asset item's thumbnail in place of its icon, and marks the row as an asset row", () => {
     const { container } = render(
       <PickerList
         items={[
-          { id: 'a', title: 'sunset.jpg', level: 0, parentId: null, thumbnail: 'data:image/png;base64,AAAA' },
+          {
+            id: 'a',
+            title: 'sunset.jpg',
+            level: 0,
+            parentId: null,
+            thumbnail: 'data:image/png;base64,AAAA',
+          },
           { id: 'n', title: 'Note', level: 0, parentId: null },
         ]}
         leadingIcon="note"
@@ -603,7 +826,9 @@ describe('PickerList fade next to the first Show more row', () => {
 
     const assetRow = container.querySelector('#a')!;
     expect(assetRow.classList.contains('picker-list__item--asset')).toBe(true);
-    expect(assetRow.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+    expect(assetRow.querySelector('img')?.getAttribute('src')).toBe(
+      'data:image/png;base64,AAAA'
+    );
     expect(assetRow.querySelector('.picker-list__icon')).toBeNull();
 
     const noteRow = container.querySelector('#n')!;
@@ -614,13 +839,29 @@ describe('PickerList fade next to the first Show more row', () => {
   describe('searching a row by text beyond its title', () => {
     // A Daily Note row reads "24 Aug 2020"; the same note is also found by its other spellings.
     const daily: PickerListItem[] = [
-      { id: 'd1', title: '24 Aug 2020', searchText: '2020-08-24 Monday, 24 August 2020 24 Aug 2020', level: 0, parentId: null },
-      { id: 'd2', title: '24 Sep 2020', searchText: '2020-09-24 Thursday, 24 September 2020 24 Sep 2020', level: 0, parentId: null },
+      {
+        id: 'd1',
+        title: '24 Aug 2020',
+        searchText: '2020-08-24 Monday, 24 August 2020 24 Aug 2020',
+        level: 0,
+        parentId: null,
+      },
+      {
+        id: 'd2',
+        title: '24 Sep 2020',
+        searchText: '2020-09-24 Thursday, 24 September 2020 24 Sep 2020',
+        level: 0,
+        parentId: null,
+      },
       { id: 'n1', title: 'Notes about August', level: 0, parentId: null },
     ];
     const search = (query: string) => {
-      render(<PickerList items={daily} placeholder="Search" onSelect={vi.fn()} />);
-      fireEvent.change(screen.getByPlaceholderText('Search'), { target: { value: query } });
+      render(
+        <PickerList items={daily} placeholder="Search" onSelect={vi.fn()} />
+      );
+      fireEvent.change(screen.getByPlaceholderText('Search'), {
+        target: { value: query },
+      });
       return screen.queryAllByRole('menuitem').map((row) => row.textContent);
     };
 

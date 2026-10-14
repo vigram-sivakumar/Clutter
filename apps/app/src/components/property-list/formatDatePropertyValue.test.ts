@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDatePropertyValue, parseDatePropertyValue } from './formatDatePropertyValue';
+import {
+  formatDatePropertyValue,
+  parseDatePropertyValue,
+} from './formatDatePropertyValue';
 
 // Thursday, 2 Oct 2026 — local time, so assertions hold in any timezone.
 const NOW = new Date(2026, 9, 2, 12, 0);
 
 describe('parseDatePropertyValue', () => {
   it('keeps a YYYY-MM-DD date as the local day, with no time', () => {
-    expect(parseDatePropertyValue('2026-09-15')).toEqual({ isoDate: '2026-09-15', dateTime: null });
+    expect(parseDatePropertyValue('2026-09-15')).toEqual({
+      isoDate: '2026-09-15',
+      dateTime: null,
+    });
   });
 
   it('resolves an ISO timestamp to the local day and moment it denotes', () => {
@@ -31,19 +37,22 @@ describe('formatDatePropertyValue', () => {
     expect(formatDatePropertyValue('2025-09-15', NOW)).toBe('15 Sep 2025');
   });
 
-  it("formats a timestamp through formatRelativeTimestamp (relative under 2 hours, else date and time)", () => {
-    expect(formatDatePropertyValue(new Date(NOW.getTime() - 35 * 60_000).toISOString(), NOW)).toBe(
-      '35 minutes ago'
-    );
-    expect(formatDatePropertyValue(new Date(2026, 10, 11, 20, 20).toISOString(), NOW)).toBe(
-      '11 Nov, 08:20 PM'
-    );
-    expect(formatDatePropertyValue(new Date(2025, 10, 11, 20, 20).toISOString(), NOW)).toBe(
-      '11 Nov 2025, 08:20 PM'
-    );
-    expect(formatDatePropertyValue(new Date(2026, 9, 1, 9, 5).toISOString(), NOW)).toBe(
-      'Yesterday, 09:05 AM'
-    );
+  it('formats a timestamp through formatRelativeTimestamp (relative under 2 hours, else date and time)', () => {
+    expect(
+      formatDatePropertyValue(
+        new Date(NOW.getTime() - 35 * 60_000).toISOString(),
+        NOW
+      )
+    ).toBe('35 minutes ago');
+    expect(
+      formatDatePropertyValue(new Date(2026, 10, 11, 20, 20).toISOString(), NOW)
+    ).toBe('11 Nov, 08:20 PM');
+    expect(
+      formatDatePropertyValue(new Date(2025, 10, 11, 20, 20).toISOString(), NOW)
+    ).toBe('11 Nov 2025, 08:20 PM');
+    expect(
+      formatDatePropertyValue(new Date(2026, 9, 1, 9, 5).toISOString(), NOW)
+    ).toBe('Yesterday, 09:05 AM');
   });
 
   it('shows an unparseable value raw rather than hiding it', () => {

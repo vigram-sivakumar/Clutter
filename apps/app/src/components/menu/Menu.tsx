@@ -51,7 +51,11 @@ export function Menu({
   const internalMenuRef = useRef<HTMLDivElement>(null);
   const menuRef = externalMenuRef ?? internalMenuRef;
 
-  const keyboard = useMenuKeyboard(menuRef, { onArrowRight, onArrowLeft, preferredActiveId });
+  const keyboard = useMenuKeyboard(menuRef, {
+    onArrowRight,
+    onArrowLeft,
+    preferredActiveId,
+  });
 
   useEffect(() => {
     if (autoFocus) {

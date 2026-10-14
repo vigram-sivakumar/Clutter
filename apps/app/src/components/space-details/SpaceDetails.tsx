@@ -1,6 +1,10 @@
+import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+
 import { Button } from '@components/button/Button';
 import { Input } from '../input/Input';
 import { useRejectShake } from '../property-list/useRejectShake';
+import { pickSpaceFolder } from './pickSpaceFolder';
 import './SpaceDetails.css';
 
 export const DEFAULT_SPACE_NAME = 'Clutter';
@@ -35,10 +39,17 @@ export function isValidSpaceName(name: string): boolean {
 interface SpaceDetailsProps {
   draft: NewSpaceDraft;
   onNameChange: (name: string) => void;
+  onParentChange: (parent: { parentPath: string; parentName: string }) => void;
 }
 
-export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
+export function SpaceDetails({
+  draft,
+  onNameChange,
+  onParentChange,
+}: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
+  const locationShake = useRejectShake();
+  const [isChangingLocation, setIsChangingLocation] = useState(false);
 
   // An unusable name shakes the whole Space Name card, never a message; the input
   // is left exactly as typed.
@@ -50,6 +61,28 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
   // Where the folder will be created: the parent plus the trimmed name,
   // updated live as the user types.
   const folderName = draft.name.trim();
+
+  // Change: the same native picker as "Select a folder", but it only picks the
+  // parent folder for the new space — nothing is opened or written. A cancelled
+  // picker changes nothing; an unusable folder shakes the Location card.
+  async function handleChangeLocation() {
+    if (isChangingLocation) return;
+    setIsChangingLocation(true);
+    try {
+      const picked = await pickSpaceFolder();
+      if (picked === null) return;
+      const parent = await invoke<{ path: string; name: string }>(
+        'validate_space_folder',
+        { path: picked }
+      );
+      onParentChange({ parentPath: parent.path, parentName: parent.name });
+    } catch (error) {
+      console.error('Changing the space location failed:', error);
+      locationShake.shake();
+    } finally {
+      setIsChangingLocation(false);
+    }
+  }
 
   // Creating the folder comes later; for now Create only rejects a bad name.
   function handleCreate() {
@@ -76,7 +109,15 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           onChange={(event) => handleNameChange(event.target.value)}
         />
       </div>
-      <div className="space-details__card space-details__card--with-action">
+      <div
+        className={[
+          'space-details__card',
+          'space-details__card--with-action',
+          locationShake.shakeClassName,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div className="space-details__card-content">
           <span className="space-details__label">Location</span>
           <span
@@ -90,6 +131,8 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           className="space-details__change-button"
           variant="filled"
           // size="small"
+          disabled={isChangingLocation}
+          onClick={() => void handleChangeLocation()}
         >
           Change
         </Button>

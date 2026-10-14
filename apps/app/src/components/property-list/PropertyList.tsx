@@ -7,7 +7,10 @@ import { AppIcon } from '@shared/icon';
 
 import type { PropertyListItem } from './PropertyList.types';
 import { PropertyMenu } from './PropertyMenu';
-import { propertyTypeRegistry, renderPropertyValue } from './propertyTypeRegistry';
+import {
+  propertyTypeRegistry,
+  renderPropertyValue,
+} from './propertyTypeRegistry';
 
 import './PropertyList.css';
 
@@ -51,7 +54,11 @@ export function PropertyList({ items, className, footer }: PropertyListProps) {
                 {(item.onClear || item.onRemove || item.onDelete) && (
                   <PropertyMenu
                     name={item.name}
-                    actions={{ onClear: item.onClear, onRemove: item.onRemove, onDelete: item.onDelete }}
+                    actions={{
+                      onClear: item.onClear,
+                      onRemove: item.onRemove,
+                      onDelete: item.onDelete,
+                    }}
                   />
                 )}
               </>

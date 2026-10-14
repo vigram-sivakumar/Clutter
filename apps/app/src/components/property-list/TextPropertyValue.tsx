@@ -22,7 +22,13 @@ export function TextPropertyValue(props: TextPropertyValueProps) {
     return <PropertyValueCell>{props.value}</PropertyValueCell>;
   }
 
-  return <TextPropertyEditor name={props.name} value={props.value} onCommit={props.onCommit} />;
+  return (
+    <TextPropertyEditor
+      name={props.name}
+      value={props.value}
+      onCommit={props.onCommit}
+    />
+  );
 }
 
 interface TextPropertyEditorProps {
@@ -47,7 +53,11 @@ interface TextPropertyEditorProps {
  * difference is Enter: it inserts a newline (native textarea behavior)
  * instead of submitting.
  */
-function TextPropertyEditor({ name, value, onCommit }: TextPropertyEditorProps) {
+function TextPropertyEditor({
+  name,
+  value,
+  onCommit,
+}: TextPropertyEditorProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const isEscapingRef = useRef(false);
 

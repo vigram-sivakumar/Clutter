@@ -50,6 +50,7 @@ function InitialWindow() {
         <SpaceDetails
           draft={draft}
           onNameChange={(name) => setDraft({ ...draft, name })}
+          onParentChange={(parent) => setDraft({ ...draft, ...parent })}
         />
       ) : (
         <WelcomeScreen onCreateSpace={setDraft} />

@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { MultiSelectPropertyValue } from './MultiSelectPropertyValue';
 import { PropertyList } from './PropertyList';
@@ -26,7 +34,8 @@ afterAll(() => {
 
 afterEach(() => cleanup());
 
-const field = () => screen.getByRole('textbox', { name: 'Aliases' }) as HTMLInputElement;
+const field = () =>
+  screen.getByRole('textbox', { name: 'Aliases' }) as HTMLInputElement;
 
 function type(text: string) {
   fireEvent.focus(field());
@@ -53,11 +62,19 @@ function Stateful({
 }
 
 const pills = () =>
-  Array.from(document.querySelectorAll('.pill')).map((pill) => pill.textContent);
+  Array.from(document.querySelectorAll('.pill')).map(
+    (pill) => pill.textContent
+  );
 
 describe('MultiSelectPropertyValue — read-only', () => {
   it('renders each value as a pill, with no input or remove buttons', () => {
-    render(<MultiSelectPropertyValue name="Aliases" value={['UX', 'User experience']} editable={false} />);
+    render(
+      <MultiSelectPropertyValue
+        name="Aliases"
+        value={['UX', 'User experience']}
+        editable={false}
+      />
+    );
 
     expect(pills()).toEqual(['UX', 'User experience']);
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -69,7 +86,12 @@ describe('MultiSelectPropertyValue — read-only, dismissable', () => {
   it('with onRemoveValue, each pill has a dismiss button removing that item — and no input', () => {
     const onRemoveValue = vi.fn();
     render(
-      <MultiSelectPropertyValue name="people" value={['Ana', 'Bo']} editable={false} onRemoveValue={onRemoveValue} />
+      <MultiSelectPropertyValue
+        name="people"
+        value={['Ana', 'Bo']}
+        editable={false}
+        onRemoveValue={onRemoveValue}
+      />
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Bo' }));
@@ -82,7 +104,14 @@ describe('MultiSelectPropertyValue — read-only, dismissable', () => {
 describe('MultiSelectPropertyValue — editable', () => {
   it('Enter adds the typed text as a pill — spaces included — and clears the input', () => {
     const onCommit = vi.fn();
-    render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+    render(
+      <MultiSelectPropertyValue
+        name="Aliases"
+        value={['UX']}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     type('  User experience  ');
     fireEvent.keyDown(field(), { key: ' ' });
@@ -106,7 +135,14 @@ describe('MultiSelectPropertyValue — editable', () => {
 
   it('leaving the field adds the pending text', () => {
     const onCommit = vi.fn();
-    render(<MultiSelectPropertyValue name="Aliases" value={[]} editable onCommit={onCommit} />);
+    render(
+      <MultiSelectPropertyValue
+        name="Aliases"
+        value={[]}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     type('Pending');
     fireEvent.blur(field());
@@ -116,7 +152,14 @@ describe('MultiSelectPropertyValue — editable', () => {
 
   it('ignores whitespace-only text and a value already present (ignoring case), with no error', () => {
     const onCommit = vi.fn();
-    render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+    render(
+      <MultiSelectPropertyValue
+        name="Aliases"
+        value={['UX']}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     type('   ');
     fireEvent.keyDown(field(), { key: 'Enter' });
@@ -140,7 +183,9 @@ describe('MultiSelectPropertyValue — editable', () => {
 
   describe('editing a pill in place', () => {
     const editField = (value: string) =>
-      screen.getByRole('textbox', { name: `Edit ${value}` }) as HTMLInputElement;
+      screen.getByRole('textbox', {
+        name: `Edit ${value}`,
+      }) as HTMLInputElement;
 
     it('a click on a pill swaps it for an input holding its text, focused', () => {
       render(<Stateful initial={['UX', 'Design System']} />);
@@ -164,17 +209,24 @@ describe('MultiSelectPropertyValue — editable', () => {
       );
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
-      fireEvent.change(editField('UX'), { target: { value: ' User Experience ' } });
+      fireEvent.change(editField('UX'), {
+        target: { value: ' User Experience ' },
+      });
       fireEvent.keyDown(editField('UX'), { key: 'Enter' });
 
-      expect(onCommit).toHaveBeenCalledExactlyOnceWith(['User Experience', 'Design System']);
+      expect(onCommit).toHaveBeenCalledExactlyOnceWith([
+        'User Experience',
+        'Design System',
+      ]);
     });
 
     it('blur commits the edit', () => {
       render(<Stateful initial={['UX', 'Design System']} />);
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
-      fireEvent.change(editField('UX'), { target: { value: 'User Experience' } });
+      fireEvent.change(editField('UX'), {
+        target: { value: 'User Experience' },
+      });
       fireEvent.blur(editField('UX'));
 
       expect(pills()).toEqual(['User Experience', 'Design System']);
@@ -182,7 +234,14 @@ describe('MultiSelectPropertyValue — editable', () => {
 
     it('Escape cancels and restores the previous value, committing nothing', () => {
       const onCommit = vi.fn();
-      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={['UX']}
+          editable
+          onCommit={onCommit}
+        />
+      );
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
       fireEvent.change(editField('UX'), { target: { value: 'Discarded' } });
@@ -195,7 +254,14 @@ describe('MultiSelectPropertyValue — editable', () => {
 
     it('an unchanged or emptied edit commits nothing and restores the pill', () => {
       const onCommit = vi.fn();
-      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable onCommit={onCommit} />);
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={['UX']}
+          editable
+          onCommit={onCommit}
+        />
+      );
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit UX' }));
       fireEvent.keyDown(editField('UX'), { key: 'Enter' });
@@ -238,18 +304,31 @@ describe('MultiSelectPropertyValue — editable', () => {
     });
 
     it('read-only pills are not editable', () => {
-      render(<MultiSelectPropertyValue name="Aliases" value={['UX']} editable={false} />);
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={['UX']}
+          editable={false}
+        />
+      );
       expect(screen.queryByRole('button', { name: 'Edit UX' })).toBeNull();
     });
   });
 
   describe('suggestions', () => {
     const suggestions: MultiSelectSuggestion[] = [
-      { key: 'g:UX', value: 'UX', label: 'UX', detail: 'User Experience Guidelines' },
+      {
+        key: 'g:UX',
+        value: 'UX',
+        label: 'UX',
+        detail: 'User Experience Guidelines',
+      },
       { key: 'r:', value: 'UX Research', label: 'UX Research', detail: null },
     ];
     const getSuggestions = vi.fn((query: string) =>
-      suggestions.filter((row) => row.label.toLowerCase().includes(query.toLowerCase()))
+      suggestions.filter((row) =>
+        row.label.toLowerCase().includes(query.toLowerCase())
+      )
     );
 
     it('shows matches for the typed text, with their detail', () => {
@@ -265,7 +344,7 @@ describe('MultiSelectPropertyValue — editable', () => {
       ]);
     });
 
-    it("clicking a match adds its value — the alias text, never a link", () => {
+    it('clicking a match adds its value — the alias text, never a link', () => {
       render(<Stateful initial={[]} getSuggestions={getSuggestions} />);
 
       type('ux');
@@ -293,7 +372,9 @@ describe('MultiSelectPropertyValue — editable', () => {
 
       type('ux');
 
-      expect(screen.getAllByRole('menuitem').map((row) => row.textContent)).toEqual(['UX Research']);
+      expect(
+        screen.getAllByRole('menuitem').map((row) => row.textContent)
+      ).toEqual(['UX Research']);
     });
   });
 });
@@ -302,7 +383,15 @@ describe('PropertyList multi-select value', () => {
   it('renders an editable multi-select Property through MultiSelectPropertyValue', () => {
     render(
       <PropertyList
-        items={[{ name: 'Aliases', type: 'multi-select', value: ['UX'], editable: true, onCommit: () => {} }]}
+        items={[
+          {
+            name: 'Aliases',
+            type: 'multi-select',
+            value: ['UX'],
+            editable: true,
+            onCommit: () => {},
+          },
+        ]}
       />
     );
 

@@ -33,7 +33,11 @@ export function Toast({ toast, onDismiss, durationMs = 4000 }: ToastProps) {
   }
 
   return (
-    <div className={`toast toast--${toast.tone}`} role="status" aria-live="polite">
+    <div
+      className={`toast toast--${toast.tone}`}
+      role="status"
+      aria-live="polite"
+    >
       {toast.text}
       {toast.action && (
         <button

@@ -1,4 +1,7 @@
-import { formatDateDisplay, formatRelativeTimestamp } from '@shared/helpers/time/dateDisplay';
+import {
+  formatDateDisplay,
+  formatRelativeTimestamp,
+} from '@shared/helpers/time/dateDisplay';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { ISODate } from '@shared/helpers/time/types';
 
@@ -17,7 +20,9 @@ interface ParsedDatePropertyValue {
  * full ISO timestamp is resolved to the local day and time it denotes.
  * Returns null for a value that is neither.
  */
-export function parseDatePropertyValue(raw: string): ParsedDatePropertyValue | null {
+export function parseDatePropertyValue(
+  raw: string
+): ParsedDatePropertyValue | null {
   if (ISO_DATE_PATTERN.test(raw)) {
     return { isoDate: raw, dateTime: null };
   }
@@ -41,7 +46,10 @@ export function parseDatePropertyValue(raw: string): ParsedDatePropertyValue | n
  * raw value stays the canonical one. An unparseable value is shown raw
  * rather than hidden.
  */
-export function formatDatePropertyValue(raw: string, referenceDate: Date = new Date()): string {
+export function formatDatePropertyValue(
+  raw: string,
+  referenceDate: Date = new Date()
+): string {
   const parsed = parseDatePropertyValue(raw);
 
   if (!parsed) {

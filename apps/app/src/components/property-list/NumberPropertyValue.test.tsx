@@ -31,7 +31,14 @@ function isShaking(): boolean {
 
 function Stateful({ initial }: { initial: number | null }) {
   const [value, setValue] = useState(initial);
-  return <NumberPropertyValue name="Count" value={value} editable onCommit={setValue} />;
+  return (
+    <NumberPropertyValue
+      name="Count"
+      value={value}
+      editable
+      onCommit={setValue}
+    />
+  );
 }
 
 describe('parseNumberPropertyInput', () => {
@@ -50,24 +57,40 @@ describe('parseNumberPropertyInput', () => {
     expect(parseNumberPropertyInput(text)).toBe(expected);
   });
 
-  it.each(['', '   ', 'abc', '12abc', '1.2.3', '1,234', '0x1f', 'Infinity', 'NaN', '-', '.', 'e5', '1e', '1e999'])(
-    'rejects %j',
-    (text) => {
-      expect(parseNumberPropertyInput(text)).toBeNull();
-    }
-  );
+  it.each([
+    '',
+    '   ',
+    'abc',
+    '12abc',
+    '1.2.3',
+    '1,234',
+    '0x1f',
+    'Infinity',
+    'NaN',
+    '-',
+    '.',
+    'e5',
+    '1e',
+    '1e999',
+  ])('rejects %j', (text) => {
+    expect(parseNumberPropertyInput(text)).toBeNull();
+  });
 });
 
 describe('NumberPropertyValue — read-only', () => {
   it('shows the formatted number as non-editable text', () => {
-    render(<NumberPropertyValue name="Count" value={1234.5} editable={false} />);
+    render(
+      <NumberPropertyValue name="Count" value={1234.5} editable={false} />
+    );
 
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.getByText(formatNumberPropertyValue(1234.5))).toBeTruthy();
   });
 
   it('shows nothing for an absent value', () => {
-    const { container } = render(<NumberPropertyValue name="Count" value={null} editable={false} />);
+    const { container } = render(
+      <NumberPropertyValue name="Count" value={null} editable={false} />
+    );
 
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(container.textContent).toBe('');
@@ -76,7 +99,14 @@ describe('NumberPropertyValue — read-only', () => {
 
 describe('NumberPropertyValue — editable', () => {
   it('renders the existing single-line Input, formatted at rest and raw while editing', () => {
-    render(<NumberPropertyValue name="Count" value={1234.5} editable onCommit={() => {}} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={1234.5}
+        editable
+        onCommit={() => {}}
+      />
+    );
 
     const field = getField();
     expect(field.tagName).toBe('INPUT');
@@ -90,7 +120,14 @@ describe('NumberPropertyValue — editable', () => {
 
   it('commits a valid number as a number on Enter', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={1} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={1}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type(' 42.5 ');
@@ -101,7 +138,14 @@ describe('NumberPropertyValue — editable', () => {
 
   it('commits a valid number on blur', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={null} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={null}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type('-3');
@@ -112,7 +156,14 @@ describe('NumberPropertyValue — editable', () => {
 
   it('does not commit an unchanged number', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={5} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={5}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type('5.0');
@@ -123,7 +174,14 @@ describe('NumberPropertyValue — editable', () => {
 
   it('clears the value when the text is emptied', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={5} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={5}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type('');
@@ -136,7 +194,14 @@ describe('NumberPropertyValue — editable', () => {
     vi.useFakeTimers();
     try {
       const onCommit = vi.fn();
-      render(<NumberPropertyValue name="Count" value={5} editable onCommit={onCommit} />);
+      render(
+        <NumberPropertyValue
+          name="Count"
+          value={5}
+          editable
+          onCommit={onCommit}
+        />
+      );
 
       const field = getField();
       field.focus();
@@ -160,7 +225,14 @@ describe('NumberPropertyValue — editable', () => {
 
   it('blur with invalid input discards it and restores the last valid value', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={7} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={7}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type('seven');
@@ -192,7 +264,15 @@ describe('PropertyList number value', () => {
   it('renders an editable number Property through NumberPropertyValue', () => {
     render(
       <PropertyList
-        items={[{ name: 'Count', type: 'number', value: 3, editable: true, onCommit: () => {} }]}
+        items={[
+          {
+            name: 'Count',
+            type: 'number',
+            value: 3,
+            editable: true,
+            onCommit: () => {},
+          },
+        ]}
       />
     );
 
@@ -201,7 +281,13 @@ describe('PropertyList number value', () => {
   });
 
   it('renders a read-only number Property as formatted text', () => {
-    render(<PropertyList items={[{ name: 'Count', type: 'number', value: 9876543, editable: false }]} />);
+    render(
+      <PropertyList
+        items={[
+          { name: 'Count', type: 'number', value: 9876543, editable: false },
+        ]}
+      />
+    );
 
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.getByText(formatNumberPropertyValue(9876543))).toBeTruthy();
@@ -230,12 +316,27 @@ describe('numberPropertyEditText', () => {
     [1e-7, '0.0000001'],
     [1.5e-7, '0.00000015'],
     [-2.5e-9, '-0.0000000025'],
-  ])('writes the exponent of String(%s) out as plain digits', (value, expected) => {
-    expect(String(value)).toContain('e');
-    expect(numberPropertyEditText(value)).toBe(expected);
-  });
+  ])(
+    'writes the exponent of String(%s) out as plain digits',
+    (value, expected) => {
+      expect(String(value)).toContain('e');
+      expect(numberPropertyEditText(value)).toBe(expected);
+    }
+  );
 
-  it.each([42, 1234.5, -0.025, Number.MAX_SAFE_INTEGER, LARGE, 1e21, 1.7976931348623157e308, -1.5e22, 1e-7, 5e-324, Math.PI * 1e30])(
+  it.each([
+    42,
+    1234.5,
+    -0.025,
+    Number.MAX_SAFE_INTEGER,
+    LARGE,
+    1e21,
+    1.7976931348623157e308,
+    -1.5e22,
+    1e-7,
+    5e-324,
+    Math.PI * 1e30,
+  ])(
     'reads back as the identical number (no extra precision loss): %s',
     (value) => {
       const text = numberPropertyEditText(value);
@@ -254,18 +355,33 @@ describe('formatNumberPropertyValue — locale-aware display', () => {
   });
 
   it('shows a large number as grouped digits, never an exponent', () => {
-    expect(formatNumberPropertyValue(LARGE, 'en-IN')).toBe('7,57,38,37,65,83,92,02,90,00,00,000');
-    expect(formatNumberPropertyValue(LARGE, 'en-US')).toBe('757,383,765,839,202,900,000,000');
+    expect(formatNumberPropertyValue(LARGE, 'en-IN')).toBe(
+      '7,57,38,37,65,83,92,02,90,00,00,000'
+    );
+    expect(formatNumberPropertyValue(LARGE, 'en-US')).toBe(
+      '757,383,765,839,202,900,000,000'
+    );
   });
 
   it('defaults to the system locale', () => {
-    expect(formatNumberPropertyValue(1234567)).toBe(new Intl.NumberFormat(undefined, { maximumFractionDigits: 20 }).format(1234567));
+    expect(formatNumberPropertyValue(1234567)).toBe(
+      new Intl.NumberFormat(undefined, { maximumFractionDigits: 20 }).format(
+        1234567
+      )
+    );
   });
 });
 
 describe('NumberPropertyValue — large numbers', () => {
   it('shows the grouped value at rest and a plain decimal, not an exponent, on focus', () => {
-    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={() => {}} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={LARGE}
+        editable
+        onCommit={() => {}}
+      />
+    );
 
     expect(getField().value).toBe(formatNumberPropertyValue(LARGE));
     expect(getField().value).not.toMatch(/e/i);
@@ -275,7 +391,14 @@ describe('NumberPropertyValue — large numbers', () => {
   });
 
   it('display and editing text are separate representations', () => {
-    render(<NumberPropertyValue name="Count" value={1234567} editable onCommit={() => {}} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={1234567}
+        editable
+        onCommit={() => {}}
+      />
+    );
 
     const resting = getField().value;
     fireEvent.focus(getField());
@@ -286,7 +409,14 @@ describe('NumberPropertyValue — large numbers', () => {
 
   it('focusing and committing without a change does not commit (or alter) the value', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={LARGE}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     fireEvent.keyDown(getField(), { key: 'Enter' });
@@ -299,7 +429,14 @@ describe('NumberPropertyValue — large numbers', () => {
 
   it('re-committing the focused text yields the identical number', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={LARGE}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     // The user touches the field and types the same digits back.
@@ -311,7 +448,14 @@ describe('NumberPropertyValue — large numbers', () => {
 
   it('still rejects text the parser rejects, such as the grouped display text', () => {
     const onCommit = vi.fn();
-    render(<NumberPropertyValue name="Count" value={LARGE} editable onCommit={onCommit} />);
+    render(
+      <NumberPropertyValue
+        name="Count"
+        value={LARGE}
+        editable
+        onCommit={onCommit}
+      />
+    );
 
     fireEvent.focus(getField());
     type(formatNumberPropertyValue(LARGE, 'en-IN'));

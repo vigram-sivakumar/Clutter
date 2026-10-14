@@ -1,4 +1,11 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { KeyboardEvent } from 'react';
 
 import type { PickerListItem, PickerListProps } from './PickerList.types';
@@ -71,7 +78,8 @@ export function PickerList({
     return items.filter(
       (item) =>
         item.title.toLowerCase().includes(normalizedQuery) ||
-        (item.searchText !== undefined && matchesSearchText(item.searchText, normalizedQuery))
+        (item.searchText !== undefined &&
+          matchesSearchText(item.searchText, normalizedQuery))
     );
   }, [items, normalizedQuery]);
 
@@ -116,7 +124,9 @@ export function PickerList({
   // rendered, which is exactly why `useMenuKeyboard`'s own
   // first-navigable-item fallback (via `preferredActiveId: null` above)
   // resolves to it automatically, with no special-casing needed here.
-  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(() => new Set());
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
 
   // Caps each section at `sectionLimit` unless the user expanded it. `toggleAfter` marks the last
   // item shown of every section that has more than the cap — the "Show more/less" row goes there.
@@ -149,7 +159,11 @@ export function PickerList({
         continue;
       }
       shown.push(item);
-      const isLastShown = overLimit && (expanded ? index === (totals.get(section) ?? 0) - 1 : index === sectionLimit - 1);
+      const isLastShown =
+        overLimit &&
+        (expanded
+          ? index === (totals.get(section) ?? 0) - 1
+          : index === sectionLimit - 1);
       if (isLastShown) {
         toggles.set(item.id, { section, expanded });
       }
@@ -164,11 +178,16 @@ export function PickerList({
   // when no section is capped (or the layout can't be measured).
   function measureFirstSectionBottom(): number | null {
     const list = listRef.current;
-    const toggle = list?.querySelector<HTMLElement>('[id^="picker-list-toggle-"]');
+    const toggle = list?.querySelector<HTMLElement>(
+      '[id^="picker-list-toggle-"]'
+    );
     if (!list || !toggle) {
       return null;
     }
-    const bottom = toggle.getBoundingClientRect().bottom - list.getBoundingClientRect().top + list.scrollTop;
+    const bottom =
+      toggle.getBoundingClientRect().bottom -
+      list.getBoundingClientRect().top +
+      list.scrollTop;
     return bottom > 0 ? bottom : null;
   }
 
@@ -180,14 +199,17 @@ export function PickerList({
     // The list's own bottom padding is scrollable but is not content — don't count it, or the
     // fade would dim the last real row whenever the list is capped just short of that padding.
     const padding = parseFloat(getComputedStyle(list).paddingBottom) || 0;
-    const moreBelow = list.scrollTop + list.clientHeight < list.scrollHeight - padding - 1;
+    const moreBelow =
+      list.scrollTop + list.clientHeight < list.scrollHeight - padding - 1;
 
     // A host may end the list right at the first section's "Show more" row (the
     // `--picker-list-first-section-bottom` below). That row is the way to more, so while the list
     // sits at the top it is not faded; the fade returns once the user scrolls.
     const firstSectionBottom = measureFirstSectionBottom();
     const endsAtFirstToggle =
-      list.scrollTop <= 0 && firstSectionBottom !== null && list.clientHeight <= firstSectionBottom + 5;
+      list.scrollTop <= 0 &&
+      firstSectionBottom !== null &&
+      list.clientHeight <= firstSectionBottom + 5;
 
     setCanScrollDown(moreBelow && !endsAtFirstToggle);
   }
@@ -202,7 +224,10 @@ export function PickerList({
     if (bottom === null) {
       list?.style.removeProperty('--picker-list-first-section-bottom');
     } else {
-      list?.style.setProperty('--picker-list-first-section-bottom', `${Math.ceil(bottom)}px`);
+      list?.style.setProperty(
+        '--picker-list-first-section-bottom',
+        `${Math.ceil(bottom)}px`
+      );
     }
   }
 
@@ -281,8 +306,10 @@ export function PickerList({
         data-can-scroll-down={canScrollDown || undefined}
       >
         {displayItems.map((item, index) => {
-          const previousSection = index > 0 ? displayItems[index - 1]!.section : undefined;
-          const startsSection = item.section !== undefined && item.section !== previousSection;
+          const previousSection =
+            index > 0 ? displayItems[index - 1]!.section : undefined;
+          const startsSection =
+            item.section !== undefined && item.section !== previousSection;
           // Reuses the exact same parentIds/isEmpty check the caret's
           // disabled state already relied on — a folder's caret shows
           // only when it actually has at least one child, no separate
@@ -293,79 +320,89 @@ export function PickerList({
           // ancestor titles — never shown for a root-level match (no
           // ancestors to join), never rendered outside search.
           const path =
-            (showPath || isSearching) && item.ancestors && item.ancestors.length > 0
+            (showPath || isSearching) &&
+            item.ancestors &&
+            item.ancestors.length > 0
               ? item.ancestors.map((ancestor) => ancestor.title).join(' / ')
               : undefined;
 
           return (
             <Fragment key={item.id}>
-              {startsSection && index > 0 && <div className="menu__divider" role="separator" />}
-              {startsSection && showSectionTitles && <MenuGroupTitle>{item.section}</MenuGroupTitle>}
-            <Entry
-              id={item.id}
-              role="menuitem"
-              // Rows are never real-DOM-focused (the search input keeps
-              // focus throughout) — Entry would otherwise default this to
-              // 0 for any row with an onClick, adding every row to the
-              // page's natural Tab order.
-              tabIndex={-1}
-              className={
-                item.thumbnail
-                  ? 'picker-list__item picker-list__item--asset'
-                  : 'picker-list__item'
-              }
-              level={isSearching ? 0 : item.level}
-              // The secondary label (e.g. "Home" on the vault root) is the row's trailing meta —
-              // Entry's own muted, never-shrinking right-hand slot — not part of its content.
-              trailing={
-                item.secondaryLabel ? (
-                  <span className="picker-list__secondary">{item.secondaryLabel}</span>
-                ) : item.pill ? (
-                  <Pill size="small">{item.pill}</Pill>
-                ) : undefined
-              }
-              leading={
-                item.thumbnail ? (
-                  <span className="picker-list__thumbnail">
-                    <img src={item.thumbnail} alt="" draggable={false} />
-                  </span>
-                ) : leadingIcon ? (
-                  <span className="picker-list__leading">
-                    <AppIcon
-                      className="picker-list__icon"
-                      icon={item.icon ?? leadingIcon}
+              {startsSection && index > 0 && (
+                <div className="menu__divider" role="separator" />
+              )}
+              {startsSection && showSectionTitles && (
+                <MenuGroupTitle>{item.section}</MenuGroupTitle>
+              )}
+              <Entry
+                id={item.id}
+                role="menuitem"
+                // Rows are never real-DOM-focused (the search input keeps
+                // focus throughout) — Entry would otherwise default this to
+                // 0 for any row with an onClick, adding every row to the
+                // page's natural Tab order.
+                tabIndex={-1}
+                className={
+                  item.thumbnail
+                    ? 'picker-list__item picker-list__item--asset'
+                    : 'picker-list__item'
+                }
+                level={isSearching ? 0 : item.level}
+                // The secondary label (e.g. "Home" on the vault root) is the row's trailing meta —
+                // Entry's own muted, never-shrinking right-hand slot — not part of its content.
+                trailing={
+                  item.secondaryLabel ? (
+                    <span className="picker-list__secondary">
+                      {item.secondaryLabel}
+                    </span>
+                  ) : item.pill ? (
+                    <Pill size="small">{item.pill}</Pill>
+                  ) : undefined
+                }
+                leading={
+                  item.thumbnail ? (
+                    <span className="picker-list__thumbnail">
+                      <img src={item.thumbnail} alt="" draggable={false} />
+                    </span>
+                  ) : leadingIcon ? (
+                    <span className="picker-list__leading">
+                      <AppIcon
+                        className="picker-list__icon"
+                        icon={item.icon ?? leadingIcon}
+                        emoji={item.emoji}
+                      />
+                    </span>
+                  ) : (
+                    <FolderLeading
                       emoji={item.emoji}
+                      isEmpty={isEmpty}
+                      hasCaret={hasCaret}
+                      isExpanded={!isSearching && expandedIds.has(item.id)}
+                      onExpandToggle={
+                        isSearching ? undefined : () => toggleExpanded(item.id)
+                      }
                     />
-                  </span>
-                ) : (
-                  <FolderLeading
-                    emoji={item.emoji}
-                    isEmpty={isEmpty}
-                    hasCaret={hasCaret}
-                    isExpanded={!isSearching && expandedIds.has(item.id)}
-                    onExpandToggle={
-                      isSearching ? undefined : () => toggleExpanded(item.id)
-                    }
-                  />
-                )
-              }
-              // forceHover mirrors MenuItem's own "keyboard-active item
-              // looks hovered" convention — one visual rule for "this is
-              // the current keyboard selection," not a second one invented
-              // for this picker.
-              forceHover={keyboard.activeId === item.id}
-              onMouseEnter={() => keyboard.setActiveId(item.id)}
-              onClick={() => onSelect(item)}
-            >
-              <div className="picker-list__content">
-                <div className="picker-list__title-row">
-                  <span className="picker-list__title truncate">{item.title}</span>
+                  )
+                }
+                // forceHover mirrors MenuItem's own "keyboard-active item
+                // looks hovered" convention — one visual rule for "this is
+                // the current keyboard selection," not a second one invented
+                // for this picker.
+                forceHover={keyboard.activeId === item.id}
+                onMouseEnter={() => keyboard.setActiveId(item.id)}
+                onClick={() => onSelect(item)}
+              >
+                <div className="picker-list__content">
+                  <div className="picker-list__title-row">
+                    <span className="picker-list__title truncate">
+                      {item.title}
+                    </span>
+                  </div>
+                  {!item.secondaryLabel && path && (
+                    <span className="picker-list__path truncate">{path}</span>
+                  )}
                 </div>
-                {!item.secondaryLabel && path && (
-                  <span className="picker-list__path truncate">{path}</span>
-                )}
-              </div>
-            </Entry>
+              </Entry>
               {toggleAfter.has(item.id) && (
                 <Entry
                   id={`picker-list-toggle-${item.section}`}
@@ -374,14 +411,25 @@ export function PickerList({
                   className="picker-list__item picker-list__toggle"
                   leading={
                     <span className="picker-list__leading">
-                      <AppIcon className="picker-list__icon" icon="moreHorizontal" />
+                      <AppIcon
+                        className="picker-list__icon"
+                        icon="moreHorizontal"
+                      />
                     </span>
                   }
-                  forceHover={keyboard.activeId === `picker-list-toggle-${item.section}`}
-                  onMouseEnter={() => keyboard.setActiveId(`picker-list-toggle-${item.section}`)}
+                  forceHover={
+                    keyboard.activeId === `picker-list-toggle-${item.section}`
+                  }
+                  onMouseEnter={() =>
+                    keyboard.setActiveId(`picker-list-toggle-${item.section}`)
+                  }
                   onClick={() => toggleSection(item.section!)}
                 >
-                  <span className="truncate">{toggleAfter.get(item.id)!.expanded ? 'Show less' : 'Show more'}</span>
+                  <span className="truncate">
+                    {toggleAfter.get(item.id)!.expanded
+                      ? 'Show less'
+                      : 'Show more'}
+                  </span>
                 </Entry>
               )}
             </Fragment>
@@ -394,14 +442,18 @@ export function PickerList({
             role="menuitem"
             tabIndex={-1}
             className="picker-list__create-row"
-            leading={<AppIcon className="picker-list__create-icon" icon="plus" />}
+            leading={
+              <AppIcon className="picker-list__create-icon" icon="plus" />
+            }
             forceHover={keyboard.activeId === CREATE_ITEM_ID}
             onMouseEnter={() => keyboard.setActiveId(CREATE_ITEM_ID)}
             onClick={() => onCreate(query.trim())}
           >
             <div className="picker-list__create">
               <span className="picker-list__create-label truncate">Create</span>
-              <span className="picker-list__title truncate">{query.trim()}</span>
+              <span className="picker-list__title truncate">
+                {query.trim()}
+              </span>
             </div>
           </Entry>
         )}

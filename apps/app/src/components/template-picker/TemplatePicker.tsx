@@ -83,7 +83,9 @@ export function TemplatePicker({
         placeholder="Search templates"
         leadingIcon="template"
         onSelect={(item) =>
-          item.id === NEW_TEMPLATE_ID ? onNewTemplate() : onSelectTemplate(item.id)
+          item.id === NEW_TEMPLATE_ID
+            ? onNewTemplate()
+            : onSelectTemplate(item.id)
         }
       />
     </Popover>

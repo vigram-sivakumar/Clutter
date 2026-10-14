@@ -64,15 +64,14 @@ describe('Entry: keyboard activation', () => {
   it('Enter focused on a nested interactive element (e.g. a trailing action button) does not double-fire the row onClick', () => {
     const onClick = vi.fn();
     render(
-      <Entry
-        onClick={onClick}
-        actions={<button type="button">More</button>}
-      >
+      <Entry onClick={onClick} actions={<button type="button">More</button>}>
         Row
       </Entry>
     );
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'More' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'More' }), {
+      key: 'Enter',
+    });
 
     // The nested button's own native activation is what should handle
     // this key press (not exercised here, jsdom doesn't simulate it) —
@@ -121,7 +120,8 @@ describe('Entry.css — truncation is explicit, not implicit', () => {
   });
 
   it('keeps .entry__content itself shrinkable and clipping', () => {
-    const rule = cssWithoutComments.match(/\.entry__content\s*\{([^}]*)\}/)?.[1] ?? '';
+    const rule =
+      cssWithoutComments.match(/\.entry__content\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(rule).toMatch(/min-width\s*:\s*0\s*;/);
     expect(rule).toMatch(/overflow\s*:\s*hidden\s*;/);

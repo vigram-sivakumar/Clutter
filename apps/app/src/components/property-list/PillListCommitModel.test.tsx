@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { MultiSelectPropertyValue } from './MultiSelectPropertyValue';
 import { TagPropertyValue } from './TagPropertyValue';
@@ -24,20 +32,35 @@ const EDITORS = [
     label: 'Tags',
     typed: 'design',
     render: (onCommit: (value: string[]) => void, value: string[] = []) =>
-      render(<TagPropertyValue name="Tags" value={value} editable onCommit={onCommit} />),
+      render(
+        <TagPropertyValue
+          name="Tags"
+          value={value}
+          editable
+          onCommit={onCommit}
+        />
+      ),
     committed: ['design'],
   },
   {
     label: 'Aliases',
     typed: 'design',
     render: (onCommit: (value: string[]) => void, value: string[] = []) =>
-      render(<MultiSelectPropertyValue name="Aliases" value={value} editable onCommit={onCommit} />),
+      render(
+        <MultiSelectPropertyValue
+          name="Aliases"
+          value={value}
+          editable
+          onCommit={onCommit}
+        />
+      ),
     committed: ['design'],
   },
 ] as const;
 
 describe.each(EDITORS)('$label editor: the shared commit model', (editor) => {
-  const input = () => screen.getByRole('textbox', { name: editor.label }) as HTMLInputElement;
+  const input = () =>
+    screen.getByRole('textbox', { name: editor.label }) as HTMLInputElement;
   const type = (text: string) => {
     fireEvent.focus(input());
     fireEvent.change(input(), { target: { value: text } });

@@ -26,7 +26,9 @@ function Harness({
   preferredActiveId?: string | null;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const { activeId, handleKeyDown } = useMenuKeyboard(menuRef, { preferredActiveId });
+  const { activeId, handleKeyDown } = useMenuKeyboard(menuRef, {
+    preferredActiveId,
+  });
 
   return (
     <div
@@ -37,7 +39,12 @@ function Harness({
       data-active-id={activeId ?? ''}
     >
       {itemIds.map((id) => (
-        <div key={id} id={id} role="menuitem" aria-disabled={disabledIds.includes(id) || undefined}>
+        <div
+          key={id}
+          id={id}
+          role="menuitem"
+          aria-disabled={disabledIds.includes(id) || undefined}
+        >
           {id}
         </div>
       ))}
@@ -82,7 +89,9 @@ describe('useMenuKeyboard — preferredActiveId', () => {
   });
 
   it('the preferred item disappearing due to filtering falls back to the first remaining item', () => {
-    const { rerender } = render(<Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />);
+    const { rerender } = render(
+      <Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />
+    );
     expect(activeIdOf()).toBe('b');
 
     rerender(<Harness itemIds={['a', 'c']} preferredActiveId="b" />);
@@ -91,7 +100,9 @@ describe('useMenuKeyboard — preferredActiveId', () => {
   });
 
   it('the preferred item reappearing after being filtered out becomes active again', () => {
-    const { rerender } = render(<Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />);
+    const { rerender } = render(
+      <Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />
+    );
     expect(activeIdOf()).toBe('b');
 
     rerender(<Harness itemIds={['a', 'c']} preferredActiveId="b" />);
@@ -102,7 +113,9 @@ describe('useMenuKeyboard — preferredActiveId', () => {
   });
 
   it('an empty item list clears the active id entirely, even with a preferred id set', () => {
-    const { rerender } = render(<Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />);
+    const { rerender } = render(
+      <Harness itemIds={['a', 'b', 'c']} preferredActiveId="b" />
+    );
     expect(activeIdOf()).toBe('b');
 
     rerender(<Harness itemIds={[]} preferredActiveId="b" />);
@@ -111,7 +124,13 @@ describe('useMenuKeyboard — preferredActiveId', () => {
   });
 
   it('a disabled preferred item is treated as not navigable — falls back to the first navigable item', () => {
-    render(<Harness itemIds={['a', 'b', 'c']} disabledIds={['b']} preferredActiveId="b" />);
+    render(
+      <Harness
+        itemIds={['a', 'b', 'c']}
+        disabledIds={['b']}
+        preferredActiveId="b"
+      />
+    );
 
     expect(activeIdOf()).toBe('a');
   });

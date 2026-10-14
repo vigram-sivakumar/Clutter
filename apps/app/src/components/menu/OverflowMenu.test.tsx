@@ -2,8 +2,22 @@
 
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { AppIcon } from '@shared/icon';
 
@@ -65,7 +79,7 @@ describe('OverflowMenu', () => {
     expect(screen.getByText('Rename')).toBeInTheDocument();
   });
 
-  it('the trigger exposes aria-haspopup/aria-expanded — a stable selector independent of a row\'s other buttons', () => {
+  it("the trigger exposes aria-haspopup/aria-expanded — a stable selector independent of a row's other buttons", () => {
     render(<Harness onSelect={vi.fn()} />);
     const trigger = screen.getByRole('button');
 
@@ -152,7 +166,9 @@ describe('OverflowMenu', () => {
     render(
       <Harness
         onSelect={onSelect}
-        itemsOverride={[{ id: 'delete', label: 'Delete', icon: 'trash', disabled: true }]}
+        itemsOverride={[
+          { id: 'delete', label: 'Delete', icon: 'trash', disabled: true },
+        ]}
       />
     );
 
@@ -243,7 +259,9 @@ describe('OverflowMenu', () => {
       fireEvent.click(trigger);
       const backdrop = document.querySelector('.overlay__backdrop');
       if (!backdrop) {
-        throw new Error('expected a backdrop element for outside-click handling');
+        throw new Error(
+          'expected a backdrop element for outside-click handling'
+        );
       }
       fireEvent.click(backdrop);
 
@@ -252,7 +270,7 @@ describe('OverflowMenu', () => {
       });
     });
 
-    it('selecting an opensInlineEdit item does NOT restore focus to the trigger — the caller\'s own element keeps it', () => {
+    it("selecting an opensInlineEdit item does NOT restore focus to the trigger — the caller's own element keeps it", () => {
       // No EditableText involved here — this isolates OverflowMenu's own
       // contract (does it skip the restore?) from the full Note/Folder/Tag
       // row behavior, which has its own dedicated tests
@@ -261,7 +279,14 @@ describe('OverflowMenu', () => {
       render(
         <Harness
           onSelect={onSelect}
-          itemsOverride={[{ id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true }]}
+          itemsOverride={[
+            {
+              id: 'rename',
+              label: 'Rename',
+              icon: 'notePencil',
+              opensInlineEdit: true,
+            },
+          ]}
         />
       );
       const trigger = screen.getByRole('button');
@@ -364,7 +389,9 @@ describe('OverflowMenu', () => {
       // is scoped to the innermost open overlay.
       const backdrop = document.querySelector('.overlay__backdrop');
       if (!backdrop) {
-        throw new Error('expected a backdrop element for outside-click handling');
+        throw new Error(
+          'expected a backdrop element for outside-click handling'
+        );
       }
       fireEvent.click(backdrop);
       expect(screen.queryByText('Rename')).not.toBeInTheDocument();
@@ -406,14 +433,16 @@ describe('OverflowMenu', () => {
       expect(document.activeElement).not.toBe(parentMenu);
     });
 
-    it('ArrowDown while the submenu is focused navigates only the submenu — it does not also move the parent menu\'s own active item', () => {
+    it("ArrowDown while the submenu is focused navigates only the submenu — it does not also move the parent menu's own active item", () => {
       render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
 
       fireEvent.click(screen.getByRole('button'));
       const parentMenu = screen.getByRole('menu');
       fireEvent.mouseEnter(screen.getByText('Copy path'));
 
-      const parentActiveBefore = parentMenu.getAttribute('aria-activedescendant');
+      const parentActiveBefore = parentMenu.getAttribute(
+        'aria-activedescendant'
+      );
 
       const submenu = screen
         .getAllByRole('menu')
@@ -502,36 +531,63 @@ describe('OverflowMenu', () => {
 });
 
 describe('OverflowMenu — trigger icon', () => {
-  const iconMarkup = (container: HTMLElement) => container.querySelector('button svg')?.outerHTML;
+  const iconMarkup = (container: HTMLElement) =>
+    container.querySelector('button svg')?.outerHTML;
 
   it('defaults to the vertical dots, and an `icon` prop replaces them', () => {
     const vertical = render(
-      <OverflowMenu items={items} open={false} onOpenChange={vi.fn()} onSelect={vi.fn()} />
+      <OverflowMenu
+        items={items}
+        open={false}
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />
     );
     const verticalMarkup = iconMarkup(vertical.container);
     cleanup();
 
     const reference = render(<AppIcon icon="moreVertical" />);
-    expect(verticalMarkup).toBe(reference.container.querySelector('svg')?.outerHTML);
+    expect(verticalMarkup).toBe(
+      reference.container.querySelector('svg')?.outerHTML
+    );
     cleanup();
 
     const horizontal = render(
-      <OverflowMenu items={items} icon="moreHorizontal" open={false} onOpenChange={vi.fn()} onSelect={vi.fn()} />
+      <OverflowMenu
+        items={items}
+        icon="moreHorizontal"
+        open={false}
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+      />
     );
     const horizontalMarkup = iconMarkup(horizontal.container);
     cleanup();
 
     const horizontalReference = render(<AppIcon icon="moreHorizontal" />);
-    expect(horizontalMarkup).toBe(horizontalReference.container.querySelector('svg')?.outerHTML);
+    expect(horizontalMarkup).toBe(
+      horizontalReference.container.querySelector('svg')?.outerHTML
+    );
     expect(horizontalMarkup).not.toBe(verticalMarkup);
   });
 });
 
 describe('OverflowMenu — groupTitle and selected', () => {
   const grouped: OverflowMenuItemConfig[] = [
-    { id: 'left', label: 'Left', icon: 'positionLeft', groupTitle: 'Position', selected: true },
+    {
+      id: 'left',
+      label: 'Left',
+      icon: 'positionLeft',
+      groupTitle: 'Position',
+      selected: true,
+    },
     { id: 'center', label: 'Center', icon: 'positionCenter' },
-    { id: 'download', label: 'Download', icon: 'download', separatorBefore: true },
+    {
+      id: 'download',
+      label: 'Download',
+      icon: 'download',
+      separatorBefore: true,
+    },
   ];
 
   it('draws a section title above the item that carries it, after nothing else', () => {
@@ -543,23 +599,32 @@ describe('OverflowMenu — groupTitle and selected', () => {
       el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
     );
     expect(rows).toEqual(['Position', 'Left', 'Center', '---', 'Download']);
-    expect(menu.querySelector('.menu__group-title')?.textContent).toBe('Position');
+    expect(menu.querySelector('.menu__group-title')?.textContent).toBe(
+      'Position'
+    );
   });
 
-  it('puts the section title after the item\'s own divider', () => {
+  it("puts the section title after the item's own divider", () => {
     render(
       <Harness
         onSelect={vi.fn()}
         itemsOverride={[
           { id: 'a', label: 'A', icon: 'trash' },
-          { id: 'left', label: 'Left', icon: 'positionLeft', separatorBefore: true, groupTitle: 'Position' },
+          {
+            id: 'left',
+            label: 'Left',
+            icon: 'positionLeft',
+            separatorBefore: true,
+            groupTitle: 'Position',
+          },
         ]}
       />
     );
     fireEvent.click(screen.getByRole('button'));
 
-    const rows = Array.from(document.querySelector('.menu')!.children).map((el) =>
-      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    const rows = Array.from(document.querySelector('.menu')!.children).map(
+      (el) =>
+        el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
     );
     expect(rows).toEqual(['A', '---', 'Position', 'Left']);
   });
@@ -569,8 +634,12 @@ describe('OverflowMenu — groupTitle and selected', () => {
     render(<Harness onSelect={onSelect} itemsOverride={grouped} />);
     fireEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByText('Left').closest('.entry')).toHaveClass('entry-selected');
-    expect(screen.getByText('Center').closest('.entry')).not.toHaveClass('entry-selected');
+    expect(screen.getByText('Left').closest('.entry')).toHaveClass(
+      'entry-selected'
+    );
+    expect(screen.getByText('Center').closest('.entry')).not.toHaveClass(
+      'entry-selected'
+    );
 
     fireEvent.click(screen.getByText('Center'));
     expect(onSelect).toHaveBeenCalledWith('center');
@@ -585,7 +654,6 @@ describe('OverflowMenu — groupTitle and selected', () => {
   });
 });
 
-
 describe('OverflowMenu — a row with a panel replaces the menu', () => {
   const withPanel: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil' },
@@ -593,7 +661,13 @@ describe('OverflowMenu — a row with a panel replaces the menu', () => {
       id: 'sort-by',
       label: 'Sort by',
       icon: 'arrowDown',
-      panel: { title: 'Sort by', items: [{ id: 'sort:name', label: 'Name' }, { id: 'sort:kind', label: 'Kind' }] },
+      panel: {
+        title: 'Sort by',
+        items: [
+          { id: 'sort:name', label: 'Name' },
+          { id: 'sort:kind', label: 'Kind' },
+        ],
+      },
     },
   ];
 
@@ -643,7 +717,11 @@ describe('OverflowMenu — a row with a panel replaces the menu', () => {
     );
     fireEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByText('Delete').closest('[role="menuitem"]')).toHaveClass('menu__item--danger');
-    expect(screen.getByText('Rename').closest('[role="menuitem"]')).not.toHaveClass('menu__item--danger');
+    expect(screen.getByText('Delete').closest('[role="menuitem"]')).toHaveClass(
+      'menu__item--danger'
+    );
+    expect(
+      screen.getByText('Rename').closest('[role="menuitem"]')
+    ).not.toHaveClass('menu__item--danger');
   });
 });

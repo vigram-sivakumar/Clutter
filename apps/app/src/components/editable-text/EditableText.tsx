@@ -119,7 +119,10 @@ function getCaretRect(element: HTMLElement): DOMRect | null {
  * range at an *element* boundary has no client rects (so it can't be measured), one inside a text
  * node does. Null when the field has no text.
  */
-function getEdgeRange(element: HTMLElement, edge: 'top' | 'bottom'): Range | null {
+function getEdgeRange(
+  element: HTMLElement,
+  edge: 'top' | 'bottom'
+): Range | null {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   let target: Text | null = null;
 
@@ -152,7 +155,10 @@ function getEdgeRange(element: HTMLElement, edge: 'top' | 'bottom'): Range | nul
  * both. A caret that can't be measured is treated as *not* on an edge, so the browser's own
  * movement (never a surprise jump) wins whenever this can't tell.
  */
-function isCaretOnEdgeLine(element: HTMLElement, edge: 'top' | 'bottom'): boolean {
+function isCaretOnEdgeLine(
+  element: HTMLElement,
+  edge: 'top' | 'bottom'
+): boolean {
   if ((element.textContent ?? '') === '') {
     return true;
   }
@@ -169,11 +175,18 @@ function isCaretOnEdgeLine(element: HTMLElement, edge: 'top' | 'bottom'): boolea
     return false;
   }
 
-  return Math.abs(caret.top - edgeRect.top) < Math.max(caret.height, edgeRect.height) / 2;
+  return (
+    Math.abs(caret.top - edgeRect.top) <
+    Math.max(caret.height, edgeRect.height) / 2
+  );
 }
 
 /** Places the caret on `element`'s first/last visual line at the position nearest `clientX`. */
-function placeCaretAtEdge(element: HTMLElement, edge: 'top' | 'bottom', clientX: number) {
+function placeCaretAtEdge(
+  element: HTMLElement,
+  edge: 'top' | 'bottom',
+  clientX: number
+) {
   const selection = window.getSelection();
 
   if (!selection || (element.textContent ?? '') === '') {
@@ -195,7 +208,10 @@ function placeCaretAtEdge(element: HTMLElement, edge: 'top' | 'bottom', clientX:
   // two spellings of the same hit test; neither exists in jsdom, which falls through to the edge.
   const doc = document as Document & {
     caretRangeFromPoint?(x: number, y: number): Range | null;
-    caretPositionFromPoint?(x: number, y: number): { offsetNode: Node; offset: number } | null;
+    caretPositionFromPoint?(
+      x: number,
+      y: number
+    ): { offsetNode: Node; offset: number } | null;
   };
   let hit: Range | null = null;
 
@@ -229,7 +245,10 @@ function placeCaretAtEdge(element: HTMLElement, edge: 'top' | 'bottom', clientX:
 const CARET_ALLOWANCE_PX = 2;
 
 function resetScrollWhenContentFits(element: HTMLDivElement) {
-  if (element.scrollLeft !== 0 && element.scrollWidth - element.clientWidth <= CARET_ALLOWANCE_PX) {
+  if (
+    element.scrollLeft !== 0 &&
+    element.scrollWidth - element.clientWidth <= CARET_ALLOWANCE_PX
+  ) {
     element.scrollLeft = 0;
   }
 }
@@ -373,20 +392,29 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       }
 
       if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        if (!onNavigate || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+        if (
+          !onNavigate ||
+          event.shiftKey ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey
+        ) {
           return;
         }
 
         const direction = event.key === 'ArrowUp' ? 'up' : 'down';
         const element = event.currentTarget;
 
-        if (!isCaretOnEdgeLine(element, direction === 'up' ? 'top' : 'bottom')) {
+        if (
+          !isCaretOnEdgeLine(element, direction === 'up' ? 'top' : 'bottom')
+        ) {
           return;
         }
 
         // The caret's x, read before focus moves; an empty field has no measurable caret, so it
         // offers its own left edge.
-        const x = getCaretRect(element)?.left ?? element.getBoundingClientRect().left;
+        const x =
+          getCaretRect(element)?.left ?? element.getBoundingClientRect().left;
 
         if (onNavigate(direction, x)) {
           event.preventDefault();

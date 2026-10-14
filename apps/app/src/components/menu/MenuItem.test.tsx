@@ -15,14 +15,20 @@ describe('MenuItem label', () => {
   it('wraps a plain-text label in .menu__item-label inside the row content', () => {
     const { getByRole } = render(
       <Menu>
-        <MenuItem trailing={<span>Default</span>}>A very long template name</MenuItem>
+        <MenuItem trailing={<span>Default</span>}>
+          A very long template name
+        </MenuItem>
       </Menu>
     );
 
-    const label = getByRole('menuitem').querySelector('.entry__content > .menu__item-label');
+    const label = getByRole('menuitem').querySelector(
+      '.entry__content > .menu__item-label'
+    );
     expect(label?.textContent).toBe('A very long template name');
     // The trailing metadata is a sibling slot, not part of the label.
-    expect(getByRole('menuitem').querySelector('.entry__meta')?.textContent).toBe('Default');
+    expect(
+      getByRole('menuitem').querySelector('.entry__meta')?.textContent
+    ).toBe('Default');
   });
 
   it('renders custom element content exactly as given — no wrapper', () => {
@@ -43,7 +49,10 @@ describe('MenuItem label', () => {
   });
 
   it('truncation lives in MenuItem.css, scoped to the menu label', () => {
-    const css = readFileSync(join(__dirname, 'MenuItem.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = readFileSync(join(__dirname, 'MenuItem.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      ''
+    );
     const rule = css.match(/\.menu__item-label\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(rule).toMatch(/min-width:\s*0/);
@@ -68,7 +77,10 @@ describe('MenuItem danger variant', () => {
   });
 
   it('colors the row with --danger-foreground in MenuItem.css', () => {
-    const css = readFileSync(join(__dirname, 'MenuItem.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = readFileSync(join(__dirname, 'MenuItem.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      ''
+    );
     const rule = css.match(/\.menu__item--danger\s*\{([^}]*)\}/)?.[1] ?? '';
 
     expect(rule).toMatch(/color:\s*var\(--danger-foreground\)/);

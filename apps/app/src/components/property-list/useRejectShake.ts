@@ -11,7 +11,10 @@ import '@components/editable-text/EditableText.css';
  * SHAKE_DURATION_MS) goes on the element to animate. Not a second
  * feedback mechanism — the identical animation, wired for an Input.
  */
-export function useRejectShake(): { shakeClassName: string | false; shake(): void } {
+export function useRejectShake(): {
+  shakeClassName: string | false;
+  shake(): void;
+} {
   const [isShaking, setIsShaking] = useState(false);
 
   useEffect(() => {

@@ -1,11 +1,17 @@
 import type { ReactNode } from 'react';
 
-import type { CustomPropertyType, PropertyType } from '@core/properties/Property.types';
+import type {
+  CustomPropertyType,
+  PropertyType,
+} from '@core/properties/Property.types';
 import type { iconRegistry } from '@shared/icon/iconRegistry';
 
 import { CheckboxPropertyValue } from './CheckboxPropertyValue';
 import { DatePropertyValue } from './DatePropertyValue';
-import type { PropertyListItem, PropertyListItemOf } from './PropertyList.types';
+import type {
+  PropertyListItem,
+  PropertyListItemOf,
+} from './PropertyList.types';
 import { MultiSelectPropertyValue } from './MultiSelectPropertyValue';
 import { NumberPropertyValue } from './NumberPropertyValue';
 import { TagPropertyValue } from './TagPropertyValue';
@@ -32,7 +38,9 @@ interface PropertyTypeDefinition<Type extends PropertyType> {
  * reads this instead of branching on `type` itself. Editability is not
  * part of a type's definition — it arrives on each item.
  */
-export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinition<Type> } = {
+export const propertyTypeRegistry: {
+  [Type in PropertyType]: PropertyTypeDefinition<Type>;
+} = {
   // Order is the order the property picker lists the custom types in.
   text: {
     icon: 'description',
@@ -44,7 +52,9 @@ export const propertyTypeRegistry: { [Type in PropertyType]: PropertyTypeDefinit
     icon: 'calendar',
     label: 'Date',
     custom: true,
-    renderValue: (item) => <DatePropertyValue {...item} format={formatDatePropertyValue} />,
+    renderValue: (item) => (
+      <DatePropertyValue {...item} format={formatDatePropertyValue} />
+    ),
   },
   url: {
     icon: 'link',
@@ -87,13 +97,21 @@ export interface CustomPropertyTypeOption {
 
 /** The custom types, in registry order — derived from the registry, never a second list. */
 export function customPropertyTypeOptions(): CustomPropertyTypeOption[] {
-  return (Object.keys(propertyTypeRegistry) as PropertyType[]).flatMap((type) => {
-    const definition = propertyTypeRegistry[type];
+  return (Object.keys(propertyTypeRegistry) as PropertyType[]).flatMap(
+    (type) => {
+      const definition = propertyTypeRegistry[type];
 
-    return definition.custom
-      ? [{ type: type as CustomPropertyType, label: definition.label, icon: definition.icon }]
-      : [];
-  });
+      return definition.custom
+        ? [
+            {
+              type: type as CustomPropertyType,
+              label: definition.label,
+              icon: definition.icon,
+            },
+          ]
+        : [];
+    }
+  );
 }
 
 /**
@@ -102,7 +120,9 @@ export function customPropertyTypeOptions(): CustomPropertyTypeOption[] {
  * that `propertyTypeRegistry[item.type]` and `item` share the same `type`.
  */
 export function renderPropertyValue(item: PropertyListItem): ReactNode {
-  const definition = propertyTypeRegistry[item.type] as PropertyTypeDefinition<PropertyType> & {
+  const definition = propertyTypeRegistry[
+    item.type
+  ] as PropertyTypeDefinition<PropertyType> & {
     renderValue(item: PropertyListItem): ReactNode;
   };
 

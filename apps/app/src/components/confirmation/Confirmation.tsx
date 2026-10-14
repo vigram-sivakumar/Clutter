@@ -41,7 +41,8 @@ export function Confirmation({
 }: ConfirmationProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
-  const hasAlternate = onAlternate !== undefined && alternateLabel !== undefined;
+  const hasAlternate =
+    onAlternate !== undefined && alternateLabel !== undefined;
 
   // Runs after Overlay's open effect so Cancel receives focus once the
   // confirmation popover has mounted — without special-casing Confirmation
@@ -80,7 +81,12 @@ export function Confirmation({
             {alternateLabel}
           </Button>
         ) : (
-          <Button ref={cancelRef} variant={'outline'} size={'large'} onClick={onCancel}>
+          <Button
+            ref={cancelRef}
+            variant={'outline'}
+            size={'large'}
+            onClick={onCancel}
+          >
             {cancelLabel}
           </Button>
         )}

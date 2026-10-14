@@ -18,10 +18,17 @@ interface PropertyValueCellProps {
 }
 
 /** The read-only value cell every Property type renders into when it isn't being edited in place. */
-export function PropertyValueCell({ children, truncate = false, actions }: PropertyValueCellProps) {
+export function PropertyValueCell({
+  children,
+  truncate = false,
+  actions,
+}: PropertyValueCellProps) {
   return (
     <Entry
-      className={['property-list__value', truncate && 'property-list__value--truncate']
+      className={[
+        'property-list__value',
+        truncate && 'property-list__value--truncate',
+      ]
         .filter(Boolean)
         .join(' ')}
       actions={actions}

@@ -30,13 +30,25 @@ export function PropertyMenu({
   }
 
   if (actions.onRemove) {
-    items.push({ id: 'remove', label: 'Remove', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
+    items.push({
+      id: 'remove',
+      label: 'Remove',
+      icon: 'trash',
+      variant: 'danger',
+      separatorBefore: items.length > 0,
+    });
   }
 
   if (actions.onDelete) {
     // Destructive, so set apart — the same divider-before-Delete
     // convention every other menu here uses.
-    items.push({ id: 'delete', label: 'Delete', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
+    items.push({
+      id: 'delete',
+      label: 'Delete',
+      icon: 'trash',
+      variant: 'danger',
+      separatorBefore: items.length > 0,
+    });
   }
 
   return (
@@ -47,7 +59,10 @@ export function PropertyMenu({
       side="bottom"
       alignment="start"
       icon="moreHorizontal"
-      buttonProps={{ className: 'property__menu-button', 'aria-label': `${name} actions` }}
+      buttonProps={{
+        className: 'property__menu-button',
+        'aria-label': `${name} actions`,
+      }}
       onSelect={(id) => {
         if (id === 'clear') {
           actions.onClear?.();

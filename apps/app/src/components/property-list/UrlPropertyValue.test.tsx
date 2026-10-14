@@ -7,18 +7,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
 
 import { PropertyList } from './PropertyList';
-import { formatCustomScalar, readCustomProperties } from '@core/vault/ingest/frontmatter/customFrontmatter';
+import {
+  formatCustomScalar,
+  readCustomProperties,
+} from '@core/vault/ingest/frontmatter/customFrontmatter';
 
 import { UrlPropertyValue, parseUrlPropertyInput } from './UrlPropertyValue';
 
 const openExternalUrl = vi.fn<(url: string) => Promise<void>>(async () => {});
 
 vi.mock('@shared/helpers/openExternalUrl', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@shared/helpers/openExternalUrl')>();
+  const actual =
+    await importOriginal<typeof import('@shared/helpers/openExternalUrl')>();
   return { ...actual, openExternalUrl: (url: string) => openExternalUrl(url) };
 });
 
-const copyTextToClipboard = vi.fn<(text: string) => Promise<void>>(async () => {});
+const copyTextToClipboard = vi.fn<(text: string) => Promise<void>>(
+  async () => {}
+);
 
 vi.mock('@shared/helpers/copyTextToClipboard', () => ({
   copyTextToClipboard: (text: string) => copyTextToClipboard(text),
@@ -47,7 +53,9 @@ function isShaking(): boolean {
 
 function StatefulUrl({ initial }: { initial: string | null }) {
   const [value, setValue] = useState(initial);
-  return <UrlPropertyValue name="Site" value={value} editable onCommit={setValue} />;
+  return (
+    <UrlPropertyValue name="Site" value={value} editable onCommit={setValue} />
+  );
 }
 
 describe('parseUrlPropertyInput — one rule for the editor and the write', () => {
@@ -68,7 +76,12 @@ describe('parseUrlPropertyInput — one rule for the editor and the write', () =
   });
 
   it('what it accepts always reads back as a url — never silently becomes text', () => {
-    for (const text of ['https://example.com/a', 'www.example.com', 'example.co.uk/p', 'http://localhost:3000']) {
+    for (const text of [
+      'https://example.com/a',
+      'www.example.com',
+      'example.co.uk/p',
+      'http://localhost:3000',
+    ]) {
       const stored = parseUrlPropertyInput(text)!;
       const written = formatCustomScalar('url', stored);
       const read = readCustomProperties([`site: ${written}`])[0];
@@ -98,7 +111,9 @@ describe('parseUrlPropertyInput — one rule for the editor and the write', () =
 
 describe('UrlPropertyValue — read-only', () => {
   it('renders the URL as a link, with no input', () => {
-    render(<UrlPropertyValue name="Site" value="example.com" editable={false} />);
+    render(
+      <UrlPropertyValue name="Site" value="example.com" editable={false} />
+    );
 
     const link = screen.getByRole('link', { name: 'example.com' });
     expect(link.classList.contains('property-list__link')).toBe(true);
@@ -107,12 +122,20 @@ describe('UrlPropertyValue — read-only', () => {
   });
 
   it('opens the URL through openExternalUrl, not the anchor navigation', () => {
-    render(<UrlPropertyValue name="Site" value="https://example.com/a" editable={false} />);
+    render(
+      <UrlPropertyValue
+        name="Site"
+        value="https://example.com/a"
+        editable={false}
+      />
+    );
 
     const notCancelled = fireEvent.click(screen.getByRole('link'));
 
     expect(notCancelled).toBe(false);
-    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith('https://example.com/a');
+    expect(openExternalUrl).toHaveBeenCalledExactlyOnceWith(
+      'https://example.com/a'
+    );
   });
 
   it('renders in a truncating cell, with the full URL as a tooltip', () => {
@@ -138,7 +161,9 @@ describe('UrlPropertyValue — editable', () => {
     const field = getField();
     expect(field.tagName).toBe('INPUT');
     expect(field.value).toBe('https://example.com');
-    expect(field.parentElement!.classList.contains('property-list__url-input--link')).toBe(true);
+    expect(
+      field.parentElement!.classList.contains('property-list__url-input--link')
+    ).toBe(true);
   });
 
   it('has the full URL as a tooltip at rest, but not while editing', () => {
@@ -159,18 +184,24 @@ describe('UrlPropertyValue — editable', () => {
 
   it('commits a valid URL on Enter, stored as typed', () => {
     const onCommit = vi.fn();
-    render(<UrlPropertyValue name="Site" value={null} editable onCommit={onCommit} />);
+    render(
+      <UrlPropertyValue name="Site" value={null} editable onCommit={onCommit} />
+    );
 
     fireEvent.focus(getField());
     type('example.com/docs');
     fireEvent.keyDown(getField(), { key: 'Enter' });
 
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith('https://example.com/docs');
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(
+      'https://example.com/docs'
+    );
   });
 
   it('commits a valid URL on blur', () => {
     const onCommit = vi.fn();
-    render(<UrlPropertyValue name="Site" value={null} editable onCommit={onCommit} />);
+    render(
+      <UrlPropertyValue name="Site" value={null} editable onCommit={onCommit} />
+    );
 
     fireEvent.focus(getField());
     type('https://example.com');
@@ -182,7 +213,12 @@ describe('UrlPropertyValue — editable', () => {
   it('Enter on an invalid URL shakes, keeps the text and focus, and commits nothing', () => {
     const onCommit = vi.fn();
     render(
-      <UrlPropertyValue name="Site" value="https://example.com" editable onCommit={onCommit} />
+      <UrlPropertyValue
+        name="Site"
+        value="https://example.com"
+        editable
+        onCommit={onCommit}
+      />
     );
 
     act(() => getField().focus());
@@ -215,7 +251,12 @@ describe('UrlPropertyValue — editable', () => {
   it('blur with an invalid URL discards it and restores the last valid value', () => {
     const onCommit = vi.fn();
     render(
-      <UrlPropertyValue name="Site" value="https://example.com" editable onCommit={onCommit} />
+      <UrlPropertyValue
+        name="Site"
+        value="https://example.com"
+        editable
+        onCommit={onCommit}
+      />
     );
 
     act(() => getField().focus());
@@ -248,7 +289,9 @@ describe('UrlPropertyValue — editable', () => {
     fireEvent.focus(getField());
     expect(wrapper.classList.contains('input--background')).toBe(true);
     expect(wrapper.classList.contains('input--border')).toBe(true);
-    expect(wrapper.classList.contains('property-list__url-input--link')).toBe(false);
+    expect(wrapper.classList.contains('property-list__url-input--link')).toBe(
+      false
+    );
 
     fireEvent.blur(getField());
     expect(wrapper.classList.contains('input--background')).toBe(false);
@@ -257,7 +300,9 @@ describe('UrlPropertyValue — editable', () => {
 
 describe('UrlPropertyValue — Open / Copy actions', () => {
   it("puts Open and Copy in a read-only URL's hover-revealed Entry actions slot", () => {
-    render(<UrlPropertyValue name="Site" value="example.com" editable={false} />);
+    render(
+      <UrlPropertyValue name="Site" value="example.com" editable={false} />
+    );
 
     const open = screen.getByRole('button', { name: 'Open link' });
     expect(open.closest('.entry__actions')).not.toBeNull();
@@ -300,7 +345,9 @@ describe('UrlPropertyValue — Open / Copy actions', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
     });
 
-    expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith('example.com/docs');
+    expect(copyTextToClipboard).toHaveBeenCalledExactlyOnceWith(
+      'example.com/docs'
+    );
     const copiedButton = screen.getByRole('button', { name: 'Copied' });
     // The plain `tick` icon (its single stroke path), not the boxed `check`.
     const paths = copiedButton.querySelectorAll('svg path');
@@ -311,7 +358,11 @@ describe('UrlPropertyValue — Open / Copy actions', () => {
 describe('PropertyList url Property', () => {
   it('renders a read-only url Property as a link', () => {
     render(
-      <PropertyList items={[{ name: 'Site', type: 'url', value: 'example.com', editable: false }]} />
+      <PropertyList
+        items={[
+          { name: 'Site', type: 'url', value: 'example.com', editable: false },
+        ]}
+      />
     );
 
     expect(screen.getByRole('link', { name: 'example.com' })).toBeTruthy();
@@ -321,7 +372,13 @@ describe('PropertyList url Property', () => {
     render(
       <PropertyList
         items={[
-          { name: 'Site', type: 'url', value: 'example.com', editable: true, onCommit: () => {} },
+          {
+            name: 'Site',
+            type: 'url',
+            value: 'example.com',
+            editable: true,
+            onCommit: () => {},
+          },
         ]}
       />
     );

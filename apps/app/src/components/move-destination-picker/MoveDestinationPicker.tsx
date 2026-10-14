@@ -64,12 +64,15 @@ function flattenDestinations(items: PickerListItem[]): PickerListItem[] {
     parentId: null,
     section: 'Folders',
   });
-  const isRoot = (item: PickerListItem) => item.isRoot || item.id === ROOT_DESTINATION_ID;
+  const isRoot = (item: PickerListItem) =>
+    item.isRoot || item.id === ROOT_DESTINATION_ID;
   const root = items.filter(isRoot).map(flat);
   const folders = items
     .filter((item) => !isRoot(item))
     .map(flat)
-    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    .sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+    );
   return [...root, ...folders];
 }
 
@@ -86,7 +89,13 @@ export function MoveDestinationPicker({
   const destinations = useMemo(() => flattenDestinations(items), [items]);
 
   return (
-    <Popover anchorRef={anchorRef} open={open} onClose={onClose} side={side} alignment={alignment}>
+    <Popover
+      anchorRef={anchorRef}
+      open={open}
+      onClose={onClose}
+      side={side}
+      alignment={alignment}
+    >
       <PickerCard
         title="Move to"
         onClose={onClose}

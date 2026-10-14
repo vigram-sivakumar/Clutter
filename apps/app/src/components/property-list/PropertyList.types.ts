@@ -19,8 +19,7 @@ export interface MultiSelectSuggestion {
 }
 
 export type PropertyEditability<Value> =
-  | { editable: false }
-  | { editable: true; onCommit(value: Value): void };
+  { editable: false } | { editable: true; onCommit(value: Value): void };
 
 /**
  * A Property's name editability, orthogonal to its type and value, and
@@ -68,10 +67,16 @@ export type PropertyActions = {
   onRemove?(): void;
 };
 
-export type PropertyListItem = PropertyNameEditability & PropertyActions & PropertyListItemByType;
+export type PropertyListItem = PropertyNameEditability &
+  PropertyActions &
+  PropertyListItemByType;
 
 type PropertyListItemByType =
-  | ({ name: string; type: 'text'; value: string } & PropertyEditability<string>)
+  | ({
+      name: string;
+      type: 'text';
+      value: string;
+    } & PropertyEditability<string>)
   | ({
       name: string;
       type: 'date';
@@ -123,7 +128,11 @@ type PropertyListItemByType =
       getSuggestions?(query: string): readonly MultiSelectSuggestion[];
     } & RemovableValues &
       PropertyEditability<string[]>)
-  | ({ name: string; type: 'boolean'; value: boolean } & PropertyEditability<boolean>);
+  | ({
+      name: string;
+      type: 'boolean';
+      value: boolean;
+    } & PropertyEditability<boolean>);
 
 export type PropertyListItemOf<Type extends PropertyListItem['type']> = Extract<
   PropertyListItem,

@@ -23,7 +23,10 @@ function mergeRefs<T>(
   };
 }
 
-export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(
+export const Input = forwardRef<
+  HTMLInputElement | HTMLTextAreaElement,
+  InputProps
+>(
   (
     {
       leading,
@@ -93,7 +96,10 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 
         {multiline ? (
           <textarea
-            ref={mergeRefs(ref as ForwardedRef<HTMLTextAreaElement>, autoGrowRef)}
+            ref={mergeRefs(
+              ref as ForwardedRef<HTMLTextAreaElement>,
+              autoGrowRef
+            )}
             className="input__field"
             rows={3}
             // InputHTMLAttributes and TextareaHTMLAttributes share every
@@ -105,7 +111,11 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
             {...(inputProps as unknown as TextareaHTMLAttributes<HTMLTextAreaElement>)}
           />
         ) : (
-          <input ref={ref as Ref<HTMLInputElement>} className="input__field" {...inputProps} />
+          <input
+            ref={ref as Ref<HTMLInputElement>}
+            className="input__field"
+            {...inputProps}
+          />
         )}
 
         {trailing && <div className="input__trailing">{trailing}</div>}

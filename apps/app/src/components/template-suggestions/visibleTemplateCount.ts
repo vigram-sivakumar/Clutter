@@ -15,9 +15,14 @@ export function computeVisibleTemplateCount(
   const total = entryWidths.length;
   const rowWidth = (count: number, withOverflow: boolean): number => {
     const parts = entryWidths.slice(0, count);
-    const widths = withOverflow ? [...parts, overflowWidth(total - count)] : parts;
+    const widths = withOverflow
+      ? [...parts, overflowWidth(total - count)]
+      : parts;
 
-    return widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(widths.length - 1, 0);
+    return (
+      widths.reduce((sum, width) => sum + width, 0) +
+      gap * Math.max(widths.length - 1, 0)
+    );
   };
 
   if (rowWidth(total, false) <= available) {

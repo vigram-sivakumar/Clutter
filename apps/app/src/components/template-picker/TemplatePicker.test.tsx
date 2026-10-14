@@ -5,15 +5,34 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
-import { NEW_TEMPLATE_ID, TemplatePicker, templateItems } from './TemplatePicker';
+import {
+  NEW_TEMPLATE_ID,
+  TemplatePicker,
+  templateItems,
+} from './TemplatePicker';
 
 const template = (id: string, name: string, emoji: string | null = null) =>
-  ({ id, type: 'note', icon: 'template', emoji, selected: false, onClick: vi.fn(), values: { name } }) as CollectionEntryModel;
+  ({
+    id,
+    type: 'note',
+    icon: 'template',
+    emoji,
+    selected: false,
+    onClick: vi.fn(),
+    values: { name },
+  }) as CollectionEntryModel;
 
 const templates = [template('a', 'Meeting', '📅'), template('b', 'Journal')];
 
 beforeEach(() => {
-  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
 });
 
 afterEach(() => {
@@ -31,7 +50,9 @@ function setup(open = true) {
   };
   render(
     <TemplatePicker
-      anchorRef={{ current: anchor } as ReturnType<typeof createRef<HTMLElement>>}
+      anchorRef={
+        { current: anchor } as ReturnType<typeof createRef<HTMLElement>>
+      }
       open={open}
       templates={templates}
       {...props}
@@ -46,7 +67,12 @@ describe('templateItems', () => {
     const items = templateItems(templates, 'b');
 
     expect(items.map((item) => item.id)).toEqual([NEW_TEMPLATE_ID, 'a', 'b']);
-    expect(items[1]).toMatchObject({ title: 'Meeting', emoji: '📅', level: 0, parentId: null });
+    expect(items[1]).toMatchObject({
+      title: 'Meeting',
+      emoji: '📅',
+      level: 0,
+      parentId: null,
+    });
     expect(items[2]).toMatchObject({ pill: 'Default' });
     expect(items[1]).not.toHaveProperty('pill');
   });

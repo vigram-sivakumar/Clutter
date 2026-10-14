@@ -16,7 +16,12 @@ export interface ShowMoreEntryProps {
  * horizontal three-dots icon. A plain Entry — normal row size, tertiary foreground — shared by every sidebar list that caps
  * its rows (Tasks groups, Notes folders).
  */
-export function ShowMoreEntry({ hiddenCount, isExpanded, onToggle, level }: ShowMoreEntryProps) {
+export function ShowMoreEntry({
+  hiddenCount,
+  isExpanded,
+  onToggle,
+  level,
+}: ShowMoreEntryProps) {
   return (
     <Entry
       className="show-more-entry"

@@ -33,7 +33,13 @@ export function ChangeIconPicker({
   alignment,
 }: ChangeIconPickerProps) {
   return (
-    <Popover anchorRef={anchorRef} open={open} onClose={onClose} side={side} alignment={alignment}>
+    <Popover
+      anchorRef={anchorRef}
+      open={open}
+      onClose={onClose}
+      side={side}
+      alignment={alignment}
+    >
       <EmojiTray hasIcon={hasIcon} onSelect={onSelect} onRemove={onRemove} />
     </Popover>
   );

@@ -43,10 +43,20 @@ export function PickerCard({
   const sectioned = items.some((item) => item.section !== undefined);
 
   return (
-    <div className={['picker-card', sectioned && 'picker-card--sectioned'].filter(Boolean).join(' ')}>
+    <div
+      className={['picker-card', sectioned && 'picker-card--sectioned']
+        .filter(Boolean)
+        .join(' ')}
+    >
       <span className="picker-card__header">
         {title}
-        <Button isIconOnly size="small" interaction="subtle" aria-label="Dismiss" onClick={onClose}>
+        <Button
+          isIconOnly
+          size="small"
+          interaction="subtle"
+          aria-label="Dismiss"
+          onClick={onClose}
+        >
           <AppIcon icon="dismiss" />
         </Button>
       </span>

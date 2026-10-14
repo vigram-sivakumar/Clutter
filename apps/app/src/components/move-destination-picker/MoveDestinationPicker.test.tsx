@@ -2,7 +2,15 @@
 
 import { useRef } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { MoveDestinationPicker } from './MoveDestinationPicker';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
@@ -35,7 +43,13 @@ function Harness({ onSelect }: { onSelect: (id: string | null) => void }) {
   return (
     <>
       <button ref={anchorRef}>anchor</button>
-      <MoveDestinationPicker anchorRef={anchorRef} open items={items} onSelect={onSelect} onClose={() => {}} />
+      <MoveDestinationPicker
+        anchorRef={anchorRef}
+        open
+        items={items}
+        onSelect={onSelect}
+        onClose={() => {}}
+      />
     </>
   );
 }
@@ -49,8 +63,12 @@ describe('MoveDestinationPicker', () => {
     expect(screen.queryByText('Vault root')).toBeNull();
     expect(screen.queryByText('Move to vault root')).toBeNull();
     expect(screen.queryByText('Root')).toBeNull();
-    expect(document.querySelector('.move-destination-picker__divider')).toBeNull();
-    expect(document.querySelector('.move-destination-picker__root-action')).toBeNull();
+    expect(
+      document.querySelector('.move-destination-picker__divider')
+    ).toBeNull();
+    expect(
+      document.querySelector('.move-destination-picker__root-action')
+    ).toBeNull();
   });
 
   it('lists nested folders flat — no tree, no carets — each with its parent path under the name', () => {
@@ -68,17 +86,25 @@ describe('MoveDestinationPicker', () => {
 
     expect(screen.getByText('Design')).toBeDefined();
     expect(screen.getAllByText('Project')).toHaveLength(2); // its own row, and Design's path
-    expect(document.querySelector('.picker-list__path')?.textContent).toBe('Project');
+    expect(document.querySelector('.picker-list__path')?.textContent).toBe(
+      'Project'
+    );
     expect(document.querySelectorAll('.picker-list__item')).toHaveLength(3);
-    expect(document.querySelector('.folder-leading__caret, [aria-expanded]')).toBeNull();
+    expect(
+      document.querySelector('.folder-leading__caret, [aria-expanded]')
+    ).toBeNull();
   });
 
   it('is titled Move to, lists folders alphabetically, and has no section title, divider or Show more', () => {
     render(<Harness onSelect={vi.fn()} />);
 
-    expect(document.querySelector('.picker-card__header')?.textContent).toBe('Move to');
+    expect(document.querySelector('.picker-card__header')?.textContent).toBe(
+      'Move to'
+    );
     expect(
-      Array.from(document.querySelectorAll('.picker-list__title')).map((el) => el.textContent)
+      Array.from(document.querySelectorAll('.picker-list__title')).map(
+        (el) => el.textContent
+      )
     ).toEqual(['Finance', 'Project']);
     expect(document.querySelector('.menu__group-title')).toBeNull();
     expect(document.querySelector('[role="separator"]')).toBeNull();
@@ -113,12 +139,22 @@ describe('MoveDestinationPicker', () => {
   it('keeps the vault root first and reports it as null', () => {
     const onSelect = vi.fn();
     const withRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', level: 0, parentId: null },
+      {
+        id: '__vault-root__',
+        title: 'Clutter',
+        secondaryLabel: 'Home',
+        level: 0,
+        parentId: null,
+      },
       ...items,
     ];
-    render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
+    render(
+      <MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />
+    );
 
-    expect(document.querySelector('.picker-list__item')?.textContent).toContain('Clutter');
+    expect(document.querySelector('.picker-list__item')?.textContent).toContain(
+      'Clutter'
+    );
     fireEvent.click(screen.getByText('Clutter'));
 
     expect(onSelect).toHaveBeenCalledWith(null);
@@ -127,10 +163,19 @@ describe('MoveDestinationPicker', () => {
   it('a root item the caller supplies (a folder move) is searchable, keyboard-reachable, and reports null', () => {
     const onSelect = vi.fn();
     const withRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'Clutter', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      {
+        id: '__vault-root__',
+        title: 'Clutter',
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      },
       ...items,
     ];
-    render(<MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />);
+    render(
+      <MoveDestinationPickerHarness items={withRoot} onSelect={onSelect} />
+    );
 
     const search = screen.getByPlaceholderText('Search folders');
     fireEvent.change(search, { target: { value: 'Clutter' } });
@@ -162,7 +207,13 @@ describe('MoveDestinationPicker', () => {
       return (
         <>
           <button ref={anchorRef}>anchor</button>
-          <MoveDestinationPicker anchorRef={anchorRef} open items={items} onSelect={vi.fn()} onClose={onClose} />
+          <MoveDestinationPicker
+            anchorRef={anchorRef}
+            open
+            items={items}
+            onSelect={vi.fn()}
+            onClose={onClose}
+          />
         </>
       );
     }
@@ -185,17 +236,25 @@ describe('MoveDestinationPicker', () => {
   it('focuses the search input as soon as it opens', () => {
     render(<Harness onSelect={vi.fn()} />);
 
-    expect(document.activeElement).toBe(screen.getByPlaceholderText('Search folders'));
+    expect(document.activeElement).toBe(
+      screen.getByPlaceholderText('Search folders')
+    );
   });
 
-  it('Escape closes the picker (Overlay\'s existing useEscape, not a second implementation)', () => {
+  it("Escape closes the picker (Overlay's existing useEscape, not a second implementation)", () => {
     const onClose = vi.fn();
     function EscapeHarness() {
       const anchorRef = useRef<HTMLButtonElement>(null);
       return (
         <>
           <button ref={anchorRef}>anchor</button>
-          <MoveDestinationPicker anchorRef={anchorRef} open items={items} onSelect={vi.fn()} onClose={onClose} />
+          <MoveDestinationPicker
+            anchorRef={anchorRef}
+            open
+            items={items}
+            onSelect={vi.fn()}
+            onClose={onClose}
+          />
         </>
       );
     }
@@ -236,7 +295,9 @@ describe('MoveDestinationPicker', () => {
         expect(name).toBe('Marketing');
         return 'folder-new';
       });
-      render(<CreateHarness onSelect={onSelect} onCreateFolder={onCreateFolder} />);
+      render(
+        <CreateHarness onSelect={onSelect} onCreateFolder={onCreateFolder} />
+      );
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Marketing' },
@@ -261,7 +322,9 @@ describe('MoveDestinationPicker', () => {
       expect(screen.queryByText('Create "Marketing"')).toBeNull();
       expect(screen.queryByText('Vault root')).toBeNull();
       expect(screen.queryByText('Move to vault root')).toBeNull();
-      expect(document.querySelector('.move-destination-picker__root-action')).toBeNull();
+      expect(
+        document.querySelector('.move-destination-picker__root-action')
+      ).toBeNull();
     });
   });
 });
@@ -277,7 +340,13 @@ function MoveDestinationPickerHarness({
   return (
     <>
       <button ref={anchorRef}>anchor</button>
-      <MoveDestinationPicker anchorRef={anchorRef} open items={items} onSelect={onSelect} onClose={() => {}} />
+      <MoveDestinationPicker
+        anchorRef={anchorRef}
+        open
+        items={items}
+        onSelect={onSelect}
+        onClose={() => {}}
+      />
     </>
   );
 }
@@ -285,25 +354,45 @@ function MoveDestinationPickerHarness({
 // ADR-049: one picker renders whichever root the resource needs — nothing resource-specific here.
 describe('MoveDestinationPicker — roots', () => {
   const templateItems: PickerListItem[] = [
-    { id: 'zeta-sub', title: 'Alpha', level: 1, parentId: 'templates-root', ancestors: [{ id: 'templates-root', title: 'Templates' }] },
-    { id: 'templates-root', title: 'Templates', isRoot: true, level: 0, parentId: null },
+    {
+      id: 'zeta-sub',
+      title: 'Alpha',
+      level: 1,
+      parentId: 'templates-root',
+      ancestors: [{ id: 'templates-root', title: 'Templates' }],
+    },
+    {
+      id: 'templates-root',
+      title: 'Templates',
+      isRoot: true,
+      level: 0,
+      parentId: null,
+    },
   ];
 
   it('pins a Templates/Assets root first (like the vault root), then the rest alphabetically', () => {
-    const { container } = render(<MoveDestinationPickerHarness items={templateItems} onSelect={vi.fn()} />);
+    const { container } = render(
+      <MoveDestinationPickerHarness items={templateItems} onSelect={vi.fn()} />
+    );
 
-    const rows = Array.from(container.ownerDocument.querySelectorAll('.picker-list [role="option"], .picker-list .entry'));
+    const rows = Array.from(
+      container.ownerDocument.querySelectorAll(
+        '.picker-list [role="option"], .picker-list .entry'
+      )
+    );
     const titles = rows.map((row) => row.textContent ?? '');
 
     // "Templates" (the root) precedes "Alpha" although "Alpha" sorts first alphabetically.
-    expect(titles.findIndex((text) => text.startsWith('Templates'))).toBeLessThan(
-      titles.findIndex((text) => text.startsWith('Alpha'))
-    );
+    expect(
+      titles.findIndex((text) => text.startsWith('Templates'))
+    ).toBeLessThan(titles.findIndex((text) => text.startsWith('Alpha')));
   });
 
   it('selecting a Templates/Assets root selects that folder id — not null (only the vault root maps to null)', () => {
     const onSelect = vi.fn();
-    render(<MoveDestinationPickerHarness items={templateItems} onSelect={onSelect} />);
+    render(
+      <MoveDestinationPickerHarness items={templateItems} onSelect={onSelect} />
+    );
 
     fireEvent.click(screen.getAllByText('Templates')[0]!);
 
@@ -313,10 +402,19 @@ describe('MoveDestinationPicker — roots', () => {
   it('selecting the vault root still maps to null', () => {
     const onSelect = vi.fn();
     const withVaultRoot: PickerListItem[] = [
-      { id: '__vault-root__', title: 'vault', secondaryLabel: 'Home', isRoot: true, level: 0, parentId: null },
+      {
+        id: '__vault-root__',
+        title: 'vault',
+        secondaryLabel: 'Home',
+        isRoot: true,
+        level: 0,
+        parentId: null,
+      },
       { id: 'folder-1', title: 'Project', level: 0, parentId: null },
     ];
-    render(<MoveDestinationPickerHarness items={withVaultRoot} onSelect={onSelect} />);
+    render(
+      <MoveDestinationPickerHarness items={withVaultRoot} onSelect={onSelect} />
+    );
 
     fireEvent.click(screen.getByText('vault'));
 

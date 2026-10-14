@@ -112,10 +112,14 @@ export function PillListEditor({
 
   return (
     <div
-      className={['property-list__value pill-list-editor', className].filter(Boolean).join(' ')}
+      className={['property-list__value pill-list-editor', className]
+        .filter(Boolean)
+        .join(' ')}
       onClick={() => inputRef.current?.focus()}
       onMouseDownCapture={(event) => {
-        pressedWhileEditingRef.current = event.currentTarget.contains(document.activeElement);
+        pressedWhileEditingRef.current = event.currentTarget.contains(
+          document.activeElement
+        );
       }}
       // Enter/Space on a focused pill: it has focus, so the field is being edited.
       onKeyDownCapture={() => {

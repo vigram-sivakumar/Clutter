@@ -13,20 +13,38 @@ const box = () => screen.getByRole('checkbox') as HTMLButtonElement;
 
 function Stateful({ initial }: { initial: boolean }) {
   const [value, setValue] = useState(initial);
-  return <CheckboxPropertyValue name="Done" value={value} editable onCommit={setValue} />;
+  return (
+    <CheckboxPropertyValue
+      name="Done"
+      value={value}
+      editable
+      onCommit={setValue}
+    />
+  );
 }
 
 describe('CheckboxPropertyValue', () => {
   it('shows checked and unchecked state', () => {
-    const { rerender } = render(<CheckboxPropertyValue name="Done" value editable={false} />);
+    const { rerender } = render(
+      <CheckboxPropertyValue name="Done" value editable={false} />
+    );
     expect(box().getAttribute('aria-checked')).toBe('true');
-    rerender(<CheckboxPropertyValue name="Done" value={false} editable={false} />);
+    rerender(
+      <CheckboxPropertyValue name="Done" value={false} editable={false} />
+    );
     expect(box().getAttribute('aria-checked')).toBe('false');
   });
 
   it('editable: a click toggles and commits immediately', () => {
     const onCommit = vi.fn();
-    render(<CheckboxPropertyValue name="Done" value={false} editable onCommit={onCommit} />);
+    render(
+      <CheckboxPropertyValue
+        name="Done"
+        value={false}
+        editable
+        onCommit={onCommit}
+      />
+    );
     fireEvent.click(box());
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(true);
   });
@@ -47,7 +65,13 @@ describe('CheckboxPropertyValue', () => {
   });
 
   it('renders through PropertyList for the boolean type', () => {
-    render(<PropertyList items={[{ name: 'Done', type: 'boolean', value: true, editable: false }]} />);
+    render(
+      <PropertyList
+        items={[
+          { name: 'Done', type: 'boolean', value: true, editable: false },
+        ]}
+      />
+    );
     expect(box().getAttribute('aria-checked')).toBe('true');
   });
 });

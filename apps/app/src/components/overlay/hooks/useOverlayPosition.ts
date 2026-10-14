@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { RefObject } from 'react';
 
-import type { OverlayAlignment, OverlayLayout, OverlaySide } from '../Overlay.types';
+import type {
+  OverlayAlignment,
+  OverlayLayout,
+  OverlaySide,
+} from '../Overlay.types';
 
 interface UseOverlayPositionOptions {
   open: boolean;
@@ -118,7 +122,11 @@ export function useOverlayPosition({
       : isStartAligned
         ? anchorRect.top
         : anchorRect.bottom - overlayRect.height;
-    const alignmentKeyword = isCenterAligned ? 'center' : isStartAligned ? 'start' : 'end';
+    const alignmentKeyword = isCenterAligned
+      ? 'center'
+      : isStartAligned
+        ? 'start'
+        : 'end';
 
     let top = 0;
     let left = 0;

@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 
 import { MenuItem } from '@components/menu/MenuItem';
-import { formatTagDisplayLabel, normalizeTagName, serializeTagName } from '@core/vault/models/Tag';
+import {
+  formatTagDisplayLabel,
+  normalizeTagName,
+  serializeTagName,
+} from '@core/vault/models/Tag';
 import { isValidTagName } from '@core/vault/ingest/tag/tagScanner';
 import type { GetTagSuggestions } from '@features/markdown/editor/codemirror/tag/tagSuggestion';
 
@@ -63,7 +67,9 @@ export function TagPropertyValue(props: TagPropertyValueProps) {
               key={tag}
               tag={tag}
               onOpen={props.onOpenTag}
-              onRemove={props.onRemoveValue && (() => props.onRemoveValue!(index, tag))}
+              onRemove={
+                props.onRemoveValue && (() => props.onRemoveValue!(index, tag))
+              }
             />
           ))}
         </span>
@@ -99,7 +105,13 @@ interface TagPillProps {
  * `#` prefix, `formatTagDisplayLabel` for the label), on the shared Pill.
  * With `onOpen`, the pill is a button opening the tag's Tag Collection.
  */
-function TagPill({ tag, onOpen, onActivate, activateLabel, onRemove }: TagPillProps) {
+function TagPill({
+  tag,
+  onOpen,
+  onActivate,
+  activateLabel,
+  onRemove,
+}: TagPillProps) {
   const content = (
     <>
       <span className="pill__prefix">#</span>
@@ -109,7 +121,12 @@ function TagPill({ tag, onOpen, onActivate, activateLabel, onRemove }: TagPillPr
 
   if (onActivate) {
     return (
-      <Pill onEdit={onActivate} label={activateLabel} onRemove={onRemove} removeLabel={`Remove tag ${tag}`}>
+      <Pill
+        onEdit={onActivate}
+        label={activateLabel}
+        onRemove={onRemove}
+        removeLabel={`Remove tag ${tag}`}
+      >
         {content}
       </Pill>
     );
@@ -237,14 +254,19 @@ function TagPropertyEditor({
       return;
     }
 
-    if (isSuggesting && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    if (
+      isSuggesting &&
+      ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)
+    ) {
       keyboard.handleKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
       return;
     }
 
     if (event.key === 'Enter' && isSuggesting && keyboard.activeId) {
       event.preventDefault();
-      const active = suggestions.find((tag) => suggestionId(idScope, tag) === keyboard.activeId);
+      const active = suggestions.find(
+        (tag) => suggestionId(idScope, tag) === keyboard.activeId
+      );
       if (active) {
         addTag(active);
         return;
@@ -298,7 +320,11 @@ function TagPropertyEditor({
             }
             onCommit={(next) => {
               setEditingIndex(null);
-              onCommit(value.map((existing, existingIndex) => (existingIndex === index ? next : existing)));
+              onCommit(
+                value.map((existing, existingIndex) =>
+                  existingIndex === index ? next : existing
+                )
+              );
             }}
             onCancel={() => setEditingIndex(null)}
           />
@@ -309,9 +335,15 @@ function TagPropertyEditor({
             // While the field is being edited a click edits the tag, as an alias does; otherwise it
             // opens the tag's collection (and, with no way to open one, edits).
             onActivate={() =>
-              editor.shouldEditPill() || !onOpenTag ? setEditingIndex(index) : onOpenTag(tag)
+              editor.shouldEditPill() || !onOpenTag
+                ? setEditingIndex(index)
+                : onOpenTag(tag)
             }
-            activateLabel={editor.isEditing || !onOpenTag ? `Edit tag ${tag}` : `Open tag ${tag}`}
+            activateLabel={
+              editor.isEditing || !onOpenTag
+                ? `Edit tag ${tag}`
+                : `Open tag ${tag}`
+            }
             onRemove={() => removeTag(tag)}
           />
         )

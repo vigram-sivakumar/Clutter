@@ -18,9 +18,20 @@ export interface EmptyEntryProps {
  * selection of its own, so it sits among sibling rows at their height and indent. Generic — it
  * knows nothing about what the list holds, and the caller decides where (and whether) to draw it.
  */
-export function EmptyEntry({ children, level, leading, onClick }: EmptyEntryProps) {
+export function EmptyEntry({
+  children,
+  level,
+  leading,
+  onClick,
+}: EmptyEntryProps) {
   return (
-    <Entry className="empty-entry" level={level} leading={leading} onClick={onClick} role={onClick ? undefined : 'status'}>
+    <Entry
+      className="empty-entry"
+      level={level}
+      leading={leading}
+      onClick={onClick}
+      role={onClick ? undefined : 'status'}
+    >
       {children}
     </Entry>
   );

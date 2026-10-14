@@ -19,11 +19,17 @@ describe('EmptyEntry', () => {
   it('takes the indent of the rows it stands in for', () => {
     const { container } = render(<EmptyEntry level={2}>No folders</EmptyEntry>);
 
-    expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--tree-level')).toBe('2');
+    expect(
+      (container.firstElementChild as HTMLElement).style.getPropertyValue(
+        '--tree-level'
+      )
+    ).toBe('2');
   });
 
   it('renders a leading slot', () => {
-    render(<EmptyEntry leading={<span data-testid="lead" />}>No folders</EmptyEntry>);
+    render(
+      <EmptyEntry leading={<span data-testid="lead" />}>No folders</EmptyEntry>
+    );
 
     expect(screen.getByTestId('lead')).toBeInTheDocument();
   });

@@ -3,7 +3,10 @@ import type { KeyboardEvent } from 'react';
 
 import { MenuItem } from '@components/menu/MenuItem';
 
-import type { MultiSelectSuggestion, PropertyEditability } from './PropertyList.types';
+import type {
+  MultiSelectSuggestion,
+  PropertyEditability,
+} from './PropertyList.types';
 import { Pill } from './Pill';
 import { PillListEditor, usePillListEditor } from './PillListEditor';
 import { PillValueEditor } from './PillValueEditor';
@@ -42,7 +45,10 @@ export function MultiSelectPropertyValue(props: MultiSelectPropertyValueProps) {
             <ValuePill
               key={`${index}-${entry}`}
               value={entry}
-              onRemove={props.onRemoveValue && (() => props.onRemoveValue!(index, entry))}
+              onRemove={
+                props.onRemoveValue &&
+                (() => props.onRemoveValue!(index, entry))
+              }
             />
           ))}
         </span>
@@ -136,7 +142,9 @@ function MultiSelectPropertyEditor({
     () =>
       draft.trim() === '' || !getSuggestions
         ? []
-        : getSuggestions(draft.trim()).filter((suggestion) => !hasValue(value, suggestion.value)),
+        : getSuggestions(draft.trim()).filter(
+            (suggestion) => !hasValue(value, suggestion.value)
+          ),
     [getSuggestions, draft, value]
   );
   const isSuggesting = isFocused && !isDismissed && suggestions.length > 0;
@@ -156,7 +164,11 @@ function MultiSelectPropertyEditor({
 
   /** Replaces the value at `index` in place, keeping its position. */
   function replaceValue(index: number, entry: string) {
-    onCommit(value.map((existing, existingIndex) => (existingIndex === index ? entry : existing)));
+    onCommit(
+      value.map((existing, existingIndex) =>
+        existingIndex === index ? entry : existing
+      )
+    );
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -164,7 +176,10 @@ function MultiSelectPropertyEditor({
       return;
     }
 
-    if (isSuggesting && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+    if (
+      isSuggesting &&
+      ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)
+    ) {
       keyboard.handleKeyDown(event as unknown as KeyboardEvent<HTMLDivElement>);
       return;
     }
@@ -172,7 +187,9 @@ function MultiSelectPropertyEditor({
     if (event.key === 'Enter') {
       event.preventDefault();
       const active = isSuggesting
-        ? suggestions.find((_, index) => suggestionId(idScope, index) === keyboard.activeId)
+        ? suggestions.find(
+            (_, index) => suggestionId(idScope, index) === keyboard.activeId
+          )
         : undefined;
       addValue(active ? active.value : draft);
       return;
@@ -232,7 +249,9 @@ function MultiSelectPropertyEditor({
             <span className="property-list__suggestion">
               {suggestion.label}
               {suggestion.detail && (
-                <span className="property-list__suggestion-detail">{suggestion.detail}</span>
+                <span className="property-list__suggestion-detail">
+                  {suggestion.detail}
+                </span>
               )}
             </span>
           </MenuItem>

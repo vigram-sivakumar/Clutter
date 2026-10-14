@@ -7,12 +7,14 @@ import { describe, expect, it } from 'vitest';
  * their value cell are asserted against the source (the same approach as Reference.test.tsx). Their
  * behavior was verified at several widths in a browser.
  */
-const read = (file: string) => readFileSync(join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const read = (file: string) =>
+  readFileSync(join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The declarations of the first rule whose selector list contains `selector` exactly. */
 function declarations(css: string, selector: string): string {
-  const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, selectors]) =>
-    selectors!.split(',').some((candidate) => candidate.trim() === selector)
+  const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(
+    ([, selectors]) =>
+      selectors!.split(',').some((candidate) => candidate.trim() === selector)
   );
 
   expect(rule, `no rule for ${selector}`).toBeDefined();
@@ -24,7 +26,9 @@ describe('property name column', () => {
 
   it('is one fixed-size column for every row — it does not flex', () => {
     expect(name).toMatch(/flex:\s*none/);
-    expect(name).toMatch(/width:\s*min\(200px,\s*calc\(50% - var\(--space-12\) \/ 2\)\)/);
+    expect(name).toMatch(
+      /width:\s*min\(200px,\s*calc\(50% - var\(--space-12\) \/ 2\)\)/
+    );
   });
 });
 
@@ -49,7 +53,9 @@ describe('pills', () => {
   });
 
   it('keep the # and the name on one line', () => {
-    expect(declarations(pillCss, '.pill__prefix')).toMatch(/white-space:\s*nowrap/);
+    expect(declarations(pillCss, '.pill__prefix')).toMatch(
+      /white-space:\s*nowrap/
+    );
   });
 
   it('a read-only list is capped at its cell, so a long pill wraps instead of widening it', () => {

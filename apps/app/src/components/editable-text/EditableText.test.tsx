@@ -177,7 +177,9 @@ describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
   it('onFlush does NOT fire on a blur that follows Escape — an escaped session must not force-persist', () => {
     const onCommit = vi.fn();
     const onFlush = vi.fn();
-    render(<EditableText value="Original" onCommit={onCommit} onFlush={onFlush} />);
+    render(
+      <EditableText value="Original" onCommit={onCommit} onFlush={onFlush} />
+    );
 
     const editable = getEditable();
     editable.focus();
@@ -191,7 +193,14 @@ describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
   it('onCancel fires specifically on Escape, in place of onFlush', () => {
     const onFlush = vi.fn();
     const onCancel = vi.fn();
-    render(<EditableText value="Original" onCommit={vi.fn()} onFlush={onFlush} onCancel={onCancel} />);
+    render(
+      <EditableText
+        value="Original"
+        onCommit={vi.fn()}
+        onFlush={onFlush}
+        onCancel={onCancel}
+      />
+    );
 
     const editable = getEditable();
     editable.focus();
@@ -264,7 +273,9 @@ describe('EditableText onSubmit', () => {
 
   it('fires on Enter even when the text is unchanged', () => {
     const onSubmit = vi.fn();
-    render(<EditableText value="Same" onCommit={vi.fn()} onSubmit={onSubmit} />);
+    render(
+      <EditableText value="Same" onCommit={vi.fn()} onSubmit={onSubmit} />
+    );
 
     const editable = getEditable();
     editable.focus();
@@ -367,7 +378,9 @@ describe('EditableText invalid commit (onCommit returning false)', () => {
     // automatically; a manually-invoked act() (needed here to flush the
     // fake-timer-driven state update) doesn't otherwise pick it up in
     // this environment, producing a spurious (harmless) act() warning.
-    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    (
+      globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
     const onCommit = vi.fn(() => false);
     render(<EditableText value="Original" onCommit={onCommit} />);
@@ -389,7 +402,13 @@ describe('EditableText invalid commit (onCommit returning false)', () => {
   it('a valid submit still commits normally once the value is fixed', () => {
     const onCommit = vi.fn((value: string) => value !== 'bad value');
     const onEditingEnd = vi.fn();
-    render(<EditableText value="Original" onCommit={onCommit} onEditingEnd={onEditingEnd} />);
+    render(
+      <EditableText
+        value="Original"
+        onCommit={onCommit}
+        onEditingEnd={onEditingEnd}
+      />
+    );
 
     const editable = getEditable();
     editable.focus();
@@ -432,7 +451,9 @@ describe('EditableText invalid commit (onCommit returning false)', () => {
   it('Escape still reverts to the original value regardless of validity — unaffected by the invalid-commit path', () => {
     const onCommit = vi.fn(() => false);
     const onCancel = vi.fn();
-    render(<EditableText value="Original" onCommit={onCommit} onCancel={onCancel} />);
+    render(
+      <EditableText value="Original" onCommit={onCommit} onCancel={onCancel} />
+    );
 
     const editable = getEditable();
     editable.focus();
@@ -471,7 +492,9 @@ describe('EditableText.css — wrap-capable by default, opt-in single-line/no-wr
 
   function rule(selector: string): string {
     const escaped = selector.replace(/[.]/g, '\\$&');
-    const match = cssWithoutComments.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
+    const match = cssWithoutComments.match(
+      new RegExp(`${escaped}\\s*\\{([^}]*)\\}`)
+    );
     expect(match, `${selector} rule not found`).not.toBeNull();
     return match![1] ?? '';
   }
@@ -482,7 +505,9 @@ describe('EditableText.css — wrap-capable by default, opt-in single-line/no-wr
   });
 
   it('the --nowrap variant never wraps — white-space is nowrap, not pre-wrap/normal', () => {
-    expect(rule('.editable-text--nowrap')).toMatch(/white-space\s*:\s*nowrap\s*;/);
+    expect(rule('.editable-text--nowrap')).toMatch(
+      /white-space\s*:\s*nowrap\s*;/
+    );
   });
 
   it('the --nowrap variant is horizontally scrollable, not hard-clipped, so both native and scripted scroll-to-caret work', () => {
@@ -490,12 +515,18 @@ describe('EditableText.css — wrap-capable by default, opt-in single-line/no-wr
   });
 
   it('the --nowrap variant never grows a second line — vertical overflow is clipped', () => {
-    expect(rule('.editable-text--nowrap')).toMatch(/overflow-y\s*:\s*hidden\s*;/);
+    expect(rule('.editable-text--nowrap')).toMatch(
+      /overflow-y\s*:\s*hidden\s*;/
+    );
   });
 
   it('the --nowrap variant hides the horizontal scrollbar so scrolling reads as plain text, not a visible scroll widget', () => {
-    expect(rule('.editable-text--nowrap')).toMatch(/scrollbar-width\s*:\s*none\s*;/);
-    expect(cssWithoutComments).toMatch(/\.editable-text--nowrap::-webkit-scrollbar\s*\{\s*display\s*:\s*none\s*;\s*\}/);
+    expect(rule('.editable-text--nowrap')).toMatch(
+      /scrollbar-width\s*:\s*none\s*;/
+    );
+    expect(cssWithoutComments).toMatch(
+      /\.editable-text--nowrap::-webkit-scrollbar\s*\{\s*display\s*:\s*none\s*;\s*\}/
+    );
   });
 });
 
@@ -507,7 +538,9 @@ describe('EditableText.css — wrap-capable by default, opt-in single-line/no-wr
 // with the caret positioned, but not visible, at the end.
 describe('EditableText — scrolls the caret into view when placed at the end', () => {
   it('a long autoFocused value scrolls fully right so the end of the text (where the caret is) is visible', () => {
-    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const scrollWidthSpy = vi
+      .spyOn(Element.prototype, 'scrollWidth', 'get')
+      .mockReturnValue(500);
     const value = '#very-long-project-name-that-does-not-fit';
 
     render(<EditableText value={value} onCommit={vi.fn()} autoFocus />);
@@ -519,7 +552,9 @@ describe('EditableText — scrolls the caret into view when placed at the end', 
   });
 
   it('a short value that already fits is unaffected — scrolling to the end is a no-op when there is nothing to scroll', () => {
-    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(0);
+    const scrollWidthSpy = vi
+      .spyOn(Element.prototype, 'scrollWidth', 'get')
+      .mockReturnValue(0);
     render(<EditableText value="short" onCommit={vi.fn()} autoFocus />);
     const editable = getEditable() as HTMLDivElement;
 
@@ -529,7 +564,9 @@ describe('EditableText — scrolls the caret into view when placed at the end', 
   });
 
   it('a rejected Enter submit re-scrolls to the end too, not just the initial autoFocus', () => {
-    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const scrollWidthSpy = vi
+      .spyOn(Element.prototype, 'scrollWidth', 'get')
+      .mockReturnValue(500);
     const onCommit = vi.fn(() => false);
     render(<EditableText value="Original" onCommit={onCommit} />);
 
@@ -545,7 +582,9 @@ describe('EditableText — scrolls the caret into view when placed at the end', 
   });
 
   it('does not disturb the caret position itself — still collapsed at the exact end of the text', () => {
-    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const scrollWidthSpy = vi
+      .spyOn(Element.prototype, 'scrollWidth', 'get')
+      .mockReturnValue(500);
     const value = '#very-long-project-name-that-does-not-fit';
     render(<EditableText value={value} onCommit={vi.fn()} autoFocus />);
 
@@ -559,10 +598,22 @@ describe('EditableText — scrolls the caret into view when placed at the end', 
 
 describe('EditableText scroll offset', () => {
   it('returns a leftover sideways scroll to the start once the typed text fits', () => {
-    render(<EditableText value="" onCommit={vi.fn()} className="editable-text--nowrap" />);
+    render(
+      <EditableText
+        value=""
+        onCommit={vi.fn()}
+        className="editable-text--nowrap"
+      />
+    );
     const editable = getEditable();
-    Object.defineProperty(editable, 'scrollWidth', { configurable: true, value: 18 });
-    Object.defineProperty(editable, 'clientWidth', { configurable: true, value: 18 });
+    Object.defineProperty(editable, 'scrollWidth', {
+      configurable: true,
+      value: 18,
+    });
+    Object.defineProperty(editable, 'clientWidth', {
+      configurable: true,
+      value: 18,
+    });
     editable.scrollLeft = 6;
 
     typeText(editable, 'wq');
@@ -571,10 +622,22 @@ describe('EditableText scroll offset', () => {
   });
 
   it('keeps the scroll while the text is wider than the box (the caret must stay visible)', () => {
-    render(<EditableText value="" onCommit={vi.fn()} className="editable-text--nowrap" />);
+    render(
+      <EditableText
+        value=""
+        onCommit={vi.fn()}
+        className="editable-text--nowrap"
+      />
+    );
     const editable = getEditable();
-    Object.defineProperty(editable, 'scrollWidth', { configurable: true, value: 300 });
-    Object.defineProperty(editable, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(editable, 'scrollWidth', {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(editable, 'clientWidth', {
+      configurable: true,
+      value: 100,
+    });
     editable.scrollLeft = 200;
 
     typeText(editable, 'a very long name');
@@ -583,30 +646,46 @@ describe('EditableText scroll offset', () => {
   });
 });
 
-
 describe('EditableText scroll offset on autoFocus', () => {
   it('returns the start to view after mounting in edit mode, once the box has settled wide enough', async () => {
     const original = HTMLElement.prototype.focus;
     // The box is still narrower than its text when focus scrolls it; by the next frame it has its width.
     let settled = false;
-    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get: () => 80 });
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => (settled ? 80 : 60) });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get: () => 80,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get: () => (settled ? 80 : 60),
+    });
     HTMLElement.prototype.focus = function (this: HTMLElement) {
       original.call(this);
       this.scrollLeft = 20;
     };
     try {
-      render(<EditableText value="Autodesk" onCommit={vi.fn()} className="editable-text--nowrap" autoFocus />);
+      render(
+        <EditableText
+          value="Autodesk"
+          onCommit={vi.fn()}
+          className="editable-text--nowrap"
+          autoFocus
+        />
+      );
       const editable = getEditable();
       editable.scrollLeft = 20;
       settled = true;
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(undefined))
+      );
 
       expect(editable.scrollLeft).toBe(0);
     } finally {
       HTMLElement.prototype.focus = original;
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollWidth;
-      delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>)
+        .scrollWidth;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>)
+        .clientWidth;
     }
   });
 });
@@ -616,7 +695,16 @@ describe('EditableText scroll offset on autoFocus', () => {
 // anchored on an element (not inside a text node) reports no rects at all.
 function stubTwoRowLayout() {
   const rect = (top: number) =>
-    ({ top, bottom: top + 20, height: 20, left: 7, right: 7, width: 0, x: 7, y: top }) as DOMRect;
+    ({
+      top,
+      bottom: top + 20,
+      height: 20,
+      left: 7,
+      right: 7,
+      width: 0,
+      x: 7,
+      y: top,
+    }) as DOMRect;
   const original = Range.prototype.getClientRects;
   Range.prototype.getClientRects = function (this: Range) {
     if (!(this.startContainer instanceof Text)) {
@@ -649,7 +737,13 @@ describe('EditableText vertical navigation (onNavigate)', () => {
 
   function setup(onNavigate: (d: 'up' | 'down', x: number) => boolean) {
     restoreLayout = stubTwoRowLayout();
-    render(<EditableText value={TWO_ROWS} onCommit={() => {}} onNavigate={onNavigate} />);
+    render(
+      <EditableText
+        value={TWO_ROWS}
+        onCommit={() => {}}
+        onNavigate={onNavigate}
+      />
+    );
     return getEditable();
   }
 
@@ -711,14 +805,19 @@ describe('EditableText vertical navigation (onNavigate)', () => {
   it('an empty field is on both edges', () => {
     restoreLayout = stubTwoRowLayout();
     const onNavigate = vi.fn((_direction: 'up' | 'down', _x: number) => true);
-    render(<EditableText value="" onCommit={() => {}} onNavigate={onNavigate} />);
+    render(
+      <EditableText value="" onCommit={() => {}} onNavigate={onNavigate} />
+    );
     const editable = getEditable();
     editable.focus();
 
     fireEvent.keyDown(editable, { key: 'ArrowUp' });
     fireEvent.keyDown(editable, { key: 'ArrowDown' });
 
-    expect(onNavigate.mock.calls.map(([direction]) => direction)).toEqual(['up', 'down']);
+    expect(onNavigate.mock.calls.map(([direction]) => direction)).toEqual([
+      'up',
+      'down',
+    ]);
   });
 
   it('does nothing special without onNavigate', () => {
@@ -741,7 +840,9 @@ describe('EditableText vertical navigation (onNavigate)', () => {
     const selection = window.getSelection()!;
     expect(document.activeElement).toBe(editable);
     expect(selection.isCollapsed).toBe(true);
-    expect(editable.contains(selection.getRangeAt(0).startContainer)).toBe(true);
+    expect(editable.contains(selection.getRangeAt(0).startContainer)).toBe(
+      true
+    );
     // No hit-testing in jsdom, so it falls back to the requested edge: the end for 'bottom'.
     expect(selection.getRangeAt(0).startOffset).toBe(TWO_ROWS.length);
   });

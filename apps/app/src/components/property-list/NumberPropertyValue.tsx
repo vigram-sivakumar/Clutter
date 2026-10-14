@@ -38,7 +38,9 @@ export function parseNumberPropertyInput(text: string): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 20 });
+const numberFormat = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 20,
+});
 
 /**
  * Display string for a `number` Property value — locale grouping and
@@ -46,9 +48,14 @@ const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2
  * only; the stored value stays the number itself. The system locale unless
  * `locales` is given (tests pin one; the UI never does).
  */
-export function formatNumberPropertyValue(value: number, locales?: Intl.LocalesArgument): string {
+export function formatNumberPropertyValue(
+  value: number,
+  locales?: Intl.LocalesArgument
+): string {
   const format =
-    locales === undefined ? numberFormat : new Intl.NumberFormat(locales, { maximumFractionDigits: 20 });
+    locales === undefined
+      ? numberFormat
+      : new Intl.NumberFormat(locales, { maximumFractionDigits: 20 });
 
   return format.format(value);
 }
@@ -101,7 +108,13 @@ export function NumberPropertyValue(props: NumberPropertyValueProps) {
     );
   }
 
-  return <NumberPropertyEditor name={props.name} value={props.value} onCommit={props.onCommit} />;
+  return (
+    <NumberPropertyEditor
+      name={props.name}
+      value={props.value}
+      onCommit={props.onCommit}
+    />
+  );
 }
 
 interface NumberPropertyEditorProps {
@@ -125,7 +138,11 @@ interface NumberPropertyEditorProps {
  * than `type="number"`, whose native field silently reports `''` for
  * invalid text and changes the value on scroll.
  */
-function NumberPropertyEditor({ name, value, onCommit }: NumberPropertyEditorProps) {
+function NumberPropertyEditor({
+  name,
+  value,
+  onCommit,
+}: NumberPropertyEditorProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const { shakeClassName, shake } = useRejectShake();
 
@@ -189,7 +206,9 @@ function NumberPropertyEditor({ name, value, onCommit }: NumberPropertyEditorPro
       inputMode="decimal"
       placeholder="Empty"
       value={draft ?? restingText}
-      onFocus={() => setDraft(value === null ? '' : numberPropertyEditText(value))}
+      onFocus={() =>
+        setDraft(value === null ? '' : numberPropertyEditText(value))
+      }
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}

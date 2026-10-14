@@ -1,8 +1,22 @@
 // @vitest-environment jsdom
 
 import { act, useState } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { PropertyList } from './PropertyList';
 import { TagPropertyValue, parseTagInput } from './TagPropertyValue';
@@ -34,7 +48,8 @@ function getInput(): HTMLInputElement {
 function pillLabels(container: HTMLElement = document.body): string[] {
   // A pill's text (the `#` prefix, then the name) lives in its `.pill__label`.
   return [...container.querySelectorAll('.pill .pill__label')].map(
-    (label) => label.firstChild!.textContent! + label.childNodes[1]!.textContent!
+    (label) =>
+      label.firstChild!.textContent! + label.childNodes[1]!.textContent!
   );
 }
 
@@ -47,14 +62,21 @@ function press(key: string) {
 }
 
 function isShaking(): boolean {
-  return document.querySelector('.pill-list-editor')!.classList.contains('editable-text--shake');
+  return document
+    .querySelector('.pill-list-editor')!
+    .classList.contains('editable-text--shake');
 }
 
 function StatefulTags({ initial }: { initial: string[] }) {
   const [value, setValue] = useState(initial);
   return (
     <>
-      <TagPropertyValue name="Tags" value={value} editable onCommit={setValue} />
+      <TagPropertyValue
+        name="Tags"
+        value={value}
+        editable
+        onCommit={setValue}
+      />
       <output data-testid="value">{JSON.stringify(value)}</output>
     </>
   );
@@ -92,7 +114,14 @@ describe('parseTagInput', () => {
 describe('TagPropertyValue — read-only, dismissable', () => {
   it('with onRemoveValue, each pill has a dismiss button removing that tag — and no input', () => {
     const onRemoveValue = vi.fn();
-    render(<TagPropertyValue name="Tags" value={['design', 'product']} editable={false} onRemoveValue={onRemoveValue} />);
+    render(
+      <TagPropertyValue
+        name="Tags"
+        value={['design', 'product']}
+        editable={false}
+        onRemoveValue={onRemoveValue}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag product' }));
 
@@ -101,14 +130,24 @@ describe('TagPropertyValue — read-only, dismissable', () => {
   });
 
   it('without it, read-only pills have no dismiss button', () => {
-    render(<TagPropertyValue name="Tags" value={['design']} editable={false} />);
-    expect(screen.queryByRole('button', { name: 'Remove tag design' })).toBeNull();
+    render(
+      <TagPropertyValue name="Tags" value={['design']} editable={false} />
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Remove tag design' })
+    ).toBeNull();
   });
 });
 
 describe('TagPropertyValue — read-only', () => {
   it('renders each tag as a # pill, with no input and no dismiss buttons', () => {
-    render(<TagPropertyValue name="Tags" value={['design', 'product-ui']} editable={false} />);
+    render(
+      <TagPropertyValue
+        name="Tags"
+        value={['design', 'product-ui']}
+        editable={false}
+      />
+    );
 
     expect(pillLabels()).toEqual(['#design', '#product ui']);
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -142,8 +181,12 @@ describe('TagPropertyValue — editable', () => {
   it('dismisses a tag via its pill button, without focusing the input', () => {
     render(<StatefulTags initial={['design', 'product', 'ui']} />);
 
-    const productPill = [...document.querySelectorAll<HTMLElement>('.pill')][1]!;
-    fireEvent.click(within(productPill).getByRole('button', { name: 'Remove tag product' }));
+    const productPill = [
+      ...document.querySelectorAll<HTMLElement>('.pill'),
+    ][1]!;
+    fireEvent.click(
+      within(productPill).getByRole('button', { name: 'Remove tag product' })
+    );
 
     expect(storedValue()).toEqual(['design', 'ui']);
     expect(pillLabels()).toEqual(['#design', '#ui']);
@@ -166,7 +209,9 @@ describe('TagPropertyValue — editable', () => {
 
   it('Space does not commit: the text stays in the input, nothing is added, and Space is left to the input', () => {
     const onCommit = vi.fn();
-    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+    render(
+      <TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />
+    );
 
     type('design');
     const notCancelled = press(' ');
@@ -182,7 +227,9 @@ describe('TagPropertyValue — editable', () => {
 
   it('a draft containing spaces commits as a tag with `-` for each run of spaces, as the sidebar rename does', () => {
     const onCommit = vi.fn();
-    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+    render(
+      <TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />
+    );
 
     type('Testing new tag');
     press(' ');
@@ -195,7 +242,9 @@ describe('TagPropertyValue — editable', () => {
 
   it('Enter on an empty input adds nothing and does not shake', () => {
     const onCommit = vi.fn();
-    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+    render(
+      <TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />
+    );
 
     press('Enter');
 
@@ -228,7 +277,12 @@ describe('TagPropertyValue — editable', () => {
   it('does not add a duplicate, by the tag identity rule (case and -/_)', () => {
     const onCommit = vi.fn();
     render(
-      <TagPropertyValue name="Tags" value={['Design', 'product-ui']} editable onCommit={onCommit} />
+      <TagPropertyValue
+        name="Tags"
+        value={['Design', 'product-ui']}
+        editable
+        onCommit={onCommit}
+      />
     );
 
     for (const text of ['#design', '#DESIGN', '#product_ui', '#Product-UI']) {
@@ -242,7 +296,9 @@ describe('TagPropertyValue — editable', () => {
 
   it('never makes a pill from empty or whitespace-only input', () => {
     const onCommit = vi.fn();
-    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+    render(
+      <TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />
+    );
 
     expect(press('Enter')).toBe(false);
     type('   ');
@@ -256,7 +312,9 @@ describe('TagPropertyValue — editable', () => {
 
   it('rejects an invalid tag with the shared shake, keeping the text', () => {
     const onCommit = vi.fn();
-    render(<TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />);
+    render(
+      <TagPropertyValue name="Tags" value={[]} editable onCommit={onCommit} />
+    );
 
     type('#a.b');
     press('Enter');
@@ -295,9 +353,17 @@ describe('TagPropertyValue — editable', () => {
 
 describe('TagPropertyValue — autocomplete', () => {
   /** A stand-in for createTagSuggester: case-insensitive substring over vault tags, display labels. */
-  const VAULT_TAGS = ['product', 'prototype', 'product-design', 'design', 'research'];
+  const VAULT_TAGS = [
+    'product',
+    'prototype',
+    'product-design',
+    'design',
+    'research',
+  ];
   const getSuggestions = (query: string) =>
-    VAULT_TAGS.filter((tag) => tag.replace(/-/g, ' ').includes(query.toLowerCase()))
+    VAULT_TAGS.filter((tag) =>
+      tag.replace(/-/g, ' ').includes(query.toLowerCase())
+    )
       .map((tag) => tag.replace(/-/g, ' '))
       .sort();
 
@@ -318,9 +384,11 @@ describe('TagPropertyValue — autocomplete', () => {
   }
 
   function suggestionLabels(): string[] {
-    return [...document.querySelectorAll('.pill-list-editor__suggestions [role="menuitem"]')].map(
-      (row) => row.textContent!
-    );
+    return [
+      ...document.querySelectorAll(
+        '.pill-list-editor__suggestions [role="menuitem"]'
+      ),
+    ].map((row) => row.textContent!);
   }
 
   function activeSuggestion(): string | null {
@@ -334,8 +402,16 @@ describe('TagPropertyValue — autocomplete', () => {
     act(() => getInput().focus());
     type('#pro');
 
-    expect(suggestionLabels()).toEqual(['#product', '#product design', '#prototype']);
-    expect(document.querySelector('.pill-list-editor__suggestions')!.classList.contains('menu')).toBe(true);
+    expect(suggestionLabels()).toEqual([
+      '#product',
+      '#product design',
+      '#prototype',
+    ]);
+    expect(
+      document
+        .querySelector('.pill-list-editor__suggestions')!
+        .classList.contains('menu')
+    ).toBe(true);
     expect(activeSuggestion()).toBeNull();
   });
 
@@ -491,7 +567,12 @@ describe('TagPropertyValue — opening a tag', () => {
   it('clicking a read-only pill (like the frontmatter Tags) opens its Tag Collection', () => {
     const onOpenTag = vi.fn();
     render(
-      <TagPropertyValue name="Tags" value={['design']} editable={false} onOpenTag={onOpenTag} />
+      <TagPropertyValue
+        name="Tags"
+        value={['design']}
+        editable={false}
+        onOpenTag={onOpenTag}
+      />
     );
 
     fireEvent.click(pill('design'));
@@ -502,7 +583,12 @@ describe('TagPropertyValue — opening a tag', () => {
   it('Enter or Space on a focused pill opens it', () => {
     const onOpenTag = vi.fn();
     render(
-      <TagPropertyValue name="Tags" value={['design']} editable={false} onOpenTag={onOpenTag} />
+      <TagPropertyValue
+        name="Tags"
+        value={['design']}
+        editable={false}
+        onOpenTag={onOpenTag}
+      />
     );
 
     fireEvent.keyDown(pill('design'), { key: 'Enter' });
@@ -513,7 +599,12 @@ describe('TagPropertyValue — opening a tag', () => {
 
   it('the dismiss button removes the tag and does not open it', () => {
     const onOpenTag = vi.fn();
-    render(<StatefulTagsWithOpen initial={['design', 'product']} onOpenTag={onOpenTag} />);
+    render(
+      <StatefulTagsWithOpen
+        initial={['design', 'product']}
+        onOpenTag={onOpenTag}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag product' }));
 
@@ -522,9 +613,13 @@ describe('TagPropertyValue — opening a tag', () => {
   });
 
   it('pills are plain (not buttons) when no onOpenTag is supplied', () => {
-    render(<TagPropertyValue name="Tags" value={['design']} editable={false} />);
+    render(
+      <TagPropertyValue name="Tags" value={['design']} editable={false} />
+    );
 
-    expect(screen.queryByRole('button', { name: 'Open tag design' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Open tag design' })
+    ).toBeNull();
   });
 });
 
@@ -553,7 +648,11 @@ function StatefulTagsWithOpen({
 describe('PropertyList tag Property', () => {
   it('renders a read-only tag Property (like Tags) as pills', () => {
     render(
-      <PropertyList items={[{ name: 'Tags', type: 'tag', value: ['design'], editable: false }]} />
+      <PropertyList
+        items={[
+          { name: 'Tags', type: 'tag', value: ['design'], editable: false },
+        ]}
+      />
     );
 
     expect(pillLabels()).toEqual(['#design']);

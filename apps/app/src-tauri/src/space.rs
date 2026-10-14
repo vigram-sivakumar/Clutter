@@ -1,6 +1,7 @@
 //! Folder-level space selection for the welcome screen.
 //!
-//! `validate_folder` is read-only (used by `startup::open_space`) and
+//! `validate_folder` is read-only (used by `startup::open_space` and
+//! `validate_space_folder`) and
 //! `get_default_space_parent` only reports where new spaces go.
 //! Nothing is written inside a space and nothing is persisted here (that's
 //! `startup::open_space`). Per ADR-030 no reserved resource (`.clutter`,
@@ -51,6 +52,13 @@ pub fn validate_folder(path: &Path) -> Result<SpaceFolder, String> {
         .map_err(|error| format!("Couldn't read the contents of that folder: {error}"))?;
 
     Ok(describe(&canonical))
+}
+
+/// Read-only check of a user-picked folder, returning its canonical path and
+/// name (used by SpaceDetails' Change button to pick the parent folder).
+#[tauri::command]
+pub async fn validate_space_folder(path: String) -> Result<SpaceFolder, String> {
+    validate_folder(Path::new(&path))
 }
 
 /// Where a new space will be created (the user's Documents folder). Read-only:

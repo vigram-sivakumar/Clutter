@@ -8,7 +8,10 @@ import type { PropertyListItem } from './PropertyList.types';
 
 afterEach(() => cleanup());
 
-const nameField = () => document.querySelector('.property-list__name .editable-text') as HTMLDivElement;
+const nameField = () =>
+  document.querySelector(
+    '.property-list__name .editable-text'
+  ) as HTMLDivElement;
 
 function type(text: string) {
   const field = nameField();
@@ -24,7 +27,14 @@ function renderNew({
 }: { onRename?: (name: string) => boolean; onAbandon?: () => void } = {}) {
   const items: PropertyListItem[] = [
     { name: 'Tags', type: 'tag', value: [], editable: false },
-    { name: '', type: 'date', value: null, editable: false, onRename, onAbandon },
+    {
+      name: '',
+      type: 'date',
+      value: null,
+      editable: false,
+      onRename,
+      onAbandon,
+    },
   ];
   render(<PropertyList items={items} />);
   return { onRename, onAbandon };
@@ -41,7 +51,9 @@ describe('PropertyList — a not-yet-named property row', () => {
 
   it('a system name beside it stays plain text', () => {
     renderNew();
-    expect(document.querySelectorAll('.property-list__name .editable-text')).toHaveLength(1);
+    expect(
+      document.querySelectorAll('.property-list__name .editable-text')
+    ).toHaveLength(1);
   });
 
   it('Enter with a valid name commits it once and does not abandon the row', () => {
@@ -112,7 +124,17 @@ describe('PropertyList — a not-yet-named property row', () => {
   it('an existing renamable row never abandons: it has no onAbandon', () => {
     const onRename = vi.fn(() => true);
     render(
-      <PropertyList items={[{ name: 'priority', type: 'text', value: 'high', editable: false, onRename }]} />
+      <PropertyList
+        items={[
+          {
+            name: 'priority',
+            type: 'text',
+            value: 'high',
+            editable: false,
+            onRename,
+          },
+        ]}
+      />
     );
 
     expect(document.activeElement).not.toBe(nameField());

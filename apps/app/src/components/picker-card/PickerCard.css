@@ -38,8 +38,8 @@
   flex: none;
   /* Without sections: N two-line rows (plus the 1px gaps and the bottom padding below). */
   max-height: calc(
-    var(--picker-card-plain-rows) * var(--picker-card-row) + (var(--picker-card-plain-rows) - 1) * var(--space-1) +
-      var(--space-12)
+    var(--picker-card-plain-rows) * var(--picker-card-row) +
+      (var(--picker-card-plain-rows) - 1) * var(--space-1) + var(--space-12)
   );
   overflow-y: auto;
   /* The list runs out into the card's right padding and gives the rows that width back as its own
@@ -61,8 +61,9 @@
 .picker-card--sectioned .picker-list__list {
   max-height: min(
     calc(
-      2 * var(--height-lg) + var(--picker-card-section-rows) * var(--picker-card-row) + 32px + 8 * var(--space-1) +
-        9px + var(--space-12)
+      2 * var(--height-lg) + var(--picker-card-section-rows) *
+        var(--picker-card-row) + 32px + 8 * var(--space-1) + 9px +
+        var(--space-12)
     ),
     calc(var(--picker-list-first-section-bottom, 100vh) + var(--space-4))
   );
@@ -71,6 +72,10 @@
    its last rows fade out into the card instead of being cut off by a hard edge. Off at the end of
    the list, so the final row is never dimmed. */
 .picker-card .picker-list__list[data-can-scroll-down] {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 40px),
+    transparent
+  );
   mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
 }

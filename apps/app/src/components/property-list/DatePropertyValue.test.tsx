@@ -2,7 +2,15 @@
 
 import { act, useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { SHAKE_DURATION_MS } from '@components/editable-text/EditableText';
 
@@ -36,22 +44,32 @@ function getField(): HTMLInputElement {
 
 function getDay(day: number): HTMLElement {
   // In-month cells only — the month grid also shows neighboring months' days.
-  const cells = [...document.querySelectorAll<HTMLElement>('.calendar-cell')].filter(
+  const cells = [
+    ...document.querySelectorAll<HTMLElement>('.calendar-cell'),
+  ].filter(
     (cell) =>
-      !cell.classList.contains('calendar-cell--outside-month') && cell.textContent === String(day)
+      !cell.classList.contains('calendar-cell--outside-month') &&
+      cell.textContent === String(day)
   );
   expect(cells).toHaveLength(1);
   return cells[0]!;
 }
 
 function calendarMonthYear(): string {
-  const month = document.querySelector('.property-date-picker .calendar-month')?.textContent;
-  const year = document.querySelector('.property-date-picker .calendar-year')?.textContent;
+  const month = document.querySelector(
+    '.property-date-picker .calendar-month'
+  )?.textContent;
+  const year = document.querySelector(
+    '.property-date-picker .calendar-year'
+  )?.textContent;
   return `${month} ${year}`;
 }
 
 function selectedDay(): string | null {
-  return document.querySelector('.property-date-picker .calendar-cell--selected')?.textContent ?? null;
+  return (
+    document.querySelector('.property-date-picker .calendar-cell--selected')
+      ?.textContent ?? null
+  );
 }
 
 function type(text: string) {
@@ -617,7 +635,10 @@ describe('DatePropertyValue — Clear', () => {
 
     fireEvent.click(getField());
 
-    expect((screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Clear' }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
   });
 });
 
@@ -626,7 +647,9 @@ describe('DatePropertyValue — calendar dismissal', () => {
     render(<StatefulDate initial="2025-09-15" />);
 
     act(() => getField().focus());
-    const notCancelled = fireEvent.mouseDown(document.querySelector('.property-date-picker')!);
+    const notCancelled = fireEvent.mouseDown(
+      document.querySelector('.property-date-picker')!
+    );
 
     expect(notCancelled).toBe(false);
     expect(isCalendarOpen()).toBe(true);
@@ -654,7 +677,16 @@ describe('DatePropertyValue — calendar dismissal', () => {
 describe('PropertyList date Property', () => {
   it('renders a read-only date Property (like Created) as formatted text', () => {
     render(
-      <PropertyList items={[{ name: 'Created', type: 'date', value: '2025-09-15', editable: false }]} />
+      <PropertyList
+        items={[
+          {
+            name: 'Created',
+            type: 'date',
+            value: '2025-09-15',
+            editable: false,
+          },
+        ]}
+      />
     );
 
     expect(screen.getByText('15 Sep 2025')).toBeTruthy();
@@ -665,7 +697,13 @@ describe('PropertyList date Property', () => {
     render(
       <PropertyList
         items={[
-          { name: 'Due', type: 'date', value: '2025-09-15', editable: true, onCommit: () => {} },
+          {
+            name: 'Due',
+            type: 'date',
+            value: '2025-09-15',
+            editable: true,
+            onCommit: () => {},
+          },
         ]}
       />
     );

@@ -27,7 +27,13 @@ interface PillValueEditorProps {
  * would repeat another value: Enter keeps editing and plays the reject shake; blur restores the
  * original.
  */
-export function PillValueEditor({ value, parse, isTaken, onCommit, onCancel }: PillValueEditorProps) {
+export function PillValueEditor({
+  value,
+  parse,
+  isTaken,
+  onCommit,
+  onCancel,
+}: PillValueEditorProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState(value);
   // Escape/Enter end editing themselves; the blur that follows unmounting

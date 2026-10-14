@@ -88,7 +88,10 @@ export interface OverflowMenuItemConfig {
 export interface OverflowMenuPanelConfig {
   /** The panel's title, and the back button's context. */
   title: string;
-  items: Omit<OverflowMenuItemConfig, 'submenu' | 'panel' | 'separatorBefore' | 'groupTitle' | 'opensInlineEdit'>[];
+  items: Omit<
+    OverflowMenuItemConfig,
+    'submenu' | 'panel' | 'separatorBefore' | 'groupTitle' | 'opensInlineEdit'
+  >[];
 }
 
 export interface OverflowMenuProps {
@@ -333,74 +336,80 @@ export function OverflowMenuBody({
     >
       {items.map((item) => (
         <Fragment key={item.id}>
-          {item.separatorBefore && <div className="menu__divider" role="separator" />}
-          {item.groupTitle && <MenuGroupTitle>{item.groupTitle}</MenuGroupTitle>}
+          {item.separatorBefore && (
+            <div className="menu__divider" role="separator" />
+          )}
+          {item.groupTitle && (
+            <MenuGroupTitle>{item.groupTitle}</MenuGroupTitle>
+          )}
           {item.submenu ? (
-        <OverflowSubmenuTrigger
-            id={menuItemDomId(item.id)}
-            item={item}
-            submenu={item.submenu}
-            isOpen={openSubmenuId === item.id}
-            onOpenSubmenu={() => setOpenSubmenuId(item.id)}
-            onCloseSubmenu={() => setOpenSubmenuId(undefined)}
-            onSelectLeaf={(leafId) => {
-              onSelect(leafId);
-              onOpenChange(false);
-            }}
-            parentMenuRef={parentMenuRef}
-            submenuClassName={submenuClassName}
-          />
-        ) : (
-          <MenuItem
-            id={menuItemDomId(item.id)}
-            variant={item.variant}
-            disabled={item.disabled}
-            selected={item.selected}
-            // Hovering any non-submenu item closes an open submenu —
-            // otherwise it would stay open, anchored to a row the
-            // pointer has moved away from, while this item's own hover
-            // state (via Menu.context's setActiveId, already wired
-            // inside MenuItem) takes over.
-            onMouseEnter={() => setOpenSubmenuId(undefined)}
-            onClick={(event) => {
-              // Overlay renders this menu through a DOM portal (to
-              // document.body), but React still bubbles the click event
-              // through the *React* tree — up through this OverflowMenu
-              // into whatever row rendered it (e.g. a sidebar Note/
-              // Folder row's own Entry). That row's Entry.handleClick
-              // guards against a nested interactive element using a real
-              // DOM `closest()` walk, which can never find the row's own
-              // DOM node as an ancestor of a portaled element, so it
-              // never catches this case. Without stopping propagation
-              // here, selecting any menu item (Rename, Duplicate,
-              // Delete, ...) would also fire the row's own onClick and
-              // open/select it — exactly the trigger button beside this
-              // menu already guards against for opening the menu itself.
-              event.stopPropagation();
+            <OverflowSubmenuTrigger
+              id={menuItemDomId(item.id)}
+              item={item}
+              submenu={item.submenu}
+              isOpen={openSubmenuId === item.id}
+              onOpenSubmenu={() => setOpenSubmenuId(item.id)}
+              onCloseSubmenu={() => setOpenSubmenuId(undefined)}
+              onSelectLeaf={(leafId) => {
+                onSelect(leafId);
+                onOpenChange(false);
+              }}
+              parentMenuRef={parentMenuRef}
+              submenuClassName={submenuClassName}
+            />
+          ) : (
+            <MenuItem
+              id={menuItemDomId(item.id)}
+              variant={item.variant}
+              disabled={item.disabled}
+              selected={item.selected}
+              // Hovering any non-submenu item closes an open submenu —
+              // otherwise it would stay open, anchored to a row the
+              // pointer has moved away from, while this item's own hover
+              // state (via Menu.context's setActiveId, already wired
+              // inside MenuItem) takes over.
+              onMouseEnter={() => setOpenSubmenuId(undefined)}
+              onClick={(event) => {
+                // Overlay renders this menu through a DOM portal (to
+                // document.body), but React still bubbles the click event
+                // through the *React* tree — up through this OverflowMenu
+                // into whatever row rendered it (e.g. a sidebar Note/
+                // Folder row's own Entry). That row's Entry.handleClick
+                // guards against a nested interactive element using a real
+                // DOM `closest()` walk, which can never find the row's own
+                // DOM node as an ancestor of a portaled element, so it
+                // never catches this case. Without stopping propagation
+                // here, selecting any menu item (Rename, Duplicate,
+                // Delete, ...) would also fire the row's own onClick and
+                // open/select it — exactly the trigger button beside this
+                // menu already guards against for opening the menu itself.
+                event.stopPropagation();
 
-              if (item.panel) {
-                setOpenPanelId(item.id);
-                return;
+                if (item.panel) {
+                  setOpenPanelId(item.id);
+                  return;
+                }
+
+                if (item.opensInlineEdit) {
+                  suppressReturnFocusRef.current = true;
+                }
+
+                onSelect(item.id);
+                onOpenChange(false);
+              }}
+              leading={
+                item.icon ? (
+                  <AppIcon icon={item.icon} />
+                ) : item.reserveIconSpace ? (
+                  <span className="app-icon" />
+                ) : undefined
               }
-
-              if (item.opensInlineEdit) {
-                suppressReturnFocusRef.current = true;
+              trailing={
+                item.panel ? <AppIcon icon="chevronRight" /> : item.trailing
               }
-
-              onSelect(item.id);
-              onOpenChange(false);
-            }}
-            leading={
-              item.icon ? (
-                <AppIcon icon={item.icon} />
-              ) : item.reserveIconSpace ? (
-                <span className="app-icon" />
-              ) : undefined
-            }
-            trailing={item.panel ? <AppIcon icon="chevronRight" /> : item.trailing}
-          >
-            {item.label}
-          </MenuItem>
+            >
+              {item.label}
+            </MenuItem>
           )}
         </Fragment>
       ))}
