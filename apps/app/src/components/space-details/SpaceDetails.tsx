@@ -47,6 +47,10 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
     onNameChange(name);
   }
 
+  // Where the folder will be created: the parent plus the trimmed name,
+  // updated live as the user types.
+  const folderName = draft.name.trim();
+
   // Creating the folder comes later; for now Create only rejects a bad name.
   function handleCreate() {
     if (!isValidSpaceName(draft.name)) shake();
@@ -75,14 +79,17 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
       <div className="space-details__card space-details__card--with-action">
         <div className="space-details__card-content">
           <span className="space-details__label">Location</span>
-          <span className="space-details__path" title={draft.parentPath}>
-            {draft.parentName}/
+          <span
+            className="space-details__path"
+            title={`${draft.parentPath}/${folderName}`}
+          >
+            {draft.parentName}/{folderName}
           </span>
         </div>
         <Button
           className="space-details__change-button"
           variant="filled"
-          size="small"
+          // size="small"
         >
           Change
         </Button>

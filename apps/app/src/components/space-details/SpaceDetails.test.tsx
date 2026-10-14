@@ -24,8 +24,8 @@ describe('SpaceDetails', () => {
     fireEvent.change(input, { target: { value: 'Personal' } });
     expect(onNameChange).toHaveBeenCalledWith('Personal');
 
-    const location = screen.getByText('Documents/');
-    expect(location).toHaveAttribute('title', '/Users/me/Documents');
+    const location = screen.getByText('Documents/Clutter');
+    expect(location).toHaveAttribute('title', '/Users/me/Documents/Clutter');
     expect(location.tagName).not.toBe('INPUT');
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
@@ -104,6 +104,23 @@ describe('SpaceDetails', () => {
     expect(input.closest('.space-details__card')).not.toHaveClass(
       'editable-text--shake'
     );
+  });
+});
+
+describe('SpaceDetails location', () => {
+  it('shows the parent plus the trimmed name, following the draft', () => {
+    const { rerender } = render(
+      <SpaceDetails
+        draft={{ ...draft, name: '  Personal  ' }}
+        onNameChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Documents/Personal')).toBeInTheDocument();
+
+    rerender(
+      <SpaceDetails draft={{ ...draft, name: '' }} onNameChange={vi.fn()} />
+    );
+    expect(screen.getByText('Documents/')).toBeInTheDocument();
   });
 });
 
