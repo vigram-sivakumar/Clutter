@@ -21,6 +21,7 @@ export function buildArchiveTopBarMenu(isEmpty: boolean): TopBarMenuItemConfig[]
       id: DELETE_ALL_ARCHIVED_ACTION_ID,
       label: 'Empty trash',
       icon: 'trash',
+      variant: 'danger',
       disabled: isEmpty,
     },
   ];

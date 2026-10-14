@@ -190,6 +190,7 @@ function buildRowItems(
       id: 'delete',
       label: 'Delete row',
       icon: 'trash',
+      variant: 'danger',
     },
   ];
 }
@@ -261,6 +262,7 @@ function buildColumnItems(
       id: 'delete',
       label: 'Delete column',
       icon: 'trash',
+      variant: 'danger',
     },
   ];
 }

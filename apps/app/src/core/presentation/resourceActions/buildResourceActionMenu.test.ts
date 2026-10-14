@@ -650,3 +650,36 @@ describe('Hide / Show references (ADR-052)', () => {
     }
   });
 });
+
+describe('danger variant', () => {
+  const variantOf = (items: { id: string; variant?: string }[], id: string) => items.find((item) => item.id === id)?.variant;
+
+  it('Move to trash (archive) carries variant danger on every kind and surface that lists it', () => {
+    for (const kind of ['note', 'daily-note', 'folder', 'asset'] as const) {
+      for (const surface of ['sidebar', 'favorites', 'topbar', 'overlay'] as const) {
+        const items = buildResourceActionMenu(kind, { status: 'active', assetKind: 'image' }, surface);
+        if (ids(items).includes('archive')) {
+          expect(variantOf(items, 'archive')).toBe('danger');
+        }
+      }
+    }
+    expect(ids(buildResourceActionMenu('note', { status: 'active' }, 'sidebar'))).toContain('archive');
+  });
+
+  it('Delete permanently and the tag/task Delete carry variant danger', () => {
+    expect(variantOf(buildResourceActionMenu('note', { status: 'archived', isDeletable: true }, 'topbar'), 'delete')).toBe('danger');
+    expect(variantOf(buildResourceActionMenu('tag', {}, 'sidebar'), 'delete')).toBe('danger');
+    expect(variantOf(buildResourceActionMenu('task', { executable: ['delete'] }, 'sidebar'), 'delete')).toBe('danger');
+  });
+
+  it('no other action carries a variant', () => {
+    const withVariant = new Set(['archive', 'delete']);
+    for (const kind of Object.keys(RESOURCE_ACTIONS) as ResourceKind[]) {
+      for (const definition of RESOURCE_ACTIONS[kind]) {
+        expect(definition.variant === 'danger').toBe(withVariant.has(definition.id));
+      }
+    }
+    const items = buildResourceActionMenu('note', { status: 'active', isDeletable: true }, 'sidebar');
+    expect(items.filter((item) => item.variant).map((item) => item.id)).toEqual(['archive']);
+  });
+});

@@ -606,6 +606,7 @@ export function PageCover({
               Hide
             </MenuItem>
             <MenuItem
+              variant="danger"
               leading={<AppIcon icon="trash" />}
               onClick={(event) => {
                 event.stopPropagation();

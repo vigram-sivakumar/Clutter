@@ -149,6 +149,7 @@ const ARCHIVE: ResourceActionDefinition = {
   order: 10,
   label: ARCHIVE_ACTION_LABEL,
   icon: 'archive',
+  variant: 'danger',
   availability: (context) => (isArchivedContext(context) ? 'hidden' : persistedOnly(context)),
 };
 
@@ -168,6 +169,7 @@ const DELETE: ResourceActionDefinition = {
   order: 10,
   label: DELETE_ACTION_LABEL,
   icon: 'trash',
+  variant: 'danger',
   availability: (context) => (context.isDeletable ? persistedOnly(context) : 'hidden'),
 };
 
@@ -250,6 +252,7 @@ const DELETE_TAG: ResourceActionDefinition = {
   order: 10,
   label: 'Delete',
   icon: 'trash',
+  variant: 'danger',
 };
 
 /** A task row lists an action only when its caller supplied the operation. */

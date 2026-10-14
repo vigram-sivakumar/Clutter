@@ -119,7 +119,8 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Danger */
   --danger-surface: #d73a49;
-  --danger-foreground: white;
+  --danger-foreground-on-surface: white;
+  --danger-foreground: #ec4c5a;
 
   /* Secondary button */
   --button-secondary-surface: rgba(255, 255, 255, 0.055);
@@ -260,7 +261,8 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Danger */
   --danger-surface: #d43b4d;
-  --danger-foreground: white;
+  --danger-foreground-on-surface: white;
+  --danger-foreground: #c93648;
 
   /* Secondary button */
   --button-secondary-surface: rgba(0, 0, 0, 0.055);

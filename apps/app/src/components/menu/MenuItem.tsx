@@ -4,7 +4,7 @@ import { useId } from 'react';
 import './MenuItem.css';
 
 export interface MenuItemProps extends EntryProps {
-  variant?: 'default' | 'muted';
+  variant?: 'default' | 'muted' | 'danger';
 }
 
 export function MenuItem({

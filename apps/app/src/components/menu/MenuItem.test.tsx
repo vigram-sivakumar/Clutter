@@ -52,3 +52,25 @@ describe('MenuItem label', () => {
     expect(rule).toMatch(/text-overflow:\s*ellipsis/);
   });
 });
+
+describe('MenuItem danger variant', () => {
+  it('renders menu__item--danger, and the default variant does not', () => {
+    const { getAllByRole } = render(
+      <Menu>
+        <MenuItem variant="danger">Remove</MenuItem>
+        <MenuItem>Rename</MenuItem>
+      </Menu>
+    );
+
+    const [danger, plain] = getAllByRole('menuitem');
+    expect(danger).toHaveClass('menu__item--danger');
+    expect(plain).not.toHaveClass('menu__item--danger');
+  });
+
+  it('colors the row with --danger-foreground in MenuItem.css', () => {
+    const css = readFileSync(join(__dirname, 'MenuItem.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = css.match(/\.menu__item--danger\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(rule).toMatch(/color:\s*var\(--danger-foreground\)/);
+  });
+});

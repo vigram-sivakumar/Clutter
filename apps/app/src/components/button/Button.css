@@ -82,7 +82,7 @@
   font-weight: var(--fw-medium);
 }
 .button--danger {
-  color: var(--danger-foreground);
+  color: var(--danger-foreground-on-surface);
   background: var(--danger-surface);
   font-weight: var(--fw-medium);
 }

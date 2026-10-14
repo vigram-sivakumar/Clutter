@@ -98,6 +98,7 @@ export function AddPropertyMenu({
       )}
       {onDeleteAll && (
         <MenuItem
+          variant="danger"
           leading={<AppIcon icon="trash" />}
           onClick={(event) => {
             event.stopPropagation();

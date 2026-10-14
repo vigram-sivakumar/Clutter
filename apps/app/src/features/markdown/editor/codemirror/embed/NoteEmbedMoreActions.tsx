@@ -28,7 +28,7 @@ const MENU_ITEMS: OverflowMenuItemConfig[] = [
   // menu (unlike PDF's) has no source-resource actions to separate from:
   // consistency across every embed's "More actions" menu, not just the
   // ones that happen to need it for a resource-vs-embed distinction.
-  { id: 'remove-embed', label: 'Remove', icon: 'trash', separatorBefore: true },
+  { id: 'remove-embed', label: 'Remove', icon: 'trash', separatorBefore: true, variant: 'danger' },
 ];
 
 /**

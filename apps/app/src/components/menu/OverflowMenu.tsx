@@ -70,6 +70,8 @@ export interface OverflowMenuItemConfig {
    * the next divider, read as that group.
    */
   groupTitle?: string;
+  /** `'danger'` colors a row that deletes, removes or discards something (`MenuItem`'s `danger` variant). */
+  variant?: 'danger';
   /** Highlights this item as the current choice of its group (`MenuItem`'s native `selected`), e.g. the current position. */
   selected?: boolean;
   /**
@@ -291,6 +293,7 @@ export function OverflowMenuBody({
           <MenuItem
             key={panelItem.id}
             id={menuItemDomId(panelItem.id)}
+            variant={panelItem.variant}
             disabled={panelItem.disabled}
             selected={panelItem.selected}
             leading={
@@ -350,6 +353,7 @@ export function OverflowMenuBody({
         ) : (
           <MenuItem
             id={menuItemDomId(item.id)}
+            variant={item.variant}
             disabled={item.disabled}
             selected={item.selected}
             // Hovering any non-submenu item closes an open submenu —
@@ -454,6 +458,7 @@ function OverflowSubmenuTrigger({
     <div ref={anchorRef}>
       <MenuItem
         id={id}
+        variant={item.variant}
         disabled={item.disabled}
         aria-haspopup="menu"
         aria-expanded={isOpen}

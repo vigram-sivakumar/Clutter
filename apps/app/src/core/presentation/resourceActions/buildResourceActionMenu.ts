@@ -68,6 +68,9 @@ export function buildMenuFromDefinitions(
     if (disabled) {
       item.disabled = true;
     }
+    if (definition.variant) {
+      item.variant = definition.variant;
+    }
     if (definition.opensInlineEdit) {
       item.opensInlineEdit = true;
     }

@@ -30,13 +30,13 @@ export function PropertyMenu({
   }
 
   if (actions.onRemove) {
-    items.push({ id: 'remove', label: 'Remove', icon: 'trash', separatorBefore: items.length > 0 });
+    items.push({ id: 'remove', label: 'Remove', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
   }
 
   if (actions.onDelete) {
     // Destructive, so set apart — the same divider-before-Delete
     // convention every other menu here uses.
-    items.push({ id: 'delete', label: 'Delete', icon: 'trash', separatorBefore: items.length > 0 });
+    items.push({ id: 'delete', label: 'Delete', icon: 'trash', variant: 'danger', separatorBefore: items.length > 0 });
   }
 
   return (

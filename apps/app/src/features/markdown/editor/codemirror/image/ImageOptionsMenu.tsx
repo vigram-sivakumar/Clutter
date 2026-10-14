@@ -197,6 +197,7 @@ export function ImageOptionsMenu({
         <div className="menu__divider" role="separator" />
 
         <MenuItem
+          variant="danger"
           leading={<AppIcon icon="trash" />}
           onClick={(event) => {
             event.stopPropagation();

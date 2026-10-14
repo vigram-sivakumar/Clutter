@@ -630,4 +630,20 @@ describe('OverflowMenu — a row with a panel replaces the menu', () => {
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
   });
+
+  it('passes a configured variant through to the rendered item, and only to that item', () => {
+    render(
+      <Harness
+        onSelect={vi.fn()}
+        itemsOverride={[
+          { id: 'rename', label: 'Rename', icon: 'notePencil' },
+          { id: 'delete', label: 'Delete', icon: 'trash', variant: 'danger' },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Delete').closest('[role="menuitem"]')).toHaveClass('menu__item--danger');
+    expect(screen.getByText('Rename').closest('[role="menuitem"]')).not.toHaveClass('menu__item--danger');
+  });
 });

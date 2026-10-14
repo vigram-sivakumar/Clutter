@@ -135,7 +135,7 @@ export function PdfEmbedMoreActions({
     // by `separatorBefore`, not merely by ordering. See
     // `embedRemovalRange.ts`'s own doc comment for the Remove-vs-Archive
     // product rule this separation enforces.
-    { id: 'remove-embed', label: 'Remove', icon: 'trash', separatorBefore: true },
+    { id: 'remove-embed', label: 'Remove', icon: 'trash', separatorBefore: true, variant: 'danger' },
   ];
   const moveTrigger = useMoveDestinationTrigger(resourceMoveDestinations);
   const suppressReturnFocusRef = useRef(false);

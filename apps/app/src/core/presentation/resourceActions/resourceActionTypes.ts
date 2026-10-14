@@ -87,6 +87,8 @@ export interface ResourceActionDefinition {
   readonly order: number;
   readonly label: FromContext<string>;
   readonly icon: FromContext<SystemIcon>;
+  /** `'danger'` for an action that deletes, removes or discards something — carried onto the menu item. */
+  readonly variant?: 'danger';
   /** Absent means always enabled. */
   readonly availability?: (context: ResourceActionContext) => ResourceActionAvailability;
   /** Selecting it mounts and focuses an inline editor (Rename) — see `OverflowMenuItemConfig`. */
