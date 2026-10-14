@@ -22,12 +22,10 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { WelcomeScreen } from './WelcomeScreen';
 
-const SPACE = { path: '/Users/me/Notes', name: 'Notes' };
-
 function setup() {
-  const onSpaceReady = vi.fn();
-  render(<WelcomeScreen onSpaceReady={onSpaceReady} />);
-  return { onSpaceReady };
+  const onCreateSpace = vi.fn();
+  render(<WelcomeScreen onCreateSpace={onCreateSpace} />);
+  return { onCreateSpace };
 }
 
 const selectButton = () =>
@@ -45,14 +43,14 @@ describe('WelcomeScreen', () => {
   it('opens the picked folder as the space without rendering SpaceDetails', async () => {
     openMock.mockResolvedValue('/Users/me/Notes');
     invokeMock.mockResolvedValue(undefined);
-    const { onSpaceReady } = setup();
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(selectButton()));
 
     expect(invokeMock).toHaveBeenCalledWith('open_space', {
       path: '/Users/me/Notes',
     });
-    expect(onSpaceReady).not.toHaveBeenCalled();
+    expect(onCreateSpace).not.toHaveBeenCalled();
   });
 
   it('shows the error and stays when opening the picked folder fails', async () => {
@@ -60,53 +58,53 @@ describe('WelcomeScreen', () => {
     invokeMock.mockRejectedValue(
       "That folder is read-only, so it can't be used as a space."
     );
-    const { onSpaceReady } = setup();
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(selectButton()));
 
-    expect(onSpaceReady).not.toHaveBeenCalled();
+    expect(onCreateSpace).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('read-only');
     expect(selectButton()).toBeEnabled();
   });
 
   it('does nothing when the picker is cancelled', async () => {
     openMock.mockResolvedValue(null);
-    const { onSpaceReady } = setup();
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(selectButton()));
 
     expect(invokeMock).not.toHaveBeenCalled();
-    expect(onSpaceReady).not.toHaveBeenCalled();
+    expect(onCreateSpace).not.toHaveBeenCalled();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(selectButton()).toBeEnabled();
   });
 
-  it('creates the default space and reports it', async () => {
+  it('starts a draft in Documents named Clutter without creating anything', async () => {
     invokeMock.mockResolvedValue({
-      path: '/Users/me/Documents/Clutter',
-      name: 'Clutter',
+      path: '/Users/me/Documents',
+      name: 'Documents',
     });
-    const { onSpaceReady } = setup();
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(createButton()));
 
-    expect(invokeMock).toHaveBeenCalledWith('create_default_space');
-    expect(onSpaceReady).toHaveBeenCalledWith({
-      path: '/Users/me/Documents/Clutter',
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith('get_default_space_parent');
+    expect(onCreateSpace).toHaveBeenCalledWith({
+      parentPath: '/Users/me/Documents',
+      parentName: 'Documents',
       name: 'Clutter',
     });
   });
 
   it('shows the error, stays put and re-enables controls when it fails', async () => {
-    invokeMock.mockRejectedValue(
-      'A "Clutter" folder already exists in Documents.'
-    );
-    const { onSpaceReady } = setup();
+    invokeMock.mockRejectedValue("Couldn't locate your Documents folder.");
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(createButton()));
 
-    expect(onSpaceReady).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('already exists');
+    expect(onCreateSpace).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Documents');
     expect(createButton()).toBeEnabled();
     expect(selectButton()).toBeEnabled();
   });
@@ -114,7 +112,7 @@ describe('WelcomeScreen', () => {
   it('ignores a second action while one is in progress', async () => {
     let resolve!: (v: unknown) => void;
     invokeMock.mockReturnValue(new Promise((r) => (resolve = r)));
-    const { onSpaceReady } = setup();
+    const { onCreateSpace } = setup();
 
     await act(async () => fireEvent.click(createButton()));
     expect(createButton()).toBeDisabled();
@@ -122,7 +120,7 @@ describe('WelcomeScreen', () => {
     await act(async () => fireEvent.click(createButton()));
     expect(invokeMock).toHaveBeenCalledTimes(1);
 
-    await act(async () => resolve(SPACE));
-    expect(onSpaceReady).toHaveBeenCalledTimes(1);
+    await act(async () => resolve({ path: '/d', name: 'Documents' }));
+    expect(onCreateSpace).toHaveBeenCalledTimes(1);
   });
 });

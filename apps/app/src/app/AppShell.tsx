@@ -8,7 +8,7 @@ import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemi
 import { TauriDragStrip } from '../components/tauri-drag-strip/TauriDragStrip';
 import {
   SpaceDetails,
-  type SelectedSpace,
+  type NewSpaceDraft,
 } from '../components/space-details/SpaceDetails';
 import { WelcomeScreen } from '../components/welcome-screen/WelcomeScreen';
 
@@ -37,22 +37,22 @@ export function AppShell() {
 }
 
 // Onboarding. "Select a folder" persists the space and opens the workspace
-// directly (Rust: open_space). "Create a new space" lands on SpaceDetails;
-// that space lives only in this state for now — the SpaceDetails →
-// workspace step (persisting it, opening the workspace) comes later.
+// directly (Rust: open_space). "Create a new space" lands on SpaceDetails
+// with a draft (name + parent folder) held only in this state — no folder
+// exists until the later confirm step creates it.
 function InitialWindow() {
-  const [space, setSpace] = useState<SelectedSpace | null>(null);
+  const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
 
   return (
     <>
       <TauriDragStrip />
-      {space ? (
+      {draft ? (
         <SpaceDetails
-          space={space}
-          onNameChange={(name) => setSpace({ ...space, name })}
+          draft={draft}
+          onNameChange={(name) => setDraft({ ...draft, name })}
         />
       ) : (
-        <WelcomeScreen onSpaceReady={setSpace} />
+        <WelcomeScreen onCreateSpace={setDraft} />
       )}
     </>
   );

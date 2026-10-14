@@ -1,7 +1,7 @@
 //! Folder-level space selection for the welcome screen.
 //!
-//! `create_default_space` only *creates a plain directory* and reports it
-//! back; `validate_folder` is read-only (used by `startup::open_space`).
+//! `validate_folder` is read-only (used by `startup::open_space`) and
+//! `get_default_space_parent` only reports where new spaces go.
 //! Nothing is written inside a space and nothing is persisted here (that's
 //! `startup::open_space`). Per ADR-030 no reserved resource (`.clutter`,
 //! `Daily Notes`, …) is materialized up front; they appear lazily when a
@@ -11,13 +11,10 @@
 //! return paths outside the plugin's `$HOME` scope.
 
 use std::fs;
-use std::io::ErrorKind;
 use std::path::Path;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
-
-const DEFAULT_SPACE_FOLDER_NAME: &str = "Clutter";
 
 #[derive(Debug, Serialize)]
 pub struct SpaceFolder {
@@ -56,43 +53,15 @@ pub fn validate_folder(path: &Path) -> Result<SpaceFolder, String> {
     Ok(describe(&canonical))
 }
 
-/// Creates `<documents>/Clutter`. Never touches an existing folder's
-/// contents: an existing *empty* directory (e.g. left by an earlier attempt)
-/// is reused, anything else is an error.
-fn create_default_space_in(documents: &Path) -> Result<SpaceFolder, String> {
-    let target = documents.join(DEFAULT_SPACE_FOLDER_NAME);
-
-    match fs::create_dir(&target) {
-        Ok(()) => {}
-        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            let is_empty_dir = target.is_dir()
-                && fs::read_dir(&target)
-                    .map(|mut entries| entries.next().is_none())
-                    .unwrap_or(false);
-            if !is_empty_dir {
-                return Err(format!(
-                    "A \"{DEFAULT_SPACE_FOLDER_NAME}\" folder already exists in Documents. \
-                     Use \"Select a folder\" to open it instead."
-                ));
-            }
-        }
-        Err(error) => {
-            return Err(format!(
-                "Couldn't create the \"{DEFAULT_SPACE_FOLDER_NAME}\" folder in Documents: {error}"
-            ))
-        }
-    }
-
-    validate_folder(&target)
-}
-
+/// Where a new space will be created (the user's Documents folder). Read-only:
+/// nothing is created until the user confirms the new space.
 #[tauri::command]
-pub async fn create_default_space(app: AppHandle) -> Result<SpaceFolder, String> {
+pub async fn get_default_space_parent(app: AppHandle) -> Result<SpaceFolder, String> {
     let documents = app
         .path()
         .document_dir()
         .map_err(|error| format!("Couldn't locate your Documents folder: {error}"))?;
-    create_default_space_in(&documents)
+    Ok(describe(&documents))
 }
 
 #[cfg(test)]
@@ -132,46 +101,5 @@ mod tests {
         let file = dir.join("a.txt");
         fs::write(&file, "x").unwrap();
         assert!(validate_folder(&file).is_err());
-    }
-
-    #[test]
-    fn creates_clutter_folder_in_documents() {
-        let documents = scratch_dir("create");
-
-        let space = create_default_space_in(&documents).unwrap();
-
-        assert_eq!(space.name, "Clutter");
-        assert!(documents.join("Clutter").is_dir());
-        // Nothing is initialized inside it.
-        assert_eq!(fs::read_dir(documents.join("Clutter")).unwrap().count(), 0);
-    }
-
-    #[test]
-    fn reuses_empty_existing_folder() {
-        let documents = scratch_dir("empty");
-        fs::create_dir(documents.join("Clutter")).unwrap();
-
-        assert!(create_default_space_in(&documents).is_ok());
-    }
-
-    #[test]
-    fn never_touches_a_non_empty_existing_folder() {
-        let documents = scratch_dir("nonempty");
-        let existing = documents.join("Clutter");
-        fs::create_dir(&existing).unwrap();
-        fs::write(existing.join("mine.md"), "precious").unwrap();
-
-        assert!(create_default_space_in(&documents).is_err());
-        assert_eq!(fs::read_to_string(existing.join("mine.md")).unwrap(), "precious");
-        assert_eq!(fs::read_dir(&existing).unwrap().count(), 1);
-    }
-
-    #[test]
-    fn errors_when_clutter_exists_as_a_file() {
-        let documents = scratch_dir("file");
-        fs::write(documents.join("Clutter"), "i am a file").unwrap();
-
-        assert!(create_default_space_in(&documents).is_err());
-        assert_eq!(fs::read_to_string(documents.join("Clutter")).unwrap(), "i am a file");
     }
 }

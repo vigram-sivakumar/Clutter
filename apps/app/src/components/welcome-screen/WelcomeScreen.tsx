@@ -3,11 +3,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { AppIcon } from '@shared/icon';
-import type { SelectedSpace } from '../space-details/SpaceDetails';
+import {
+  DEFAULT_SPACE_NAME,
+  type NewSpaceDraft,
+} from '../space-details/SpaceDetails';
 import './WelcomeScreen.css';
 
 interface WelcomeScreenProps {
-  onSpaceReady: (space: SelectedSpace) => void;
+  onCreateSpace: (draft: NewSpaceDraft) => void;
 }
 
 function toMessage(error: unknown): string {
@@ -16,18 +19,18 @@ function toMessage(error: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-export function WelcomeScreen({ onSpaceReady }: WelcomeScreenProps) {
+export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // One action at a time; a cancelled picker (null) changes nothing.
-  async function run(action: () => Promise<SelectedSpace | null>) {
+  async function run(action: () => Promise<NewSpaceDraft | null>) {
     if (isPending) return;
     setIsPending(true);
     setError(null);
     try {
-      const space = await action();
-      if (space) onSpaceReady(space);
+      const draft = await action();
+      if (draft) onCreateSpace(draft);
     } catch (error) {
       setError(toMessage(error));
     } finally {
@@ -36,7 +39,7 @@ export function WelcomeScreen({ onSpaceReady }: WelcomeScreenProps) {
   }
 
   // Success closes this window and opens the workspace, so there's no
-  // space to hand back — only a cancel or failure leaves us here.
+  // draft to hand back — only a cancel or failure leaves us here.
   async function selectFolder() {
     const picked = await open({ directory: true, multiple: false });
     if (typeof picked !== 'string') return null;
@@ -44,8 +47,16 @@ export function WelcomeScreen({ onSpaceReady }: WelcomeScreenProps) {
     return null;
   }
 
-  function createSpace() {
-    return invoke<SelectedSpace>('create_default_space');
+  // Nothing is created yet — SpaceDetails collects the name first.
+  async function startNewSpace() {
+    const parent = await invoke<{ path: string; name: string }>(
+      'get_default_space_parent'
+    );
+    return {
+      parentPath: parent.path,
+      parentName: parent.name,
+      name: DEFAULT_SPACE_NAME,
+    };
   }
 
   return (
@@ -82,7 +93,7 @@ export function WelcomeScreen({ onSpaceReady }: WelcomeScreenProps) {
         <button
           className="space-picker__button"
           disabled={isPending}
-          onClick={() => void run(createSpace)}
+          onClick={() => void run(startNewSpace)}
         >
           <div className="space-picker__button--content">
             <span className="space-picker__title">Create a new space</span>

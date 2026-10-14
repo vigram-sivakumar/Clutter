@@ -44,3 +44,9 @@
   line-height: var(--lh-label);
   letter-spacing: var(--ls-body-small);
 }
+.space-details__error {
+  color: var(--danger-foreground);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
