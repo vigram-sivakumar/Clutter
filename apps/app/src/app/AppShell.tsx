@@ -6,6 +6,7 @@ import { Application } from '../core/application/Application';
 import { normalizeAllTablesInMarkdown } from '../features/markdown/editor/codemirror/table/tableColumnNormalization';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
+import { useFrontendReady } from './frontendReady';
 
 export function AppShell() {
   // TODO: Replace with the folder picker.
@@ -19,6 +20,11 @@ export function AppShell() {
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // On main there's no screen to decide: the shell always renders one (a
+  // placeholder while the vault opens, then the workspace or an error), so it
+  // is ready on first render and never waits for vault bootstrap.
+  useFrontendReady(true);
 
   useEffect(() => {
     let cancelled = false;

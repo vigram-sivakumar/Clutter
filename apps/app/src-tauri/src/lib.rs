@@ -1,20 +1,64 @@
-use tauri::Manager;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+use tauri::{AppHandle, Manager, WebviewWindow};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 mod vault_asset_scope;
 mod vault_watcher;
 
-/// Native (pre-webview-paint) background for the main window, matching the
-/// `--surface-root` token in design-system/theme.css (dark: neutral-800,
-/// light: neutral-50). Without it WKWebView paints its own white until the
-/// first frame of the page — `backgroundColor` in tauri.conf.json can't be used
-/// because it's static and can't follow light/dark. This relies on tauri's
-/// `macos-private-api` feature (wry's `transparent` path), which is what
-/// turns off WKWebView's default white fill; see tauri.conf.json.
-fn native_background(theme: tauri::Theme) -> tauri::window::Color {
-    match theme {
-        tauri::Theme::Dark => tauri::window::Color(0x1f, 0x1f, 0x1f, 0xff),
-        _ => tauri::window::Color(0xf9, 0xf8, 0xf7, 0xff),
+/// The main window is declared `"visible": false` in tauri.conf.json: a
+/// WKWebView paints white until its page's first frame, so the window is only
+/// shown once the frontend has rendered its first screen (see
+/// src/app/frontendReady.ts) and nothing else ever shows it.
+static WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
+
+/// How long the frontend gets to report ready before the user is asked what
+/// to do. This never reveals the window by itself — it only offers recovery.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Called by the frontend once its initial screen has rendered. Idempotent:
+/// later calls (e.g. after a webview reload) leave the window alone, so a
+/// reload never re-steals focus.
+#[tauri::command]
+fn frontend_ready(window: WebviewWindow) -> Result<(), String> {
+    if !WINDOW_REVEALED.swap(true, Ordering::SeqCst) {
+        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
     }
+    Ok(())
+}
+
+/// If the frontend never reports ready (script failed to load, crashed before
+/// rendering…) the window would stay hidden forever with no way to see why.
+/// Instead of showing a blank webview, ask: reload it, or quit.
+fn spawn_startup_watchdog(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(STARTUP_TIMEOUT);
+        if WINDOW_REVEALED.load(Ordering::SeqCst) {
+            return;
+        }
+        let reload = app
+            .dialog()
+            .message("Clutter didn't finish starting. You can try loading it again or quit.")
+            .title("Clutter couldn't start")
+            .kind(MessageDialogKind::Error)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Reload".into(),
+                "Quit".into(),
+            ))
+            .blocking_show();
+        if !reload {
+            app.exit(1);
+            return;
+        }
+        if WINDOW_REVEALED.load(Ordering::SeqCst) {
+            return;
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.eval("window.location.reload()");
+        }
+    });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -22,6 +66,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
+            frontend_ready,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,
@@ -51,14 +96,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
-
-            // Runs before the event loop, i.e. before the window's first frame.
-            // The page's own inline script refines this if the user's chosen
-            // theme differs from the OS theme (index.html).
-            if let Some(window) = app.get_webview_window("main") {
-                let theme = window.theme().unwrap_or(tauri::Theme::Light);
-                window.set_background_color(Some(native_background(theme)))?;
-            }
+            spawn_startup_watchdog(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

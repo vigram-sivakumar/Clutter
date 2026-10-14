@@ -16,15 +16,6 @@
                 : 'light'
               : pref;
           document.documentElement.setAttribute('data-theme', theme);
-          // Native window behind the (transparent) webview: Rust seeds it from
-          // the OS theme; correct it now if the saved preference differs.
-          var tauri = window.__TAURI_INTERNALS__;
-          if (tauri) {
-            tauri.invoke('plugin:window|set_background_color', {
-              label: tauri.metadata.currentWindow.label,
-              value: theme === 'dark' ? [31, 31, 31, 255] : [249, 248, 247, 255],
-            });
-          }
         } catch (e) {}
       })();
     </script>
