@@ -121,7 +121,6 @@ export function SpaceDetails({
           className="space-details__input"
           hasBackground={false}
           hasBorder={false}
-          placeholder="Enter a space name"
           value={draft.name}
           aria-invalid={!isValidSpaceName(draft.name)}
           onChange={(event) => handleNameChange(event.target.value)}

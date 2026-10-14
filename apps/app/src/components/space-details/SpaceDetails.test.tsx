@@ -58,10 +58,10 @@ const createButton = () => screen.getByRole('button', { name: 'Create' });
 const changeButton = () => screen.getByRole('button', { name: 'Change' });
 
 describe('SpaceDetails name', () => {
-  it('starts empty with a placeholder — no default name', () => {
+  it('starts empty, with no placeholder or default name', () => {
     setup();
     expect(nameInput()).toHaveValue('');
-    expect(nameInput()).toHaveAttribute('placeholder', 'Enter a space name');
+    expect(nameInput()).not.toHaveAttribute('placeholder');
     expect(screen.queryByDisplayValue('Clutter')).toBeNull();
   });
 
