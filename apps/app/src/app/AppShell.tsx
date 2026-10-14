@@ -20,46 +20,20 @@ import { AppLayout } from './layouts/app-layout/AppLayout';
 const WEB_DEV_VAULT_PATH = '/web-dev-vault';
 
 /**
- * Window selection happens in Rust before any webview exists
- * (src-tauri/src/startup.rs): the `initial` window opens when no usable
- * space is configured, the `main` window only when one is. So by the time
- * this runs, the window label already says which of the two we are — the
- * workspace is never started in the `initial` window.
+ * One native window and one webview for the app's whole lifetime
+ * (src-tauri/src/startup.rs only decides its shape — small and fixed for
+ * the welcome screen, full-size for the workspace). Welcome → workspace is
+ * a state change here, not a new window, so nothing reloads or flashes.
  */
 export function AppShell() {
   if (!isTauri()) {
     return <WorkspaceShell vaultPath={WEB_DEV_VAULT_PATH} />;
   }
-  if (getCurrentWindow().label === 'initial') {
-    return <InitialWindow />;
-  }
-  return <ConfiguredWorkspaceShell />;
+  return <ConfiguredShell />;
 }
 
-// Onboarding. "Select a folder" persists the space and opens the workspace
-// directly (Rust: open_space). "Create a new space" lands on SpaceDetails
-// with a draft (name + parent folder) held only in this state — no folder
-// exists until the later confirm step creates it.
-function InitialWindow() {
-  const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
-
-  return (
-    <>
-      <TauriDragStrip />
-      {draft ? (
-        <SpaceDetails
-          draft={draft}
-          onNameChange={(name) => setDraft({ ...draft, name })}
-          onParentChange={(parent) => setDraft({ ...draft, ...parent })}
-        />
-      ) : (
-        <WelcomeScreen onCreateSpace={setDraft} />
-      )}
-    </>
-  );
-}
-
-function ConfiguredWorkspaceShell() {
+function ConfiguredShell() {
+  // undefined: still asking Rust; null: no usable space → onboarding.
   const [vaultPath, setVaultPath] = useState<string | null | undefined>(
     undefined
   );
@@ -77,9 +51,51 @@ function ConfiguredWorkspaceShell() {
     return <div>Loading vault…</div>;
   }
   if (vaultPath === null) {
-    return <div>No space configured</div>;
+    return <Onboarding onSpaceOpened={setVaultPath} />;
   }
   return <WorkspaceShell vaultPath={vaultPath} />;
+}
+
+// Onboarding. "Select a folder" opens the chosen folder as the space
+// directly. "Create a new space" lands on SpaceDetails with a draft (name +
+// parent folder) held only in this state; Create there makes the folder and
+// opens it. Either way the space is handed to ConfiguredShell.
+function Onboarding({
+  onSpaceOpened,
+}: {
+  onSpaceOpened: (path: string) => void;
+}) {
+  const [draft, setDraft] = useState<NewSpaceDraft | null>(null);
+
+  // Shape the window for onboarding only once the welcome screen has actually
+  // painted — when arriving from a deleted space the window is still
+  // workspace-sized until now, so the content shows first, then it shrinks.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        invoke('show_welcome_shape').catch((error) =>
+          console.error('Failed to shape the welcome window:', error)
+        );
+      })
+    );
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <>
+      <TauriDragStrip />
+      {draft ? (
+        <SpaceDetails
+          draft={draft}
+          onNameChange={(name) => setDraft({ ...draft, name })}
+          onParentChange={(parent) => setDraft({ ...draft, ...parent })}
+          onSpaceOpened={onSpaceOpened}
+        />
+      ) : (
+        <WelcomeScreen onCreateSpace={setDraft} onSpaceOpened={onSpaceOpened} />
+      )}
+    </>
+  );
 }
 
 function WorkspaceShell({ vaultPath }: { vaultPath: string }) {
@@ -103,6 +119,15 @@ function WorkspaceShell({ vaultPath }: { vaultPath: string }) {
           vaultPath,
           normalizeAllTablesInMarkdown
         );
+
+        // An effect already cleaned up (React StrictMode's dev double-mount)
+        // must not open() — that starts a vault watcher, and the cancelled
+        // instance's close() would then stop the live instance's watcher.
+        if (cancelled) {
+          void application.close();
+          return;
+        }
+
         await application.open();
 
         if (cancelled) {

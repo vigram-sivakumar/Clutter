@@ -255,6 +255,14 @@ pub fn start_vault_watcher(
                 Err(_) => return,
             };
 
+            // The space itself was deleted or moved away: go back to the
+            // welcome screen instead of syncing an "empty" vault (and letting
+            // later writes recreate the folder).
+            if !root_path_for_event.exists() {
+                crate::startup::return_to_welcome(&app_handle, &root_path_for_event);
+                return;
+            }
+
             match classify_event_kind(&event.kind) {
                 EventClassification::Direct(change_type) => {
                     for path in event.paths.into_iter().filter(|p| !is_os_metadata_file(p)) {

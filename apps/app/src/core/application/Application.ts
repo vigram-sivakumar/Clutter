@@ -231,11 +231,11 @@ export class Application {
       // below requires the root to "exist" the same way a real vault
       // directory always does.
       await rawFileSystem.createDirectory(rootPath);
-    } else if (!(await rawFileSystem.exists(rootPath))) {
-      // First run, or a vault folder that is gone: start an empty vault there rather than fail the
-      // scan below. (The folder is only created — nothing else is written until the user does something.)
-      await rawFileSystem.createDirectory(rootPath);
     }
+    // A Tauri space whose folder is gone is never recreated here: the scan
+    // below fails with "Vault does not exist" and the caller shows that.
+    // Creating a space is an explicit user action (SpaceDetails), and the
+    // startup path (startup.rs) only opens a workspace for an existing folder.
 
     const fileSystem = new SelfWriteAwareFileSystem(
       rawFileSystem,

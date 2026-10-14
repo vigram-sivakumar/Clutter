@@ -9,9 +9,14 @@ import './WelcomeScreen.css';
 
 interface WelcomeScreenProps {
   onCreateSpace: (draft: NewSpaceDraft) => void;
+  /** A space was opened ("Select a folder"); the caller shows its workspace. */
+  onSpaceOpened: (path: string) => void;
 }
 
-export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onCreateSpace,
+  onSpaceOpened,
+}: WelcomeScreenProps) {
   const [isPending, setIsPending] = useState(false);
   const selectShake = useRejectShake();
   const createShake = useRejectShake();
@@ -36,12 +41,12 @@ export function WelcomeScreen({ onCreateSpace }: WelcomeScreenProps) {
     }
   }
 
-  // Success closes this window and opens the workspace, so there's no
-  // draft to hand back — only a cancel or failure leaves us here.
+  // Success hands the opened space to the caller (same window, same webview,
+  // just a screen change), so there's no draft to return.
   async function selectFolder() {
     const picked = await pickSpaceFolder();
     if (picked === null) return null;
-    await invoke('open_space', { path: picked });
+    onSpaceOpened(await invoke<string>('open_space', { path: picked }));
     return null;
   }
 

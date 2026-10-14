@@ -2,11 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": ["main", "initial"],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
-    "core:window:allow-show",
     "fs:allow-home-write-recursive",
     "fs:allow-mkdir",
     "fs:allow-home-read-recursive",

@@ -24,8 +24,14 @@ import { WelcomeScreen } from './WelcomeScreen';
 
 function setup() {
   const onCreateSpace = vi.fn();
-  render(<WelcomeScreen onCreateSpace={onCreateSpace} />);
-  return { onCreateSpace };
+  const onSpaceOpened = vi.fn();
+  render(
+    <WelcomeScreen
+      onCreateSpace={onCreateSpace}
+      onSpaceOpened={onSpaceOpened}
+    />
+  );
+  return { onCreateSpace, onSpaceOpened };
 }
 
 const selectButton = () =>
@@ -42,16 +48,17 @@ afterEach(() => {
 describe('WelcomeScreen', () => {
   beforeEach(() => vi.spyOn(console, 'error').mockImplementation(() => {}));
 
-  it('opens the picked folder as the space without rendering SpaceDetails', async () => {
+  it('opens the picked folder as the space and hands it back — no SpaceDetails draft', async () => {
     openMock.mockResolvedValue('/Users/me/Notes');
-    invokeMock.mockResolvedValue(undefined);
-    const { onCreateSpace } = setup();
+    invokeMock.mockResolvedValue('/Users/me/Notes');
+    const { onCreateSpace, onSpaceOpened } = setup();
 
     await act(async () => fireEvent.click(selectButton()));
 
     expect(invokeMock).toHaveBeenCalledWith('open_space', {
       path: '/Users/me/Notes',
     });
+    expect(onSpaceOpened).toHaveBeenCalledWith('/Users/me/Notes');
     expect(onCreateSpace).not.toHaveBeenCalled();
   });
 

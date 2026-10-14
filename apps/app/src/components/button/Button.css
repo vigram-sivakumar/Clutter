@@ -54,7 +54,11 @@
 
 /* Variant */
 .button--filled {
-  background: var(--surface-subtle);
+  background: color-mix(
+    in srgb,
+    var(--surface-subtle),
+    rgb(var(--state-base)) var(--state-hover-strength-medium)
+  );
 }
 .button--outline {
   background: transparent;

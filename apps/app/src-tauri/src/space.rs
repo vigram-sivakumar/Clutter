@@ -77,9 +77,10 @@ fn validate_folder_name(name: &str) -> Result<&str, String> {
     Ok(trimmed)
 }
 
-/// Creates `<parent>/<name>`. `create_dir` fails if anything already exists
-/// at that path, so an existing folder is never overwritten or modified, and
-/// the name is never changed or suffixed.
+/// Creates `<parent>/<name>`, or — if a folder is already there — uses it as
+/// is. `create_dir` never touches an existing entry, so nothing existing is
+/// overwritten or modified, and the name is never changed or suffixed. A
+/// non-folder (e.g. a file) with that name is an error.
 fn create_space_folder_in(parent: &Path, name: &str) -> Result<SpaceFolder, String> {
     let name = validate_folder_name(name)?;
     let parent = validate_folder(parent)?;
@@ -88,13 +89,21 @@ fn create_space_folder_in(parent: &Path, name: &str) -> Result<SpaceFolder, Stri
     match fs::create_dir(&target) {
         Ok(()) => Ok(describe(&target)),
         Err(error) if error.kind() == ErrorKind::AlreadyExists => {
-            Err(format!("\"{name}\" already exists in {}.", parent.name))
+            if target.is_dir() {
+                Ok(describe(&target))
+            } else {
+                Err(format!(
+                    "\"{name}\" exists in {} but isn't a folder.",
+                    parent.name
+                ))
+            }
         }
         Err(error) => Err(format!("Couldn't create the folder: {error}")),
     }
 }
 
-/// SpaceDetails' Create button: creates the new space's (empty) folder.
+/// SpaceDetails' Create button: creates the new space's folder (or reuses an
+/// existing one) and returns it.
 #[tauri::command]
 pub async fn create_space_folder(parent_path: String, name: String) -> Result<SpaceFolder, String> {
     create_space_folder_in(Path::new(&parent_path), &name)
@@ -159,19 +168,33 @@ mod tests {
     }
 
     #[test]
-    fn never_touches_an_existing_folder_or_renames_the_request() {
+    fn reuses_an_existing_folder_without_touching_it_or_renaming() {
         let parent = scratch_dir("exists");
         let existing = parent.join("Personal");
         fs::create_dir(&existing).unwrap();
         fs::write(existing.join("mine.md"), "precious").unwrap();
 
-        assert!(create_space_folder_in(&parent, "Personal").is_err());
+        let space = create_space_folder_in(&parent, "Personal").unwrap();
 
+        assert_eq!(space.name, "Personal");
         assert_eq!(
             fs::read_to_string(existing.join("mine.md")).unwrap(),
             "precious"
         );
+        assert_eq!(fs::read_dir(&existing).unwrap().count(), 1);
         assert_eq!(fs::read_dir(&parent).unwrap().count(), 1); // no "Personal 2"
+    }
+
+    #[test]
+    fn errors_when_a_file_has_that_name() {
+        let parent = scratch_dir("file");
+        fs::write(parent.join("Personal"), "i am a file").unwrap();
+
+        assert!(create_space_folder_in(&parent, "Personal").is_err());
+        assert_eq!(
+            fs::read_to_string(parent.join("Personal")).unwrap(),
+            "i am a file"
+        );
     }
 
     #[test]

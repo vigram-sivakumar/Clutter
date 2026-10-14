@@ -6,6 +6,7 @@ import { Input } from '../input/Input';
 import { useRejectShake } from '../property-list/useRejectShake';
 import { pickSpaceFolder } from './pickSpaceFolder';
 import './SpaceDetails.css';
+import { AppIcon } from '@shared/icon';
 
 /**
  * A space the user is setting up. Nothing exists on disk yet: the folder
@@ -38,18 +39,23 @@ interface SpaceDetailsProps {
   draft: NewSpaceDraft;
   onNameChange: (name: string) => void;
   onParentChange: (parent: { parentPath: string; parentName: string }) => void;
+  /** The folder was created and opened as the space; the caller shows its workspace. */
+  onSpaceOpened: (path: string) => void;
 }
 
 export function SpaceDetails({
   draft,
   onNameChange,
   onParentChange,
+  onSpaceOpened,
 }: SpaceDetailsProps) {
   const { shakeClassName, shake } = useRejectShake();
   const locationShake = useRejectShake();
   const [isChangingLocation, setIsChangingLocation] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreated, setIsCreated] = useState(false);
+  // Set once the folder exists, so a retry after a failed open doesn't try to
+  // create it again (which Rust would rightly refuse).
+  const [createdPath, setCreatedPath] = useState<string | null>(null);
 
   // An unusable name shakes the whole Space Name card, never a message; the input
   // is left exactly as typed.
@@ -80,26 +86,38 @@ export function SpaceDetails({
     }
   }
 
-  // Create is the only place the folder is made: `<parent>/<trimmed name>`.
+  // Where the folder will be created: the parent, plus the trimmed name once
+  // the user has typed one (never a default name).
+  const folderName = draft.name.trim();
+
+  // Create makes `<parent>/<trimmed name>` and then opens it as the space
+  // (Rust `open_space`: persists it and reshapes this same window for the
+  // workspace; the caller then switches screens — no new window).
   // Buttons are never disabled — an empty/invalid name shakes the Space Name
-  // card and creates nothing. Rust refuses an existing folder (never
-  // overwritten, never renamed or suffixed); that, like any failure, shakes
-  // the card too. Clicks while creating, or after it succeeded, are ignored.
+  // card and creates nothing. A folder that already exists is not an error:
+  // Rust leaves it untouched (never overwritten, renamed or suffixed) and we
+  // open it as the space. Any real failure shakes the card. Clicks while in
+  // flight are ignored.
   async function handleCreate() {
-    if (isCreating || isCreated) return;
-    if (!isValidSpaceName(draft.name)) {
+    if (isCreating) return;
+    if (createdPath === null && !isValidSpaceName(draft.name)) {
       shake();
       return;
     }
     setIsCreating(true);
     try {
-      await invoke('create_space_folder', {
-        parentPath: draft.parentPath,
-        name: draft.name.trim(),
-      });
-      setIsCreated(true);
+      let path = createdPath;
+      if (path === null) {
+        const created = await invoke<{ path: string }>('create_space_folder', {
+          parentPath: draft.parentPath,
+          name: folderName,
+        });
+        path = created.path;
+        setCreatedPath(path);
+      }
+      onSpaceOpened(await invoke<string>('open_space', { path }));
     } catch (error) {
-      console.error('Creating the space folder failed:', error);
+      console.error('Creating the space failed:', error);
       shake();
     } finally {
       setIsCreating(false);
@@ -108,48 +126,57 @@ export function SpaceDetails({
 
   return (
     <div className="space-details">
-      <div
-        className={['space-details__card', shakeClassName]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <label className="space-details__label" htmlFor="space-details-name">
-          Space Name
-        </label>
-        <Input
-          id="space-details-name"
-          className="space-details__input"
-          hasBackground={false}
-          hasBorder={false}
-          value={draft.name}
-          aria-invalid={!isValidSpaceName(draft.name)}
-          onChange={(event) => handleNameChange(event.target.value)}
-        />
-      </div>
-      <div
-        className={[
-          'space-details__card',
-          'space-details__card--with-action',
-          locationShake.shakeClassName,
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <div className="space-details__card-content">
-          <span className="space-details__label">Location</span>
-          <span className="space-details__path" title={draft.parentPath}>
-            {draft.parentName}/
-          </span>
+      <div className="space-details__main">
+        <div className="space-details__icon-picker" role="button">
+          <span className="space-details__initial">M</span>
         </div>
-        <Button
-          className="space-details__change-button"
-          variant="filled"
-          // size="small"
-          onClick={() => void handleChangeLocation()}
+        <div
+          className={['space-details__card', shakeClassName]
+            .filter(Boolean)
+            .join(' ')}
         >
-          Change
-        </Button>
+          <label className="space-details__label" htmlFor="space-details-name">
+            Space Name
+          </label>
+          <Input
+            id="space-details-name"
+            className="space-details__input"
+            hasBackground={false}
+            hasBorder={false}
+            value={draft.name}
+            aria-invalid={!isValidSpaceName(draft.name)}
+            onChange={(event) => handleNameChange(event.target.value)}
+          />
+        </div>
+        <div
+          className={[
+            'space-details__card',
+            'space-details__card--with-action',
+            locationShake.shakeClassName,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <div className="space-details__card-content">
+            <span className="space-details__label">Location</span>
+            <span
+              className="space-details__path"
+              title={`${draft.parentPath}/${folderName}`}
+            >
+              {draft.parentName}/{folderName}
+            </span>
+          </div>
+          <Button
+            className="space-details__change-button"
+            variant="filled"
+            // size="small"
+            onClick={() => void handleChangeLocation()}
+          >
+            Change
+          </Button>
+        </div>
       </div>
+
       <Button
         className="space-details__button"
         variant="primary"

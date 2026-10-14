@@ -13,6 +13,7 @@ pub fn run() {
             space::validate_space_folder,
             startup::get_configured_space,
             startup::open_space,
+            startup::show_welcome_shape,
             vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,

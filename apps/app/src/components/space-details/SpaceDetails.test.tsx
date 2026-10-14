@@ -42,14 +42,16 @@ const emptyDraft: NewSpaceDraft = {
 function setup(draft: NewSpaceDraft = emptyDraft) {
   const onNameChange = vi.fn();
   const onParentChange = vi.fn();
+  const onSpaceOpened = vi.fn();
   render(
     <SpaceDetails
       draft={draft}
       onNameChange={onNameChange}
       onParentChange={onParentChange}
+      onSpaceOpened={onSpaceOpened}
     />
   );
-  return { onNameChange, onParentChange };
+  return { onNameChange, onParentChange, onSpaceOpened };
 }
 
 const nameInput = () => screen.getByLabelText('Space Name');
@@ -97,11 +99,38 @@ describe('SpaceDetails name', () => {
 });
 
 describe('SpaceDetails location', () => {
-  it('shows only the parent, never the space name', () => {
-    setup({ ...emptyDraft, name: 'Personal' });
-    const location = screen.getByText('Documents/');
-    expect(location).toHaveAttribute('title', '/Users/me/Documents');
-    expect(screen.queryByText('Documents/Personal')).toBeNull();
+  it('shows just the parent until a name is typed — never a default name', () => {
+    setup();
+    expect(screen.getByText('Documents/')).toHaveAttribute(
+      'title',
+      '/Users/me/Documents/'
+    );
+    expect(screen.queryByText(/Clutter/)).toBeNull();
+  });
+
+  it('appends the trimmed name as the draft changes', () => {
+    const { rerender } = render(
+      <SpaceDetails
+        draft={{ ...emptyDraft, name: '  Personal ' }}
+        onNameChange={vi.fn()}
+        onParentChange={vi.fn()}
+        onSpaceOpened={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Documents/Personal')).toHaveAttribute(
+      'title',
+      '/Users/me/Documents/Personal'
+    );
+
+    rerender(
+      <SpaceDetails
+        draft={emptyDraft}
+        onNameChange={vi.fn()}
+        onParentChange={vi.fn()}
+        onSpaceOpened={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Documents/')).toBeInTheDocument();
   });
 
   it('Change picks a parent folder via the validator and reports it', async () => {
@@ -170,29 +199,53 @@ describe('SpaceDetails Create', () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it('creates <parent>/<trimmed name> only when clicked, then ignores further clicks', async () => {
-    invokeMock.mockResolvedValue({
-      path: '/Users/me/Documents/Personal',
-      name: 'Personal',
-    });
-    setup({ ...emptyDraft, name: '  Personal  ' });
-    expect(createButton()).toBeEnabled();
+  it('creates <parent>/<trimmed name> only when clicked, then opens it as the space', async () => {
+    invokeMock.mockImplementation(async (command: string) =>
+      command === 'create_space_folder'
+        ? { path: '/Users/me/Documents/Personal', name: 'Personal' }
+        : '/Users/me/Documents/Personal'
+    );
+    const { onSpaceOpened } = setup({ ...emptyDraft, name: '  Personal  ' });
+    expect(invokeMock).not.toHaveBeenCalled();
 
     await act(async () => fireEvent.click(createButton()));
 
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock).toHaveBeenCalledWith('create_space_folder', {
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'create_space_folder', {
       parentPath: '/Users/me/Documents',
       name: 'Personal',
     });
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'open_space', {
+      path: '/Users/me/Documents/Personal',
+    });
+    expect(onSpaceOpened).toHaveBeenCalledWith('/Users/me/Documents/Personal');
     expect(createButton()).toBeEnabled();
-
-    await act(async () => fireEvent.click(createButton()));
-    expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
-  it('shakes the name card and stays enabled when the folder already exists', async () => {
-    invokeMock.mockRejectedValue('"Personal" already exists in Documents.');
+  it('shakes and, on retry, only re-opens (never re-creates) when opening fails after creating', async () => {
+    let openAttempts = 0;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'create_space_folder')
+        return { path: '/p/Personal', name: 'Personal' };
+      if (++openAttempts === 1) throw 'cannot open';
+    });
+    setup({ ...emptyDraft, name: 'Personal' });
+
+    await act(async () => fireEvent.click(createButton()));
+    expect(nameCard()).toHaveClass('editable-text--shake');
+
+    await act(async () => fireEvent.click(createButton()));
+    const commands = invokeMock.mock.calls.map((c) => c[0]);
+    expect(commands).toEqual([
+      'create_space_folder',
+      'open_space',
+      'open_space',
+    ]);
+  });
+
+  it('shakes the name card and stays enabled when creating fails', async () => {
+    invokeMock.mockRejectedValue(
+      "Couldn't create the folder: permission denied"
+    );
     setup({ ...emptyDraft, name: 'Personal' });
 
     await act(async () => fireEvent.click(createButton()));
@@ -212,6 +265,7 @@ describe('SpaceDetails Create', () => {
     expect(invokeMock).toHaveBeenCalledTimes(1);
 
     await act(async () => resolve({ path: '/p', name: 'Personal' }));
+    expect(invokeMock).toHaveBeenCalledWith('open_space', { path: '/p' });
   });
 });
 
