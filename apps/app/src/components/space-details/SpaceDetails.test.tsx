@@ -64,6 +64,20 @@ describe('SpaceDetails', () => {
     );
   });
 
+  it('does not act on Enter — only the Create button does', () => {
+    render(
+      <SpaceDetails draft={{ ...draft, name: '' }} onNameChange={vi.fn()} />
+    );
+    const input = screen.getByLabelText('Space Name');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyPress(input, { key: 'Enter', charCode: 13 });
+    fireEvent.keyUp(input, { key: 'Enter' });
+
+    expect(input.closest('.input')).not.toHaveClass('editable-text--shake');
+    expect(input.closest('form')).toBeNull();
+  });
+
   it('does not shake when Create is clicked with a valid name', () => {
     render(<SpaceDetails draft={draft} onNameChange={vi.fn()} />);
 
