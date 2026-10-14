@@ -5,7 +5,8 @@
  * (`.cm-note-embed-control--mutating`) lives in `mediaPresentation/embedLayout.css`.
  *
  * Never put `margin` on a CM6-managed line or block element here (CLAUDE.md): use `padding`.
- * A nested embed is any embed inside `.cm-content[contenteditable='false']`.
+ * A nested embed is one inside another note embed (`.cm-note-embed--nested`, from the embed ancestry), never merely one in
+ * a read-only page: an archived note's top-level embeds look like any other.
  */
 
 /* Not a card: a surface with an inset hairline and shadow. */
@@ -53,7 +54,7 @@
 }
 
 /* Nested embeds are flat. */
-.cm-content[contenteditable='false'] .cm-note-embed {
+.cm-note-embed.cm-note-embed--nested {
   padding: 0;
   border-radius: var(--radius-sm);
   box-shadow: none;
@@ -68,7 +69,7 @@
   padding: var(--space-6);
 }
 
-.cm-content[contenteditable='false'] .cm-note-embed__header {
+.cm-note-embed--nested > .cm-note-embed__header {
   padding: 0;
 }
 
@@ -151,7 +152,7 @@
 }
 
 /* Nested embeds get no extra inset. */
-.cm-content[contenteditable='false'] .cm-note-embed__content {
+.cm-note-embed--nested > .cm-note-embed__content {
   padding: 0;
   margin-bottom: 0;
 }
@@ -167,7 +168,7 @@
   box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
 }
 
-.cm-content[contenteditable='false'] .cm-note-embed--collapsed {
+.cm-note-embed--nested.cm-note-embed--collapsed {
   background: none;
   box-shadow: none;
 }

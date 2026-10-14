@@ -513,7 +513,8 @@ function buildDecorations(
                   getOnOpenPage ?? (() => undefined),
                   getOnOpenNoteEmbedMenu ?? (() => undefined),
                   getFoldStateStore ?? (() => undefined),
-                  hostPageId
+                  hostPageId,
+                  ancestry.depth > 0
                 );
                 // Same reveal contract Image/PDF already establish: revealed
                 // keeps the raw `![[Note]]` text in place and inserts the

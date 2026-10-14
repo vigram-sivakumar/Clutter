@@ -860,7 +860,7 @@ describe("a note embed's own extra content indent applies only when it's nested 
   // CSS tripwires already establish for this codebase, rather than a
   // `getComputedStyle` check that would silently pass against jsdom's own
   // unstyled defaults regardless of what the real rule says.
-  it("the .cm-note-embed__content base rule carries the content inset for every embed; the .cm-content[contenteditable='false'] rule only resets it for a nested embed", () => {
+  it("the .cm-note-embed__content base rule carries the content inset for every embed; the .cm-note-embed--nested rule only resets it for a nested embed", () => {
     const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8');
     const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -868,10 +868,8 @@ describe("a note embed's own extra content indent applies only when it's nested 
     expect(bareMatch, 'bare .cm-note-embed__content rule not found').not.toBeNull();
     expect(bareMatch![1]).toMatch(/padding-inline-start\s*:/);
 
-    const match = cssWithoutComments.match(
-      /\.cm-content\[contenteditable='false'\]\s+\.cm-note-embed__content\s*\{([^}]*)\}/
-    );
-    expect(match, "scoped .cm-content[contenteditable='false'] .cm-note-embed__content rule not found").not.toBeNull();
+    const match = cssWithoutComments.match(/\.cm-note-embed--nested\s*>\s*\.cm-note-embed__content\s*\{([^}]*)\}/);
+    expect(match, 'scoped .cm-note-embed--nested > .cm-note-embed__content rule not found').not.toBeNull();
     expect(match![1]).toMatch(/padding\s*:\s*0/);
   });
 
@@ -1477,5 +1475,69 @@ describe('embed highlight CSS: only the outer wrapper is ever highlighted', () =
 
     expect(lineRule).toMatch(/background-color\s*:\s*transparent/);
     expect(wrapperRule).toMatch(/background-color\s*:\s*var\(--md-reveal-highlight-surface\)/);
+  });
+});
+
+describe('note embed presentation: nested is decided by ancestry, never by whether the page is editable', () => {
+  const resolve = resolverFor({
+    Outer: { status: 'resolved', pageId: 'page-outer', title: 'Outer', markdown: '![[Inner]]', icon: 'note', emoji: null },
+    Inner: { status: 'resolved', pageId: 'page-inner', title: 'Inner', markdown: 'Inner body.', icon: 'note', emoji: null },
+  });
+  const readOnlyHost = { extensions: [EditorView.editable.of(false)] };
+
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('a top-level embed in an editable page is a card, not nested', () => {
+    const card = mountView('![[Outer]]', resolve).dom.querySelector('.cm-note-embed')!;
+
+    expect(card.classList.contains('cm-note-embed--nested')).toBe(false);
+  });
+
+  it('a top-level embed in a read-only page gets the same card styling classes (not nested)', () => {
+    const card = mountView('![[Outer]]', resolve, readOnlyHost).dom.querySelector('.cm-note-embed')!;
+
+    expect(card.classList.contains('cm-note-embed--nested')).toBe(false);
+  });
+
+  it('a read-only top-level embed stays expanded with no collapse caret', () => {
+    const card = mountView('![[Outer]]', resolve, readOnlyHost).dom.querySelector<HTMLElement>('.cm-note-embed')!;
+
+    expect(card.querySelector('.cm-note-embed__header > .cm-fold-toggle')).toBeNull();
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(false);
+    expect(card.querySelector<HTMLElement>(':scope > .cm-note-embed__content')!.hidden).toBe(false);
+  });
+
+  it('a read-only top-level embed keeps its mutation controls marked for hiding, and Expand unmarked', () => {
+    const card = mountView('![[Outer]]', resolve, readOnlyHost).dom.querySelector('.cm-note-embed')!;
+
+    expect(card.querySelector('[aria-label="Edit source"]')!.classList.contains('cm-note-embed-control--mutating')).toBe(true);
+    expect(card.querySelector('[aria-label="More actions"]')!.classList.contains('cm-note-embed-control--mutating')).toBe(true);
+    expect(card.querySelector('[aria-label="Expand"]')!.classList.contains('cm-note-embed-control--mutating')).toBe(false);
+  });
+
+  it.each([
+    ['editable', {}],
+    ['read-only', readOnlyHost],
+  ])('an embed inside another embed is nested, in an %s page', (_name, options) => {
+    const outer = mountView('![[Outer]]', resolve, options).dom.querySelector('.cm-note-embed')!;
+    const inner = outer.querySelector('.cm-note-embed')!;
+
+    expect(outer.classList.contains('cm-note-embed--nested')).toBe(false);
+    expect(inner.classList.contains('cm-note-embed--nested')).toBe(true);
+    expect(inner.querySelector('.cm-note-embed__header > .cm-fold-toggle')).toBeNull();
+  });
+
+  it('the flat presentation rules target the nested class, never the editability attribute', () => {
+    const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    expect(css).not.toContain('contenteditable');
+    expect(css).toMatch(/\.cm-note-embed\.cm-note-embed--nested\s*\{[^}]*box-shadow\s*:\s*none/);
+    expect(css).toMatch(/\.cm-note-embed--nested\s*>\s*\.cm-note-embed__header\s*\{[^}]*padding\s*:\s*0/);
+    expect(css).toMatch(/\.cm-note-embed--nested\.cm-note-embed--collapsed\s*\{[^}]*box-shadow\s*:\s*none/);
   });
 });

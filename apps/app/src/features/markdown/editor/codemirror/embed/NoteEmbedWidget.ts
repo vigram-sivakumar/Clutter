@@ -339,7 +339,14 @@ export class NoteEmbedWidget extends WidgetType {
      * state (`getFoldStateStore().get`/`set` above) belongs to that page opened as a page and is no longer
      * touched by this widget.
      */
-    readonly hostPageId: string
+    readonly hostPageId: string,
+    /**
+     * Whether this embed renders inside another note embed's own view (`embedLivePreview.ts`'s
+     * `ancestry.depth > 0`). Drives only the flat nested presentation (`.cm-note-embed--nested`). It is
+     * unrelated to whether the editor is editable: an embed at the top of a read-only page (an archived
+     * note) is not nested and looks like any other top-level embed.
+     */
+    readonly isNested: boolean = false
   ) {
     super();
   }
@@ -378,6 +385,7 @@ export class NoteEmbedWidget extends WidgetType {
       this.path !== other.path ||
       this.pos !== other.pos ||
       this.to !== other.to ||
+      this.isNested !== other.isNested ||
       this.ui.revealed !== other.ui.revealed ||
       this.ui.broken !== other.ui.broken
     ) {
@@ -420,6 +428,7 @@ export class NoteEmbedWidget extends WidgetType {
     // The working-state container identity — added only here, never
     // above before branching; see this method's own doc comment for why.
     container.classList.add('cm-note-embed');
+    container.classList.toggle('cm-note-embed--nested', this.isNested);
     container.contentEditable = 'false';
     // `[data-menu-open]` — see `ImageWidget.ts`'s own `renderWorking` doc
     // comment and `MarkdownEditor.tsx`'s `setNoteEmbedMenuButtonOpen` for
@@ -517,9 +526,10 @@ export class NoteEmbedWidget extends WidgetType {
 
     const content = document.createElement('div');
     content.classList.add('cm-note-embed__content');
-    // A nested embed (rendered inside another embed's read-only view — the same `editable: false` signal the
-    // nested CSS keys off) has no collapse caret and is always expanded; its saved collapse state is left
-    // untouched in the store, just not applied here.
+    // Behaviour, not presentation: an embed in a non-editable view (inside another embed, or at the top of a
+    // read-only page such as an archived note) has no collapse caret and is always expanded; its saved collapse
+    // state is left untouched in the store, just not applied here. The flat nested look is a separate signal,
+    // `this.isNested` (the `.cm-note-embed--nested` class), so a read-only page's embeds still get the card styling.
     const nested = !view.state.facet(EditorView.editable);
     const collapsed = !nested && this.ui.collapsed;
     content.hidden = collapsed;
