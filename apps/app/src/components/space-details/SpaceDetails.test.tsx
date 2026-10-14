@@ -52,6 +52,28 @@ describe('SpaceDetails', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('shakes when Create is clicked with an empty name', () => {
+    render(
+      <SpaceDetails draft={{ ...draft, name: '' }} onNameChange={vi.fn()} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(screen.getByLabelText('Space Name').closest('.input')).toHaveClass(
+      'editable-text--shake'
+    );
+  });
+
+  it('does not shake when Create is clicked with a valid name', () => {
+    render(<SpaceDetails draft={draft} onNameChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(
+      screen.getByLabelText('Space Name').closest('.input')
+    ).not.toHaveClass('editable-text--shake');
+  });
+
   it('does not shake for a valid name', () => {
     render(<SpaceDetails draft={draft} onNameChange={vi.fn()} />);
     const input = screen.getByLabelText('Space Name');

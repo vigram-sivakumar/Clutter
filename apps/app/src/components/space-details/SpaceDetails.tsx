@@ -47,6 +47,11 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
     onNameChange(name);
   }
 
+  // Creating the folder comes later; for now Create only rejects a bad name.
+  function handleCreate() {
+    if (!isValidSpaceName(draft.name)) shake();
+  }
+
   return (
     <div className="space-details">
       <div className="space-details__card">
@@ -71,7 +76,11 @@ export function SpaceDetails({ draft, onNameChange }: SpaceDetailsProps) {
           {draft.parentName}/
         </span>
       </div>
-      <Button className="space-details__button" variant="primary">
+      <Button
+        className="space-details__button"
+        variant="primary"
+        onClick={handleCreate}
+      >
         Create
       </Button>
     </div>
