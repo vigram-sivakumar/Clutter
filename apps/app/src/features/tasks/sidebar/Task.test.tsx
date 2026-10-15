@@ -358,3 +358,27 @@ describe('Task — title truncation', () => {
     expect(screen.getByText('Plain title').closest('.task-title')).toHaveClass('truncate');
   });
 });
+
+describe('Task — Edit in the row menu', () => {
+  it('lists Edit first and runs the supplied edit operation; Delete stays and is unconfirmed', () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    const { container } = render(<Task title="Plain" isChecked={false} onEdit={onEdit} onDelete={onDelete} />);
+
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Edit', 'Delete']);
+
+    fireEvent.click(screen.getByText('Edit'));
+    expect(onEdit).toHaveBeenCalledOnce();
+
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
+    fireEvent.click(screen.getByText('Delete'));
+    expect(onDelete).toHaveBeenCalledOnce();
+  });
+
+  it('has no Edit item when no edit operation is supplied', () => {
+    const { container } = render(<Task title="Plain" isChecked={false} onDelete={vi.fn()} />);
+    fireEvent.click(container.querySelector('[aria-haspopup="menu"]')!);
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument();
+  });
+});

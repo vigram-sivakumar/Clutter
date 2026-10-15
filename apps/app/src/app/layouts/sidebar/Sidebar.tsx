@@ -24,7 +24,10 @@ import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 import { useSpaces } from '@app/spaces/SpacesContext';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { RowContextMenuEnabled } from '@components/entry/EntryMenuContext';
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
+import { EditTaskDialog } from '@features/tasks/shortcuts/EditTaskDialog';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { NewTagDialog } from '@features/tags/shortcuts/NewTagDialog';
 import { NewFolderDialog } from '@features/notes/shortcuts/NewFolderDialog';
 import { createAndOpenFolder } from '@features/notes/helpers/createAndOpenFolder';
@@ -99,6 +102,8 @@ export function Sidebar({
 
   // The creation dialogs are hosted here, not inside their panels, so the top controls' menu and
   // each panel's own "New" row open the very same dialog whichever sidebar tab is mounted.
+  // The task whose Edit task modal is open (Edit in a task row's menu) — the same dialog the Task Collection opens.
+  const [editingTask, setEditingTask] = useState<TaskOccurrence | undefined>(undefined);
   const [creationDialog, setCreationDialog] = useState<'task' | 'tag' | 'folder' | null>(null);
   const closeCreationDialog = () => setCreationDialog(null);
 
@@ -218,6 +223,7 @@ export function Sidebar({
           }
           onRequestReveal={onRequestReveal}
           onRequestNewTask={() => setCreationDialog('task')}
+          onEditTask={setEditingTask}
         />
       ),
     },
@@ -289,9 +295,11 @@ export function Sidebar({
         </Tabs>
       </div>
 
+      <RowContextMenuEnabled value>
       <div className="sidebar--content">
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
+      </RowContextMenuEnabled>
       <Footer
         vaultFolderName={VaultPath.filename(vault.root)}
         spaces={spaces?.spaces}
@@ -309,6 +317,9 @@ export function Sidebar({
           createTaskInDailyNote({ vault, pageOperations, taskOperations }, title, dueDate)
         }
       />
+      {editingTask && (
+        <EditTaskDialog task={editingTask} taskOperations={taskOperations} onClose={() => setEditingTask(undefined)} />
+      )}
       <NewTagDialog
         open={creationDialog === 'tag'}
         onClose={closeCreationDialog}

@@ -1,4 +1,5 @@
-import { Fragment, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MutableRefObject, ReactNode, RefObject } from 'react';
 
 import { Button } from '@components/button/Button';
@@ -11,6 +12,7 @@ import type {
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
+import { useEntryMenu } from '@components/entry/EntryMenuContext';
 import { Menu } from './Menu';
 import { MenuGroupTitle } from './MenuGroupTitle';
 import { MenuItem } from './MenuItem';
@@ -159,6 +161,27 @@ export function OverflowMenu({
   // (reset) by that hook the moment it observes it.
   const suppressReturnFocusRef = useRef(false);
 
+  // Right-click on the row this menu sits in (Sidebar rows, via `Entry`): the SAME menu opens — through this
+  // component's own `onOpenChange`, the state its button drives — anchored at the pointer instead of the button.
+  const entryMenu = useEntryMenu();
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  const pointerAnchorRef = useRef<HTMLSpanElement>(null);
+  const handledRequest = useRef<number>(0);
+  const hasItems = items.length > 0;
+  useEffect(() => (hasItems ? entryMenu?.register() : undefined), [entryMenu?.register, hasItems]);
+  const request = entryMenu?.request ?? null;
+  useEffect(() => {
+    if (hasItems && request && request.seq !== handledRequest.current) {
+      handledRequest.current = request.seq;
+      setPointer({ x: request.x, y: request.y });
+      onOpenChange(true);
+    }
+  }, [request, hasItems]);
+  useEffect(() => {
+    if (!open) {
+      setPointer(null);
+    }
+  }, [open]);
   if (items.length === 0) {
     return null;
   }
@@ -176,17 +199,28 @@ export function OverflowMenu({
         aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
+          setPointer(null);
           onOpenChange(!open);
         }}
       >
         <AppIcon icon={icon} />
       </Button>
+      {pointer &&
+        createPortal(
+          <span
+            ref={pointerAnchorRef}
+            aria-hidden="true"
+            style={{ position: 'fixed', left: pointer.x, top: pointer.y, width: 0, height: 0, pointerEvents: 'none' }}
+          />,
+          document.body
+        )}
       <Overlay
         open={open}
         onClose={() => onOpenChange(false)}
-        anchorRef={anchorRef}
-        side={side}
-        alignment={alignment}
+        anchorRef={pointer ? pointerAnchorRef : anchorRef}
+        side={pointer ? 'bottom' : side}
+        alignment={pointer ? 'start' : alignment}
+        offset={pointer ? 0 : undefined}
         suppressReturnFocusRef={suppressReturnFocusRef}
       >
         <OverflowMenuBody

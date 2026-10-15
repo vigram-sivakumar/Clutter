@@ -10,6 +10,7 @@ import type { PickerListItem } from '@components/picker-list/PickerList.types';
 import { AppIcon } from '@shared/icon';
 import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
 import { buildAssetMenuHandlers } from '@features/notes/helpers/buildAssetMenuHandlers';
+import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 /**
@@ -50,6 +51,54 @@ export interface ImageOverlayMoreActionsProps {
   archived?: boolean;
   onRestoreResource?: (resourceId: string) => void;
   onDeleteResource?: (resourceId: string) => void;
+}
+
+/**
+ * The one image-asset menu (the canonical asset actions on the overlay surface), adapted to the asset's
+ * source: a vault file gets the resource menu, a remote image the same menu in the same order with URL
+ * counterparts. Rename has no home in this context (a deliberate product decision); Set as cover image is
+ * offered when the caller supplies the capability — and, for a remote image, always listed (unavailable
+ * when there is none, since it would do nothing and a live control must never be a silent no-op). Shared
+ * with the Assets collection's right-click menu, so an image shows the same menu from either place.
+ */
+export function buildImageAssetMenu({
+  remote,
+  archived = false,
+  canRestore = false,
+  canSetAsCover,
+}: {
+  remote: boolean;
+  archived?: boolean;
+  /** Restore is offered only where a restore handler is (a file archived by itself); one that is
+   *  archived because its folder is — no record of its own — can only be deleted. */
+  canRestore?: boolean;
+  canSetAsCover: boolean;
+}): OverflowMenuItemConfig[] {
+  return buildResourceActionMenu(
+    'asset',
+    {
+      assetKind: 'image',
+      isRemote: remote,
+      status: archived && canRestore ? 'archived' : 'active',
+      isEffectivelyArchived: archived,
+      isDeletable: archived,
+      setAsCoverImage: canSetAsCover ? 'enabled' : remote ? 'disabled' : undefined,
+    },
+    'overlay'
+  );
+}
+
+/** The id → operation map for a remote image's menu: each action runs on the image's own URL. */
+export function buildRemoteImageMenuHandlers(remote: {
+  readonly url: string;
+  readonly actions: RemoteImageActions;
+}): ResourceActionHandlers {
+  return {
+    'save-to-vault': () => remote.actions.onSaveToVault(remote.url),
+    'open-in-browser': () => remote.actions.onOpenInBrowser(remote.url),
+    'copy-link': () => remote.actions.onCopyLink(remote.url),
+    download: () => remote.actions.onDownload(remote.url),
+  };
 }
 
 /**
@@ -102,27 +151,12 @@ export function ImageOverlayMoreActions({
   onRestoreResource,
   onDeleteResource,
 }: ImageOverlayMoreActionsProps) {
-  // The one asset menu (the canonical asset actions), adapted to the asset's
-  // source: a vault file gets the resource menu, a remote image the same menu
-  // in the same order with URL counterparts. Rename has no home in this
-  // context (a deliberate product decision); Set as cover image is offered when
-  // the caller supplies the capability — and, for a remote image, always listed
-  // (unavailable for now, since it does nothing yet and a live control must
-  // never be a silent no-op).
-  const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
-    'asset',
-    {
-      assetKind: 'image',
-      isRemote: Boolean(remote),
-      // Restore is offered only where a restore handler is (a file archived by itself); one that is
-      // archived because its folder is — no record of its own — can only be deleted.
-      status: archived && onRestoreResource ? 'archived' : 'active',
-      isEffectivelyArchived: archived,
-      isDeletable: archived,
-      setAsCoverImage: onSetCoverImage ? 'enabled' : remote ? 'disabled' : undefined,
-    },
-    'overlay'
-  );
+  const menuItems: OverflowMenuItemConfig[] = buildImageAssetMenu({
+    remote: Boolean(remote),
+    archived,
+    canRestore: Boolean(onRestoreResource),
+    canSetAsCover: Boolean(onSetCoverImage),
+  });
   const [open, setOpen] = useState(false);
   const moveTrigger = useMoveDestinationTrigger(resourceMoveDestinations);
   const suppressReturnFocusRef = useRef(false);
@@ -132,15 +166,7 @@ export function ImageOverlayMoreActions({
       if (id === 'set-as-cover-image') {
         onSetCoverImage?.();
       } else if (remote) {
-        if (id === 'save-to-vault') {
-          remote.actions.onSaveToVault(remote.url);
-        } else if (id === 'open-in-browser') {
-          remote.actions.onOpenInBrowser(remote.url);
-        } else if (id === 'copy-link') {
-          remote.actions.onCopyLink(remote.url);
-        } else if (id === 'download') {
-          remote.actions.onDownload(remote.url);
-        }
+        buildRemoteImageMenuHandlers(remote)[id]?.();
       } else if (resourceId !== undefined) {
         buildAssetMenuHandlers(
           { onArchiveResource, onRevealResourceInFinder, onCopyResourcePath, onDownloadResource, onRestoreResource, onDeleteResource },

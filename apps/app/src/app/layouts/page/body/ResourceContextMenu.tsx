@@ -19,11 +19,6 @@ export interface ResourceContextMenuProps {
   point: ContextMenuPoint;
   /** The menu, and anything its selection opened (Move picker, Confirmation), is finished with. */
   onDone(): void;
-  /**
-   * A right-click while open (on the backdrop). Return true if it opened a menu elsewhere — this one is
-   * then replaced; otherwise this one just closes.
-   */
-  onRetarget?(event: MouseEvent): boolean;
 }
 
 /**
@@ -35,27 +30,11 @@ export interface ResourceContextMenuProps {
  * Stays mounted until the menu AND whatever it opened have closed: choosing Move or a confirmed
  * action closes the menu while the picker/dialog (anchored to the same point) is still showing.
  */
-export function ResourceContextMenu({ menu, point, onDone, onRetarget }: ResourceContextMenuProps) {
+export function ResourceContextMenu({ menu, point, onDone }: ResourceContextMenuProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const suppressReturnFocusRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(true);
   const dispatch = useResourceMenuDispatch(menu);
-
-  // A second right-click lands on the Overlay's backdrop, where the native menu would otherwise
-  // appear: swallow it and dismiss, like any outside click.
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-    const dismiss = (event: Event) => {
-      event.preventDefault();
-      if (!onRetarget?.(event as MouseEvent)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('contextmenu', dismiss, true);
-    return () => document.removeEventListener('contextmenu', dismiss, true);
-  }, [menuOpen, onRetarget]);
 
   const idle = !menuOpen && !dispatch.moveTrigger.open && dispatch.confirmation.pending === null;
   useEffect(() => {

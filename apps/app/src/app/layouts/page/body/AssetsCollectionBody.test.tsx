@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { folderEntry } from '@features/collection/testing/collectionEntry';
 import { AssetsCollectionBody } from './AssetsCollectionBody';
 import type { CollectionLayout } from '@core/properties/collectionViewConfig';
 import type { PropertyId } from '@core/properties/collectionProperties';
@@ -674,5 +676,99 @@ describe('AssetsCollectionBody — Create affordance', () => {
       expect(queryByText('Create'), viewMode).toBeNull();
       unmount();
     }
+  });
+});
+
+describe('AssetsCollectionBody — right-click menu', () => {
+  const imageResources = [
+    makeResource({ id: 'a', name: 'house.png', path: '/vault/Assets/house.png' }),
+    makeResource({ id: 'b', name: 'boat.png', path: '/vault/Assets/boat.png' }),
+  ];
+
+  const assetMenu = (acted: string[]) => (asset: Asset) => {
+    if (asset.source !== 'local') {
+      return null;
+    }
+    const menu = buildResourceActionMenu('asset', { assetKind: asset.kind, status: 'active' }, 'overlay');
+    return {
+      menu,
+      handlers: Object.fromEntries(menu.map((item) => [item.id, () => acted.push(`${item.id}:${asset.resource.id}`)])),
+    };
+  };
+
+  const contextmenu = (element: Element) => {
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 });
+    act(() => {
+      element.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it.each(LAYOUTS)('%s: right-clicking an asset opens Clutter\'s menu and not the native one', (viewMode) => {
+    const { container } = renderAssets({ resources: imageResources, viewMode, assetMenu: assetMenu([]) });
+
+    const event = contextmenu(itemFor(container, viewMode));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  it('opens from the image and from the label inside a card, not only its edge', () => {
+    const { container } = renderAssets({ resources: imageResources, viewMode: 'card', assetMenu: assetMenu([]) });
+    const card = itemFor(container, 'card');
+
+    for (const target of [card.querySelector('img')!, screen.getByText('house')]) {
+      const event = contextmenu(target);
+      expect(event.defaultPrevented).toBe(true);
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    }
+  });
+
+  it('acts on the right-clicked asset and highlights only that card while open', () => {
+    const acted: string[] = [];
+    const { container } = renderAssets({ resources: imageResources, viewMode: 'card', assetMenu: assetMenu(acted) });
+
+    contextmenu(itemFor(container, 'card', 1));
+
+    expect(container.querySelectorAll("[data-context-menu-open='true']")).toHaveLength(1);
+    expect(itemFor(container, 'card', 1)).toHaveAttribute('data-context-menu-open', 'true');
+
+    const archive = buildResourceActionMenu('asset', { assetKind: 'image', status: 'active' }, 'overlay').find((item) => item.id === 'archive')!;
+    fireEvent.click(screen.getByText(archive.label));
+    expect(acted).toEqual(['archive:b']);
+    expect(container.querySelector("[data-context-menu-open='true']")).toBeNull();
+  });
+
+  it('still suppresses the native menu for an asset with no menu (a remote image)', () => {
+    const remote: RemoteAsset = {
+      id: 'remote:https://example.com/x.png',
+      source: 'remote',
+      kind: 'image',
+      name: 'x.png',
+      url: 'https://example.com/x.png',
+      references: [],
+    } as unknown as RemoteAsset;
+    const { container } = renderAssets({ assets: [remote], viewMode: 'card', assetMenu: assetMenu([]) });
+
+    const event = contextmenu(itemFor(container, 'card'));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('a folder card opens the folder menu', () => {
+    const { container } = renderAssets({
+      resources: imageResources,
+      viewMode: 'card',
+      folders: [folderEntry({ id: 'f1', title: 'Trips' })],
+      folderMenu: () => ({ menu: buildResourceActionMenu('folder', { status: 'active' }, 'context'), handlers: {} }),
+    });
+
+    const event = contextmenu(container.querySelector('.collection-entry--folder-card')!);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
   });
 });

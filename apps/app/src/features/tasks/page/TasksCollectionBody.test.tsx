@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TasksCollectionBody } from './TasksCollectionBody';
+import { buildTaskMenu } from '../helpers/buildTaskMenu';
+import { DEFAULT_TASK_DISPLAY_CONFIG } from '../helpers/groupTasks';
 import { resolveCollectionView } from '@core/presentation/collection/resolveCollectionView';
 import { TASKS_COLLECTION } from '@core/presentation/collection/collectionDefinitions';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
+
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -1029,5 +1039,84 @@ describe('TasksCollectionBody', () => {
       expect(wikilink).toHaveTextContent('Project Alpha');
       expect(wikilink).toHaveAttribute('data-wikilink-status', 'unresolved');
     });
+  });
+});
+
+describe('TasksCollectionBody — right-click menu', () => {
+  const task = (text: string, extra: Partial<TaskOccurrence> = {}): TaskOccurrence =>
+    ({ text, completed: false, sourcePageId: `page-${text}`, startOffset: 0, endOffset: 5, ...extra }) as TaskOccurrence;
+
+  const setup = () => {
+    const fns = {
+      onEditTask: vi.fn(),
+      onOpenTask: vi.fn(),
+      onDuplicateTask: vi.fn(),
+      onDeleteTask: vi.fn(),
+    };
+    const result = render(
+      <TasksCollectionBody
+        view="tasks-all"
+        tasks={[task('Alpha'), task('Beta')]}
+        onToggleComplete={vi.fn()}
+        onChangeDueDate={vi.fn()}
+        displayConfig={{ ...DEFAULT_TASK_DISPLAY_CONFIG, showCompleted: true }}
+        {...fns}
+      />
+    );
+    return { ...result, ...fns };
+  };
+  const rowOf = (text: string) => screen.getByText(text).closest('.collection-entry')!;
+  const rightClick = (el: Element) => {
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 });
+    act(() => {
+      el.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it('opens the shared task menu on the clicked row and suppresses the native one', () => {
+    setup();
+    const event = rightClick(rowOf('Alpha'));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    const expected = buildTaskMenu(
+      Object.fromEntries(['edit', 'open-in-note', 'change-due-date', 'duplicate', 'delete'].map((id) => [id, () => {}])),
+      undefined,
+      'context'
+    );
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(expected.map((item) => item.label));
+  });
+
+  it('Edit, Duplicate and Delete run the existing operations on the right-clicked task', () => {
+    const { onEditTask, onDuplicateTask, onDeleteTask } = setup();
+
+    rightClick(rowOf('Beta'));
+    fireEvent.click(screen.getByText('Edit'));
+    expect(onEditTask).toHaveBeenCalledWith(expect.objectContaining({ text: 'Beta' }));
+
+    rightClick(rowOf('Beta'));
+    fireEvent.click(screen.getByText('Duplicate'));
+    expect(onDuplicateTask).toHaveBeenCalledWith(expect.objectContaining({ text: 'Beta' }));
+
+    rightClick(rowOf('Alpha'));
+    fireEvent.click(screen.getByText('Delete'));
+    expect(onDeleteTask).toHaveBeenCalledOnce();
+    expect(onDeleteTask).toHaveBeenCalledWith(expect.objectContaining({ text: 'Alpha' }));
+  });
+
+  it('forces the row\'s hover look while the menu is open and clears it after', () => {
+    const { container } = setup();
+    rightClick(rowOf('Alpha'));
+    expect(Array.from(container.querySelectorAll("[data-context-menu-open='true']"))).toEqual([rowOf('Alpha')]);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.querySelector("[data-context-menu-open='true']")).toBeNull();
+  });
+
+  it('keeps the hover Edit button working', () => {
+    const { onEditTask } = setup();
+    fireEvent.click(within(rowOf('Alpha') as HTMLElement).getByLabelText('Edit task'));
+    expect(onEditTask).toHaveBeenCalledWith(expect.objectContaining({ text: 'Alpha' }));
   });
 });

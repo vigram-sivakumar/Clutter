@@ -40,6 +40,8 @@ interface TasksPanelProps {
   readonly onRequestReveal: (reveal: PendingEditorReveal) => void;
   /** Opens the sidebar-hosted New task dialog (see Sidebar.tsx). */
   readonly onRequestNewTask: () => void;
+  /** Opens the Edit task modal for a task (Edit in its row's menu). */
+  readonly onEditTask: (task: TaskOccurrence) => void;
 }
 
 export function Tasks({
@@ -56,6 +58,7 @@ export function Tasks({
   onToggleGroup,
   onRequestReveal,
   onRequestNewTask,
+  onEditTask,
 }: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
@@ -137,6 +140,7 @@ export function Tasks({
         onChangeDueDate,
         onDuplicateTask,
         onDeleteTask,
+        onEditTask,
         navigation,
         resolveWikiLink,
         resolveTag,

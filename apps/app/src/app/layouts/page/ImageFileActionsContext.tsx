@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 
+import type { RemoteImageActions } from '@features/markdown/editor/codemirror/image/ImageOverlayMoreActions';
+
 /**
  * What an image shown in a page can do with the file itself — a cover image's menu and an image
  * embedded in the editor both use these — supplied by whoever owns those flows (AppLayout: the Save
@@ -11,6 +13,8 @@ export interface ImageFileActions {
   readonly saveToVault: (url: string) => void;
   /** Saves the image file anywhere the user picks. */
   readonly download: (reference: string) => void;
+  /** The image overlay's remote-image menu actions — the Assets collection's right-click menu runs the same ones. */
+  readonly remoteImage?: RemoteImageActions;
 }
 
 const ImageFileActionsContext = createContext<ImageFileActions | null>(null);

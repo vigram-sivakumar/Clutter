@@ -42,6 +42,7 @@ import {
   isRemoteImageReference,
   type ImageFileActions,
 } from '@app/layouts/page/ImageFileActionsContext';
+import type { RemoteImageActions } from '@features/markdown/editor/codemirror/image/ImageOverlayMoreActions';
 import { PdfOverlay } from '@features/pdf/PdfOverlay';
 import {
   DEFAULT_TASK_DISPLAY_CONFIG,
@@ -368,7 +369,16 @@ export function AppLayout({ application }: AppLayoutProps) {
   // Save to vault flow (and result dialog) as the asset menu — it rewrites every use of the URL,
   // covers included. Download saves the file anywhere: a remote one is fetched, one already in the
   // vault (a vault-relative reference) is copied from its file.
+  // What the image overlay's remote-image menu does — also handed to the page (below) for the Assets
+  // collection's right-click menu on a remote image.
+  const remoteImageActions: RemoteImageActions = {
+    onSaveToVault: startSaveToVault,
+    onOpenInBrowser: (url) => void openExternalUrl(url),
+    onCopyLink: (url) => void copyTextToClipboard(url),
+    onDownload: downloadRemote,
+  };
   const coverImageActions: ImageFileActions = {
+    remoteImage: remoteImageActions,
     saveToVault: startSaveToVault,
     download: (reference) => {
       if (isRemoteImageReference(reference)) {
@@ -500,12 +510,7 @@ export function AppLayout({ application }: AppLayoutProps) {
         remoteImageActions={
           resourceOverlay?.kind === 'image' && resourceOverlay.actionsEnabled === false
             ? undefined
-            : {
-                onSaveToVault: startSaveToVault,
-                onOpenInBrowser: (url) => void openExternalUrl(url),
-                onCopyLink: (url) => void copyTextToClipboard(url),
-                onDownload: downloadRemote,
-              }
+            : remoteImageActions
         }
         onSetCoverImage={
           resourceOverlay?.kind === 'image' ? resourceOverlay.onSetCoverImage : undefined

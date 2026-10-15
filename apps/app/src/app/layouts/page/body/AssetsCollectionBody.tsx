@@ -6,6 +6,7 @@ import { renderFolderGrid } from './collectionFolders';
 import { NOTE_SORT_OPTIONS } from './CollectionBody';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { PageBody } from './Page.Body';
+import { useCollectionItemContextMenu, type CollectionItemMenuResolver } from './useCollectionItemContextMenu';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { EditableText } from '@components/editable-text/EditableText';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
@@ -82,6 +83,10 @@ export interface AssetsCollectionBodyProps {
    * remote asset has no file to rename.
    */
   readonly onRenameResource: (resourceId: string, name: string) => void;
+  /** Right-click menu for an asset (see `CollectionBody.itemMenu`); absent, assets have none. */
+  readonly assetMenu?: CollectionItemMenuResolver<Asset>;
+  /** Right-click menu for a folder card in the folders section. */
+  readonly folderMenu?: CollectionItemMenuResolver;
 }
 
 /**
@@ -94,6 +99,11 @@ export interface AssetsCollectionBodyProps {
  */
 /** What the body shows when the page does not say: the assets collection's resolved defaults, read from its definition. */
 const DEFAULT_VIEW = resolveCollectionView(ASSETS_COLLECTION);
+
+/** An item or row with the context menu's attributes merged into its own `props`. */
+function withMenuProps<T extends { props?: object }>(item: T, menuProps: object | undefined): T {
+  return menuProps ? { ...item, props: { ...item.props, ...menuProps } } : item;
+}
 
 export function AssetsCollectionBody({
   folders = [],
@@ -109,7 +119,11 @@ export function AssetsCollectionBody({
   emptyMessage,
   emptyCreateIcon,
   onRenameResource,
+  assetMenu,
+  folderMenu,
 }: AssetsCollectionBodyProps) {
+  const assetContextMenu = useCollectionItemContextMenu<Asset>(assetMenu);
+  const folderContextMenu = useCollectionItemContextMenu(folderMenu);
   const sortedFolders = sort ? sortEntries(folders, sort, NOTE_SORT_OPTIONS) : folders;
   const [editingId, setEditingId] = useState<string | null>(null);
   // A hidden card title leaves nothing to edit in place, so F2 renames nothing then.
@@ -166,6 +180,7 @@ export function AssetsCollectionBody({
               onClick: clickFor(asset),
               titleContent: titleContentFor(asset),
             })}
+            {...assetContextMenu.entryProps(asset)}
           />
         ))}
         {onCreate && <CreateCard onCreate={onCreate} aspectRatio={ASSET_CARD_ASPECT_RATIO} />}
@@ -177,12 +192,15 @@ export function AssetsCollectionBody({
         // The File size column has always been headed "Size" here (a known wording drift, kept as it was).
         columns={buildPropertyTableColumns(visible, { headers: { size: 'Size' } })}
         rows={assets.map((asset) =>
-          toAssetTableRow(asset, {
-            url: urlFor(asset),
-            visible,
-            onClick: clickFor(asset),
-            titleContent: titleContentFor(asset),
-          })
+          withMenuProps(
+            toAssetTableRow(asset, {
+              url: urlFor(asset),
+              visible,
+              onClick: clickFor(asset),
+              titleContent: titleContentFor(asset),
+            }),
+            assetContextMenu.entryProps(asset)
+          )
         )}
         newItem={createNewItem(onCreate)}
         onKeyDown={handleKeyDown}
@@ -192,12 +210,15 @@ export function AssetsCollectionBody({
     layout = (
       <CollectionDataList
         items={assets.map((asset) =>
-          toAssetListItem(asset, {
-            url: urlFor(asset),
-            visible,
-            onClick: clickFor(asset),
-            titleContent: titleContentFor(asset),
-          })
+          withMenuProps(
+            toAssetListItem(asset, {
+              url: urlFor(asset),
+              visible,
+              onClick: clickFor(asset),
+              titleContent: titleContentFor(asset),
+            }),
+            assetContextMenu.entryProps(asset)
+          )
         )}
         newItem={createNewItem(onCreate)}
         onKeyDown={handleKeyDown}
@@ -211,11 +232,13 @@ export function AssetsCollectionBody({
         <CollectionEmptyState message={emptyMessage} action={onCreate && emptyCreateLabel ? { label: emptyCreateLabel, onClick: onCreate, icon: emptyCreateIcon } : undefined} />
       ) : (
         <>
-          {folders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder)}
+          {folders.length > 0 && renderFolderGrid(sortedFolders, onCreateFolder, folderContextMenu.entryProps)}
           {assets.length > 0 && layout}
         </>
       )}
       {/* Trailing breathing room below the last item — same spacer CollectionBody ends with. */}
+      {assetContextMenu.overlay}
+      {folderContextMenu.overlay}
       <div className="collection__bottom-spacer" aria-hidden="true" />
     </PageBody>
   );

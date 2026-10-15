@@ -65,7 +65,7 @@ import { CurrentNoteTemplateSuggestions } from '@app/layouts/page/CurrentNoteTem
 import { resolveDefaultTemplateId } from '@features/notes/helpers/resolveDefaultTemplateId';
 import { uploadAssets } from '@features/notes/helpers/uploadAssets';
 import { buildResourceMenuOptions, type ResourceMenuOps } from '@app/layouts/page/topbar/buildResourceMenuOptions';
-import { buildCollectionItemMenu } from '@app/layouts/page/body/buildCollectionItemMenu';
+import { buildAssetItemMenu, buildCollectionItemMenu } from '@app/layouts/page/body/buildCollectionItemMenu';
 import type { CollectionItemMenuResolver } from '@app/layouts/page/body/useCollectionItemContextMenu';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
@@ -176,7 +176,7 @@ import {
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
 import { NewTaskDialog } from '@features/tasks/shortcuts/NewTaskDialog';
-import { formatTaskTitle } from '@features/tasks/helpers/formatTaskTitle';
+import { EditTaskDialog } from '@features/tasks/shortcuts/EditTaskDialog';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import {
   TASKS_TAB_VIEW,
@@ -910,6 +910,23 @@ export function PageHost({
       onRenameResource={(id, name) =>
         void application.resourceOperations.renameResource(id, name)
       }
+      // Right-click: an asset's More actions (the viewer's menu), and the folder cards' (the topbar's).
+      assetMenu={(asset) =>
+        buildAssetItemMenu(
+          application,
+          {
+            onArchiveResource: (id) =>
+              void application.resourceOperations.archiveResource(id),
+            onRevealResourceInFinder: revealResourceInFinder,
+            onCopyResourcePath: copyResourcePath,
+            onDownloadResource: downloadResourceById,
+            remoteImage: coverImageActions?.remoteImage,
+            onSetRemoteAsCover: onSetAssetAsCover,
+          },
+          asset
+        )
+      }
+      folderMenu={collectionItemMenu}
     />
   );
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
@@ -2081,20 +2098,10 @@ export function PageHost({
               }
             />
             {editingTask && (
-              <NewTaskDialog
-                open
+              <EditTaskDialog
+                task={editingTask}
+                taskOperations={application.taskOperations}
                 onClose={() => setEditingTask(undefined)}
-                editing={{
-                  title: formatTaskTitle(editingTask.text, editingTask.dueDate),
-                  dueDate: editingTask.dueDate,
-                }}
-                // The one existing update path: edits the task's own line in place (ADR-044 — a due date never moves it).
-                onSaveTask={(title, dueDate) =>
-                  application.taskOperations.update(editingTask, {
-                    title,
-                    dueDate,
-                  })
-                }
               />
             )}
           </>
@@ -2115,6 +2122,12 @@ export function PageHost({
                 : application.taskOperations.setDate(task, date))
             }
             onEditTask={setEditingTask}
+            onDuplicateTask={(task) =>
+              void application.taskOperations.duplicate(task)
+            }
+            onDeleteTask={(task) =>
+              void application.taskOperations.delete(task)
+            }
             displayConfig={tasksViewConfig}
             collectionView={collectionView}
             getSource={(task) => {

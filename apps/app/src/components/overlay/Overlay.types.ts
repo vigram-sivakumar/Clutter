@@ -40,6 +40,15 @@ interface OverlayBaseProps {
    */
   dismissible?: boolean;
 
+  /**
+   * A right-click anywhere while this overlay is open dismisses it, and neither the platform's own context
+   * menu nor any other `contextmenu` handler sees that event — the way a native menu closes on a second
+   * right-click. On by default for every overlay (menus, pickers, popovers), and only while it is
+   * `dismissible`; a right-click on a text field inside the overlay keeps its native text menu. Pass `false`
+   * to opt an overlay out.
+   */
+  dismissOnContextMenu?: boolean;
+
   children: ReactNode;
   className?: string;
 

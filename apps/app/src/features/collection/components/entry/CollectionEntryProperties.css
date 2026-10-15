@@ -7,9 +7,20 @@
   justify-content: flex-start;
   gap: var(--space-6);
 
+  /* A value never wraps: it shrinks inside its cell or row and its text truncates. */
+  min-width: 0;
+  max-width: 100%;
+
   color: var(--foreground-secondary);
   font-size: var(--text-label-small);
   line-height: var(--lh-label);
+}
+
+.collection-entry-properties__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .collection-entry-properties__leading {

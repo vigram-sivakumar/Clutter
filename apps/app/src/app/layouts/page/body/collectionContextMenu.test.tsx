@@ -200,32 +200,33 @@ describe('Collection View right-click menu — the target keeps its hover appear
     expect(marked()).toEqual([]);
   });
 
-  it('transfers the mark when another item is right-clicked while the menu is open', () => {
-    const acted: string[] = [];
+  it('right-clicking another item while open only dismisses: no replacement menu, mark cleared', () => {
     render(
       <CollectionBody
         notes={[noteEntry({ id: 'a', title: 'Alpha' }), noteEntry({ id: 'b', title: 'Beta' })]}
         viewMode="list"
-        itemMenu={resolverFor(acted)}
+        itemMenu={resolverFor([])}
       />
     );
     rightClick(rowOf('Alpha'));
 
-    // The backdrop covers the page, so the second right-click lands on it; the entry beneath is found by point.
-    const beta = rowOf('Beta');
-    document.elementsFromPoint = () => [document.querySelector('.overlay__backdrop')!, beta];
-    rightClick(document.querySelector('.overlay__backdrop')!, { clientX: 10, clientY: 10 });
+    // The event is stopped at the document (capture), so Beta's own handler never sees it.
+    const event = rightClick(rowOf('Beta'));
 
-    expect(marked()).toEqual([beta]);
-    fireEvent.click(screen.getByText('Duplicate'));
-    expect(acted).toEqual(['duplicate:b']);
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(marked()).toEqual([]);
+
+    // After dismissal the next right-click opens normally, on its own target.
+    rightClick(rowOf('Beta'));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(marked()).toEqual([rowOf('Beta')]);
   });
 
   it('a right-click on empty space under the backdrop just closes the menu', () => {
     render(<CollectionBody notes={[noteEntry({ title: 'Alpha' })]} viewMode="list" itemMenu={resolverFor([])} />);
     rightClick(rowOf('Alpha'));
 
-    document.elementsFromPoint = () => [document.querySelector('.overlay__backdrop')!];
     const event = rightClick(document.querySelector('.overlay__backdrop')!);
 
     expect(event.defaultPrevented).toBe(true);

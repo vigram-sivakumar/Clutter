@@ -259,6 +259,15 @@ function whenExecutable(id: string) {
   return (context: ResourceActionContext) => (context.executable?.includes(id) ? ('enabled' as const) : ('hidden' as const));
 }
 
+/** Opens the note a line or task lives in (and, where the opener supports it, lands on the exact place). */
+const OPEN_IN_NOTE: ResourceActionDefinition = {
+  id: 'open-in-note',
+  group: 'identity',
+  order: 20,
+  label: 'Show in note',
+  icon: 'note',
+};
+
 export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceActionDefinition[]>> = {
   note: [
     RENAME,
@@ -306,26 +315,31 @@ export const RESOURCE_ACTIONS: Readonly<Record<ResourceKind, readonly ResourceAc
     forFile(DELETE),
   ],
   tag: [RENAME, CHANGE_ICON, TOGGLE_PIN, DELETE_TAG],
-  // A task is a line inside a Note: no rename, icon, favorite or move. Its removal is Delete.
+  // A task is a line inside a Note: no rename, icon, favorite or move. Its removal is Delete. Groups: identity
+  // (Edit it, or open the note it lives in), organize (its due date, a copy of it), destructive (Delete) — the
+  // global order, no task-specific grouping.
+  // A tag's matching line is a reference to a line in a source note, not a note: its one action is Show in note.
+  'tag-line': [{ ...OPEN_IN_NOTE, order: 10 }],
   task: [
-    { ...DUPLICATE, availability: whenExecutable('duplicate') },
+    {
+      id: 'edit',
+      group: 'identity',
+      order: 10,
+      label: 'Edit',
+      icon: 'edit',
+      availability: whenExecutable('edit'),
+    },
+    { ...OPEN_IN_NOTE, availability: whenExecutable('open-in-note') },
     {
       id: 'change-due-date',
-      group: 'view',
+      group: 'organize',
       order: 10,
       label: 'Due date',
       icon: 'calendarDots',
       trailing: (context) => context.valueLabel,
       availability: whenExecutable('change-due-date'),
     },
-    {
-      id: 'open-in-note',
-      group: 'view',
-      order: 20,
-      label: 'Show in note',
-      icon: 'note',
-      availability: whenExecutable('open-in-note'),
-    },
+    { ...DUPLICATE, availability: whenExecutable('duplicate') },
     { ...DELETE_TAG, availability: whenExecutable('delete') },
   ],
 };

@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { Entry, type EntryProps } from '@components/entry/Entry';
+import { OverflowMenu } from '@components/menu/OverflowMenu';
+import { buildTagLineMenu } from '../helpers/buildTagLineMenu';
 import { AppIcon } from '@shared/icon';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
 import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
@@ -15,6 +18,11 @@ export interface TagContextEntryProps extends Omit<EntryProps, 'children' | 'lea
   resolveWikiLink?: ResolveWikiLink;
   resolveTag?: ResolveTag;
   resolveEmbed?: ResolvePageEmbed;
+  /**
+   * The line's More actions menu — Show in note (open the source note and highlight this line), from the row's
+   * `⋯` button or a right-click. Absent, the row has no menu.
+   */
+  onShowInNote?: () => void;
 }
 
 /**
@@ -42,16 +50,35 @@ export function TagContextEntry({
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
+  onShowInNote,
   ...entryProps
 }: TagContextEntryProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const lineMenu = onShowInNote ? buildTagLineMenu(onShowInNote) : undefined;
+
   return (
     <Entry
       {...entryProps}
+      forceHover={entryProps.forceHover || menuOpen}
       leading={<AppIcon className="tag-context-entry__icon" icon={TAG_CONTEXT_ICON} />}
+      // The same hover-revealed `⋯` every sidebar row has; right-click on the row opens this same menu at the pointer.
+      actions={
+        lineMenu && (
+          <OverflowMenu
+            items={lineMenu.menu}
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            onSelect={(id) => lineMenu.handlers[id]?.()}
+            side="bottom"
+            alignment="start"
+          />
+        )
+      }
     >
       <span className="tag-context-entry__text truncate">
         {renderCompactMarkdown(lineText, { resolveWikiLink, resolveTag, resolveEmbed })}
       </span>
+
     </Entry>
   );
 }

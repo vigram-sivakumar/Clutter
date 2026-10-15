@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
+
 import { useRef, useState, type MutableRefObject } from 'react';
 import {
   cleanup,
@@ -775,5 +777,92 @@ describe('Overlay centered positioning', () => {
       expect(surface.style.top).toBe('250px');
       expect(surface.style.left).toBe('300px');
     });
+  });
+});
+
+describe('Overlay — a right-click while open dismisses it', () => {
+  const rightClick = (target: Element) => {
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    fireEvent(target, event);
+    return event;
+  };
+
+  function Harness({ initiallyOpen = true, dismissible = true, dismissOnContextMenu }: { initiallyOpen?: boolean; dismissible?: boolean; dismissOnContextMenu?: boolean }) {
+    const [open, setOpen] = useState(initiallyOpen);
+    const anchorRef = useRef<HTMLButtonElement>(null);
+    return (
+      <>
+        <button ref={anchorRef} onClick={() => setOpen(true)}>
+          anchor
+        </button>
+        <div data-testid="row" onContextMenu={() => setOpen(true)}>
+          row
+        </div>
+        <Overlay open={open} onClose={() => setOpen(false)} anchorRef={anchorRef} dismissible={dismissible} dismissOnContextMenu={dismissOnContextMenu}>
+          <div>content</div>
+          <input aria-label="field" />
+        </Overlay>
+      </>
+    );
+  }
+
+  it('dismisses on a right-click anywhere and prevents the native menu', () => {
+    render(<Harness />);
+
+    const event = rightClick(document.body);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.queryByText('content')).not.toBeInTheDocument();
+  });
+
+  it('stops the event, so another context-menu handler cannot open a replacement in the same interaction', () => {
+    render(<Harness />);
+
+    rightClick(screen.getByTestId('row'));
+
+    expect(screen.queryByText('content')).not.toBeInTheDocument();
+  });
+
+  it('works the same for an overlay opened by a button click, including a right-click on that button', () => {
+    render(<Harness initiallyOpen={false} />);
+    fireEvent.click(screen.getByText('anchor'));
+    expect(screen.getByText('content')).toBeInTheDocument();
+
+    const event = rightClick(screen.getByText('anchor'));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(screen.queryByText('content')).not.toBeInTheDocument();
+  });
+
+  it('a later right-click, with nothing open, reaches handlers and the platform normally', () => {
+    render(<Harness />);
+    rightClick(document.body);
+
+    const event = rightClick(screen.getByTestId('row'));
+
+    expect(event.defaultPrevented).toBe(false);
+    // The row's own handler ran (it opens the overlay): the correct menu opens normally.
+    expect(screen.getByText('content')).toBeInTheDocument();
+  });
+
+  it('leaves a text field inside the overlay its native menu, and respects dismissible and the opt-out', () => {
+    const { unmount } = render(<Harness />);
+    expect(rightClick(screen.getByLabelText('field')).defaultPrevented).toBe(false);
+    expect(screen.getByText('content')).toBeInTheDocument();
+    unmount();
+
+    const notDismissible = render(<Harness dismissible={false} />);
+    expect(rightClick(document.body).defaultPrevented).toBe(false);
+    expect(screen.getByText('content')).toBeInTheDocument();
+    notDismissible.unmount();
+
+    render(<Harness dismissOnContextMenu={false} />);
+    expect(rightClick(document.body).defaultPrevented).toBe(false);
+    expect(screen.getByText('content')).toBeInTheDocument();
+  });
+
+  it('adds no listener while nothing is open', () => {
+    render(<Harness initiallyOpen={false} />);
+    expect(rightClick(document.body).defaultPrevented).toBe(false);
   });
 });

@@ -37,6 +37,8 @@ interface TaskRowCallbacks {
   readonly onDuplicateTask: (task: TaskOccurrence) => void;
   /** Deletes the task's line from its source note. */
   readonly onDeleteTask: (task: TaskOccurrence) => void;
+  /** Opens the task in the Edit task modal (Edit in the row's menu); absent, the row has no Edit. */
+  readonly onEditTask?: (task: TaskOccurrence) => void;
 }
 
 /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
@@ -59,6 +61,7 @@ export function renderTaskRow(
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
+    onEditTask,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -85,6 +88,7 @@ export function renderTaskRow(
       onOpenInNote={() => onOpenTask(task)}
       onDuplicate={() => onDuplicateTask(task)}
       onDelete={() => onDeleteTask(task)}
+      onEdit={onEditTask && (() => onEditTask(task))}
       resolveWikiLink={resolveWikiLink}
       resolveTag={resolveTag}
       resolveEmbed={resolveEmbed}
@@ -127,6 +131,7 @@ export function renderTodayContent({
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
+  onEditTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -137,6 +142,7 @@ export function renderTodayContent({
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
+    onEditTask,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -161,6 +167,7 @@ export function renderOverdueContent({
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
+  onEditTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -171,6 +178,7 @@ export function renderOverdueContent({
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
+    onEditTask,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -193,6 +201,7 @@ export function renderUpcomingContent({
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
+  onEditTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -203,6 +212,7 @@ export function renderUpcomingContent({
     onChangeDueDate,
     onDuplicateTask,
     onDeleteTask,
+    onEditTask,
     resolveWikiLink,
     resolveTag,
     resolveEmbed,
@@ -236,6 +246,7 @@ export function renderTasksByDate({
   onChangeDueDate,
   onDuplicateTask,
   onDeleteTask,
+  onEditTask,
   resolveWikiLink,
   resolveTag,
   resolveEmbed,
@@ -298,6 +309,7 @@ export function renderTasksByDate({
             onChangeDueDate,
             onDuplicateTask,
             onDeleteTask,
+            onEditTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
@@ -325,6 +337,7 @@ export function renderTasksByDate({
             onChangeDueDate,
             onDuplicateTask,
             onDeleteTask,
+            onEditTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
@@ -351,6 +364,7 @@ export function renderTasksByDate({
             onChangeDueDate,
             onDuplicateTask,
             onDeleteTask,
+            onEditTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,
@@ -375,6 +389,7 @@ export function renderTasksByDate({
             onChangeDueDate,
             onDuplicateTask,
             onDeleteTask,
+            onEditTask,
             resolveWikiLink,
             resolveTag,
             resolveEmbed,

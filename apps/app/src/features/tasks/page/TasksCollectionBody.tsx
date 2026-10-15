@@ -1,10 +1,13 @@
-import type { ReactNode } from 'react';
+import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import { CollectionEmptyState } from '@features/collection/components/empty/CollectionEmptyState';
 import { CollectionSourceLink } from '@features/collection/components/entry/CollectionSourceLink';
 import { CollectionDataList } from '@features/collection/components/list/CollectionDataList';
 import { CollectionDataTable } from '@features/collection/components/table/CollectionDataTable';
 import { buildPropertyTableColumns, propertyValueCells } from '@features/collection/properties/tableColumns';
+import { useCollectionItemContextMenu } from '@app/layouts/page/body/useCollectionItemContextMenu';
+import { TaskDatePicker } from '../sidebar/TaskDatePicker';
+import { buildTaskMenu } from '../helpers/buildTaskMenu';
 import { TaskDueDateButton } from './TaskDueDateButton';
 import { TaskTitleActions } from './TaskTitleActions';
 import { Checkbox } from '@components/checkbox/Checkbox';
@@ -50,6 +53,10 @@ export interface TasksCollectionBodyProps {
   readonly onChangeDueDate: (task: TaskOccurrence, date: string | null) => void;
   /** Opens the task in the Edit task modal. The row's Edit button (beside the title) is drawn only when this is given. */
   readonly onEditTask?: (task: TaskOccurrence) => void;
+  /** Inserts an exact copy of the task directly below it — the row menu's Duplicate. Absent, the menu has none. */
+  readonly onDuplicateTask?: (task: TaskOccurrence) => void;
+  /** Deletes the task's line from its source note (never the note) — the row menu's Delete. Absent, the menu has none. */
+  readonly onDeleteTask?: (task: TaskOccurrence) => void;
   /**
    * The shared Tasks-view Show completed / Auto-sort completed preference (see groupTasks.ts's
    * TaskDisplayConfig). Show completed decides MEMBERSHIP for the views that can hold both states and
@@ -103,6 +110,8 @@ export function TasksCollectionBody({
   onOpenTask,
   onChangeDueDate,
   onEditTask,
+  onDuplicateTask,
+  onDeleteTask,
   displayConfig = DEFAULT_TASK_DISPLAY_CONFIG,
   collectionView,
   getSource,
@@ -111,6 +120,25 @@ export function TasksCollectionBody({
   resolveEmbed,
 }: TasksCollectionBodyProps) {
   const { layout, visible, sort } = collectionView ?? resolveCollectionView(TASKS_COLLECTION);
+
+  // Right-click on a row: the task's More actions — the same canonical task menu the sidebar row shows
+  // (`buildTaskMenu`), over the operations this page supplies. Due date opens the calendar beside the row.
+  const [datePickerTask, setDatePickerTask] = useState<TaskOccurrence | null>(null);
+  const datePickerAnchorRef = useRef<HTMLElement | null>(null);
+  const contextMenu = useCollectionItemContextMenu<TaskEntry>((entry) => {
+    const { task } = entry;
+    const handlers = {
+      ...(onEditTask && { edit: () => onEditTask(task) }),
+      'open-in-note': () => onOpenTask(task),
+      'change-due-date': () => {
+        datePickerAnchorRef.current = document.querySelector<HTMLElement>(`[data-context-entry="${CSS.escape(entry.id)}"]`);
+        setDatePickerTask(task);
+      },
+      ...(onDuplicateTask && { duplicate: () => onDuplicateTask(task) }),
+      ...(onDeleteTask && { delete: () => onDeleteTask(task) }),
+    };
+    return { menu: buildTaskMenu(handlers, task.dueDate, 'context'), handlers };
+  });
 
   const toEntry = (task: TaskOccurrence): TaskEntry => {
     const source = getSource?.(task);
@@ -187,6 +215,28 @@ export function TasksCollectionBody({
       />
     );
 
+  const menuOverlays = (
+    <>
+      {contextMenu.overlay}
+      {datePickerTask && (
+        <TaskDatePicker
+          anchorRef={datePickerAnchorRef as RefObject<HTMLElement>}
+          open
+          onClose={() => setDatePickerTask(null)}
+          date={datePickerTask.dueDate}
+          onSelect={(date) => {
+            setDatePickerTask(null);
+            onChangeDueDate(datePickerTask, date);
+          }}
+          onClear={() => {
+            setDatePickerTask(null);
+            onChangeDueDate(datePickerTask, null);
+          }}
+        />
+      )}
+    </>
+  );
+
   if (layout === 'table') {
     return (
       <TasksPageBody>
@@ -209,8 +259,10 @@ export function TasksCollectionBody({
                 entry.source && { source: { variant: 'custom' as const, children: sourceOf(entry) } }),
             },
             onClick: () => onOpenTask(entry.task),
+            props: contextMenu.entryProps(entry),
           }))}
         />
+        {menuOverlays}
       </TasksPageBody>
     );
   }
@@ -235,12 +287,14 @@ export function TasksCollectionBody({
         </>
       ),
       onClick: () => onOpenTask(task),
+      props: contextMenu.entryProps(entry),
     };
   });
 
   return (
     <TasksPageBody>
       <CollectionDataList className="task-list" items={items} />
+      {menuOverlays}
     </TasksPageBody>
   );
 }

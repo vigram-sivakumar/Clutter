@@ -5,10 +5,9 @@ import {
   OverflowMenu,
   type OverflowMenuItemConfig,
 } from '@components/menu/OverflowMenu';
-import { buildResourceActionMenu } from '@core/presentation/resourceActions/buildResourceActionMenu';
+import { buildTaskMenu } from '../helpers/buildTaskMenu';
 import type { ResourceActionHandlers } from '@core/presentation/resourceActions/resourceActionTypes';
 import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
-import { formatTaskDueDate } from '../helpers/formatTaskDueDate';
 import type {
   ResolveTag,
   ResolveWikiLink,
@@ -36,6 +35,8 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
 
   /** Opens the exact same Calendar used elsewhere (TaskDatePicker), to change only this task's due date. A date string sets it, null clears it. Omitted hides the menu item entirely. */
   onChangeDueDate?: (date: string | null) => void;
+  /** Opens the task in the Edit task modal. Omitted hides the menu item entirely. */
+  onEdit?: () => void;
   /** Opens the task's source note — same action as clicking the row itself. Omitted hides the menu item entirely. */
   onOpenInNote?: () => void;
   /** Inserts an exact copy of the task directly below the original in its source note. Omitted hides the menu item entirely. */
@@ -63,6 +64,7 @@ export function Task({
   isChecked,
   onCheckedChange,
   onChangeDueDate,
+  onEdit,
   onOpenInNote,
   onDuplicate,
   onDelete,
@@ -83,18 +85,12 @@ export function Task({
   // same set (ADR-048).
   const handlers: ResourceActionHandlers = {
     ...(onChangeDueDate && { 'change-due-date': () => setIsDatePickerOpen(true) }),
+    ...(onEdit && { edit: onEdit }),
     ...(onOpenInNote && { 'open-in-note': onOpenInNote }),
     ...(onDuplicate && { duplicate: onDuplicate }),
     ...(onDelete && { delete: onDelete }),
   };
-  const menuItems: OverflowMenuItemConfig[] = buildResourceActionMenu(
-    'task',
-    {
-      executable: Object.keys(handlers),
-      valueLabel: date ? formatTaskDueDate(date) : undefined,
-    },
-    'sidebar'
-  );
+  const menuItems: OverflowMenuItemConfig[] = buildTaskMenu(handlers, date, 'sidebar');
 
   return (
     <>

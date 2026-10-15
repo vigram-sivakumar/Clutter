@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -24,6 +24,7 @@ export function Overlay(props: OverlayProps) {
     returnFocusRef,
     suppressReturnFocusRef,
     dismissible = true,
+    dismissOnContextMenu = true,
   } = props;
 
   const isCentered = props.position === 'centered';
@@ -37,6 +38,26 @@ export function Overlay(props: OverlayProps) {
     open: open && dismissible,
     onClose,
   });
+
+  // Capture phase on the document: it runs before any row's or card's own `contextmenu` handler, and
+  // stopping the event there is what keeps a second menu from opening in the same interaction.
+  useEffect(() => {
+    if (!open || !dismissible || !dismissOnContextMenu) {
+      return;
+    }
+    const dismiss = (event: Event) => {
+      // A text field inside the overlay keeps its native menu (copy, paste…).
+      const target = event.target as HTMLElement | null;
+      if (surfaceRef.current?.contains(target) && target?.closest('input, textarea, [contenteditable="true"]')) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('contextmenu', dismiss, true);
+    return () => document.removeEventListener('contextmenu', dismiss, true);
+  }, [open, dismissible, dismissOnContextMenu, onClose]);
 
   useOverlayFocus({
     open,

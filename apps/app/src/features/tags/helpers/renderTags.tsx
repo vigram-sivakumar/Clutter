@@ -330,6 +330,7 @@ function renderTagRow(tag: TagModel, isFavorite: boolean, options: RenderTagsOpt
                 level={1}
                 lineText={context.lineText}
                 onClick={() => onOpenContextEntry(note.id, context.ranges)}
+                onShowInNote={() => onOpenContextEntry(note.id, context.ranges)}
                 resolveWikiLink={resolveWikiLink}
                 resolveTag={resolveTag}
                 resolveEmbed={resolveEmbed}

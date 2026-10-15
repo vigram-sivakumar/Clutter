@@ -397,12 +397,18 @@ describe('tag menu', () => {
 });
 
 describe('task menu', () => {
-  const all = ['duplicate', 'change-due-date', 'open-in-note', 'delete'];
+  const all = ['edit', 'duplicate', 'change-due-date', 'open-in-note', 'delete'];
 
-  it('organize | view | destructive: Duplicate | Due date, Show in note | Delete', () => {
+  it('identity | organize | destructive: Edit, Show in note | Due date, Duplicate | Delete', () => {
     const menu = buildResourceActionMenu('task', { executable: all }, 'sidebar');
-    expect(ids(menu)).toEqual(['duplicate', 'change-due-date', 'open-in-note', 'delete']);
+    expect(ids(menu)).toEqual(['edit', 'open-in-note', 'change-due-date', 'duplicate', 'delete']);
     expect(dividedIds(menu)).toEqual(['change-due-date', 'delete']);
+  });
+
+  it('the sidebar row and the Collection right-click menu are the same menu', () => {
+    expect(buildResourceActionMenu('task', { executable: all }, 'context')).toEqual(
+      buildResourceActionMenu('task', { executable: all }, 'sidebar')
+    );
   });
 
   it('lists an action only when its operation was supplied', () => {

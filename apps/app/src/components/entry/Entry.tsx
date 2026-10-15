@@ -1,6 +1,17 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { forwardRef, useContext, useMemo, useRef, useState, type HTMLAttributes, type MouseEvent } from 'react';
 import { buildActivationProps } from '@shared/interaction';
+import {
+  EntryMenuContext,
+  RowContextMenuEnabledContext,
+  type EntryMenuApi,
+  type RowContextMenuRequest,
+} from './EntryMenuContext';
 import './Entry.css';
+
+/** A target that keeps the platform's own text menu (a rename in progress). */
+const EDITABLE = 'input, textarea, select, [contenteditable="true"]';
+/** A control nested in a row: it keeps its own behavior, and right-clicking it opens no second menu. */
+const NESTED_CONTROL = 'button, a, [role="menu"]';
 
 export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -51,6 +62,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     role,
     tabIndex,
     style,
+    onContextMenu,
     ...props
   },
   ref
@@ -66,9 +78,47 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     tabIndex,
   });
 
+  // Right-click on a row that holds a More actions menu (in the Sidebar): the menu opens at the pointer.
+  const enabled = useContext(RowContextMenuEnabledContext);
+  const menuCount = useRef(0);
+  const seq = useRef(0);
+  const [request, setRequest] = useState<RowContextMenuRequest | null>(null);
+  const menuApi = useMemo<EntryMenuApi>(
+    () => ({
+      register: () => {
+        menuCount.current += 1;
+        return () => {
+          menuCount.current -= 1;
+        };
+      },
+      request,
+    }),
+    [request]
+  );
+  const handleContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    onContextMenu?.(event);
+    const target = event.target as HTMLElement;
+    // A portaled menu's events bubble through the React tree; only this row's own DOM counts.
+    if (!enabled || disabled || menuCount.current === 0 || !event.currentTarget.contains(target) || target.closest(EDITABLE) || event.currentTarget.querySelector(EDITABLE)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (target.closest(NESTED_CONTROL)) {
+      return;
+    }
+    // A keyboard-invoked context menu has no pointer: open at the row's corner.
+    const rect = event.currentTarget.getBoundingClientRect();
+    const keyboard = event.clientX === 0 && event.clientY === 0 && event.detail === 0;
+    seq.current += 1;
+    setRequest({ x: keyboard ? rect.left : event.clientX, y: keyboard ? rect.bottom : event.clientY, seq: seq.current });
+  };
+
   return (
+    <EntryMenuContext.Provider value={menuApi}>
     <div
       {...props}
+      onContextMenu={handleContextMenu}
       ref={ref}
       style={
         {
@@ -103,6 +153,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
         </div>
       )}
     </div>
+    </EntryMenuContext.Provider>
   );
 });
 
