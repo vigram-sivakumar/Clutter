@@ -564,3 +564,29 @@ describe('tableCreatePaste — a tab alone does not make plain text a table', ()
     }
   });
 });
+
+describe('tableCreatePaste — short cells at the document end (caret stays inside the document)', () => {
+  it.each([
+    ['plain text', (d: MockDataTransfer) => d.setData('text/plain', 'A\tB\n1\t2')],
+    ['standalone HTML table', (d: MockDataTransfer) => d.setData('text/html', htmlTable([['A', 'B'], ['1', '2']]))],
+  ])('%s: creates the table, with the caret on the line below it', (_name, populate) => {
+    const view = mountRootView('', 0);
+
+    dispatchPaste(view, populate);
+
+    expect(findAllTables(view.state)).toHaveLength(1);
+    expect(cellText(view, 0, 0, 0)).toBe('A');
+    expect(cellText(view, 0, 1, 1)).toBe('2');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('is still one undoable step', () => {
+    const view = mountRootView('', 0);
+    dispatchPaste(view, (d) => d.setData('text/plain', 'A\tB\n1\t2'));
+    expect(undoDepth(view.state)).toBe(1);
+    undo(view);
+    expect(view.state.doc.toString()).toBe('');
+    redo(view);
+    expect(findAllTables(view.state)).toHaveLength(1);
+  });
+});

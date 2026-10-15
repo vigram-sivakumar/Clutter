@@ -504,3 +504,29 @@ describe('tableActivationNormalization — terminal-table safety: a table never 
     expect(result.selection.main.head).toBe(insertPos + 1);
   });
 });
+
+describe('tableActivationNormalization — a table whose delimiter row shrinks still gets a valid caret below it', () => {
+  // A header cell narrower than "---" makes the canonical delimiter row *shorter* than what was written, so every
+  // position computed in pre-edit coordinates is too large in the document the filter's own selection refers to.
+  const SHORT = '|A|B|\n|---|---|\n|1|2|';
+
+  it.each([
+    ['empty document', '', 0],
+    ['after existing text', 'Intro\n\n', 7],
+  ])('a complete short-cell table inserted at the document end does not throw (%s)', (_name, before, pos) => {
+    const state = makeState(before, pos);
+
+    const next = dispatchEdit(state, { from: pos, to: pos, insert: SHORT });
+
+    expect(findAllTables(next)).toHaveLength(1);
+    const head = next.selection.main.head;
+    expect(head).toBeLessThanOrEqual(next.doc.length);
+    expect(next.doc.toString().endsWith('\n')).toBe(true);
+    expect(head).toBe(next.doc.length); // on the real line below the table
+  });
+
+  it('a wide-cell table still lands the caret on the line below it (unchanged behavior)', () => {
+    const next = dispatchEdit(makeState(''), { from: 0, to: 0, insert: '| Name | Age |\n| --- | --- |\n| Sam | 4 |' });
+    expect(next.selection.main.head).toBe(next.doc.length);
+  });
+});

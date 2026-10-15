@@ -407,8 +407,14 @@ export function planTableActivationNormalization(
     // from where the user is actually typing. `selectionHead` is in the
     // same `provisional`-document coordinate space as every position
     // above (both are `tr.changes`-applied, pre-this-module's-own-edits).
+    //
+    // `cursorPos` is a position in the document *after* `edits` (the filter's
+    // spec selection is resolved against it), so it is measured from
+    // `finalDoc`, not `provisional` — the delimiter-row rewrite above changes
+    // the length, and a pre-edits position would land past the end of a
+    // shrunk document (a RangeError) or short of the end of a grown one.
     if (cursorPos === null && selectionHead === provisional.doc.length) {
-      cursorPos = provisional.doc.length + 1;
+      cursorPos = finalDoc.length + 1;
     }
   }
 
