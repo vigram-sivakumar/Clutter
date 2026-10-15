@@ -167,7 +167,8 @@ describe('Move to from the topbar opens the one shared picker — for every kind
 
     expect(pickerTitle()).toBe('Move to');
     const rows = pickerRows();
-    expect(rows.slice(0, 1)).toEqual(['Templates']);
+    // The Inbox leads the pinned rows for a note, then Templates.
+    expect(rows.slice(0, 2)).toEqual(['Inbox', 'Templates']);
     expect(rows).toEqual(expect.arrayContaining(['Projects', 'Meetings', 'Sub']));
     expect(new Set(rows).size).toBe(rows.length);
   });

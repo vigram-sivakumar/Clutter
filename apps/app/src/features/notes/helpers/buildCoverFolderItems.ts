@@ -12,7 +12,7 @@ import { buildMoveDestinationItems } from './buildMoveDestinationItems';
  * vault root is not offered.
  */
 export function buildCoverFolderItems(membershipSelector: MembershipSelector): PickerListItem[] {
-  return buildMoveDestinationItems(membershipSelector, undefined, 'workspace', { includeTemplates: false })
+  return buildMoveDestinationItems(membershipSelector, undefined, 'workspace', { includeTemplates: false, includeInbox: false })
     .filter((item) => item.id !== ROOT_DESTINATION_ID)
     .map((item) => ({
       ...item,

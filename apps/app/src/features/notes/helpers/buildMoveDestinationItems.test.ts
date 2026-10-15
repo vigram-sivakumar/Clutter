@@ -234,14 +234,15 @@ describe('buildMoveDestinationItems — zones (workspace, Templates and Assets r
   ];
   const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
-  it('the workspace (default, a note move) offers Templates first (no vault root for a note), then ordinary folders — never Assets', () => {
+  it('the workspace (default, a note move) offers Inbox, then Templates (no vault root for a note), then ordinary folders — never Assets', () => {
     const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()));
 
     expect(ids(items)).not.toContain('__vault-root__');
-    expect(ids(items).slice(0, 3)).toEqual(['templates', 'templates-meetings', 'templates-reviews']);
+    expect(ids(items).slice(0, 4)).toEqual(['inbox', 'templates', 'templates-meetings', 'templates-reviews']);
     expect(ids(items)).toEqual(expect.arrayContaining(['projects']));
-    expect(items[0]).toMatchObject({ icon: 'template', isRoot: true });
-    expect(items[1]).toMatchObject({ level: 1, parentId: 'templates' });
+    expect(items[0]).toMatchObject({ title: 'Inbox', icon: 'tray', isRoot: true });
+    expect(items[1]).toMatchObject({ icon: 'template', isRoot: true });
+    expect(items[2]).toMatchObject({ level: 1, parentId: 'templates' });
     // Assets is its own hierarchy.
     for (const forbidden of ['assets', 'assets-images']) {
       expect(ids(items)).not.toContain(forbidden);
@@ -332,5 +333,39 @@ describe('buildMoveDestinationItems — zones (workspace, Templates and Assets r
     const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), 'assets-images', 'assets');
 
     expect(ids(items)).toEqual(['assets', 'assets-pdfs']);
+  });
+});
+
+describe('buildMoveDestinationItems — the Inbox destination', () => {
+  const folders = () => [
+    makeFolder('templates', `${ROOT}/Templates`),
+    makeFolder('inbox', `${ROOT}/Inbox`),
+    makeFolder('projects', `${ROOT}/Projects`),
+  ];
+  const ids = (items: { id: string }[]) => items.map((item) => item.id);
+
+  it('a note move offers Inbox above Templates, with Inbox\'s own icon and label, and the folders below', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(folders()));
+
+    expect(ids(items)).toEqual(['inbox', 'templates', 'projects']);
+    expect(items[0]).toMatchObject({ title: 'Inbox', icon: 'tray', isRoot: true, level: 0, parentId: null });
+  });
+
+  it('a folder move never offers Inbox (it accepts notes only), and keeps the root then Templates', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(folders()), 'projects');
+
+    expect(ids(items)).not.toContain('inbox');
+    expect(ids(items).slice(0, 2)).toEqual(['__vault-root__', 'templates']);
+  });
+
+  it('is offered only once the Inbox exists, like Templates', () => {
+    const items = buildMoveDestinationItems(makeMembershipSelector(folders().filter((f) => f.id !== 'inbox')));
+    expect(ids(items)).toEqual(['templates', 'projects']);
+  });
+
+  it('never appears in an Assets move, and not in the cover picker\'s folder list', () => {
+    const selector = makeMembershipSelector([...folders(), makeFolder('assets', `${ROOT}/Assets`)]);
+    expect(ids(buildMoveDestinationItems(selector, undefined, 'assets'))).toEqual(['assets']);
+    expect(ids(buildCoverFolderItems(selector))).not.toContain('inbox');
   });
 });

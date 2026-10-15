@@ -9,6 +9,7 @@ import {
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
 import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
 import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
+import { DROP_ZONE_ACCEPTS } from '@features/notes/sidebar/dropTarget';
 
 /**
  * The one place a Move destination-picker's folder list is built — shared
@@ -39,6 +40,11 @@ import { getSystemLocationIconForFolder } from '@core/presentation/systemPresent
  * and translates it back to the `null` destination every Move facade
  * method already accepts.
  *
+ * The Inbox, when it exists (it is created when a note first lands there), is offered first among the
+ * pinned rows — above Templates — but only for a note: it accepts notes only, the same rule the sidebar's
+ * Inbox drop target reads (DROP_ZONE_ACCEPTS), so a folder's list never carries it. Moving there is the
+ * ordinary move to that folder's id.
+ *
  * `zone` (ADR-049) picks the root: `'workspace'` (default) is the vault root, then Templates (an
  * ordinary destination: moving in makes a template, moving out makes an ordinary item again) with
  * its folders, then the ordinary folders; `'assets'` is the Assets hierarchy — its own root row first (the one the picker pins,
@@ -58,7 +64,10 @@ export function buildMoveDestinationItems(
   excludeFolderId?: string,
   zone: MovePickerZone = 'workspace',
   // A non-Move caller of this folder walk (the cover picker) has no use for the Templates entry.
-  { includeTemplates = true }: { readonly includeTemplates?: boolean } = {}
+  {
+    includeTemplates = true,
+    includeInbox = true,
+  }: { readonly includeTemplates?: boolean; readonly includeInbox?: boolean } = {}
 ): PickerListItem[] {
   const items: PickerListItem[] = [];
   let startFolders: readonly Folder[];
@@ -78,6 +87,21 @@ export function buildMoveDestinationItems(
         parentId: null,
       });
     }
+    // Inbox leads the pinned rows, for a note only (`excludeFolderId` is only ever given for a folder).
+    const inbox = includeInbox ? membershipSelector.getInboxFolder() : undefined;
+    const movingKind = excludeFolderId === undefined ? 'note' : 'folder';
+
+    if (inbox && DROP_ZONE_ACCEPTS.inbox.includes(movingKind)) {
+      items.push({
+        id: inbox.id,
+        title: getFolderDisplayLabel(inbox).text,
+        isRoot: true,
+        icon: getSystemLocationIconForFolder(inbox, membershipSelector),
+        level: 0,
+        parentId: null,
+      });
+    }
+
     // Templates sits directly below the vault root, whatever its alphabetical place. It exists only
     // once a first template has been made (ADR-030), so it is offered only then.
     const templates = includeTemplates ? membershipSelector.getTemplatesFolder() : undefined;
