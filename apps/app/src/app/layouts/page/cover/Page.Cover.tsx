@@ -530,6 +530,11 @@ export function PageCover({
       >
         {view === 'menu' && (
           <Menu size="medium">
+            {/* Shared actions sit where ADR-048's group order puts them (organize -> location), so
+                Save to vault and Download read the same here as in the Asset menu; Position is the
+                cover's own layout control and keeps its place between them, and Hide / Remove (which
+                clear the cover, never delete the file) stay last. Hand-written, not built from the
+                resource-action definitions: the cover-only actions have no canonical group yet. */}
             {onSetCoverImage && (
               <MenuItem
                 leading={<AppIcon icon="image" />}
@@ -539,6 +544,18 @@ export function PageCover({
                 }}
               >
                 Change cover image
+              </MenuItem>
+            )}
+            {onSaveToVault && (
+              <MenuItem
+                leading={<AppIcon icon="arrowDownRight" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setOpen(false);
+                  onSaveToVault();
+                }}
+              >
+                Save to vault
               </MenuItem>
             )}
             {onSetLayout && (
@@ -575,37 +592,25 @@ export function PageCover({
                     Reposition
                   </MenuItem>
                 )}
-                <div className="menu__divider" role="separator" />
               </>
             )}
-            {(onSaveToVault || onDownload) && (
+            {onDownload && (
               <>
-                {onSaveToVault && (
-                  <MenuItem
-                    leading={<AppIcon icon="arrowDownRight" />}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpen(false);
-                      onSaveToVault();
-                    }}
-                  >
-                    Save to vault
-                  </MenuItem>
-                )}
-                {onDownload && (
-                  <MenuItem
-                    leading={<AppIcon icon="download" />}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpen(false);
-                      onDownload();
-                    }}
-                  >
-                    Download
-                  </MenuItem>
-                )}
                 <div className="menu__divider" role="separator" />
+                <MenuItem
+                  leading={<AppIcon icon="download" />}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setOpen(false);
+                    onDownload();
+                  }}
+                >
+                  Download
+                </MenuItem>
               </>
+            )}
+            {(onSaveToVault || onSetLayout || onDownload) && (
+              <div className="menu__divider" role="separator" />
             )}
             <MenuItem
               leading={<AppIcon icon="hide" />}

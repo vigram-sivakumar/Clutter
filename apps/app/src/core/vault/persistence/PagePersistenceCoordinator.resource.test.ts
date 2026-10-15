@@ -849,6 +849,95 @@ describe('PagePersistenceCoordinator: delete-resource', () => {
   });
 });
 
+describe('PagePersistenceCoordinator: delete-resource vs. the watcher echo', () => {
+  const archivedPath = `${ROOT}/Archive/hero.png`;
+
+  function archivedSetup() {
+    const resource = makeResource('resource-1', archivedPath, ARCHIVE_FOLDER_ID);
+    return { resource, ...setup(resource, [makeArchiveFolder()]) };
+  }
+
+  // Sync's reaction to the delete's own watcher event: the file is gone, so it removes the resource.
+  function syncRemovesResourceAfterDelete(
+    fileSystem: InMemoryVaultFileSystem,
+    vault: Vault,
+    resourceId: string
+  ): void {
+    const realDelete = fileSystem.deleteFile.bind(fileSystem);
+    vi.spyOn(fileSystem, 'deleteFile').mockImplementation(async (path, options) => {
+      await realDelete(path, options);
+      vault.removeResource(resourceId);
+    });
+  }
+
+  it('still completes when Sync removed the resource before the Gate did', async () => {
+    const { resource, coordinator, vault, fileSystem, resourceArchiveStore } = archivedSetup();
+    await resourceArchiveStore.record(archivedPath, `${ROOT}/Assets/hero.png`);
+    syncRemovesResourceAfterDelete(fileSystem, vault, resource.id);
+
+    await expect(coordinator.enqueue(resource.id, { kind: 'delete-resource' })).resolves.toEqual({
+      status: 'resource-deleted',
+    });
+
+    expect(await fileSystem.exists(archivedPath)).toBe(false);
+    expect(vault.getResource(resource.id)).toBeUndefined();
+    expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(false);
+  });
+
+  it('announces the removal exactly once whichever side performs it', async () => {
+    const gateOnly = archivedSetup();
+    const gateEvents: string[] = [];
+    gateOnly.vault.subscribe((event) => gateEvents.push(event.type));
+    await gateOnly.coordinator.enqueue(gateOnly.resource.id, { kind: 'delete-resource' });
+
+    const syncFirst = archivedSetup();
+    const syncEvents: string[] = [];
+    syncFirst.vault.subscribe((event) => syncEvents.push(event.type));
+    syncRemovesResourceAfterDelete(syncFirst.fileSystem, syncFirst.vault, syncFirst.resource.id);
+    await syncFirst.coordinator.enqueue(syncFirst.resource.id, { kind: 'delete-resource' });
+
+    expect(gateEvents.filter((type) => type === 'resource-removed')).toHaveLength(1);
+    expect(syncEvents.filter((type) => type === 'resource-removed')).toHaveLength(1);
+  });
+
+  it('a duplicate delete for the same id settles as abandoned, not as an error', async () => {
+    const { resource, coordinator, vault } = archivedSetup();
+
+    const [first, second] = await Promise.all([
+      coordinator.enqueue(resource.id, { kind: 'delete-resource' }),
+      coordinator.enqueue(resource.id, { kind: 'delete-resource' }),
+    ]);
+
+    expect(first.status).toBe('resource-deleted');
+    expect(second.status).toBe('abandoned');
+    expect(vault.resourceCount).toBe(0);
+  });
+
+  it('a genuine filesystem failure still rejects and leaves the Vault entry and provenance alone', async () => {
+    const { resource, coordinator, vault, fileSystem, resourceArchiveStore } = archivedSetup();
+    await resourceArchiveStore.record(archivedPath, `${ROOT}/Assets/hero.png`);
+    vi.spyOn(fileSystem, 'deleteFile').mockRejectedValue(new Error('EACCES: permission denied'));
+
+    await expect(coordinator.enqueue(resource.id, { kind: 'delete-resource' })).rejects.toThrow(
+      /permission denied/
+    );
+
+    expect(vault.getResource(resource.id)).toBeDefined();
+    expect((await resourceArchiveStore.read()).has(archivedPath)).toBe(true);
+  });
+
+  it('does not hide an unrelated Vault failure: removeResource errors for another reason still surface', async () => {
+    const { resource, coordinator, vault } = archivedSetup();
+    vi.spyOn(vault, 'removeResource').mockImplementation(() => {
+      throw new Error('projection failed');
+    });
+
+    await expect(coordinator.enqueue(resource.id, { kind: 'delete-resource' })).rejects.toThrow(
+      'projection failed'
+    );
+  });
+});
+
 describe('PagePersistenceCoordinator: resource operation ordering', () => {
   it('two operations enqueued for the same resource id resolve in enqueue order', async () => {
     const archiveFolder = makeArchiveFolder();

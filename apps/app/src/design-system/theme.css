@@ -15,6 +15,15 @@ html.theme-transitioning [data-themeable] *::after {
     box-shadow 200ms ease;
 }
 
+/* 
+Brand       cobalt blue
+Links       blueberry blue
+Code        raspberry
+Danger      cherry
+Highlight   warm golden yellow
+Neutrals    charcoal / gray 
+*/
+
 /* ─── Dark mode (default) ──────────────────────────────────────────────── */
 
 [data-theme='dark'] {
@@ -62,7 +71,7 @@ html.theme-transitioning [data-themeable] *::after {
      ==inline highlight== rendering, this is a transient navigation cue
      that fades away on its own), so the two can never be confused with
      each other visually. */
-  --md-reveal-highlight-surface: rgba(24, 124, 246, 0.22);
+  --md-reveal-highlight-surface: var(--state-selected-accent);
 
   --md-wiki-foreground: var(--foreground-primary);
   --md-wiki-icon-foreground: var(--foreground-tertiary);
@@ -115,6 +124,11 @@ html.theme-transitioning [data-themeable] *::after {
     var(--state-base) / var(--state-hover-strength-strong)
   );
   --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
+  --state-selected-accent: color-mix(
+    in srgb,
+    var(--surface-brand) 12%,
+    transparent
+  );
   --opacity-disabled: var(--opacity-strong);
 
   /* Danger */
@@ -133,13 +147,17 @@ html.theme-transitioning [data-themeable] *::after {
   --calendar-on-accent-foreground: rgba(255, 255, 255, 0.82);
 
   /* Checkbox */
-  --checkbox-accent: #007aff;
+  --checkbox-accent: var(--surface-brand);
 
   /* Editor */
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-surface: #3c2d47;
+  --selection-surface: color-mix(
+    in srgb,
+    var(--surface-brand) 22%,
+    transparent
+  );
 
   /* Opacity */
   --opacity-strong: 35%;
@@ -151,14 +169,14 @@ html.theme-transitioning [data-themeable] *::after {
   --border-default: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
   --border-stronger: rgba(255, 255, 255, 0.15);
-  --border-active: var(--accent-dark);
-  --border-focus: var(--accent-dark);
+  --border-active: var(--surface-brand);
+  --border-focus: var(--md-link-foreground);
 
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-inset-subtle: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   --shadow-inset-strong: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  --shadow-inset-focus: inset 0 0 0 1px var(--accent-dark);
+  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
   --shadow-inset-thin: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
   --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
 
@@ -186,7 +204,7 @@ html.theme-transitioning [data-themeable] *::after {
   --overlay-scrim: rgba(80, 80, 80, 0.25);
   --overlay-scrim-strong: rgba(80, 80, 80, 0.6);
   --surface-inverse: var(--neutral-900);
-  --surface-brand: #0a67db;
+  --surface-brand: #2e71e7;
 
   /* Text & icons */
   --foreground-primary: #333333;
@@ -211,13 +229,13 @@ html.theme-transitioning [data-themeable] *::after {
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
   /* See the dark-mode block's own doc comment on this token. */
-  --md-reveal-highlight-surface: rgba(0, 122, 255, 0.16);
+  --md-reveal-highlight-surface: var(--state-selected-accent);
 
   --md-wiki-foreground: var(--foreground-primary);
   --md-wiki-icon-foreground: var(--foreground-tertiary);
   --md-wiki-underline: var(--link-underline);
 
-  --md-link-foreground: #245db8;
+  --md-link-foreground: #2d72de;
   --md-link-underline: color-mix(
     in srgb,
     var(--md-link-foreground) 50%,
@@ -257,6 +275,11 @@ html.theme-transitioning [data-themeable] *::after {
     var(--state-base) / var(--state-hover-strength-strong)
   );
   --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
+  --state-selected-accent: color-mix(
+    in srgb,
+    var(--surface-brand) 20%,
+    transparent
+  );
   --opacity-disabled: var(--opacity-medium);
 
   /* Danger */
@@ -275,13 +298,17 @@ html.theme-transitioning [data-themeable] *::after {
   --calendar-on-accent-foreground: rgba(255, 255, 255, 0.82);
 
   /* Checkbox */
-  --checkbox-accent: #00acff;
+  --checkbox-accent: var(--surface-brand);
 
   /* Editor */
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-surface: #f3ebf9;
+  --selection-surface: color-mix(
+    in srgb,
+    var(--surface-brand) 16%,
+    transparent
+  );
 
   /* Opacity */
   --opacity-strong: 30%;
@@ -293,14 +320,14 @@ html.theme-transitioning [data-themeable] *::after {
   --border-default: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.12);
   --border-stronger: rgba(0, 0, 0, 0.16);
-  --border-active: var(--accent-light);
-  --border-focus: var(--accent-light);
+  --border-active: var(--surface-brand);
+  --border-focus: var(--md-link-foreground);
 
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
   --shadow-inset-subtle: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
   --shadow-inset-strong: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
-  --shadow-inset-focus: inset 0 0 0 1px var(--accent-light);
+  --shadow-inset-focus: inset 0 0 0 1px var(--border-focus);
   --shadow-inset-thin: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
   --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
 

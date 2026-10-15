@@ -54,6 +54,8 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { classifySupportedResourceFile } from '../vault/ingest/SupportedResourceKind';
+import { isClutterInternalPath } from '../vault/initialize/ReservedResources';
 import { findCoverCredit } from './page/coverCredit';
 import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution';
 import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
@@ -961,6 +963,22 @@ export class Application {
    * Turns a persisted cover reference into a value suitable for `<img src>`.
    * External URLs pass through unchanged; vault-local `Assets/…` references
    * are resolved through the injected platform CoverImageUrlResolver.
+   *
+   * A vault-local reference to a file the Vault indexes (images and PDFs outside
+   * `.clutter`) resolves only while the Vault holds that file as a resource;
+   * otherwise the result is `null` (no cover to draw). For those files the Vault
+   * is the authority on existence — a webview's own image cache is not: Tauri's
+   * asset protocol sends no cache validators, so the webview keeps serving a URL
+   * it has already loaded after the file behind it is deleted, and a successful
+   * load proves nothing. The stored reference is left as written, so the cover
+   * returns by itself if the file does (restore, re-add). Every Vault change
+   * re-renders its readers (useVault), which is what makes a permanent delete
+   * take effect without a per-render disk check.
+   *
+   * A reference the Vault would never index (another extension, a `.clutter`
+   * file, a path with `.`/`..`/empty segments) cannot be judged by it: it was
+   * never in the index, so absence says nothing. Those keep resolving through the
+   * loader as before, and carry the loader's own caching behavior.
    */
   public resolveCoverImageForDisplay(cover: string | null): string | null {
     if (cover === null) {
@@ -974,10 +992,36 @@ export class Application {
     // Any vault-relative reference (`Assets/…`, or another folder's image
     // picked from the Asset tab) — not an absolute path or a URL scheme.
     if (!cover.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(cover)) {
-      return this.coverImageUrlResolver.toLoadableUrl(`${this.rootPath}/${cover}`);
+      const absolutePath = `${this.rootPath}/${cover}`;
+
+      // Case-insensitive because the disk the loader reads is, on the platforms this runs on.
+      if (
+        this.isIndexedVaultReference(cover, absolutePath) &&
+        !this.vault.getResourceByPathCaseInsensitive(absolutePath)
+      ) {
+        return null;
+      }
+
+      return this.coverImageUrlResolver.toLoadableUrl(absolutePath);
     }
 
     return cover;
+  }
+
+  /**
+   * Whether the Vault would have indexed the file this vault-relative reference names — the same
+   * test the scan and Sync apply (a supported image/PDF extension, outside `.clutter`), plus a
+   * canonical path: the index is keyed by exact paths, so `./x.png` or `a/../x.png` can't be
+   * looked up in it even though the disk resolves them.
+   */
+  private isIndexedVaultReference(cover: string, absolutePath: string): boolean {
+    const canonical = cover.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+
+    return (
+      canonical &&
+      classifySupportedResourceFile(cover) !== null &&
+      !isClutterInternalPath(this.rootPath, absolutePath)
+    );
   }
 
   /**

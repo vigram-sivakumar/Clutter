@@ -17,6 +17,7 @@ import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Page } from '@core/vault/models/Page';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 
 const { downloadRemoteImage, downloadResource } = vi.hoisted(() => ({
   downloadRemoteImage: vi.fn(async () => {}),
@@ -98,7 +99,13 @@ function buildNoteWithCover(cover: string, coverCredit?: { name: string; url: st
   });
 }
 
-function makeApplication(pages: Page[]): Application {
+// A vault-local cover is drawn only while the Vault holds its file, so a test of a cover "in the vault"
+// has to put the file there.
+function vaultImage(cover: string): VaultResource {
+  return { id: `resource-${cover}`, kind: 'image', name: cover.slice(cover.lastIndexOf('/') + 1), path: `${ROOT}/${cover}`, parentId: null };
+}
+
+function makeApplication(pages: Page[], resources: VaultResource[] = []): Application {
   const vault = new Vault(
     ROOT,
     pages,
@@ -109,9 +116,11 @@ function makeApplication(pages: Page[]): Application {
     new KnowledgeGraph([]),
     new VaultProjectionBuilder(),
     new Map(),
-    []
+    resources
   );
   const application = new Application(vault, new InMemoryVaultFileSystem(), new SelfWriteRegistry());
+  // bootstrap() sets this in the app; a vault-local reference resolves against it.
+  Reflect.set(application, 'rootPath', ROOT);
   application.attachVault(vault, new PageCreator(new UuidGenerator(), new PageFactory()), new DailyNoteService());
   return application;
 }
@@ -129,7 +138,8 @@ async function openCoverMenu(
   coverCredit?: { name: string; url: string; downloadLocation?: string }
 ): Promise<Application> {
   const page = buildNoteWithCover(cover, coverCredit);
-  const application = makeApplication([page]);
+  const isUrl = /^https?:\/\//.test(cover);
+  const application = makeApplication([page], isUrl ? [] : [vaultImage(cover)]);
   await application.pageOperations.open(page.id);
 
   render(<AppLayout application={application} />);

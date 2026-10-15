@@ -12,6 +12,7 @@ import { PageFactory } from './page/PageFactory';
 import { DailyNoteService } from './daily-notes/DailyNoteService';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { Vault } from '../vault/models/Vault';
+import type { VaultResource } from '../vault/models/VaultResource';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
@@ -21,7 +22,7 @@ function setRootPath(application: Application, rootPath: string): void {
   Reflect.set(application, 'rootPath', rootPath);
 }
 
-function makeVault(root: string): Vault {
+function makeVault(root: string, resources: VaultResource[] = []): Vault {
   return new Vault(
     root,
     [],
@@ -30,16 +31,25 @@ function makeVault(root: string): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
+}
+
+function makeImageResource(id: string, path: string): VaultResource {
+  return { id, kind: 'image', name: path.slice(path.lastIndexOf('/') + 1), path, parentId: null };
 }
 
 describe('Application.resolveCoverImageForDisplay', () => {
   const vaultRoot = '/vault';
 
-  function createApplication(resolver: CoverImageUrlResolver): Application {
+  function createApplication(
+    resolver: CoverImageUrlResolver,
+    resources: VaultResource[] = []
+  ): Application {
     const application = new Application(
-      makeVault(vaultRoot),
+      makeVault(vaultRoot, resources),
       new InMemoryVaultFileSystem(),
       new SelfWriteRegistry(),
       resolver
@@ -48,9 +58,14 @@ describe('Application.resolveCoverImageForDisplay', () => {
     return application;
   }
 
+  const loadable: CoverImageUrlResolver = { toLoadableUrl: (path) => `loadable:${path}` };
+  const photo = makeImageResource('r1', '/vault/Assets/photo.png');
+
   it('passes external URLs through unchanged', () => {
     const application = createApplication({
-      toLoadableUrl: (path) => path,
+      toLoadableUrl: () => {
+        throw new Error('external URLs must not be resolved');
+      },
     });
 
     expect(
@@ -58,14 +73,106 @@ describe('Application.resolveCoverImageForDisplay', () => {
     ).toBe('https://example.com/cover.png');
   });
 
-  it('resolves vault-local Assets/ references through the platform resolver', () => {
-    const application = createApplication({
-      toLoadableUrl: (path) => `loadable:${path}`,
-    });
+  it('resolves a vault-local reference to a file the Vault holds through the platform resolver', () => {
+    const application = createApplication(loadable, [photo]);
 
     expect(application.resolveCoverImageForDisplay('Assets/photo.png')).toBe(
       'loadable:/vault/Assets/photo.png'
     );
+  });
+
+  it('matches the Vault file case-insensitively, as the disk the loader reads does', () => {
+    const application = createApplication(loadable, [photo]);
+
+    expect(application.resolveCoverImageForDisplay('assets/PHOTO.png')).toBe(
+      'loadable:/vault/assets/PHOTO.png'
+    );
+  });
+
+  it('returns null, never a loadable URL, for a vault-local reference the Vault does not hold', () => {
+    const resolver = vi.fn((path: string) => `loadable:${path}`);
+    const application = createApplication({ toLoadableUrl: resolver });
+
+    expect(application.resolveCoverImageForDisplay('Assets/photo.png')).toBeNull();
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it('stops resolving once the asset is permanently deleted, for every note that references it', () => {
+    const vault = makeVault(vaultRoot, [photo]);
+    const application = new Application(
+      vault,
+      new InMemoryVaultFileSystem(),
+      new SelfWriteRegistry(),
+      loadable
+    );
+    setRootPath(application, vaultRoot);
+    const cover = 'Assets/photo.png';
+
+    expect(application.resolveCoverImageForDisplay(cover)).not.toBeNull();
+
+    vault.removeResource(photo.id);
+
+    // Two notes (and a folder) sharing the reference all see the same answer.
+    expect(application.resolveCoverImageForDisplay(cover)).toBeNull();
+    expect(application.resolveCoverImageForDisplay(cover)).toBeNull();
+  });
+
+  it('resolves again if the file comes back (restore or re-add), without the reference being rewritten', () => {
+    const vault = makeVault(vaultRoot, [photo]);
+    const application = new Application(
+      vault,
+      new InMemoryVaultFileSystem(),
+      new SelfWriteRegistry(),
+      loadable
+    );
+    setRootPath(application, vaultRoot);
+
+    vault.removeResource(photo.id);
+    expect(application.resolveCoverImageForDisplay('Assets/photo.png')).toBeNull();
+
+    vault.addResource(makeImageResource('r2', '/vault/Assets/photo.png'));
+    expect(application.resolveCoverImageForDisplay('Assets/photo.png')).toBe(
+      'loadable:/vault/Assets/photo.png'
+    );
+  });
+
+  it.each(['Assets/photo.avif', 'Assets/photo.bmp', 'Assets/photo.HEIC'])(
+    'keeps resolving %s, a file kind the Vault never indexes, so its absence from the index proves nothing',
+    (cover) => {
+      const application = createApplication(loadable);
+
+      expect(application.resolveCoverImageForDisplay(cover)).toBe(`loadable:/vault/${cover}`);
+    }
+  );
+
+  it.each(['./Assets/photo.png', 'Assets/../Assets/photo.png', 'Assets//photo.png'])(
+    'keeps resolving the non-canonical reference %s through the loader, since the index is keyed by exact paths',
+    (cover) => {
+      const application = createApplication(loadable, [photo]);
+
+      expect(application.resolveCoverImageForDisplay(cover)).toBe(`loadable:/vault/${cover}`);
+    }
+  );
+
+  it('keeps resolving a .clutter file, which the Vault excludes from its index by design', () => {
+    const application = createApplication(loadable);
+
+    expect(application.resolveCoverImageForDisplay('.clutter/cover.png')).toBe(
+      'loadable:/vault/.clutter/cover.png'
+    );
+  });
+
+  it('judges the indexed kinds by extension without regard to case', () => {
+    const application = createApplication(loadable);
+
+    expect(application.resolveCoverImageForDisplay('Assets/PHOTO.PNG')).toBeNull();
+  });
+
+  it('does not treat an archived asset as the file the old reference names', () => {
+    const archived = makeImageResource('r1', '/vault/Archive/photo.png');
+    const application = createApplication(loadable, [archived]);
+
+    expect(application.resolveCoverImageForDisplay('Assets/photo.png')).toBeNull();
   });
 
   it('returns null for a null cover', () => {

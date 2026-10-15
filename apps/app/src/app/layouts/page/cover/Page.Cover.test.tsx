@@ -153,7 +153,7 @@ describe('PageCover — file actions (Save to vault, Download)', () => {
     expect(screen.queryByText('Download')).not.toBeInTheDocument();
   });
 
-  it('lists Save to vault and Download below the Position group, before Hide and Remove', () => {
+  it('orders the shared actions as ADR-048 does: Save to vault with Change cover image, Download after Position, Hide and Remove last', () => {
     renderCover({
       onSaveToVault: vi.fn(),
       onDownload: vi.fn(),
@@ -166,17 +166,17 @@ describe('PageCover — file actions (Save to vault, Download)', () => {
       .map((el) => el.textContent);
     expect(labels).toEqual([
       'Change cover image',
+      'Save to vault',
       'Right',
       'Top',
       'Reposition',
-      'Save to vault',
       'Download',
       'Hide',
       'Remove',
     ]);
   });
 
-  it('separates the groups with dividers: before Position, between Position and the file actions, and before Hide', () => {
+  it('separates the groups with dividers: organize | Position | Download | Hide and Remove', () => {
     renderCover({ onSaveToVault: vi.fn(), onDownload: vi.fn(), onSetLayout: vi.fn() });
 
     const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
@@ -184,12 +184,12 @@ describe('PageCover — file actions (Save to vault, Download)', () => {
     );
     expect(items).toEqual([
       'Change cover image',
+      'Save to vault',
       '---',
       'Position',
       'Right',
       'Top',
       '---',
-      'Save to vault',
       'Download',
       '---',
       'Hide',
@@ -197,13 +197,30 @@ describe('PageCover — file actions (Save to vault, Download)', () => {
     ]);
   });
 
-  it('with no Position group, the file actions come straight after Change cover image, then a divider', () => {
+  it('with no Position group, Save to vault stays with Change cover image and Download follows a divider', () => {
     renderCover({ onSaveToVault: vi.fn(), onDownload: vi.fn() });
 
     const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
       el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
     );
-    expect(items).toEqual(['Change cover image', 'Save to vault', 'Download', '---', 'Hide', 'Remove']);
+    expect(items).toEqual([
+      'Change cover image',
+      'Save to vault',
+      '---',
+      'Download',
+      '---',
+      'Hide',
+      'Remove',
+    ]);
+  });
+
+  it('a remote cover with only Save to vault keeps one divider before Hide, as before', () => {
+    renderCover({ onSaveToVault: vi.fn() });
+
+    const items = Array.from(document.querySelectorAll('.menu > *')).map((el) =>
+      el.getAttribute('role') === 'separator' ? '---' : (el.textContent ?? '')
+    );
+    expect(items).toEqual(['Change cover image', 'Save to vault', '---', 'Hide', 'Remove']);
   });
 
   it('offers Download alone for a cover that is already in the vault (no onSaveToVault)', () => {
