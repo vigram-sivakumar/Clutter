@@ -17,6 +17,8 @@ import {
 } from '@core/properties/sidebarSort';
 import { buildAssetMenuHandlers } from '../helpers/buildAssetMenuHandlers';
 import { testIds } from '@shared/testing/selectors';
+import { usePointerDrag } from '@shared/interaction';
+import { DragGhost } from '@components/drag-ghost/DragGhost';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -78,6 +80,12 @@ export function getLevelIndex(
   }
   const index = pages.findIndex((entry) => entry.id === id);
   return index < 0 ? -1 : parentId === null ? folders.length + index : index;
+}
+
+/** What a sidebar drag carries. A note id and a folder id are different namespaces, hence the kind. */
+interface SidebarDragItem {
+  readonly kind: 'folder' | 'note';
+  readonly id: string;
 }
 
 export interface PendingNewFolder {
@@ -341,13 +349,27 @@ interface FolderTreeProps {
    * The order the user chose for a folder's children in the sidebar (Sort by in its menu), or
    * undefined for the default. Persisted by the caller; the root level has no sort.
    */
+  /**
+   * Drag-and-drop presentation is opt-in and scoped to the Notes section: only `Sidebar.Notes` sets this.
+   * Without it no row in this tree is draggable, so a future reuse of FolderTree (or PageEntry) elsewhere
+   * cannot pick the interaction up by accident.
+   */
+  enableDrag?: boolean;
   getFolderSort?(folderId: string): SidebarSort | undefined;
   /** Called when a Sort by row in a folder's menu is picked. */
   onFolderSortChange?(folderId: string, sort: SidebarSort): void;
 }
 
+/** Opt-in drag wiring for a row; omitted (the default) means the row is not draggable. */
+export interface RowDragProps {
+  readonly isSource: boolean;
+  onPointerDown(event: React.PointerEvent<HTMLElement>): void;
+}
+
 export interface PageEntryProps {
   entry: EffectivePage;
+  /** Supplied only by the Notes section's FolderTree — see `FolderTreeProps.enableDrag`. */
+  drag?: RowDragProps;
   level: number;
   workspace: Workspace;
   onPageClick(pageId: string): void;
@@ -437,6 +459,7 @@ function insertBeforeRevealInFinder(
  */
 export function PageEntry({
   entry,
+  drag,
   level,
   workspace,
   onPageClick,
@@ -467,6 +490,8 @@ export function PageEntry({
       resolveTag={resolveTag}
       resolveEmbed={resolveEmbed}
       level={level}
+      className={drag?.isSource ? 'entry--drag-source' : undefined}
+      onPointerDown={drag?.onPointerDown}
       selected={highlightActive && workspace.activePageId === entry.id}
       // A row mid-rename must not also navigate on click — EditableText's
       // contenteditable surface isn't one of Entry's recognized
@@ -638,9 +663,21 @@ export function FolderTree({
   resolveEmbed,
   expandedFolders = [],
   onToggleFolderCap,
+  enableDrag = false,
   getFolderSort,
   onFolderSortChange,
 }: FolderTreeProps) {
+  // Drag presentation for the Notes section's folders and notes: one lifecycle, shared by both row kinds.
+  // Presentation only — there are deliberately no drop targets, so a release changes nothing.
+  const { drag: activeDrag, press: pressRow } = usePointerDrag<SidebarDragItem>();
+  const dragFor = (kind: SidebarDragItem['kind'], id: string, disabled = false): RowDragProps | undefined =>
+    enableDrag
+      ? {
+          isSource: activeDrag?.payload.kind === kind && activeDrag.payload.id === id,
+          onPointerDown: (event) => pressRow(event, { kind, id }, { disabled }),
+        }
+      : undefined;
+
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
   // Workspace" (formerly query.getVisibleRootFolders() here, and
@@ -708,6 +745,7 @@ export function FolderTree({
         // expanded-by-default state, since there's nothing to reveal.
         const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
         const isEditingFolder = rowActions?.editingId === folder.id;
+        const folderDragProps = dragFor('folder', folder.id, isEditingFolder);
         const folderLabel = getFolderDisplayLabel(folder);
         // Same "blank, not the literal generated string" rule the page
         // header (toResourcePageModel) applies to Notes — an untitled
@@ -730,6 +768,8 @@ export function FolderTree({
               titleStyle={getPageDisplayLabelStyle(folderLabel)}
               emoji={folder.metadata.icon}
               level={level}
+              className={folderDragProps?.isSource ? 'entry--drag-source' : undefined}
+              onPointerDown={folderDragProps?.onPointerDown}
               isEmpty={isEmpty}
               selected={workspace.activeFolderId === folder.id}
               isExpanded={isExpanded}
@@ -836,6 +876,7 @@ export function FolderTree({
                   resolveEmbed={resolveEmbed}
                   expandedFolders={expandedFolders}
                   onToggleFolderCap={onToggleFolderCap}
+                  enableDrag={enableDrag}
                   getFolderSort={getFolderSort}
                   onFolderSortChange={onFolderSortChange}
                 />
@@ -881,6 +922,12 @@ export function FolderTree({
         <PageEntry
           key={item.entry.id}
           entry={item.entry}
+          drag={dragFor(
+            'note',
+            item.entry.id,
+            // A draft is not a saved note yet, and a row being renamed owns its pointer.
+            item.entry.isDraft || rowActions?.editingId === item.entry.id
+          )}
           level={level}
           workspace={workspace}
           onPageClick={onPageClick}
@@ -927,6 +974,7 @@ export function FolderTree({
         </Fragment>
       ))}
       {parentId !== null && firstFolderIndex === -1 && newFolderRow}
+      {activeDrag && <DragGhost session={activeDrag.session} />}
       {items.length > SIDEBAR_FOLDER_ITEM_LIMIT && (
         <ShowMoreEntry
           level={level}

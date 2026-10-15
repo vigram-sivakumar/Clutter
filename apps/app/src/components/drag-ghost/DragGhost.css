@@ -1,0 +1,28 @@
+/* A fixed, non-interactive layer above the app. Position and size are set from JS (DragGhost.tsx). */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-overlay);
+
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-md);
+  opacity: 0.96;
+
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+}
+
+.drag-ghost * {
+  pointer-events: none;
+}
+
+/* The row's hover affordances (revealed actions, hover surface) belong to the row, not to its picture. */
+.drag-ghost .entry__actions {
+  display: none;
+}

@@ -164,3 +164,9 @@
 .section-header::first-letter {
   text-transform: capitalize;
 }
+
+/* The original row of an in-progress drag: invisible but still laid out (never visibility/display), so no
+   row moves; its ghost, a separate element in <body>, carries the visible copy. */
+.entry--drag-source {
+  opacity: 0;
+}

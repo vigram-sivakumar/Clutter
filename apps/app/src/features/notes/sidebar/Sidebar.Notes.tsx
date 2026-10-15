@@ -516,6 +516,7 @@ export function Notes({
           resolveEmbed={resolveEmbed}
           expandedFolders={expandedFolders}
           onToggleFolderCap={onToggleFolderCap}
+          enableDrag
           getFolderSort={getFolderSort}
           onFolderSortChange={onFolderSortChange}
           onPageClick={onOpen}

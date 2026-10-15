@@ -1,7 +1,7 @@
 import type { HTMLAttributes, KeyboardEvent, MouseEvent } from 'react';
 
 /** What counts as "a control inside the element" — a click that lands on one belongs to that control, not to the element's own activation. */
-const NESTED_INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="button"]';
+export const NESTED_INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="button"]';
 
 export interface ActivationOptions<E extends HTMLElement> {
   /** Absent → the element is inert: nothing is returned, so it gets no role, no tabIndex and no key handling. */
