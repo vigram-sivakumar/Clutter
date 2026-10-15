@@ -5,6 +5,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import * as fixtures from './tableClipboardFixtures';
 import { tableActivationNormalization } from './tableActivationNormalization';
 import { tableCreatePaste } from './tableCreatePaste';
 import { findAllTables, getNavigableRows, getRowCellBounds, endOfCellContent, startOfCellContent } from './tableGeometry';
@@ -432,5 +433,72 @@ describe('tableCreatePaste — coexistence with existing behavior', () => {
     dispatchPaste(view, (d) => d.setData('text/plain', 'world'));
 
     expect(findAllTables(view.state)).toHaveLength(0);
+  });
+});
+
+/** Delimiter rows are re-padded by `tableRectangularNormalization()` (existing behavior, unrelated to paste) — compare content, not dash count. */
+const dashes = (text: string): string => text.replace(/-{3,}/g, '---');
+
+describe('tableCreatePaste — mixed HTML must never be truncated to its first table', () => {
+  const mixed: ReadonlyArray<readonly [string, string, string]> = [
+    ['two tables with headings, lists and trailing content', fixtures.MIXED_DOCUMENT_HTML, fixtures.MIXED_DOCUMENT_MARKDOWN],
+    ['one table with prose before and after', fixtures.TABLE_WITH_PROSE_HTML, fixtures.TABLE_WITH_PROSE_MARKDOWN],
+    ['a layout table wrapping rich content', fixtures.LAYOUT_TABLE_HTML, '# Heading\n\nParagraph of an email.\n\n- point\n'],
+  ];
+
+  it.each(mixed)('declines and lets the default paste insert the full text/plain (%s)', (_name, html, markdown) => {
+    const view = mountRootView('', 0);
+
+    const event = dispatchPaste(view, (d) => {
+      d.setData('text/html', html);
+      d.setData('text/plain', markdown);
+    });
+
+    expect(event.defaultPrevented).toBe(true); // CM6's own default handler ran (it preventDefaults after inserting)
+    expect(dashes(view.state.doc.toString())).toBe(dashes(markdown));
+  });
+
+  it('declines into a non-empty document, before an existing table, and after one', () => {
+    const existing = '| Name | Role |\n| --- | --- |\n| Vik | PM |\n';
+    for (const caret of [0, existing.length]) {
+      const view = mountRootView(existing, caret);
+      dispatchPaste(view, (d) => {
+        d.setData('text/html', fixtures.MIXED_DOCUMENT_HTML);
+        d.setData('text/plain', fixtures.MIXED_DOCUMENT_MARKDOWN);
+      });
+      const text = view.state.doc.toString();
+      expect(text).toContain('Closing paragraph.');
+      expect(text).toContain('| Pens | 4 |');
+      expect(text).toContain('| Vik | PM |');
+    }
+  });
+
+  it('undo and redo restore the full pasted content in one step', () => {
+    const view = mountRootView('', 0);
+    dispatchPaste(view, (d) => {
+      d.setData('text/html', fixtures.MIXED_DOCUMENT_HTML);
+      d.setData('text/plain', fixtures.MIXED_DOCUMENT_MARKDOWN);
+    });
+    expect(undoDepth(view.state)).toBe(1);
+    undo(view);
+    expect(view.state.doc.toString()).toBe('');
+    redo(view);
+    expect(dashes(view.state.doc.toString())).toBe(dashes(fixtures.MIXED_DOCUMENT_MARKDOWN));
+  });
+});
+
+describe('tableCreatePaste — standalone table payloads from real applications still create a table', () => {
+  it.each([
+    ['Excel', fixtures.EXCEL_HTML, ['Name', 'Role', 'City'], ['Sam', 'UX', '']],
+    ['Google Sheets', fixtures.GOOGLE_SHEETS_HTML, ['Name', 'Role'], ['Sam', 'UX']],
+    ['a browser table selection', fixtures.BROWSER_TABLE_HTML, ['Name', 'Link'], ['Sam', 'site']],
+    ['Word (trailing nbsp paragraph)', fixtures.WORD_TABLE_HTML, ['Name', 'Role'], ['Sam', 'UX']],
+  ])('%s', (_name, html, header, row) => {
+    const view = mountRootView('', 0);
+    dispatchPaste(view, (d) => d.setData('text/html', html));
+
+    expect(findAllTables(view.state)).toHaveLength(1);
+    header.forEach((cell, i) => expect(cellText(view, 0, 0, i)).toBe(cell));
+    row.forEach((cell, i) => expect(cellText(view, 0, 1, i)).toBe(cell));
   });
 });

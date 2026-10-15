@@ -85,9 +85,70 @@ function normalizeGrid(rows: readonly (readonly string[])[]): string[][] | null 
   return rows.map((row) => Array.from({ length: width }, (_, i) => (row[i] ?? '').replace(/\r?\n/g, ' ')));
 }
 
+/** Elements that carry no pasted content of their own (document furniture a source app adds around the real fragment). */
+const INERT_HTML_ELEMENTS = new Set(['HEAD', 'STYLE', 'SCRIPT', 'META', 'LINK', 'TITLE', 'TEMPLATE', 'NOSCRIPT', 'BR']);
+/** Elements that count as meaningful content even though they hold no text. */
+const NON_TEXT_CONTENT_SELECTOR = 'img, hr, svg, video, audio, canvas, iframe, object, embed, input, button';
+/** Block content inside a table that means it is a layout table around rich content, not a grid of values. */
+const RICH_CELL_CONTENT_SELECTOR = 'table, ul, ol, dl, h1, h2, h3, h4, h5, h6, pre, blockquote, hr, img';
+
+/** Whitespace that does not count as content: ordinary whitespace plus `&nbsp;` and zero-width characters. */
+const hasVisibleText = (text: string | null): boolean => /[^\s\u00a0\u200b-\u200d\ufeff]/.test(text ?? '');
+
+/** Whether `node` (a table's sibling or ancestor-sibling in the fragment) holds anything a user would see. */
+function hasMeaningfulContent(node: Node): boolean {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return hasVisibleText(node.textContent);
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false; // comments (e.g. Excel's `<!--StartFragment-->`) and the like
+  }
+  const element = node as Element;
+  if (INERT_HTML_ELEMENTS.has(element.tagName)) {
+    return false;
+  }
+  if (element.matches(NON_TEXT_CONTENT_SELECTOR)) {
+    return true;
+  }
+  return Array.from(element.childNodes).some(hasMeaningfulContent);
+}
+
+/**
+ * The one `<table>` that makes up the *whole* clipboard payload — `null` for anything else. A table that
+ * is only part of the fragment (other tables, headings, paragraphs, lists, or any other visible content around it)
+ * is not "a table copied from a spreadsheet"; treating its first `<table>` as the whole payload is what silently
+ * dropped everything else on a rendered-Markdown paste. Wrapper elements (`<html>`, `<body>`, `<div>`,
+ * Google Sheets' `<google-sheets-html-origin>`), `<style>`/`<meta>` furniture, fragment markers and empty or `&nbsp;`-only
+ * paragraphs (Word) are ignored. A table whose cells hold block structure (lists, headings, nested tables) is a layout
+ * table and is declined too.
+ */
+function findStandaloneTable(root: Element): HTMLTableElement | null {
+  const tables = root.querySelectorAll('table');
+  if (tables.length !== 1) {
+    return null;
+  }
+  const table = tables[0]!;
+  if (table.querySelector(RICH_CELL_CONTENT_SELECTOR)) {
+    return null;
+  }
+
+  // Everything that is not on the path to the table must be empty of content.
+  let node: Node = table;
+  while (node !== root && node.parentNode) {
+    const parent: Node = node.parentNode;
+    for (const sibling of Array.from(parent.childNodes)) {
+      if (sibling !== node && hasMeaningfulContent(sibling)) {
+        return null;
+      }
+    }
+    node = parent;
+  }
+  return table;
+}
+
 function parseHtmlTableGrid(html: string): string[][] | null {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const table = doc.querySelector('table');
+  const table = findStandaloneTable(doc.documentElement);
   if (!table) {
     return null;
   }

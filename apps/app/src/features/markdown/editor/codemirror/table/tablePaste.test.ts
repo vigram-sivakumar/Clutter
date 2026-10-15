@@ -5,6 +5,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import * as fixtures from './tableClipboardFixtures';
 import { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, getNavigableRows, getRowCellBounds, endOfCellContent, startOfCellContent } from './tableGeometry';
 import { CLUTTER_TABLE_RANGE_MIME } from './tableRangeClipboard';
@@ -530,5 +531,60 @@ describe('tablePaste — clipboard format priority', () => {
 
     expect(cellText(view, 1, 0)).toBe('Sam');
     expect(cellText(view, 1, 1)).toBe('UX');
+  });
+});
+
+describe('tablePaste — mixed HTML is never consumed as its first table', () => {
+  const mixedClipboard = (d: MockDataTransfer) => {
+    d.setData('text/html', fixtures.MIXED_DOCUMENT_HTML);
+    d.setData('text/plain', fixtures.MIXED_DOCUMENT_MARKDOWN);
+  };
+
+  it('active cell: declines, leaving the table grid untouched and handing the paste to the default handler', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const rowsBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
+    activateCell(view, controller, 1, 0);
+
+    const event = dispatchPasteOnActiveCell(controller, mixedClipboard);
+
+    expect(event.defaultPrevented).toBe(true); // the nested editor's default paste handled it
+    const table = findAllTables(view.state)[0]!;
+    expect(getNavigableRows(table.node)).toHaveLength(rowsBefore); // no grid-shaped rows added
+    expect(cellText(view, 0, 0)).toBe('Name'); // the first mixed table (Name/Role/Sam/UX) was not stamped over the grid
+    expect(cellText(view, 2, 0)).toBe('Alex');
+  });
+
+  it('range selection: declines, leaving the selected rectangle untouched', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 1, col: 0 }, { row: 2, col: 1 });
+    const before = view.state.doc.toString();
+
+    dispatchPasteOn(view.contentDOM, mixedClipboard);
+
+    // Declined: the default handler inserted the whole clipboard as text, and the original table is intact below it.
+    const after = view.state.doc.toString();
+    expect(after).toContain('Closing paragraph.');
+    expect(after).toContain('| Pens | 4 |');
+    expect(after).toContain('| Vik ');
+    expect(after).toContain('| Alex ');
+    expect(after.length).toBeGreaterThan(before.length + fixtures.MIXED_DOCUMENT_MARKDOWN.length - 20);
+  });
+
+  it('standalone Excel HTML still pastes as a grid into an active cell and into a range', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    activateCell(view, controller, 1, 0);
+    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/html', fixtures.EXCEL_HTML));
+    expect(cellText(view, 1, 0)).toBe('Name');
+    expect(cellText(view, 2, 0)).toBe('Sam');
+
+    const controller2 = new TableActiveCellController();
+    const view2 = mountRootView(TABLE, controller2);
+    selectRange(view2, { row: 1, col: 0 }, { row: 1, col: 0 });
+    dispatchPasteOn(view2.contentDOM, (d) => d.setData('text/html', fixtures.GOOGLE_SHEETS_HTML));
+    expect(cellText(view2, 1, 0)).toBe('Name');
+    expect(cellText(view2, 2, 1)).toBe('UX');
   });
 });
