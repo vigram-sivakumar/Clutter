@@ -177,7 +177,7 @@ describe('UnsplashApi', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', fetchMock);
 
-    await trackPhotoDownload(downloadLocation);
+    await expect(trackPhotoDownload(downloadLocation)).resolves.toBe(true);
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({ href: downloadLocation }),
@@ -187,7 +187,7 @@ describe('UnsplashApi', () => {
     );
   });
 
-  it('trackPhotoDownload() does not throw when the tracking request fails', async () => {
+  it('trackPhotoDownload() resolves false (not true) when Unsplash rejects the request', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -200,6 +200,39 @@ describe('UnsplashApi', () => {
       trackPhotoDownload(
         'https://api.unsplash.com/photos/photo-1/download?ixid=abc',
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
+  });
+
+  it('trackPhotoDownload() does not throw when the network request rejects', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
+
+    await expect(
+      trackPhotoDownload(
+        'https://api.unsplash.com/photos/photo-1/download?ixid=abc',
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it('trackPhotoDownload() does not throw when the access key is missing', async () => {
+    vi.stubEnv('VITE_UNSPLASH_ACCESS_KEY', '');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      trackPhotoDownload(
+        'https://api.unsplash.com/photos/photo-1/download?ixid=abc',
+      ),
+    ).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('trackPhotoDownload() never sends credentials to a non-Unsplash host', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await trackPhotoDownload('https://evil.example/photos/x/download?ixid=abc');
+    await trackPhotoDownload('not a url');
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

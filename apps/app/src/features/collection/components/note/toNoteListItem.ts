@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 
+import { noteCoverAttributionLabel } from './noteCoverAttributionLabel';
 import type { CollectionDataListItem } from '@features/collection/components/list/CollectionDataList';
 
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
@@ -55,7 +56,7 @@ export function toNoteListItem(
     metadata,
     ...(tagContent?.source && visible.includes('source') && { trailing: tagContent.source }),
     media: cover && {
-      children: toNoteCoverImage(cover.url, entry.coverPositionAbove),
+      children: toNoteCoverImage(cover.url, entry.coverPositionAbove, noteCoverAttributionLabel(entry)),
       onClick: cover.onClick,
       label: cover.url ? 'Change cover image' : 'Add cover image',
     },

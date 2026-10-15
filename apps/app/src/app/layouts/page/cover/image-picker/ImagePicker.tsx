@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import './ImagePicker.css';
 import { ImagePickerLink } from './ImagePicker.Link';
 import { ImagePickerUpload } from './ImagePicker.Upload';
@@ -21,7 +22,7 @@ interface ImagePickerProps {
    * one to close the picker and the other not to, without this component
    * having to know why.
    */
-  onUnsplashSelect: (url: string) => void;
+  onUnsplashSelect: (url: string, credit: CoverCredit) => void;
   /** An existing vault image (or remote asset), offered under Upload: sets the cover and closes, like Upload. */
   onAssetSelect: (cover: string) => void;
 }

@@ -1,4 +1,5 @@
 import type { PropertiesControl } from './header/propertiesControl';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useImperativeHandle, useRef, type MouseEvent, type ReactNode, type RefObject } from 'react';
 import type { EditableTextHandle } from '@components/editable-text/EditableText.types';
 import type { SystemIcon } from '@shared/icon';
@@ -91,7 +92,7 @@ type PageProps = {
   /** Forwarded to PageTitleSection's own More-actions menu — see PageHeaderControls' doc comments. Presence gates the Emoji/Cover image menu items (undefined omits the corresponding item entirely, e.g. a Daily Note never gets onSelectEmoji). */
   onSelectEmoji?(emoji: string): void;
   onRemoveEmoji?(): void;
-  onSetCoverImage?(url: string): void;
+  onSetCoverImage?(url: string, credit?: CoverCredit | null): void;
   onSetCoverImageFromUpload?(sourcePath: string): void;
   /**
    * Slot rendered in the document flow directly below the title/description
@@ -108,6 +109,8 @@ type PageProps = {
    */
   bodyOverlay?: ReactNode;
   coverImage?: string;
+  /** The Unsplash credit for `coverImage` (ADR-054), drawn on the cover. */
+  coverCredit?: CoverCredit | null;
   /** Forwarded to PageCover's "Remove" menu action AND to the More-actions "Cover image" picker's own removal — both clear the same underlying cover, see Page.Cover.tsx's own doc comment for the collapse-then-remove sequencing. */
   onRemoveCoverImage?(): void;
   /**
@@ -266,6 +269,7 @@ export function Page({
   body,
   bodyOverlay,
   coverImage,
+  coverCredit,
   onRemoveCoverImage,
   coverHidden,
   onHideCoverImage,
@@ -325,6 +329,7 @@ export function Page({
       key={coverKey}
       editable={coverEditable}
       src={coverImage}
+      coverCredit={coverCredit}
       onRemove={onRemoveCoverImage}
       // The above-title cover is never hidden by the window's width, only by the note's own `coverHidden`.
       hidden={coverHidden || (coverLayout !== 'above' && isCoverSuppressed)}

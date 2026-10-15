@@ -1,4 +1,4 @@
-import type { CoverLayout } from '../../models';
+import type { CoverCredit, CoverLayout } from '../../models';
 
 export interface FolderFrontmatter {
   id?: string;
@@ -7,6 +7,7 @@ export interface FolderFrontmatter {
   favorite?: boolean;
   description?: string;
   cover?: string;
+  coverCredit?: CoverCredit;
   coverHidden?: boolean;
   coverLayout?: CoverLayout;
   coverPositionAbove?: number;

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { newCoverPatch } from './coverPatch';
 import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
@@ -431,6 +432,93 @@ describe('PageOperations.updateMetadata()', () => {
     expect(updated.metadata.cover).toBe('cover.png');
     expect(updated.metadata.coverHidden).toBe(true);
     expect(updated.metadata.coverLayout).toBe('above');
+  });
+});
+
+describe('PageOperations.updateMetadata(): cover credit (ADR-054)', () => {
+  const UNSPLASH_A = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+  const UNSPLASH_B = 'https://images.unsplash.com/photo-b?ixid=2&w=1080';
+  const ALEX = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+  const BEA = { name: 'Bea Roe', url: 'https://unsplash.com/@bea' };
+
+  it('persists the credit with the cover, and it survives reparsing the file (a restart)', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_A, ALEX));
+
+    expect(vault.getPage(page.id)!.metadata.coverCredit).toEqual(ALEX);
+    const text = await fileSystem.readFile(page.path);
+    expect(text).toContain(`cover: ${UNSPLASH_A}`);
+    expect(text).toContain('coverCredit: Alex Doe <https://unsplash.com/@alex>');
+
+    // "Restart": nothing but the file on disk is left.
+    const reopened = new FrontmatterParser().parse(text);
+    expect(reopened.frontmatter.cover).toBe(UNSPLASH_A);
+    expect(reopened.frontmatter.coverCredit).toEqual(ALEX);
+  });
+
+  it('replaces the credit when another photo replaces the cover', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_A, ALEX));
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_B, BEA));
+
+    expect(vault.getPage(page.id)!.metadata.coverCredit).toEqual(BEA);
+    const text = await fileSystem.readFile(page.path);
+    expect(text).toContain('coverCredit: Bea Roe <https://unsplash.com/@bea>');
+    expect(text).not.toContain('Alex Doe');
+  });
+
+  it.each([
+    ['a link', 'https://example.com/cover.png'],
+    ['an upload or vault asset', 'Assets/cover.png'],
+  ])('clears the credit when %s replaces an Unsplash cover', async (_label, replacement) => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_A, ALEX));
+    await pageOperations.updateMetadata(page.id, newCoverPatch(replacement));
+
+    expect(vault.getPage(page.id)!.metadata.cover).toBe(replacement);
+    expect(vault.getPage(page.id)!.metadata.coverCredit).toBeNull();
+    expect(await fileSystem.readFile(page.path)).not.toContain('coverCredit');
+  });
+
+  it('clears the credit when the cover is removed', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_A, ALEX));
+    await pageOperations.updateMetadata(page.id, { cover: null, coverCredit: null });
+
+    expect(vault.getPage(page.id)!.metadata.cover).toBeNull();
+    expect(vault.getPage(page.id)!.metadata.coverCredit).toBeNull();
+    expect(await fileSystem.readFile(page.path)).not.toContain('coverCredit');
+  });
+
+  it('keeps the credit when the cover is only hidden, repositioned or re-laid out', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, newCoverPatch(UNSPLASH_A, ALEX));
+    await pageOperations.updateMetadata(page.id, { coverHidden: true });
+    await pageOperations.updateMetadata(page.id, { coverLayout: 'above' });
+    await pageOperations.updateMetadata(page.id, { coverPositionAbove: 20 });
+
+    expect(vault.getPage(page.id)!.metadata.coverCredit).toEqual(ALEX);
+  });
+
+  it('a draft given an Unsplash cover promotes with the credit in its first frontmatter', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty([makeArchiveFolder(), makeDailyNotesFolder()]);
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-02.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await pageOperations.updateMetadata(id, newCoverPatch(UNSPLASH_A, ALEX));
+
+    expect(vault.getPage(id)!.metadata.coverCredit).toEqual(ALEX);
+    expect(await fileSystem.readFile(path)).toContain('coverCredit: Alex Doe <https://unsplash.com/@alex>');
   });
 });
 

@@ -27,6 +27,8 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-http = "2"
 notify = "6"
+# Opaque per-space cache id for the parsed-note cache (src/parse_cache.rs); already in the graph via tauri.
+sha2 = "0.10"
 
 # Automation/testing only, and `optional = true`: excluded from every
 # ordinary build's dependency graph (debug or release — `cfg(debug_assertions)`
@@ -37,6 +39,12 @@ notify = "6"
 # invocation. See packages/automation/AUTOMATION.md.
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 tauri-plugin-opener = "2"
+
+# The startup-recovery alert (src/startup_notice.rs) holds its own
+# CFUserNotification handle so it can be cancelled. Already in the graph via
+# rfd; features limited to what is used.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFBase", "CFDate", "CFDictionary", "CFString", "CFUserNotification"] }
 
 [features]
 automation = ["dep:tauri-plugin-wdio-webdriver"]

@@ -1,4 +1,6 @@
 import type { SystemIcon } from '@shared/icon';
+import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribution';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
 import { NotePageCanvas } from './NotePageCanvas';
 import { resolveNoteCoverUrl, type NotePreviewResolvers } from '../notePreviewResolvers';
@@ -12,6 +14,8 @@ export interface NotePreviewCardProps {
   markdown?: string;
   /** The persisted cover reference; resolved through `resolvers.resolveCoverImage`. */
   cover?: string | null;
+  /** The Unsplash credit for `cover` (ADR-054). */
+  coverCredit?: CoverCredit | null;
   coverHidden?: boolean;
   coverPositionAbove?: number;
   /** Show the title section above the canvas. Off by default: the preview is the page canvas alone. */
@@ -33,6 +37,7 @@ export function NotePreviewCard({
   icon = 'note',
   markdown = '',
   cover,
+  coverCredit,
   coverHidden,
   coverPositionAbove,
   showHeader = false,
@@ -52,6 +57,7 @@ export function NotePreviewCard({
           markdown={markdown}
           coverUrl={resolveNoteCoverUrl(cover ?? undefined, coverHidden, resolvers)}
           coverPositionAbove={coverPositionAbove}
+          coverAttribution={coverHidden ? null : coverAttributionFor(cover, coverCredit)}
           resolvers={resolvers}
         />
       )}

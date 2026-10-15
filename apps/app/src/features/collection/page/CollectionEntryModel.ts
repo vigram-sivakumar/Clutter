@@ -1,4 +1,5 @@
 import type { SystemIcon } from '@shared/icon';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { PropertyValues } from '@core/properties/collectionProperties';
 
 /**
@@ -44,6 +45,8 @@ export interface CollectionEntryModel {
    * note's cover is hidden), resolved to a loadable URL by the Card's injected resolver.
    */
   readonly coverPositionAbove?: number;
+  /** The Unsplash credit for the note's cover (ADR-054) — layout payload, not a collection property. */
+  readonly coverCredit?: CoverCredit | null;
   /**
    * Only ever set on a Tag collection's matching-content entry — one per distinct body line that contains the tag
    * (`getTagLineContexts`, the same lines the Tags sidebar lists as separate rows): that exact Markdown line. Such an

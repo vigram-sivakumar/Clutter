@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { Application } from '@core/application/Application';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
@@ -345,9 +346,10 @@ export function PageHost({
     }
     return {
       onDownloadCoverImage: () => coverImageActions.download(reference),
-      onSaveCoverImageToVault: isRemoteImageReference(reference)
-        ? () => coverImageActions.saveToVault(reference)
-        : undefined,
+      onSaveCoverImageToVault:
+        isRemoteImageReference(reference)
+          ? () => coverImageActions.saveToVault(reference)
+          : undefined,
     };
   }
 
@@ -654,7 +656,11 @@ export function PageHost({
       downloadResourceById(resolved.resourceId);
       return;
     }
-    void downloadRemoteImage(url);
+    void downloadRemoteImage(url).then((saved) => {
+      if (saved) {
+        application.reportUnsplashDownload(url);
+      }
+    });
   }
   // "Save to vault" for a remote image embedded in the note: the same flow, and result dialog, as the
   // asset menu's (AppLayout owns it). The editor only offers it for a remote URL.
@@ -1149,7 +1155,7 @@ export function PageHost({
   // (a draft's committed cover patch promotes it via the same persistDraft
   // helper title/body commits already use), so there is no separate
   // draft-specific persistence path to wire here.
-  const onSetCoverImage = (url: string): void => {
+  const onSetCoverImage = (url: string, credit?: CoverCredit | null): void => {
     if (!activePageId) {
       return;
     }
@@ -1160,6 +1166,9 @@ export function PageHost({
     // over to a replacement the user hasn't positioned yet.
     void application.pageOperations.updateMetadata(activePageId, {
       cover: url,
+      // The credit belongs to the image (ADR-054): the picker's own, else one
+      // already recorded for this exact URL, else cleared — never left stale.
+      coverCredit: credit ?? application.findCoverCredit(url),
       coverPositionAbove: 50,
       coverPositionSide: 50,
     });
@@ -1174,6 +1183,7 @@ export function PageHost({
       const relativePath = await application.importCoverAsset(sourcePath);
       await application.pageOperations.updateMetadata(activePageId, {
         cover: relativePath,
+        coverCredit: null,
         coverPositionAbove: 50,
         coverPositionSide: 50,
       });
@@ -1194,6 +1204,7 @@ export function PageHost({
     // image's framing.
     void application.pageOperations.updateMetadata(activePageId, {
       cover: null,
+      coverCredit: null,
       coverHidden: false,
       coverPositionAbove: 50,
       coverPositionSide: 50,
@@ -1333,10 +1344,10 @@ export function PageHost({
   // since the collection shows a hidden cover as none (see CollectionBody).
   const noteCoverActions: NoteCoverActions = {
     resolveUrl: (cover) => application.resolveCoverImageForDisplay(cover),
-    onSet: (noteId, url) => {
+    onSet: (noteId, url, credit) => {
       void application.pageOperations.updateMetadata(
         noteId,
-        newCoverPatch(url)
+        newCoverPatch(url, credit ?? application.findCoverCredit(url))
       );
     },
     onSetFromUpload: (noteId, sourcePath) => {
@@ -1351,6 +1362,7 @@ export function PageHost({
     onRemove: (noteId) => {
       void application.pageOperations.updateMetadata(noteId, {
         cover: null,
+        coverCredit: null,
         coverHidden: false,
         coverPositionAbove: 50,
         coverPositionSide: 50,
@@ -1543,6 +1555,7 @@ export function PageHost({
     const onRemoveFolderCoverImage = (): void =>
       void application.folderOperations.updateMetadata(folder.id, {
         cover: null,
+        coverCredit: null,
         coverHidden: false,
         coverPositionAbove: 50,
         coverPositionSide: 50,
@@ -1571,9 +1584,10 @@ export function PageHost({
     // More-actions "Cover image" picker (PageHeaderMoreActionsMenu, via
     // <Page>) needs the exact same set/upload calls buildTopBarActions'
     // own cover-image menu item already uses, not a second copy.
-    const onSetFolderCoverImage = (url: string): void =>
+    const onSetFolderCoverImage = (url: string, credit?: CoverCredit | null): void =>
       void application.folderOperations.updateMetadata(folder.id, {
         cover: url,
+        coverCredit: credit ?? application.findCoverCredit(url),
         coverPositionAbove: 50,
         coverPositionSide: 50,
       });
@@ -1582,6 +1596,7 @@ export function PageHost({
         const relativePath = await application.importCoverAsset(sourcePath);
         await application.folderOperations.updateMetadata(folder.id, {
           cover: relativePath,
+          coverCredit: null,
           coverPositionAbove: 50,
           coverPositionSide: 50,
         });
@@ -1889,6 +1904,7 @@ export function PageHost({
             application.resolveCoverImageForDisplay(model.coverImage) ??
             undefined
           }
+          coverCredit={model.coverCredit}
           onRemoveCoverImage={onRemoveFolderCoverImage}
           {...coverImageFileActions(model.coverImage)}
           coverHidden={model.coverHidden}
@@ -3007,6 +3023,7 @@ export function PageHost({
         coverImage={
           application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
         }
+        coverCredit={model.coverCredit}
         onRemoveCoverImage={onRemoveCoverImage}
         {...coverImageFileActions(model.coverImage)}
         coverHidden={model.coverHidden}

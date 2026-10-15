@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { Overlay } from '@components/overlay/Overlay';
 import { ImagePicker } from './image-picker/ImagePicker';
 import './CoverPickerOverlay.css';
@@ -10,7 +11,7 @@ export interface CoverPickerOverlayProps {
   /** The element the picker opens beside (the cover thumbnail that was clicked). */
   readonly anchorRef: RefObject<HTMLElement>;
   /** A link or Unsplash pick: sets the cover to this URL. */
-  readonly onSetCoverImage: (url: string) => void;
+  readonly onSetCoverImage: (url: string, credit?: CoverCredit | null) => void;
   /** An upload: imports the file and sets it as the cover. */
   readonly onSetCoverImageFromUpload: (sourcePath: string) => void;
   /** The picker's Remove button: clears the cover. */

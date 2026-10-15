@@ -5,7 +5,7 @@ import type { PageMetadata } from '@core/vault/models/PageMetadata';
 /**
  * What a new note inherits from its template's metadata, besides the body:
  *
- *  - the icon, and the cover (the reference only — a vault-relative `Assets/…` path or a URL, so the
+ *  - the icon, and the cover (and its Unsplash photographer credit; the reference only — a vault-relative `Assets/…` path or a URL, so the
  *    image file is shared, never duplicated) with how it is presented;
  *  - the tags and the description;
  *  - the custom properties (the user's own frontmatter keys), minus the `kind: template` marker, which
@@ -24,6 +24,7 @@ export function pickInheritedTemplateMetadata(
     PageMetadata,
     'icon' | 'cover' | 'coverHidden' | 'coverLayout' | 'coverPositionAbove' | 'coverPositionSide'
   > &
+    Partial<Pick<PageMetadata, 'coverCredit'>> &
     Partial<Pick<PageMetadata, 'description' | 'tags' | 'unownedFrontmatter'>>
 ): Partial<EditablePageMetadata> {
   const patch: { -readonly [K in keyof EditablePageMetadata]?: EditablePageMetadata[K] } = {};
@@ -34,6 +35,10 @@ export function pickInheritedTemplateMetadata(
 
   if (template.cover) {
     patch.cover = template.cover;
+    // The credit describes the image, so it travels with it (ADR-054).
+    if (template.coverCredit) {
+      patch.coverCredit = template.coverCredit;
+    }
     patch.coverHidden = template.coverHidden;
     patch.coverLayout = template.coverLayout;
     patch.coverPositionAbove = template.coverPositionAbove;

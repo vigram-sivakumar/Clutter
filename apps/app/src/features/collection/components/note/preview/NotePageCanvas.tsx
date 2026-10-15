@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { CoverAttribution } from '@components/cover-attribution/CoverAttribution';
+import type { CoverAttribution as CoverAttributionData } from '@core/integrations/unsplash/unsplashAttribution';
 import { CollectionImage } from '@features/collection/components/media/CollectionImage';
 import { ScaledCanvas } from '@features/collection/components/scale/ScaledCanvas';
 import type { CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
@@ -15,6 +17,8 @@ export interface NotePageCanvasProps {
   coverUrl?: string | null;
   /** Vertical focal point (0–100) the cover was framed with. Defaults to centred. */
   coverPositionAbove?: number;
+  /** The Unsplash credit for the cover (ADR-054), drawn at real size over the cover's corner — not scaled with the page. */
+  coverAttribution?: CoverAttributionData | null;
   resolvers?: CompactMarkdownResolvers;
   /** Extra class on the viewport (e.g. the headless inset). */
   className?: string;
@@ -40,6 +44,7 @@ export function NotePageCanvas({
   markdown = '',
   coverUrl,
   coverPositionAbove,
+  coverAttribution,
   resolvers,
   className,
 }: NotePageCanvasProps) {
@@ -55,6 +60,9 @@ export function NotePageCanvas({
           <NotePageBody markdown={markdown} resolvers={resolvers} />
         </div>
       </ScaledCanvas>
+      {coverUrl && coverAttribution && (
+        <CoverAttribution attribution={coverAttribution} className="note-page-canvas__attribution" />
+      )}
     </div>
   );
 }

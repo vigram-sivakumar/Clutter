@@ -580,6 +580,7 @@ export class FolderOperations {
         FolderMetadata,
         | 'favorite'
         | 'cover'
+        | 'coverCredit'
         | 'coverHidden'
         | 'coverLayout'
         | 'coverPositionAbove'

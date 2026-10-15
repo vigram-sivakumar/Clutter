@@ -37,17 +37,22 @@ function relativePath(absolutePath: string): string {
   return absolutePath.slice(`${ROOT}/`.length);
 }
 
-function pageDocument(id: string, body = 'Content that must survive duplication.'): string {
-  return `---\nid: ${id}\n---\n${body}`;
+function pageDocument(id: string, body = 'Content that must survive duplication.', extraFrontmatter = ''): string {
+  return `---\nid: ${id}\n${extraFrontmatter}---\n${body}`;
 }
 
-function buildPage(path: string, id: string, content = 'Content that must survive duplication.'): Page {
+function buildPage(
+  path: string,
+  id: string,
+  content = 'Content that must survive duplication.',
+  frontmatter: Record<string, unknown> = {}
+): Page {
   return new PageBuilder().build({
     parentId: null,
     page: {
       path,
       directoryPath: ROOT,
-      frontmatter: { id },
+      frontmatter: { id, ...frontmatter },
       frontmatterAnalysis: { aliases: [] },
       content,
       analysis: {
@@ -62,7 +67,7 @@ function buildPage(path: string, id: string, content = 'Content that must surviv
   });
 }
 
-function setup() {
+function setup(extraFrontmatter = '', pageFrontmatter: Record<string, unknown> = {}) {
   const vault = new Vault(
     ROOT,
     [],
@@ -74,10 +79,10 @@ function setup() {
     new VaultProjectionBuilder()
   );
 
-  vault.addPage(buildPage(`${ROOT}/Idea.md`, 'page-1'));
+  vault.addPage(buildPage(`${ROOT}/Idea.md`, 'page-1', undefined, pageFrontmatter));
 
   const fileSystem = new InMemoryVaultFileSystem({
-    [`${ROOT}/Idea.md`]: pageDocument('page-1'),
+    [`${ROOT}/Idea.md`]: pageDocument('page-1', undefined, extraFrontmatter),
   });
 
   const watcher = new FakeVaultFileSystemWatcher();
@@ -171,6 +176,27 @@ describe('PageOperations.duplicate', () => {
     // duplicate() itself never selects or opens the result — the current
     // selection is untouched.
     expect(workspace.activePageId).toBe('page-1');
+  });
+
+  it('carries the cover and its Unsplash credit into the copy (ADR-054)', async () => {
+    const cover = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+    const credit = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+    const { vault, fileSystem, watcher, pageOperations } = setup(
+      `cover: ${cover}\ncoverCredit: Alex Doe <https://unsplash.com/@alex>\n`,
+      { cover, coverCredit: credit }
+    );
+
+    const duplicatePromise = pageOperations.duplicate('page-1');
+    await flush();
+    watcher.emit({ type: 'created', path: relativePath(`${ROOT}/Idea copy.md`), isDirectory: false });
+    await flush();
+    const newPageId = await duplicatePromise;
+
+    expect(vault.getPage(newPageId)!.metadata.cover).toBe(cover);
+    expect(vault.getPage(newPageId)!.metadata.coverCredit).toEqual(credit);
+    const copyText = await fileSystem.readFile(`${ROOT}/Idea copy.md`);
+    expect(copyText).toContain(`cover: ${cover}`);
+    expect(copyText).toContain('coverCredit: Alex Doe <https://unsplash.com/@alex>');
   });
 
   it('reassigns the frontmatter id when the copy collides with the source id, and persists the fix to disk', async () => {

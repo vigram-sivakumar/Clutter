@@ -1,5 +1,6 @@
 export * from './VaultScanner';
 export * from './VaultScanResult';
+export * from './ParseMemo';
 
 export * from './DocumentLoader';
 export * from './FrontmatterParser';

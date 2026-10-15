@@ -13,6 +13,7 @@ export const OWNED_FRONTMATTER_KEYS: ReadonlySet<string> = new Set([
   'type',
   'icon',
   'cover',
+  'coverCredit',
   'coverHidden',
   'coverLayout',
   'coverPositionAbove',

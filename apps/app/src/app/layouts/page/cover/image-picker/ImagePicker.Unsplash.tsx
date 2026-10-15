@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { Input } from '@components/input/Input';
 import {
   searchPhotos,
@@ -11,7 +12,7 @@ import { AppIcon } from '@shared/icon';
 import './ImagePicker.Unsplash.css';
 
 interface ImagePickerUnsplashProps {
-  onSelect: (url: string) => void;
+  onSelect: (url: string, credit: CoverCredit) => void;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -99,8 +100,14 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
   };
 
   const handleSelect = (photo: UnsplashPhoto) => {
+    onSelect(photo.urls.regular, {
+      name: photo.user.name,
+      url: photo.user.links.html,
+      downloadLocation: photo.links.downloadLocation,
+    });
+    // Committing a photo as the cover is Unsplash's "download" event. Runs
+    // after the selection and never rejects, so it can't delay or undo it.
     void trackPhotoDownload(photo.links.downloadLocation);
-    onSelect(photo.urls.regular);
   };
 
   const handleOpenExternal = (
@@ -166,6 +173,7 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
                   by{' '}
                   <a
                     href={photographerProfileUrl(photo.user.links.html)}
+                    title={photo.user.name}
                     onClick={(event) =>
                       handleOpenExternal(
                         event,

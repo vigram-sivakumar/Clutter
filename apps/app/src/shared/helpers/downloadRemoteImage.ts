@@ -25,19 +25,23 @@ function suggestedFileNameFromUrl(url: string): string {
  * destination via the native Save dialog — the fetch-based counterpart to
  * `downloadResource.ts`'s local `copy_file`, needed because there's no
  * source file on disk to copy from. No-op in the web runtime, mirroring
- * `downloadResource.ts`'s own `isTauri()` guard.
+ * `downloadResource.ts`'s own `isTauri()` guard. Resolves true only when the
+ * file was written (false: web runtime or the dialog was cancelled), so a caller can
+ * report the download to Unsplash only when it really happened.
  */
-export async function downloadRemoteImage(url: string): Promise<void> {
+export async function downloadRemoteImage(url: string): Promise<boolean> {
   if (!isTauri()) {
-    return;
+    return false;
   }
 
   const destination = await save({ defaultPath: suggestedFileNameFromUrl(url) });
   if (!destination) {
-    return;
+    return false;
   }
 
   const response = await appFetch(url);
   const bytes = new Uint8Array(await response.arrayBuffer());
   await writeFile(destination, bytes);
+
+  return true;
 }

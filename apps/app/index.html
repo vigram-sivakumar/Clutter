@@ -19,6 +19,40 @@
         } catch (e) {}
       })();
     </script>
+    <!-- Startup failure reporter. The native window stays hidden until the app
+         reports ready, so a fatal error before that point would otherwise leave
+         nothing on screen until the native watchdog fires. This tells the shell
+         immediately; the shell ignores it once the window is revealed.
+         Only uncaught exceptions and a failed module script count: a failed
+         stylesheet/font (offline) or an unhandled promise rejection does not. -->
+    <script>
+      (function () {
+        function report(reason) {
+          try {
+            var internals = window.__TAURI_INTERNALS__;
+            if (!internals) return;
+            Promise.resolve(
+              internals.invoke('frontend_failed', {
+                reason: String(reason).slice(0, 500),
+              })
+            ).catch(function () {});
+          } catch (e) {}
+        }
+        window.addEventListener(
+          'error',
+          function (event) {
+            var target = event.target;
+            if (target && target !== window) {
+              if (target.tagName === 'SCRIPT')
+                report('script failed to load: ' + target.src);
+              return;
+            }
+            if (event.error instanceof Error) report(event.error.message);
+          },
+          true
+        );
+      })();
+    </script>
     <!-- First-paint background: the stylesheet (and its --surface-root token)
          isn't loaded yet. Values mirror --surface-root in design-system/theme.css. -->
     <style>

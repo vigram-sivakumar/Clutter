@@ -4,6 +4,7 @@ import { MarkdownAnalyzer } from './analysis';
 import { FrontmatterAnalyzer, type FrontmatterAnalysis } from './analysis';
 import { parseFlowSequence, unquoteFrontmatterString } from './frontmatter/frontmatterStringValue';
 import { matchSystemKey } from './frontmatter/ownedFrontmatterKeys';
+import { parseCoverCredit } from './frontmatter/coverCredit';
 
 export type ParsedFrontmatter = Record<string, unknown>;
 
@@ -18,25 +19,22 @@ export class FrontmatterParser {
   private readonly markdownAnalyzer = new MarkdownAnalyzer();
   private readonly frontmatterAnalyzer = new FrontmatterAnalyzer();
 
-  parse(content: string): ParsedMarkdown {
+  /**
+   * The cheap structural split `parse` starts with: the frontmatter block's
+   * text (null when the content has none, or an unterminated one) and the
+   * body. Exposed so a caller that already holds the parsed result (the
+   * parsed-note cache, ADR-053) derives the body through the same code
+   * `parse` uses rather than a second copy of it.
+   */
+  split(content: string): { frontmatterText: string | null; body: string } {
     // 1. Check for opening delimiter
     if (!content.startsWith('---\n')) {
-      return {
-        frontmatter: {},
-        frontmatterAnalysis: this.frontmatterAnalyzer.analyze({}),
-        body: content,
-        analysis: this.markdownAnalyzer.analyze(content),
-      };
+      return { frontmatterText: null, body: content };
     }
     // 2. Find closing delimiter
     const endIdx = content.indexOf('\n---', 4);
     if (endIdx === -1) {
-      return {
-        frontmatter: {},
-        frontmatterAnalysis: this.frontmatterAnalyzer.analyze({}),
-        body: content,
-        analysis: this.markdownAnalyzer.analyze(content),
-      };
+      return { frontmatterText: null, body: content };
     }
     // 3. Extract frontmatter text
     const frontmatterText = content.slice(4, endIdx);
@@ -44,6 +42,19 @@ export class FrontmatterParser {
     let body = content.slice(endIdx + 4);
     if (body.startsWith('\n')) {
       body = body.slice(1);
+    }
+    return { frontmatterText, body };
+  }
+
+  parse(content: string): ParsedMarkdown {
+    const { frontmatterText, body } = this.split(content);
+    if (frontmatterText === null) {
+      return {
+        frontmatter: {},
+        frontmatterAnalysis: this.frontmatterAnalyzer.analyze({}),
+        body,
+        analysis: this.markdownAnalyzer.analyze(body),
+      };
     }
     const frontmatter = this.parseFrontmatter(frontmatterText);
     // 6. Return result
@@ -156,6 +167,13 @@ export class FrontmatterParser {
             frontmatter.cover = scalar;
           }
           break;
+        case 'coverCredit': {
+          const credit = parseCoverCredit(value);
+          if (credit) {
+            frontmatter.coverCredit = credit;
+          }
+          break;
+        }
         case 'coverHidden':
           if (typeof scalar === 'boolean') {
             frontmatter.coverHidden = scalar;

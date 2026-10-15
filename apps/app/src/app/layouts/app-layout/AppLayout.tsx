@@ -322,6 +322,15 @@ export function AppLayout({ application }: AppLayoutProps) {
     []
   );
 
+  // "Download" of a remote image: reported to Unsplash (when it is a photo picked from there) only once the file was written.
+  function downloadRemote(url: string): void {
+    void downloadRemoteImage(url).then((saved) => {
+      if (saved) {
+        application.reportUnsplashDownload(url);
+      }
+    });
+  }
+
   function startSaveToVault(url: string): void {
     setResourceOverlay(null);
     application
@@ -360,8 +369,14 @@ export function AppLayout({ application }: AppLayoutProps) {
     if (reference !== null) {
       const update =
         target.kind === 'folder'
-          ? application.folderOperations.updateMetadata(target.id, newCoverPatch(reference))
-          : application.pageOperations.updateMetadata(target.id, newCoverPatch(reference));
+          ? application.folderOperations.updateMetadata(
+              target.id,
+              newCoverPatch(reference, application.findCoverCredit(reference))
+            )
+          : application.pageOperations.updateMetadata(
+              target.id,
+              newCoverPatch(reference, application.findCoverCredit(reference))
+            );
       void update.catch((error: unknown) => console.error('Could not set the cover image.', error));
     }
   }
@@ -374,7 +389,7 @@ export function AppLayout({ application }: AppLayoutProps) {
     saveToVault: startSaveToVault,
     download: (reference) => {
       if (isRemoteImageReference(reference)) {
-        void downloadRemoteImage(reference);
+        downloadRemote(reference);
         return;
       }
       const fileName = reference.split('/').pop() ?? 'image';
@@ -506,7 +521,7 @@ export function AppLayout({ application }: AppLayoutProps) {
                 onSaveToVault: startSaveToVault,
                 onOpenInBrowser: (url) => void openExternalUrl(url),
                 onCopyLink: (url) => void copyTextToClipboard(url),
-                onDownload: (url) => void downloadRemoteImage(url),
+                onDownload: downloadRemote,
               }
         }
         onSetCoverImage={

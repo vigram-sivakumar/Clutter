@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import { Menu } from '@components/menu/Menu';
@@ -34,7 +35,7 @@ export interface PageHeaderMoreActionsMenuProps {
    */
   coverHidden?: boolean;
   /** Presence (alongside `!hasCoverImage`) gates the "Cover image" item, same convention as onSelectEmoji above. */
-  onSetCoverImage?: (url: string) => void;
+  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => void;
   onSetCoverImageFromUpload?: (sourcePath: string) => void;
   onRemoveCoverImage?: () => void;
   /**
@@ -324,12 +325,12 @@ export function PageHeaderMoreActionsMenu({
                 setOpen(false);
                 onSetCoverImage(cover);
               }}
-              onUnsplashSelect={(url) => {
+              onUnsplashSelect={(url, credit) => {
                 // Deliberately does not close the menu — same Unsplash
                 // browse-and-preview reasoning as ResourceTopBarActions'
                 // own onUnsplashSelect (ImagePicker.tsx's own doc
                 // comment).
-                onSetCoverImage(url);
+                onSetCoverImage(url, credit);
               }}
             />
           </div>

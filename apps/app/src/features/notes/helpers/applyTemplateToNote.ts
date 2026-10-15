@@ -15,6 +15,7 @@ export type ExistingNoteMetadata = Partial<
     PageMetadata,
     | 'icon'
     | 'cover'
+    | 'coverCredit'
     | 'coverHidden'
     | 'coverLayout'
     | 'coverPositionAbove'
@@ -137,6 +138,9 @@ export function pickTemplateMetadataToMerge(
 
   if (inherited.cover && !existing.cover) {
     patch.cover = inherited.cover;
+    if (inherited.coverCredit) {
+      patch.coverCredit = inherited.coverCredit;
+    }
     patch.coverHidden = inherited.coverHidden;
     patch.coverLayout = inherited.coverLayout;
     patch.coverPositionAbove = inherited.coverPositionAbove;

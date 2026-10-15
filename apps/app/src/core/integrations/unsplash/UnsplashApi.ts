@@ -130,12 +130,40 @@ export async function searchPhotos(
   return payload.results.map(mapPhoto);
 }
 
+/**
+ * Reports a committed photo selection to Unsplash (their "trigger a
+ * download" requirement). Fire-and-forget by design: it never rejects, so a
+ * failed or blocked tracking call can't lose the user's selected cover or
+ * surface as an unhandled rejection. `downloadLocation` must be the exact
+ * `links.download_location` value from the API (query parameters intact);
+ * anything not on the Unsplash API host is ignored so the Authorization
+ * header can't be sent elsewhere.
+ *
+ * Resolves true only when Unsplash answered with a success status — sending
+ * the request is not the same as it being recorded. A non-2xx answer, a
+ * network error or a missing key resolves false (logged without the key);
+ * the selection itself is never affected.
+ */
 export async function trackPhotoDownload(
   downloadLocation: string
-): Promise<void> {
-  const response = await unsplashFetch(new URL(downloadLocation));
+): Promise<boolean> {
+  try {
+    const url = new URL(downloadLocation);
 
-  if (!response.ok) {
-    return;
+    if (url.origin !== UNSPLASH_API_URL) {
+      return false;
+    }
+
+    const response = await unsplashFetch(url);
+
+    if (!response.ok) {
+      console.warn(`Unsplash download tracking was not accepted (${response.status}).`);
+    }
+
+    return response.ok;
+  } catch (error) {
+    console.warn('Unsplash download tracking failed.', error instanceof Error ? error.message : error);
+
+    return false;
   }
 }

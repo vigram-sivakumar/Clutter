@@ -125,6 +125,31 @@ describe('createNoteFromTemplate — icon and cover inheritance', () => {
     expect(note!.source.markdown).toBe('# Agenda\n\n- item');
   });
 
+  it('an Unsplash template cover brings its photographer credit to the new note, in memory and in the file (ADR-054)', async () => {
+    const cover = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+    const credit = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+    const env = setup({ cover, coverCredit: credit });
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    expect(note!.metadata.cover).toBe(cover);
+    expect(note!.metadata.coverCredit).toEqual(credit);
+    expect(await env.fileSystem.readFile(note!.path)).toContain(
+      'coverCredit: Alex Doe <https://unsplash.com/@alex>'
+    );
+  });
+
+  it('a template cover without a credit (a link, an asset, or a pre-credit Unsplash cover) gives the note no credit', async () => {
+    const env = setup({ cover: 'https://images.unsplash.com/photo-a?ixid=1' });
+
+    await useTemplate(env);
+
+    const [note] = env.created();
+    expect(note!.metadata.cover).toBe('https://images.unsplash.com/photo-a?ixid=1');
+    expect(note!.metadata.coverCredit).toBeNull();
+  });
+
   it('a template with only a cover and icon leaves tags and description empty on the note', async () => {
     const env = setup(VISUAL);
 

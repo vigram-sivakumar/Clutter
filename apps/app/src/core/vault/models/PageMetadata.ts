@@ -9,9 +9,31 @@ export type PageStatus = 'active' | 'archived';
  */
 export type CoverLayout = 'side' | 'above';
 
+/**
+ * Who to credit for a cover photo (ADR-054): the photographer's display name
+ * and their Unsplash profile URL (without referral parameters — those are
+ * added where the credit is rendered).
+ */
+export interface CoverCredit {
+  readonly name: string;
+  readonly url: string;
+  /**
+   * The photo's `links.download_location`, exactly as the API returned it. Kept so a
+   * later explicit "Save to vault" can report the download to Unsplash, which the API
+   * requires for any download-like action. Absent for credits recorded without it.
+   */
+  readonly downloadLocation?: string;
+}
+
 export interface PageMetadata {
   readonly icon: string | null;
   readonly cover: string | null;
+  /**
+   * The credit for `cover`, when it is an Unsplash photo picked through
+   * Clutter (ADR-054). Always set or cleared together with `cover`; null for
+   * every other cover, and for covers saved before the credit was recorded.
+   */
+  readonly coverCredit?: CoverCredit | null;
   /**
    * Whether an existing `cover` should render — distinct from `cover`
    * itself: hiding never clears the cover reference (asset/URL stays

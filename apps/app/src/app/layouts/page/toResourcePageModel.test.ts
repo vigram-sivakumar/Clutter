@@ -10,6 +10,7 @@ function buildPage(overrides: {
   path?: string;
   description?: string;
   cover?: string;
+  coverCredit?: { name: string; url: string };
   content?: string;
 } = {}): Page {
   return new PageBuilder('/vault').build({
@@ -21,6 +22,7 @@ function buildPage(overrides: {
         id: 'page-1',
         description: overrides.description,
         cover: overrides.cover,
+        coverCredit: overrides.coverCredit,
       },
       frontmatterAnalysis: { aliases: [] },
       content: overrides.content ?? 'Body',
@@ -47,6 +49,20 @@ describe('toResourcePageModel', () => {
     expect(model.description).toBe('A note');
     expect(model.markdown).toBe('Body');
     expect(model.coverImage).toBe('/vault/cover.png');
+  });
+
+  it('carries the cover credit to the page model (null when the cover has none)', () => {
+    const credit = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+    const cover = 'https://images.unsplash.com/photo-a?ixid=1';
+    const withCredit = buildPage({ cover, coverCredit: credit });
+    const without = buildPage({ cover });
+
+    expect(
+      toResourcePageModel(withCredit, new DocumentSession(withCredit.id, 'Body'), vi.fn(), vi.fn()).coverCredit
+    ).toEqual(credit);
+    expect(
+      toResourcePageModel(without, new DocumentSession(without.id, 'Body'), vi.fn(), vi.fn()).coverCredit
+    ).toBeNull();
   });
 
   it('renders the session\'s in-memory revision, not just the Vault snapshot', () => {

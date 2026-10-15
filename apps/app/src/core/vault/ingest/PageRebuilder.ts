@@ -39,6 +39,7 @@ export class PageRebuilder {
       metadata: {
         icon: frontmatter.icon ?? null,
         cover: frontmatter.cover ?? null,
+        coverCredit: frontmatter.coverCredit ?? null,
         coverHidden: frontmatter.coverHidden ?? false,
         coverLayout: frontmatter.coverLayout ?? 'side',
         coverPositionAbove: frontmatter.coverPositionAbove ?? 50,

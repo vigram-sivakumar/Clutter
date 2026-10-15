@@ -2,3 +2,8 @@
 .note-cover-image__empty {
   color: var(--foreground-placeholder);
 }
+
+/* A credited thumbnail's wrapper only carries the tooltip; it takes no part in layout. */
+.note-cover-image__credited {
+  display: contents;
+}

@@ -1,4 +1,5 @@
 import { CardTitleSection } from '@features/collection/components/card/CardTitleSection';
+import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribution';
 import type { CollectionCardProps } from '@features/collection/components/card/CollectionCard';
 import type { CollectionGridColumns } from '@features/collection/components/grid/CollectionGrid';
 import type { CollectionEntryModel } from '../../page/CollectionEntryModel';
@@ -52,6 +53,7 @@ export function toNoteCardProps(
         markdown={entry.markdown}
         coverUrl={resolveNoteCoverUrl(entry.values.cover, false, resolvers)}
         coverPositionAbove={entry.coverPositionAbove}
+        coverAttribution={coverAttributionFor(entry.values.cover, entry.coverCredit)}
         resolvers={resolvers}
       />
     ),

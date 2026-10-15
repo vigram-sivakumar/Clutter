@@ -115,3 +115,32 @@ describe('Application.importCoverAsset', () => {
     expect(application.vault.getResourceByPath(`${vaultRoot}/Assets/photo.png`)).toBeDefined();
   });
 });
+
+describe('Application — Unsplash covers are hotlinked, never rehosted (ADR-054)', () => {
+  const vaultRoot = '/vault';
+  const unsplash = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+
+  function createApplication(): Application {
+    const application = new Application(
+      makeVault(vaultRoot),
+      new InMemoryVaultFileSystem(),
+      new SelfWriteRegistry(),
+      { toLoadableUrl: (path) => path }
+    );
+    setRootPath(application, vaultRoot);
+    return application;
+  }
+
+  it('resolveCoverImageForDisplay returns an Unsplash cover URL byte-for-byte (query parameters and ixid intact)', () => {
+    expect(createApplication().resolveCoverImageForDisplay(unsplash)).toBe(unsplash);
+  });
+
+  it('findCoverCredit finds nothing in an empty vault and never calls the network', () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    expect(createApplication().findCoverCredit(unsplash)).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});

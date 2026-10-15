@@ -5,12 +5,16 @@ import { DocumentLoader } from './DocumentLoader';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
 import { readResourceMetadata } from './readResourceMetadata';
 import { classifySupportedResourceFile } from './SupportedResourceKind';
+import type { ParseMemo } from './ParseMemo';
 
 export class VaultScanner {
   private readonly documentLoader: DocumentLoader;
 
-  constructor(private readonly fileSystem: VaultFileSystem) {
-    this.documentLoader = new DocumentLoader(fileSystem);
+  constructor(
+    private readonly fileSystem: VaultFileSystem,
+    memo: ParseMemo | null = null
+  ) {
+    this.documentLoader = new DocumentLoader(fileSystem, memo);
   }
 
   async scan(vaultPath: string): Promise<VaultScanResult> {

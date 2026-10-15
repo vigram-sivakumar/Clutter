@@ -1,4 +1,5 @@
 import type { PropertiesControl } from './propertiesControl';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import { useRef, useState } from 'react';
 import { Button } from '@components/button/Button';
 import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
@@ -51,7 +52,7 @@ export interface PageHeaderControlsProps {
   hasCoverImage?: boolean;
   /** Whether an existing cover is currently suppressed from view — see PageHeaderMoreActionsMenu's own doc comment for how this swaps "Cover image" for "Show cover image". */
   coverHidden?: boolean;
-  onSetCoverImage?: (url: string) => void;
+  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => void;
   onSetCoverImageFromUpload?: (sourcePath: string) => void;
   onRemoveCoverImage?: () => void;
   /** Reveals an existing hidden cover in place — see PageHeaderMoreActionsMenu's own doc comment. */

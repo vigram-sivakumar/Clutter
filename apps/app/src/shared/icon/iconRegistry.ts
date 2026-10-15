@@ -93,6 +93,7 @@ import RightSidebar from './svg/right-sidebar.svg?react';
 import Settings from './svg/settings.svg?react';
 import Shuffle from './svg/shuffle.svg?react';
 import Sidebar from './svg/sidebar.svg?react';
+import Signature from './svg/signature.svg?react';
 import Slash from './svg/slash.svg?react';
 import Smile from './svg/Smile.svg?react';
 import Square from './svg/square.svg?react';
@@ -210,6 +211,7 @@ export const iconRegistry = {
   settings: Settings,
   shuffle: Shuffle,
   sidebar: Sidebar,
+  signature: Signature,
   slash: Slash,
   smile: Smile,
   square: Square,

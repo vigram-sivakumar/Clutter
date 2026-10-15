@@ -277,6 +277,40 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     expect(model.folders[0]!.values.cover).toBeUndefined();
   });
 
+  it('carries a note’s cover credit on its entry (not as a property value) and a folder’s on its page model', () => {
+    const credit = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+    const cover = 'https://images.unsplash.com/photo-a?ixid=1';
+    const active = makeFolder({ id: 'folder-1' });
+    const page = makePage({ name: 'Covered', metadata: { ...defaultPageMetadata, cover, coverCredit: credit } });
+    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active], [page]);
+
+    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
+    });
+
+    expect(model.notes[0]!.coverCredit).toEqual(credit);
+    expect(model.notes[0]!.values).not.toHaveProperty('coverCredit');
+    expect(model.folders).toEqual([]);
+
+    const credited = makeFolder({ id: 'folder-2', name: 'Credited', path: `${ROOT}/Credited` });
+    const creditedFolder = { ...credited, metadata: { ...credited.metadata, cover, coverCredit: credit } };
+    const folderSetup = setup([creditedFolder], []);
+    const folderModel = toCollectionPageModel(
+      creditedFolder,
+      folderSetup.vault,
+      folderSetup.query,
+      folderSetup.effectivePageState,
+      folderSetup.membershipSelector,
+      folderSetup.workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(folderModel.coverImage).toBe(cover);
+    expect(folderModel.coverCredit).toEqual(credit);
+  });
+
   it('does not show the raw auto-generated filename for an unnamed note — falls to the placeholder, not body content', () => {
     const active = makeFolder({ id: 'folder-1' });
     const page = makePage({

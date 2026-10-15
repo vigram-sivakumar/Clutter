@@ -44,4 +44,22 @@ describe('toNoteCoverImage', () => {
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('.note-cover-image__empty')).toBeInTheDocument();
   });
+
+  it('a thumbnail of an Unsplash cover carries the credit as tooltip and accessible name; the image URL is unchanged', () => {
+    const url = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+    const { container } = render(<>{toNoteCoverImage(url, 50, 'Photo by Alex Doe on Unsplash')}</>);
+
+    const img = container.querySelector('img')!;
+    expect(img).toHaveAttribute('src', url);
+    expect(img).toHaveAttribute('alt', 'Photo by Alex Doe on Unsplash');
+    expect(container.querySelector('[title="Photo by Alex Doe on Unsplash"]')).toBeInTheDocument();
+  });
+
+  it('adds no wrapper, tooltip or alt text to a cover that has no attribution (non-Unsplash regression)', () => {
+    const { container } = draw('app://cover.png');
+
+    expect(container.firstElementChild!.tagName).toBe('IMG');
+    expect(container.querySelector('[title]')).toBeNull();
+    expect(container.querySelector('img')).toHaveAttribute('alt', '');
+  });
 });

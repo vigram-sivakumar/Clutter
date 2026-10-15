@@ -598,3 +598,53 @@ describe('PageCover — editable={false} (an archived page)', () => {
     expect(container.querySelector('.page__cover__menu')).not.toBeNull();
   });
 });
+
+describe('PageCover — Unsplash attribution (ADR-054)', () => {
+  const COVER = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+  const CREDIT = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+
+  it('shows "Photo by [photographer] on Unsplash" on a saved Unsplash cover, with referral links', () => {
+    const { container } = render(<PageCover src={COVER} coverCredit={CREDIT} />);
+
+    expect(container.querySelector('.page-cover__attribution')).toHaveTextContent('Photo by Alex Doe on Unsplash');
+    expect(screen.getByText('Alex Doe')).toHaveAttribute(
+      'href',
+      'https://unsplash.com/@alex?utm_source=clutter&utm_medium=referral'
+    );
+    expect(screen.getByText('Unsplash')).toHaveAttribute(
+      'href',
+      'https://unsplash.com?utm_source=clutter&utm_medium=referral'
+    );
+    // Hotlinked: the image is the stored API URL, untouched.
+    expect(container.querySelector('img.page-cover__image')).toHaveAttribute('src', COVER);
+  });
+
+  it('shows the credit-less fallback for an Unsplash cover saved before credits existed', () => {
+    const { container } = render(<PageCover src={COVER} />);
+
+    expect(container.querySelector('.page-cover__attribution')).toHaveTextContent(/^Photo on Unsplash$/);
+  });
+
+  it('shows no attribution on non-Unsplash covers', () => {
+    for (const src of ['cover.png', 'https://example.com/c.png', 'app://vault/Assets/c.png']) {
+      const { container } = render(<PageCover src={src} />);
+
+      expect(container.querySelector('.page-cover__attribution')).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('keeps crediting the photographer after the photo was saved to the vault (a local file)', () => {
+    const { container } = render(<PageCover src="app://vault/Assets/photo.jpg" coverCredit={CREDIT} />);
+
+    expect(container.querySelector('.page-cover__attribution')).toHaveTextContent('Photo by Alex Doe on Unsplash');
+  });
+
+  it('keeps a long photographer name from displacing the links (full name stays available)', () => {
+    const name = 'A Photographer With An Extraordinarily Long Display Name That Cannot Fit';
+    render(<PageCover src={COVER} coverCredit={{ name, url: CREDIT.url }} />);
+
+    expect(screen.getByText(name)).toHaveAttribute('title', name);
+    expect(screen.getByText('Unsplash')).toBeInTheDocument();
+  });
+});

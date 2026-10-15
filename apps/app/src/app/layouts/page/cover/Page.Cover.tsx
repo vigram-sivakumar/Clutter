@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CoverAttribution } from '@components/cover-attribution/CoverAttribution';
+import { coverAttributionFor } from '@core/integrations/unsplash/unsplashAttribution';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
@@ -58,7 +61,13 @@ type PageCoverProps = {
    * capability on handler presence (see PageHeaderMoreActionsMenu's own
    * convention).
    */
-  onSetCoverImage?: (url: string) => void;
+  onSetCoverImage?: (url: string, credit?: CoverCredit | null) => void;
+  /**
+   * Who to credit for `src` (ADR-054). Shown, with Unsplash, as a line on the cover —
+   * required wherever an Unsplash photo is displayed. A cover with no credit that is
+   * still an Unsplash URL (saved before credits were recorded) reads "Photo on Unsplash".
+   */
+  coverCredit?: CoverCredit | null;
   onSetCoverImageFromUpload?: (sourcePath: string) => void;
   /**
    * Current persisted `coverLayout` ('side' default, or 'above') — drives
@@ -142,6 +151,7 @@ const DRAG_SENSITIVITY = 0.45;
  */
 export function PageCover({
   src,
+  coverCredit,
   onRemove,
   hidden,
   onHide,
@@ -158,6 +168,7 @@ export function PageCover({
   onDownload,
 }: PageCoverProps) {
   const [open, setOpen] = useState(false);
+  const attribution = coverAttributionFor(src, coverCredit);
   // 'menu' (Change cover image/Hide/Remove) vs 'picker' (the existing
   // ImagePicker, swapped in unwrapped, in place — same one-Overlay,
   // swap-in-place structure PageHeaderMoreActionsMenu's own root/cover
@@ -637,11 +648,11 @@ export function PageCover({
                 setOpen(false);
                 onSetCoverImage(cover);
               }}
-              onUnsplashSelect={(url) => {
+              onUnsplashSelect={(url, credit) => {
                 // Deliberately does not close the menu — same Unsplash
                 // browse-and-preview reasoning as PageHeaderMoreActionsMenu's
                 // own onUnsplashSelect (ImagePicker.tsx's own doc comment).
-                onSetCoverImage(url);
+                onSetCoverImage(url, credit);
               }}
             />
           </div>
@@ -682,6 +693,9 @@ export function PageCover({
         onPointerMove={repositioning ? handleImagePointerMove : undefined}
         onPointerUp={repositioning ? handleImagePointerUp : undefined}
       />
+      {attribution && (
+        <CoverAttribution attribution={attribution} className="page-cover__attribution" />
+      )}
     </aside>
   );
 }

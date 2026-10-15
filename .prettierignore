@@ -7,3 +7,5 @@ coverage
 *.log
 .DS_Store
 
+# Pinned parser output (parserGolden.test.ts compares this file's raw text; regenerate with vitest -u, never with Prettier)
+apps/app/src/core/vault/persistence/parsedNoteCache/__golden__/parserCorpus.json

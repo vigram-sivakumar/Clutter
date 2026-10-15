@@ -161,4 +161,56 @@ describe('toNoteCardProps', () => {
       }
     });
   });
+
+  describe('Unsplash cover credit (ADR-054)', () => {
+    const COVER = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+    const CREDIT = { name: 'Alex Doe', url: 'https://unsplash.com/@alex' };
+
+    it('draws "Photo by [photographer] on Unsplash", with both referral links, over the card’s cover', () => {
+      const { container, getByText } = draw(entry({ cover: COVER, coverCredit: CREDIT }));
+
+      const credit = container.querySelector('.cover-attribution')!;
+      expect(credit).toHaveTextContent('Photo by Alex Doe on Unsplash');
+      expect(getByText('Alex Doe')).toHaveAttribute(
+        'href',
+        'https://unsplash.com/@alex?utm_source=clutter&utm_medium=referral'
+      );
+      expect(getByText('Unsplash')).toHaveAttribute(
+        'href',
+        'https://unsplash.com?utm_source=clutter&utm_medium=referral'
+      );
+      // The card's cover itself still hotlinks the stored URL untouched.
+      expect(container.querySelector('img.collection-image')).toHaveAttribute('src', COVER);
+    });
+
+    it('following a credit link does not activate the card', () => {
+      const onClick = vi.fn();
+      const { getByText } = draw(entry({ cover: COVER, coverCredit: CREDIT, onClick }));
+
+      fireEvent.click(getByText('Alex Doe'));
+      fireEvent.keyDown(getByText('Unsplash'), { key: 'Enter' });
+
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('a pre-credit Unsplash cover reads "Photo on Unsplash" — no photographer is invented', () => {
+      const { container } = draw(entry({ cover: COVER }));
+
+      expect(container.querySelector('.cover-attribution')).toHaveTextContent(/^Photo on Unsplash$/);
+    });
+
+    it('keeps the photographer’s credit after the photo was saved to the vault (a local file)', () => {
+      const { container } = draw(entry({ cover: 'Assets/c.jpg', coverCredit: CREDIT }));
+
+      expect(container.querySelector('.cover-attribution')).toHaveTextContent('Photo by Alex Doe on Unsplash');
+    });
+
+    it('draws no credit for a non-Unsplash cover or a note without one', () => {
+      expect(draw(entry({ cover: 'https://example.com/c.png' })).container.querySelector('.cover-attribution')).toBeNull();
+      cleanup();
+      expect(draw(entry({ cover: 'Assets/c.png' })).container.querySelector('.cover-attribution')).toBeNull();
+      cleanup();
+      expect(draw(entry()).container.querySelector('.cover-attribution')).toBeNull();
+    });
+  });
 });

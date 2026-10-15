@@ -1,4 +1,5 @@
 import { useRef, useState, type MouseEvent, type RefObject } from 'react';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { CollectionGrid } from '@features/collection/components/grid/CollectionGrid';
 import { CollectionCard } from '@features/collection/components/card/CollectionCard';
@@ -59,7 +60,7 @@ export interface NoteCoverActions {
   /** A persisted cover reference → a loadable URL (`Application.resolveCoverImageForDisplay`). */
   resolveUrl(cover: string): string | null;
   /** Link or Unsplash pick. */
-  onSet(noteId: string, url: string): void;
+  onSet(noteId: string, url: string, credit?: CoverCredit | null): void;
   /** Upload: import the file, then set it. */
   onSetFromUpload(noteId: string, sourcePath: string): void;
   /** Clear the cover. */

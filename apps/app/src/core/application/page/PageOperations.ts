@@ -142,6 +142,7 @@ export type EditablePageMetadata = Pick<
   | 'description'
   | 'icon'
   | 'cover'
+  | 'coverCredit'
   | 'coverHidden'
   | 'coverLayout'
   | 'coverPositionAbove'
@@ -2376,6 +2377,7 @@ export class PageOperations {
       | 'description'
       | 'icon'
       | 'cover'
+      | 'coverCredit'
       | 'coverHidden'
       | 'coverLayout'
       | 'coverPositionAbove'
@@ -2391,6 +2393,7 @@ export class PageOperations {
         | 'description'
         | 'icon'
         | 'cover'
+        | 'coverCredit'
         | 'coverHidden'
         | 'coverLayout'
         | 'coverPositionAbove'
@@ -2409,6 +2412,9 @@ export class PageOperations {
     }
     if ('cover' in patch) {
       result.cover = patch.cover ?? undefined;
+    }
+    if ('coverCredit' in patch) {
+      result.coverCredit = patch.coverCredit ?? undefined;
     }
     // The cover's presentation settings travel with the cover into a draft's first
     // frontmatter (a note created from a template inherits them) — without these the

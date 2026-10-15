@@ -27,6 +27,8 @@ export interface EntryFixture {
   readonly archived?: string;
   readonly markdown?: string;
   readonly coverPositionAbove?: number;
+  /** The Unsplash credit for `cover` (ADR-054). */
+  readonly coverCredit?: { readonly name: string; readonly url: string } | null;
   /** The Source property value: the note a Tag collection matching-content entry's line lives in. */
   readonly source?: string;
   /** A Tag collection matching-content entry's body line (the entry then stands for that line, not the note). */

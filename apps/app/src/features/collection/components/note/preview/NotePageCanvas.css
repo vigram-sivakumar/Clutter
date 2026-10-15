@@ -450,3 +450,14 @@
   border-radius: var(--space-16);
   margin-bottom: var(--space-20);
 }
+
+/* The cover's Unsplash credit, at real size over the cover's top-left corner
+   (the cover is always the top of the page). It must stay clickable although the
+   scaled page beneath is inert. */
+.note-page-canvas > .note-page-canvas__attribution {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-8);
+  z-index: 1;
+  max-width: calc(100% - var(--space-8) * 2);
+}

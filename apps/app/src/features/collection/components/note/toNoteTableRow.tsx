@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 
+import { noteCoverAttributionLabel } from './noteCoverAttributionLabel';
 import type {
   CollectionDataTableRow,
   CollectionTableCellValue,
@@ -73,7 +74,7 @@ export function toNoteTableRow(
   if (visible.includes('cover') && cover) {
     cells.cover = {
       variant: 'media',
-      children: toNoteCoverImage(cover.url, entry.coverPositionAbove),
+      children: toNoteCoverImage(cover.url, entry.coverPositionAbove, noteCoverAttributionLabel(entry)),
       onClick: cover.onClick,
       label: cover.url ? 'Change cover image' : 'Add cover image',
     };

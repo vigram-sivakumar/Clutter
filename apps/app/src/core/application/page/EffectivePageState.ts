@@ -1,4 +1,5 @@
 import type { Vault } from '../../vault/models/Vault';
+import type { CoverCredit } from '../../vault/models/PageMetadata';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { Workspace } from '../../workspace/Workspace';
 import type { PageType } from '../../vault/models/Page';
@@ -51,6 +52,8 @@ export interface EffectivePage {
   readonly icon: string | null;
   readonly favorite: boolean;
   readonly cover: string | null;
+  /** The Unsplash credit for `cover` (ADR-054). */
+  readonly coverCredit?: CoverCredit | null;
   readonly coverHidden: boolean;
   readonly coverPositionAbove: number;
   readonly createdAt: string | null;
@@ -282,6 +285,7 @@ export class EffectivePageState {
       icon: page ? page.metadata.icon : null,
       favorite: page ? page.metadata.favorite : false,
       cover: page ? page.metadata.cover : null,
+      coverCredit: page ? (page.metadata.coverCredit ?? null) : null,
       coverHidden: page ? page.metadata.coverHidden : false,
       coverPositionAbove: page ? page.metadata.coverPositionAbove : 50,
       createdAt: page ? page.metadata.createdAt : null,

@@ -70,8 +70,10 @@ version = "0.1.0"
 dependencies = [
  "log",
  "notify",
+ "objc2-core-foundation",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

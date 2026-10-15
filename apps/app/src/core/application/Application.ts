@@ -11,6 +11,8 @@ import { PagePathResolver } from './page/PagePathResolver';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { VaultBuilder } from '../vault/ingest';
 import { VaultScanner } from '../vault/ingest';
+import { ParsedNoteCache, type ParsedNoteCacheBackend } from '../vault/persistence/parsedNoteCache';
+import { TauriParsedNoteCacheBackend } from '../vault/providers/TauriParsedNoteCacheBackend';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
@@ -52,8 +54,12 @@ import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlReso
 import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
 import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
 import { importCoverAsset } from '../vault/importCoverAsset';
+import { findCoverCredit } from './page/coverCredit';
+import { isUnsplashImageUrl } from '../integrations/unsplash/unsplashAttribution';
+import { trackPhotoDownload } from '../integrations/unsplash/UnsplashApi';
 import { importAsset } from '../vault/asset/importAsset';
 import type { Page } from '../vault/models/Page';
+import type { CoverCredit } from '../vault/models/PageMetadata';
 import { findRemoteImageDisplayName } from './asset/remoteImageDisplayName';
 import { rewriteRemoteAssetReferences } from './asset/rewriteRemoteAssetReferences';
 import { saveRemoteImage, type SaveToVaultResult } from './asset/saveRemoteImage';
@@ -153,6 +159,13 @@ export class Application {
    */
   public readonly referencesDisplayStore: ReferencesDisplayStore;
   /**
+   * Memo of `FrontmatterParser.parse` for the initial scan, persisted in the
+   * application cache directory (ADR-053). Derived data, disposable: Markdown
+   * stays authoritative, and every failure just means ordinary parsing.
+   * Never written during startup; see `persistParsedNoteCache`.
+   */
+  private readonly parsedNoteCache: ParsedNoteCache;
+  /**
    * Runtime owner of the Daily Notes sidebar's Earlier/Upcoming expansion
    * (ADR-035 §2) — in-memory, zero-dependency, deliberately not part of
    * `Workspace`. Constructed here so it outlives `DailyNotesList`'s
@@ -206,7 +219,15 @@ export class Application {
      * verbatim, unchanged, per `PageOperations`'s own optional-hook
      * default.
      */
-    normalizeMarkdownForSave?: (markdown: string) => string
+    normalizeMarkdownForSave?: (markdown: string) => string,
+    options: {
+      /**
+       * Where the parsed-note cache lives. Omitted: the native cache store
+       * under Tauri and none in the web runtime. `null` disables the cache
+       * entirely (every file is parsed, nothing is read or written).
+       */
+      parsedNoteCacheBackend?: ParsedNoteCacheBackend | null;
+    } = {}
   ): Promise<Application> {
     // Shared between the write side (SelfWriteAwareFileSystem) and the read
     // side (SelfWriteAwareWatcher) so the filesystem watcher can recognize
@@ -254,8 +275,19 @@ export class Application {
     // (PagePersistenceCoordinator.ensureReservedFolderForOperation for
     // Archive, FolderOperations.ensureReservedFolder for Daily Notes,
     // ensureClutterDirectory for .clutter) — never a blanket startup pass.
-    const scanner = new VaultScanner(fileSystem);
+    // ADR-053. Never throws: a missing, corrupt, oversized, incompatible or
+    // unavailable cache is simply an empty memo.
+    const parsedNoteCache = await ParsedNoteCache.load(
+      options.parsedNoteCacheBackend !== undefined
+        ? options.parsedNoteCacheBackend
+        : runningInTauri
+          ? new TauriParsedNoteCacheBackend()
+          : null,
+      rootPath
+    );
+    const scanner = new VaultScanner(fileSystem, parsedNoteCache);
     const scanResult = await scanner.scan(rootPath);
+    parsedNoteCache.logScanSummary();
 
     // ADR-033: per-note CM6 fold ranges are read here, once — the same
     // "read a small .clutter/*.json config at boot, tolerate absence"
@@ -376,7 +408,8 @@ export class Application {
       workspaceSessionStore,
       tagMetadataStore,
       templateUsageStore,
-      referencesDisplayStore
+      referencesDisplayStore,
+      parsedNoteCache
     );
 
     application.rootPath = rootPath;
@@ -440,7 +473,9 @@ export class Application {
     // Same default reasoning, for tests that construct Application directly without exercising template usage.
     templateUsageStore: TemplateUsageStore = TemplateUsageStore.empty(fileSystem, ''),
     // Same default reasoning, for tests that construct Application directly without exercising References display.
-    referencesDisplayStore: ReferencesDisplayStore = ReferencesDisplayStore.empty(fileSystem, '')
+    referencesDisplayStore: ReferencesDisplayStore = ReferencesDisplayStore.empty(fileSystem, ''),
+    // Same default reasoning: tests that construct Application directly never use a parse cache.
+    parsedNoteCache: ParsedNoteCache = ParsedNoteCache.disabled()
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -458,6 +493,7 @@ export class Application {
     this.tagMetadataStore = tagMetadataStore;
     this.templateUsageStore = templateUsageStore;
     this.referencesDisplayStore = referencesDisplayStore;
+    this.parsedNoteCache = parsedNoteCache;
     this.workspace = new Workspace();
     this.dailyNotesSidebarState = new DailyNotesSidebarState();
     this.documentRegistry = new DocumentRegistry();
@@ -842,6 +878,9 @@ export class Application {
       return inFlight;
     }
 
+    // Looked up before the save: the rewrite step repoints the covers that held this URL at the
+    // local copy, after which the credit can no longer be found by it.
+    const downloadLocation = this.unsplashDownloadLocation(url);
     const isPageArchived = (page: Page): boolean => this.vault.isPageEffectivelyArchived(page);
     const currentMarkdown = (page: Page): string =>
       this.documentRegistry.get(page.id)?.currentRevision.markdown ?? page.source.markdown;
@@ -872,11 +911,50 @@ export class Application {
           pageWriter: this.pageOperations,
           folderWriter: this.folderOperations,
         }),
-    }).finally(() => this.remoteImageSaves.delete(url));
+    })
+      .then((result) => {
+        // An explicit save is a "download" in Unsplash's terms: reported only once the user's copy
+        // exists (ADR-054) — the same report the Download action makes.
+        this.reportUnsplashDownload(url, downloadLocation);
+
+        return result;
+      })
+      .finally(() => this.remoteImageSaves.delete(url));
 
     this.remoteImageSaves.set(url, run);
 
     return run;
+  }
+
+  private unsplashDownloadLocation(url: string): string | undefined {
+    return isUnsplashImageUrl(url) ? this.findCoverCredit(url)?.downloadLocation : undefined;
+  }
+
+  /**
+   * Reports a user-requested download of an Unsplash photo — "Download" and "Save to vault"
+   * alike (the latter is a download into Assets) — to Unsplash's download endpoint, as its
+   * API guidelines require (ADR-054). Call it once the file exists. Asynchronous, best-effort
+   * and never throwing. The location is the one recorded when the photo was picked; a
+   * non-Unsplash image, or an Unsplash URL with no recorded location (a cover saved before
+   * ADR-054, or one pasted into a note), has none to report, and nothing is sent.
+   * `knownLocation` lets a caller that looked it up earlier pass it on.
+   */
+  public reportUnsplashDownload(url: string, knownLocation?: string): void {
+    const location = knownLocation ?? this.unsplashDownloadLocation(url);
+
+    if (location) {
+      void trackPhotoDownload(location);
+    }
+  }
+
+  /**
+   * The photographer credit already recorded for an exact cover URL elsewhere
+   * in the vault, or null (ADR-054) — so re-choosing an existing Unsplash
+   * image (Assets tab, "Set as cover") doesn't drop its credit. Never invents
+   * a credit and never calls the API.
+   */
+  public findCoverCredit(url: string): CoverCredit | null {
+    return findCoverCredit(this.vault.pages(), this.vault.folders(), url);
   }
 
   /**
@@ -939,12 +1017,31 @@ export class Application {
    * Idempotent: safe to call more than once (React Strict Mode, repeated
    * unmounts, or an eventual vault-switch flow may all call this).
    */
+  /**
+   * Writes the parsed-note cache if the scan changed it (ADR-053). The caller
+   * schedules this after the workspace has painted (AppShell), so it never
+   * competes with window reveal, usability, the Gate or shutdown. Best effort:
+   * never throws, never touches the Vault or any Markdown file.
+   */
+  public async persistParsedNoteCache(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    const report = await this.parsedNoteCache.persist();
+    if (report.writeStatus === 'failed' || report.writeStatus === 'skipped-oversize') {
+      console.warn('[parsed-note-cache] not written:', report);
+    }
+  }
+
   public async close(): Promise<void> {
     if (this.closed) {
       return;
     }
 
     this.closed = true;
+    // Never delays shutdown: a write that has not started is dropped, and one
+    // in flight is atomic and is not waited for.
+    this.parsedNoteCache.cancel();
 
     await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
     await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);

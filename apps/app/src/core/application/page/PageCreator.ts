@@ -42,6 +42,7 @@ export class PageCreator {
         | 'description'
         | 'icon'
         | 'cover'
+        | 'coverCredit'
         | 'coverHidden'
         | 'coverLayout'
         | 'coverPositionAbove'

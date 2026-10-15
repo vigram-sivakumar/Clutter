@@ -1,0 +1,1343 @@
+{
+ "parserVersion": 2,
+ "samples": {
+  "empty": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "plain body": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Just a line of text.\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "heading only": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "# Title\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [
+     {
+      "level": 1,
+      "title": "Title"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "no frontmatter, rich body": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "# Title\n\nSome #tag and [[Other Note]] and ![[Embedded]].\n\n- [ ] open task\n- [x] done task\n",
+   "analysis": {
+    "tasks": [
+     {
+      "completed": false,
+      "text": "open task",
+      "dueDate": "<undefined>",
+      "completedAt": "<undefined>",
+      "rawText": "- [ ] open task",
+      "startOffset": 58,
+      "endOffset": 73
+     },
+     {
+      "completed": true,
+      "text": "done task",
+      "dueDate": "<undefined>",
+      "completedAt": "<undefined>",
+      "rawText": "- [x] done task",
+      "startOffset": 74,
+      "endOffset": 89
+     }
+    ],
+    "tags": [
+     {
+      "name": "tag",
+      "startOffset": 14,
+      "endOffset": 18
+     }
+    ],
+    "links": [
+     {
+      "target": "Other Note",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 23,
+      "endOffset": 37
+     }
+    ],
+    "embeds": [
+     {
+      "target": "Embedded",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 42,
+      "endOffset": 55
+     }
+    ],
+    "headings": [
+     {
+      "level": 1,
+      "title": "Title"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "frontmatter with id and title": {
+   "frontmatter": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "unownedLines": [
+     "title: A Note"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body text\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "frontmatter, no id": {
+   "frontmatter": {
+    "created": "2026-01-02T03:04:05.000Z",
+    "unownedLines": [
+     "title: No id here"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "# Heading\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [
+     {
+      "level": 1,
+      "title": "Heading"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "unterminated frontmatter": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "---\nid: 22222222-2222-4222-8222-222222222222\nBody that never closes\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "frontmatter only": {
+   "frontmatter": {
+    "id": "33333333-3333-4333-8333-333333333333"
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "aliases and tags in frontmatter": {
+   "frontmatter": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "aliases": [
+     "First Alias",
+     "Second Alias"
+    ],
+    "tags": [
+     "alpha",
+     "beta"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": [
+     {
+      "value": "First Alias"
+     },
+     {
+      "value": "Second Alias"
+     }
+    ]
+   },
+   "body": "Body #inline\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [
+     {
+      "name": "inline",
+      "startOffset": 5,
+      "endOffset": 12
+     }
+    ],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "inline flow aliases": {
+   "frontmatter": {
+    "aliases": [
+     "One",
+     "Two"
+    ],
+    "tags": [
+     "x",
+     "y"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": [
+     {
+      "value": "One"
+     },
+     {
+      "value": "Two"
+     }
+    ]
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "unowned keys with nested lines": {
+   "frontmatter": {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "status": "active",
+    "unownedLines": [
+     "custom: value",
+     "nested:",
+     "  child: 1",
+     "  list:",
+     "    - a",
+     "    - b"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "key casing variants": {
+   "frontmatter": {
+    "id": "66666666-6666-4666-8666-666666666666",
+    "tags": [
+     "q"
+    ],
+    "unownedLines": [
+     "Title: Cased"
+    ],
+    "keySpellings": {
+     "id": "ID",
+     "tags": "TAGS"
+    }
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "tasks with and without metadata": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "- [ ] plain\n- [ ] due @due:2026-08-20\n- [x] done @completed:2026-08-04\n- [x] both @due:2026-08-01 @completed:2026-08-02\n- [ ] bare date @2026-09-09 here\n  - [ ] nested task\n",
+   "analysis": {
+    "tasks": [
+     {
+      "completed": false,
+      "text": "plain",
+      "dueDate": "<undefined>",
+      "completedAt": "<undefined>",
+      "rawText": "- [ ] plain",
+      "startOffset": 0,
+      "endOffset": 11
+     },
+     {
+      "completed": false,
+      "text": "due",
+      "dueDate": "2026-08-20",
+      "completedAt": "<undefined>",
+      "rawText": "- [ ] due @due:2026-08-20",
+      "startOffset": 12,
+      "endOffset": 37
+     },
+     {
+      "completed": true,
+      "text": "done",
+      "dueDate": "<undefined>",
+      "completedAt": "2026-08-04",
+      "rawText": "- [x] done @completed:2026-08-04",
+      "startOffset": 38,
+      "endOffset": 70
+     },
+     {
+      "completed": true,
+      "text": "both",
+      "dueDate": "2026-08-01",
+      "completedAt": "2026-08-02",
+      "rawText": "- [x] both @due:2026-08-01 @completed:2026-08-02",
+      "startOffset": 71,
+      "endOffset": 119
+     },
+     {
+      "completed": false,
+      "text": "bare date @2026-09-09 here",
+      "dueDate": "2026-09-09",
+      "completedAt": "<undefined>",
+      "rawText": "- [ ] bare date @2026-09-09 here",
+      "startOffset": 120,
+      "endOffset": 152
+     },
+     {
+      "completed": false,
+      "text": "nested task",
+      "dueDate": "<undefined>",
+      "completedAt": "<undefined>",
+      "rawText": "  - [ ] nested task",
+      "startOffset": 153,
+      "endOffset": 172
+     }
+    ],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "links with every optional part": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "[[A]] [[B#Heading]] [[C#^block]] [[D|Alias]] [[E#Heading|Alias]] [[F#^blk|Alias]]\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [
+     {
+      "target": "A",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 0,
+      "endOffset": 5
+     },
+     {
+      "target": "B",
+      "heading": "Heading",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 6,
+      "endOffset": 19
+     },
+     {
+      "target": "C",
+      "heading": "<undefined>",
+      "blockReference": "block",
+      "alias": "<undefined>",
+      "startOffset": 20,
+      "endOffset": 32
+     },
+     {
+      "target": "D",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "Alias",
+      "startOffset": 33,
+      "endOffset": 44
+     },
+     {
+      "target": "E",
+      "heading": "Heading",
+      "blockReference": "<undefined>",
+      "alias": "Alias",
+      "startOffset": 45,
+      "endOffset": 64
+     },
+     {
+      "target": "F",
+      "heading": "<undefined>",
+      "blockReference": "blk",
+      "alias": "Alias",
+      "startOffset": 65,
+      "endOffset": 81
+     }
+    ],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "embeds with every optional part": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "![[A]] ![[B#Heading]] ![[C#^block]] ![[D|300]] ![[E#Heading|Alias]]\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [
+     {
+      "target": "A",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 0,
+      "endOffset": 6
+     },
+     {
+      "target": "B",
+      "heading": "Heading",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 7,
+      "endOffset": 21
+     },
+     {
+      "target": "C",
+      "heading": "<undefined>",
+      "blockReference": "block",
+      "alias": "<undefined>",
+      "startOffset": 22,
+      "endOffset": 35
+     },
+     {
+      "target": "D",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "300",
+      "startOffset": 36,
+      "endOffset": 46
+     },
+     {
+      "target": "E",
+      "heading": "Heading",
+      "blockReference": "<undefined>",
+      "alias": "Alias",
+      "startOffset": 47,
+      "endOffset": 67
+     }
+    ],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "block references and headings": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "# One\n\n## Two\n\n### Three\n\nParagraph ^para1\n\n- item ^item1\n\n#### Four\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [
+     {
+      "level": 1,
+      "title": "One"
+     },
+     {
+      "level": 2,
+      "title": "Two"
+     },
+     {
+      "level": 3,
+      "title": "Three"
+     },
+     {
+      "level": 4,
+      "title": "Four"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "tags in code are ignored": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Real #real tag\n\n```\n#not-a-tag [[not-a-link]] - [ ] not a task\n```\n\n`#inline-code` #after\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [
+     {
+      "name": "real",
+      "startOffset": 5,
+      "endOffset": 10
+     },
+     {
+      "name": "after",
+      "startOffset": 83,
+      "endOffset": 89
+     }
+    ],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "crlf line endings": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "---\r\nid: 77777777-7777-4777-8777-777777777777\r\n---\r\n# Title\r\n\r\n- [ ] task\r\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [
+     {
+      "level": 1,
+      "title": "Title"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "unicode and emoji": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "# Café ☕\n\nNaïve #日本語 and 😀 [[Ünïcode]]\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [
+     {
+      "name": "日本語",
+      "startOffset": 16,
+      "endOffset": 20
+     }
+    ],
+    "links": [
+     {
+      "target": "Ünïcode",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 28,
+      "endOffset": 39
+     }
+    ],
+    "embeds": [],
+    "headings": [
+     {
+      "level": 1,
+      "title": "Café ☕"
+     }
+    ],
+    "blockReferences": []
+   }
+  },
+  "duplicate id a": {
+   "frontmatter": {
+    "id": "88888888-8888-4888-8888-888888888888"
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "First copy\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "duplicate id b": {
+   "frontmatter": {
+    "id": "88888888-8888-4888-8888-888888888888"
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Second copy\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "template marker and archive-ish": {
+   "frontmatter": {
+    "id": "99999999-9999-4999-8999-999999999999",
+    "unownedLines": [
+     "template: true",
+     "archived: true"
+    ]
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "tables and quotes": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "| a | b |\n|---|---|\n| 1 | 2 |\n\n> quote #qtag\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [
+     {
+      "name": "qtag",
+      "startOffset": 39,
+      "endOffset": 44
+     }
+    ],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover credit, valid": {
+   "frontmatter": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "cover": "https://images.unsplash.com/photo-1?w=1080",
+    "coverCredit": {
+     "name": "Jane Doe",
+     "url": "https://unsplash.com/@jane?utm_source=clutter&utm_medium=referral"
+    }
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover credit, with download location": {
+   "frontmatter": {
+    "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "cover": "https://images.unsplash.com/photo-2?w=1080",
+    "coverCredit": {
+     "name": "Jane Doe",
+     "url": "https://unsplash.com/@jane?utm_source=clutter&utm_medium=referral",
+     "downloadLocation": "https://api.unsplash.com/photos/abc/download?ixid=xyz"
+    }
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover credit, malformed (no profile url)": {
+   "frontmatter": {
+    "cover": "https://images.unsplash.com/photo-3"
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover credit, non-https profile url": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover credit, empty value": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "cover without credit": {
+   "frontmatter": {
+    "cover": "https://images.unsplash.com/photo-4",
+    "coverHidden": false
+   },
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "Body\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [],
+    "links": [],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  },
+  "long paragraph with many links": {
+   "frontmatter": {},
+   "frontmatterAnalysis": {
+    "aliases": []
+   },
+   "body": "[[Target 0]] #t0 [[Target 1]] #t1 [[Target 2]] #t2 [[Target 3]] #t3 [[Target 4]] #t4 [[Target 5]] #t0 [[Target 6]] #t1 [[Target 7]] #t2 [[Target 8]] #t3 [[Target 9]] #t4 [[Target 10]] #t0 [[Target 11]] #t1 [[Target 12]] #t2 [[Target 13]] #t3 [[Target 14]] #t4 [[Target 15]] #t0 [[Target 16]] #t1 [[Target 17]] #t2 [[Target 18]] #t3 [[Target 19]] #t4 [[Target 20]] #t0 [[Target 21]] #t1 [[Target 22]] #t2 [[Target 23]] #t3 [[Target 24]] #t4 [[Target 25]] #t0 [[Target 26]] #t1 [[Target 27]] #t2 [[Target 28]] #t3 [[Target 29]] #t4 [[Target 30]] #t0 [[Target 31]] #t1 [[Target 32]] #t2 [[Target 33]] #t3 [[Target 34]] #t4 [[Target 35]] #t0 [[Target 36]] #t1 [[Target 37]] #t2 [[Target 38]] #t3 [[Target 39]] #t4\n",
+   "analysis": {
+    "tasks": [],
+    "tags": [
+     {
+      "name": "t0",
+      "startOffset": 13,
+      "endOffset": 16
+     },
+     {
+      "name": "t1",
+      "startOffset": 30,
+      "endOffset": 33
+     },
+     {
+      "name": "t2",
+      "startOffset": 47,
+      "endOffset": 50
+     },
+     {
+      "name": "t3",
+      "startOffset": 64,
+      "endOffset": 67
+     },
+     {
+      "name": "t4",
+      "startOffset": 81,
+      "endOffset": 84
+     },
+     {
+      "name": "t0",
+      "startOffset": 98,
+      "endOffset": 101
+     },
+     {
+      "name": "t1",
+      "startOffset": 115,
+      "endOffset": 118
+     },
+     {
+      "name": "t2",
+      "startOffset": 132,
+      "endOffset": 135
+     },
+     {
+      "name": "t3",
+      "startOffset": 149,
+      "endOffset": 152
+     },
+     {
+      "name": "t4",
+      "startOffset": 166,
+      "endOffset": 169
+     },
+     {
+      "name": "t0",
+      "startOffset": 184,
+      "endOffset": 187
+     },
+     {
+      "name": "t1",
+      "startOffset": 202,
+      "endOffset": 205
+     },
+     {
+      "name": "t2",
+      "startOffset": 220,
+      "endOffset": 223
+     },
+     {
+      "name": "t3",
+      "startOffset": 238,
+      "endOffset": 241
+     },
+     {
+      "name": "t4",
+      "startOffset": 256,
+      "endOffset": 259
+     },
+     {
+      "name": "t0",
+      "startOffset": 274,
+      "endOffset": 277
+     },
+     {
+      "name": "t1",
+      "startOffset": 292,
+      "endOffset": 295
+     },
+     {
+      "name": "t2",
+      "startOffset": 310,
+      "endOffset": 313
+     },
+     {
+      "name": "t3",
+      "startOffset": 328,
+      "endOffset": 331
+     },
+     {
+      "name": "t4",
+      "startOffset": 346,
+      "endOffset": 349
+     },
+     {
+      "name": "t0",
+      "startOffset": 364,
+      "endOffset": 367
+     },
+     {
+      "name": "t1",
+      "startOffset": 382,
+      "endOffset": 385
+     },
+     {
+      "name": "t2",
+      "startOffset": 400,
+      "endOffset": 403
+     },
+     {
+      "name": "t3",
+      "startOffset": 418,
+      "endOffset": 421
+     },
+     {
+      "name": "t4",
+      "startOffset": 436,
+      "endOffset": 439
+     },
+     {
+      "name": "t0",
+      "startOffset": 454,
+      "endOffset": 457
+     },
+     {
+      "name": "t1",
+      "startOffset": 472,
+      "endOffset": 475
+     },
+     {
+      "name": "t2",
+      "startOffset": 490,
+      "endOffset": 493
+     },
+     {
+      "name": "t3",
+      "startOffset": 508,
+      "endOffset": 511
+     },
+     {
+      "name": "t4",
+      "startOffset": 526,
+      "endOffset": 529
+     },
+     {
+      "name": "t0",
+      "startOffset": 544,
+      "endOffset": 547
+     },
+     {
+      "name": "t1",
+      "startOffset": 562,
+      "endOffset": 565
+     },
+     {
+      "name": "t2",
+      "startOffset": 580,
+      "endOffset": 583
+     },
+     {
+      "name": "t3",
+      "startOffset": 598,
+      "endOffset": 601
+     },
+     {
+      "name": "t4",
+      "startOffset": 616,
+      "endOffset": 619
+     },
+     {
+      "name": "t0",
+      "startOffset": 634,
+      "endOffset": 637
+     },
+     {
+      "name": "t1",
+      "startOffset": 652,
+      "endOffset": 655
+     },
+     {
+      "name": "t2",
+      "startOffset": 670,
+      "endOffset": 673
+     },
+     {
+      "name": "t3",
+      "startOffset": 688,
+      "endOffset": 691
+     },
+     {
+      "name": "t4",
+      "startOffset": 706,
+      "endOffset": 709
+     }
+    ],
+    "links": [
+     {
+      "target": "Target 0",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 0,
+      "endOffset": 12
+     },
+     {
+      "target": "Target 1",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 17,
+      "endOffset": 29
+     },
+     {
+      "target": "Target 2",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 34,
+      "endOffset": 46
+     },
+     {
+      "target": "Target 3",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 51,
+      "endOffset": 63
+     },
+     {
+      "target": "Target 4",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 68,
+      "endOffset": 80
+     },
+     {
+      "target": "Target 5",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 85,
+      "endOffset": 97
+     },
+     {
+      "target": "Target 6",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 102,
+      "endOffset": 114
+     },
+     {
+      "target": "Target 7",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 119,
+      "endOffset": 131
+     },
+     {
+      "target": "Target 8",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 136,
+      "endOffset": 148
+     },
+     {
+      "target": "Target 9",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 153,
+      "endOffset": 165
+     },
+     {
+      "target": "Target 10",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 170,
+      "endOffset": 183
+     },
+     {
+      "target": "Target 11",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 188,
+      "endOffset": 201
+     },
+     {
+      "target": "Target 12",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 206,
+      "endOffset": 219
+     },
+     {
+      "target": "Target 13",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 224,
+      "endOffset": 237
+     },
+     {
+      "target": "Target 14",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 242,
+      "endOffset": 255
+     },
+     {
+      "target": "Target 15",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 260,
+      "endOffset": 273
+     },
+     {
+      "target": "Target 16",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 278,
+      "endOffset": 291
+     },
+     {
+      "target": "Target 17",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 296,
+      "endOffset": 309
+     },
+     {
+      "target": "Target 18",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 314,
+      "endOffset": 327
+     },
+     {
+      "target": "Target 19",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 332,
+      "endOffset": 345
+     },
+     {
+      "target": "Target 20",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 350,
+      "endOffset": 363
+     },
+     {
+      "target": "Target 21",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 368,
+      "endOffset": 381
+     },
+     {
+      "target": "Target 22",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 386,
+      "endOffset": 399
+     },
+     {
+      "target": "Target 23",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 404,
+      "endOffset": 417
+     },
+     {
+      "target": "Target 24",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 422,
+      "endOffset": 435
+     },
+     {
+      "target": "Target 25",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 440,
+      "endOffset": 453
+     },
+     {
+      "target": "Target 26",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 458,
+      "endOffset": 471
+     },
+     {
+      "target": "Target 27",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 476,
+      "endOffset": 489
+     },
+     {
+      "target": "Target 28",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 494,
+      "endOffset": 507
+     },
+     {
+      "target": "Target 29",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 512,
+      "endOffset": 525
+     },
+     {
+      "target": "Target 30",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 530,
+      "endOffset": 543
+     },
+     {
+      "target": "Target 31",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 548,
+      "endOffset": 561
+     },
+     {
+      "target": "Target 32",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 566,
+      "endOffset": 579
+     },
+     {
+      "target": "Target 33",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 584,
+      "endOffset": 597
+     },
+     {
+      "target": "Target 34",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 602,
+      "endOffset": 615
+     },
+     {
+      "target": "Target 35",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 620,
+      "endOffset": 633
+     },
+     {
+      "target": "Target 36",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 638,
+      "endOffset": 651
+     },
+     {
+      "target": "Target 37",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 656,
+      "endOffset": 669
+     },
+     {
+      "target": "Target 38",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 674,
+      "endOffset": 687
+     },
+     {
+      "target": "Target 39",
+      "heading": "<undefined>",
+      "blockReference": "<undefined>",
+      "alias": "<undefined>",
+      "startOffset": 692,
+      "endOffset": 705
+     }
+    ],
+    "embeds": [],
+    "headings": [],
+    "blockReferences": []
+   }
+  }
+ }
+}

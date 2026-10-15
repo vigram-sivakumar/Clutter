@@ -1,4 +1,5 @@
 import type { CollectionEntryModel } from './CollectionEntryModel';
+import type { CoverCredit } from '@core/vault/models/PageMetadata';
 import type { CoverLayout } from '@core/vault/models/PageMetadata';
 
 export interface CollectionPageActions {
@@ -29,6 +30,8 @@ export interface CollectionPageModel {
   readonly title: string;
   readonly description: string;
   readonly coverImage: string | null;
+  /** The Unsplash credit for `coverImage` (ADR-054). */
+  readonly coverCredit?: CoverCredit | null;
   readonly coverHidden: boolean;
   readonly coverLayout: CoverLayout;
   readonly coverPositionAbove: number;

@@ -1,0 +1,61 @@
+/* One line, never wrapping. Room is given up in a fixed order (see below): the
+   filler words, then the photographer's name (ellipsis), never the Unsplash link. */
+.cover-attribution {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  color: white;
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+/* Under pressure (a narrow cover) the filler words ("Photo by", "on") give way
+   first, then the name down to a few characters; the Unsplash link never shrinks. */
+.cover-attribution__text {
+  flex: 0 10 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cover-attribution__name {
+  flex: 0 1 auto;
+  min-width: 5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cover-attribution__unsplash {
+  flex: 0 0 auto;
+}
+
+.cover-attribution a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: var(--md-underline-offset);
+  text-decoration-thickness: 0.02em;
+}
+
+.cover-attribution a:hover,
+.cover-attribution a:focus-visible {
+  text-decoration-thickness: 0.02em;
+}
+
+/* The credit's lead-in is an icon, not words; the words remain for screen readers. */
+.cover-attribution__icon {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.cover-attribution__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

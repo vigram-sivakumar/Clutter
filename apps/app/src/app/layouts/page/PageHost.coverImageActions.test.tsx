@@ -83,14 +83,14 @@ function buildNoteWithBody(markdown: string): Page {
   });
 }
 
-function buildNoteWithCover(cover: string): Page {
+function buildNoteWithCover(cover: string, coverCredit?: { name: string; url: string; downloadLocation?: string }): Page {
   const builder = new PageBuilder(ROOT);
   return builder.build({
     parentId: null,
     page: {
       path: `${ROOT}/Note.md`,
       directoryPath: ROOT,
-      frontmatter: { id: 'page-1', cover },
+      frontmatter: { id: 'page-1', cover, coverCredit },
       frontmatterAnalysis: { aliases: [] },
       content: '',
       analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
@@ -124,8 +124,11 @@ async function flush(): Promise<void> {
   }
 }
 
-async function openCoverMenu(cover: string): Promise<Application> {
-  const page = buildNoteWithCover(cover);
+async function openCoverMenu(
+  cover: string,
+  coverCredit?: { name: string; url: string; downloadLocation?: string }
+): Promise<Application> {
+  const page = buildNoteWithCover(cover, coverCredit);
   const application = makeApplication([page]);
   await application.pageOperations.open(page.id);
 
@@ -171,6 +174,55 @@ describe('PageHost: cover image file actions', () => {
 
     expect(downloadRemoteImage).toHaveBeenCalledWith('https://example.com/photos/mountain.png');
     expect(downloadResource).not.toHaveBeenCalled();
+  });
+
+  describe('an Unsplash cover (user-requested downloads are reported to Unsplash, ADR-054)', () => {
+    const photo = 'https://images.unsplash.com/photo-a?ixid=1&w=1080';
+    const credit = {
+      name: 'Alex Doe',
+      url: 'https://unsplash.com/@alex',
+      downloadLocation: 'https://api.unsplash.com/photos/p1/download?ixid=abc',
+    };
+
+    it('still offers Save to vault and Download', async () => {
+      await openCoverMenu(photo, credit);
+
+      expect(screen.getByText('Save to vault')).toBeInTheDocument();
+      expect(screen.getByText('Download')).toBeInTheDocument();
+    });
+
+    it('Download reports the photo to Unsplash once the file was written — and not when it was cancelled', async () => {
+      const application = await openCoverMenu(photo, credit);
+      const report = vi.spyOn(application, 'reportUnsplashDownload');
+
+      downloadRemoteImage.mockResolvedValueOnce(false as never);
+      fireEvent.click(screen.getByText('Download'));
+      await flush();
+      expect(report).not.toHaveBeenCalled();
+
+      fireEvent.click(document.querySelector<HTMLButtonElement>('.page__cover__menu')!);
+      downloadRemoteImage.mockResolvedValueOnce(true as never);
+      fireEvent.click(screen.getByText('Download'));
+      await flush();
+
+      expect(downloadRemoteImage).toHaveBeenCalledWith(photo);
+      expect(report).toHaveBeenCalledTimes(1);
+      expect(report).toHaveBeenCalledWith(photo);
+    });
+
+    it('Save to vault runs the one save pipeline for the photo URL (which reports the download itself)', async () => {
+      const page = buildNoteWithCover(photo, credit);
+      const application = makeApplication([page]);
+      const save = vi.spyOn(application, 'saveRemoteImageToVault').mockResolvedValue({ outcome: 'saved' } as never);
+      await application.pageOperations.open(page.id);
+      render(<AppLayout application={application} />);
+      await flush();
+      fireEvent.click(document.querySelector<HTMLButtonElement>('.page__cover__menu')!);
+
+      fireEvent.click(screen.getByText('Save to vault'));
+
+      await waitFor(() => expect(save).toHaveBeenCalledWith(photo));
+    });
   });
 
   it('a cover already in the vault offers Download only', async () => {

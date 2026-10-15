@@ -2,6 +2,7 @@ import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
 import type { PageFrontmatter } from './frontmatter';
 import { quoteFrontmatterString } from './frontmatter/frontmatterStringValue';
+import { formatCoverCredit } from './frontmatter/coverCredit';
 
 /**
  * Formats one block-list item. `aliases` are free text, so they go through
@@ -42,6 +43,14 @@ export class FrontmatterSerializer {
 
     for (const [key, value] of Object.entries(frontmatter)) {
       if (value === undefined || key === 'unownedLines') {
+        continue;
+      }
+
+      if (key === 'coverCredit') {
+        const credit = formatCoverCredit(value);
+        if (credit !== undefined) {
+          lines.push(`${key}: ${credit}`);
+        }
         continue;
       }
 
@@ -105,6 +114,8 @@ export class FrontmatterSerializer {
       ['favorite', page.metadata.favorite],
       ['icon', page.metadata.icon],
       ['cover', page.metadata.cover],
+      // Omitted unless a valid credit — see coverCredit.ts (ADR-054).
+      ['coverCredit', formatCoverCredit(page.metadata.coverCredit)],
       // `|| undefined`, not the bare boolean: unlike favorite (always
       // written, true or false), coverHidden should only ever appear in
       // frontmatter when actually hiding a cover — omitted while false,
@@ -206,6 +217,7 @@ export class FrontmatterSerializer {
       ['favorite', folder.metadata.favorite],
       ['description', folder.metadata.description],
       ['cover', folder.metadata.cover],
+      ['coverCredit', formatCoverCredit(folder.metadata.coverCredit)],
       // See serializePage's identical `|| undefined` for coverHidden.
       ['coverHidden', folder.metadata.coverHidden || undefined],
       // See serializePage's identical default-omission for coverLayout.

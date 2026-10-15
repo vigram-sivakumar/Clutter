@@ -1,4 +1,4 @@
-import type { CoverLayout } from './PageMetadata';
+import type { CoverCredit, CoverLayout } from './PageMetadata';
 
 export interface FolderMetadata {
   readonly icon: string | null;
@@ -13,6 +13,8 @@ export interface FolderMetadata {
    */
   readonly description: string | null;
   readonly cover: string | null;
+  /** See PageMetadata.coverCredit — same semantics, folder-scoped. */
+  readonly coverCredit?: CoverCredit | null;
   /** See PageMetadata.coverHidden — same semantics, folder-scoped. */
   readonly coverHidden: boolean;
   /** See PageMetadata.coverLayout — same semantics, folder-scoped. */

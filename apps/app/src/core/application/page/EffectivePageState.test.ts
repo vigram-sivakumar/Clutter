@@ -116,6 +116,7 @@ describe('EffectivePageState: draft-only entries', () => {
       icon: null,
       favorite: false,
       cover: null,
+      coverCredit: null,
       coverHidden: false,
       coverPositionAbove: 50,
       createdAt: null,

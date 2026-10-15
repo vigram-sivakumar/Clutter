@@ -2,9 +2,47 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import path from 'node:path';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+
+// The packages whose grammar the page analyzer depends on. Their resolved
+// versions become part of the parsed-note cache fingerprint (ADR-053), so a
+// dependency upgrade invalidates cached parse results. This detects version
+// changes only, not a modified package at an unchanged version.
+const PARSE_DEPENDENCIES = [
+  '@lezer/markdown',
+  '@lezer/common',
+  '@lezer/highlight',
+  '@codemirror/language',
+  '@codemirror/state',
+];
+
+function resolvedPackageVersion(name: string): string {
+  const require = createRequire(import.meta.url);
+  let directory = path.dirname(require.resolve(name));
+  for (;;) {
+    const manifest = path.join(directory, 'package.json');
+    if (fs.existsSync(manifest)) {
+      const parsed = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+      if (parsed.name === name) return String(parsed.version);
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory)
+      throw new Error(`Cannot find package.json for ${name}`);
+    directory = parent;
+  }
+}
+
+const parseDependencyVersions = Object.fromEntries(
+  PARSE_DEPENDENCIES.map((name) => [name, resolvedPackageVersion(name)])
+);
 
 export default defineConfig({
   plugins: [react(), svgr()],
+
+  define: {
+    __PARSE_DEPENDENCY_VERSIONS__: JSON.stringify(parseDependencyVersions),
+  },
 
   resolve: {
     alias: {

@@ -1590,6 +1590,7 @@ export class PagePersistenceCoordinator {
     description?: PageMetadata['description'];
     icon?: PageMetadata['icon'];
     cover?: PageMetadata['cover'];
+    coverCredit?: PageMetadata['coverCredit'];
     coverHidden?: PageMetadata['coverHidden'];
     coverLayout?: PageMetadata['coverLayout'];
     favorite?: PageMetadata['favorite'];
@@ -1599,6 +1600,7 @@ export class PagePersistenceCoordinator {
       description?: PageMetadata['description'];
       icon?: PageMetadata['icon'];
       cover?: PageMetadata['cover'];
+      coverCredit?: PageMetadata['coverCredit'];
       coverHidden?: PageMetadata['coverHidden'];
       coverLayout?: PageMetadata['coverLayout'];
       favorite?: PageMetadata['favorite'];
@@ -1613,6 +1615,9 @@ export class PagePersistenceCoordinator {
     }
     if (frontmatter.cover !== undefined) {
       patch.cover = frontmatter.cover;
+    }
+    if (frontmatter.coverCredit !== undefined) {
+      patch.coverCredit = frontmatter.coverCredit;
     }
     if (frontmatter.coverHidden !== undefined) {
       patch.coverHidden = frontmatter.coverHidden;
