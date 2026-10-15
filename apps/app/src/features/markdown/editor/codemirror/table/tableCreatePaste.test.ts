@@ -502,3 +502,65 @@ describe('tableCreatePaste — standalone table payloads from real applications 
     row.forEach((cell, i) => expect(cellText(view, 0, 1, i)).toBe(cell));
   });
 });
+
+describe('tableCreatePaste — a tab alone does not make plain text a table', () => {
+  const NESTED_LIST = '# Heading text\n\n- first item\n\t- nested item here\n\nClosing paragraph\n';
+  const INDENTED_BLOCK = '\t- one\n\t- two\n\tthree\n';
+  const PROSE_AROUND_TSV = 'Intro paragraph\n\nName\tRole\nSam\tUX\n\nOutro paragraph\n';
+
+  it.each([
+    ['tab-indented nested list', NESTED_LIST],
+    ['an entirely tab-indented block', INDENTED_BLOCK],
+    ['TSV rows surrounded by prose (browser text/plain of a mixed selection)', PROSE_AROUND_TSV],
+    ['TSV followed by extra blank lines', 'Name\tRole\nSamantha\tdesigner\n\n\n'],
+  ])('declines %s and lets the default paste insert it unchanged', (_name, text) => {
+    const view = mountRootView('', 0);
+
+    const event = dispatchPaste(view, (d) => d.setData('text/plain', text));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(findAllTables(view.state)).toHaveLength(0);
+    expect(view.state.doc.toString()).toBe(text);
+  });
+
+  it('mixed HTML whose text/plain is tabular-with-prose is not truncated either', () => {
+    const view = mountRootView('', 0);
+    dispatchPaste(view, (d) => {
+      d.setData('text/html', fixtures.TABLE_WITH_PROSE_HTML);
+      d.setData('text/plain', PROSE_AROUND_TSV);
+    });
+    expect(view.state.doc.toString()).toBe(PROSE_AROUND_TSV);
+  });
+
+  it.each([
+    ['a leading empty cell', '\tRole name\nSamantha\t', ['', 'Role name'], ['Samantha', '']],
+    ['empty cells in the middle and end', 'alpha\t\tgamma\tdelta\t\nuno\tdos\ttres\tcuatro\tcinco', ['alpha', '', 'gamma', 'delta', ''], ['uno', 'dos', 'tres', 'cuatro', 'cinco']],
+    ['a single tab-separated row with a trailing newline', 'Samantha\tdesigner\n', ['Samantha', 'designer'], null],
+    ['ragged rows', 'Name\tRole\tCity\nAlex\tEngineer\n', ['Name', 'Role', 'City'], ['Alex', 'Engineer', '']],
+    ['CRLF line endings (Excel on Windows)', 'Name\tRole\r\nSamantha\tdesigner\r\n', ['Name', 'Role'], ['Samantha', 'designer']],
+  ])('still creates a table from valid TSV: %s', (_name, text, header, row) => {
+    const view = mountRootView('', 0);
+    dispatchPaste(view, (d) => d.setData('text/plain', text));
+
+    expect(findAllTables(view.state)).toHaveLength(1);
+    header.forEach((cell, i) => expect(cellText(view, 0, 0, i)).toBe(cell));
+    if (row) {
+      row.forEach((cell, i) => expect(cellText(view, 0, 1, i)).toBe(cell));
+    }
+  });
+
+  it('declined tab-indented Markdown pastes before and after an existing table, and undo/redo restore it in one step', () => {
+    const existing = '| Name | Role |\n| --- | --- |\n| Vik | PM |\n';
+    for (const caret of [0, existing.length]) {
+      const view = mountRootView(existing, caret);
+      dispatchPaste(view, (d) => d.setData('text/plain', NESTED_LIST));
+      expect(view.state.doc.toString()).toContain('\t- nested item here');
+      expect(view.state.doc.toString()).toContain('Closing paragraph');
+      expect(undoDepth(view.state)).toBe(1);
+      undo(view);
+      expect(view.state.doc.toString()).toBe(existing);
+      redo(view);
+      expect(view.state.doc.toString()).toContain('\t- nested item here');
+    }
+  });
+});

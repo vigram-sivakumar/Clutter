@@ -588,3 +588,45 @@ describe('tablePaste — mixed HTML is never consumed as its first table', () =>
     expect(cellText(view2, 2, 1)).toBe('UX');
   });
 });
+
+describe('tablePaste — tab-indented Markdown is not a grid', () => {
+  const NESTED_LIST = '# Heading text\n\n- first item\n\t- nested item here\n\nClosing paragraph\n';
+
+  it('active cell: declines and leaves the table grid alone', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    const rowsBefore = getNavigableRows(findAllTables(view.state)[0]!.node).length;
+    activateCell(view, controller, 1, 0);
+
+    const event = dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', NESTED_LIST));
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(getNavigableRows(findAllTables(view.state)[0]!.node)).toHaveLength(rowsBefore);
+    expect(cellText(view, 2, 0)).toBe('Alex');
+  });
+
+  it('range selection: declines, inserts the whole text through the default handler, keeps the table', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    selectRange(view, { row: 1, col: 0 }, { row: 2, col: 1 });
+
+    dispatchPasteOn(view.contentDOM, (d) => d.setData('text/plain', NESTED_LIST));
+
+    const after = view.state.doc.toString();
+    expect(after).toContain('\t- nested item here');
+    expect(after).toContain('| Vik ');
+    expect(after).toContain('| Alex ');
+  });
+
+  it('valid TSV with empty cells still pastes into an active cell and a range', () => {
+    const controller = new TableActiveCellController();
+    const view = mountRootView(TABLE, controller);
+    activateCell(view, controller, 1, 0);
+    dispatchPasteOnActiveCell(controller, (d) => d.setData('text/plain', 'x\t\tz\n\tb\t'));
+    expect(cellText(view, 1, 0)).toBe('x');
+    expect(cellText(view, 1, 1)).toBe('');
+    expect(cellText(view, 1, 2)).toBe('z');
+    expect(cellText(view, 2, 0)).toBe('');
+    expect(cellText(view, 2, 1)).toBe('b');
+  });
+});

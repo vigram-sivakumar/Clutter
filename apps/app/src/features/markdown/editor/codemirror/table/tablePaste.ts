@@ -159,6 +159,28 @@ function parseHtmlTableGrid(html: string): string[][] | null {
   return rows.map((tr) => Array.from(tr.querySelectorAll('td, th')).map((cell) => (cell.textContent ?? '').trim()));
 }
 
+/**
+ * The rows of `text` when it is tab-separated *data*, `null` when it only happens to contain a tab. A spreadsheet
+ * copy is a rectangle of cells joined by tabs and newlines, so every line of it carries a tab (an empty row of a
+ * multi-column selection is just tabs); prose, a blank line, or a Markdown line without a tab means the text is
+ * something else (a tab-indented nested list, a table copied together with its surrounding paragraphs) and must reach
+ * the normal paste. Text whose every line begins with a tab is indentation (a pasted indented block), not a column of
+ * empty cells. One trailing newline is the terminator most apps append and is dropped.
+ */
+function tabularLines(text: string): string[] | null {
+  if (!text.includes('\t')) {
+    return null;
+  }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n');
+  if (!lines.every((line) => line.includes('\t'))) {
+    return null;
+  }
+  if (lines.every((line) => line.startsWith('\t'))) {
+    return null;
+  }
+  return lines;
+}
+
 export interface ClipboardTable {
   /** `'internal'` content is already-escaped raw Markdown (round-tripped through Clutter's own copy) — never re-escaped. `'html'`/`'text'` content is plain, unescaped text — a caller writing it into fresh Markdown source (e.g. `tableCreatePaste.ts`, building a brand-new table) must escape it itself; `tablePaste.ts`'s own existing-table paste never has, matching `TableActiveCellController.forwardToRoot`'s own verbatim-write precedent (see this module's own top doc comment). */
   readonly source: 'internal' | 'html' | 'text';
@@ -224,9 +246,9 @@ export function readClipboardTable(event: ClipboardEvent): ClipboardTable | null
   }
 
   const text = data.getData('text/plain');
-  if (text && text.includes('\t')) {
-    const normalized = text.replace(/\r\n/g, '\n').replace(/\n$/, '');
-    const grid = normalizeGrid(normalized.split('\n').map((line) => line.split('\t')));
+  const lines = text ? tabularLines(text) : null;
+  if (lines) {
+    const grid = normalizeGrid(lines.map((line) => line.split('\t')));
     if (grid) {
       return { source: 'text', grid };
     }
