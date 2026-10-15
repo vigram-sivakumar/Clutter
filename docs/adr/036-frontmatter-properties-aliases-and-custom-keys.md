@@ -164,7 +164,7 @@ The model is smaller: one set (`visible`, system keys only), one override (`show
 
 ## Amendment — property ordering
 
-Users can reorder the Properties list — system and custom properties together — by dragging a row's label, or with Move up / Move down in its menu. **The frontmatter is the single source of truth**: the order of the list is the **physical order of the note's top-level frontmatter entries**, and reordering moves an entry in the file. There is no ordering list and no separate store. (An earlier iteration kept the order in a `properties.order` list; it was removed in favour of this model — see "Leftover `order`" below.)
+Users can reorder the Properties list — system and custom properties together — by dragging a row's handle, or with Move up / Move down in its menu. **The frontmatter is the single source of truth**: the order of the list is the **physical order of the note's top-level frontmatter entries**, and reordering moves an entry in the file. There is no ordering list and no separate store. (An earlier iteration kept the order in a `properties.order` list; it was removed in favour of this model — see "Leftover `order`" below.)
 
 ### The architecture
 
@@ -192,7 +192,7 @@ Clutter has no external users, so there is no permanent compatibility layer. A n
 
 ### The UI
 
-`buildPageProperties` returns the rows in `readPropertySequence` order, each with a stable `id` (`system:<key>`, `custom:<name>`, `draft:<n>`) — its React key and drag identity — and an `orderKey`. `PropertyList` takes `onReorder(orderKeys, movedKey)`: a row is dragged by pressing its label (the existing `usePointerDrag` threshold; presses on values, buttons and a label being edited are not drags), with the existing ghost, insertion line and edge auto-scroll; Escape cancels, a drop in place writes nothing, and the click after a drag is swallowed. `PropertyMenu` adds Move up / Move down (disabled at the ends), which call the same reorder. `PageHost` passes `reorderProperties` unless the page is archived.
+`buildPageProperties` returns the rows in `readPropertySequence` order, each with a stable `id` (`system:<key>`, `custom:<name>`, `draft:<n>`) — its React key and drag identity — and an `orderKey`. `PropertyList` takes `onReorder(orderKeys, movedKey)`: a row is dragged by its **drag handle** — a six-dot `dragHandle` icon (`AppIcon`) at the left of the row's type icon, outside the row, shown only while the row is hovered (opacity, so moving the pointer to it keeps the row hovered); only the handle starts a drag, never the label, a value or the menu button — using the existing `usePointerDrag` threshold, with the existing ghost, insertion line and edge auto-scroll; Escape cancels, a drop in place writes nothing, and the click after a drag is swallowed. `PropertyMenu` adds Move up / Move down (disabled at the ends), which call the same reorder. `PageHost` passes `reorderProperties` unless the page is archived.
 
 ## Amendment — quoted custom-property names
 

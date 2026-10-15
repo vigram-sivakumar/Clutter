@@ -47,6 +47,7 @@ import Clock from './svg/clock.svg?react';
 import Code from './svg/code.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
 import Download from './svg/download.svg?react';
+import DragHandle from './svg/drag-handle.svg?react';
 import Edit from './svg/edit.svg?react';
 import Exclamation from './svg/exclamation.svg?react';
 import Description from './svg/description.svg?react';
@@ -166,6 +167,7 @@ export const iconRegistry = {
   code: Code,
   dismiss: Dismiss,
   download: Download,
+  dragHandle: DragHandle,
   edit: Edit,
   description: Description,
   expandDiagonal: ExpandDiagonal,

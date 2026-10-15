@@ -1,0 +1,26 @@
+/* The row's drag handle: outside the row, on the left of the leading icon, as tall as the name cell so its
+   icon is centred on the type icon's line. Shown only while the row is hovered — it is the row's own child,
+   so moving the pointer from the label out to it keeps the row hovered. */
+.property-list__row {
+  position: relative;
+}
+.property-list__drag-handle {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: var(--height-lg);
+  color: var(--foreground-tertiary);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+}
+.property-list__row:hover .property-list__drag-handle {
+  opacity: 1;
+}
+.property-list__drag-handle:hover {
+  color: var(--foreground-secondary);
+}

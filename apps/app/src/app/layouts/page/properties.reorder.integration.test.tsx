@@ -7,6 +7,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
 import { readPropertySequence, type PropertyFrontmatter } from '@core/vault/ingest/frontmatter/propertyLines';
 
+import { AppIcon } from '@shared/icon';
+
 import { PropertiesHarness } from './propertiesTestHarness';
 
 /**
@@ -75,6 +77,7 @@ const names = () => [...document.querySelectorAll('.property-list__row')].map((r
 const rowOf = (name: string) =>
   [...document.querySelectorAll<HTMLElement>('.property-list__row')].find((row) => row.querySelector('.property-list__name')?.textContent === name)!;
 const labelOf = (name: string) => rowOf(name).querySelector<HTMLElement>('.property-list__name')!;
+const handleOf = (name: string) => rowOf(name).querySelector<HTMLElement>('.property-list__drag-handle')!;
 const feedback = () => [...document.body.querySelectorAll<HTMLElement>('[data-drop-feedback]')];
 const ghost = () => document.body.querySelector('.drag-ghost');
 
@@ -86,11 +89,11 @@ const release = (y: number) => act(() => void fireEvent.pointerUp(document, { po
 // Rows: Tags 100, a 138, b 176, c 214 — middles 116, 154, 192, 230.
 const CENTER = (index: number) => ROW_TOP + index * ROW_STEP + ROW_HEIGHT / 2;
 
-describe('dragging a property by its label', () => {
+describe('dragging a property by its handle', () => {
   it('drops it after the last row: the insertion line shows below it, and the whole new order is written', () => {
     const { latest, onLines } = setup(START);
 
-    press(labelOf('a'), CENTER(1));
+    press(handleOf('a'), CENTER(1));
     move(CENTER(3) + 20);
 
     expect(ghost()).not.toBeNull();
@@ -110,7 +113,7 @@ describe('dragging a property by its label', () => {
   it('drops it before the first row — system and custom properties are one list', () => {
     const { latest } = setup(START);
 
-    press(labelOf('c'), CENTER(3));
+    press(handleOf('c'), CENTER(3));
     move(ROW_TOP + 2);
 
     expect(feedback()[0]!.style.top).toBe(`${ROW_TOP}px`);
@@ -122,7 +125,7 @@ describe('dragging a property by its label', () => {
   it('between two rows: before the one whose middle is below the pointer', () => {
     const { latest } = setup(START);
 
-    press(labelOf('c'), CENTER(3));
+    press(handleOf('c'), CENTER(3));
     move(CENTER(1) + 4); // just below a's middle: before b
     expect(feedback()[0]!.style.top).toBe(`${ROW_TOP + 2 * ROW_STEP}px`);
     release(CENTER(1) + 4);
@@ -133,7 +136,7 @@ describe('dragging a property by its label', () => {
   it('dropping where it already is shows no line and writes nothing', () => {
     const { onLines } = setup(START);
 
-    press(labelOf('a'), CENTER(1));
+    press(handleOf('a'), CENTER(1));
     move(CENTER(1) + 6); // still within its own slot
     expect(feedback()).toHaveLength(0);
     release(CENTER(1) + 6);
@@ -144,7 +147,7 @@ describe('dragging a property by its label', () => {
   it('Escape cancels: the line and ghost go, and nothing is written even when released over a slot', () => {
     const { onLines } = setup(START);
 
-    press(labelOf('a'), CENTER(1));
+    press(handleOf('a'), CENTER(1));
     move(CENTER(3) + 20);
     expect(feedback()).toHaveLength(1);
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -156,43 +159,60 @@ describe('dragging a property by its label', () => {
     expect(names()).toEqual(['Tags', 'a', 'b', 'c']);
   });
 
-  it('a plain click is not a drag: no ghost, no write, and the label stays an editable field', () => {
+  it('a plain click on the handle is not a drag: no ghost, no write', () => {
     const { onLines } = setup(START);
 
-    press(labelOf('a'), CENTER(1));
+    press(handleOf('a'), CENTER(1));
     move(CENTER(1) + 1); // inside the drag threshold
     release(CENTER(1) + 1);
 
     expect(ghost()).toBeNull();
     expect(onLines).not.toHaveBeenCalled();
-    expect(labelOf('a').querySelector('[role="textbox"]')).not.toBeNull();
   });
 
-  it('does not start from a value, the menu button or a label being edited', () => {
-    setup(START);
-    const value = rowOf('a').querySelector('.property-list__value')!;
+  it('only the handle drags: pressing and moving on the label, an editable label, a value or the menu button never starts one', () => {
+    const { onLines } = setup(START);
+    const attempts: Element[] = [
+      labelOf('a'),
+      labelOf('a').querySelector('[role="textbox"]')!,
+      rowOf('a').querySelector('.property-list__value')!,
+      screen.getByRole('button', { name: 'a actions' }),
+    ];
 
-    press(value, CENTER(1));
-    move(CENTER(3) + 20);
-    expect(ghost()).toBeNull();
-    release(CENTER(3) + 20);
+    for (const target of attempts) {
+      press(target, CENTER(1));
+      move(CENTER(3) + 20);
+      expect(ghost()).toBeNull();
+      expect(feedback()).toHaveLength(0);
+      release(CENTER(3) + 20);
+    }
 
-    press(screen.getByRole('button', { name: 'a actions' }), CENTER(1));
-    move(CENTER(3) + 20);
-    expect(ghost()).toBeNull();
-    release(CENTER(3) + 20);
-
-    const field = labelOf('a').querySelector<HTMLElement>('[role="textbox"]')!;
-    field.focus();
-    press(field, CENTER(1));
-    move(CENTER(3) + 20);
-    expect(ghost()).toBeNull();
-    release(CENTER(3) + 20);
+    expect(onLines).not.toHaveBeenCalled();
+    expect(names()).toEqual(['Tags', 'a', 'b', 'c']);
   });
 
-  it('is not offered on an archived note', () => {
+  it('every reorderable row has a handle drawn with the drag-handle icon, outside the accessibility tree; a draft row has none', () => {
+    setup('a: 1\nproperties:\n  visible: [tags]');
+    const expected = render(<AppIcon icon="dragHandle" />).container.querySelector('svg')!.outerHTML;
+    cleanup();
+    setup('a: 1\nproperties:\n  visible: [tags]');
+
+    for (const name of ['Tags', 'a']) {
+      const handle = handleOf(name);
+      expect(handle).toHaveAttribute('aria-hidden', 'true');
+      expect(handle.querySelector('svg')!.outerHTML).toBe(expected);
+    }
+
+    fireEvent.click(screen.getByText('Add a property'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Text' }));
+    const draftRow = [...document.querySelectorAll('.property-list__row')].at(-1)!;
+    expect(draftRow.querySelector('.property-list__drag-handle')).toBeNull();
+  });
+
+  it('is not offered on an archived note: no handle, no drag', () => {
     const { onLines } = setup(START, { status: 'archived' });
 
+    expect(document.querySelector('.property-list__drag-handle')).toBeNull();
     press(labelOf('a'), CENTER(1));
     move(CENTER(3) + 20);
     expect(ghost()).toBeNull();

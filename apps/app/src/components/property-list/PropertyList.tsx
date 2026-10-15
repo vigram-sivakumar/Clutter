@@ -20,6 +20,7 @@ import {
 } from './propertyTypeRegistry';
 
 import './PropertyList.css';
+import './PropertyListDragHandle.css';
 
 interface PropertyListProps {
   items: PropertyListItem[];
@@ -33,7 +34,7 @@ interface PropertyListProps {
   footer?: ReactNode;
   /**
    * Persists a new order: the `orderKey`s of the reorderable rows (those that have one), in their new
-   * sequence, and the `orderKey` of the row that moved. Present: a row can be dragged by its label, and its menu offers Move up / Move down — both
+   * sequence, and the `orderKey` of the row that moved. Present: a row can be dragged by its handle, and its menu offers Move up / Move down — both
    * end here. Absent (a read-only list): rows don't move.
    */
   onReorder?(orderKeys: string[], movedKey: string): void;
@@ -196,30 +197,28 @@ export function PropertyList({
             data-property-orderable={
               orderKey !== undefined ? 'true' : undefined
             }
-            // A drag starts from the row's label only: values, the menu button and other nested controls
-            // keep their own pointer behavior, and a label being edited is left to the editor.
+            // A drag starts from the row's drag handle only — never from the label, a value, the menu
+            // button or any other control, which keep their own pointer behavior.
             onPointerDown={
               orderKey === undefined
                 ? undefined
                 : (event) => {
-                    const label = (event.target as HTMLElement).closest(
-                      '.property-list__name'
-                    );
-                    const editor = (event.target as HTMLElement).closest(
-                      '[role="textbox"]'
-                    );
-
                     if (
-                      !label ||
-                      (editor && editor.contains(document.activeElement))
+                      (event.target as HTMLElement).closest(
+                        '.property-list__drag-handle'
+                      )
                     ) {
-                      return;
+                      press(event, { orderKey });
                     }
-
-                    press(event, { orderKey });
                   }
             }
           >
+            {orderKey !== undefined && (
+              // Pointer affordance only: Move up / Move down in the row's menu are the keyboard way.
+              <span className="property-list__drag-handle" aria-hidden="true">
+                <AppIcon icon="dragHandle" />
+              </span>
+            )}
             <Entry
               className="property-list__name"
               leading={

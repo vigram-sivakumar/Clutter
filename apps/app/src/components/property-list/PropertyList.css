@@ -8,6 +8,17 @@
   gap: var(--space-6);
   font-size: var(--text-body-small);
   line-height: var(--lh-body-small);
+
+  /* No drag-selecting the list's labels and values. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Fields being edited still need normal text selection. */
+.property-list input,
+.property-list textarea,
+.property-list [contenteditable='true'] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 .property-list__row {
   display: flex;
