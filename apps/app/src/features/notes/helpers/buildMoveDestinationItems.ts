@@ -8,6 +8,7 @@ import {
 } from '@components/picker-list/PickerList.types';
 import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
 import { getVaultDisplayName } from '@core/presentation/getVaultDisplayName';
+import { getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
 
 /**
  * The one place a Move destination-picker's folder list is built — shared
@@ -88,7 +89,7 @@ export function buildMoveDestinationItems(
         id: templates.id,
         title: label.text,
         isRoot: true,
-        icon: 'template',
+        icon: getSystemLocationIconForFolder(templates, membershipSelector),
         level: 0,
         parentId: null,
       });
@@ -115,6 +116,7 @@ export function buildMoveDestinationItems(
       title: label.text,
       isRoot: true,
       emoji: root.metadata.icon,
+      icon: getSystemLocationIconForFolder(root, membershipSelector),
       level: 0,
       parentId: null,
     });

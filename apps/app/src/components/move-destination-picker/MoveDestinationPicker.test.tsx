@@ -6,6 +6,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { MoveDestinationPicker } from './MoveDestinationPicker';
 import type { PickerListItem } from '@components/picker-list/PickerList.types';
+import { AppIcon } from '@shared/icon';
+import { SYSTEM_LOCATION_PRESENTATION } from '@core/presentation/systemPresentation';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -148,6 +150,41 @@ describe('MoveDestinationPicker', () => {
     expect(screen.getByText('Weekly')).toBeDefined();
     fireEvent.click(screen.getByText('Weekly'));
     expect(onSelect).toHaveBeenCalledWith('weekly');
+  });
+
+  it('renders each reserved destination with its own icon, an ordinary folder with the standard folder icon, and a configured emoji as itself', () => {
+    const rows: PickerListItem[] = [
+      { id: 'templates', title: 'Templates', isRoot: true, icon: SYSTEM_LOCATION_PRESENTATION.templates.icon, level: 0, parentId: null },
+      { id: 'assets', title: 'Assets', isRoot: true, icon: SYSTEM_LOCATION_PRESENTATION.assets.icon, level: 0, parentId: null },
+      { id: 'inbox', title: 'Inbox', isRoot: true, icon: SYSTEM_LOCATION_PRESENTATION.inbox.icon, level: 0, parentId: null },
+      { id: 'plain', title: 'Plain', level: 0, parentId: null },
+      { id: 'fancy', title: 'Fancy', emoji: '🍩', level: 0, parentId: null },
+    ];
+    render(<MoveDestinationPickerHarness items={rows} onSelect={vi.fn()} />);
+
+    const leading = (title: string) => {
+      const row = screen.getByText(title).closest('.picker-list__item')!;
+      return row.querySelector('.picker-list__icon')!;
+    };
+    const iconMarkup = (icon: Parameters<typeof AppIcon>[0]['icon']) => {
+      const { container } = render(<AppIcon icon={icon} />);
+      const markup = container.querySelector('svg')!.outerHTML;
+      cleanup();
+      return markup;
+    };
+    const expected = {
+      Templates: iconMarkup(SYSTEM_LOCATION_PRESENTATION.templates.icon),
+      Assets: iconMarkup(SYSTEM_LOCATION_PRESENTATION.assets.icon),
+      Inbox: iconMarkup(SYSTEM_LOCATION_PRESENTATION.inbox.icon),
+      Plain: iconMarkup('folder'),
+    };
+    render(<MoveDestinationPickerHarness items={rows} onSelect={vi.fn()} />);
+
+    for (const [title, markup] of Object.entries(expected)) {
+      expect(leading(title).querySelector('svg')!.outerHTML, title).toBe(markup);
+    }
+    expect(new Set(Object.values(expected)).size).toBe(4); // the four icons really are different
+    expect(leading('Fancy').textContent).toBe('🍩');
   });
 
   it('keeps the vault root first and reports it as null', () => {

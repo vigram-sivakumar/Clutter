@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildCoverFolderItems } from './buildCoverFolderItems';
 import { buildMoveDestinationItems } from './buildMoveDestinationItems';
+import { SYSTEM_LOCATION_PRESENTATION, getSystemLocationIconForFolder } from '@core/presentation/systemPresentation';
 import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { PageOperations } from '@core/application/page/PageOperations';
@@ -286,6 +287,25 @@ describe('buildMoveDestinationItems — zones (workspace, Templates and Assets r
   it('can leave Templates out for non-Move callers', () => {
     const items = buildMoveDestinationItems(makeMembershipSelector(zoneFolders()), undefined, 'workspace', { includeTemplates: false });
     expect(ids(items)).not.toContain('templates');
+  });
+
+  it('reserved destinations carry the icon the sidebar uses for them (one table), ordinary folders carry none of their own', () => {
+    const folders = zoneFolders();
+    const selector = makeMembershipSelector(folders);
+    const byId = (items: ReturnType<typeof buildMoveDestinationItems>, id: string) => items.find((item) => item.id === id);
+
+    const workspace = buildMoveDestinationItems(selector, 'projects');
+    expect(byId(workspace, 'templates')?.icon).toBe(SYSTEM_LOCATION_PRESENTATION.templates.icon);
+    expect(byId(workspace, 'projects')).toBeUndefined(); // the moving folder itself
+    expect(byId(buildMoveDestinationItems(selector, 'other'), 'projects')?.icon).toBeUndefined();
+    expect(byId(buildMoveDestinationItems(selector, undefined, 'assets'), 'assets')?.icon).toBe(
+      SYSTEM_LOCATION_PRESENTATION.assets.icon
+    );
+    // The same resolution serves Inbox (and Archive, Daily Notes) should a picker ever list them.
+    expect(getSystemLocationIconForFolder(folders.find((f) => f.id === 'inbox')!, selector)).toBe(
+      SYSTEM_LOCATION_PRESENTATION.inbox.icon
+    );
+    expect(getSystemLocationIconForFolder(folders.find((f) => f.id === 'projects')!, selector)).toBeUndefined();
   });
 
   it('an Asset is offered the Assets root first, then only folders inside Assets', () => {

@@ -178,6 +178,24 @@ export function getSystemLocationPresentation(
  * 'clutter' is reserved but never a presented location — excluded the
  * same way an unreserved folder is.
  */
+/**
+ * The icon a destination list (the Move picker) shows for a folder that IS a system location — Inbox,
+ * Templates, Archive, Daily Notes, and the Assets storage folder — read from the same
+ * SYSTEM_LOCATION_PRESENTATION table the sidebar uses, so no picker keeps its own icon for them.
+ * `undefined` for an ordinary folder, which keeps its own emoji or the generic folder icon.
+ */
+export function getSystemLocationIconForFolder(
+  folder: Folder,
+  membershipSelector: MembershipSelector
+): SystemIcon | undefined {
+  // The Assets storage folder is not a reserved folder (ReservedResources), but it is a presented location.
+  const id =
+    getSystemLocationForFolder(folder, membershipSelector) ??
+    (membershipSelector.isAssetsStorageFolder(folder) ? 'assets' : undefined);
+
+  return id ? SYSTEM_LOCATION_PRESENTATION[id].icon : undefined;
+}
+
 export function getSystemLocationForFolder(
   folder: Folder,
   membershipSelector: MembershipSelector
